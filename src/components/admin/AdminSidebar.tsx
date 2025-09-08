@@ -34,7 +34,6 @@ const navigationItems = [
     icon: Building2,
     children: [
       { title: "Proyectos", href: "/admin/proyectos", icon: Building2 },
-      { title: "Edificios", href: "/admin/edificios", icon: Home },
       { title: "Propiedades", href: "/admin/propiedades", icon: MapPin },
     ]
   },
@@ -56,6 +55,7 @@ const navigationItems = [
       { title: "Categorías", href: "/admin/categorias", icon: ShoppingCart },
       { title: "Amenidades", href: "/admin/amenidades", icon: Calendar },
       { title: "Características", href: "/admin/caracteristicas", icon: Settings },
+      { title: "Modelos", href: "/admin/modelos", icon: Home },
     ]
   },
   {

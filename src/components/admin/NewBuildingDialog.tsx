@@ -3,17 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
   numero_pisos: z.string().optional(),
   fecha_lanzamiento: z.string().optional(),
+  modelos: z.array(z.string()).default([]),
 });
 
 interface NewBuildingDialogProps {
@@ -31,6 +34,21 @@ export const NewBuildingDialog = ({ projectId, onBuildingAdded }: NewBuildingDia
       nombre: "",
       numero_pisos: "",
       fecha_lanzamiento: "",
+      modelos: [],
+    },
+  });
+
+  const { data: modelos } = useQuery({
+    queryKey: ["modelos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("modelos")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -43,11 +61,27 @@ export const NewBuildingDialog = ({ projectId, onBuildingAdded }: NewBuildingDia
         fecha_lanzamiento: values.fecha_lanzamiento || null,
       };
 
-      const { error } = await supabase
+      const { data: newBuilding, error } = await supabase
         .from("edificios")
-        .insert(buildingData);
+        .insert(buildingData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Insert model relationships if any selected
+      if (values.modelos && values.modelos.length > 0) {
+        const modelRelations = values.modelos.map(modeloId => ({
+          id_edificio: newBuilding.id,
+          id_modelo: parseInt(modeloId),
+        }));
+
+        const { error: modelError } = await supabase
+          .from("edificios_modelos")
+          .insert(modelRelations);
+
+        if (modelError) throw modelError;
+      }
 
       toast({
         title: "Edificio creado",
@@ -118,6 +152,52 @@ export const NewBuildingDialog = ({ projectId, onBuildingAdded }: NewBuildingDia
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="modelos"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Modelos</FormLabel>
+                  <div className="grid grid-cols-2 gap-2">
+                    {modelos?.map((modelo) => (
+                      <FormField
+                        key={modelo.id}
+                        control={form.control}
+                        name="modelos"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={modelo.id}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(modelo.id.toString())}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...field.value, modelo.id.toString()])
+                                      : field.onChange(
+                                          field.value?.filter(
+                                            (value) => value !== modelo.id.toString()
+                                          )
+                                        )
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal">
+                                {modelo.nombre}
+                              </FormLabel>
+                            </FormItem>
+                          )
+                        }}
+                      />
+                    ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

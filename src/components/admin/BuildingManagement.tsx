@@ -1,0 +1,116 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Building2, Plus, Edit } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { NewBuildingDialog } from "./NewBuildingDialog";
+
+interface BuildingManagementProps {
+  projectId: number;
+}
+
+export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const { data: buildings, isLoading } = useQuery({
+    queryKey: ["project-buildings", projectId, refreshKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("edificios")
+        .select(`
+          *,
+          edificios_modelos!inner (
+            id,
+            modelos (
+              id,
+              nombre
+            )
+          )
+        `)
+        .eq("id_proyecto", projectId)
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+
+  const handleBuildingAdded = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  if (isLoading) {
+    return <div>Cargando edificios...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">Edificios del Proyecto</h3>
+        <NewBuildingDialog 
+          projectId={projectId} 
+          onBuildingAdded={handleBuildingAdded} 
+        />
+      </div>
+
+      {buildings && buildings.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {buildings.map((building) => (
+            <Card key={building.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Building2 className="h-4 w-4" />
+                    <span>{building.nombre}</span>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {building.numero_pisos && (
+                  <p className="text-sm text-muted-foreground">
+                    Pisos: {building.numero_pisos}
+                  </p>
+                )}
+                {building.fecha_lanzamiento && (
+                  <p className="text-sm text-muted-foreground">
+                    Lanzamiento: {new Date(building.fecha_lanzamiento).toLocaleDateString()}
+                  </p>
+                )}
+                
+                <div className="mt-2">
+                  <p className="text-sm font-medium mb-1">Modelos asignados:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {building.edificios_modelos.length > 0 ? (
+                      building.edificios_modelos.map((em: any) => (
+                        <Badge key={em.id} variant="secondary" className="text-xs">
+                          {em.modelos.nombre}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin modelos asignados</span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No hay edificios creados para este proyecto</p>
+            <p className="text-sm text-muted-foreground mt-1">Agrega edificios para comenzar</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};

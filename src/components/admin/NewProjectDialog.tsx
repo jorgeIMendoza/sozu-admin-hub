@@ -13,6 +13,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { BuildingManagement } from "./BuildingManagement";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
@@ -30,6 +31,8 @@ interface NewProjectDialogProps {
 
 export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(1);
+  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -108,12 +111,11 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
 
       toast({
         title: "Proyecto creado",
-        description: "El proyecto se ha creado exitosamente.",
+        description: "El proyecto se ha creado exitosamente. Ahora puedes agregar edificios.",
       });
 
-      form.reset();
-      setOpen(false);
-      onProjectAdded();
+      setCreatedProjectId(newProject.id);
+      setStep(2);
     } catch (error) {
       console.error("Error creating project:", error);
       toast({
@@ -124,20 +126,33 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
     }
   };
 
+  const handleDialogClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setStep(1);
+      setCreatedProjectId(null);
+      form.reset();
+      onProjectAdded();
+    }
+    setOpen(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogTrigger asChild>
         <Button className="bg-primary hover:bg-primary-hover">
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Proyecto
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
+          <DialogTitle>
+            {step === 1 ? "Crear Nuevo Proyecto" : "Agregar Edificios al Proyecto"}
+          </DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {step === 1 ? (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="nombre"
@@ -281,14 +296,26 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
               )}
             />
 
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Crear Proyecto</Button>
+              </div>
+            </form>
+          </Form>
+        ) : (
+          <div className="space-y-4">
+            {createdProjectId && (
+              <BuildingManagement projectId={createdProjectId} />
+            )}
             <div className="flex justify-end space-x-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancelar
+                Finalizar
               </Button>
-              <Button type="submit">Crear Proyecto</Button>
             </div>
-          </form>
-        </Form>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

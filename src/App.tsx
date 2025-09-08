@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Proyectos from "./pages/admin/Proyectos";
+import Modelos from "./pages/admin/Modelos";
 import ComingSoon from "./pages/admin/ComingSoon";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -26,7 +27,6 @@ const App = () => (
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="proyectos" element={<Proyectos />} />
-            <Route path="edificios" element={<ComingSoon title="Edificios" />} />
             <Route path="propiedades" element={<ComingSoon title="Propiedades" />} />
             <Route path="usuarios" element={<ComingSoon title="Usuarios" />} />
             <Route path="compradores" element={<ComingSoon title="Compradores" />} />
@@ -36,6 +36,7 @@ const App = () => (
             <Route path="categorias" element={<ComingSoon title="Categorías de Producto" />} />
             <Route path="amenidades" element={<ComingSoon title="Amenidades" />} />
             <Route path="caracteristicas" element={<ComingSoon title="Características" />} />
+            <Route path="modelos" element={<Modelos />} />
             <Route path="cuentas-cobranza" element={<ComingSoon title="Cuentas de Cobranza" />} />
             <Route path="pagos" element={<ComingSoon title="Pagos" />} />
             <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
