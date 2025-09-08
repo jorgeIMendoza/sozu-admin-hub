@@ -18,13 +18,18 @@ const Proyectos = () => {
           activo,
           precio_m2,
           fecha_inicio,
-          numero_amenidades,
           id_tipo_uso,
           tipos_uso:id_tipo_uso (
             nombre
           ),
           edificios (
             id
+          ),
+          amenidades_proyectos (
+            amenidades (
+              id,
+              nombre
+            )
           )
         `)
         .eq("activo", true)
@@ -65,7 +70,7 @@ const Proyectos = () => {
             activo={project.activo}
             tipo_uso={project.tipos_uso?.nombre}
             numero_edificios={project.edificios?.length || 0}
-            numero_amenidades={project.numero_amenidades || 0}
+            numero_amenidades={project.amenidades_proyectos?.length || 0}
             fecha_inicio={project.fecha_inicio}
             descripcion={project.descripcion}
           />

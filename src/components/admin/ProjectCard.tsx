@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, DollarSign, Building, Home, Calendar, Eye, Edit, Trash2 } from "lucide-react";
+import { ProjectDetailsDialog } from "./ProjectDetailsDialog";
 
 interface ProjectCardProps {
   id: number;
@@ -96,10 +97,10 @@ export const ProjectCard = ({
 
           <div className="flex items-center justify-between pt-2 border-t border-border">
             <div className="flex space-x-2">
-              <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                <Eye className="h-4 w-4 mr-1" />
-                Ver
-              </Button>
+              <ProjectDetailsDialog 
+                projectId={id} 
+                projectName={nombre}
+              />
               <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50">
                 <Edit className="h-4 w-4 mr-1" />
                 Editar

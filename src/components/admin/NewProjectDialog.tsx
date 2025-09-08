@@ -5,6 +5,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,7 +21,7 @@ const formSchema = z.object({
   id_tipo_uso: z.string().min(1, "El tipo de uso es requerido"),
   precio_m2: z.string().optional(),
   fecha_inicio: z.string().optional(),
-  numero_amenidades: z.string().optional(),
+  amenidades: z.array(z.string()).default([]),
 });
 
 interface NewProjectDialogProps {
@@ -40,7 +41,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
       id_tipo_uso: "",
       precio_m2: "",
       fecha_inicio: "",
-      numero_amenidades: "0",
+      amenidades: [],
     },
   });
 
@@ -49,6 +50,20 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tipos_uso")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: amenidades } = useQuery({
+    queryKey: ["amenidades"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("amenidades")
         .select("*")
         .eq("activo", true)
         .order("nombre");
@@ -67,14 +82,29 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         id_tipo_uso: parseInt(values.id_tipo_uso),
         precio_m2: values.precio_m2 ? parseFloat(values.precio_m2) : null,
         fecha_inicio: values.fecha_inicio || null,
-        numero_amenidades: values.numero_amenidades ? parseInt(values.numero_amenidades) : 0,
       };
 
-      const { error } = await supabase
+      const { data: newProject, error } = await supabase
         .from("proyectos")
-        .insert(projectData);
+        .insert(projectData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Insert amenities relationships if any selected
+      if (values.amenidades && values.amenidades.length > 0) {
+        const amenityRelations = values.amenidades.map(amenidadId => ({
+          id_proyecto: newProject.id,
+          id_amenidad: parseInt(amenidadId),
+        }));
+
+        const { error: amenityError } = await supabase
+          .from("amenidades_proyectos")
+          .insert(amenityRelations);
+
+        if (amenityError) throw amenityError;
+      }
 
       toast({
         title: "Proyecto creado",
@@ -207,13 +237,45 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
 
             <FormField
               control={form.control}
-              name="numero_amenidades"
-              render={({ field }) => (
+              name="amenidades"
+              render={() => (
                 <FormItem>
-                  <FormLabel>Número de Amenidades</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="0" {...field} />
-                  </FormControl>
+                  <FormLabel>Amenidades</FormLabel>
+                  <div className="grid grid-cols-2 gap-2">
+                    {amenidades?.map((amenidad) => (
+                      <FormField
+                        key={amenidad.id}
+                        control={form.control}
+                        name="amenidades"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={amenidad.id}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(amenidad.id.toString())}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...field.value, amenidad.id.toString()])
+                                      : field.onChange(
+                                          field.value?.filter(
+                                            (value) => value !== amenidad.id.toString()
+                                          )
+                                        )
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal">
+                                {amenidad.nombre}
+                              </FormLabel>
+                            </FormItem>
+                          )
+                        }}
+                      />
+                    ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

@@ -106,7 +106,6 @@ export type Database = {
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
-          id_proyecto: number
           nombre: string
           timestamp: string
           url: string | null
@@ -116,7 +115,6 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: never
-          id_proyecto: number
           nombre: string
           timestamp?: string
           url?: string | null
@@ -126,21 +124,47 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: never
-          id_proyecto?: number
           nombre?: string
           timestamp?: string
           url?: string | null
         }
+        Relationships: []
+      }
+      amenidades_proyectos: {
+        Row: {
+          activo: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_amenidad: number
+          id_proyecto: number
+        }
+        Insert: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_amenidad: number
+          id_proyecto: number
+        }
+        Update: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_amenidad?: number
+          id_proyecto?: number
+        }
         Relationships: [
           {
-            foreignKeyName: "amenidades_id_proyecto_fkey"
-            columns: ["id_proyecto"]
+            foreignKeyName: "amenidades_proyectos_id_amenidad_fkey"
+            columns: ["id_amenidad"]
             isOneToOne: false
-            referencedRelation: "proyectos"
+            referencedRelation: "amenidades"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_proyecto"
+            foreignKeyName: "amenidades_proyectos_id_proyecto_fkey"
             columns: ["id_proyecto"]
             isOneToOne: false
             referencedRelation: "proyectos"
