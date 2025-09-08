@@ -14,8 +14,8 @@ interface BuildingManagementProps {
 export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data: buildings, isLoading } = useQuery({
-    queryKey: ["project-buildings", projectId, refreshKey],
+  const { data: buildings, isLoading, refetch } = useQuery({
+    queryKey: ["project-buildings-detailed", projectId, refreshKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("edificios")
@@ -33,18 +33,35 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
         .eq("activo", true)
         .order("nombre");
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching buildings:", error);
+        throw error;
+      }
+      
+      console.log("Buildings fetched:", data);
       return data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && projectId > 0,
   });
 
   const handleBuildingAdded = () => {
     setRefreshKey(prev => prev + 1);
+    refetch();
   };
 
   if (isLoading) {
-    return <div>Cargando edificios...</div>;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Edificios del Proyecto</h3>
+          <NewBuildingDialog 
+            projectId={projectId} 
+            onBuildingAdded={handleBuildingAdded} 
+          />
+        </div>
+        <div>Cargando edificios...</div>
+      </div>
+    );
   }
 
   return (
@@ -58,7 +75,11 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
       </div>
 
       {buildings && buildings.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {buildings.length} edificio{buildings.length !== 1 ? 's' : ''} encontrado{buildings.length !== 1 ? 's' : ''}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {buildings.map((building) => (
             <Card key={building.id}>
               <CardHeader className="pb-2">
@@ -101,6 +122,7 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
               </CardContent>
             </Card>
           ))}
+          </div>
         </div>
       ) : (
         <Card>
