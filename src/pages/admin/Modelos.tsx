@@ -211,18 +211,18 @@ export default function Modelos() {
                 <Building2 className="h-5 w-5 text-primary" />
                 <h2 className="text-xl font-semibold">{group.proyecto.nombre}</h2>
                 <Badge variant="secondary" className="text-xs">
-                  {group.modelos.length} modelo{group.modelos.length !== 1 ? 's' : ''}
+                  {group.modelosWithBuildings.length} modelo{group.modelosWithBuildings.length !== 1 ? 's' : ''}
                 </Badge>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {group.modelos.map((modelo) => (
-                  <Card key={modelo.id} className="hover:shadow-lg transition-shadow">
+                {group.modelosWithBuildings.map((modeloWithBuildings) => (
+                  <Card key={modeloWithBuildings.modelo.id} className="hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-2">
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Home className="h-5 w-5 text-primary" />
-                          <span className="text-lg">{modelo.nombre}</span>
+                          <span className="text-lg">{modeloWithBuildings.modelo.nombre}</span>
                         </div>
                         <Button variant="outline" size="sm">
                           <Edit className="h-4 w-4" />
@@ -230,58 +230,41 @@ export default function Modelos() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {modelo.descripcion && (
+                      {modeloWithBuildings.modelo.descripcion && (
                         <p className="text-sm text-muted-foreground">
-                          {modelo.descripcion}
+                          {modeloWithBuildings.modelo.descripcion}
                         </p>
                       )}
                       
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        {modelo.numero_recamaras && (
+                        {modeloWithBuildings.modelo.numero_recamaras && (
                           <div>
-                            <span className="font-medium">Recámaras:</span> {modelo.numero_recamaras}
+                            <span className="font-medium">Recámaras:</span> {modeloWithBuildings.modelo.numero_recamaras}
                           </div>
                         )}
-                        {modelo.numero_completo_banos && (
+                        {modeloWithBuildings.modelo.numero_completo_banos && (
                           <div>
-                            <span className="font-medium">Baños:</span> {modelo.numero_completo_banos}
+                            <span className="font-medium">Baños:</span> {modeloWithBuildings.modelo.numero_completo_banos}
                           </div>
                         )}
-                        {modelo.numero_medio_bano && (
+                        {modeloWithBuildings.modelo.numero_medio_bano && (
                           <div>
-                            <span className="font-medium">Medios baños:</span> {modelo.numero_medio_bano}
+                            <span className="font-medium">Medios baños:</span> {modeloWithBuildings.modelo.numero_medio_bano}
                           </div>
                         )}
                       </div>
 
                       {/* Show buildings where this model is used */}
-                      {modelo.edificios_modelos && modelo.edificios_modelos.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium mb-2">Edificios:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {modelo.edificios_modelos
-                              .filter(em => em.edificios.proyectos.id === group.proyecto.id)
-                              .map((em) => (
-                              <Badge key={em.edificios.id} variant="outline" className="text-xs">
-                                {em.edificios.nombre}
-                              </Badge>
-                            ))}
-                          </div>
+                      <div>
+                        <p className="text-sm font-medium mb-2">Edificios:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {modeloWithBuildings.edificios.map((edificio) => (
+                            <Badge key={edificio.id} variant="outline" className="text-xs">
+                              {edificio.nombre}
+                            </Badge>
+                          ))}
                         </div>
-                      )}
-
-                      {modelo.modelos_caracteristicas && modelo.modelos_caracteristicas.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium mb-2">Características:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {modelo.modelos_caracteristicas.map((mc: any) => (
-                              <Badge key={mc.caracteristicas.id} variant="secondary" className="text-xs">
-                                {mc.caracteristicas.nombre}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
