@@ -15,16 +15,28 @@ const Proyectos = () => {
       const { data, error } = await supabase
         .from("proyectos")
         .select(`
-          *,
-          tipos_uso (
+          id,
+          nombre,
+          descripcion,
+          direccion,
+          activo,
+          precio_m2,
+          fecha_inicio,
+          numero_edificios,
+          numero_amenidades,
+          id_tipo_uso,
+          tipos_uso:id_tipo_uso (
             nombre
           )
         `)
         .eq("activo", true)
         .order("fecha_creacion", { ascending: false });
       
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error("Error fetching projects:", error);
+        return [];
+      }
+      return data || [];
     },
   });
 
@@ -68,8 +80,8 @@ const Proyectos = () => {
             precio_m2={project.precio_m2}
             activo={project.activo}
             tipo_uso={project.tipos_uso?.nombre}
-            numero_edificios={project.numero_edificios}
-            numero_amenidades={project.numero_amenidades}
+            numero_edificios={project.numero_edificios || 0}
+            numero_amenidades={project.numero_amenidades || 0}
             fecha_inicio={project.fecha_inicio}
             descripcion={project.descripcion}
           />

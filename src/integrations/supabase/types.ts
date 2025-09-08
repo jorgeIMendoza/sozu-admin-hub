@@ -2462,6 +2462,7 @@ export type Database = {
           fecha_creacion: string
           fecha_inicio: string | null
           id: number
+          id_tipo_uso: number | null
           nombre: string
           numero_amenidades: number | null
           numero_edificios: number | null
@@ -2475,6 +2476,7 @@ export type Database = {
           fecha_creacion?: string
           fecha_inicio?: string | null
           id?: never
+          id_tipo_uso?: number | null
           nombre: string
           numero_amenidades?: number | null
           numero_edificios?: number | null
@@ -2488,12 +2490,21 @@ export type Database = {
           fecha_creacion?: string
           fecha_inicio?: string | null
           id?: never
+          id_tipo_uso?: number | null
           nombre?: string
           numero_amenidades?: number | null
           numero_edificios?: number | null
           precio_m2?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "proyectos_id_tipo_uso_fkey"
+            columns: ["id_tipo_uso"]
+            isOneToOne: false
+            referencedRelation: "tipos_uso"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proyectos_acceso: {
         Row: {
