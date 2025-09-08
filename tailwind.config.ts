@@ -22,6 +22,17 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          soft: "hsl(var(--primary-soft))",
+          hover: "hsl(var(--primary-hover))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        admin: {
+          sidebar: "hsl(var(--admin-sidebar))",
+          "sidebar-foreground": "hsl(var(--admin-sidebar-foreground))",
+          "sidebar-accent": "hsl(var(--admin-sidebar-accent))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
