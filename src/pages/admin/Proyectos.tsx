@@ -22,7 +22,7 @@ const Proyectos = () => {
           tipos_uso:id_tipo_uso (
             nombre
           ),
-          edificios (
+          edificios!fk_edificios_proyecto (
             id
           ),
           amenidades_proyectos (

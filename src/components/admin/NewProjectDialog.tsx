@@ -132,7 +132,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
           Nuevo Proyecto
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
         </DialogHeader>
