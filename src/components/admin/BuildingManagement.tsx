@@ -15,20 +15,11 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: buildings, isLoading, refetch } = useQuery({
-    queryKey: ["project-buildings-detailed", projectId, refreshKey],
+    queryKey: ["project-buildings-simple", projectId, refreshKey],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("edificios")
-        .select(`
-          *,
-          edificios_modelos (
-            id,
-            modelos (
-              id,
-              nombre
-            )
-          )
-        `)
+        .select("*")
         .eq("id_proyecto", projectId)
         .eq("activo", true)
         .order("nombre");
@@ -93,33 +84,18 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                   </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {building.numero_pisos && (
-                  <p className="text-sm text-muted-foreground">
-                    Pisos: {building.numero_pisos}
-                  </p>
-                )}
-                {building.fecha_lanzamiento && (
-                  <p className="text-sm text-muted-foreground">
-                    Lanzamiento: {new Date(building.fecha_lanzamiento).toLocaleDateString()}
-                  </p>
-                )}
-                
-                <div className="mt-2">
-                  <p className="text-sm font-medium mb-1">Modelos asignados:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {building.edificios_modelos.length > 0 ? (
-                      building.edificios_modelos.map((em: any) => (
-                        <Badge key={em.id} variant="secondary" className="text-xs">
-                          {em.modelos.nombre}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Sin modelos asignados</span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
+               <CardContent className="space-y-2">
+                 {building.numero_pisos && (
+                   <p className="text-sm text-muted-foreground">
+                     Pisos: {building.numero_pisos}
+                   </p>
+                 )}
+                 {building.fecha_lanzamiento && (
+                   <p className="text-sm text-muted-foreground">
+                     Lanzamiento: {new Date(building.fecha_lanzamiento).toLocaleDateString()}
+                   </p>
+                 )}
+               </CardContent>
             </Card>
           ))}
           </div>
