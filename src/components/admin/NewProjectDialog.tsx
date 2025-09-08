@@ -13,7 +13,15 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { BuildingManagement } from "./BuildingManagement";
+import { BuildingFormSection, Building } from "./BuildingFormSection";
+
+const BuildingSchema = z.object({
+  id: z.string(),
+  nombre: z.string(),
+  numero_pisos: z.string(),
+  fecha_lanzamiento: z.string(),
+  modelos: z.array(z.string()),
+});
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
@@ -23,6 +31,7 @@ const formSchema = z.object({
   precio_m2: z.string().optional(),
   fecha_inicio: z.string().optional(),
   amenidades: z.array(z.string()).default([]),
+  edificios: z.array(BuildingSchema).default([]),
 });
 
 interface NewProjectDialogProps {
@@ -31,8 +40,6 @@ interface NewProjectDialogProps {
 
 export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState(1);
-  const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -45,6 +52,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
       precio_m2: "",
       fecha_inicio: "",
       amenidades: [],
+      edificios: [],
     },
   });
 
@@ -109,13 +117,50 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         if (amenityError) throw amenityError;
       }
 
+      // Create buildings if any defined
+      if (values.edificios && values.edificios.length > 0) {
+        for (const edificio of values.edificios) {
+          if (edificio.nombre.trim()) {
+            const buildingData = {
+              nombre: edificio.nombre,
+              id_proyecto: newProject.id,
+              numero_pisos: edificio.numero_pisos || null,
+              fecha_lanzamiento: edificio.fecha_lanzamiento || null,
+            };
+
+            const { data: newBuilding, error: buildingError } = await supabase
+              .from("edificios")
+              .insert(buildingData)
+              .select()
+              .single();
+
+            if (buildingError) throw buildingError;
+
+            // Insert model relationships if any selected
+            if (edificio.modelos && edificio.modelos.length > 0) {
+              const modelRelations = edificio.modelos.map(modeloId => ({
+                id_edificio: newBuilding.id,
+                id_modelo: parseInt(modeloId),
+              }));
+
+              const { error: modelError } = await supabase
+                .from("edificios_modelos")
+                .insert(modelRelations);
+
+              if (modelError) throw modelError;
+            }
+          }
+        }
+      }
+
       toast({
         title: "Proyecto creado",
-        description: "El proyecto se ha creado exitosamente. Ahora puedes agregar edificios.",
+        description: "El proyecto se ha creado exitosamente.",
       });
 
-      setCreatedProjectId(newProject.id);
-      setStep(2);
+      form.reset();
+      setOpen(false);
+      onProjectAdded();
     } catch (error) {
       console.error("Error creating project:", error);
       toast({
@@ -128,8 +173,6 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
 
   const handleDialogClose = (isOpen: boolean) => {
     if (!isOpen) {
-      setStep(1);
-      setCreatedProjectId(null);
       form.reset();
       onProjectAdded();
     }
@@ -146,13 +189,10 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {step === 1 ? "Crear Nuevo Proyecto" : "Agregar Edificios al Proyecto"}
-          </DialogTitle>
+          <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
         </DialogHeader>
-        {step === 1 ? (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="nombre"
@@ -250,6 +290,21 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
               />
             </div>
 
+            {/* Building Management Section */}
+            <FormField
+              control={form.control}
+              name="edificios"
+              render={({ field }) => (
+                <FormItem>
+                  <BuildingFormSection
+                    buildings={field.value as Building[]}
+                    onBuildingsChange={field.onChange}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="amenidades"
@@ -304,18 +359,6 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
               </div>
             </form>
           </Form>
-        ) : (
-          <div className="space-y-4">
-            {createdProjectId && (
-              <BuildingManagement projectId={createdProjectId} />
-            )}
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Finalizar
-              </Button>
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
