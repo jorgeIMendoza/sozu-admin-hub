@@ -2460,8 +2460,12 @@ export type Database = {
           direccion: string | null
           fecha_actualizacion: string
           fecha_creacion: string
+          fecha_inicio: string | null
           id: number
           nombre: string
+          numero_amenidades: number | null
+          numero_edificios: number | null
+          precio_m2: number | null
         }
         Insert: {
           activo?: boolean
@@ -2469,8 +2473,12 @@ export type Database = {
           direccion?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
+          fecha_inicio?: string | null
           id?: never
           nombre: string
+          numero_amenidades?: number | null
+          numero_edificios?: number | null
+          precio_m2?: number | null
         }
         Update: {
           activo?: boolean
@@ -2478,8 +2486,12 @@ export type Database = {
           direccion?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
+          fecha_inicio?: string | null
           id?: never
           nombre?: string
+          numero_amenidades?: number | null
+          numero_edificios?: number | null
+          precio_m2?: number | null
         }
         Relationships: []
       }
