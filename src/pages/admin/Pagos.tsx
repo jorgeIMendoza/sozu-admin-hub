@@ -33,7 +33,9 @@ export default function Pagos() {
         return [];
       }
       
-      return data.data as Pago[];
+      // Sort by id descending
+      const sortedData = (data.data as Pago[]).sort((a, b) => b.id - a.id);
+      return sortedData;
     },
   });
 
@@ -58,9 +60,7 @@ export default function Pagos() {
     return new Date(dateString).toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric'
     });
   };
 
@@ -131,7 +131,6 @@ export default function Pagos() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
                   <TableHead>Fecha de Pago</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Método de Pago</TableHead>
@@ -143,7 +142,6 @@ export default function Pagos() {
               <TableBody>
                 {filteredPagos.map((pago) => (
                   <TableRow key={pago.id}>
-                    <TableCell className="font-medium">{pago.id}</TableCell>
                     <TableCell>{formatDate(pago.fecha_pago)}</TableCell>
                     <TableCell className="font-semibold">
                       {formatCurrency(Number(pago.monto))}
