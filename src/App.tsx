@@ -7,6 +7,7 @@ import { AdminLayout } from "./components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Proyectos from "./pages/admin/Proyectos";
 import Modelos from "./pages/admin/Modelos";
+import Pagos from "./pages/admin/Pagos";
 import ComingSoon from "./pages/admin/ComingSoon";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -37,7 +38,7 @@ const App = () => (
             <Route path="amenidades" element={<ComingSoon title="Amenidades" />} />
             <Route path="caracteristicas" element={<ComingSoon title="Características" />} />
             <Route path="modelos" element={<Modelos />} />
-            <Route path="cuentas-cobranza" element={<ComingSoon title="Cuentas de Cobranza" />} />
+            <Route path="cuentas-cobranza" element={<Pagos />} />
             <Route path="pagos" element={<ComingSoon title="Pagos" />} />
             <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
             <Route path="documentos" element={<ComingSoon title="Documentos" />} />
