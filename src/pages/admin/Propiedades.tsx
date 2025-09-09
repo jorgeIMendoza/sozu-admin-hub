@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit, Trash2 } from "lucide-react";
+import { Search, Edit, Trash2, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EditPropertyDialog } from "@/components/admin/EditPropertyDialog";
+import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropertiesDialog";
 
 interface Property {
   id: number;
@@ -30,6 +31,7 @@ const Propiedades = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("activas");
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -128,6 +130,13 @@ const Propiedades = () => {
             Gestiona el inventario de propiedades del sistema
           </p>
         </div>
+        <Button 
+          onClick={() => setShowBulkUpload(true)}
+          className="gap-2"
+        >
+          <Upload className="h-4 w-4" />
+          Carga Masiva
+        </Button>
       </div>
 
       <Card>
@@ -289,6 +298,14 @@ const Propiedades = () => {
           }}
         />
       )}
+
+      <BulkUploadPropertiesDialog
+        open={showBulkUpload}
+        onClose={() => setShowBulkUpload(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['properties'] });
+        }}
+      />
     </div>
   );
 };
