@@ -30,241 +30,74 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
         description: "Preparando la cámara para tomar la foto...",
       });
 
-      // Check if getUserMedia is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('getUserMedia no está soportado en este navegador');
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Cámara no disponible en este navegador');
       }
 
-      // Request camera access with fallback options
-      let stream;
-      try {
-        // Try with back camera first
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
-        });
-      } catch (err) {
-        console.log('Back camera not available, trying front camera:', err);
-        // Fallback to front camera or any available camera
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
-        });
-      }
+      // Get camera stream
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
 
-      // Create video element
+      // Create video and canvas elements
       const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d')!;
+      
       video.srcObject = stream;
       video.autoplay = true;
       video.playsInline = true;
-      video.muted = true; // Add muted to ensure autoplay works
-      
-      // Create canvas for capture
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      
-      if (!context) {
-        throw new Error('No se pudo crear el contexto del canvas');
-      }
+      video.muted = true;
 
-      // Create modal overlay
-      const overlay = document.createElement('div');
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.95);
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        box-sizing: border-box;
+      // Create modal
+      const modal = document.createElement('div');
+      modal.innerHTML = `
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+          <video id="camera-video" autoplay playsinline muted style="max-width: 90%; max-height: 60%; border: 3px solid white; border-radius: 12px;"></video>
+          <div style="margin-top: 30px; display: flex; gap: 20px;">
+            <button id="capture-btn" style="padding: 15px 30px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: 600;">📷 Tomar Foto</button>
+            <button id="cancel-btn" style="padding: 15px 30px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: 600;">❌ Cancelar</button>
+          </div>
+        </div>
       `;
       
-      video.style.cssText = `
-        max-width: 90%;
-        max-height: 60%;
-        border: 3px solid white;
-        border-radius: 12px;
-        background: black;
-      `;
-      
-      const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = `
-        margin-top: 30px;
-        display: flex;
-        gap: 20px;
-        justify-content: center;
-      `;
-      
-      const captureBtn = document.createElement('button');
-      captureBtn.textContent = '📷 Tomar Foto';
-      captureBtn.style.cssText = `
-        padding: 15px 30px;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 18px;
-        font-weight: 600;
-        transition: all 0.3s;
-        box-shadow: 0 4px 8px rgba(0,123,255,0.3);
-        min-width: 150px;
-      `;
-      
-      const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = '❌ Cancelar';
-      cancelBtn.style.cssText = `
-        padding: 15px 30px;
-        background: #dc3545;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 18px;
-        font-weight: 600;
-        transition: all 0.3s;
-        box-shadow: 0 4px 8px rgba(220,53,69,0.3);
-        min-width: 150px;
-      `;
-      
-      // Add hover effects
-      captureBtn.addEventListener('mouseenter', () => {
-        captureBtn.style.background = '#0056b3';
-        captureBtn.style.transform = 'translateY(-2px)';
-      });
-      captureBtn.addEventListener('mouseleave', () => {
-        captureBtn.style.background = '#007bff';
-        captureBtn.style.transform = 'translateY(0)';
-      });
-      
-      cancelBtn.addEventListener('mouseenter', () => {
-        cancelBtn.style.background = '#c82333';
-        cancelBtn.style.transform = 'translateY(-2px)';
-      });
-      cancelBtn.addEventListener('mouseleave', () => {
-        cancelBtn.style.background = '#dc3545';
-        cancelBtn.style.transform = 'translateY(0)';
-      });
-      
-      buttonContainer.appendChild(captureBtn);
-      buttonContainer.appendChild(cancelBtn);
-      overlay.appendChild(video);
-      overlay.appendChild(buttonContainer);
-      document.body.appendChild(overlay);
-      
-      // Wait for video to be ready and start playing
-      await new Promise((resolve, reject) => {
-        let timeoutId: NodeJS.Timeout;
-        
-        const onLoadedMetadata = () => {
-          console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
-          video.play().then(() => {
-            console.log('Video started playing');
-            clearTimeout(timeoutId);
-            resolve(true);
-          }).catch(reject);
-        };
-        
-        const onError = (error: any) => {
-          console.error('Video error:', error);
-          clearTimeout(timeoutId);
-          reject(error);
-        };
-        
-        video.addEventListener('loadedmetadata', onLoadedMetadata);
-        video.addEventListener('error', onError);
-        
-        // Timeout fallback
-        timeoutId = setTimeout(() => {
-          console.log('Video load timeout, trying to continue anyway');
-          resolve(true);
-        }, 5000);
-      });
+      document.body.appendChild(modal);
+      const modalVideo = document.getElementById('camera-video') as HTMLVideoElement;
+      modalVideo.srcObject = stream;
 
       const cleanup = () => {
-        console.log('Cleaning up camera resources');
-        try {
-          stream.getTracks().forEach(track => {
-            track.stop();
-            console.log('Stopped track:', track.kind);
-          });
-          if (document.body.contains(overlay)) {
-            document.body.removeChild(overlay);
-          }
-        } catch (error) {
-          console.error('Cleanup error:', error);
-        }
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
         setIsProcessing(false);
       };
-      
-      // Capture button click handler
-      const handleCapture = async (e: Event) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        console.log('=== CAPTURE BUTTON CLICKED ===');
-        console.log('Video ready state:', video.readyState);
-        console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-        console.log('Video current time:', video.currentTime);
-        
-        // Disable button to prevent multiple clicks
-        captureBtn.disabled = true;
-        captureBtn.textContent = '📷 Capturando...';
-        captureBtn.style.opacity = '0.7';
-        
+
+      // Wait for video to load
+      await new Promise<void>((resolve) => {
+        modalVideo.onloadedmetadata = () => {
+          modalVideo.play();
+          resolve();
+        };
+      });
+
+      // Capture button handler
+      document.getElementById('capture-btn')!.onclick = async () => {
         try {
-          // Wait a bit to ensure video is fully loaded
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-          if (video.videoWidth === 0 || video.videoHeight === 0) {
-            console.error('Video dimensions are zero');
-            toast({
-              title: "Error",
-              description: "El video no está listo. Espera un momento e intenta de nuevo.",
-              variant: "destructive",
-            });
-            return;
-          }
-          
-          // Set canvas dimensions
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          
-          console.log('Canvas dimensions set to:', canvas.width, 'x', canvas.height);
+          // Set canvas size to match video
+          canvas.width = modalVideo.videoWidth;
+          canvas.height = modalVideo.videoHeight;
           
           // Draw video frame to canvas
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          console.log('Image drawn to canvas');
+          context.drawImage(modalVideo, 0, 0);
           
-          // Convert canvas to blob
+          // Convert to blob
           canvas.toBlob(async (blob) => {
-            console.log('=== BLOB CREATED ===');
-            console.log('Blob size:', blob?.size, 'bytes');
-            console.log('Blob type:', blob?.type);
-            
-            cleanup();
-            
-            if (blob && blob.size > 0) {
-              console.log('=== STARTING API PROCESSING ===');
+            if (blob) {
+              cleanup();
               await processImage(blob);
-            } else {
-              console.error('Blob is null or empty');
-              toast({
-                title: "Error",
-                description: "No se pudo capturar la imagen. Intenta de nuevo.",
-                variant: "destructive",
-              });
             }
           }, 'image/jpeg', 0.9);
           
@@ -277,34 +110,24 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
           });
         }
       };
-      
-      const handleCancel = (e: Event) => {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('=== CANCEL BUTTON CLICKED ===');
-        cleanup();
-      };
-      
-      // Add event listeners
-      captureBtn.addEventListener('click', handleCapture);
-      cancelBtn.addEventListener('click', handleCancel);
-      
-      // Add escape key handler
-      const handleEscape = (e: KeyboardEvent) => {
+
+      // Cancel button handler
+      document.getElementById('cancel-btn')!.onclick = cleanup;
+
+      // ESC key handler
+      const handleEsc = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-          console.log('Escape key pressed');
           cleanup();
-          document.removeEventListener('keydown', handleEscape);
+          document.removeEventListener('keydown', handleEsc);
         }
       };
-      document.addEventListener('keydown', handleEscape);
-      
+      document.addEventListener('keydown', handleEsc);
+
     } catch (error) {
-      console.error('Camera setup error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      console.error('Camera error:', error);
       toast({
         title: "Error de cámara",
-        description: `${errorMessage}. Intenta subir una imagen desde tus archivos.`,
+        description: "No se pudo acceder a la cámara. Intenta subir una imagen.",
         variant: "destructive",
       });
       setIsProcessing(false);
@@ -331,68 +154,66 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
       const formData = new FormData();
       formData.append('image', imageFile, 'documento.jpg');
       
-      console.log('Sending image to API...');
+      console.log('Enviando imagen a la API...');
       
       const response = await fetch('https://automatizacion-n8n.fbqqbe.easypanel.host/webhook/process-ine', {
         method: 'POST',
         body: formData,
       });
       
-      console.log('API Response status:', response.status);
+      console.log('Estado de respuesta de API:', response.status);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`Error HTTP: ${response.status}`);
       }
       
       const responseText = await response.text();
-      console.log('Raw response:', responseText);
+      console.log('Respuesta cruda:', responseText);
       
-      if (!responseText || responseText.trim() === '') {
-        throw new Error('La API no devolvió ningún dato');
+      if (!responseText?.trim()) {
+        throw new Error('La API no devolvió datos');
       }
       
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON Parse Error:', parseError);
-        throw new Error('La respuesta de la API no es JSON válido');
-      }
+      const result = JSON.parse(responseText);
+      console.log('Respuesta parseada:', result);
       
-      console.log('Parsed API Response:', result);
-      
-      if (result && result.ok && result.data) {
+      // Handle API response format
+      if (result?.ok && result?.data) {
         const data = result.data;
         if (data.nombres && data.apellidos && data.curp) {
           const fullName = `${data.nombres} ${data.apellidos}`;
           setNombre(fullName);
           setCurp(data.curp);
           
-          // Create a blob URL for the image
+          // Create blob URL for image preview
           const imageUrl = URL.createObjectURL(imageFile);
           setDocumentImageUrl(imageUrl);
           
           toast({
-            title: "Documento procesado exitosamente",
-            description: "Los datos se han extraído del documento.",
+            title: "¡Documento procesado!",
+            description: "Los datos se extrajeron correctamente.",
           });
         } else {
-          toast({
-            title: "Advertencia",
-            description: "No se pudieron extraer todos los datos del documento.",
-            variant: "destructive",
-          });
+          throw new Error('Datos incompletos en la respuesta');
         }
-      } else {
+      } else if (result?.nombre && result?.curp) {
+        // Handle alternative response format
+        setNombre(result.nombre);
+        setCurp(result.curp);
+        
+        const imageUrl = URL.createObjectURL(imageFile);
+        setDocumentImageUrl(imageUrl);
+        
         toast({
-          title: "Advertencia", 
-          description: "No se encontraron datos en la respuesta de la API.",
-          variant: "destructive",
+          title: "¡Documento procesado!",
+          description: "Los datos se extrajeron correctamente.",
         });
+      } else {
+        throw new Error('Formato de respuesta no reconocido');
       }
       
     } catch (error) {
-      console.error('Error processing image:', error);
+      console.error('Error procesando imagen:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error",
