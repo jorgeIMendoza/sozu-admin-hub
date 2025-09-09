@@ -48,13 +48,13 @@ export default function Usuarios() {
       queryClient.invalidateQueries({ queryKey: ['personas_fake'] });
       toast({
         title: "Éxito",
-        description: "Operador eliminado correctamente.",
+        description: "Usuario eliminado correctamente.",
       });
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: `Error al eliminar el operador: ${error.message}`,
+        description: `Error al eliminar el usuario: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -70,7 +70,7 @@ export default function Usuarios() {
   };
 
   const handleDeletePersona = (id: number) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este operador?')) {
+    if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
       deletePersonaMutation.mutate(id);
     }
   };
@@ -82,10 +82,10 @@ export default function Usuarios() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle className="text-2xl font-bold text-foreground">
-                Operadores
+                Usuarios
               </CardTitle>
               <p className="text-muted-foreground mt-1">
-                Gestiona la información de los operadores
+                Gestiona la información de los usuarios
               </p>
             </div>
             <Button 
@@ -93,7 +93,7 @@ export default function Usuarios() {
               className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Agregar Operador
+              Agregar Usuario
             </Button>
           </div>
         </CardHeader>
@@ -104,7 +104,7 @@ export default function Usuarios() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 type="text"
-                placeholder="Buscar operadores por nombre o CURP..."
+                placeholder="Buscar usuarios por nombre o CURP..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 border-border focus:ring-primary/20"
@@ -115,17 +115,17 @@ export default function Usuarios() {
           {filteredPersonas.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-muted-foreground text-lg mb-2">
-                No hay operadores registrados
+                No hay usuarios registrados
               </div>
               <p className="text-muted-foreground/80 mb-4">
-                Agrega tu primer operador para comenzar
+                Agrega tu primer usuario para comenzar
               </p>
               <Button 
                 onClick={handleNewPersona}
                 className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Agregar Primer Operador
+                Agregar Primer Usuario
               </Button>
             </div>
           ) : (

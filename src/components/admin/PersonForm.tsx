@@ -214,6 +214,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
         description: "Extrayendo datos del documento...",
       });
       
+      // First, let's upload the image to get a URL we can store
+      const imageUrl = URL.createObjectURL(imageFile);
+      setDocumentImageUrl(imageUrl);
+      
       // Process with external API
       const formData = new FormData();
       formData.append('image', imageFile, 'documento.jpg');
@@ -249,10 +253,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
           setNombre(fullName);
           setCurp(data.curp);
           
-          // Create blob URL for image preview
-          const imageUrl = URL.createObjectURL(imageFile);
-          setDocumentImageUrl(imageUrl);
-          
           toast({
             title: "¡Documento procesado!",
             description: "Los datos se extrajeron correctamente.",
@@ -264,9 +264,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
         // Handle alternative response format
         setNombre(result.nombre);
         setCurp(result.curp);
-        
-        const imageUrl = URL.createObjectURL(imageFile);
-        setDocumentImageUrl(imageUrl);
         
         toast({
           title: "¡Documento procesado!",

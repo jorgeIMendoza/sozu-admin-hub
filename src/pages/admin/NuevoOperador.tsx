@@ -27,7 +27,7 @@ export default function NuevoOperador() {
     onSuccess: () => {
       toast({
         title: "Éxito",
-        description: "Operador creado correctamente.",
+        description: "Usuario creado correctamente.",
       });
       queryClient.invalidateQueries({ queryKey: ['personas_fake'] });
       navigate('/admin/usuarios');
@@ -36,7 +36,7 @@ export default function NuevoOperador() {
       console.error('Error creating persona:', error);
       toast({
         title: "Error",
-        description: "Error al crear el operador.",
+        description: "Error al crear el usuario.",
         variant: "destructive",
       });
     },
@@ -59,15 +59,15 @@ export default function NuevoOperador() {
           className="mb-4 hover:bg-muted/50 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a Operadores
+          Volver a Usuarios
         </Button>
         
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Agregar Operador
+            Agregar Usuario
           </h1>
           <p className="text-muted-foreground mt-2">
-            Completa la información del nuevo operador
+            Completa la información del nuevo usuario
           </p>
         </div>
       </div>
@@ -75,7 +75,7 @@ export default function NuevoOperador() {
       <Card className="border-border shadow-lg">
         <CardHeader className="border-b border-border bg-muted/30">
           <CardTitle className="text-xl font-semibold">
-            Información del Operador
+            Información del Usuario
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
