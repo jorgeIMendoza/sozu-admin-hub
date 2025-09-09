@@ -6,8 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Edit, Home, Building2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Edit, Home, Trash2 } from "lucide-react";
 import { NewModeloDialog } from "@/components/admin/NewModeloDialog";
+import { EditModeloDialog } from "@/components/admin/EditModeloDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface Modelo {
   id: number;
@@ -20,9 +23,11 @@ interface Modelo {
 
 export default function Modelos() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<"active" | "deleted">("active");
+  const { toast } = useToast();
 
-  const { data: modelos, isLoading, refetch } = useQuery({
-    queryKey: ["modelos"],
+  const { data: modelosActivos, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
+    queryKey: ["modelos", "active"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("modelos")
@@ -31,7 +36,7 @@ export default function Modelos() {
         .order("nombre");
 
       if (error) {
-        console.error("Error fetching modelos:", error);
+        console.error("Error fetching modelos activos:", error);
         throw error;
       }
 
@@ -39,12 +44,90 @@ export default function Modelos() {
     },
   });
 
+  const { data: modelosEliminados, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
+    queryKey: ["modelos", "deleted"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("modelos")
+        .select("*")
+        .eq("activo", false)
+        .order("nombre");
+
+      if (error) {
+        console.error("Error fetching modelos eliminados:", error);
+        throw error;
+      }
+
+      return data || [];
+    },
+    enabled: activeTab === "deleted",
+  });
+
   const handleModeloAdded = () => {
-    refetch();
+    refetchActivos();
   };
 
+  const handleModeloUpdated = () => {
+    refetchActivos();
+    refetchEliminados();
+  };
+
+  const handleDeleteModelo = async (modelo: Modelo) => {
+    try {
+      const { error } = await supabase
+        .from("modelos")
+        .update({ activo: false })
+        .eq("id", modelo.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Modelo eliminado",
+        description: `El modelo "${modelo.nombre}" ha sido eliminado.`,
+      });
+
+      refetchActivos();
+    } catch (error) {
+      console.error("Error deleting modelo:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al eliminar el modelo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRestoreModelo = async (modelo: Modelo) => {
+    try {
+      const { error } = await supabase
+        .from("modelos")
+        .update({ activo: true })
+        .eq("id", modelo.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Modelo restaurado",
+        description: `El modelo "${modelo.nombre}" ha sido restaurado.`,
+      });
+
+      refetchEliminados();
+      refetchActivos();
+    } catch (error) {
+      console.error("Error restoring modelo:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al restaurar el modelo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const currentModelos = activeTab === "active" ? modelosActivos : modelosEliminados;
+  const isLoading = activeTab === "active" ? loadingActivos : loadingEliminados;
+
   // Filter modelos based on search term
-  const filteredModelos = modelos?.filter((modelo) =>
+  const filteredModelos = currentModelos?.filter((modelo) =>
     modelo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (modelo.descripcion && modelo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || [];
@@ -59,7 +142,7 @@ export default function Modelos() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestión de Modelos</h1>
           <p className="text-muted-foreground">
-            Administra los modelos de propiedades agrupados por proyecto
+            Administra los modelos de propiedades
           </p>
         </div>
 
@@ -77,70 +160,160 @@ export default function Modelos() {
         </div>
       </div>
 
-      {filteredModelos.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Home className="h-5 w-5" />
-              <span>Modelos Disponibles</span>
-              <Badge variant="secondary" className="ml-2">
-                {filteredModelos.length} modelo{filteredModelos.length !== 1 ? 's' : ''}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Modelo</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead>Recámaras</TableHead>
-                  <TableHead>Baños</TableHead>
-                  <TableHead>1/2 Baños</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredModelos.map((modelo) => (
-                  <TableRow key={modelo.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-2">
-                        <Home className="h-4 w-4 text-primary" />
-                        <span>{modelo.nombre}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {modelo.descripcion || "Sin descripción"}
-                    </TableCell>
-                    <TableCell>{modelo.numero_recamaras || "-"}</TableCell>
-                    <TableCell>{modelo.numero_completo_banos || "-"}</TableCell>
-                    <TableCell>{modelo.numero_medio_bano || "-"}</TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Home className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              {searchTerm ? "No se encontraron modelos que coincidan con la búsqueda" : "No hay modelos disponibles"}
-            </p>
-            {searchTerm && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Intenta con otros términos de búsqueda
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "active" | "deleted")}>
+        <TabsList>
+          <TabsTrigger value="active">Modelos Activos</TabsTrigger>
+          <TabsTrigger value="deleted">Modelos Eliminados</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active">
+          {filteredModelos.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Home className="h-5 w-5" />
+                  <span>Modelos Activos</span>
+                  <Badge variant="secondary" className="ml-2">
+                    {filteredModelos.length} modelo{filteredModelos.length !== 1 ? 's' : ''}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Modelo</TableHead>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead>Recámaras</TableHead>
+                      <TableHead>Baños</TableHead>
+                      <TableHead>1/2 Baños</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredModelos.map((modelo) => (
+                      <TableRow key={modelo.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center space-x-2">
+                            <Home className="h-4 w-4 text-primary" />
+                            <span>{modelo.nombre}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {modelo.descripcion || "Sin descripción"}
+                        </TableCell>
+                        <TableCell>{modelo.numero_recamaras || "-"}</TableCell>
+                        <TableCell>{modelo.numero_completo_banos || "-"}</TableCell>
+                        <TableCell>{modelo.numero_medio_bano || "-"}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <EditModeloDialog 
+                              modelo={modelo} 
+                              onModeloUpdated={handleModeloUpdated} 
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteModelo(modelo)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Home className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  {searchTerm ? "No se encontraron modelos que coincidan con la búsqueda" : "No hay modelos activos"}
+                </p>
+                {searchTerm && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Intenta con otros términos de búsqueda
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="deleted">
+          {filteredModelos.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Home className="h-5 w-5" />
+                  <span>Modelos Eliminados</span>
+                  <Badge variant="secondary" className="ml-2">
+                    {filteredModelos.length} modelo{filteredModelos.length !== 1 ? 's' : ''}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Modelo</TableHead>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead>Recámaras</TableHead>
+                      <TableHead>Baños</TableHead>
+                      <TableHead>1/2 Baños</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredModelos.map((modelo) => (
+                      <TableRow key={modelo.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center space-x-2">
+                            <Home className="h-4 w-4 text-muted-foreground" />
+                            <span>{modelo.nombre}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {modelo.descripcion || "Sin descripción"}
+                        </TableCell>
+                        <TableCell>{modelo.numero_recamaras || "-"}</TableCell>
+                        <TableCell>{modelo.numero_completo_banos || "-"}</TableCell>
+                        <TableCell>{modelo.numero_medio_bano || "-"}</TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleRestoreModelo(modelo)}
+                          >
+                            Restaurar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <Home className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  {searchTerm ? "No se encontraron modelos eliminados que coincidan con la búsqueda" : "No hay modelos eliminados"}
+                </p>
+                {searchTerm && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Intenta con otros términos de búsqueda
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
