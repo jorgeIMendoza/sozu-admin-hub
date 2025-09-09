@@ -9,71 +9,33 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Edit, Home, Building2 } from "lucide-react";
 import { NewModeloDialog } from "@/components/admin/NewModeloDialog";
 
-interface ModeloWithRelations {
-  modelo_id: number;
-  modelo_nombre: string;
-  modelo_descripcion?: string;
+interface Modelo {
+  id: number;
+  nombre: string;
+  descripcion?: string;
   numero_recamaras?: number;
   numero_completo_banos?: number;
   numero_medio_bano?: number;
-  edificio_id: number;
-  edificio_nombre: string;
-  proyecto_id: number;
-  proyecto_nombre: string;
 }
 
 export default function Modelos() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: modelos, isLoading, refetch } = useQuery({
-    queryKey: ["modelos-with-relations"],
+    queryKey: ["modelos"],
     queryFn: async () => {
-      // Using the SQL structure: proyectos -> edificios -> edificios_modelos -> modelos
       const { data, error } = await supabase
-        .from("edificios_modelos")
-        .select(`
-          edificios!inner (
-            id,
-            nombre,
-            proyectos!inner (
-              id,
-              nombre
-            )
-          ),
-          modelos!inner (
-            id,
-            nombre,
-            descripcion,
-            numero_recamaras,
-            numero_completo_banos,
-            numero_medio_bano
-          )
-        `)
+        .from("modelos")
+        .select("*")
         .eq("activo", true)
-        .eq("edificios.activo", true)
-        .eq("edificios.proyectos.activo", true)
-        .eq("modelos.activo", true);
+        .order("nombre");
 
       if (error) {
         console.error("Error fetching modelos:", error);
         throw error;
       }
 
-      // Transform data to match our interface
-      const modelosWithRelations: ModeloWithRelations[] = data?.map((item: any) => ({
-        modelo_id: item.modelos.id,
-        modelo_nombre: item.modelos.nombre,
-        modelo_descripcion: item.modelos.descripcion,
-        numero_recamaras: item.modelos.numero_recamaras,
-        numero_completo_banos: item.modelos.numero_completo_banos,
-        numero_medio_bano: item.modelos.numero_medio_bano,
-        edificio_id: item.edificios.id,
-        edificio_nombre: item.edificios.nombre,
-        proyecto_id: item.edificios.proyectos.id,
-        proyecto_nombre: item.edificios.proyectos.nombre,
-      })) || [];
-
-      return modelosWithRelations;
+      return data || [];
     },
   });
 
@@ -83,10 +45,8 @@ export default function Modelos() {
 
   // Filter modelos based on search term
   const filteredModelos = modelos?.filter((modelo) =>
-    modelo.modelo_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    modelo.edificio_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    modelo.proyecto_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (modelo.modelo_descripcion && modelo.modelo_descripcion.toLowerCase().includes(searchTerm.toLowerCase()))
+    modelo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (modelo.descripcion && modelo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || [];
 
   if (isLoading) {
@@ -107,7 +67,7 @@ export default function Modelos() {
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar modelos, edificios o proyectos..."
+              placeholder="Buscar modelos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -133,8 +93,6 @@ export default function Modelos() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Modelo</TableHead>
-                  <TableHead>Edificio</TableHead>
-                  <TableHead>Proyecto</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead>Recámaras</TableHead>
                   <TableHead>Baños</TableHead>
@@ -144,24 +102,15 @@ export default function Modelos() {
               </TableHeader>
               <TableBody>
                 {filteredModelos.map((modelo) => (
-                  <TableRow key={`${modelo.modelo_id}-${modelo.edificio_id}`}>
+                  <TableRow key={modelo.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center space-x-2">
                         <Home className="h-4 w-4 text-primary" />
-                        <span>{modelo.modelo_nombre}</span>
+                        <span>{modelo.nombre}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <span>{modelo.edificio_nombre}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{modelo.proyecto_nombre}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {modelo.modelo_descripcion || "Sin descripción"}
+                      {modelo.descripcion || "Sin descripción"}
                     </TableCell>
                     <TableCell>{modelo.numero_recamaras || "-"}</TableCell>
                     <TableCell>{modelo.numero_completo_banos || "-"}</TableCell>
