@@ -62,6 +62,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
       video.srcObject = stream;
       video.autoplay = true;
       video.playsInline = true;
+      video.muted = true; // Add muted to ensure autoplay works
       
       // Create canvas for capture
       const canvas = document.createElement('canvas');
@@ -79,70 +80,81 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0,0,0,0.9);
+        background: rgba(0,0,0,0.95);
         z-index: 9999;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         padding: 20px;
+        box-sizing: border-box;
       `;
       
       video.style.cssText = `
         max-width: 90%;
-        max-height: 70%;
-        border: 2px solid white;
-        border-radius: 8px;
+        max-height: 60%;
+        border: 3px solid white;
+        border-radius: 12px;
+        background: black;
       `;
       
       const buttonContainer = document.createElement('div');
       buttonContainer.style.cssText = `
-        margin-top: 20px;
+        margin-top: 30px;
         display: flex;
-        gap: 15px;
+        gap: 20px;
+        justify-content: center;
       `;
       
       const captureBtn = document.createElement('button');
-      captureBtn.textContent = 'Tomar Foto';
+      captureBtn.textContent = '📷 Tomar Foto';
       captureBtn.style.cssText = `
-        padding: 12px 24px;
+        padding: 15px 30px;
         background: #007bff;
         color: white;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         cursor: pointer;
-        font-size: 16px;
-        font-weight: 500;
-        transition: background-color 0.2s;
+        font-size: 18px;
+        font-weight: 600;
+        transition: all 0.3s;
+        box-shadow: 0 4px 8px rgba(0,123,255,0.3);
+        min-width: 150px;
       `;
       
       const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = 'Cancelar';
+      cancelBtn.textContent = '❌ Cancelar';
       cancelBtn.style.cssText = `
-        padding: 12px 24px;
-        background: #6c757d;
+        padding: 15px 30px;
+        background: #dc3545;
         color: white;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         cursor: pointer;
-        font-size: 16px;
-        font-weight: 500;
-        transition: background-color 0.2s;
+        font-size: 18px;
+        font-weight: 600;
+        transition: all 0.3s;
+        box-shadow: 0 4px 8px rgba(220,53,69,0.3);
+        min-width: 150px;
       `;
       
       // Add hover effects
       captureBtn.addEventListener('mouseenter', () => {
         captureBtn.style.background = '#0056b3';
+        captureBtn.style.transform = 'translateY(-2px)';
       });
       captureBtn.addEventListener('mouseleave', () => {
         captureBtn.style.background = '#007bff';
+        captureBtn.style.transform = 'translateY(0)';
       });
       
       cancelBtn.addEventListener('mouseenter', () => {
-        cancelBtn.style.background = '#545b62';
+        cancelBtn.style.background = '#c82333';
+        cancelBtn.style.transform = 'translateY(-2px)';
       });
       cancelBtn.addEventListener('mouseleave', () => {
-        cancelBtn.style.background = '#6c757d';
+        cancelBtn.style.background = '#dc3545';
+        cancelBtn.style.transform = 'translateY(0)';
       });
       
       buttonContainer.appendChild(captureBtn);
@@ -151,71 +163,136 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
       overlay.appendChild(buttonContainer);
       document.body.appendChild(overlay);
       
-      // Wait for video to be ready
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => {
-          console.log('Video metadata loaded');
-          resolve(true);
+      // Wait for video to be ready and start playing
+      await new Promise((resolve, reject) => {
+        let timeoutId: NodeJS.Timeout;
+        
+        const onLoadedMetadata = () => {
+          console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+          video.play().then(() => {
+            console.log('Video started playing');
+            clearTimeout(timeoutId);
+            resolve(true);
+          }).catch(reject);
         };
+        
+        const onError = (error: any) => {
+          console.error('Video error:', error);
+          clearTimeout(timeoutId);
+          reject(error);
+        };
+        
+        video.addEventListener('loadedmetadata', onLoadedMetadata);
+        video.addEventListener('error', onError);
+        
+        // Timeout fallback
+        timeoutId = setTimeout(() => {
+          console.log('Video load timeout, trying to continue anyway');
+          resolve(true);
+        }, 5000);
       });
 
       const cleanup = () => {
         console.log('Cleaning up camera resources');
-        stream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped track:', track.kind);
-        });
-        if (document.body.contains(overlay)) {
-          document.body.removeChild(overlay);
+        try {
+          stream.getTracks().forEach(track => {
+            track.stop();
+            console.log('Stopped track:', track.kind);
+          });
+          if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+          }
+        } catch (error) {
+          console.error('Cleanup error:', error);
         }
         setIsProcessing(false);
       };
       
-      // Use addEventListener instead of onclick for better reliability
-      captureBtn.addEventListener('click', (e) => {
+      // Capture button click handler
+      const handleCapture = async (e: Event) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Capture button clicked');
+        
+        console.log('=== CAPTURE BUTTON CLICKED ===');
+        console.log('Video ready state:', video.readyState);
         console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+        console.log('Video current time:', video.currentTime);
         
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-          toast({
-            title: "Error",
-            description: "El video no está listo. Intenta de nuevo.",
-            variant: "destructive",
-          });
-          return;
-        }
+        // Disable button to prevent multiple clicks
+        captureBtn.disabled = true;
+        captureBtn.textContent = '📷 Capturando...';
+        captureBtn.style.opacity = '0.7';
         
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
-        
-        canvas.toBlob(async (blob) => {
-          console.log('Image blob created:', blob?.size, 'bytes');
-          cleanup();
-          if (blob) {
-            await processImage(blob);
-          } else {
+        try {
+          // Wait a bit to ensure video is fully loaded
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          if (video.videoWidth === 0 || video.videoHeight === 0) {
+            console.error('Video dimensions are zero');
             toast({
               title: "Error",
-              description: "No se pudo capturar la imagen.",
+              description: "El video no está listo. Espera un momento e intenta de nuevo.",
               variant: "destructive",
             });
+            return;
           }
-        }, 'image/jpeg', 0.8);
-      });
+          
+          // Set canvas dimensions
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
+          console.log('Canvas dimensions set to:', canvas.width, 'x', canvas.height);
+          
+          // Draw video frame to canvas
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          console.log('Image drawn to canvas');
+          
+          // Convert canvas to blob
+          canvas.toBlob(async (blob) => {
+            console.log('=== BLOB CREATED ===');
+            console.log('Blob size:', blob?.size, 'bytes');
+            console.log('Blob type:', blob?.type);
+            
+            cleanup();
+            
+            if (blob && blob.size > 0) {
+              console.log('=== STARTING API PROCESSING ===');
+              await processImage(blob);
+            } else {
+              console.error('Blob is null or empty');
+              toast({
+                title: "Error",
+                description: "No se pudo capturar la imagen. Intenta de nuevo.",
+                variant: "destructive",
+              });
+            }
+          }, 'image/jpeg', 0.9);
+          
+        } catch (error) {
+          console.error('Capture error:', error);
+          toast({
+            title: "Error",
+            description: "Error al capturar la imagen.",
+            variant: "destructive",
+          });
+        }
+      };
       
-      cancelBtn.addEventListener('click', (e) => {
+      const handleCancel = (e: Event) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Cancel button clicked');
+        console.log('=== CANCEL BUTTON CLICKED ===');
         cleanup();
-      });
+      };
+      
+      // Add event listeners
+      captureBtn.addEventListener('click', handleCapture);
+      cancelBtn.addEventListener('click', handleCancel);
       
       // Add escape key handler
       const handleEscape = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
+          console.log('Escape key pressed');
           cleanup();
           document.removeEventListener('keydown', handleEscape);
         }
@@ -223,7 +300,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
       document.addEventListener('keydown', handleEscape);
       
     } catch (error) {
-      console.error('Error accessing camera:', error);
+      console.error('Camera setup error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error de cámara",
