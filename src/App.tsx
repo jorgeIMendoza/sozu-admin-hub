@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Proyectos from "./pages/admin/Proyectos";
+import Propiedades from "./pages/admin/PropiedadesMockup";
 import Modelos from "./pages/admin/Modelos";
 import Pagos from "./pages/admin/Pagos";
 import Usuarios from "./pages/admin/Usuarios";
@@ -30,7 +31,7 @@ const App = () => (
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="proyectos" element={<Proyectos />} />
-            <Route path="propiedades" element={<ComingSoon title="Propiedades" />} />
+            <Route path="propiedades" element={<Propiedades />} />
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
             <Route path="compradores" element={<ComingSoon title="Compradores" />} />
