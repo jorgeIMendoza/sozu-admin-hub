@@ -203,6 +203,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
     if (file) {
       await processImage(file);
     }
+    // Clear the input so the same file can be selected again if needed
+    event.target.value = '';
   };
 
   const processImage = async (imageFile: Blob) => {
@@ -214,9 +216,29 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
         description: "Extrayendo datos del documento...",
       });
       
-      // First, let's upload the image to get a URL we can store
-      const imageUrl = URL.createObjectURL(imageFile);
-      setDocumentImageUrl(imageUrl);
+      // Upload image to Supabase Storage first
+      const fileExt = 'jpg';
+      const fileName = `documento_${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(fileName, imageFile, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        throw new Error('Error al subir la imagen');
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('documentos')
+        .getPublicUrl(fileName);
+
+      const publicUrl = urlData.publicUrl;
+      setDocumentImageUrl(publicUrl);
       
       // Process with external API
       const formData = new FormData();

@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PersonForm } from "@/components/admin/PersonForm";
 
-export default function NuevoOperador() {
+export default function NuevoUsuario() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();

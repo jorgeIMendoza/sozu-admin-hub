@@ -2279,6 +2279,27 @@ export type Database = {
           },
         ]
       }
+      personas_fake: {
+        Row: {
+          curp: string | null
+          id: number
+          nombre: string | null
+          url_documento_identificacion: string | null
+        }
+        Insert: {
+          curp?: string | null
+          id?: number
+          nombre?: string | null
+          url_documento_identificacion?: string | null
+        }
+        Update: {
+          curp?: string | null
+          id?: number
+          nombre?: string | null
+          url_documento_identificacion?: string | null
+        }
+        Relationships: []
+      }
       productos_servicios: {
         Row: {
           activo: boolean

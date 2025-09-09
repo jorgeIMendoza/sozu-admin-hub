@@ -9,7 +9,7 @@ import Proyectos from "./pages/admin/Proyectos";
 import Modelos from "./pages/admin/Modelos";
 import Pagos from "./pages/admin/Pagos";
 import Usuarios from "./pages/admin/Usuarios";
-import NuevoOperador from "./pages/admin/NuevoOperador";
+import NuevoUsuario from "./pages/admin/NuevoUsuario";
 import ComingSoon from "./pages/admin/ComingSoon";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -32,7 +32,7 @@ const App = () => (
             <Route path="proyectos" element={<Proyectos />} />
             <Route path="propiedades" element={<ComingSoon title="Propiedades" />} />
             <Route path="usuarios" element={<Usuarios />} />
-            <Route path="usuarios/nuevo" element={<NuevoOperador />} />
+            <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
             <Route path="compradores" element={<ComingSoon title="Compradores" />} />
             <Route path="beneficiarios" element={<ComingSoon title="Beneficiarios" />} />
             <Route path="comisionistas" element={<ComingSoon title="Comisionistas" />} />
