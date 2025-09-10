@@ -30,7 +30,12 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [email, setEmail] = useState(initialData?.email || '');
   const [telefono, setTelefono] = useState(initialData?.telefono || '');
   const [clavePaisTelefono, setClavePaisTelefono] = useState(initialData?.clave_pais_telefono || 'MX');
-  const [tipoPersona, setTipoPersona] = useState(initialData?.tipo_persona || (entityType === 'legal' ? 'pm' : 'pf'));
+  const [tipoPersona, setTipoPersona] = useState(
+    initialData?.tipo_persona || 
+    (entityType === 'legal' ? 'pm' : 
+     entityType === 'representative' ? 'pf' : 
+     'pf')
+  );
   const [idTipoRelacion, setIdTipoRelacion] = useState(initialData?.id_tipo_relacion || getDefaultTipoRelacion(entityType));
   
   // Identification
@@ -266,8 +271,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     return shouldShow;
   }
 
-  // Camera capture and document processing functions
-  // (Assuming these are implemented elsewhere or omitted for brevity)
+  function shouldShowLegalTab() {
+    // Show legal tab only for legal entities, not for clients or representatives
+    return entityType === 'legal';
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -361,10 +368,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       <form onSubmit={handleSubmit} className="space-y-6">
         {!isUser ? (
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className={`grid w-full ${shouldShowLegalTab() ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="basic">Información Básica</TabsTrigger>
               <TabsTrigger value="address">Dirección</TabsTrigger>
-              <TabsTrigger value="legal">Información Legal</TabsTrigger>
+              {shouldShowLegalTab() && <TabsTrigger value="legal">Información Legal</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4 mt-6">
@@ -376,6 +383,14 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       id="tipoPersona"
                       type="text"
                       value="Persona Moral"
+                      disabled
+                      className="bg-muted"
+                    />
+                  ) : entityType === 'representative' ? (
+                    <Input
+                      id="tipoPersona"
+                      type="text"
+                      value="Persona Física"
                       disabled
                       className="bg-muted"
                     />
@@ -718,122 +733,124 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
               </div>
             </TabsContent>
 
-            <TabsContent value="legal" className="space-y-4 mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="numeroEscritura">Número de Escritura</Label>
-                  <Input
-                    id="numeroEscritura"
-                    type="text"
-                    value={numeroEscritura}
-                    onChange={(e) => setNumeroEscritura(e.target.value)}
-                    placeholder="Ingresa el número de escritura"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="numeroLibro">Número de Libro</Label>
-                  <Input
-                    id="numeroLibro"
-                    type="text"
-                    value={numeroLibro}
-                    onChange={(e) => setNumeroLibro(e.target.value)}
-                    placeholder="Ingresa el número de libro"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="folioMercantil">Folio Mercantil</Label>
-                  <Input
-                    id="folioMercantil"
-                    type="text"
-                    value={folioMercantil}
-                    onChange={(e) => setFolioMercantil(e.target.value)}
-                    placeholder="Ingresa el folio mercantil"
-                  />
-                </div>
-
-                <div>
-                  <Label>Fecha de Escritura</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {fechaEscritura ? format(fechaEscritura, "dd/MM/yyyy") : "Selecciona una fecha"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={fechaEscritura}
-                        onSelect={setFechaEscritura}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div>
-                  <Label>Fecha de Registro</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {fechaRegistro ? format(fechaRegistro, "dd/MM/yyyy") : "Selecciona una fecha"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={fechaRegistro}
-                        onSelect={setFechaRegistro}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div>
-                  <Label htmlFor="idNotario">Notario</Label>
-                  <Select value={idNotario} onValueChange={setIdNotario}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un notario" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {notarios.map((notario) => (
-                        <SelectItem key={notario.id} value={notario.id.toString()}>
-                          {notario.nombre} - {notario.notaria}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {entityType === 'legal' && (
+            {shouldShowLegalTab() && (
+              <TabsContent value="legal" className="space-y-4 mt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
-                    <Select value={idRepresentanteLegal} onValueChange={setIdRepresentanteLegal}>
+                    <Label htmlFor="numeroEscritura">Número de Escritura</Label>
+                    <Input
+                      id="numeroEscritura"
+                      type="text"
+                      value={numeroEscritura}
+                      onChange={(e) => setNumeroEscritura(e.target.value)}
+                      placeholder="Ingresa el número de escritura"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="numeroLibro">Número de Libro</Label>
+                    <Input
+                      id="numeroLibro"
+                      type="text"
+                      value={numeroLibro}
+                      onChange={(e) => setNumeroLibro(e.target.value)}
+                      placeholder="Ingresa el número de libro"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="folioMercantil">Folio Mercantil</Label>
+                    <Input
+                      id="folioMercantil"
+                      type="text"
+                      value={folioMercantil}
+                      onChange={(e) => setFolioMercantil(e.target.value)}
+                      placeholder="Ingresa el folio mercantil"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Fecha de Escritura</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {fechaEscritura ? format(fechaEscritura, "dd/MM/yyyy") : "Selecciona una fecha"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={fechaEscritura}
+                          onSelect={setFechaEscritura}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div>
+                    <Label>Fecha de Registro</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {fechaRegistro ? format(fechaRegistro, "dd/MM/yyyy") : "Selecciona una fecha"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={fechaRegistro}
+                          onSelect={setFechaRegistro}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="idNotario">Notario</Label>
+                    <Select value={idNotario} onValueChange={setIdNotario}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un representante legal" />
+                        <SelectValue placeholder="Selecciona un notario" />
                       </SelectTrigger>
                       <SelectContent>
-                        {representantesLegales.map((rep) => (
-                          <SelectItem key={rep.id} value={rep.id.toString()}>
-                            {rep.nombre_legal}
+                        {notarios.map((notario) => (
+                          <SelectItem key={notario.id} value={notario.id.toString()}>
+                            {notario.nombre} - {notario.notaria}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-              </div>
-            </TabsContent>
+
+                  {entityType === 'legal' && (
+                    <div>
+                      <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
+                      <Select value={idRepresentanteLegal} onValueChange={setIdRepresentanteLegal}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un representante legal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {representantesLegales.map((rep) => (
+                            <SelectItem key={rep.id} value={rep.id.toString()}>
+                              {rep.nombre_legal}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         ) : (
           // User form (simplified)

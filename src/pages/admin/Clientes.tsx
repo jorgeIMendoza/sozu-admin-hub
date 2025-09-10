@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
+import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 
 type Cliente = {
   id: number;
@@ -142,114 +144,150 @@ export default function Clientes() {
   return (
     <div className="container mx-auto py-6 px-4">
       <Card className="border-border shadow-lg">
-        <CardHeader className="border-b border-border bg-muted/30">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle className="text-2xl font-bold text-foreground">
-                Clientes
-              </CardTitle>
-              <p className="text-muted-foreground mt-1">
-                Gestiona la información de los clientes
-              </p>
-            </div>
-            <Button 
-              onClick={() => setIsNewDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Cliente
-            </Button>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="p-6">
-          <div className="mb-6">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                type="text"
-                placeholder="Buscar por nombre, email, CURP, RFC..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-border focus:ring-primary/20"
-              />
-            </div>
-          </div>
-
-          {filteredClientes.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-muted-foreground text-lg mb-2">
-                No hay clientes registrados
+        <Tabs defaultValue="general" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="general">Información General</TabsTrigger>
+            <TabsTrigger value="beneficiarios">Beneficiarios</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="general" className="mt-6">
+            <CardHeader className="border-b border-border bg-muted/30">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle className="text-2xl font-bold text-foreground">
+                    Clientes
+                  </CardTitle>
+                  <p className="text-muted-foreground mt-1">
+                    Gestiona la información de los clientes
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => setIsNewDialogOpen(true)}
+                  className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Cliente
+                </Button>
               </div>
-              <p className="text-muted-foreground/80 mb-4">
-                Agrega tu primer cliente para comenzar
-              </p>
-              <Button 
-                onClick={() => setIsNewDialogOpen(true)}
-                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Agregar Primer Cliente
-              </Button>
-            </div>
-          ) : (
-            <div className="border border-border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold text-foreground">Nombre</TableHead>
-                    <TableHead className="font-semibold text-foreground">Tipo</TableHead>
-                    <TableHead className="font-semibold text-foreground">Email</TableHead>
-                    <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
-                    <TableHead className="font-semibold text-foreground">CURP/RFC</TableHead>
-                    <TableHead className="font-semibold text-foreground text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            </CardHeader>
+            
+            <CardContent className="p-6">
+              <div className="mb-6">
+                <div className="relative max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar por nombre, email, CURP, RFC..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 border-border focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              {filteredClientes.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-muted-foreground text-lg mb-2">
+                    No hay clientes registrados
+                  </div>
+                  <p className="text-muted-foreground/80 mb-4">
+                    Agrega tu primer cliente para comenzar
+                  </p>
+                  <Button 
+                    onClick={() => setIsNewDialogOpen(true)}
+                    className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Primer Cliente
+                  </Button>
+                </div>
+              ) : (
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold text-foreground">Nombre</TableHead>
+                        <TableHead className="font-semibold text-foreground">Tipo</TableHead>
+                        <TableHead className="font-semibold text-foreground">Email</TableHead>
+                        <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
+                        <TableHead className="font-semibold text-foreground">CURP/RFC</TableHead>
+                        <TableHead className="font-semibold text-foreground text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredClientes.map((cliente) => (
+                        <TableRow key={cliente.id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell className="font-medium text-foreground">
+                            {cliente.nombre_legal}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {cliente.tipo_persona === 'pf' ? 'Persona Física' : 'Persona Moral'}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {cliente.email}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {cliente.telefono || '-'}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {cliente.tipo_persona === 'pf' ? (cliente.curp || '-') : (cliente.rfc || '-')}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleEdit(cliente)}
+                                className="hover:bg-primary/10 hover:border-primary transition-colors"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleDelete(cliente.id)}
+                                className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </TabsContent>
+          
+          <TabsContent value="beneficiarios" className="mt-6">
+            <CardContent className="p-6">
+              {filteredClientes.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <div className="text-muted-foreground text-lg mb-2">
+                    No hay clientes para mostrar beneficiarios
+                  </div>
+                  <p className="text-muted-foreground/80">
+                    Primero agrega clientes para gestionar sus beneficiarios
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
                   {filteredClientes.map((cliente) => (
-                    <TableRow key={cliente.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-medium text-foreground">
-                        {cliente.nombre_legal}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {cliente.tipo_persona === 'pf' ? 'Persona Física' : 'Persona Moral'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {cliente.email}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {cliente.telefono || '-'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {cliente.tipo_persona === 'pf' ? (cliente.curp || '-') : (cliente.rfc || '-')}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleEdit(cliente)}
-                            className="hover:bg-primary/10 hover:border-primary transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleDelete(cliente.id)}
-                            className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <div key={cliente.id} className="border border-border rounded-lg p-4">
+                      <BeneficiariosForm 
+                        personaId={cliente.id} 
+                        personaNombre={cliente.nombre_legal} 
+                      />
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
+                </div>
+              )}
+            </CardContent>
+          </TabsContent>
+        </Tabs>
       </Card>
 
       {/* Dialog para nuevo cliente */}
