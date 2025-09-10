@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { EditPropertyDialog } from "@/components/admin/EditPropertyDialog";
@@ -31,6 +32,8 @@ interface Property {
 const Propiedades = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("activas");
+  const [modeloFilter, setModeloFilter] = useState("todos");
+  const [disponibilidadFilter, setDisponibilidadFilter] = useState("todos");
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const { toast } = useToast();
@@ -47,6 +50,36 @@ const Propiedades = () => {
     },
   });
 
+  // Fetch modelos for filter
+  const { data: modelos } = useQuery({
+    queryKey: ['modelos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('modelos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch estatus disponibilidad for filter
+  const { data: estatusDisponibilidad } = useQuery({
+    queryKey: ['estatus_disponibilidad'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estatus_disponibilidad')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const filteredProperties = properties?.filter(property => {
     const matchesSearch = 
       property.numero_propiedad.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,7 +89,11 @@ const Propiedades = () => {
     
     const matchesTab = activeTab === "activas" ? property.activo : !property.activo;
     
-    return matchesSearch && matchesTab;
+    const matchesModelo = modeloFilter === "todos" || property.modelo === modeloFilter;
+    
+    const matchesDisponibilidad = disponibilidadFilter === "todos" || property.disponibilidad === disponibilidadFilter;
+    
+    return matchesSearch && matchesTab && matchesModelo && matchesDisponibilidad;
   }) || [];
 
   const handleDelete = async (propertyId: number) => {
@@ -143,14 +180,48 @@ const Propiedades = () => {
       <Card>
         <CardHeader>
           <CardTitle>Lista de Propiedades</CardTitle>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por número de propiedad, propietario, vista o tipo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por número de propiedad, propietario, vista o tipo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Select value={modeloFilter} onValueChange={setModeloFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por modelo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los modelos</SelectItem>
+                    {modelos?.map((modelo) => (
+                      <SelectItem key={modelo.id} value={modelo.nombre}>
+                        {modelo.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Select value={disponibilidadFilter} onValueChange={setDisponibilidadFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por disponibilidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas las disponibilidades</SelectItem>
+                    {estatusDisponibilidad?.map((estatus) => (
+                      <SelectItem key={estatus.id} value={estatus.nombre}>
+                        {estatus.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
