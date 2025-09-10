@@ -50,7 +50,7 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
         .from('beneficiarios')
         .select(`
           *,
-          parentesco:parentescos(nombre)
+          parentesco:parentescos!id_parentesco(nombre)
         `)
         .eq('id_persona', personaId)
         .eq('activo', true)
