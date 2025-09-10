@@ -11,6 +11,9 @@ import Modelos from "./pages/admin/Modelos";
 import Pagos from "./pages/admin/Pagos";
 import Usuarios from "./pages/admin/Usuarios";
 import NuevoUsuario from "./pages/admin/NuevoUsuario";
+import EntidadesLegales from "./pages/admin/EntidadesLegales";
+import Clientes from "./pages/admin/Clientes";
+import RepresentantesLegales from "./pages/admin/RepresentantesLegales";
 import ComingSoon from "./pages/admin/ComingSoon";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -34,9 +37,9 @@ const App = () => (
             <Route path="propiedades" element={<Propiedades />} />
             <Route path="usuarios" element={<Usuarios />} />
             <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
-            <Route path="compradores" element={<ComingSoon title="Compradores" />} />
-            <Route path="beneficiarios" element={<ComingSoon title="Beneficiarios" />} />
-            <Route path="comisionistas" element={<ComingSoon title="Comisionistas" />} />
+            <Route path="entidades-legales" element={<EntidadesLegales />} />
+            <Route path="clientes" element={<Clientes />} />
+            <Route path="representantes-legales" element={<RepresentantesLegales />} />
             <Route path="productos" element={<ComingSoon title="Productos" />} />
             <Route path="categorias" element={<ComingSoon title="Categorías de Producto" />} />
             <Route path="amenidades" element={<ComingSoon title="Amenidades" />} />

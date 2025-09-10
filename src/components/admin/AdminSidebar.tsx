@@ -34,7 +34,7 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Entidades",
+    title: "Inmobiliario",
     icon: Building2,
     children: [
       { title: "Proyectos", href: "/admin/proyectos", icon: Building2 },
@@ -43,13 +43,12 @@ const navigationItems = [
     ]
   },
   {
-    title: "Personas",
+    title: "Entidades",
     icon: Users,
     children: [
-      { title: "Usuarios", href: "/admin/usuarios", icon: User },
-      { title: "Compradores", href: "/admin/compradores", icon: Users },
-      { title: "Beneficiarios", href: "/admin/beneficiarios", icon: User },
-      { title: "Comisionistas", href: "/admin/comisionistas", icon: Briefcase },
+      { title: "Entidades Legales", href: "/admin/entidades-legales", icon: Building2 },
+      { title: "Clientes", href: "/admin/clientes", icon: Users },
+      { title: "Representantes Legales", href: "/admin/representantes-legales", icon: User },
     ]
   },
   {
@@ -80,7 +79,7 @@ const navigationItems = [
 
 export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(["Entidades"]) // Start with Entidades expanded by default
+    new Set(["Inmobiliario"]) // Start with Inmobiliario expanded by default
   );
 
   const toggleGroup = (groupTitle: string) => {

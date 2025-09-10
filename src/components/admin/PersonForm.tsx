@@ -3,20 +3,27 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PersonFormProps {
-  onSubmit: (data: { nombre: string; curp: string; url_documento_identificacion?: string }) => void;
-  initialData?: { nombre: string; curp: string; url_documento_identificacion?: string };
+  onSubmit: (data: any) => void;
+  initialData?: any;
   isLoading?: boolean;
   onCancel: () => void;
+  entityType?: 'legal' | 'client' | 'representative' | 'user';
 }
 
-export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: PersonFormProps) {
-  const [nombre, setNombre] = useState(initialData?.nombre || '');
+export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityType = 'user' }: PersonFormProps) {
+  const [nombre, setNombre] = useState(initialData?.nombre || initialData?.nombre_legal || '');
   const [curp, setCurp] = useState(initialData?.curp || '');
+  const [email, setEmail] = useState(initialData?.email || '');
+  const [telefono, setTelefono] = useState(initialData?.telefono || '');
+  const [rfc, setRfc] = useState(initialData?.rfc || '');
+  const [nombreComercial, setNombreComercial] = useState(initialData?.nombre_comercial || '');
+  const [tipoPersona, setTipoPersona] = useState(initialData?.tipo_persona || (entityType === 'legal' ? 'pm' : 'pf'));
   const [documentImageUrl, setDocumentImageUrl] = useState(initialData?.url_documento_identificacion || '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isApiProcessing, setIsApiProcessing] = useState(false);
@@ -311,108 +318,222 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel }: Perso
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!nombre.trim() || !curp.trim()) {
+    // Validate based on entity type
+    const isLegalEntity = entityType === 'legal';
+    const isClient = entityType === 'client';
+    const isRepresentative = entityType === 'representative';
+    
+    if (!nombre.trim() || !email.trim()) {
       toast({
         title: "Error",
-        description: "Por favor completa todos los campos requeridos.",
+        description: "Por favor completa todos los campos requeridos (nombre y email).",
         variant: "destructive",
       });
       return;
     }
     
-    onSubmit({
-      nombre: nombre.trim(),
-      curp: curp.trim(),
-      url_documento_identificacion: documentImageUrl || undefined,
-    });
+    if (!isLegalEntity && !curp.trim()) {
+      toast({
+        title: "Error",
+        description: "La CURP es requerida para personas físicas.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const formData: any = {
+      nombre_legal: nombre.trim(),
+      email: email.trim(),
+      telefono: telefono.trim() || null,
+      tipo_persona: tipoPersona,
+      activo: true,
+    };
+    
+    // Add specific fields based on entity type
+    if (isLegalEntity) {
+      formData.nombre_comercial = nombreComercial.trim() || null;
+      formData.rfc = rfc.trim() || null;
+    } else {
+      formData.curp = curp.trim();
+    }
+    
+    // For backwards compatibility with user form
+    if (entityType === 'user') {
+      onSubmit({
+        nombre: nombre.trim(),
+        curp: curp.trim(),
+        url_documento_identificacion: documentImageUrl || undefined,
+      });
+    } else {
+      onSubmit(formData);
+    }
   };
+
+  const getTitle = () => {
+    switch (entityType) {
+      case 'legal': return 'Entidad Legal';
+      case 'client': return 'Cliente';
+      case 'representative': return 'Representante Legal';
+      default: return 'Usuario';
+    }
+  };
+
+  const isLegalEntity = entityType === 'legal';
+  const isUser = entityType === 'user';
 
   return (
     <Card className="p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="nombre">Nombre *</Label>
+            <Label htmlFor="nombre">
+              {isLegalEntity ? 'Razón Social *' : 'Nombre Completo *'}
+            </Label>
             <Input
               id="nombre"
               type="text"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              placeholder="Ingresa el nombre completo"
-              readOnly
-              className="bg-muted"
+              placeholder={isLegalEntity ? "Ingresa la razón social" : "Ingresa el nombre completo"}
+              readOnly={isUser}
+              className={isUser ? "bg-muted" : ""}
             />
           </div>
-          
+
+          {isLegalEntity && (
+            <div>
+              <Label htmlFor="nombreComercial">Nombre Comercial</Label>
+              <Input
+                id="nombreComercial"
+                type="text"
+                value={nombreComercial}
+                onChange={(e) => setNombreComercial(e.target.value)}
+                placeholder="Ingresa el nombre comercial (opcional)"
+              />
+            </div>
+          )}
+
           <div>
-            <Label htmlFor="curp">CURP *</Label>
+            <Label htmlFor="email">Email *</Label>
             <Input
-              id="curp"
-              type="text"
-              value={curp}
-              onChange={(e) => setCurp(e.target.value)}
-              placeholder="Ingresa la CURP"
-              readOnly
-              className="bg-muted"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Ingresa el email"
             />
           </div>
-          
+
           <div>
-            <Label>Documento de Identificación</Label>
-        <div className="flex gap-2 mt-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleCameraCapture}
-            disabled={isProcessing || isApiProcessing}
-            className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-blue-500 hover:border-blue-600 shadow-lg transition-all duration-300 hover:scale-105 font-semibold"
-          >
-            <Camera className="w-4 h-4 mr-2" />
-            {isProcessing ? 'Procesando...' : 'Tomar Foto'}
-          </Button>
-          
-          <Label htmlFor="file-upload" className="flex-1">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isProcessing || isApiProcessing}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-500 hover:border-green-600 shadow-lg transition-all duration-300 hover:scale-105 font-semibold"
-              asChild
-            >
-              <span>
-                <Upload className="w-4 h-4 mr-2" />
-                Subir Archivo
-              </span>
-            </Button>
-            <input
-              id="file-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-              disabled={isProcessing || isApiProcessing}
+            <Label htmlFor="telefono">Teléfono</Label>
+            <Input
+              id="telefono"
+              type="tel"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              placeholder="Ingresa el teléfono"
             />
-          </Label>
-        </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Toma una foto o sube una imagen del documento de identificación para extraer automáticamente los datos.
-            </p>
-            {isApiProcessing && (
-              <div className="mt-3 flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-sm text-primary">Procesando documento...</span>
-              </div>
-            )}
-            {documentImageUrl && !isApiProcessing && (
-              <div className="mt-3">
-                <img 
-                  src={documentImageUrl} 
-                  alt="Documento de identificación" 
-                  className="w-24 h-16 object-cover rounded border"
+          </div>
+
+          {!isUser && !isLegalEntity && (
+            <div>
+              <Label htmlFor="curp">CURP *</Label>
+              <Input
+                id="curp"
+                type="text"
+                value={curp}
+                onChange={(e) => setCurp(e.target.value)}
+                placeholder="Ingresa la CURP"
+              />
+            </div>
+          )}
+
+          {isLegalEntity && (
+            <div>
+              <Label htmlFor="rfc">RFC</Label>
+              <Input
+                id="rfc"
+                type="text"
+                value={rfc}
+                onChange={(e) => setRfc(e.target.value)}
+                placeholder="Ingresa el RFC"
+              />
+            </div>
+          )}
+          
+          {isUser && (
+            <>
+              <div>
+                <Label htmlFor="curp">CURP *</Label>
+                <Input
+                  id="curp"
+                  type="text"
+                  value={curp}
+                  onChange={(e) => setCurp(e.target.value)}
+                  placeholder="Ingresa la CURP"
+                  readOnly
+                  className="bg-muted"
                 />
               </div>
-            )}
-          </div>
+              
+              <div>
+                <Label>Documento de Identificación</Label>
+            <div className="flex gap-2 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCameraCapture}
+                disabled={isProcessing || isApiProcessing}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-blue-500 hover:border-blue-600 shadow-lg transition-all duration-300 hover:scale-105 font-semibold"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                {isProcessing ? 'Procesando...' : 'Tomar Foto'}
+              </Button>
+              
+              <Label htmlFor="file-upload" className="flex-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isProcessing || isApiProcessing}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white border-green-500 hover:border-green-600 shadow-lg transition-all duration-300 hover:scale-105 font-semibold"
+                  asChild
+                >
+                  <span>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Subir Archivo
+                  </span>
+                </Button>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isProcessing || isApiProcessing}
+                />
+              </Label>
+            </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Toma una foto o sube una imagen del documento de identificación para extraer automáticamente los datos.
+                </p>
+                {isApiProcessing && (
+                  <div className="mt-3 flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    <span className="text-sm text-primary">Procesando documento...</span>
+                  </div>
+                )}
+                {documentImageUrl && !isApiProcessing && (
+                  <div className="mt-3">
+                    <img 
+                      src={documentImageUrl} 
+                      alt="Documento de identificación" 
+                      className="w-24 h-16 object-cover rounded border"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
         
         <div className="flex gap-2 pt-4">
