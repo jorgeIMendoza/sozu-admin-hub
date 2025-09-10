@@ -335,6 +335,29 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
             <TabsContent value="basic" className="space-y-4 mt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+                  <Label htmlFor="tipoPersona">Tipo de Persona *</Label>
+                  {entityType === 'legal' ? (
+                    <Input
+                      id="tipoPersona"
+                      type="text"
+                      value="Persona Moral"
+                      disabled
+                      className="bg-muted"
+                    />
+                  ) : (
+                    <Select value={tipoPersona} onValueChange={setTipoPersona}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pf">Persona Física</SelectItem>
+                        <SelectItem value="pm">Persona Moral</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div>
                   <Label htmlFor="nombre">
                     {tipoPersona === 'pm' ? 'Razón Social *' : 'Nombre Completo *'}
                   </Label>
@@ -395,29 +418,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       className="flex-1"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="tipoPersona">Tipo de Persona *</Label>
-                  {entityType === 'legal' ? (
-                    <Input
-                      id="tipoPersona"
-                      type="text"
-                      value="Persona Moral"
-                      disabled
-                      className="bg-muted"
-                    />
-                  ) : (
-                    <Select value={tipoPersona} onValueChange={setTipoPersona}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pf">Persona Física</SelectItem>
-                        <SelectItem value="pm">Persona Moral</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
                 </div>
 
                 {tipoPersona === 'pf' && (
