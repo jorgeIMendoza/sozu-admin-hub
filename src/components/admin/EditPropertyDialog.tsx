@@ -195,6 +195,37 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     enabled: !!propertyProject?.nombre
   });
 
+  // Helper function to get CLABE STP using COALESCE logic
+  const fetchClabeStpForProperty = async (propertyId: number): Promise<string> => {
+    try {
+      // Execute the query to get CLABE STP with COALESCE logic
+      const { data, error } = await supabase
+        .from('propiedades')
+        .select(`
+          clabe_stp_tmp_apartado,
+          ofertas (
+            cuentas_cobranza (
+              clabe_stp
+            )
+          )
+        `)
+        .eq('id', propertyId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching CLABE STP:', error);
+        return '';
+      }
+
+      // Apply COALESCE logic: use clabe_stp_tmp_apartado if exists, otherwise use clabe_stp from cuentas_cobranza
+      return data?.clabe_stp_tmp_apartado || 
+        data?.ofertas?.[0]?.cuentas_cobranza?.[0]?.clabe_stp || '';
+    } catch (error) {
+      console.error('Error in fetchClabeStpForProperty:', error);
+      return '';
+    }
+  };
+
   // Fetch current property details to populate form
   useEffect(() => {
     const fetchPropertyDetails = async () => {
@@ -209,6 +240,9 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         return;
       }
 
+      // Get CLABE STP using the COALESCE logic
+      const clabeStpFinal = await fetchClabeStpForProperty(property.id);
+
       setFormData({
         numero_propiedad: data.numero_propiedad,
         numero_piso: data.numero_piso || 0,
@@ -216,7 +250,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         m2_escriturables: data.m2_escriturables || 0,
         precio_lista: data.precio_lista,
         monto_apartado: data.monto_apartado || 0,
-        clabe_stp_tmp_apartado: data.clabe_stp_tmp_apartado || '',
+        clabe_stp_tmp_apartado: clabeStpFinal,
         id_vista: data.id_vista?.toString() || '',
         id_tipo_transaccion: data.id_tipo_transaccion?.toString() || '',
         id_tipo_propiedad: data.id_tipo_propiedad?.toString() || '',
@@ -328,10 +362,17 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
               <Label htmlFor="precio_lista">Precio Lista</Label>
               <Input
                 id="precio_lista"
-                type="number"
-                step="0.01"
-                value={formData.precio_lista}
-                onChange={(e) => setFormData(prev => ({ ...prev, precio_lista: parseFloat(e.target.value) || 0 }))}
+                type="text"
+                value={new Intl.NumberFormat('es-MX', { 
+                  style: 'currency', 
+                  currency: 'MXN',
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2 
+                }).format(formData.precio_lista)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  setFormData(prev => ({ ...prev, precio_lista: parseFloat(value) || 0 }));
+                }}
                 required
               />
             </div>
@@ -340,10 +381,17 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
               <Label htmlFor="monto_apartado">Monto Apartado</Label>
               <Input
                 id="monto_apartado"
-                type="number"
-                step="0.01"
-                value={formData.monto_apartado}
-                onChange={(e) => setFormData(prev => ({ ...prev, monto_apartado: parseFloat(e.target.value) || 0 }))}
+                type="text"
+                value={new Intl.NumberFormat('es-MX', { 
+                  style: 'currency', 
+                  currency: 'MXN',
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2 
+                }).format(formData.monto_apartado)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  setFormData(prev => ({ ...prev, monto_apartado: parseFloat(value) || 0 }));
+                }}
               />
             </div>
 
