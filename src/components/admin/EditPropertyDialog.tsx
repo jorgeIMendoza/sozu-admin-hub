@@ -139,7 +139,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
             id,
             nombre
           ),
-          personas!id_persona (
+          personas!fk_entrel_persona (
             id,
             nombre_legal
           ),
@@ -149,8 +149,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           )
         `)
         .lte('id_tipo_entidad', 2)
-        .eq('activo', true)
-        .order('personas(nombre_legal)');
+        .eq('activo', true);
       
       if (error) throw error;
       return data || [];
@@ -177,7 +176,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
               nombre
             )
           ),
-          modelos!id_modelo (
+          modelos!edificios_modelos_id_modelo_fkey (
             id,
             nombre
           )
