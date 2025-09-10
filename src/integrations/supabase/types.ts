@@ -1656,29 +1656,29 @@ export type Database = {
           id_esquema_pago_seleccionado: number | null
           id_persona_lead: number
           id_producto: number | null
-          id_propiedad: number | null
+          id_propiedad: number
         }
         Insert: {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_generacion?: string
-          id?: never
+          id?: number
           id_esquema_pago_seleccionado?: number | null
           id_persona_lead: number
           id_producto?: number | null
-          id_propiedad?: number | null
+          id_propiedad: number
         }
         Update: {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_generacion?: string
-          id?: never
+          id?: number
           id_esquema_pago_seleccionado?: number | null
           id_persona_lead?: number
           id_producto?: number | null
-          id_propiedad?: number | null
+          id_propiedad?: number
         }
         Relationships: [
           {

@@ -20,7 +20,7 @@ interface Property {
   numero_piso: number;
   m2_reales: number;
   precio_lista: number;
-  clabe_stp: string;
+  clabe_stp: string | null;
   vista: string;
   transaccion: string;
   tipo_propiedad: string;
@@ -245,6 +245,7 @@ const Propiedades = () => {
                         <TableHead>Piso</TableHead>
                         <TableHead>M² Reales</TableHead>
                         <TableHead>Precio Lista</TableHead>
+                        <TableHead>Cuenta Clabe</TableHead>
                         <TableHead>Vista</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Modelo</TableHead>
@@ -255,7 +256,7 @@ const Propiedades = () => {
                     <TableBody>
                       {filteredProperties.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={10} className="text-center py-6">
+                          <TableCell colSpan={11} className="text-center py-6">
                             {searchTerm ? "No se encontraron resultados." : "No hay propiedades activas."}
                           </TableCell>
                         </TableRow>
@@ -267,6 +268,7 @@ const Propiedades = () => {
                             <TableCell>{property.numero_piso}</TableCell>
                             <TableCell>{property.m2_reales} m²</TableCell>
                             <TableCell>{formatCurrency(property.precio_lista)}</TableCell>
+                            <TableCell>{property.clabe_stp || 'N/A'}</TableCell>
                             <TableCell>{property.vista}</TableCell>
                             <TableCell>
                               <Badge variant="outline">{property.tipo_propiedad}</Badge>
@@ -315,6 +317,7 @@ const Propiedades = () => {
                       <TableHead>Piso</TableHead>
                       <TableHead>M² Reales</TableHead>
                       <TableHead>Precio Lista</TableHead>
+                      <TableHead>Cuenta Clabe</TableHead>
                       <TableHead>Vista</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Modelo</TableHead>
@@ -325,7 +328,7 @@ const Propiedades = () => {
                   <TableBody>
                     {filteredProperties.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-6">
+                        <TableCell colSpan={11} className="text-center py-6">
                           {searchTerm ? "No se encontraron resultados." : "No hay propiedades eliminadas."}
                         </TableCell>
                       </TableRow>
@@ -337,6 +340,7 @@ const Propiedades = () => {
                           <TableCell>{property.numero_piso}</TableCell>
                           <TableCell>{property.m2_reales} m²</TableCell>
                           <TableCell>{formatCurrency(property.precio_lista)}</TableCell>
+                          <TableCell>{property.clabe_stp || 'N/A'}</TableCell>
                           <TableCell>{property.vista}</TableCell>
                           <TableCell>
                             <Badge variant="outline">{property.tipo_propiedad}</Badge>
