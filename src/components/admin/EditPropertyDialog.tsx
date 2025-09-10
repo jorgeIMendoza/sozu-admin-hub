@@ -195,68 +195,52 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     enabled: !!propertyProject?.nombre
   });
 
-  // Helper function to get CLABE STP using COALESCE logic
-  const fetchClabeStpForProperty = async (propertyId: number): Promise<string> => {
-    try {
-      // Execute the query to get CLABE STP with COALESCE logic
-      const { data, error } = await supabase
-        .from('propiedades')
-        .select(`
-          clabe_stp_tmp_apartado,
-          ofertas (
-            cuentas_cobranza (
-              clabe_stp
-            )
-          )
-        `)
-        .eq('id', propertyId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching CLABE STP:', error);
-        return '';
-      }
-
-      // Apply COALESCE logic: use clabe_stp_tmp_apartado if exists, otherwise use clabe_stp from cuentas_cobranza
-      return data?.clabe_stp_tmp_apartado || 
-        data?.ofertas?.[0]?.cuentas_cobranza?.[0]?.clabe_stp || '';
-    } catch (error) {
-      console.error('Error in fetchClabeStpForProperty:', error);
-      return '';
-    }
-  };
-
-  // Fetch current property details to populate form
+  // Fetch current property details using the same function as the listing
   useEffect(() => {
     const fetchPropertyDetails = async () => {
-      const { data, error } = await supabase
+      // Use the same function as the properties listing to get CLABE STP
+      const { data: propertiesData, error: propertiesError } = await supabase
+        .rpc('get_properties_with_details');
+      
+      if (propertiesError) {
+        console.error('Error fetching properties with details:', propertiesError);
+        return;
+      }
+
+      // Find the current property in the results
+      const currentProperty = propertiesData?.find((p: any) => p.id === property.id);
+      
+      if (!currentProperty) {
+        console.error('Property not found in get_properties_with_details');
+        return;
+      }
+
+      // Also get the full property data for form fields not in the function
+      const { data: fullPropertyData, error: fullPropertyError } = await supabase
         .from('propiedades')
         .select('*')
         .eq('id', property.id)
         .single();
       
-      if (error) {
-        console.error('Error fetching property details:', error);
+      if (fullPropertyError) {
+        console.error('Error fetching full property details:', fullPropertyError);
         return;
       }
 
-      // Get CLABE STP using the COALESCE logic
-      const clabeStpFinal = await fetchClabeStpForProperty(property.id);
-
       setFormData({
-        numero_propiedad: data.numero_propiedad,
-        numero_piso: data.numero_piso || 0,
-        m2_reales: data.m2_reales || 0,
-        m2_escriturables: data.m2_escriturables || 0,
-        precio_lista: data.precio_lista,
-        monto_apartado: data.monto_apartado || 0,
-        clabe_stp_tmp_apartado: clabeStpFinal,
-        id_vista: data.id_vista?.toString() || '',
-        id_tipo_transaccion: data.id_tipo_transaccion?.toString() || '',
-        id_tipo_propiedad: data.id_tipo_propiedad?.toString() || '',
-        id_estatus_disponibilidad: data.id_estatus_disponibilidad?.toString() || '',
-        id_entidad_relacionada_dueno: data.id_entidad_relacionada_dueno?.toString() || '',
-        id_edificio_modelo: data.id_edificio_modelo?.toString() || ''
+        numero_propiedad: fullPropertyData.numero_propiedad,
+        numero_piso: fullPropertyData.numero_piso || 0,
+        m2_reales: fullPropertyData.m2_reales || 0,
+        m2_escriturables: fullPropertyData.m2_escriturables || 0,
+        precio_lista: fullPropertyData.precio_lista,
+        monto_apartado: fullPropertyData.monto_apartado || 0,
+        clabe_stp_tmp_apartado: currentProperty.clabe_stp || '', // This comes from the function with COALESCE logic
+        id_vista: fullPropertyData.id_vista?.toString() || '',
+        id_tipo_transaccion: fullPropertyData.id_tipo_transaccion?.toString() || '',
+        id_tipo_propiedad: fullPropertyData.id_tipo_propiedad?.toString() || '',
+        id_estatus_disponibilidad: fullPropertyData.id_estatus_disponibilidad?.toString() || '',
+        id_entidad_relacionada_dueno: fullPropertyData.id_entidad_relacionada_dueno?.toString() || '',
+        id_edificio_modelo: fullPropertyData.id_edificio_modelo?.toString() || ''
       });
     };
 
