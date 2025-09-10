@@ -352,7 +352,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
               <Input
                 id="clabe_stp"
                 value={formData.clabe_stp_tmp_apartado}
-                onChange={(e) => setFormData(prev => ({ ...prev, clabe_stp_tmp_apartado: e.target.value }))}
+                readOnly
               />
             </div>
 
