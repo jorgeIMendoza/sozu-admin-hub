@@ -174,18 +174,26 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     queryFn: async () => {
       console.log('Fetching regimenes for tipoPersona:', tipoPersona, 'entityType:', entityType);
       
-      // Fix: Ensure we have a valid tipoPersona value
       if (!tipoPersona || (tipoPersona !== 'pm' && tipoPersona !== 'pf')) {
         console.log('Invalid tipoPersona:', tipoPersona);
         return [];
       }
       
-      const { data, error } = await supabase
+      // Use the exact query structure provided by user
+      const query = supabase
         .from('regimen')
         .select('id, nombre')
         .eq('activo', true)
-        .eq('tipo', tipoPersona)
         .order('nombre');
+      
+      // Apply tipo filter based on person type
+      if (tipoPersona === 'pm') {
+        query.in('tipo', ['pm']);
+      } else if (tipoPersona === 'pf') {
+        query.in('tipo', ['pf']);
+      }
+      
+      const { data, error } = await query;
       
       if (error) {
         console.error('Error fetching regimenes:', error);
@@ -200,12 +208,12 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const { data: usosCfdi = [] } = useQuery({
     queryKey: ['uso_cfdi', tipoPersona, entityType],
     queryFn: async () => {
-      // Fix: Ensure we have a valid tipoPersona value
       if (!tipoPersona || (tipoPersona !== 'pm' && tipoPersona !== 'pf')) {
         console.log('Invalid tipoPersona for uso_cfdi:', tipoPersona);
         return [];
       }
       
+      // Use the exact query structure provided by user
       const filterTypes = tipoPersona === 'pm' ? ['pm', 'a'] : ['pf', 'a'];
       console.log('Fetching uso_cfdi for tipoPersona:', tipoPersona, 'filterTypes:', filterTypes, 'entityType:', entityType);
       
