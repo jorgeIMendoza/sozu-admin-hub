@@ -9,12 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Edit } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { BuildingManagement } from "./BuildingManagement";
 import { PaymentSchemeManagement } from "./PaymentSchemeManagement";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
@@ -29,9 +30,10 @@ const formSchema = z.object({
 interface EditProjectDialogProps {
   projectId: number;
   onProjectUpdated: () => void;
+  onProjectDeleted?: () => void;
 }
 
-export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDialogProps) => {
+export const EditProjectDialog = ({ projectId, onProjectUpdated, onProjectDeleted }: EditProjectDialogProps) => {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
@@ -168,6 +170,60 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
       });
     }
   };
+
+  const handleDeleteProject = async () => {
+    try {
+      const { error } = await supabase
+        .from("proyectos")
+        .update({ activo: false })
+        .eq("id", projectId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Proyecto eliminado",
+        description: "El proyecto se ha eliminado exitosamente.",
+      });
+
+      setOpen(false);
+      onProjectDeleted?.();
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al eliminar el proyecto.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const DeleteProjectDialog = () => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+          <Trash2 className="h-4 w-4 mr-1" />
+          Eliminar
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Eliminar proyecto?</AlertDialogTitle>
+          <AlertDialogDescription>
+            ¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteProject}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            Eliminar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -341,11 +397,14 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
                 )}
               />
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit">Actualizar Proyecto</Button>
+              <div className="flex justify-between">
+                <DeleteProjectDialog />
+                <div className="flex space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">Actualizar Proyecto</Button>
+                </div>
               </div>
             </form>
           </Form>

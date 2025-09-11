@@ -57,6 +57,12 @@ export const NewModeloDialog = ({ onModeloAdded }: NewModeloDialogProps) => {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // Check if form is valid before proceeding
+    const isValid = await form.trigger();
+    if (!isValid) {
+      return; // Don't close modal or show success message
+    }
+
     try {
       const modeloData = {
         nombre: values.nombre,

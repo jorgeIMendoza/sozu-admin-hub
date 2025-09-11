@@ -355,12 +355,14 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
               )}
             />
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit">Crear Proyecto</Button>
-              </div>
+            {/* Note: Payment schemes are managed after project creation via Edit Project */}
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Crear Proyecto</Button>
+            </div>
             </form>
           </Form>
       </DialogContent>

@@ -1,7 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MapPin, DollarSign, Building, Home, Calendar, Trash2 } from "lucide-react";
+import { MapPin, DollarSign, Building, Home, Calendar } from "lucide-react";
 import { EditProjectDialog } from "./EditProjectDialog";
 
 interface ProjectCardProps {
@@ -16,6 +15,7 @@ interface ProjectCardProps {
   fecha_inicio?: string;
   descripcion?: string;
   onProjectUpdated?: () => void;
+  onProjectDeleted?: () => void;
 }
 
 export const ProjectCard = ({ 
@@ -29,7 +29,8 @@ export const ProjectCard = ({
   numero_amenidades = 0,
   fecha_inicio,
   descripcion,
-  onProjectUpdated
+  onProjectUpdated,
+  onProjectDeleted
 }: ProjectCardProps) => {
   const formatPrice = (price?: number) => {
     if (!price) return "N/A";
@@ -102,11 +103,8 @@ export const ProjectCard = ({
               <EditProjectDialog 
                 projectId={id} 
                 onProjectUpdated={onProjectUpdated || (() => {})}
+                onProjectDeleted={onProjectDeleted || (() => {})}
               />
-              <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                <Trash2 className="h-4 w-4 mr-1" />
-                Eliminar
-              </Button>
             </div>
           </div>
         </div>

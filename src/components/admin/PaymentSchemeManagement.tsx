@@ -153,13 +153,6 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
                 </p>
               )}
             </div>
-            <div className="flex justify-end space-x-2 pt-4 border-t">
-              <EditPaymentSchemeDialog 
-                scheme={scheme} 
-                onSchemeUpdated={handleSchemeAdded} 
-              />
-              <DeletePaymentSchemeDialog scheme={scheme} />
-            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -209,9 +202,18 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
                         <CreditCard className="h-4 w-4" />
                         <span>{scheme.nombre}</span>
                       </div>
-                      <PaymentSchemeDetailsDialog scheme={scheme} />
                     </CardTitle>
                   </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex space-x-2">
+                      <PaymentSchemeDetailsDialog scheme={scheme} />
+                      <EditPaymentSchemeDialog 
+                        scheme={scheme} 
+                        onSchemeUpdated={handleSchemeAdded} 
+                      />
+                      <DeletePaymentSchemeDialog scheme={scheme} />
+                    </div>
+                  </CardContent>
                 </Card>
               );
             })}
