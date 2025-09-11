@@ -273,9 +273,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         .from('entidades_relacionadas')
         .select(`
           id,
-          personas!inner (
+          personas!entidades_relacionadas_id_persona_fkey!inner (
             id,
-            nombre_legal
+            nombre_legal,
+            activo
           )
         `)
         .eq('personas.activo', true)
