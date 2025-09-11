@@ -186,6 +186,27 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
       return;
     }
 
+    // Validar que el total no exceda 100%
+    const currentTotal = beneficiarios.reduce((sum, b) => {
+      // Si estamos editando, no contar el porcentaje actual del beneficiario editado
+      if (editingBeneficiario && b.id === editingBeneficiario.id) {
+        return sum;
+      }
+      return sum + parseFloat(b.porcentaje_participacion.toString());
+    }, 0);
+
+    const newTotal = currentTotal + porcentaje;
+    
+    if (newTotal > 100) {
+      const disponible = 100 - currentTotal;
+      toast({
+        title: "Error",
+        description: `El porcentaje excede el 100%. Máximo disponible: ${disponible.toFixed(2)}%`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const beneficiarioData = {
       id_persona: personaId,
       nombre_beneficiario: nombreBeneficiario.trim(),
