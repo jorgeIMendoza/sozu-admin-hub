@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, DollarSign, Building, Home, Calendar, Trash2 } from "lucide-react";
+import { MapPin, DollarSign, Building, Home, Calendar, Trash2, RotateCcw } from "lucide-react";
 import { EditProjectDialog } from "./EditProjectDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +73,31 @@ export const ProjectCard = ({
     }
   };
 
+  const handleRestoreProject = async () => {
+    try {
+      const { error } = await supabase
+        .from("proyectos")
+        .update({ activo: true })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Proyecto restaurado",
+        description: "El proyecto se ha restaurado exitosamente.",
+      });
+
+      onProjectUpdated?.();
+    } catch (error) {
+      console.error("Error restoring project:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al restaurar el proyecto.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const hasBuildings = numero_edificios > 0;
 
   return (
@@ -133,42 +158,56 @@ export const ProjectCard = ({
 
           <div className="flex items-center justify-between pt-2 border-t border-border">
             <div className="flex space-x-2">
-              <EditProjectDialog 
-                projectId={id} 
-                onProjectUpdated={onProjectUpdated || (() => {})}
-              />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    disabled={hasBuildings}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Eliminar
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar proyecto?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      ¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDeleteProject}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      Eliminar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {activo ? (
+                <>
+                  <EditProjectDialog 
+                    projectId={id} 
+                    onProjectUpdated={onProjectUpdated || (() => {})}
+                  />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={hasBuildings}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Eliminar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar proyecto?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          ¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteProject}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  onClick={handleRestoreProject}
+                >
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  Restaurar
+                </Button>
+              )}
             </div>
-            {hasBuildings && (
+            {activo && hasBuildings && (
               <p className="text-xs text-muted-foreground">
                 No se puede eliminar: contiene {numero_edificios} edificio{numero_edificios !== 1 ? 's' : ''}
               </p>
