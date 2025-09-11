@@ -14,8 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { BuildingFormSection, Building } from "./BuildingFormSection";
+import { PaymentSchemeFormSection, PaymentScheme } from "./PaymentSchemeFormSection";
 import { PaymentSchemeManagement } from "./PaymentSchemeManagement";
-import { NewPaymentSchemeDialog } from "./NewPaymentSchemeDialog";
 
 const BuildingSchema = z.object({
   id: z.string(),
@@ -23,6 +23,16 @@ const BuildingSchema = z.object({
   numero_pisos: z.string(),
   fecha_lanzamiento: z.string(),
   modelos: z.array(z.string()),
+});
+
+const PaymentSchemeSchema = z.object({
+  id: z.string(),
+  nombre: z.string().min(1, "El nombre es requerido"),
+  porcentaje_enganche: z.string().min(1, "El porcentaje de enganche es requerido"),
+  porcentaje_mensualidades: z.string().min(1, "El porcentaje de mensualidades es requerido"),
+  porcentaje_entrega: z.string().min(1, "El porcentaje de entrega es requerido"),
+  numero_mensualidades: z.string().min(1, "El número de mensualidades es requerido"),
+  porcentaje_descuento_aumento: z.string().default("0")
 });
 
 const formSchema = z.object({
@@ -34,6 +44,7 @@ const formSchema = z.object({
   fecha_inicio: z.string().optional(),
   amenidades: z.array(z.string()).default([]),
   edificios: z.array(BuildingSchema).default([]),
+  esquemas_pago: z.array(PaymentSchemeSchema).default([])
 });
 
 interface NewProjectDialogProps {
@@ -43,6 +54,8 @@ interface NewProjectDialogProps {
 export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
   const [open, setOpen] = useState(false);
   const [createdProjectId, setCreatedProjectId] = useState<number | null>(null);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [paymentSchemes, setPaymentSchemes] = useState<PaymentScheme[]>([]);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -56,8 +69,13 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
       fecha_inicio: "",
       amenidades: [],
       edificios: [],
+      esquemas_pago: []
     },
   });
+
+  // Update form with buildings and payment schemes state
+  form.setValue('edificios', buildings);
+  form.setValue('esquemas_pago', paymentSchemes);
 
   const { data: tiposUso } = useQuery({
     queryKey: ["tipos-uso"],
@@ -156,6 +174,38 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         }
       }
 
+      // Create payment schemes for the project
+      if (values.esquemas_pago && values.esquemas_pago.length > 0) {
+        for (const scheme of values.esquemas_pago) {
+          if (scheme.nombre && scheme.porcentaje_enganche && scheme.porcentaje_mensualidades && scheme.porcentaje_entrega && scheme.numero_mensualidades) {
+            // Validate percentages sum to 100
+            const enganche = parseFloat(scheme.porcentaje_enganche);
+            const mensualidades = parseFloat(scheme.porcentaje_mensualidades);
+            const entrega = parseFloat(scheme.porcentaje_entrega);
+            const total = enganche + mensualidades + entrega;
+            
+            if (Math.abs(total - 100) >= 0.01) {
+              throw new Error(`El esquema "${scheme.nombre}" no suma 100%. Total: ${total}%`);
+            }
+
+            const { error: schemeError } = await supabase
+              .from("esquemas_pago")
+              .insert({
+                id_proyecto: newProject.id,
+                id_producto: null,
+                nombre: scheme.nombre,
+                porcentaje_enganche: enganche,
+                porcentaje_mensualidades: mensualidades,
+                porcentaje_entrega: entrega,
+                numero_mensualidades: parseInt(scheme.numero_mensualidades),
+                porcentaje_descuento_aumento: parseFloat(scheme.porcentaje_descuento_aumento || "0")
+              });
+
+            if (schemeError) throw schemeError;
+          }
+        }
+      }
+
       toast({
         title: "Proyecto creado",
         description: "El proyecto se ha creado exitosamente.",
@@ -185,6 +235,8 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
   const handleDialogClose = (isOpen: boolean) => {
     if (!isOpen) {
       form.reset();
+      setBuildings([]);
+      setPaymentSchemes([]);
       setCreatedProjectId(null);
       onProjectAdded();
     }
@@ -302,35 +354,22 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
               />
             </div>
 
-            {/* Building Management Section */}
-            <FormField
-              control={form.control}
-              name="edificios"
-              render={({ field }) => (
-                <FormItem>
-                  <BuildingFormSection
-                    buildings={field.value as Building[]}
-                    onBuildingsChange={field.onChange}
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
+            {/* Buildings Section */}
+            <BuildingFormSection 
+              buildings={buildings} 
+              onBuildingsChange={setBuildings} 
             />
 
-            {/* Payment Scheme Management Section */}
+            {/* Payment Schemes Section */}
             {createdProjectId ? (
               <div className="space-y-3">
                 <PaymentSchemeManagement projectId={createdProjectId} />
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="border rounded-lg p-4 bg-muted/50">
-                  <h4 className="text-sm font-medium mb-2">Esquemas de Pago</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Los esquemas de pago se podrán configurar después de crear el proyecto.
-                  </p>
-                </div>
-              </div>
+              <PaymentSchemeFormSection
+                paymentSchemes={paymentSchemes}
+                onPaymentSchemesChange={setPaymentSchemes}
+              />
             )}
 
             <FormField
