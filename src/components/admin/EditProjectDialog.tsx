@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { BuildingManagement } from "./BuildingManagement";
+import { PaymentSchemeManagement } from "./PaymentSchemeManagement";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
@@ -287,6 +288,11 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
               {/* Building Management Section */}
               <div className="space-y-3">
                 <BuildingManagement projectId={projectId} />
+              </div>
+
+              {/* Payment Scheme Management Section */}
+              <div className="space-y-3">
+                <PaymentSchemeManagement projectId={projectId} />
               </div>
 
               <FormField

@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Building2, Eye } from "lucide-react";
+import { Building2, Eye, Edit, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { NewBuildingDialog } from "./NewBuildingDialog";
+import { EditBuildingDialog } from "./EditBuildingDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface BuildingManagementProps {
   projectId: number;
@@ -14,6 +16,7 @@ interface BuildingManagementProps {
 
 export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
   const [refreshKey, setRefreshKey] = useState(0);
+  const { toast } = useToast();
 
   const { data: buildings, isLoading, refetch } = useQuery({
     queryKey: ["project-buildings-simple", projectId, refreshKey],
@@ -39,6 +42,35 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
   const handleBuildingAdded = () => {
     setRefreshKey(prev => prev + 1);
     refetch();
+  };
+
+  const handleDeleteBuilding = async (buildingId: number, buildingName: string) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar el edificio "${buildingName}"?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("edificios")
+        .update({ activo: false })
+        .eq("id", buildingId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Edificio eliminado",
+        description: "El edificio se ha eliminado exitosamente.",
+      });
+
+      handleBuildingAdded();
+    } catch (error) {
+      console.error("Error deleting building:", error);
+      toast({
+        title: "Error",
+        description: "Hubo un error al eliminar el edificio.",
+        variant: "destructive",
+      });
+    }
   };
 
   const BuildingModelsDialog = ({ buildingId, buildingName }: { buildingId: number, buildingName: string }) => {
@@ -172,10 +204,24 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                     <Building2 className="h-4 w-4" />
                     <span>{building.nombre}</span>
                   </div>
-                  <BuildingModelsDialog 
-                    buildingId={building.id} 
-                    buildingName={building.nombre} 
-                  />
+                  <div className="flex space-x-1">
+                    <BuildingModelsDialog 
+                      buildingId={building.id} 
+                      buildingName={building.nombre} 
+                    />
+                    <EditBuildingDialog 
+                      building={building} 
+                      onBuildingUpdated={handleBuildingAdded} 
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteBuilding(building.id, building.nombre)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
                <CardContent className="space-y-2">

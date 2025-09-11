@@ -34,7 +34,7 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Inmobiliario",
+    title: "Inventarios",
     icon: Building2,
     children: [
       { title: "Proyectos", href: "/admin/proyectos", icon: Building2 },
@@ -79,7 +79,7 @@ const navigationItems = [
 
 export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(["Inmobiliario"]) // Start with Inmobiliario expanded by default
+    new Set(["Inventarios"]) // Start with Inventarios expanded by default
   );
 
   const toggleGroup = (groupTitle: string) => {
