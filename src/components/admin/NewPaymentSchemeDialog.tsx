@@ -55,7 +55,7 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded }: NewPaymentS
         .from("esquemas_pago")
         .insert([{
           id_proyecto: projectId,
-          id_producto: 1, // Default product ID - you may need to adjust this
+          id_producto: null,
           nombre: values.nombre,
           porcentaje_enganche: parseFloat(values.porcentaje_enganche),
           porcentaje_mensualidades: parseFloat(values.porcentaje_mensualidades),
