@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,17 @@ type Beneficiario = {
   };
 };
 
+type TempBeneficiario = {
+  id: number | string; // puede ser temporal con string
+  id_persona: number;
+  id_parentesco: number;
+  porcentaje_participacion: number;
+  nombre_beneficiario: string;
+  activo: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
+};
+
 type Parentesco = {
   id: number;
   nombre: string;
@@ -34,10 +45,12 @@ interface BeneficiariosFormProps {
 
 export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFormProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingBeneficiario, setEditingBeneficiario] = useState<Beneficiario | null>(null);
+  const [editingBeneficiario, setEditingBeneficiario] = useState<TempBeneficiario | null>(null);
   const [nombreBeneficiario, setNombreBeneficiario] = useState("");
   const [idParentesco, setIdParentesco] = useState("");
   const [porcentajeParticipacion, setPorcentajeParticipacion] = useState("");
+  const [tempBeneficiarios, setTempBeneficiarios] = useState<TempBeneficiario[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -48,10 +61,7 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
     queryFn: async () => {
       const { data, error } = await supabase
         .from('beneficiarios')
-        .select(`
-          *,
-          parentesco:parentescos!id_parentesco(nombre)
-        `)
+        .select('*')
         .eq('id_persona', personaId)
         .eq('activo', true)
         .order('nombre_beneficiario');
@@ -60,6 +70,19 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
       return data || [];
     },
   });
+
+  // Initialize temp beneficiarios when data loads
+  useEffect(() => {
+    if (beneficiarios.length > 0 && tempBeneficiarios.length === 0) {
+      setTempBeneficiarios(
+        beneficiarios.map(b => ({
+          ...b,
+          isNew: false,
+          isModified: false
+        }))
+      );
+    }
+  }, [beneficiarios]);
 
   // Fetch parentescos
   const { data: parentescos = [] } = useQuery({
@@ -76,83 +99,67 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
     },
   });
 
-  // Create mutation
-  const createMutation = useMutation({
-    mutationFn: async (beneficiarioData: any) => {
-      const { error } = await supabase
-        .from('beneficiarios')
-        .insert([beneficiarioData]);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['beneficiarios', personaId] });
-      resetForm();
-      setIsDialogOpen(false);
-      toast({
-        title: "Éxito",
-        description: "Beneficiario creado correctamente.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Error al crear el beneficiario: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
+  // Save all changes mutation
+  const saveAllMutation = useMutation({
+    mutationFn: async () => {
+      // First validate that percentages sum to 100
+      const total = tempBeneficiarios.reduce((sum, b) => sum + b.porcentaje_participacion, 0);
+      if (Math.abs(total - 100) > 0.01) {
+        throw new Error(`Los porcentajes deben sumar exactamente 100%. Total actual: ${total.toFixed(2)}%`);
+      }
 
-  // Update mutation
-  const updateMutation = useMutation({
-    mutationFn: async (beneficiarioData: any) => {
-      const { error } = await supabase
-        .from('beneficiarios')
-        .update(beneficiarioData)
-        .eq('id', editingBeneficiario?.id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['beneficiarios', personaId] });
-      resetForm();
-      setIsDialogOpen(false);
-      setEditingBeneficiario(null);
-      toast({
-        title: "Éxito",
-        description: "Beneficiario actualizado correctamente.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Error al actualizar el beneficiario: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
+      // Separate operations
+      const toCreate = tempBeneficiarios.filter(b => b.isNew);
+      const toUpdate = tempBeneficiarios.filter(b => !b.isNew && b.isModified && typeof b.id === 'number');
+      const toDelete = beneficiarios.filter(b => !tempBeneficiarios.find(tb => tb.id === b.id));
 
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const { error } = await supabase
-        .from('beneficiarios')
-        .update({ activo: false })
-        .eq('id', id);
-      
-      if (error) throw error;
+      // Execute all operations
+      if (toCreate.length > 0) {
+        const { error: createError } = await supabase
+          .from('beneficiarios')
+          .insert(toCreate.map(b => ({
+            id_persona: b.id_persona,
+            nombre_beneficiario: b.nombre_beneficiario,
+            id_parentesco: b.id_parentesco,
+            porcentaje_participacion: b.porcentaje_participacion,
+          })));
+        if (createError) throw createError;
+      }
+
+      if (toUpdate.length > 0) {
+        for (const beneficiario of toUpdate) {
+          const { error: updateError } = await supabase
+            .from('beneficiarios')
+            .update({
+              nombre_beneficiario: beneficiario.nombre_beneficiario,
+              id_parentesco: beneficiario.id_parentesco,
+              porcentaje_participacion: beneficiario.porcentaje_participacion,
+            })
+            .eq('id', beneficiario.id as number);
+          if (updateError) throw updateError;
+        }
+      }
+
+      if (toDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('beneficiarios')
+          .update({ activo: false })
+          .in('id', toDelete.map(b => b.id));
+        if (deleteError) throw deleteError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['beneficiarios', personaId] });
+      setHasChanges(false);
       toast({
         title: "Éxito",
-        description: "Beneficiario eliminado correctamente.",
+        description: "Cambios guardados correctamente.",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: `Error al eliminar el beneficiario: ${error.message}`,
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -164,10 +171,20 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
     setPorcentajeParticipacion("");
   };
 
+  const recalculatePercentages = (beneficiarios: TempBeneficiario[]) => {
+    if (beneficiarios.length === 0) return beneficiarios;
+    const equalPercentage = 100 / beneficiarios.length;
+    return beneficiarios.map(b => ({
+      ...b,
+      porcentaje_participacion: parseFloat(equalPercentage.toFixed(2)),
+      isModified: !b.isNew
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!nombreBeneficiario.trim() || !idParentesco || !porcentajeParticipacion) {
+    if (!nombreBeneficiario.trim() || !idParentesco) {
       toast({
         title: "Error",
         description: "Por favor completa todos los campos requeridos.",
@@ -176,52 +193,44 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
       return;
     }
 
-    const porcentaje = parseFloat(porcentajeParticipacion);
-    if (porcentaje <= 0 || porcentaje > 100) {
-      toast({
-        title: "Error",
-        description: "El porcentaje debe ser mayor a 0 y máximo 100.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validar que el total no exceda 100%
-    const currentTotal = beneficiarios.reduce((sum, b) => {
-      // Si estamos editando, no contar el porcentaje actual del beneficiario editado
-      if (editingBeneficiario && b.id === editingBeneficiario.id) {
-        return sum;
-      }
-      return sum + parseFloat(b.porcentaje_participacion.toString());
-    }, 0);
-
-    const newTotal = currentTotal + porcentaje;
-    
-    if (newTotal > 100) {
-      const disponible = 100 - currentTotal;
-      toast({
-        title: "Error",
-        description: `El porcentaje excede el 100%. Máximo disponible: ${disponible.toFixed(2)}%`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const beneficiarioData = {
-      id_persona: personaId,
-      nombre_beneficiario: nombreBeneficiario.trim(),
-      id_parentesco: parseInt(idParentesco),
-      porcentaje_participacion: porcentaje,
-    };
-
     if (editingBeneficiario) {
-      updateMutation.mutate(beneficiarioData);
+      // Update existing beneficiario
+      const updated = tempBeneficiarios.map(b =>
+        b.id === editingBeneficiario.id
+          ? {
+              ...b,
+              nombre_beneficiario: nombreBeneficiario.trim(),
+              id_parentesco: parseInt(idParentesco),
+              porcentaje_participacion: parseFloat(porcentajeParticipacion) || 0,
+              isModified: true
+            }
+          : b
+      );
+      setTempBeneficiarios(updated);
     } else {
-      createMutation.mutate(beneficiarioData);
+      // Add new beneficiario
+      const newBeneficiario: TempBeneficiario = {
+        id: `temp_${Date.now()}`,
+        id_persona: personaId,
+        nombre_beneficiario: nombreBeneficiario.trim(),
+        id_parentesco: parseInt(idParentesco),
+        porcentaje_participacion: 0,
+        activo: true,
+        isNew: true
+      };
+      
+      // Recalculate percentages for all beneficiarios
+      const updatedList = recalculatePercentages([...tempBeneficiarios, newBeneficiario]);
+      setTempBeneficiarios(updatedList);
     }
+
+    setHasChanges(true);
+    resetForm();
+    setEditingBeneficiario(null);
+    setIsDialogOpen(false);
   };
 
-  const handleEdit = (beneficiario: Beneficiario) => {
+  const handleEdit = (beneficiario: TempBeneficiario) => {
     setEditingBeneficiario(beneficiario);
     setNombreBeneficiario(beneficiario.nombre_beneficiario);
     setIdParentesco(beneficiario.id_parentesco.toString());
@@ -229,13 +238,27 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: number | string) => {
     if (confirm('¿Estás seguro de que quieres eliminar este beneficiario?')) {
-      deleteMutation.mutate(id);
+      const filtered = tempBeneficiarios.filter(b => b.id !== id);
+      const recalculated = recalculatePercentages(filtered);
+      setTempBeneficiarios(recalculated);
+      setHasChanges(true);
     }
   };
 
-  const totalPorcentaje = beneficiarios.reduce((sum, b) => sum + parseFloat(b.porcentaje_participacion.toString()), 0);
+  const handlePercentageChange = (id: number | string, newPercentage: number) => {
+    const updated = tempBeneficiarios.map(b =>
+      b.id === id
+        ? { ...b, porcentaje_participacion: newPercentage, isModified: !b.isNew }
+        : b
+    );
+    setTempBeneficiarios(updated);
+    setHasChanges(true);
+  };
+
+  const totalPorcentaje = tempBeneficiarios.reduce((sum, b) => sum + b.porcentaje_participacion, 0);
+  const getParentescoName = (id: number) => parentescos.find(p => p.id === id)?.nombre || '-';
 
   return (
     <div className="space-y-4">
@@ -244,25 +267,42 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
           <h3 className="text-lg font-medium">Beneficiarios de {personaNombre}</h3>
           <p className="text-sm text-muted-foreground">
             Total asignado: {totalPorcentaje.toFixed(2)}%
-            {totalPorcentaje > 100 && (
-              <span className="text-destructive ml-2">¡Excede el 100%!</span>
+            {Math.abs(totalPorcentaje - 100) > 0.01 && (
+              <span className={totalPorcentaje > 100 ? "text-destructive ml-2" : "text-warning ml-2"}>
+                {totalPorcentaje > 100 ? "¡Excede el 100%!" : "¡Debe sumar 100%!"}
+              </span>
+            )}
+            {hasChanges && (
+              <span className="text-primary ml-2">• Cambios pendientes</span>
             )}
           </p>
         </div>
-        <Button 
-          onClick={() => {
-            resetForm();
-            setEditingBeneficiario(null);
-            setIsDialogOpen(true);
-          }}
-          className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Agregar Beneficiario
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => {
+              resetForm();
+              setEditingBeneficiario(null);
+              setIsDialogOpen(true);
+            }}
+            className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Agregar Beneficiario
+          </Button>
+          {hasChanges && (
+            <Button
+              onClick={() => saveAllMutation.mutate()}
+              disabled={saveAllMutation.isPending}
+              className="bg-gradient-to-r from-accent to-accent-glow hover:from-accent-glow hover:to-accent"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Guardar Cambios
+            </Button>
+          )}
+        </div>
       </div>
 
-      {beneficiarios.length === 0 ? (
+      {tempBeneficiarios.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           No hay beneficiarios registrados
         </div>
@@ -273,21 +313,41 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Nombre</TableHead>
                 <TableHead className="font-semibold">Parentesco</TableHead>
-                <TableHead className="font-semibold">Porcentaje</TableHead>
+                <TableHead className="font-semibold">Porcentaje (%)</TableHead>
                 <TableHead className="font-semibold text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {beneficiarios.map((beneficiario) => (
-                <TableRow key={beneficiario.id} className="hover:bg-muted/30 transition-colors">
+              {tempBeneficiarios.map((beneficiario) => (
+                <TableRow 
+                  key={beneficiario.id} 
+                  className={`hover:bg-muted/30 transition-colors ${
+                    beneficiario.isNew ? 'bg-accent/10' : 
+                    beneficiario.isModified ? 'bg-warning/10' : ''
+                  }`}
+                >
                   <TableCell className="font-medium">
                     {beneficiario.nombre_beneficiario}
+                    {beneficiario.isNew && (
+                      <span className="ml-2 text-xs bg-accent text-accent-foreground px-1 rounded">NUEVO</span>
+                    )}
+                    {beneficiario.isModified && (
+                      <span className="ml-2 text-xs bg-warning text-warning-foreground px-1 rounded">MODIFICADO</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {beneficiario.parentesco?.nombre || '-'}
+                    {getParentescoName(beneficiario.id_parentesco)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {beneficiario.porcentaje_participacion}%
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={beneficiario.porcentaje_participacion}
+                      onChange={(e) => handlePercentageChange(beneficiario.id, parseFloat(e.target.value) || 0)}
+                      className="w-20 h-8 text-sm"
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
@@ -354,20 +414,22 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="porcentajeParticipacion">Porcentaje de Participación * (%)</Label>
-              <Input
-                id="porcentajeParticipacion"
-                type="number"
-                min="0.01"
-                max="100"
-                step="0.01"
-                value={porcentajeParticipacion}
-                onChange={(e) => setPorcentajeParticipacion(e.target.value)}
-                placeholder="Ej: 25.50"
-                required
-              />
-            </div>
+            {editingBeneficiario && (
+              <div>
+                <Label htmlFor="porcentajeParticipacion">Porcentaje de Participación * (%)</Label>
+                <Input
+                  id="porcentajeParticipacion"
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  value={porcentajeParticipacion}
+                  onChange={(e) => setPorcentajeParticipacion(e.target.value)}
+                  placeholder="Ej: 25.50"
+                  required
+                />
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button 
@@ -383,10 +445,9 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
               </Button>
               <Button 
                 type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
                 className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary"
               >
-                {editingBeneficiario ? 'Actualizar' : 'Crear'}
+                {editingBeneficiario ? 'Actualizar' : 'Agregar'}
               </Button>
             </div>
           </form>
