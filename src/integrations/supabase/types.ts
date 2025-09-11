@@ -234,6 +234,7 @@ export type Database = {
       beneficiarios: {
         Row: {
           activo: boolean
+          email: string | null
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
@@ -241,9 +242,11 @@ export type Database = {
           id_persona: number
           nombre_beneficiario: string
           porcentaje_participacion: number
+          telefono: string | null
         }
         Insert: {
           activo?: boolean
+          email?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: never
@@ -251,9 +254,11 @@ export type Database = {
           id_persona: number
           nombre_beneficiario: string
           porcentaje_participacion: number
+          telefono?: string | null
         }
         Update: {
           activo?: boolean
+          email?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: never
@@ -261,6 +266,7 @@ export type Database = {
           id_persona?: number
           nombre_beneficiario?: string
           porcentaje_participacion?: number
+          telefono?: string | null
         }
         Relationships: [
           {
@@ -1004,8 +1010,8 @@ export type Database = {
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
-          id_producto: number | null
-          id_proyecto: number | null
+          id_producto: number
+          id_proyecto: number
           nombre: string
           numero_mensualidades: number
           porcentaje_descuento_aumento: number
@@ -1017,9 +1023,9 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
-          id_producto?: number | null
-          id_proyecto?: number | null
+          id?: number
+          id_producto: number
+          id_proyecto: number
           nombre: string
           numero_mensualidades: number
           porcentaje_descuento_aumento?: number
@@ -1031,9 +1037,9 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
-          id_producto?: number | null
-          id_proyecto?: number | null
+          id?: number
+          id_producto?: number
+          id_proyecto?: number
           nombre?: string
           numero_mensualidades?: number
           porcentaje_descuento_aumento?: number
@@ -2271,18 +2277,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "personas_uso_cfdi_fkey"
-            columns: ["uso_cfdi"]
-            isOneToOne: false
-            referencedRelation: "uso_cfdi"
-            referencedColumns: ["codigo"]
-          },
-          {
             foreignKeyName: "personas_regimen_fkey"
             columns: ["regimen"]
             isOneToOne: false
             referencedRelation: "regimen"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personas_uso_cfdi_fkey"
+            columns: ["uso_cfdi"]
+            isOneToOne: false
+            referencedRelation: "uso_cfdi"
+            referencedColumns: ["codigo"]
           },
         ]
       }
@@ -2683,7 +2689,7 @@ export type Database = {
           activo: boolean | null
           fecha_actualizacion: string | null
           fecha_creacion: string
-          id: number
+          id: string
           nombre: string | null
           tipo: string | null
         }
@@ -2691,7 +2697,7 @@ export type Database = {
           activo?: boolean | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string
-          id?: number
+          id: string
           nombre?: string | null
           tipo?: string | null
         }
@@ -2699,7 +2705,7 @@ export type Database = {
           activo?: boolean | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string
-          id?: number
+          id?: string
           nombre?: string | null
           tipo?: string | null
         }

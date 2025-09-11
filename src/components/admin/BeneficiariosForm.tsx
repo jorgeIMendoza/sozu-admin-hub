@@ -17,6 +17,8 @@ type Beneficiario = {
   id_parentesco: number;
   porcentaje_participacion: number;
   nombre_beneficiario: string;
+  email?: string;
+  telefono?: string;
   activo: boolean;
   parentesco?: {
     nombre: string;
@@ -29,6 +31,8 @@ type TempBeneficiario = {
   id_parentesco: number;
   porcentaje_participacion: number;
   nombre_beneficiario: string;
+  email?: string;
+  telefono?: string;
   activo: boolean;
   isNew?: boolean;
   isModified?: boolean;
@@ -50,6 +54,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
   const [nombreBeneficiario, setNombreBeneficiario] = useState("");
   const [idParentesco, setIdParentesco] = useState("");
   const [porcentajeParticipacion, setPorcentajeParticipacion] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [tempBeneficiarios, setTempBeneficiarios] = useState<TempBeneficiario[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [deletingBeneficiario, setDeletingBeneficiario] = useState<TempBeneficiario | null>(null);
@@ -124,6 +130,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
             nombre_beneficiario: b.nombre_beneficiario,
             id_parentesco: b.id_parentesco,
             porcentaje_participacion: b.porcentaje_participacion,
+            email: b.email || null,
+            telefono: b.telefono || null,
           })));
         if (createError) throw createError;
       }
@@ -136,6 +144,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
               nombre_beneficiario: beneficiario.nombre_beneficiario,
               id_parentesco: beneficiario.id_parentesco,
               porcentaje_participacion: beneficiario.porcentaje_participacion,
+              email: beneficiario.email || null,
+              telefono: beneficiario.telefono || null,
             })
             .eq('id', beneficiario.id as number);
           if (updateError) throw updateError;
@@ -171,6 +181,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
     setNombreBeneficiario("");
     setIdParentesco("");
     setPorcentajeParticipacion("");
+    setEmail("");
+    setTelefono("");
   };
 
   const recalculatePercentages = (beneficiarios: TempBeneficiario[]) => {
@@ -195,6 +207,16 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
       return;
     }
 
+    // Validar email si se proporciona
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast({
+        title: "Error",
+        description: "Por favor ingresa un correo electrónico válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (editingBeneficiario) {
       // Update existing beneficiario
       const updated = tempBeneficiarios.map(b =>
@@ -204,6 +226,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
               nombre_beneficiario: nombreBeneficiario.trim(),
               id_parentesco: parseInt(idParentesco),
               porcentaje_participacion: parseFloat(porcentajeParticipacion) || 0,
+              email: email.trim() || undefined,
+              telefono: telefono.trim() || undefined,
               isModified: true
             }
           : b
@@ -217,6 +241,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
         nombre_beneficiario: nombreBeneficiario.trim(),
         id_parentesco: parseInt(idParentesco),
         porcentaje_participacion: 0,
+        email: email.trim() || undefined,
+        telefono: telefono.trim() || undefined,
         activo: true,
         isNew: true
       };
@@ -237,6 +263,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
     setNombreBeneficiario(beneficiario.nombre_beneficiario);
     setIdParentesco(beneficiario.id_parentesco.toString());
     setPorcentajeParticipacion(beneficiario.porcentaje_participacion.toString());
+    setEmail(beneficiario.email || "");
+    setTelefono(beneficiario.telefono || "");
     setIsDialogOpen(true);
   };
 
@@ -319,6 +347,8 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Nombre</TableHead>
+                <TableHead className="font-semibold">Email</TableHead>
+                <TableHead className="font-semibold">Teléfono</TableHead>
                 <TableHead className="font-semibold">Parentesco</TableHead>
                 <TableHead className="font-semibold">Porcentaje (%)</TableHead>
                 <TableHead className="font-semibold text-right">Acciones</TableHead>
@@ -341,6 +371,12 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
                     {beneficiario.isModified && (
                       <span className="ml-2 text-xs bg-warning text-warning-foreground px-1 rounded">MODIFICADO</span>
                     )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {beneficiario.email || '-'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {beneficiario.telefono || '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {getParentescoName(beneficiario.id_parentesco)}
@@ -402,6 +438,28 @@ export function BeneficiariosForm({ personaId, personaNombre }: BeneficiariosFor
                 onChange={(e) => setNombreBeneficiario(e.target.value)}
                 placeholder="Ingresa el nombre completo"
                 required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email">Correo Electrónico</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="correo@ejemplo.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="telefono">Teléfono</Label>
+              <Input
+                id="telefono"
+                type="tel"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                placeholder="Número de teléfono"
               />
             </div>
 
