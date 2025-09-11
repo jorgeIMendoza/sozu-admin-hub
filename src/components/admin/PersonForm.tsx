@@ -37,7 +37,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
      entityType === 'representative' ? 'pf' : 
      'pf')
   );
-  const [idTipoRelacion, setIdTipoRelacion] = useState(initialData?.id_tipo_relacion || getDefaultTipoRelacion(entityType));
+  const [idTipoEntidad, setIdTipoEntidad] = useState(initialData?.id_tipo_entidad || getDefaultTipoEntidad(entityType));
+  const [idRepresentanteLegal, setIdRepresentanteLegal] = useState(initialData?.id_entidad_relacionada_rep_leg || '');
   
   // Identification
   const [curp, setCurp] = useState(initialData?.curp || '');
@@ -83,7 +84,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [fechaEscritura, setFechaEscritura] = useState(initialData?.fecha_escritura ? new Date(initialData.fecha_escritura) : undefined);
   const [fechaRegistro, setFechaRegistro] = useState(initialData?.fecha_registro ? new Date(initialData.fecha_registro) : undefined);
   const [idNotario, setIdNotario] = useState(initialData?.id_notario || '');
-  const [idRepresentanteLegal, setIdRepresentanteLegal] = useState(initialData?.id_representente_legal || '');
+  
 
   // Document processing
   const [documentImageUrl, setDocumentImageUrl] = useState(initialData?.url_documento_identificacion || '');
@@ -240,34 +241,70 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     enabled: !!tipoPersona && shouldShowTaxFields() && (tipoPersona === 'pm' || tipoPersona === 'pf'),
   });
 
-  const { data: representantesLegales = [] } = useQuery({
-    queryKey: ['representantes_legales_select'],
+  const { data: tiposEntidad = [] } = useQuery({
+    queryKey: ['tipos_entidad', entityType],
     queryFn: async () => {
+      let tipoFilter = '';
+      if (entityType === 'legal') {
+        tipoFilter = 'el'; // entidades legales
+      } else if (entityType === 'client') {
+        tipoFilter = 'c'; // clientes  
+      } else {
+        tipoFilter = 'p'; // proyectos
+      }
+
       const { data, error } = await supabase
-        .from('personas')
-        .select('id, nombre_legal')
-        .eq('id_tipo_relacion', 1)
+        .from('tipos_relacion')
+        .select('id, nombre')
+        .eq('tipo', tipoFilter)
         .eq('activo', true)
-        .order('nombre_legal');
+        .order('nombre');
       
       if (error) throw error;
       return data || [];
     },
+    enabled: entityType !== 'user' && entityType !== 'representative'
+  });
+
+  const { data: representantesLegales = [] } = useQuery({
+    queryKey: ['representantes_legales_select'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('entidades_relacionadas')
+        .select(`
+          id,
+          personas!inner (
+            id,
+            nombre_legal
+          )
+        `)
+        .eq('personas.activo', true)
+        .eq('activo', true)
+        .eq('id_tipo_entidad', 1) // Only Representante Legal
+        .is('id_proyecto', null)
+        .order('personas(nombre_legal)');
+      
+      if (error) throw error;
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        nombre_legal: item.personas.nombre_legal
+      }));
+    },
     enabled: entityType === 'legal'
   });
 
-  function getDefaultTipoRelacion(type: string) {
+  function getDefaultTipoEntidad(type: string) {
     switch (type) {
-      case 'legal': return 3; // Default to first legal entity type
-      case 'client': return 2; // Default to first client type
-      case 'representative': return 1;
+      case 'legal': return undefined; // Will be selected by user
+      case 'client': return undefined; // Will be selected by user
+      case 'representative': return 1; // Representante Legal
       default: return undefined;
     }
   }
 
   function shouldShowTaxFields() {
-    // Show tax fields for all entities except users
-    const shouldShow = entityType !== 'user';
+    // Show tax fields for all entities except representatives for users
+    const shouldShow = entityType !== 'representative';
     console.log('shouldShowTaxFields for entityType:', entityType, 'tipoPersona:', tipoPersona, 'result:', shouldShow);
     return shouldShow;
   }
@@ -311,7 +348,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       telefono: telefono.trim() || null,
       clave_pais_telefono: clavePaisTelefono || null,
       tipo_persona: tipoPersona,
-      id_tipo_relacion: idTipoRelacion,
       curp: curp.trim() || null,
       rfc: rfc.trim() || null,
       uso_cfdi: usoCfdi.trim() || null,
@@ -342,7 +378,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       fecha_escritura: fechaEscritura?.toISOString() || null,
       fecha_registro: fechaRegistro?.toISOString() || null,
       id_notario: idNotario ? parseInt(idNotario) : null,
-      id_representente_legal: idRepresentanteLegal ? parseInt(idRepresentanteLegal) : null,
       activo: true,
     };
 
@@ -354,7 +389,13 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         url_documento_identificacion: documentImageUrl || undefined,
       });
     } else {
-      onSubmit(formData);
+      // Add entity-specific data
+      const extendedFormData = {
+        ...formData,
+        entityType: idTipoEntidad,
+        representativeId: idRepresentanteLegal ? parseInt(idRepresentanteLegal) : null,
+      };
+      onSubmit(extendedFormData);
     }
   };
 
@@ -500,6 +541,45 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     placeholder="Ingresa el RFC"
                   />
                 </div>
+
+                {(entityType === 'legal' || entityType === 'client') && (
+                  <div>
+                    <Label htmlFor="idTipoEntidad">
+                      {entityType === 'legal' ? 'Tipo de Entidad Legal *' : 'Tipo de Cliente *'}
+                    </Label>
+                    <Select value={idTipoEntidad?.toString() || ''} onValueChange={(value) => setIdTipoEntidad(parseInt(value))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={`Selecciona el tipo de ${entityType === 'legal' ? 'entidad legal' : 'cliente'}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tiposEntidad.map((tipo) => (
+                          <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                            {tipo.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {entityType === 'legal' && (
+                  <div>
+                    <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
+                    <Select value={idRepresentanteLegal?.toString() || ''} onValueChange={setIdRepresentanteLegal}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un representante legal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Sin representante legal</SelectItem>
+                        {representantesLegales.map((rep) => (
+                          <SelectItem key={rep.id} value={rep.id.toString()}>
+                            {rep.nombre_legal}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {shouldShowTaxFields() && (
                   <div>

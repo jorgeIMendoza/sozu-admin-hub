@@ -37,24 +37,66 @@ export default function Clientes() {
     queryKey: ['clientes'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .in('id_tipo_relacion', [2, 7])
+        .from('entidades_relacionadas')
+        .select(`
+          id,
+          id_tipo_entidad,
+          personas!inner (
+            id,
+            nombre_legal,
+            email,
+            telefono,
+            curp,
+            activo
+          )
+        `)
+        .eq('personas.activo', true)
         .eq('activo', true)
-        .order('nombre_legal', { ascending: true });
+        .in('id_tipo_entidad', [2, 7, 11, 14]) // Cliente, Prospecto, Referido, Propietario (tipo "c")
+        .is('id_proyecto', null)
+        .order('personas(nombre_legal)', { ascending: true });
       
       if (error) throw error;
-      return (data || []) as Cliente[];
+      
+      // Flatten the structure to match the expected format
+      return (data || []).map((item: any) => ({
+        id: item.personas.id,
+        entidad_relacionada_id: item.id,
+        id_tipo_entidad: item.id_tipo_entidad,
+        nombre_legal: item.personas.nombre_legal,
+        email: item.personas.email,
+        telefono: item.personas.telefono,
+        curp: item.personas.curp,
+        activo: item.personas.activo,
+      })) as (Cliente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { error } = await supabase
-        .from('personas')
-        .insert([personData]);
+      // Extract entity type from personData
+      const { entityType, representativeId, ...cleanPersonData } = personData;
       
-      if (error) throw error;
+      // First, create the person record
+      const { data: personResult, error: personError } = await supabase
+        .from('personas')
+        .insert([cleanPersonData])
+        .select()
+        .single();
+      
+      if (personError) throw personError;
+      
+      // Then, create the entidades_relacionadas record
+      const { error: entidadError } = await supabase
+        .from('entidades_relacionadas')
+        .insert([{
+          id_persona: personResult.id,
+          id_tipo_entidad: entityType,
+          id_proyecto: null,
+          activo: true
+        }]);
+      
+      if (entidadError) throw entidadError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });

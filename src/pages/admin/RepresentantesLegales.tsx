@@ -35,24 +35,61 @@ export default function RepresentantesLegales() {
     queryKey: ['representantes_legales'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .eq('id_tipo_relacion', 1)
+        .from('entidades_relacionadas')
+        .select(`
+          id,
+          personas!inner (
+            id,
+            nombre_legal,
+            email,
+            telefono,
+            curp,
+            activo
+          )
+        `)
+        .eq('personas.activo', true)
         .eq('activo', true)
-        .order('nombre_legal', { ascending: true });
+        .eq('id_tipo_entidad', 1) // Only Representante Legal
+        .is('id_proyecto', null)
+        .order('personas(nombre_legal)', { ascending: true });
       
       if (error) throw error;
-      return (data || []) as RepresentanteLegal[];
+      
+      // Flatten the structure to match the expected format
+      return (data || []).map((item: any) => ({
+        id: item.personas.id,
+        entidad_relacionada_id: item.id,
+        nombre_legal: item.personas.nombre_legal,
+        email: item.personas.email,
+        telefono: item.personas.telefono,
+        curp: item.personas.curp,
+        activo: item.personas.activo,
+      })) as (RepresentanteLegal & { entidad_relacionada_id: number })[];
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { error } = await supabase
+      // First, create the person record
+      const { data: personResult, error: personError } = await supabase
         .from('personas')
-        .insert([{ ...personData, tipo_persona: 'pf' }]);
+        .insert([{ ...personData, tipo_persona: 'pf' }])
+        .select()
+        .single();
       
-      if (error) throw error;
+      if (personError) throw personError;
+      
+      // Then, create the entidades_relacionadas record with id_tipo_entidad = 1 (Representante Legal)
+      const { error: entidadError } = await supabase
+        .from('entidades_relacionadas')
+        .insert([{
+          id_persona: personResult.id,
+          id_tipo_entidad: 1, // Representante Legal
+          id_proyecto: null,
+          activo: true
+        }]);
+      
+      if (entidadError) throw entidadError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['representantes_legales'] });

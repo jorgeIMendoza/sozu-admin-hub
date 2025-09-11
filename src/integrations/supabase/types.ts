@@ -942,8 +942,8 @@ export type Database = {
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
-          id_persona: number
-          id_proyecto: number
+          id_persona: number | null
+          id_proyecto: number | null
           id_tipo_entidad: number
         }
         Insert: {
@@ -952,8 +952,8 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
-          id_persona: number
-          id_proyecto: number
+          id_persona?: number | null
+          id_proyecto?: number | null
           id_tipo_entidad: number
         }
         Update: {
@@ -962,8 +962,8 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
-          id_persona?: number
-          id_proyecto?: number
+          id_persona?: number | null
+          id_proyecto?: number | null
           id_tipo_entidad?: number
         }
         Relationships: [
@@ -979,13 +979,6 @@ export type Database = {
             columns: ["id_proyecto"]
             isOneToOne: false
             referencedRelation: "proyectos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entidades_relacionadas_id_tipo_entidad_fkey"
-            columns: ["id_tipo_entidad"]
-            isOneToOne: false
-            referencedRelation: "tipos_entidad"
             referencedColumns: ["id"]
           },
           {
@@ -1010,8 +1003,8 @@ export type Database = {
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
-          id_producto: number
-          id_proyecto: number
+          id_producto: number | null
+          id_proyecto: number | null
           nombre: string
           numero_mensualidades: number
           porcentaje_descuento_aumento: number
@@ -1024,8 +1017,8 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
-          id_producto: number
-          id_proyecto: number
+          id_producto?: number | null
+          id_proyecto?: number | null
           nombre: string
           numero_mensualidades: number
           porcentaje_descuento_aumento?: number
@@ -1038,8 +1031,8 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
-          id_producto?: number
-          id_proyecto?: number
+          id_producto?: number | null
+          id_proyecto?: number | null
           nombre?: string
           numero_mensualidades?: number
           porcentaje_descuento_aumento?: number
@@ -2069,14 +2062,13 @@ export type Database = {
           fecha_registro: string | null
           folio_mercantil: string | null
           id: number
+          id_entidad_relacionada_rep_leg: number | null
           id_estado_civil: number | null
           id_estado_nacimiento: number | null
           id_municipio_nacimiento: number | null
           id_notario: number | null
           id_pais_nacimiento: string | null
-          id_representente_legal: number | null
           id_tipo_identificacion: number | null
-          id_tipo_relacion: number | null
           nombre_comercial: string | null
           nombre_legal: string
           numero_escritura: string | null
@@ -2113,14 +2105,13 @@ export type Database = {
           fecha_registro?: string | null
           folio_mercantil?: string | null
           id?: number
+          id_entidad_relacionada_rep_leg?: number | null
           id_estado_civil?: number | null
           id_estado_nacimiento?: number | null
           id_municipio_nacimiento?: number | null
           id_notario?: number | null
           id_pais_nacimiento?: string | null
-          id_representente_legal?: number | null
           id_tipo_identificacion?: number | null
-          id_tipo_relacion?: number | null
           nombre_comercial?: string | null
           nombre_legal: string
           numero_escritura?: string | null
@@ -2157,14 +2148,13 @@ export type Database = {
           fecha_registro?: string | null
           folio_mercantil?: string | null
           id?: number
+          id_entidad_relacionada_rep_leg?: number | null
           id_estado_civil?: number | null
           id_estado_nacimiento?: number | null
           id_municipio_nacimiento?: number | null
           id_notario?: number | null
           id_pais_nacimiento?: string | null
-          id_representente_legal?: number | null
           id_tipo_identificacion?: number | null
-          id_tipo_relacion?: number | null
           nombre_comercial?: string | null
           nombre_legal?: string
           numero_escritura?: string | null
@@ -2221,6 +2211,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_personas_entidad_relacionada_rep_leg"
+            columns: ["id_entidad_relacionada_rep_leg"]
+            isOneToOne: false
+            referencedRelation: "entidades_relacionadas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_personas_estado_civil"
             columns: ["id_estado_civil"]
             isOneToOne: false
@@ -2253,20 +2250,6 @@ export type Database = {
             columns: ["id_pais_nacimiento"]
             isOneToOne: false
             referencedRelation: "paises"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_personas_representante"
-            columns: ["id_representente_legal"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_personas_tipo_relacion"
-            columns: ["id_tipo_relacion"]
-            isOneToOne: false
-            referencedRelation: "tipos_relacion"
             referencedColumns: ["id"]
           },
           {
@@ -2877,6 +2860,7 @@ export type Database = {
           fecha_creacion: string
           id: number
           nombre: string
+          padre: string | null
         }
         Insert: {
           activo?: boolean
@@ -2884,6 +2868,7 @@ export type Database = {
           fecha_creacion?: string
           id?: number
           nombre: string
+          padre?: string | null
         }
         Update: {
           activo?: boolean
@@ -2891,6 +2876,7 @@ export type Database = {
           fecha_creacion?: string
           id?: number
           nombre?: string
+          padre?: string | null
         }
         Relationships: []
       }
@@ -2949,20 +2935,23 @@ export type Database = {
           fecha_creacion: string
           id: number
           nombre: string
+          tipo: string | null
         }
         Insert: {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           nombre: string
+          tipo?: string | null
         }
         Update: {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           nombre?: string
+          tipo?: string | null
         }
         Relationships: []
       }

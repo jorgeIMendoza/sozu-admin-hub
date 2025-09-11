@@ -32,24 +32,78 @@ export default function EntidadesLegales() {
     queryKey: ['entidades_legales'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('personas')
-        .select('*')
-        .in('id_tipo_relacion', [3, 5, 6, 8, 9, 13])
+        .from('entidades_relacionadas')
+        .select(`
+          id,
+          id_tipo_entidad,
+          personas!inner (
+            id,
+            nombre_legal,
+            nombre_comercial,
+            email,
+            telefono,
+            rfc,
+            activo
+          )
+        `)
+        .eq('personas.activo', true)
         .eq('activo', true)
-        .order('nombre_legal', { ascending: true });
+        .in('id_tipo_entidad', [1, 12]) // Representante Legal, Empleado (tipo "el")
+        .is('id_proyecto', null)
+        .order('personas(nombre_legal)', { ascending: true });
       
       if (error) throw error;
-      return (data || []) as EntidadLegal[];
+      
+      // Flatten the structure to match the expected format
+      return (data || []).map((item: any) => ({
+        id: item.personas.id,
+        entidad_relacionada_id: item.id,
+        id_tipo_entidad: item.id_tipo_entidad,
+        nombre_legal: item.personas.nombre_legal,
+        nombre_comercial: item.personas.nombre_comercial,
+        email: item.personas.email,
+        telefono: item.personas.telefono,
+        rfc: item.personas.rfc,
+        activo: item.personas.activo,
+      })) as (EntidadLegal & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { error } = await supabase
-        .from('personas')
-        .insert([{ ...personData, tipo_persona: 'pm' }]);
+      // Extract entity type and representative from personData
+      const { entityType, representativeId, ...cleanPersonData } = personData;
       
-      if (error) throw error;
+      // First, create the person record
+      const { data: personResult, error: personError } = await supabase
+        .from('personas')
+        .insert([{ ...cleanPersonData, tipo_persona: 'pm' }])
+        .select()
+        .single();
+      
+      if (personError) throw personError;
+      
+      // Then, create the entidades_relacionadas record
+      const { error: entidadError } = await supabase
+        .from('entidades_relacionadas')
+        .insert([{
+          id_persona: personResult.id,
+          id_tipo_entidad: entityType,
+          id_proyecto: null,
+          activo: true
+        }]);
+      
+      if (entidadError) throw entidadError;
+      
+      // If a representative was selected, update the person record
+      if (representativeId) {
+        const { error: updateError } = await supabase
+          .from('personas')
+          .update({ id_entidad_relacionada_rep_leg: representativeId })
+          .eq('id', personResult.id);
+          
+        if (updateError) throw updateError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entidades_legales'] });
