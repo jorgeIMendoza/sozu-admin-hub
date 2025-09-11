@@ -268,7 +268,7 @@ const Propiedades = () => {
                             <TableCell>{property.numero_piso}</TableCell>
                             <TableCell>{property.m2_reales} m²</TableCell>
                             <TableCell>{formatCurrency(property.precio_lista)}</TableCell>
-                            <TableCell>{property.clabe_stp || 'N/A'}</TableCell>
+                            <TableCell>{property.clabe_stp || ''}</TableCell>
                             <TableCell>{property.vista}</TableCell>
                             <TableCell>
                               <Badge variant="outline">{property.tipo_propiedad}</Badge>
