@@ -12,7 +12,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
-import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 
 type Desarrollador = {
   id: number;
@@ -25,6 +24,8 @@ type Desarrollador = {
   id_entidad_relacionada_rep_leg?: number;
   representante_legal_nombre?: string;
   numero_proyectos: number;
+  entidad_relacionada_id: number;
+  id_tipo_entidad: number;
 };
 
 export default function Desarrolladores() {
@@ -38,12 +39,10 @@ export default function Desarrolladores() {
   const [entityToDelete, setEntityToDelete] = useState<Desarrollador | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [entityToRestore, setEntityToRestore] = useState<Desarrollador | null>(null);
-  const [selectedEntityForBankAccounts, setSelectedEntityForBankAccounts] = useState<Desarrollador | null>(null);
-  const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const itemsPerPage = 25;
+  const itemsPerPage = 10;
 
   const fetchDesarrolladores = async (activo: boolean) => {
     const { data, error } = await supabase
@@ -83,6 +82,26 @@ export default function Desarrolladores() {
     
     if (error) throw error;
     
+    // Get project counts for each desarrollador
+    const desarrolladorIds = (data || []).map(item => item.entidades_relacionadas[0]?.id).filter(Boolean);
+    let projectCounts: { [key: number]: number } = {};
+    
+    if (desarrolladorIds.length > 0) {
+      const { data: projectData, error: projectError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id, id_proyecto')
+        .in('id', desarrolladorIds)
+        .not('id_proyecto', 'is', null)
+        .eq('activo', true);
+      
+      if (!projectError && projectData) {
+        projectCounts = projectData.reduce((acc, item) => {
+          acc[item.id] = (acc[item.id] || 0) + 1;
+          return acc;
+        }, {} as { [key: number]: number });
+      }
+    }
+    
     return (data || []).map((item: any) => ({
       id: item.id,
       entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
@@ -95,11 +114,8 @@ export default function Desarrolladores() {
       activo: item.activo,
       id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
       representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-      numero_proyectos: 0, // We'll fetch this separately if needed
-    })) as (Desarrollador & { 
-      entidad_relacionada_id: number; 
-      id_tipo_entidad: number;
-    })[];
+      numero_proyectos: projectCounts[item.entidades_relacionadas[0]?.id] || 0,
+    })) as Desarrollador[];
   };
 
   const { data: activeDesarrolladores = [], isLoading: loadingActive } = useQuery({
@@ -193,128 +209,126 @@ export default function Desarrolladores() {
     },
   });
 
-  return (
-    <div className="container mx-auto py-6 px-4">
-      <Card className="border-border shadow-lg">
-        <CardHeader className="border-b border-border bg-muted/30">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle className="text-2xl font-bold text-foreground">
-                Desarrolladores
-              </CardTitle>
-              <p className="text-muted-foreground mt-1">
-                Gestiona la información de los desarrolladores
-              </p>
-            </div>
-            <Button 
-              onClick={() => setIsNewDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Desarrollador
-            </Button>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="p-6">
-          <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos ({activeDesarrolladores.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedDesarrolladores.length})</TabsTrigger>
-            </TabsList>
-            
-            <div className="mb-6">
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  type="text"
-                  placeholder="Buscar por nombre, RFC..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-border focus:ring-primary/20"
-                />
-              </div>
-            </div>
+  const updateMutation = useMutation({
+    mutationFn: async (personData: any) => {
+      const { representativeId, ...cleanPersonData } = personData;
+      
+      const { error: updateError } = await supabase
+        .from('personas')
+        .update(cleanPersonData)
+        .eq('id', editingEntity?.id);
+      
+      if (updateError) throw updateError;
+      
+      if (representativeId !== undefined) {
+        const { error: repError } = await supabase
+          .from('personas')
+          .update({ id_entidad_relacionada_rep_leg: representativeId || null })
+          .eq('id', editingEntity?.id);
+          
+        if (repError) throw repError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['desarrolladores'] });
+      setIsEditDialogOpen(false);
+      setEditingEntity(null);
+      toast({
+        title: "Éxito",
+        description: "Desarrollador actualizado correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al actualizar el desarrollador: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
-            <TabsContent value="active" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredDesarrolladores.map((desarrollador) => (
-                  <Card key={desarrollador.id} className="border-border hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-primary" />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setEditingEntity(desarrollador)}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <h3 className="font-semibold text-foreground mb-1">
-                        {desarrollador.nombre_comercial || desarrollador.nombre_legal}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {desarrollador.numero_proyectos} proyecto{desarrollador.numero_proyectos !== 1 ? 's' : ''}
-                      </p>
-                      <div className="space-y-1 text-sm">
-                        <p className="text-muted-foreground">{desarrollador.email}</p>
-                        {desarrollador.telefono && (
-                          <p className="text-muted-foreground">{desarrollador.telefono}</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from('personas')
+        .update({ activo: false })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['desarrolladores'] });
+      setDeleteDialogOpen(false);
+      setEntityToDelete(null);
+      toast({
+        title: "Éxito",
+        description: "Desarrollador eliminado correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al eliminar el desarrollador: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
-            <TabsContent value="deleted" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredDesarrolladores.map((desarrollador) => (
-                  <Card key={desarrollador.id} className="border-border opacity-60">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                        <Button variant="outline" size="sm">
-                          <RotateCcw className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <h3 className="font-semibold text-foreground mb-1">
-                        {desarrollador.nombre_comercial || desarrollador.nombre_legal}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {desarrollador.numero_proyectos} proyecto{desarrollador.numero_proyectos !== 1 ? 's' : ''}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+  const restoreMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from('personas')
+        .update({ activo: true })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['desarrolladores'] });
+      setRestoreDialogOpen(false);
+      setEntityToRestore(null);
+      toast({
+        title: "Éxito",
+        description: "Desarrollador restaurado correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al restaurar el desarrollador: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
-      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Nuevo Desarrollador</DialogTitle>
-          </DialogHeader>
-          <PersonForm
-            onSubmit={(data) => createMutation.mutate(data)}
-            isLoading={createMutation.isPending}
-            onCancel={() => setIsNewDialogOpen(false)}
-            entityType="desarrollador"
-            fixedEntityType={true}
-          />
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  const handleEdit = (desarrollador: Desarrollador) => {
+    setEditingEntity(desarrollador);
+    setIsEditDialogOpen(true);
+  };
 
-  function renderPagination() {
+  const handleDelete = (desarrollador: Desarrollador) => {
+    setEntityToDelete(desarrollador);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (entityToDelete) {
+      deleteMutation.mutate(entityToDelete.id);
+    }
+  };
+
+  const handleRestore = (desarrollador: Desarrollador) => {
+    setEntityToRestore(desarrollador);
+    setRestoreDialogOpen(true);
+  };
+
+  const handleConfirmRestore = () => {
+    if (entityToRestore) {
+      restoreMutation.mutate(entityToRestore.id);
+    }
+  };
+
+  const renderPagination = () => {
     if (totalPages <= 1) return null;
 
     return (
@@ -374,9 +388,9 @@ export default function Desarrolladores() {
         </Pagination>
       </div>
     );
-  }
+  };
 
-  function renderTable() {
+  const renderTable = () => {
     if (paginatedDesarrolladores.length === 0 && filteredDesarrolladores.length === 0) {
       return (
         <div className="text-center py-12">
@@ -404,9 +418,9 @@ export default function Desarrolladores() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="font-semibold text-foreground">Razón Social</TableHead>
+              <TableHead className="font-semibold text-foreground w-16">Logo</TableHead>
               <TableHead className="font-semibold text-foreground">Nombre Comercial</TableHead>
-              <TableHead className="font-semibold text-foreground">RFC</TableHead>
+              <TableHead className="font-semibold text-foreground">Proyectos</TableHead>
               <TableHead className="font-semibold text-foreground">Email</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground">Representante Legal</TableHead>
@@ -416,14 +430,21 @@ export default function Desarrolladores() {
           <TableBody>
             {paginatedDesarrolladores.map((desarrollador) => (
               <TableRow key={desarrollador.id} className="hover:bg-muted/30 transition-colors">
+                <TableCell>
+                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-primary" />
+                  </div>
+                </TableCell>
                 <TableCell className="font-medium text-foreground">
-                  {desarrollador.nombre_legal}
+                  <div>
+                    <div className="font-semibold">{desarrollador.nombre_comercial || desarrollador.nombre_legal}</div>
+                    {desarrollador.nombre_comercial && (
+                      <div className="text-sm text-muted-foreground">{desarrollador.nombre_legal}</div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {desarrollador.nombre_comercial || '-'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {desarrollador.rfc || '-'}
+                  {desarrollador.numero_proyectos} proyecto{desarrollador.numero_proyectos !== 1 ? 's' : ''}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {desarrollador.email}
@@ -441,16 +462,25 @@ export default function Desarrolladores() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setEditingEntity(desarrollador)}
+                          onClick={() => handleEdit(desarrollador)}
                           className="hover:bg-primary/10 hover:border-primary transition-colors"
                         >
                           <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDelete(desarrollador)}
+                          className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </>
                     ) : (
                       <Button 
                         variant="outline" 
                         size="sm"
+                        onClick={() => handleRestore(desarrollador)}
                         className="hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-colors"
                       >
                         <RotateCcw className="w-4 h-4" />
@@ -464,5 +494,119 @@ export default function Desarrolladores() {
         </Table>
       </div>
     );
-  }
+  };
+
+  return (
+    <div className="container mx-auto py-6 px-4">
+      <Card className="border-border shadow-lg">
+        <CardHeader className="border-b border-border bg-muted/30">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle className="text-2xl font-bold text-foreground">
+                Desarrolladores
+              </CardTitle>
+              <p className="text-muted-foreground mt-1">
+                Gestiona la información de los desarrolladores
+              </p>
+            </div>
+            <Button 
+              onClick={() => setIsNewDialogOpen(true)}
+              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nuevo Desarrollador
+            </Button>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="p-6">
+          <Tabs defaultValue="active" value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="active">Activos ({activeDesarrolladores.length})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({deletedDesarrolladores.length})</TabsTrigger>
+            </TabsList>
+            
+            <div className="mb-6">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por nombre, RFC..."
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="pl-10 border-border focus:ring-primary/20"
+                />
+              </div>
+            </div>
+
+            <TabsContent value="active" className="mt-6">
+              {renderTable()}
+              {renderPagination()}
+            </TabsContent>
+
+            <TabsContent value="deleted" className="mt-6">
+              {renderTable()}
+              {renderPagination()}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo Desarrollador</DialogTitle>
+          </DialogHeader>
+          <PersonForm
+            onSubmit={(data) => createMutation.mutate(data)}
+            isLoading={createMutation.isPending}
+            onCancel={() => setIsNewDialogOpen(false)}
+            entityType="desarrollador"
+            fixedEntityType={true}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Desarrollador</DialogTitle>
+          </DialogHeader>
+          <PersonForm
+            initialData={{
+              ...editingEntity,
+              representativeId: editingEntity?.id_entidad_relacionada_rep_leg
+            }}
+            onSubmit={(data) => updateMutation.mutate(data)}
+            isLoading={updateMutation.isPending}
+            onCancel={() => {
+              setIsEditDialogOpen(false);
+              setEditingEntity(null);
+            }}
+            entityType="desarrollador"
+            fixedEntityType={true}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Desarrollador"
+        description={`¿Estás seguro de que deseas eliminar el desarrollador "${entityToDelete?.nombre_comercial || entityToDelete?.nombre_legal}"? Esta acción se puede revertir.`}
+        isLoading={deleteMutation.isPending}
+      />
+
+      <DeleteConfirmationDialog
+        open={restoreDialogOpen}
+        onOpenChange={setRestoreDialogOpen}
+        onConfirm={handleConfirmRestore}
+        title="Restaurar Desarrollador"
+        description={`¿Estás seguro de que deseas restaurar el desarrollador "${entityToRestore?.nombre_comercial || entityToRestore?.nombre_legal}"?`}
+        isLoading={restoreMutation.isPending}
+        actionType="restore"
+      />
+    </div>
+  );
 }

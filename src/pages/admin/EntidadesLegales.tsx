@@ -24,6 +24,10 @@ type EntidadLegal = {
   activo: boolean;
   id_entidad_relacionada_rep_leg?: number;
   representante_legal_nombre?: string;
+  numero_proyectos: number;
+  entidad_relacionada_id: number;
+  id_tipo_entidad: number;
+  tipo_entidad_nombre: string;
 };
 
 export default function EntidadesLegales() {
@@ -42,7 +46,7 @@ export default function EntidadesLegales() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const itemsPerPage = 25;
+  const itemsPerPage = 10;
 
   const { data: activeEntidades = [], isLoading: loadingActiveEntidades } = useQuery({
     queryKey: ['entidades_legales', 'active'],
@@ -84,24 +88,21 @@ export default function EntidadesLegales() {
       
       if (error) throw error;
       
-      return (data || []).map((item: any) => ({
-        id: item.id,
-        entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
-        id_tipo_entidad: item.entidades_relacionadas[0]?.id_tipo_entidad,
-        nombre_legal: item.nombre_legal,
-        nombre_comercial: item.nombre_comercial,
-        email: item.email,
-        telefono: item.telefono,
-        rfc: item.rfc,
-        activo: item.activo,
-        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
-        representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-      })) as (EntidadLegal & { 
-        entidad_relacionada_id: number; 
-        id_tipo_entidad: number;
-        id_entidad_relacionada_rep_leg: number;
-        representante_legal_nombre: string;
-      })[];
+        return (data || []).map((item: any) => ({
+          id: item.id,
+          entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
+          id_tipo_entidad: item.entidades_relacionadas[0]?.id_tipo_entidad,
+          nombre_legal: item.nombre_legal,
+          nombre_comercial: item.nombre_comercial,
+          email: item.email,
+          telefono: item.telefono,
+          rfc: item.rfc,
+          activo: item.activo,
+          id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+          representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+          numero_proyectos: 0,
+          tipo_entidad_nombre: item.entidades_relacionadas[0]?.tipos_entidad?.nombre || '',
+        })) as EntidadLegal[];
     },
   });
 
@@ -626,9 +627,9 @@ export default function EntidadesLegales() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="font-semibold text-foreground">Razón Social</TableHead>
+              <TableHead className="font-semibold text-foreground w-16">Logo</TableHead>
               <TableHead className="font-semibold text-foreground">Nombre Comercial</TableHead>
-              <TableHead className="font-semibold text-foreground">RFC</TableHead>
+              <TableHead className="font-semibold text-foreground">Tipo Entidad</TableHead>
               <TableHead className="font-semibold text-foreground">Email</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground">Representante Legal</TableHead>

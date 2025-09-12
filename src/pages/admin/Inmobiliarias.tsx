@@ -25,6 +25,8 @@ type Inmobiliaria = {
   id_entidad_relacionada_rep_leg?: number;
   representante_legal_nombre?: string;
   numero_proyectos: number;
+  entidad_relacionada_id: number;
+  id_tipo_entidad: number;
 };
 
 export default function Inmobiliarias() {
@@ -43,7 +45,7 @@ export default function Inmobiliarias() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const itemsPerPage = 25;
+  const itemsPerPage = 10;
 
   const fetchInmobiliarias = async (activo: boolean) => {
     const { data, error } = await supabase
@@ -83,6 +85,26 @@ export default function Inmobiliarias() {
     
     if (error) throw error;
     
+    // Get project counts for each inmobiliaria
+    const inmobiliariaIds = (data || []).map(item => item.entidades_relacionadas[0]?.id).filter(Boolean);
+    let projectCounts: { [key: number]: number } = {};
+    
+    if (inmobiliariaIds.length > 0) {
+      const { data: projectData, error: projectError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id, id_proyecto')
+        .in('id', inmobiliariaIds)
+        .not('id_proyecto', 'is', null)
+        .eq('activo', true);
+      
+      if (!projectError && projectData) {
+        projectCounts = projectData.reduce((acc, item) => {
+          acc[item.id] = (acc[item.id] || 0) + 1;
+          return acc;
+        }, {} as { [key: number]: number });
+      }
+    }
+    
     return (data || []).map((item: any) => ({
       id: item.id,
       entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
@@ -95,11 +117,8 @@ export default function Inmobiliarias() {
       activo: item.activo,
       id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
       representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-      numero_proyectos: 0, // We'll fetch this separately if needed
-    })) as (Inmobiliaria & { 
-      entidad_relacionada_id: number; 
-      id_tipo_entidad: number;
-    })[];
+      numero_proyectos: projectCounts[item.entidades_relacionadas[0]?.id] || 0,
+    })) as Inmobiliaria[];
   };
 
   const { data: activeInmobiliarias = [], isLoading: loadingActive } = useQuery({
@@ -193,6 +212,125 @@ export default function Inmobiliarias() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (personData: any) => {
+      const { representativeId, ...cleanPersonData } = personData;
+      
+      const { error: updateError } = await supabase
+        .from('personas')
+        .update(cleanPersonData)
+        .eq('id', editingEntity?.id);
+      
+      if (updateError) throw updateError;
+      
+      if (representativeId !== undefined) {
+        const { error: repError } = await supabase
+          .from('personas')
+          .update({ id_entidad_relacionada_rep_leg: representativeId || null })
+          .eq('id', editingEntity?.id);
+          
+        if (repError) throw repError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      setIsEditDialogOpen(false);
+      setEditingEntity(null);
+      toast({
+        title: "Éxito",
+        description: "Inmobiliaria actualizada correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al actualizar la inmobiliaria: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from('personas')
+        .update({ activo: false })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      setDeleteDialogOpen(false);
+      setEntityToDelete(null);
+      toast({
+        title: "Éxito",
+        description: "Inmobiliaria eliminada correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al eliminar la inmobiliaria: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from('personas')
+        .update({ activo: true })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      setRestoreDialogOpen(false);
+      setEntityToRestore(null);
+      toast({
+        title: "Éxito",
+        description: "Inmobiliaria restaurada correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al restaurar la inmobiliaria: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEdit = (inmobiliaria: Inmobiliaria) => {
+    setEditingEntity(inmobiliaria);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (inmobiliaria: Inmobiliaria) => {
+    setEntityToDelete(inmobiliaria);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (entityToDelete) {
+      deleteMutation.mutate(entityToDelete.id);
+    }
+  };
+
+  const handleRestore = (inmobiliaria: Inmobiliaria) => {
+    setEntityToRestore(inmobiliaria);
+    setRestoreDialogOpen(true);
+  };
+
+  const handleConfirmRestore = () => {
+    if (entityToRestore) {
+      restoreMutation.mutate(entityToRestore.id);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 px-4">
       <Card className="border-border shadow-lg">
@@ -263,6 +401,47 @@ export default function Inmobiliarias() {
           />
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Inmobiliaria</DialogTitle>
+          </DialogHeader>
+          <PersonForm
+            initialData={{
+              ...editingEntity,
+              representativeId: editingEntity?.id_entidad_relacionada_rep_leg
+            }}
+            onSubmit={(data) => updateMutation.mutate(data)}
+            isLoading={updateMutation.isPending}
+            onCancel={() => {
+              setIsEditDialogOpen(false);
+              setEditingEntity(null);
+            }}
+            entityType="inmobiliaria"
+            fixedEntityType={true}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Inmobiliaria"
+        description={`¿Estás seguro de que deseas eliminar la inmobiliaria "${entityToDelete?.nombre_comercial || entityToDelete?.nombre_legal}"? Esta acción se puede revertir.`}
+        isLoading={deleteMutation.isPending}
+      />
+
+      <DeleteConfirmationDialog
+        open={restoreDialogOpen}
+        onOpenChange={setRestoreDialogOpen}
+        onConfirm={handleConfirmRestore}
+        title="Restaurar Inmobiliaria"
+        description={`¿Estás seguro de que deseas restaurar la inmobiliaria "${entityToRestore?.nombre_comercial || entityToRestore?.nombre_legal}"?`}
+        isLoading={restoreMutation.isPending}
+        actionType="restore"
+      />
     </div>
   );
 
@@ -356,9 +535,9 @@ export default function Inmobiliarias() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="font-semibold text-foreground">Razón Social</TableHead>
+              <TableHead className="font-semibold text-foreground w-16">Logo</TableHead>
               <TableHead className="font-semibold text-foreground">Nombre Comercial</TableHead>
-              <TableHead className="font-semibold text-foreground">RFC</TableHead>
+              <TableHead className="font-semibold text-foreground">Proyectos</TableHead>
               <TableHead className="font-semibold text-foreground">Email</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground">Representante Legal</TableHead>
@@ -368,14 +547,21 @@ export default function Inmobiliarias() {
           <TableBody>
             {paginatedInmobiliarias.map((inmobiliaria) => (
               <TableRow key={inmobiliaria.id} className="hover:bg-muted/30 transition-colors">
+                <TableCell>
+                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                    <Building className="w-5 h-5 text-primary" />
+                  </div>
+                </TableCell>
                 <TableCell className="font-medium text-foreground">
-                  {inmobiliaria.nombre_legal}
+                  <div>
+                    <div className="font-semibold">{inmobiliaria.nombre_comercial || inmobiliaria.nombre_legal}</div>
+                    {inmobiliaria.nombre_comercial && (
+                      <div className="text-sm text-muted-foreground">{inmobiliaria.nombre_legal}</div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {inmobiliaria.nombre_comercial || '-'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {inmobiliaria.rfc || '-'}
+                  {inmobiliaria.numero_proyectos} proyecto{inmobiliaria.numero_proyectos !== 1 ? 's' : ''}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.email}
@@ -393,16 +579,25 @@ export default function Inmobiliarias() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setEditingEntity(inmobiliaria)}
+                          onClick={() => handleEdit(inmobiliaria)}
                           className="hover:bg-primary/10 hover:border-primary transition-colors"
                         >
                           <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDelete(inmobiliaria)}
+                          className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </>
                     ) : (
                       <Button 
                         variant="outline" 
                         size="sm"
+                        onClick={() => handleRestore(inmobiliaria)}
                         className="hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-colors"
                       >
                         <RotateCcw className="w-4 h-4" />
