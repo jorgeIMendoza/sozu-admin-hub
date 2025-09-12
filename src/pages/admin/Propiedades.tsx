@@ -68,7 +68,7 @@ const Propiedades = () => {
           clabe_stp_tmp_apartado,
           activo,
           edificios_modelos!inner(
-            edificios!inner(
+            edificios!edificios_modelos_id_edificio_fkey!inner(
               nombre,
               proyectos!inner(nombre)
             ),
