@@ -125,10 +125,12 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     }
   });
 
-  // Fetch owners based on the custom query logic
+  // Fetch owners based on the custom query logic - filter by specific entity types and project
   const { data: entidadesRelacionadas } = useQuery({
-    queryKey: ['propietarios_filtered'],
+    queryKey: ['propietarios_filtered', propertyProject?.id],
     queryFn: async () => {
+      if (!propertyProject?.id) return [];
+      
       const { data, error } = await supabase
         .from('entidades_relacionadas')
         .select(`
@@ -148,12 +150,14 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
             nombre
           )
         `)
-        .lte('id_tipo_entidad', 2)
+        .in('id_tipo_entidad', [4, 9, 10, 15])
+        .eq('id_proyecto', propertyProject.id)
         .eq('activo', true);
       
       if (error) throw error;
       return data || [];
-    }
+    },
+    enabled: !!propertyProject?.id
   });
 
   // Fetch models based on project
