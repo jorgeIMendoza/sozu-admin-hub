@@ -212,7 +212,26 @@ const Proyectos = () => {
     return "No especificada";
   };
 
-  const renderProjectsTable = (projects: any[], emptyMessage: string) => (
+  const handleProjectRestored = async (projectId: number) => {
+    try {
+      const { error } = await supabase
+        .from("proyectos")
+        .update({ activo: true })
+        .eq("id", projectId);
+
+      if (error) {
+        console.error("Error restoring project:", error);
+        return;
+      }
+
+      refetchActive();
+      refetchDeleted();
+    } catch (error) {
+      console.error("Error restoring project:", error);
+    }
+  };
+
+  const renderProjectsTable = (projects: any[], emptyMessage: string, isDeletedTab: boolean = false) => (
     <>
       {projects.length > 0 ? (
         <div className="rounded-md border">
@@ -296,12 +315,12 @@ const Proyectos = () => {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          disabled={project.edificios && project.edificios.length > 0}
-                          onClick={() => handleProjectDeleted(project.id)}
+                          className={isDeletedTab ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
+                          disabled={!isDeletedTab && project.edificios && project.edificios.length > 0}
+                          onClick={() => isDeletedTab ? handleProjectRestored(project.id) : handleProjectDeleted(project.id)}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
-                          Eliminar
+                          {isDeletedTab ? "Restaurar" : "Eliminar"}
                         </Button>
                       </div>
                     </TableCell>
@@ -361,7 +380,8 @@ const Proyectos = () => {
           ) : (
             renderProjectsTable(
               filteredActiveProjects, 
-              "No hay proyectos activos disponibles."
+              "No hay proyectos activos disponibles.",
+              false
             )
           )}
         </TabsContent>
@@ -376,7 +396,8 @@ const Proyectos = () => {
           ) : (
             renderProjectsTable(
               filteredDeletedProjects, 
-              "No hay proyectos eliminados."
+              "No hay proyectos eliminados.",
+              true
             )
           )}
         </TabsContent>
