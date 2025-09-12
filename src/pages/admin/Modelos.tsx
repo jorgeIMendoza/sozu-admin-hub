@@ -18,8 +18,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Search, Edit, Home, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewModeloDialog } from "@/components/admin/NewModeloDialog";
 import { EditModeloDialog } from "@/components/admin/EditModeloDialog";
+import { ModelMultimediaSection } from "@/components/admin/ModelMultimediaSection";
 import { useToast } from "@/hooks/use-toast";
 
 interface Modelo {
@@ -35,6 +37,8 @@ export default function Modelos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"active" | "deleted">("active");
   const [modeloToDelete, setModeloToDelete] = useState<Modelo | null>(null);
+  const [selectedModelForMultimedia, setSelectedModelForMultimedia] = useState<Modelo | null>(null);
+  const [isMultimediaDialogOpen, setIsMultimediaDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: modelosActivos, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
@@ -226,6 +230,17 @@ export default function Modelos() {
                             <Button 
                               variant="outline" 
                               size="sm"
+                              onClick={() => {
+                                setSelectedModelForMultimedia(modelo);
+                                setIsMultimediaDialogOpen(true);
+                              }}
+                              title="Gestionar multimedia"
+                            >
+                              🎥
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
                               onClick={() => setModeloToDelete(modelo)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -347,6 +362,18 @@ export default function Modelos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog para multimedia */}
+      <Dialog open={isMultimediaDialogOpen} onOpenChange={setIsMultimediaDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Multimedia - {selectedModelForMultimedia?.nombre}</DialogTitle>
+          </DialogHeader>
+          {selectedModelForMultimedia && (
+            <ModelMultimediaSection modelId={selectedModelForMultimedia.id} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

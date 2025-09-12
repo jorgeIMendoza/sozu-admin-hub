@@ -1574,6 +1574,44 @@ export type Database = {
           },
         ]
       }
+      multimedias_proyecto: {
+        Row: {
+          activo: boolean
+          es_imagen: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_proyecto: number
+          url: string
+        }
+        Insert: {
+          activo?: boolean
+          es_imagen?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_proyecto: number
+          url: string
+        }
+        Update: {
+          activo?: boolean
+          es_imagen?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_proyecto?: number
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_multimedias_proyecto_proyecto"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       municipios_mx: {
         Row: {
           activo: boolean

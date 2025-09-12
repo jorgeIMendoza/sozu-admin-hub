@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PersonForm } from "@/components/admin/PersonForm";
 import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
+import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 
 type Cliente = {
   id: number;
@@ -34,6 +35,8 @@ export default function Clientes() {
   const [isBeneficiariosDialogOpen, setIsBeneficiariosDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Cliente | null>(null);
   const [selectedClientForBeneficiarios, setSelectedClientForBeneficiarios] = useState<Cliente | null>(null);
+  const [selectedClientForBankAccounts, setSelectedClientForBankAccounts] = useState<Cliente | null>(null);
+  const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
@@ -363,6 +366,11 @@ export default function Clientes() {
     setIsBeneficiariosDialogOpen(true);
   };
 
+  const handleBankAccounts = (cliente: Cliente) => {
+    setSelectedClientForBankAccounts(cliente);
+    setIsBankAccountsDialogOpen(true);
+  };
+
   return (
     <div className="container mx-auto py-6 px-4">
       <Card className="border-border shadow-lg">
@@ -469,6 +477,21 @@ export default function Clientes() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog para cuentas bancarias */}
+      <Dialog open={isBankAccountsDialogOpen} onOpenChange={setIsBankAccountsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Cuentas Bancarias - {selectedClientForBankAccounts?.nombre_legal}</DialogTitle>
+          </DialogHeader>
+          {selectedClientForBankAccounts && (
+            <BankAccountsSection
+              personId={selectedClientForBankAccounts.id}
+              showStpCheckbox={false}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
         open={deleteDialogOpen}
@@ -554,15 +577,24 @@ export default function Clientes() {
                    <div className="flex gap-2 justify-end">
                      {activeTab === 'active' ? (
                        <>
-                         <Button 
-                           variant="outline" 
-                           size="sm"
-                           onClick={() => handleBeneficiarios(cliente)}
-                           className="hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-colors"
-                           title="Gestionar Beneficiarios"
-                         >
-                           <Users className="w-4 h-4" />
-                         </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleBeneficiarios(cliente)}
+                            className="hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-colors"
+                            title="Gestionar Beneficiarios"
+                          >
+                            <Users className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleBankAccounts(cliente)}
+                            className="hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-colors"
+                            title="Gestionar cuentas bancarias"
+                          >
+                            💳
+                          </Button>
                          <Button 
                            variant="outline" 
                            size="sm"
