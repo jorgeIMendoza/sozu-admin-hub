@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload } from "lucide-react";
+import { Power, PowerOff, Plus, Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 interface ModelMultimediaSectionProps {
@@ -30,7 +31,6 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
         .from('multimedias_modelo')
         .select('*')
         .eq('id_modelo', modelId)
-        .eq('activo', true)
         .order('fecha_creacion', { ascending: false });
       
       if (error) throw error;
@@ -63,21 +63,23 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
     }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (multimediaId: number) => {
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ multimediaId, newStatus }: { multimediaId: number; newStatus: boolean }) => {
       const { error } = await supabase
         .from('multimedias_modelo')
-        .update({ activo: false })
+        .update({ activo: newStatus })
         .eq('id', multimediaId);
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, { newStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['modelMultimedia', modelId] });
-      toast({ title: "Multimedia eliminado exitosamente" });
+      toast({ 
+        title: newStatus ? "Multimedia reactivado exitosamente" : "Multimedia inactivado exitosamente" 
+      });
     },
     onError: () => {
-      toast({ title: "Error al eliminar multimedia", variant: "destructive" });
+      toast({ title: "Error al cambiar estado del multimedia", variant: "destructive" });
     }
   });
 
@@ -245,16 +247,34 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
           <Card key={item.id}>
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-2">
-                <span className="text-xs bg-secondary px-2 py-1 rounded">
-                  {item.es_imagen ? "Imagen" : "Video"}
-                </span>
+                <div className="flex gap-2">
+                  <Badge variant="outline">
+                    {item.es_imagen ? "Imagen" : "Video"}
+                  </Badge>
+                  <Badge variant={item.activo ? "default" : "secondary"}>
+                    {item.activo ? "Activo" : "Inactivo"}
+                  </Badge>
+                </div>
                 <Button
                   variant="outline"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(item.id)}
-                  disabled={deleteMutation.isPending}
+                  size="sm"
+                  onClick={() => toggleStatusMutation.mutate({ 
+                    multimediaId: item.id, 
+                    newStatus: !item.activo 
+                  })}
+                  disabled={toggleStatusMutation.isPending}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {item.activo ? (
+                    <>
+                      <PowerOff className="w-4 h-4 mr-1" />
+                      Inactivar
+                    </>
+                  ) : (
+                    <>
+                      <Power className="w-4 h-4 mr-1" />
+                      Reactivar
+                    </>
+                  )}
                 </Button>
               </div>
               
@@ -263,18 +283,18 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
                   <img 
                     src={item.url} 
                     alt="Multimedia" 
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${!item.activo ? 'grayscale opacity-50' : ''}`}
                   />
                 ) : !item.es_imagen && isVideoUrl(item.url) ? (
                   <video 
                     src={item.url} 
-                    controls 
-                    className="w-full h-full object-cover"
+                    controls={item.activo}
+                    className={`w-full h-full object-cover ${!item.activo ? 'grayscale opacity-50' : ''}`}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <p className="text-xs text-muted-foreground text-center p-2">
-                      Vista previa no disponible
+                      {!item.activo ? "Multimedia inactivo" : "Vista previa no disponible"}
                     </p>
                   </div>
                 )}
