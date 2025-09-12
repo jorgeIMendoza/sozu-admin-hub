@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Search, Edit, Trash2, Eye, Image, Video } from "lucide-react";
@@ -320,16 +321,41 @@ const Proyectos = () => {
                             }
                           />
                         )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className={isDeletedTab ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
-                          disabled={!isDeletedTab && project.edificios && project.edificios.length > 0}
-                          onClick={() => isDeletedTab ? handleProjectRestored(project.id) : handleProjectDeleted(project.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          {isDeletedTab ? "Restaurar" : "Eliminar"}
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className={isDeletedTab ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
+                              disabled={!isDeletedTab && project.edificios && project.edificios.length > 0}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              {isDeletedTab ? "Restaurar" : "Eliminar"}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                {isDeletedTab ? 'Restaurar Proyecto' : 'Eliminar Proyecto'}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {isDeletedTab
+                                  ? `¿Estás seguro de que deseas restaurar el proyecto "${project.nombre}"?`
+                                  : `¿Estás seguro de que deseas eliminar el proyecto "${project.nombre}"? Esta acción se puede revertir posteriormente.`
+                                }
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => isDeletedTab ? handleProjectRestored(project.id) : handleProjectDeleted(project.id)}
+                                className={isDeletedTab ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                              >
+                                {isDeletedTab ? 'Restaurar' : 'Eliminar'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -419,6 +445,7 @@ const Proyectos = () => {
           projectName={selectedProjectMultimedia.projectName}
         />
       )}
+
     </div>
   );
 };
