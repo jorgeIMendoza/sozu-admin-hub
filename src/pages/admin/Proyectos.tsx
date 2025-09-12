@@ -1,11 +1,14 @@
-import { ProjectCard } from "@/components/admin/ProjectCard";
 import { NewProjectDialog } from "@/components/admin/NewProjectDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Search, Edit, Trash2, Eye, Image, Video } from "lucide-react";
 import { useState } from "react";
+import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
 
 const Proyectos = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -24,11 +27,33 @@ const Proyectos = () => {
           precio_m2,
           fecha_inicio_construccion,
           id_tipo_uso,
+          id_estatus_proyecto,
+          direccion_id_pais,
+          direccion_id_estado,
+          direccion_id_municipio,
           tipos_uso:id_tipo_uso (
             nombre
           ),
-          edificios!fk_edificios_proyecto (
-            id
+          estatus_proyecto:id_estatus_proyecto (
+            nombre
+          ),
+          paises:direccion_id_pais (
+            nombre
+          ),
+          estados_mx:direccion_id_estado (
+            nombre
+          ),
+          municipios_mx:direccion_id_municipio (
+            nombre
+          ),
+          edificios (
+            id,
+            nombre
+          ),
+          multimedias_proyecto (
+            id,
+            url,
+            es_imagen
           ),
           amenidades_proyectos (
             amenidades (
@@ -62,11 +87,33 @@ const Proyectos = () => {
           precio_m2,
           fecha_inicio_construccion,
           id_tipo_uso,
+          id_estatus_proyecto,
+          direccion_id_pais,
+          direccion_id_estado,
+          direccion_id_municipio,
           tipos_uso:id_tipo_uso (
             nombre
           ),
-          edificios!fk_edificios_proyecto (
-            id
+          estatus_proyecto:id_estatus_proyecto (
+            nombre
+          ),
+          paises:direccion_id_pais (
+            nombre
+          ),
+          estados_mx:direccion_id_estado (
+            nombre
+          ),
+          municipios_mx:direccion_id_municipio (
+            nombre
+          ),
+          edificios (
+            id,
+            nombre
+          ),
+          multimedias_proyecto (
+            id,
+            url,
+            es_imagen
           ),
           amenidades_proyectos (
             amenidades (
@@ -115,29 +162,99 @@ const Proyectos = () => {
     project.direccion?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const renderProjectsGrid = (projects: any[], emptyMessage: string) => (
-    <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {projects.map((project) => (
-          <ProjectCard 
-            key={project.id} 
-            id={project.id}
-            nombre={project.nombre}
-            direccion={project.direccion}
-            precio_m2={project.precio_m2}
-            activo={project.activo}
-            tipo_uso={project.tipos_uso?.nombre}
-            numero_edificios={project.edificios?.length || 0}
-            numero_amenidades={project.amenidades_proyectos?.length || 0}
-            fecha_inicio={project.fecha_inicio_construccion}
-            descripcion={project.descripcion}
-            onProjectUpdated={handleProjectUpdated}
-            onProjectDeleted={handleProjectDeleted}
-          />
-        ))}
-      </div>
+  const getMultimediaCount = (project: any) => {
+    const images = project.multimedias_proyecto?.filter((m: any) => m.es_imagen) || [];
+    const videos = project.multimedias_proyecto?.filter((m: any) => !m.es_imagen) || [];
+    return { images: images.length, videos: videos.length };
+  };
 
-      {projects.length === 0 && (
+  const getCityName = (project: any) => {
+    if (project.municipios_mx?.nombre && project.estados_mx?.nombre) {
+      return `${project.municipios_mx.nombre}, ${project.estados_mx.nombre}`;
+    }
+    if (project.estados_mx?.nombre) {
+      return project.estados_mx.nombre;
+    }
+    if (project.paises?.nombre) {
+      return project.paises.nombre;
+    }
+    return "No especificada";
+  };
+
+  const renderProjectsTable = (projects: any[], emptyMessage: string) => (
+    <>
+      {projects.length > 0 ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre del Proyecto</TableHead>
+                <TableHead>Desarrollador</TableHead>
+                <TableHead>Número de Departamentos</TableHead>
+                <TableHead>Ciudad</TableHead>
+                <TableHead>Dirección</TableHead>
+                <TableHead>Multimedia</TableHead>
+                <TableHead>Estatus</TableHead>
+                <TableHead>Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {projects.map((project) => {
+                const multimedia = getMultimediaCount(project);
+                const city = getCityName(project);
+                const developer = "Por definir"; // Simplificamos por ahora
+                const departmentCount = project.edificios?.length || 0;
+                
+                return (
+                  <TableRow key={project.id}>
+                    <TableCell className="font-medium">{project.nombre}</TableCell>
+                    <TableCell>{developer}</TableCell>
+                    <TableCell>{departmentCount}</TableCell>
+                    <TableCell>{city}</TableCell>
+                    <TableCell>{project.direccion || "No especificada"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {multimedia.images > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Image className="h-4 w-4" />
+                            <span className="text-sm">{multimedia.images}</span>
+                          </div>
+                        )}
+                        {multimedia.videos > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Video className="h-4 w-4" />
+                            <span className="text-sm">{multimedia.videos}</span>
+                          </div>
+                        )}
+                        {multimedia.images === 0 && multimedia.videos === 0 && (
+                          <span className="text-muted-foreground text-sm">Sin multimedia</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={project.activo ? "default" : "secondary"}>
+                        {project.estatus_proyecto?.nombre || "Sin estatus"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <EditProjectDialog
+                          projectId={project.id}
+                          onProjectUpdated={handleProjectUpdated}
+                        />
+                        <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
         <div className="text-center py-8">
           <p className="text-muted-foreground">
             {emptyMessage}
@@ -185,7 +302,7 @@ const Proyectos = () => {
               </p>
             </div>
           ) : (
-            renderProjectsGrid(
+            renderProjectsTable(
               filteredActiveProjects, 
               "No hay proyectos activos disponibles."
             )
@@ -200,7 +317,7 @@ const Proyectos = () => {
               </p>
             </div>
           ) : (
-            renderProjectsGrid(
+            renderProjectsTable(
               filteredDeletedProjects, 
               "No hay proyectos eliminados."
             )
