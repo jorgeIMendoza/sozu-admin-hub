@@ -80,7 +80,7 @@ const Propiedades = () => {
             )
           ),
           entidades_relacionadas(
-            personas(nombre_legal)
+            personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
           ),
           vistas(nombre),
           estatus_disponibilidad!inner(nombre)
