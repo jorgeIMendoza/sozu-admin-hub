@@ -2632,8 +2632,10 @@ export type Database = {
           fecha_actualizacion: string
           fecha_creacion: string
           fecha_entrega: string | null
-          fecha_inicio: string | null
+          fecha_entrega_proyecto: string | null
+          fecha_inicio_construccion: string | null
           fecha_lanzamiento: string | null
+          fecha_lanzamiento_proyecto: string | null
           id: number
           id_estatus_proyecto: number | null
           id_tipo_uso: number | null
@@ -2660,8 +2662,10 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_entrega?: string | null
-          fecha_inicio?: string | null
+          fecha_entrega_proyecto?: string | null
+          fecha_inicio_construccion?: string | null
           fecha_lanzamiento?: string | null
+          fecha_lanzamiento_proyecto?: string | null
           id?: never
           id_estatus_proyecto?: number | null
           id_tipo_uso?: number | null
@@ -2688,8 +2692,10 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_entrega?: string | null
-          fecha_inicio?: string | null
+          fecha_entrega_proyecto?: string | null
+          fecha_inicio_construccion?: string | null
           fecha_lanzamiento?: string | null
+          fecha_lanzamiento_proyecto?: string | null
           id?: never
           id_estatus_proyecto?: number | null
           id_tipo_uso?: number | null

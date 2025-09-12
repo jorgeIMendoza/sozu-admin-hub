@@ -42,11 +42,16 @@ const PaymentSchemeSchema = z.object({
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
   descripcion: z.string().optional(),
+  direccion_id_pais: z.string().optional(),
+  direccion_id_estado: z.string().optional(), 
+  direccion_id_municipio: z.string().optional(),
   direccion: z.string().optional(),
   id_tipo_uso: z.string().min(1, "El tipo de uso es requerido"),
   id_estatus_proyecto: z.string().min(1, "El estatus del proyecto es requerido"),
   precio_m2: z.string().optional(),
-  fecha_inicio: z.string().optional(),
+  fecha_lanzamiento_proyecto: z.string().optional(),
+  fecha_inicio_construccion: z.string().optional(),
+  fecha_entrega_proyecto: z.string().optional(),
   latitud: z.number().optional(),
   longitud: z.number().optional(),
   amenidades: z.array(z.string()).default([]),
@@ -79,11 +84,16 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
     defaultValues: {
       nombre: "",
       descripcion: "",
+      direccion_id_pais: "",
+      direccion_id_estado: "",
+      direccion_id_municipio: "",
       direccion: "",
       id_tipo_uso: "",
       id_estatus_proyecto: "",
       precio_m2: "",
-      fecha_inicio: "",
+      fecha_lanzamiento_proyecto: "",
+      fecha_inicio_construccion: "",
+      fecha_entrega_proyecto: "",
       latitud: undefined,
       longitud: undefined,
       amenidades: [],
@@ -146,16 +156,68 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
     },
   });
 
+  const { data: paises } = useQuery({
+    queryKey: ["paises"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("paises")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: estados } = useQuery({
+    queryKey: ["estados"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("estados_mx")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: municipios } = useQuery({
+    queryKey: ["municipios", form.watch("direccion_id_estado")],
+    queryFn: async () => {
+      const estadoId = form.watch("direccion_id_estado");
+      if (!estadoId) return [];
+      
+      const { data, error } = await supabase
+        .from("municipios_mx")
+        .select("*")
+        .eq("activo", true)
+        .eq("id_estado", parseInt(estadoId))
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.watch("direccion_id_estado"),
+  });
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       const projectData = {
         nombre: values.nombre,
         descripcion: values.descripcion || null,
+        direccion_id_pais: values.direccion_id_pais || null,
+        direccion_id_estado: values.direccion_id_estado ? parseInt(values.direccion_id_estado) : null,
+        direccion_id_municipio: values.direccion_id_municipio ? parseInt(values.direccion_id_municipio) : null,
         direccion: values.direccion || null,
         id_tipo_uso: parseInt(values.id_tipo_uso),
         id_estatus_proyecto: parseInt(values.id_estatus_proyecto),
         precio_m2: values.precio_m2 ? parseFloat(values.precio_m2) : null,
-        fecha_inicio: values.fecha_inicio || null,
+        fecha_lanzamiento_proyecto: values.fecha_lanzamiento_proyecto || null,
+        fecha_inicio_construccion: values.fecha_inicio_construccion || null,
+        fecha_entrega_proyecto: values.fecha_entrega_proyecto || null,
         latitud: selectedLocation?.lat || null,
         longitud: selectedLocation?.lng || null,
         url_logo: values.url_logo || null,
@@ -371,15 +433,29 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="precio_m2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Precio por m²</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0.00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
-                    name="precio_m2"
+                    name="fecha_lanzamiento_proyecto"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Precio por m²</FormLabel>
+                        <FormLabel>Fecha de Lanzamiento</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="0.00" {...field} />
+                          <Input type="date" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -388,10 +464,24 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
 
                   <FormField
                     control={form.control}
-                    name="fecha_inicio"
+                    name="fecha_inicio_construccion"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Fecha de Inicio</FormLabel>
+                        <FormLabel>Fecha de Inicio Construcción</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fecha_entrega_proyecto"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fecha de Entrega</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>
@@ -400,6 +490,93 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                     )}
                   />
                 </div>
+
+                {/* Location Fields */}
+                <FormField
+                  control={form.control}
+                  name="direccion_id_pais"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>País</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un país" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {paises?.map((pais) => (
+                            <SelectItem key={pais.id} value={pais.id}>
+                              {pais.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="direccion_id_estado"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            form.setValue("direccion_id_municipio", "");
+                          }} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un estado" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {estados?.map((estado) => (
+                              <SelectItem key={estado.id} value={estado.id.toString()}>
+                                {estado.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="direccion_id_municipio"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Municipio</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un municipio" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {municipios?.map((municipio) => (
+                              <SelectItem key={municipio.id} value={municipio.id.toString()}>
+                                {municipio.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Location and Address Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Location and Address Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -474,7 +651,19 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                 {createdProjectId ? (
                   <div className="space-y-3">
                     <PaymentSchemeManagement projectId={createdProjectId} />
-                  </div>
+                <FormField
+                  control={form.control}
+                  name="precio_m2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Precio por m²</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0.00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 ) : (
                   <PaymentSchemeFormSection
                     paymentSchemes={paymentSchemes}
