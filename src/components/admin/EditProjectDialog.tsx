@@ -26,6 +26,7 @@ const formSchema = z.object({
   descripcion: z.string().optional(),
   direccion: z.string().optional(),
   id_tipo_uso: z.string().min(1, "El tipo de uso es requerido"),
+  id_estatus_proyecto: z.string().min(1, "El estatus del proyecto es requerido"),
   precio_m2: z.string().optional(),
   fecha_inicio: z.string().optional(),
   latitud: z.number().optional(),
@@ -58,6 +59,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
       descripcion: "",
       direccion: "",
       id_tipo_uso: "",
+      id_estatus_proyecto: "",
       precio_m2: "",
       fecha_inicio: "",
       latitud: undefined,
@@ -122,6 +124,20 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
     },
   });
 
+  const { data: estatusProyecto } = useQuery({
+    queryKey: ["estatus-proyecto"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("estatus_proyecto")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Populate form when project data is loaded
   useEffect(() => {
     if (project) {
@@ -136,6 +152,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
         descripcion: project.descripcion || "",
         direccion: project.direccion || "",
         id_tipo_uso: project.id_tipo_uso?.toString() || "",
+        id_estatus_proyecto: project.id_estatus_proyecto?.toString() || "",
         precio_m2: project.precio_m2?.toString() || "",
         fecha_inicio: project.fecha_inicio || "",
         latitud: project.latitud || undefined,
@@ -160,6 +177,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
         descripcion: values.descripcion || null,
         direccion: values.direccion || null,
         id_tipo_uso: parseInt(values.id_tipo_uso),
+        id_estatus_proyecto: parseInt(values.id_estatus_proyecto),
         precio_m2: values.precio_m2 ? parseFloat(values.precio_m2) : null,
         fecha_inicio: values.fecha_inicio || null,
         latitud: selectedLocation?.lat || null,
@@ -461,6 +479,30 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
 
                 <TabsContent value="images" className="mt-6">
                   <div className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="id_estatus_proyecto"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estatus del Proyecto</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un estatus" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {estatusProyecto?.map((estatus) => (
+                                <SelectItem key={estatus.id} value={estatus.id.toString()}>
+                                  {estatus.nombre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={form.control}
                       name="url_logo"
