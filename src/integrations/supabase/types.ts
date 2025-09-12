@@ -982,6 +982,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entidades_relacionadas_id_tipo_entidad_fkey"
+            columns: ["id_tipo_entidad"]
+            isOneToOne: false
+            referencedRelation: "tipos_entidad"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_entrel_persona"
             columns: ["id_persona"]
             isOneToOne: false
