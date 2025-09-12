@@ -18,6 +18,8 @@ type EntidadLegal = {
   telefono?: string;
   rfc?: string;
   activo: boolean;
+  id_entidad_relacionada_rep_leg?: number;
+  representante_legal_nombre?: string;
 };
 
 export default function EntidadesLegales() {
@@ -41,12 +43,20 @@ export default function EntidadesLegales() {
           telefono,
           rfc,
           activo,
+          id_entidad_relacionada_rep_leg,
           entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
             id,
             id_tipo_entidad,
             tipos_entidad!inner (
               id,
               nombre
+            )
+          ),
+          representante_legal:entidades_relacionadas!personas_id_entidad_relacionada_rep_leg_fkey (
+            id,
+            personas!entidades_relacionadas_id_persona_fkey (
+              id,
+              nombre_legal
             )
           )
         `)
@@ -69,7 +79,14 @@ export default function EntidadesLegales() {
         telefono: item.telefono,
         rfc: item.rfc,
         activo: item.activo,
-      })) as (EntidadLegal & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
+        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+      })) as (EntidadLegal & { 
+        entidad_relacionada_id: number; 
+        id_tipo_entidad: number;
+        id_entidad_relacionada_rep_leg: number;
+        representante_legal_nombre: string;
+      })[];
     },
   });
 
@@ -272,6 +289,7 @@ export default function EntidadesLegales() {
                     <TableHead className="font-semibold text-foreground">RFC</TableHead>
                     <TableHead className="font-semibold text-foreground">Email</TableHead>
                     <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
+                    <TableHead className="font-semibold text-foreground">Representante Legal</TableHead>
                     <TableHead className="font-semibold text-foreground text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -292,6 +310,9 @@ export default function EntidadesLegales() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {entidad.telefono || '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {entidad.representante_legal_nombre || '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
@@ -344,7 +365,10 @@ export default function EntidadesLegales() {
             <DialogTitle>Editar Entidad Legal</DialogTitle>
           </DialogHeader>
           <PersonForm
-            initialData={editingEntity}
+            initialData={{
+              ...editingEntity,
+              representativeId: editingEntity?.id_entidad_relacionada_rep_leg
+            }}
             onSubmit={(data) => updateMutation.mutate(data)}
             isLoading={updateMutation.isPending}
             onCancel={() => {
