@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -48,7 +49,11 @@ const formSchema = z.object({
   longitud: z.number().optional(),
   amenidades: z.array(z.string()).default([]),
   edificios: z.array(BuildingSchema).default([]),
-  esquemas_pago: z.array(PaymentSchemeSchema).default([])
+  esquemas_pago: z.array(PaymentSchemeSchema).default([]),
+  url_logo: z.string().optional(),
+  url_firma_recibos: z.string().optional(),
+  nombre_firmante_recibos: z.string().optional(),
+  url_imagen_portada: z.string().optional(),
 });
 
 interface NewProjectDialogProps {
@@ -76,7 +81,11 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
       longitud: undefined,
       amenidades: [],
       edificios: [],
-      esquemas_pago: []
+      esquemas_pago: [],
+      url_logo: "",
+      url_firma_recibos: "",
+      nombre_firmante_recibos: "",
+      url_imagen_portada: "",
     },
   });
 
@@ -123,6 +132,10 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         fecha_inicio: values.fecha_inicio || null,
         latitud: selectedLocation?.lat || null,
         longitud: selectedLocation?.lng || null,
+        url_logo: values.url_logo || null,
+        url_firma_recibos: values.url_firma_recibos || null,
+        nombre_firmante_recibos: values.nombre_firmante_recibos || null,
+        url_imagen_portada: values.url_imagen_portada || null,
       };
 
       const { data: newProject, error } = await supabase
@@ -265,8 +278,16 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         <DialogHeader>
           <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        
+        <Tabs defaultValue="information" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="information">Información</TabsTrigger>
+            <TabsTrigger value="images">Imágenes principales</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="information" className="mt-6">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="new-project-form">
                 <FormField
                   control={form.control}
                   name="nombre"
@@ -320,98 +341,98 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                   )}
                 />
 
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="precio_m2"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precio por m²</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0.00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fecha_inicio"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fecha de Inicio</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Location and Address Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
                     <FormField
                       control={form.control}
-                      name="precio_m2"
+                      name="direccion"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Precio por m²</FormLabel>
+                          <FormLabel>Dirección</FormLabel>
                           <FormControl>
-                            <Input type="number" placeholder="0.00" {...field} />
+                            <Input placeholder="Dirección del proyecto" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-
-                    <FormField
-                      control={form.control}
-                      name="fecha_inicio"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Fecha de Inicio</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Location and Address Section */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="direccion"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Dirección</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Dirección del proyecto" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {selectedLocation && (
-                        <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                          <div className="flex items-center space-x-2">
-                            <MapPin className="w-4 h-4" />
-                            <div>
-                              <p className="font-medium">Coordenadas seleccionadas:</p>
-                              <p>Lat: {selectedLocation.lat.toFixed(6)}</p>
-                              <p>Lng: {selectedLocation.lng.toFixed(6)}</p>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const coordinates = `${selectedLocation.lat.toFixed(6)}, ${selectedLocation.lng.toFixed(6)}`;
-                              navigator.clipboard.writeText(coordinates);
-                              toast({
-                                title: "Coordenadas copiadas",
-                                description: coordinates,
-                              });
-                            }}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
                     
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4" />
-                        <label className="text-sm font-medium">Ubicación en Google Maps</label>
+                    {selectedLocation && (
+                      <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="w-4 h-4" />
+                          <div>
+                            <p className="font-medium">Coordenadas seleccionadas:</p>
+                            <p>Lat: {selectedLocation.lat.toFixed(6)}</p>
+                            <p>Lng: {selectedLocation.lng.toFixed(6)}</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const coordinates = `${selectedLocation.lat.toFixed(6)}, ${selectedLocation.lng.toFixed(6)}`;
+                            navigator.clipboard.writeText(coordinates);
+                            toast({
+                              title: "Coordenadas copiadas",
+                              description: coordinates,
+                            });
+                          }}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <GoogleMapComponent
-                        onLocationSelect={setSelectedLocation}
-                        onAddressSelect={(address) => form.setValue('direccion', address)}
-                        initialLocation={selectedLocation}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Haz clic en el mapa para seleccionar la ubicación del proyecto
-                      </p>
-                    </div>
+                    )}
                   </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-4 h-4" />
+                      <label className="text-sm font-medium">Ubicación en Google Maps</label>
+                    </div>
+                    <GoogleMapComponent
+                      onLocationSelect={setSelectedLocation}
+                      onAddressSelect={(address) => form.setValue('direccion', address)}
+                      initialLocation={selectedLocation}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Haz clic en el mapa para seleccionar la ubicación del proyecto
+                    </p>
+                  </div>
+                </div>
 
                 {/* Buildings Section */}
                 <BuildingFormSection 
@@ -479,14 +500,83 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
 
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    {createdProjectId ? 'Cerrar' : 'Cancelar'}
+                    Cancelar
                   </Button>
-                  {!createdProjectId && (
-                    <Button type="submit">Crear Proyecto</Button>
-                  )}
+                  <Button type="submit">Crear Proyecto</Button>
                 </div>
               </form>
             </Form>
+          </TabsContent>
+          
+          <TabsContent value="images" className="mt-6">
+            <div className="space-y-6">
+              <FormField
+                control={form.control}
+                name="url_logo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Logo del Proyecto</FormLabel>
+                    <FormControl>
+                      <Input type="url" placeholder="URL del logo" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="url_imagen_portada"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Imagen de Portada</FormLabel>
+                    <FormControl>
+                      <Input type="url" placeholder="URL de la imagen de portada" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="url_firma_recibos"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Imagen de Firma para Recibos</FormLabel>
+                      <FormControl>
+                        <Input type="url" placeholder="URL de la firma" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="nombre_firmante_recibos"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre del Firmante</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nombre completo del firmante" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" form="new-project-form">Crear Proyecto</Button>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

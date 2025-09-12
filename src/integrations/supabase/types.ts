@@ -2603,7 +2603,11 @@ export type Database = {
           latitud: number | null
           longitud: number | null
           nombre: string
+          nombre_firmante_recibos: string | null
           precio_m2: number | null
+          url_firma_recibos: string | null
+          url_imagen_portada: string | null
+          url_logo: string | null
         }
         Insert: {
           activo?: boolean
@@ -2617,7 +2621,11 @@ export type Database = {
           latitud?: number | null
           longitud?: number | null
           nombre: string
+          nombre_firmante_recibos?: string | null
           precio_m2?: number | null
+          url_firma_recibos?: string | null
+          url_imagen_portada?: string | null
+          url_logo?: string | null
         }
         Update: {
           activo?: boolean
@@ -2631,7 +2639,11 @@ export type Database = {
           latitud?: number | null
           longitud?: number | null
           nombre?: string
+          nombre_firmante_recibos?: string | null
           precio_m2?: number | null
+          url_firma_recibos?: string | null
+          url_imagen_portada?: string | null
+          url_logo?: string | null
         }
         Relationships: [
           {

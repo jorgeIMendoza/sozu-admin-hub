@@ -30,6 +30,10 @@ const formSchema = z.object({
   latitud: z.number().optional(),
   longitud: z.number().optional(),
   amenidades: z.array(z.string()).default([]),
+  url_logo: z.string().optional(),
+  url_firma_recibos: z.string().optional(),
+  nombre_firmante_recibos: z.string().optional(),
+  url_imagen_portada: z.string().optional(),
 });
 
 interface EditProjectDialogProps {
@@ -54,6 +58,10 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
       latitud: undefined,
       longitud: undefined,
       amenidades: [],
+      url_logo: "",
+      url_firma_recibos: "",
+      nombre_firmante_recibos: "",
+      url_imagen_portada: "",
     },
   });
 
@@ -124,6 +132,10 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
         latitud: project.latitud || undefined,
         longitud: project.longitud || undefined,
         amenidades: project.amenidades_proyectos?.map((ap: any) => ap.id_amenidad.toString()) || [],
+        url_logo: project.url_logo || "",
+        url_firma_recibos: project.url_firma_recibos || "",
+        nombre_firmante_recibos: project.nombre_firmante_recibos || "",
+        url_imagen_portada: project.url_imagen_portada || "",
       });
     }
   }, [project, form]);
@@ -139,6 +151,10 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
         fecha_inicio: values.fecha_inicio || null,
         latitud: selectedLocation?.lat || null,
         longitud: selectedLocation?.lng || null,
+        url_logo: values.url_logo || null,
+        url_firma_recibos: values.url_firma_recibos || null,
+        nombre_firmante_recibos: values.nombre_firmante_recibos || null,
+        url_imagen_portada: values.url_imagen_portada || null,
       };
 
       const { error: updateError } = await supabase
@@ -207,14 +223,15 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
           </div>
         ) : (
           <Tabs defaultValue="information" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="information">Información</TabsTrigger>
+              <TabsTrigger value="images">Imágenes principales</TabsTrigger>
               <TabsTrigger value="legal-entities">Entidades Legales</TabsTrigger>
             </TabsList>
             
             <TabsContent value="information" className="mt-6">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="edit-project-form">
                   <FormField
                     control={form.control}
                     name="nombre"
@@ -425,6 +442,75 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
                   </div>
                 </form>
               </Form>
+            </TabsContent>
+
+            <TabsContent value="images" className="mt-6">
+              <div className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="url_logo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Logo del Proyecto</FormLabel>
+                      <FormControl>
+                        <Input type="url" placeholder="URL del logo" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="url_imagen_portada"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Imagen de Portada</FormLabel>
+                      <FormControl>
+                        <Input type="url" placeholder="URL de la imagen de portada" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="url_firma_recibos"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Imagen de Firma para Recibos</FormLabel>
+                        <FormControl>
+                          <Input type="url" placeholder="URL de la firma" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="nombre_firmante_recibos"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nombre del Firmante</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nombre completo del firmante" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" form="edit-project-form">Actualizar Proyecto</Button>
+                </div>
+              </div>
             </TabsContent>
             
             <TabsContent value="legal-entities" className="mt-6">
