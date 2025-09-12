@@ -986,9 +986,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? 'Guardando...' : 'Guardar'}
-          </Button>
         </div>
       </form>
     </Card>
