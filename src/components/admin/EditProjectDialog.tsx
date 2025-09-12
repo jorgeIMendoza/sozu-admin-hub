@@ -326,6 +326,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
                     </div>
                     <GoogleMapComponent
                       onLocationSelect={setSelectedLocation}
+                      onAddressSelect={(address) => form.setValue('direccion', address)}
                       initialLocation={selectedLocation}
                     />
                     <p className="text-xs text-muted-foreground">

@@ -375,10 +375,11 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                       </span>
                     )}
                   </div>
-                  <GoogleMapComponent
-                    onLocationSelect={setSelectedLocation}
-                    initialLocation={selectedLocation}
-                  />
+                    <GoogleMapComponent
+                      onLocationSelect={setSelectedLocation}
+                      onAddressSelect={(address) => form.setValue('direccion', address)}
+                      initialLocation={selectedLocation}
+                    />
                   <p className="text-xs text-muted-foreground">
                     Haz clic en el mapa para seleccionar la ubicación del proyecto
                   </p>

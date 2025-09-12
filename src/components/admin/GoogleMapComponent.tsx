@@ -19,10 +19,11 @@ const GOOGLE_MAPS_API_KEY = "AIzaSyBrGiC6e6GtDDxERSChJZaDUa9V4yLvTqg";
 
 interface GoogleMapComponentProps {
   onLocationSelect: (location: { lat: number; lng: number }) => void;
+  onAddressSelect?: (address: string) => void;
   initialLocation?: { lat: number; lng: number } | null;
 }
 
-export function GoogleMapComponent({ onLocationSelect, initialLocation }: GoogleMapComponentProps) {
+export function GoogleMapComponent({ onLocationSelect, onAddressSelect, initialLocation }: GoogleMapComponentProps) {
   const [markerPosition, setMarkerPosition] = useState(initialLocation || null);
   
   const { isLoaded } = useJsApiLoader({
@@ -39,8 +40,18 @@ export function GoogleMapComponent({ onLocationSelect, initialLocation }: Google
       
       setMarkerPosition(newPosition);
       onLocationSelect(newPosition);
+      
+      // Reverse geocoding to get address
+      if (onAddressSelect && window.google) {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ location: newPosition }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            onAddressSelect(results[0].formatted_address);
+          }
+        });
+      }
     }
-  }, [onLocationSelect]);
+  }, [onLocationSelect, onAddressSelect]);
 
   if (!isLoaded) {
     return (
