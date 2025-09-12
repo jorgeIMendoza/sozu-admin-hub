@@ -72,7 +72,6 @@ export default function EntidadesLegales() {
         .eq('tipo_persona', 'pm')
         .eq('entidades_relacionadas.activo', true)
         .neq('entidades_relacionadas.tipos_entidad.padre', 'c')
-        .is('entidades_relacionadas.id_proyecto', null)
         .order('nombre_legal', { ascending: true });
       
       if (error) throw error;
@@ -133,7 +132,6 @@ export default function EntidadesLegales() {
         .eq('tipo_persona', 'pm')
         .eq('entidades_relacionadas.activo', true)
         .neq('entidades_relacionadas.tipos_entidad.padre', 'c')
-        .is('entidades_relacionadas.id_proyecto', null)
         .order('nombre_legal', { ascending: true });
       
       if (error) throw error;
@@ -215,7 +213,6 @@ export default function EntidadesLegales() {
         .insert([{
           id_persona: personResult.id,
           id_tipo_entidad: entityType,
-          id_proyecto: null,
           activo: true
         }]);
       
