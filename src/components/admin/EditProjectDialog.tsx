@@ -222,16 +222,16 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
             <p>Cargando...</p>
           </div>
         ) : (
-          <Tabs defaultValue="information" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="information">Información</TabsTrigger>
-              <TabsTrigger value="images">Imágenes principales</TabsTrigger>
-              <TabsTrigger value="legal-entities">Entidades Legales</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="information" className="mt-6">
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="edit-project-form">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="edit-project-form">
+              <Tabs defaultValue="information" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="information">Información</TabsTrigger>
+                  <TabsTrigger value="images">Imágenes principales</TabsTrigger>
+                  <TabsTrigger value="legal-entities">Entidades Legales</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="information" className="mt-6">
                   <FormField
                     control={form.control}
                     name="nombre"
@@ -440,12 +440,10 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
                     </Button>
                     <Button type="submit">Actualizar Proyecto</Button>
                   </div>
-                </form>
-              </Form>
-            </TabsContent>
+                </TabsContent>
 
-            <TabsContent value="images" className="mt-6">
-              <div className="space-y-6">
+                <TabsContent value="images" className="mt-6">
+                  <div className="space-y-6">
                 <FormField
                   control={form.control}
                   name="url_logo"
@@ -504,19 +502,21 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
                   />
                 </div>
 
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" form="edit-project-form">Actualizar Proyecto</Button>
+                  <div className="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">Actualizar Proyecto</Button>
+                  </div>
                 </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="legal-entities" className="mt-6">
-              <ProjectLegalEntitiesSection projectId={projectId} />
-            </TabsContent>
-          </Tabs>
+                </TabsContent>
+                
+                <TabsContent value="legal-entities" className="mt-6">
+                  <ProjectLegalEntitiesSection projectId={projectId} />
+                </TabsContent>
+              </Tabs>
+            </form>
+          </Form>
         )}
       </DialogContent>
     </Dialog>

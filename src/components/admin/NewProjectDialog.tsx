@@ -279,15 +279,15 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
           <DialogTitle>Crear Nuevo Proyecto</DialogTitle>
         </DialogHeader>
         
-        <Tabs defaultValue="information" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="information">Información</TabsTrigger>
-            <TabsTrigger value="images">Imágenes principales</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="information" className="mt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="new-project-form">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="new-project-form">
+            <Tabs defaultValue="information" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="information">Información</TabsTrigger>
+                <TabsTrigger value="images">Imágenes principales</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="information" className="mt-6">
                 <FormField
                   control={form.control}
                   name="nombre"
@@ -504,12 +504,10 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                   </Button>
                   <Button type="submit">Crear Proyecto</Button>
                 </div>
-              </form>
-            </Form>
-          </TabsContent>
-          
-          <TabsContent value="images" className="mt-6">
-            <div className="space-y-6">
+              </TabsContent>
+              
+              <TabsContent value="images" className="mt-6">
+                <div className="space-y-6">
               <FormField
                 control={form.control}
                 name="url_logo"
@@ -568,15 +566,17 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" form="new-project-form">Crear Proyecto</Button>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">Crear Proyecto</Button>
+                </div>
               </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            </Tabs>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
