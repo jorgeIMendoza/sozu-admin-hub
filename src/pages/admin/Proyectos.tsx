@@ -237,6 +237,16 @@ const Proyectos = () => {
     const city = getCityName(project);
     const matchesCiudad = city.toLowerCase().includes(ciudadFilter.toLowerCase());
     
+    // Debug logging para el filtro de estatus
+    console.log('Debug filtro estatus:', {
+      projectName: project.nombre,
+      estatusFilter,
+      projectEstatus: project.estatus_proyecto,
+      projectEstatusId: project.estatus_proyecto && 'id' in project.estatus_proyecto ? project.estatus_proyecto.id : 'No ID',
+      projectEstatusIdString: project.estatus_proyecto && 'id' in project.estatus_proyecto ? project.estatus_proyecto.id?.toString() : 'No ID string',
+      comparison: project.estatus_proyecto && 'id' in project.estatus_proyecto ? project.estatus_proyecto.id?.toString() === estatusFilter : false
+    });
+    
     const matchesEstatus = estatusFilter === "all" || (project.estatus_proyecto && 'id' in project.estatus_proyecto && project.estatus_proyecto.id?.toString() === estatusFilter);
     
     return matchesSearch && matchesNombre && matchesDesarrollador && matchesCiudad && matchesEstatus;
