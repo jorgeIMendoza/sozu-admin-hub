@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Power, PowerOff, Plus, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProjectMultimediaSectionProps {
@@ -30,7 +31,6 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
         .from('multimedias_proyecto')
         .select('*')
         .eq('id_proyecto', projectId)
-        .eq('activo', true)
         .order('fecha_creacion', { ascending: false });
       
       if (error) throw error;
@@ -63,21 +63,23 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
     }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (multimediaId: number) => {
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ multimediaId, newStatus }: { multimediaId: number; newStatus: boolean }) => {
       const { error } = await supabase
         .from('multimedias_proyecto')
-        .update({ activo: false })
+        .update({ activo: newStatus })
         .eq('id', multimediaId);
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, { newStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['projectMultimedia', projectId] });
-      toast({ title: "Multimedia eliminado exitosamente" });
+      toast({ 
+        title: newStatus ? "Multimedia reactivado exitosamente" : "Multimedia inactivado exitosamente" 
+      });
     },
     onError: () => {
-      toast({ title: "Error al eliminar multimedia", variant: "destructive" });
+      toast({ title: "Error al cambiar estado del multimedia", variant: "destructive" });
     }
   });
 
@@ -243,42 +245,70 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {multimedia.map((item) => (
           <Card key={item.id}>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-xs bg-secondary px-2 py-1 rounded">
-                  {item.es_imagen ? "Imagen" : "Video"}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(item.id)}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+             <CardContent className="p-4">
+               <div className="flex justify-between items-start mb-2">
+                 <div className="flex gap-2">
+                   <Badge variant="outline">
+                     {item.es_imagen ? "Imagen" : "Video"}
+                   </Badge>
+                   <Badge variant={item.activo ? "default" : "secondary"}>
+                     {item.activo ? "Activo" : "Inactivo"}
+                   </Badge>
+                 </div>
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => toggleStatusMutation.mutate({ 
+                     multimediaId: item.id, 
+                     newStatus: !item.activo 
+                   })}
+                   disabled={toggleStatusMutation.isPending}
+                 >
+                   {item.activo ? (
+                     <>
+                       <PowerOff className="w-4 h-4 mr-1" />
+                       Inactivar
+                     </>
+                   ) : (
+                     <>
+                       <Power className="w-4 h-4 mr-1" />
+                       Reactivar
+                     </>
+                   )}
+                 </Button>
+               </div>
               
-              <div className="aspect-video bg-muted rounded-md overflow-hidden">
-                {item.es_imagen && isImageUrl(item.url) ? (
-                  <img 
-                    src={item.url} 
-                    alt="Multimedia" 
-                    className="w-full h-full object-cover"
-                  />
-                ) : !item.es_imagen && isVideoUrl(item.url) ? (
-                  <video 
-                    src={item.url} 
-                    controls 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <p className="text-xs text-muted-foreground text-center p-2">
-                      Vista previa no disponible
-                    </p>
-                  </div>
-                )}
-              </div>
+               <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                 {item.activo ? (
+                   <>
+                     {item.es_imagen && isImageUrl(item.url) ? (
+                       <img 
+                         src={item.url} 
+                         alt="Multimedia" 
+                         className="w-full h-full object-cover"
+                       />
+                     ) : !item.es_imagen && isVideoUrl(item.url) ? (
+                       <video 
+                         src={item.url} 
+                         controls 
+                         className="w-full h-full object-cover"
+                       />
+                     ) : (
+                       <div className="w-full h-full flex items-center justify-center">
+                         <p className="text-xs text-muted-foreground text-center p-2">
+                           Vista previa no disponible
+                         </p>
+                       </div>
+                     )}
+                   </>
+                 ) : (
+                   <div className="w-full h-full flex items-center justify-center">
+                     <p className="text-xs text-muted-foreground text-center p-2">
+                       Multimedia inactivo
+                     </p>
+                   </div>
+                 )}
+               </div>
               
               <a 
                 href={item.url} 

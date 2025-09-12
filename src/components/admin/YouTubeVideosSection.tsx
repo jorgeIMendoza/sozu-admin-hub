@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Power, PowerOff, Plus, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface YouTubeVideosSectionProps {
@@ -29,7 +30,6 @@ export function YouTubeVideosSection({ projectId }: YouTubeVideosSectionProps) {
         .from('videos_youtube')
         .select('*')
         .eq('id_proyecto', projectId)
-        .eq('activo', true)
         .order('fecha_creacion', { ascending: false });
       
       if (error) throw error;
@@ -62,21 +62,23 @@ export function YouTubeVideosSection({ projectId }: YouTubeVideosSectionProps) {
     }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (videoId: number) => {
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ videoId, newStatus }: { videoId: number; newStatus: boolean }) => {
       const { error } = await supabase
         .from('videos_youtube')
-        .update({ activo: false })
+        .update({ activo: newStatus })
         .eq('id', videoId);
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, { newStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['youtubeVideos', projectId] });
-      toast({ title: "Video eliminado exitosamente" });
+      toast({ 
+        title: newStatus ? "Video reactivado exitosamente" : "Video inactivado exitosamente" 
+      });
     },
     onError: () => {
-      toast({ title: "Error al eliminar video", variant: "destructive" });
+      toast({ title: "Error al cambiar estado del video", variant: "destructive" });
     }
   });
 
@@ -167,42 +169,66 @@ export function YouTubeVideosSection({ projectId }: YouTubeVideosSectionProps) {
           return (
             <Card key={video.id}>
               <CardContent className="p-4">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="space-y-2 flex-1">
-                    <h4 className="font-semibold">{video.nombre}</h4>
-                    <div className="flex items-center gap-2">
-                      <a 
-                        href={video.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline flex items-center gap-1"
-                      >
-                        Ver en YouTube <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => deleteMutation.mutate(video.id)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                {embedUrl && (
-                  <div className="aspect-video">
-                    <iframe
-                      src={embedUrl}
-                      title={video.nombre}
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full rounded-md"
-                    ></iframe>
-                  </div>
-                )}
+                 <div className="flex justify-between items-start mb-4">
+                   <div className="space-y-2 flex-1">
+                     <div className="flex items-center gap-2">
+                       <h4 className="font-semibold">{video.nombre}</h4>
+                       <Badge variant={video.activo ? "default" : "secondary"}>
+                         {video.activo ? "Activo" : "Inactivo"}
+                       </Badge>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <a 
+                         href={video.link} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-primary hover:underline flex items-center gap-1"
+                       >
+                         Ver en YouTube <ExternalLink className="w-3 h-3" />
+                       </a>
+                     </div>
+                   </div>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => toggleStatusMutation.mutate({ 
+                       videoId: video.id, 
+                       newStatus: !video.activo 
+                     })}
+                     disabled={toggleStatusMutation.isPending}
+                   >
+                     {video.activo ? (
+                       <>
+                         <PowerOff className="w-4 h-4 mr-1" />
+                         Inactivar
+                       </>
+                     ) : (
+                       <>
+                         <Power className="w-4 h-4 mr-1" />
+                         Reactivar
+                       </>
+                     )}
+                   </Button>
+                 </div>
+                 
+                 {embedUrl && video.activo && (
+                   <div className="aspect-video">
+                     <iframe
+                       src={embedUrl}
+                       title={video.nombre}
+                       frameBorder="0"
+                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                       allowFullScreen
+                       className="w-full h-full rounded-md"
+                     ></iframe>
+                   </div>
+                 )}
+                 
+                 {!video.activo && (
+                   <div className="aspect-video bg-muted rounded-md flex items-center justify-center">
+                     <p className="text-muted-foreground">Video inactivo</p>
+                   </div>
+                 )}
               </CardContent>
             </Card>
           );

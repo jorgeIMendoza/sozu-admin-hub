@@ -19,6 +19,7 @@ import { BuildingFormSection, Building } from "./BuildingFormSection";
 import { PaymentSchemeFormSection, PaymentScheme } from "./PaymentSchemeFormSection";
 import { PaymentSchemeManagement } from "./PaymentSchemeManagement";
 import { GoogleMapComponent } from "./GoogleMapComponent";
+import { ImageUploadField } from "./ImageUploadField";
 
 const BuildingSchema = z.object({
   id: z.string(),
@@ -284,7 +285,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
             <Tabs defaultValue="information" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="information">Información</TabsTrigger>
-                <TabsTrigger value="images">Imágenes principales</TabsTrigger>
+                <TabsTrigger value="images">Configuración general</TabsTrigger>
               </TabsList>
               
               <TabsContent value="information" className="mt-6">
@@ -508,71 +509,83 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
               
               <TabsContent value="images" className="mt-6">
                 <div className="space-y-6">
-              <FormField
-                control={form.control}
-                name="url_logo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Logo del Proyecto</FormLabel>
-                    <FormControl>
-                      <Input type="url" placeholder="URL del logo" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="url_logo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <ImageUploadField 
+                            label="Logo del Proyecto"
+                            value={field.value}
+                            onChange={field.onChange}
+                            accept="image/*"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="url_imagen_portada"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Imagen de Portada</FormLabel>
-                    <FormControl>
-                      <Input type="url" placeholder="URL de la imagen de portada" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="url_imagen_portada"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <ImageUploadField 
+                            label="Imagen de Portada"
+                            value={field.value}
+                            onChange={field.onChange}
+                            accept="image/*"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="url_firma_recibos"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Imagen de Firma para Recibos</FormLabel>
-                      <FormControl>
-                        <Input type="url" placeholder="URL de la firma" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="url_firma_recibos"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <ImageUploadField 
+                              label="Imagen de Firma para Recibos"
+                              value={field.value}
+                              onChange={field.onChange}
+                              accept="image/*"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <FormField
-                  control={form.control}
-                  name="nombre_firmante_recibos"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre del Firmante</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nombre completo del firmante" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                    <FormField
+                      control={form.control}
+                      name="nombre_firmante_recibos"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nombre del Firmante</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Nombre completo del firmante" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">Crear Proyecto</Button>
+                  <div className="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">Crear Proyecto</Button>
+                  </div>
                 </div>
-              </div>
               </TabsContent>
             </Tabs>
           </form>
