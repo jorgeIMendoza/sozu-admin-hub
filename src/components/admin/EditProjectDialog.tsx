@@ -50,9 +50,10 @@ const formSchema = z.object({
 interface EditProjectDialogProps {
   projectId: number;
   onProjectUpdated: () => void;
+  trigger?: React.ReactNode;
 }
 
-export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDialogProps) => {
+export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: EditProjectDialogProps) => {
   const [open, setOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
@@ -314,12 +315,11 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50">
-          <Edit className="h-4 w-4 mr-1" />
-          Editar
-        </Button>
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Proyecto</DialogTitle>
