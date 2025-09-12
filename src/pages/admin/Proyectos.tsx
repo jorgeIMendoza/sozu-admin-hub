@@ -37,7 +37,7 @@ const Proyectos = () => {
           estatus_proyecto:id_estatus_proyecto (
             nombre
           ),
-          paises:direccion_id_pais (
+          paises!fk_proyectos_direccion_id_pais (
             nombre
           ),
           estados_mx:direccion_id_estado (
@@ -97,7 +97,7 @@ const Proyectos = () => {
           estatus_proyecto:id_estatus_proyecto (
             nombre
           ),
-          paises:direccion_id_pais (
+          paises!fk_proyectos_direccion_id_pais (
             nombre
           ),
           estados_mx:direccion_id_estado (
