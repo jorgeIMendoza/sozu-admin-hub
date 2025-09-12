@@ -28,7 +28,12 @@ const formSchema = z.object({
   id_tipo_uso: z.string().min(1, "El tipo de uso es requerido"),
   id_estatus_proyecto: z.string().min(1, "El estatus del proyecto es requerido"),
   precio_m2: z.string().optional(),
+  fecha_lanzamiento: z.string().optional(),
   fecha_inicio_construccion: z.string().optional(),
+  fecha_entrega: z.string().optional(),
+  direccion_id_pais: z.string().optional(),
+  direccion_id_estado: z.string().optional(),
+  direccion_id_municipio: z.string().optional(),
   latitud: z.number().optional(),
   longitud: z.number().optional(),
   amenidades: z.array(z.string()).default([]),
@@ -50,6 +55,7 @@ interface EditProjectDialogProps {
 export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDialogProps) => {
   const [open, setOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -61,7 +67,12 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
       id_tipo_uso: "",
       id_estatus_proyecto: "",
       precio_m2: "",
+      fecha_lanzamiento: "",
       fecha_inicio_construccion: "",
+      fecha_entrega: "",
+      direccion_id_pais: "",
+      direccion_id_estado: "",
+      direccion_id_municipio: "",
       latitud: undefined,
       longitud: undefined,
       amenidades: [],
@@ -138,6 +149,55 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
     },
   });
 
+  const { data: paises } = useQuery({
+    queryKey: ["paises"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("paises")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: estados } = useQuery({
+    queryKey: ["estados", selectedCountry],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("estados_mx")
+        .select("*")
+        .eq("activo", true)
+        .eq("id_pais", selectedCountry)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: selectedCountry === "MX",
+  });
+
+  const { data: municipios } = useQuery({
+    queryKey: ["municipios", form.watch("direccion_id_estado")],
+    queryFn: async () => {
+      const estadoId = form.watch("direccion_id_estado");
+      if (!estadoId) return [];
+      
+      const { data, error } = await supabase
+        .from("municipios_mx")
+        .select("*")
+        .eq("activo", true)
+        .eq("id_estado", parseInt(estadoId))
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!form.watch("direccion_id_estado") && selectedCountry === "MX",
+  });
+
   // Populate form when project data is loaded
   useEffect(() => {
     if (project) {
@@ -154,7 +214,12 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
         id_tipo_uso: project.id_tipo_uso?.toString() || "",
         id_estatus_proyecto: project.id_estatus_proyecto?.toString() || "",
         precio_m2: project.precio_m2?.toString() || "",
+        fecha_lanzamiento: project.fecha_lanzamiento || "",
         fecha_inicio_construccion: project.fecha_inicio_construccion || "",
+        fecha_entrega: project.fecha_entrega || "",
+        direccion_id_pais: project.direccion_id_pais || "",
+        direccion_id_estado: project.direccion_id_estado?.toString() || "",
+        direccion_id_municipio: project.direccion_id_municipio?.toString() || "",
         latitud: project.latitud || undefined,
         longitud: project.longitud || undefined,
         amenidades: project.amenidades_proyectos?.map((ap: any) => ap.id_amenidad.toString()) || [],
@@ -167,6 +232,8 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
         porcentaje_anual_cuota_estancia_corta: project.porcentaje_anual_cuota_estancia_corta?.toString() || "",
         porcentaje_anual_cuota_garantia_renta: project.porcentaje_anual_cuota_garantia_renta?.toString() || "",
       });
+      
+      setSelectedCountry(project.direccion_id_pais || "");
     }
   }, [project, form]);
 
@@ -179,7 +246,12 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
         id_tipo_uso: parseInt(values.id_tipo_uso),
         id_estatus_proyecto: parseInt(values.id_estatus_proyecto),
         precio_m2: values.precio_m2 ? parseFloat(values.precio_m2) : null,
+        fecha_lanzamiento: values.fecha_lanzamiento || null,
         fecha_inicio_construccion: values.fecha_inicio_construccion || null,
+        fecha_entrega: values.fecha_entrega || null,
+        direccion_id_pais: values.direccion_id_pais || null,
+        direccion_id_estado: values.direccion_id_estado ? parseInt(values.direccion_id_estado) : null,
+        direccion_id_municipio: values.direccion_id_municipio ? parseInt(values.direccion_id_municipio) : null,
         latitud: selectedLocation?.lat || null,
         longitud: selectedLocation?.lng || null,
         url_logo: values.url_logo || null,
@@ -320,34 +392,164 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated }: EditProjectDi
                     )}
                   />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="precio_m2"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Precio por m²</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                   <div className="grid grid-cols-2 gap-4">
+                     <FormField
+                       control={form.control}
+                       name="precio_m2"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Precio por m²</FormLabel>
+                           <FormControl>
+                             <Input type="number" placeholder="0.00" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
 
-                    <FormField
-                      control={form.control}
-                      name="fecha_inicio_construccion"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Fecha de Inicio</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                     <FormField
+                       control={form.control}
+                       name="fecha_lanzamiento"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Fecha de Lanzamiento</FormLabel>
+                           <FormControl>
+                             <Input type="date" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                     <FormField
+                       control={form.control}
+                       name="fecha_inicio_construccion"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Fecha de Inicio Construcción</FormLabel>
+                           <FormControl>
+                             <Input type="date" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+
+                     <FormField
+                       control={form.control}
+                       name="fecha_entrega"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Fecha de Entrega</FormLabel>
+                           <FormControl>
+                             <Input type="date" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
+
+                   {/* Address Fields */}
+                   <div className="grid grid-cols-1 gap-4">
+                     <FormField
+                       control={form.control}
+                       name="direccion_id_pais"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>País</FormLabel>
+                           <Select 
+                             onValueChange={(value) => {
+                               field.onChange(value);
+                               setSelectedCountry(value);
+                               // Reset state and municipality when country changes
+                               if (value !== "MX") {
+                                 form.setValue("direccion_id_estado", "");
+                                 form.setValue("direccion_id_municipio", "");
+                               }
+                             }} 
+                             value={field.value}
+                           >
+                             <FormControl>
+                               <SelectTrigger>
+                                 <SelectValue placeholder="Selecciona un país" />
+                               </SelectTrigger>
+                             </FormControl>
+                             <SelectContent>
+                               {paises?.map((pais) => (
+                                 <SelectItem key={pais.id} value={pais.id}>
+                                   {pais.nombre}
+                                 </SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+
+                     {selectedCountry === "MX" && (
+                       <>
+                         <FormField
+                           control={form.control}
+                           name="direccion_id_estado"
+                           render={({ field }) => (
+                             <FormItem>
+                               <FormLabel>Estado</FormLabel>
+                               <Select 
+                                 onValueChange={(value) => {
+                                   field.onChange(value);
+                                   // Reset municipality when state changes
+                                   form.setValue("direccion_id_municipio", "");
+                                 }} 
+                                 value={field.value}
+                               >
+                                 <FormControl>
+                                   <SelectTrigger>
+                                     <SelectValue placeholder="Selecciona un estado" />
+                                   </SelectTrigger>
+                                 </FormControl>
+                                 <SelectContent>
+                                   {estados?.map((estado) => (
+                                     <SelectItem key={estado.id} value={estado.id.toString()}>
+                                       {estado.nombre}
+                                     </SelectItem>
+                                   ))}
+                                 </SelectContent>
+                               </Select>
+                               <FormMessage />
+                             </FormItem>
+                           )}
+                         />
+
+                         <FormField
+                           control={form.control}
+                           name="direccion_id_municipio"
+                           render={({ field }) => (
+                             <FormItem>
+                               <FormLabel>Municipio</FormLabel>
+                               <Select onValueChange={field.onChange} value={field.value}>
+                                 <FormControl>
+                                   <SelectTrigger>
+                                     <SelectValue placeholder="Selecciona un municipio" />
+                                   </SelectTrigger>
+                                 </FormControl>
+                                 <SelectContent>
+                                   {municipios?.map((municipio) => (
+                                     <SelectItem key={municipio.id} value={municipio.id.toString()}>
+                                       {municipio.nombre}
+                                     </SelectItem>
+                                   ))}
+                                 </SelectContent>
+                               </Select>
+                               <FormMessage />
+                             </FormItem>
+                           )}
+                         />
+                       </>
+                     )}
                    </div>
 
                   {/* Location and Address Section */}
