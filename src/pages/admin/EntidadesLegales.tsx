@@ -128,9 +128,12 @@ export default function EntidadesLegales() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
+      // Extract entity type and representative from personData
+      const { entityType, representativeId, ...cleanPersonData } = personData;
+      
       const { error } = await supabase
         .from('personas')
-        .update(personData)
+        .update(cleanPersonData)
         .eq('id', editingEntity?.id);
       
       if (error) throw error;
