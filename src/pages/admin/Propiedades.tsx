@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,7 +57,35 @@ const Propiedades = () => {
   const { data: properties, isLoading } = useQuery({
     queryKey: ['properties-detailed'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_properties_with_details');
+      const { data, error } = await supabase
+        .from('propiedades')
+        .select(`
+          id,
+          numero_propiedad,
+          numero_piso,
+          m2_reales,
+          precio_lista,
+          clabe_stp_tmp_apartado,
+          activo,
+          edificios_modelos!inner(
+            edificios!inner(
+              nombre,
+              proyectos!inner(nombre)
+            ),
+            modelos!inner(
+              nombre,
+              numero_recamaras,
+              numero_completo_banos,
+              numero_medio_bano
+            )
+          ),
+          entidades_relacionadas(
+            personas(nombre_legal)
+          ),
+          vistas(nombre),
+          estatus_disponibilidad!inner(nombre)
+        `)
+        .order('id', { ascending: false });
       
       if (error) {
         console.error('Error fetching properties:', error);
@@ -70,22 +99,36 @@ const Propiedades = () => {
         numero_piso: property.numero_piso,
         m2_reales: property.m2_reales,
         precio_lista: property.precio_lista,
-        clabe_stp_tmp_apartado: property.clabe_stp,
+        clabe_stp_tmp_apartado: property.clabe_stp_tmp_apartado,
         activo: property.activo,
-        propietario: property.dueño || 'Sin propietario',
-        proyecto: 'Por definir', // Necesitamos agregar esto a la función
-        edificio: 'Por definir', // Necesitamos agregar esto a la función
-        modelo: property.modelo || 'Sin modelo',
-        vista: property.vista || 'Sin vista',
-        disponibilidad: property.disponibilidad || 'Sin estatus',
+        propietario: property.entidades_relacionadas?.personas?.nombre_legal || 'Sin propietario',
+        proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
+        edificio: property.edificios_modelos?.edificios?.nombre || 'Sin edificio',
+        modelo: property.edificios_modelos?.modelos?.nombre || 'Sin modelo',
+        vista: property.vistas?.nombre || 'Sin vista',
+        disponibilidad: property.estatus_disponibilidad?.nombre || 'Sin estatus',
         configuracion_modelo: {
-          numero_recamaras: 0, // Necesitamos agregar esto a la función
-          numero_completo_banos: 0, // Necesitamos agregar esto a la función
-          numero_medio_bano: 0, // Necesitamos agregar esto a la función
+          numero_recamaras: property.edificios_modelos?.modelos?.numero_recamaras || 0,
+          numero_completo_banos: property.edificios_modelos?.modelos?.numero_completo_banos || 0,
+          numero_medio_bano: property.edificios_modelos?.modelos?.numero_medio_bano || 0,
         }
       })) || [];
       
       return transformedData;
+    },
+  });
+
+  const { data: availabilityOptions } = useQuery({
+    queryKey: ['availability-options'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estatus_disponibilidad')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -400,11 +443,19 @@ const Propiedades = () => {
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Disponibilidad</label>
-                <Input
-                  placeholder="Filtrar por disponibilidad..."
-                  value={disponibilidadFilter}
-                  onChange={(e) => setDisponibilidadFilter(e.target.value)}
-                />
+                <Select value={disponibilidadFilter} onValueChange={setDisponibilidadFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Todos</SelectItem>
+                    {availabilityOptions?.map((option) => (
+                      <SelectItem key={option.id} value={option.nombre}>
+                        {option.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
