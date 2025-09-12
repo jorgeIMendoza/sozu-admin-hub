@@ -174,8 +174,8 @@ export default function Modelos() {
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "active" | "deleted")}>
         <TabsList>
-          <TabsTrigger value="active">Modelos Activos</TabsTrigger>
-          <TabsTrigger value="deleted">Modelos Eliminados</TabsTrigger>
+          <TabsTrigger value="active">Modelos Activos ({modelosActivos.length})</TabsTrigger>
+          <TabsTrigger value="deleted">Modelos Eliminados ({modelosEliminados.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active">

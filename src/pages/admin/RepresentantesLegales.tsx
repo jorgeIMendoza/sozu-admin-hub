@@ -38,8 +38,8 @@ export default function RepresentantesLegales() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: representantes = [], isLoading } = useQuery({
-    queryKey: ['representantes_legales', activeTab],
+  const { data: activeRepresentantes = [], isLoading: loadingActiveRepresentantes } = useQuery({
+    queryKey: ['representantes_legales', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entidades_relacionadas')
@@ -54,7 +54,7 @@ export default function RepresentantesLegales() {
             activo
           )
         `)
-        .eq('personas.activo', activeTab === 'active')
+        .eq('personas.activo', true)
         .eq('activo', true)
         .eq('id_tipo_entidad', 1)
         .is('id_proyecto', null)
@@ -62,7 +62,6 @@ export default function RepresentantesLegales() {
       
       if (error) throw error;
       
-      // Flatten the structure to match the expected format
       return (data || []).map((item: any) => ({
         id: item.personas.id,
         entidad_relacionada_id: item.id,
@@ -74,6 +73,45 @@ export default function RepresentantesLegales() {
       })) as (RepresentanteLegal & { entidad_relacionada_id: number })[];
     },
   });
+
+  const { data: deletedRepresentantes = [], isLoading: loadingDeletedRepresentantes } = useQuery({
+    queryKey: ['representantes_legales', 'deleted'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('entidades_relacionadas')
+        .select(`
+          id,
+          personas!entidades_relacionadas_id_persona_fkey!inner (
+            id,
+            nombre_legal,
+            email,
+            telefono,
+            curp,
+            activo
+          )
+        `)
+        .eq('personas.activo', false)
+        .eq('activo', true)
+        .eq('id_tipo_entidad', 1)
+        .is('id_proyecto', null)
+        .order('personas(nombre_legal)', { ascending: true });
+      
+      if (error) throw error;
+      
+      return (data || []).map((item: any) => ({
+        id: item.personas.id,
+        entidad_relacionada_id: item.id,
+        nombre_legal: item.personas.nombre_legal,
+        email: item.personas.email,
+        telefono: item.personas.telefono,
+        curp: item.personas.curp,
+        activo: item.personas.activo,
+      })) as (RepresentanteLegal & { entidad_relacionada_id: number })[];
+    },
+  });
+
+  const representantes = activeTab === 'active' ? activeRepresentantes : deletedRepresentantes;
+  const isLoading = activeTab === 'active' ? loadingActiveRepresentantes : loadingDeletedRepresentantes;
 
   // Check if representant can be deleted (not referenced by any legal entity or PM client)
   const { data: canDeleteData = [] } = useQuery({
@@ -294,8 +332,8 @@ export default function RepresentantesLegales() {
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados</TabsTrigger>
+              <TabsTrigger value="active">Activos ({activeRepresentantes.length})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({deletedRepresentantes.length})</TabsTrigger>
             </TabsList>
             
             <div className="mb-6">

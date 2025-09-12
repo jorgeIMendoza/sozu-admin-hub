@@ -43,19 +43,36 @@ export default function Notarios() {
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
 
-  const { data: notarios = [], isLoading } = useQuery({
-    queryKey: ['notarios', activeTab],
+  const { data: activeNotarios = [], isLoading: loadingActiveNotarios } = useQuery({
+    queryKey: ['notarios', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notarios')
         .select('*')
-        .eq('activo', activeTab === 'active')
+        .eq('activo', true)
         .order('nombre', { ascending: true });
       
       if (error) throw error;
       return data || [];
     },
   });
+
+  const { data: deletedNotarios = [], isLoading: loadingDeletedNotarios } = useQuery({
+    queryKey: ['notarios', 'deleted'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notarios')
+        .select('*')
+        .eq('activo', false)
+        .order('nombre', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const notarios = activeTab === 'active' ? activeNotarios : deletedNotarios;
+  const isLoading = activeTab === 'active' ? loadingActiveNotarios : loadingDeletedNotarios;
 
   const createMutation = useMutation({
     mutationFn: async (notarioData: Omit<Notario, 'id' | 'activo'>) => {
@@ -269,8 +286,8 @@ export default function Notarios() {
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados</TabsTrigger>
+              <TabsTrigger value="active">Activos ({activeNotarios.length})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({deletedNotarios.length})</TabsTrigger>
             </TabsList>
             
             <div className="mb-6">

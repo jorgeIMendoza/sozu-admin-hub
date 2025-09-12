@@ -37,8 +37,8 @@ export default function EntidadesLegales() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: entidades = [], isLoading } = useQuery({
-    queryKey: ['entidades_legales', activeTab],
+  const { data: activeEntidades = [], isLoading: loadingActiveEntidades } = useQuery({
+    queryKey: ['entidades_legales', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('personas')
@@ -68,16 +68,15 @@ export default function EntidadesLegales() {
             )
           )
         `)
-        .eq('activo', activeTab === 'active')
+        .eq('activo', true)
         .eq('tipo_persona', 'pm')
         .eq('entidades_relacionadas.activo', true)
-        .neq('entidades_relacionadas.tipos_entidad.padre', 'c') // Exclude clients
+        .neq('entidades_relacionadas.tipos_entidad.padre', 'c')
         .is('entidades_relacionadas.id_proyecto', null)
         .order('nombre_legal', { ascending: true });
       
       if (error) throw error;
       
-      // Flatten the structure to match the expected format
       return (data || []).map((item: any) => ({
         id: item.id,
         entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
@@ -98,6 +97,70 @@ export default function EntidadesLegales() {
       })[];
     },
   });
+
+  const { data: deletedEntidades = [], isLoading: loadingDeletedEntidades } = useQuery({
+    queryKey: ['entidades_legales', 'deleted'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select(`
+          id,
+          nombre_legal,
+          nombre_comercial,
+          email,
+          telefono,
+          rfc,
+          activo,
+          id_entidad_relacionada_rep_leg,
+          entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
+            id,
+            id_tipo_entidad,
+            tipos_entidad!inner (
+              id,
+              nombre,
+              padre
+            )
+          ),
+          representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
+            id,
+            personas!entidades_relacionadas_id_persona_fkey (
+              id,
+              nombre_legal
+            )
+          )
+        `)
+        .eq('activo', false)
+        .eq('tipo_persona', 'pm')
+        .eq('entidades_relacionadas.activo', true)
+        .neq('entidades_relacionadas.tipos_entidad.padre', 'c')
+        .is('entidades_relacionadas.id_proyecto', null)
+        .order('nombre_legal', { ascending: true });
+      
+      if (error) throw error;
+      
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
+        id_tipo_entidad: item.entidades_relacionadas[0]?.id_tipo_entidad,
+        nombre_legal: item.nombre_legal,
+        nombre_comercial: item.nombre_comercial,
+        email: item.email,
+        telefono: item.telefono,
+        rfc: item.rfc,
+        activo: item.activo,
+        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+      })) as (EntidadLegal & { 
+        entidad_relacionada_id: number; 
+        id_tipo_entidad: number;
+        id_entidad_relacionada_rep_leg: number;
+        representante_legal_nombre: string;
+      })[];
+    },
+  });
+
+  const entidades = activeTab === 'active' ? activeEntidades : deletedEntidades;
+  const isLoading = activeTab === 'active' ? loadingActiveEntidades : loadingDeletedEntidades;
 
   // Check if entity can be deleted (not selected in any project)
   const { data: canDeleteData = [] } = useQuery({
@@ -340,8 +403,8 @@ export default function EntidadesLegales() {
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados</TabsTrigger>
+              <TabsTrigger value="active">Activos ({activeEntidades.length})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({deletedEntidades.length})</TabsTrigger>
             </TabsList>
             
             <div className="mb-6">

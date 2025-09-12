@@ -41,8 +41,8 @@ export default function Clientes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: clientes = [], isLoading } = useQuery({
-    queryKey: ['clientes', activeTab],
+  const { data: activeClientes = [], isLoading: loadingActive } = useQuery({
+    queryKey: ['clientes', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('personas')
@@ -71,7 +71,7 @@ export default function Clientes() {
             )
           )
         `)
-        .eq('activo', activeTab === 'active')
+        .eq('activo', true)
         .eq('entidades_relacionadas.activo', true)
         .eq('entidades_relacionadas.tipos_entidad.padre', 'c')
         .is('entidades_relacionadas.id_proyecto', null)
@@ -95,6 +95,64 @@ export default function Clientes() {
       })) as (Cliente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
+
+  const { data: deletedClientes = [], isLoading: loadingDeleted } = useQuery({
+    queryKey: ['clientes', 'deleted'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select(`
+          id,
+          nombre_legal,
+          email,
+          telefono,
+          curp,
+          rfc,
+          tipo_persona,
+          activo,
+          id_entidad_relacionada_rep_leg,
+          entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
+            id,
+            id_tipo_entidad,
+            tipos_entidad!inner (
+              padre
+            )
+          ),
+          representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
+            id,
+            personas!entidades_relacionadas_id_persona_fkey (
+              id,
+              nombre_legal
+            )
+          )
+        `)
+        .eq('activo', false)
+        .eq('entidades_relacionadas.activo', true)
+        .eq('entidades_relacionadas.tipos_entidad.padre', 'c')
+        .is('entidades_relacionadas.id_proyecto', null)
+        .order('nombre_legal', { ascending: true });
+      
+      if (error) throw error;
+      
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        entidad_relacionada_id: item.entidades_relacionadas[0].id,
+        id_tipo_entidad: item.entidades_relacionadas[0].id_tipo_entidad,
+        nombre_legal: item.nombre_legal,
+        email: item.email,
+        telefono: item.telefono,
+        curp: item.curp,
+        rfc: item.rfc,
+        tipo_persona: item.tipo_persona,
+        activo: item.activo,
+        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+      })) as (Cliente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
+    },
+  });
+
+  const clientes = activeTab === 'active' ? activeClientes : deletedClientes;
+  const isLoading = activeTab === 'active' ? loadingActive : loadingDeleted;
 
   // Check if client can be deleted (not in any offers)  
   const { data: canDeleteData = [] } = useQuery({
@@ -331,8 +389,8 @@ export default function Clientes() {
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados</TabsTrigger>
+              <TabsTrigger value="active">Activos ({activeClientes.length})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({deletedClientes.length})</TabsTrigger>
             </TabsList>
             
             <div className="mb-6">
