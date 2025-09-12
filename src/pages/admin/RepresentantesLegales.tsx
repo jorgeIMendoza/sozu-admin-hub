@@ -374,6 +374,7 @@ export default function RepresentantesLegales() {
         title="Restaurar Representante Legal"
         description={`¿Estás seguro de que quieres restaurar a "${representantToRestore?.nombre_legal}"?`}
         isLoading={restoreMutation.isPending}
+        actionType="restore"
       />
     </div>
   );

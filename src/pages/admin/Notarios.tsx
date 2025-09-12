@@ -335,6 +335,7 @@ export default function Notarios() {
         title="Restaurar Notario"
         description={`¿Estás seguro de que quieres restaurar al notario "${notarioToRestore?.nombre}"?`}
         isLoading={restoreMutation.isPending}
+        actionType="restore"
       />
     </div>
   );

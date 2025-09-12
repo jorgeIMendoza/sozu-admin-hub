@@ -429,6 +429,7 @@ export default function Clientes() {
         title="Restaurar Cliente"
         description={`¿Estás seguro de que quieres restaurar al cliente "${clientToRestore?.nombre_legal}"?`}
         isLoading={restoreMutation.isPending}
+        actionType="restore"
       />
     </div>
   );

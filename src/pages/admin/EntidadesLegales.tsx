@@ -423,6 +423,7 @@ export default function EntidadesLegales() {
         title="Restaurar Entidad Legal"
         description={`¿Estás seguro de que quieres restaurar la entidad legal "${entityToRestore?.nombre_legal}"?`}
         isLoading={restoreMutation.isPending}
+        actionType="restore"
       />
     </div>
   );
