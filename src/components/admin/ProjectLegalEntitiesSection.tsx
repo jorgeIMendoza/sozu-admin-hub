@@ -35,7 +35,7 @@ export const ProjectLegalEntitiesSection = ({
       const { data, error } = await supabase
         .from("tipos_entidad")
         .select("id, nombre")
-        .eq("padre", "el")
+        .eq("padre", "p")
         .eq("activo", true)
         .order("nombre");
       
@@ -44,7 +44,7 @@ export const ProjectLegalEntitiesSection = ({
     },
   });
 
-  // Fetch available legal entities
+  // Fetch available legal entities with their entity relations
   const { data: availableLegalEntities = [] } = useQuery({
     queryKey: ["available-legal-entities"],
     queryFn: async () => {
@@ -54,13 +54,33 @@ export const ProjectLegalEntitiesSection = ({
           id,
           nombre_legal,
           email,
-          telefono
+          telefono,
+          entidades_relacionadas!entidades_relacionadas_id_persona_fkey (
+            id,
+            id_tipo_entidad,
+            tipos_entidad!inner (
+              id,
+              nombre
+            )
+          )
         `)
         .eq("activo", true)
-        .eq("tipo_persona", "pm");
+        .eq("tipo_persona", "pm")
+        .eq("entidades_relacionadas.activo", true)
+        .eq("entidades_relacionadas.tipos_entidad.padre", "p")
+        .is("entidades_relacionadas.id_proyecto", null);
       
       if (error) throw error;
-      return data || [];
+      
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        nombre_legal: item.nombre_legal,
+        email: item.email,
+        telefono: item.telefono,
+        tipo_entidad_id: item.entidades_relacionadas[0]?.id_tipo_entidad,
+        tipo_entidad_nombre: item.entidades_relacionadas[0]?.tipos_entidad?.nombre,
+        entidad_relacionada_id: item.entidades_relacionadas[0]?.id
+      }));
     },
   });
 
@@ -88,7 +108,7 @@ export const ProjectLegalEntitiesSection = ({
         `)
         .eq("id_proyecto", projectId)
         .eq("activo", true)
-        .not("tipos_entidad.padre", "eq", "c");
+        .eq("tipos_entidad.padre", "p");
       
       if (error) throw error;
       return data || [];
@@ -112,14 +132,19 @@ export const ProjectLegalEntitiesSection = ({
         throw new Error("El proyecto ya tiene una entidad legal de este tipo");
       }
 
-      // Insert new entidad_relacionada record
+      // Update the existing entidad_relacionada to link it to this project
+      const selectedEntity = availableLegalEntities.find(
+        entity => entity.id === parseInt(selectedEntityId) && entity.tipo_entidad_id === parseInt(selectedEntityTypeId)
+      );
+
+      if (!selectedEntity?.entidad_relacionada_id) {
+        throw new Error("No se encontró la relación de entidad del tipo seleccionado");
+      }
+
       const { error } = await supabase
         .from("entidades_relacionadas")
-        .insert({
-          id_proyecto: projectId,
-          id_persona: parseInt(selectedEntityId),
-          id_tipo_entidad: parseInt(selectedEntityTypeId)
-        });
+        .update({ id_proyecto: projectId })
+        .eq("id", selectedEntity.entidad_relacionada_id);
 
       if (error) throw error;
     },
@@ -169,8 +194,12 @@ export const ProjectLegalEntitiesSection = ({
     },
   });
 
-  // Filter available entities by selected type - all entities are available since we'll assign the type when adding
-  const filteredEntities = availableLegalEntities;
+  // Filter available entities by selected type
+  const filteredEntities = selectedEntityTypeId
+    ? availableLegalEntities.filter(
+        entity => entity.tipo_entidad_id === parseInt(selectedEntityTypeId)
+      )
+    : [];
 
   // Get used entity types
   const usedEntityTypes = new Set(
@@ -245,28 +274,39 @@ export const ProjectLegalEntitiesSection = ({
                   <SelectValue placeholder="Selecciona una entidad" />
                 </SelectTrigger>
                  <SelectContent>
-                   {filteredEntities.map((entity) => (
-                     <SelectItem key={entity.id} value={entity.id.toString()}>
-                       <div>
-                         <div className="font-medium">{entity.nombre_legal}</div>
-                         <div className="text-xs text-muted-foreground">
-                           {entity.email}
-                         </div>
-                       </div>
+                   {selectedEntityTypeId && filteredEntities.length === 0 ? (
+                     <SelectItem value="" disabled>
+                       No hay entidades disponibles para este tipo
                      </SelectItem>
-                   ))}
+                   ) : (
+                     filteredEntities.map((entity) => (
+                       <SelectItem key={entity.id} value={entity.id.toString()}>
+                         <div>
+                           <div className="font-medium">{entity.nombre_legal}</div>
+                           <div className="text-xs text-muted-foreground">
+                             {entity.email}
+                           </div>
+                         </div>
+                       </SelectItem>
+                     ))
+                   )}
                  </SelectContent>
               </Select>
             </div>
           </div>
 
-          <Button
-            onClick={() => addEntityMutation.mutate()}
-            disabled={!selectedEntityId || !selectedEntityTypeId || addEntityMutation.isPending}
-            className="w-full"
-          >
-            {addEntityMutation.isPending ? "Agregando..." : "Agregar Entidad"}
-          </Button>
+           <Button
+             onClick={() => addEntityMutation.mutate()}
+             disabled={!selectedEntityId || !selectedEntityTypeId || addEntityMutation.isPending || filteredEntities.length === 0}
+             className="w-full"
+           >
+             {addEntityMutation.isPending ? "Agregando..." : "Agregar Entidad"}
+           </Button>
+           {selectedEntityTypeId && filteredEntities.length === 0 && (
+             <p className="text-sm text-muted-foreground text-center">
+               No hay entidades legales disponibles para este tipo.
+             </p>
+           )}
         </CardContent>
       </Card>
 
