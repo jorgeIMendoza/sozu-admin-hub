@@ -96,66 +96,6 @@ export default function EntidadesLegales() {
       })[];
     },
   });
-    queryKey: ['entidades_legales', activeTab],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('personas')
-        .select(`
-          id,
-          nombre_legal,
-          nombre_comercial,
-          email,
-          telefono,
-          rfc,
-          activo,
-          id_entidad_relacionada_rep_leg,
-          entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
-            id,
-            id_tipo_entidad,
-            tipos_entidad!inner (
-              id,
-              nombre,
-              padre
-            )
-          ),
-          representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
-            id,
-            personas!entidades_relacionadas_id_persona_fkey (
-              id,
-              nombre_legal
-            )
-          )
-        `)
-        .eq('activo', activeTab === 'active')
-        .eq('tipo_persona', 'pm')
-        .eq('entidades_relacionadas.activo', true)
-        .neq('entidades_relacionadas.tipos_entidad.padre', 'c') // Exclude clients
-        .is('entidades_relacionadas.id_proyecto', null)
-        .order('nombre_legal', { ascending: true });
-      
-      if (error) throw error;
-      
-      // Flatten the structure to match the expected format
-      return (data || []).map((item: any) => ({
-        id: item.id,
-        entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
-        id_tipo_entidad: item.entidades_relacionadas[0]?.id_tipo_entidad,
-        nombre_legal: item.nombre_legal,
-        nombre_comercial: item.nombre_comercial,
-        email: item.email,
-        telefono: item.telefono,
-        rfc: item.rfc,
-        activo: item.activo,
-        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
-        representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-      })) as (EntidadLegal & { 
-        entidad_relacionada_id: number; 
-        id_tipo_entidad: number;
-        id_entidad_relacionada_rep_leg: number;
-        representante_legal_nombre: string;
-      })[];
-    },
-  });
 
   // Check if entity can be deleted (not selected in any project)
   const { data: canDeleteData = [] } = useQuery({
@@ -364,13 +304,6 @@ export default function EntidadesLegales() {
     }
   };
 
-  const canDeleteEntity = (entityId: number) => {
-    const entity = entidades.find(e => e.entidad_relacionada_id === entityId);
-    if (!entity) return false;
-    
-    const canDeleteInfo = canDeleteData.find(c => c.entityId === entity.entidad_relacionada_id);
-    return canDeleteInfo?.canDelete ?? false;
-  };
 
   return (
     <div className="container mx-auto py-6 px-4">

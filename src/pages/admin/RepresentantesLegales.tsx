@@ -234,13 +234,6 @@ export default function RepresentantesLegales() {
     return canDeleteInfo?.canDelete ?? false;
   };
 
-  const canDeleteRepresentant = (representantId: number) => {
-    const representant = representantes.find(r => r.entidad_relacionada_id === representantId);
-    if (!representant) return false;
-    
-    const canDeleteInfo = canDeleteData.find(c => c.representantId === representant.entidad_relacionada_id);
-    return canDeleteInfo?.canDelete ?? false;
-  };
 
   const handleEdit = (representante: RepresentanteLegal) => {
     setEditingRepresentant(representante);
