@@ -410,10 +410,9 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         url_documento_identificacion: documentImageUrl || undefined,
       });
     } else {
-      // Add entity-specific data
+      // Add entity-specific data (only representativeId, parent components handle entityType)
       const extendedFormData = {
         ...formData,
-        entityType: entityType === 'client' ? 7 : idTipoEntidad, // Default to Prospecto (7) for clients
         representativeId: idRepresentanteLegal === 'none' || !idRepresentanteLegal ? null : parseInt(idRepresentanteLegal),
       };
       onSubmit(extendedFormData);
