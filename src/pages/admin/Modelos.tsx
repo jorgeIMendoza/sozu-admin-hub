@@ -204,6 +204,7 @@ export default function Modelos() {
                       <TableHead>Recámaras</TableHead>
                       <TableHead>Baños</TableHead>
                       <TableHead>1/2 Baños</TableHead>
+                      <TableHead>Habilitado Asignar</TableHead>
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -222,6 +223,11 @@ export default function Modelos() {
                         <TableCell>{modelo.numero_recamaras || "-"}</TableCell>
                         <TableCell>{modelo.numero_completo_banos || "-"}</TableCell>
                         <TableCell>{modelo.numero_medio_bano || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={modelo.habilitar_asignar ? "default" : "secondary"}>
+                            {modelo.habilitar_asignar ? "Sí" : "No"}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             <EditModeloDialog 
@@ -292,6 +298,7 @@ export default function Modelos() {
                       <TableHead>Recámaras</TableHead>
                       <TableHead>Baños</TableHead>
                       <TableHead>1/2 Baños</TableHead>
+                      <TableHead>Habilitado Asignar</TableHead>
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -310,6 +317,11 @@ export default function Modelos() {
                         <TableCell>{modelo.numero_recamaras || "-"}</TableCell>
                         <TableCell>{modelo.numero_completo_banos || "-"}</TableCell>
                         <TableCell>{modelo.numero_medio_bano || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={modelo.habilitar_asignar ? "default" : "secondary"}>
+                            {modelo.habilitar_asignar ? "Sí" : "No"}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <Button 
                             variant="outline" 
