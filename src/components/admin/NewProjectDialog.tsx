@@ -49,9 +49,9 @@ const formSchema = z.object({
   id_tipo_uso: z.string().min(1, "El tipo de uso es requerido"),
   id_estatus_proyecto: z.string().min(1, "El estatus del proyecto es requerido"),
   precio_m2: z.string().optional(),
-  fecha_lanzamiento_proyecto: z.string().optional(),
+  fecha_lanzamiento: z.string().optional(),
   fecha_inicio_construccion: z.string().optional(),
-  fecha_entrega_proyecto: z.string().optional(),
+  fecha_entrega: z.string().optional(),
   latitud: z.number().optional(),
   longitud: z.number().optional(),
   amenidades: z.array(z.string()).default([]),
@@ -91,9 +91,9 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
       id_tipo_uso: "",
       id_estatus_proyecto: "",
       precio_m2: "",
-      fecha_lanzamiento_proyecto: "",
+      fecha_lanzamiento: "",
       fecha_inicio_construccion: "",
-      fecha_entrega_proyecto: "",
+      fecha_entrega: "",
       latitud: undefined,
       longitud: undefined,
       amenidades: [],
@@ -215,9 +215,9 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         id_tipo_uso: parseInt(values.id_tipo_uso),
         id_estatus_proyecto: parseInt(values.id_estatus_proyecto),
         precio_m2: values.precio_m2 ? parseFloat(values.precio_m2) : null,
-        fecha_lanzamiento_proyecto: values.fecha_lanzamiento_proyecto || null,
+        fecha_lanzamiento: values.fecha_lanzamiento || null,
         fecha_inicio_construccion: values.fecha_inicio_construccion || null,
-        fecha_entrega_proyecto: values.fecha_entrega_proyecto || null,
+        fecha_entrega: values.fecha_entrega || null,
         latitud: selectedLocation?.lat || null,
         longitud: selectedLocation?.lng || null,
         url_logo: values.url_logo || null,
@@ -450,7 +450,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                 <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
-                    name="fecha_lanzamiento_proyecto"
+                    name="fecha_lanzamiento"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fecha de Lanzamiento</FormLabel>
@@ -478,7 +478,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
 
                   <FormField
                     control={form.control}
-                    name="fecha_entrega_proyecto"
+                    name="fecha_entrega"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fecha de Entrega</FormLabel>
@@ -706,7 +706,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit">Crear Proyecto</Button>
+                  <Button type="button" onClick={() => form.handleSubmit(onSubmit)()}>Crear Proyecto</Button>
                 </div>
               </TabsContent>
               
@@ -890,7 +890,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                     <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button type="submit">Crear Proyecto</Button>
+                    <Button type="button" onClick={() => form.handleSubmit(onSubmit)()}>Crear Proyecto</Button>
                   </div>
                 </div>
               </TabsContent>
