@@ -132,6 +132,15 @@ export const ProjectLegalEntitiesSection = ({
         throw new Error("Faltan datos requeridos");
       }
 
+      // Check if project already has an entity of this type
+      const existingEntity = projectLegalEntities.find(
+        (entity) => entity.id_tipo_entidad === parseInt(selectedEntityTypeId)
+      );
+
+      if (existingEntity) {
+        throw new Error("El proyecto ya tiene una entidad legal de este tipo");
+      }
+
       // Create a new entidades_relacionadas record for this project
       const { error } = await supabase
         .from("entidades_relacionadas")
@@ -195,6 +204,11 @@ export const ProjectLegalEntitiesSection = ({
       )
     : [];
 
+  // Get used entity types for this specific project
+  const usedEntityTypes = new Set(
+    projectLegalEntities.map(entity => entity.id_tipo_entidad)
+  );
+
 
   if (isCreating) {
     return (
@@ -217,7 +231,7 @@ export const ProjectLegalEntitiesSection = ({
             Agregar Entidad Legal
           </CardTitle>
           <CardDescription>
-            Selecciona una entidad legal para agregar al proyecto. Una misma entidad puede participar en múltiples proyectos.
+            Selecciona una entidad legal para agregar al proyecto. Solo puede haber una entidad por tipo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -239,8 +253,14 @@ export const ProjectLegalEntitiesSection = ({
                     <SelectItem 
                       key={type.id} 
                       value={type.id.toString()}
+                      disabled={usedEntityTypes.has(type.id)}
                     >
-                      <span>{type.nombre}</span>
+                      <div className="flex items-center justify-between">
+                        <span>{type.nombre}</span>
+                        {usedEntityTypes.has(type.id) && (
+                          <Badge variant="secondary" className="ml-2">Ya asignado</Badge>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
