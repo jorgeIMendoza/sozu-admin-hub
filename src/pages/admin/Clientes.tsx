@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
 import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
+import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 
 type Cliente = {
   id: number;
@@ -33,6 +34,8 @@ export default function Clientes() {
   const [isBeneficiariosDialogOpen, setIsBeneficiariosDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Cliente | null>(null);
   const [selectedClientForBeneficiarios, setSelectedClientForBeneficiarios] = useState<Cliente | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -74,7 +77,6 @@ export default function Clientes() {
       
       if (error) throw error;
       
-      // Flatten the structure to match the expected format
       return (data || []).map((item: any) => ({
         id: item.id,
         entidad_relacionada_id: item.entidades_relacionadas[0].id,
@@ -92,12 +94,34 @@ export default function Clientes() {
     },
   });
 
+  // Check if client can be deleted (not in any offers)  
+  const { data: canDeleteData = [] } = useQuery({
+    queryKey: ['client_offers', clientes.map(c => c.id)],
+    queryFn: async () => {
+      if (!clientes.length) return [];
+      
+      const clientIds = clientes.map(c => c.id);
+      
+      const { data, error } = await supabase
+        .from('ofertas')
+        .select('id, id_persona_lead')
+        .in('id_persona_lead', clientIds)
+        .eq('activo', true);
+      
+      if (error) throw error;
+      
+      return clientIds.map(clientId => ({
+        clientId,
+        canDelete: !data?.some(offer => offer.id_persona_lead === clientId)
+      }));
+    },
+    enabled: clientes.length > 0
+  });
+
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      // Extract entity type from personData
       const { entityType, representativeId, ...cleanPersonData } = personData;
       
-      // First, create the person record
       const { data: personResult, error: personError } = await supabase
         .from('personas')
         .insert([cleanPersonData])
@@ -106,7 +130,6 @@ export default function Clientes() {
       
       if (personError) throw personError;
       
-      // Then, create the entidades_relacionadas record
       const { error: entidadError } = await supabase
         .from('entidades_relacionadas')
         .insert([{
@@ -118,7 +141,6 @@ export default function Clientes() {
       
       if (entidadError) throw entidadError;
 
-      // If a representative was selected and it's a PM, update the person record
       if (representativeId && cleanPersonData.tipo_persona === 'pm') {
         const { error: updateError } = await supabase
           .from('personas')
@@ -147,10 +169,8 @@ export default function Clientes() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      // Extract entity type and representative from personData
       const { entityType, representativeId, ...cleanPersonData } = personData;
       
-      // First, update the basic person data
       const { error: updateError } = await supabase
         .from('personas')
         .update(cleanPersonData)
@@ -158,7 +178,6 @@ export default function Clientes() {
       
       if (updateError) throw updateError;
       
-      // Then, update the legal representative if provided for PM clients
       if (representativeId !== undefined && cleanPersonData.tipo_persona === 'pm') {
         const { error: repError } = await supabase
           .from('personas')
@@ -211,18 +230,6 @@ export default function Clientes() {
     },
   });
 
-  const filteredClientes = clientes.filter(cliente => 
-    cliente.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.curp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleEdit = (cliente: Cliente) => {
-    setEditingClient(cliente);
-    setIsEditDialogOpen(true);
-  };
-
   const restoreMutation = useMutation({
     mutationFn: async (id: number) => {
       const { error } = await supabase
@@ -248,9 +255,33 @@ export default function Clientes() {
     },
   });
 
-  const handleDelete = (id: number) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-      deleteMutation.mutate(id);
+  const filteredClientes = clientes.filter(cliente => 
+    cliente.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cliente.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cliente.curp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cliente.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const canDeleteClient = (clientId: number) => {
+    const canDeleteInfo = canDeleteData.find(c => c.clientId === clientId);
+    return canDeleteInfo?.canDelete ?? false;
+  };
+
+  const handleEdit = (cliente: Cliente) => {
+    setEditingClient(cliente);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (cliente: Cliente) => {
+    setClientToDelete(cliente);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (clientToDelete) {
+      deleteMutation.mutate(clientToDelete.id);
+      setDeleteDialogOpen(false);
+      setClientToDelete(null);
     }
   };
 
@@ -370,11 +401,20 @@ export default function Clientes() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Cliente"
+        description={`¿Estás seguro de que quieres eliminar al cliente "${clientToDelete?.nombre_legal}"? Esta acción no se puede deshacer.`}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 
   function renderTable() {
-
     if (filteredClientes.length === 0) {
       return (
         <div className="text-center py-12">
@@ -456,8 +496,10 @@ export default function Clientes() {
                          <Button 
                            variant="outline" 
                            size="sm"
-                           onClick={() => handleDelete(cliente.id)}
-                           className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                           onClick={() => handleDelete(cliente)}
+                           disabled={!canDeleteClient(cliente.id)}
+                           className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                           title={!canDeleteClient(cliente.id) ? "No se puede eliminar: tiene ofertas activas" : "Eliminar cliente"}
                          >
                            <Trash2 className="w-4 h-4" />
                          </Button>

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
+import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 
 type RepresentanteLegal = {
   id: number;
@@ -30,6 +31,8 @@ export default function RepresentantesLegales() {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingRepresentant, setEditingRepresentant] = useState<RepresentanteLegal | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [representantToDelete, setRepresentantToDelete] = useState<RepresentanteLegal | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -68,6 +71,30 @@ export default function RepresentantesLegales() {
         activo: item.personas.activo,
       })) as (RepresentanteLegal & { entidad_relacionada_id: number })[];
     },
+  });
+
+  // Check if representant can be deleted (not referenced by any legal entity or PM client)
+  const { data: canDeleteData = [] } = useQuery({
+    queryKey: ['representant_references', representantes],
+    queryFn: async () => {
+      if (!representantes.length) return [];
+      
+      const representantIds = representantes.map(r => r.entidad_relacionada_id);
+      
+      const { data, error } = await supabase
+        .from('personas')
+        .select('id, id_entidad_relacionada_rep_leg')
+        .in('id_entidad_relacionada_rep_leg', representantIds)
+        .eq('activo', true);
+      
+      if (error) throw error;
+      
+      return representantIds.map(repId => ({
+        representantId: repId,
+        canDelete: !data?.some(item => item.id_entidad_relacionada_rep_leg === repId)
+      }));
+    },
+    enabled: representantes.length > 0
   });
 
   const createMutation = useMutation({
@@ -168,17 +195,6 @@ export default function RepresentantesLegales() {
     },
   });
 
-  const filteredRepresentantes = representantes.filter(representante => 
-    representante.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    representante.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    representante.curp?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleEdit = (representante: RepresentanteLegal) => {
-    setEditingRepresentant(representante);
-    setIsEditDialogOpen(true);
-  };
-
   const restoreMutation = useMutation({
     mutationFn: async (id: number) => {
       const { error } = await supabase
@@ -204,9 +220,43 @@ export default function RepresentantesLegales() {
     },
   });
 
-  const handleDelete = (id: number) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este representante legal?')) {
-      deleteMutation.mutate(id);
+  const filteredRepresentantes = representantes.filter(representante => 
+    representante.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    representante.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    representante.curp?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const canDeleteRepresentant = (representantId: number) => {
+    const representant = representantes.find(r => r.entidad_relacionada_id === representantId);
+    if (!representant) return false;
+    
+    const canDeleteInfo = canDeleteData.find(c => c.representantId === representant.entidad_relacionada_id);
+    return canDeleteInfo?.canDelete ?? false;
+  };
+
+  const canDeleteRepresentant = (representantId: number) => {
+    const representant = representantes.find(r => r.entidad_relacionada_id === representantId);
+    if (!representant) return false;
+    
+    const canDeleteInfo = canDeleteData.find(c => c.representantId === representant.entidad_relacionada_id);
+    return canDeleteInfo?.canDelete ?? false;
+  };
+
+  const handleEdit = (representante: RepresentanteLegal) => {
+    setEditingRepresentant(representante);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (representant: RepresentanteLegal) => {
+    setRepresentantToDelete(representant);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (representantToDelete) {
+      deleteMutation.mutate(representantToDelete.id);
+      setDeleteDialogOpen(false);
+      setRepresentantToDelete(null);
     }
   };
 
@@ -303,11 +353,20 @@ export default function RepresentantesLegales() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Representante Legal"
+        description={`¿Estás seguro de que quieres eliminar a "${representantToDelete?.nombre_legal}"? Esta acción no se puede deshacer.`}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 
   function renderTable() {
-
     if (filteredRepresentantes.length === 0) {
       return (
         <div className="text-center py-12">
@@ -372,8 +431,10 @@ export default function RepresentantesLegales() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleDelete(representante.id)}
-                          className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                          onClick={() => handleDelete(representante)}
+                          disabled={!canDeleteRepresentant(representante.entidad_relacionada_id)}
+                          className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={!canDeleteRepresentant(representante.entidad_relacionada_id) ? "No se puede eliminar: está siendo usado por una entidad legal o cliente persona moral" : "Eliminar representante legal"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
+import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 
 type EntidadLegal = {
   id: number;
@@ -29,6 +30,8 @@ export default function EntidadesLegales() {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<EntidadLegal | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [entityToDelete, setEntityToDelete] = useState<EntidadLegal | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -93,6 +96,99 @@ export default function EntidadesLegales() {
       })[];
     },
   });
+    queryKey: ['entidades_legales', activeTab],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select(`
+          id,
+          nombre_legal,
+          nombre_comercial,
+          email,
+          telefono,
+          rfc,
+          activo,
+          id_entidad_relacionada_rep_leg,
+          entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
+            id,
+            id_tipo_entidad,
+            tipos_entidad!inner (
+              id,
+              nombre,
+              padre
+            )
+          ),
+          representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
+            id,
+            personas!entidades_relacionadas_id_persona_fkey (
+              id,
+              nombre_legal
+            )
+          )
+        `)
+        .eq('activo', activeTab === 'active')
+        .eq('tipo_persona', 'pm')
+        .eq('entidades_relacionadas.activo', true)
+        .neq('entidades_relacionadas.tipos_entidad.padre', 'c') // Exclude clients
+        .is('entidades_relacionadas.id_proyecto', null)
+        .order('nombre_legal', { ascending: true });
+      
+      if (error) throw error;
+      
+      // Flatten the structure to match the expected format
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
+        id_tipo_entidad: item.entidades_relacionadas[0]?.id_tipo_entidad,
+        nombre_legal: item.nombre_legal,
+        nombre_comercial: item.nombre_comercial,
+        email: item.email,
+        telefono: item.telefono,
+        rfc: item.rfc,
+        activo: item.activo,
+        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+      })) as (EntidadLegal & { 
+        entidad_relacionada_id: number; 
+        id_tipo_entidad: number;
+        id_entidad_relacionada_rep_leg: number;
+        representante_legal_nombre: string;
+      })[];
+    },
+  });
+
+  // Check if entity can be deleted (not selected in any project)
+  const { data: canDeleteData = [] } = useQuery({
+    queryKey: ['entity_projects', entidades],
+    queryFn: async () => {
+      if (!entidades.length) return [];
+      
+      const entityIds = entidades.map(e => e.entidad_relacionada_id);
+      
+      const { data, error } = await supabase
+        .from('entidades_relacionadas')
+        .select('id, id_persona')
+        .not('id_proyecto', 'is', null)
+        .in('id', entityIds)
+        .eq('activo', true);
+      
+      if (error) throw error;
+      
+      return entityIds.map(entityId => ({
+        entityId,
+        canDelete: !data?.some(item => item.id === entityId)
+      }));
+    },
+    enabled: entidades.length > 0
+  });
+
+  const canDeleteEntity = (entityId: number) => {
+    const entity = entidades.find(e => e.entidad_relacionada_id === entityId);
+    if (!entity) return false;
+    
+    const canDeleteInfo = canDeleteData.find(c => c.entityId === entity.entidad_relacionada_id);
+    return canDeleteInfo?.canDelete ?? false;
+  };
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
@@ -213,17 +309,6 @@ export default function EntidadesLegales() {
     },
   });
 
-  const filteredEntidades = entidades.filter(entidad => 
-    entidad.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entidad.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entidad.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleEdit = (entidad: EntidadLegal) => {
-    setEditingEntity(entidad);
-    setIsEditDialogOpen(true);
-  };
-
   const restoreMutation = useMutation({
     mutationFn: async (id: number) => {
       const { error } = await supabase
@@ -249,9 +334,27 @@ export default function EntidadesLegales() {
     },
   });
 
-  const handleDelete = (id: number) => {
-    if (confirm('¿Estás seguro de que quieres eliminar esta entidad legal?')) {
-      deleteMutation.mutate(id);
+  const filteredEntidades = entidades.filter(entidad => 
+    entidad.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    entidad.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    entidad.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleEdit = (entidad: EntidadLegal) => {
+    setEditingEntity(entidad);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (entidad: EntidadLegal) => {
+    setEntityToDelete(entidad);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (entityToDelete) {
+      deleteMutation.mutate(entityToDelete.id);
+      setDeleteDialogOpen(false);
+      setEntityToDelete(null);
     }
   };
 
@@ -259,6 +362,14 @@ export default function EntidadesLegales() {
     if (confirm('¿Estás seguro de que quieres restaurar esta entidad legal?')) {
       restoreMutation.mutate(id);
     }
+  };
+
+  const canDeleteEntity = (entityId: number) => {
+    const entity = entidades.find(e => e.entidad_relacionada_id === entityId);
+    if (!entity) return false;
+    
+    const canDeleteInfo = canDeleteData.find(c => c.entityId === entity.entidad_relacionada_id);
+    return canDeleteInfo?.canDelete ?? false;
   };
 
   return (
@@ -351,11 +462,20 @@ export default function EntidadesLegales() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Entidad Legal"
+        description={`¿Estás seguro de que quieres eliminar la entidad legal "${entityToDelete?.nombre_legal}"? Esta acción no se puede deshacer.`}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 
   function renderTable() {
-
     if (filteredEntidades.length === 0) {
       return (
         <div className="text-center py-12">
@@ -428,8 +548,10 @@ export default function EntidadesLegales() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleDelete(entidad.id)}
-                          className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                          onClick={() => handleDelete(entidad)}
+                          disabled={!canDeleteEntity(entidad.entidad_relacionada_id)}
+                          className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={!canDeleteEntity(entidad.entidad_relacionada_id) ? "No se puede eliminar: está seleccionada en un proyecto" : "Eliminar entidad legal"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

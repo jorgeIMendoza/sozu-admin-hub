@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 
 type Notario = {
   id: number;
@@ -28,6 +29,8 @@ export default function Notarios() {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingNotario, setEditingNotario] = useState<Notario | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [notarioToDelete, setNotarioToDelete] = useState<Notario | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -185,9 +188,16 @@ export default function Notarios() {
     setIsEditDialogOpen(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este notario?')) {
-      deleteMutation.mutate(id);
+  const handleDelete = (notario: Notario) => {
+    setNotarioToDelete(notario);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (notarioToDelete) {
+      deleteMutation.mutate(notarioToDelete.id);
+      setDeleteDialogOpen(false);
+      setNotarioToDelete(null);
     }
   };
 
@@ -297,6 +307,16 @@ export default function Notarios() {
           {renderForm()}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Eliminar Notario"
+        description={`¿Estás seguro de que quieres eliminar al notario "${notarioToDelete?.nombre}"? Esta acción no se puede deshacer.`}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 
@@ -365,7 +385,7 @@ export default function Notarios() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleDelete(notario.id)}
+                          onClick={() => handleDelete(notario)}
                           className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
