@@ -237,7 +237,7 @@ const Proyectos = () => {
     const city = getCityName(project);
     const matchesCiudad = city.toLowerCase().includes(ciudadFilter.toLowerCase());
     
-    const matchesEstatus = !estatusFilter || (project.estatus_proyecto && 'id' in project.estatus_proyecto && project.estatus_proyecto.id?.toString() === estatusFilter);
+    const matchesEstatus = estatusFilter === "all" || !estatusFilter || (project.estatus_proyecto && 'id' in project.estatus_proyecto && project.estatus_proyecto.id?.toString() === estatusFilter);
     
     return matchesSearch && matchesNombre && matchesDesarrollador && matchesCiudad && matchesEstatus;
   });
@@ -254,7 +254,7 @@ const Proyectos = () => {
     const city = getCityName(project);
     const matchesCiudad = city.toLowerCase().includes(ciudadFilter.toLowerCase());
     
-    const matchesEstatus = !estatusFilter || (project.estatus_proyecto && 'id' in project.estatus_proyecto && project.estatus_proyecto.id?.toString() === estatusFilter);
+    const matchesEstatus = estatusFilter === "all" || !estatusFilter || (project.estatus_proyecto && 'id' in project.estatus_proyecto && project.estatus_proyecto.id?.toString() === estatusFilter);
     
     return matchesSearch && matchesNombre && matchesDesarrollador && matchesCiudad && matchesEstatus;
   });
@@ -473,7 +473,7 @@ const Proyectos = () => {
               <SelectValue placeholder="Todos los estatus" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos los estatus</SelectItem>
+              <SelectItem value="all">Todos los estatus</SelectItem>
               {estatusProyecto.map((estatus) => (
                 <SelectItem key={estatus.id} value={estatus.id.toString()}>
                   {estatus.nombre}
