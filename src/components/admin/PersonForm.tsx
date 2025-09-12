@@ -257,7 +257,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       }
       return data || [];
     },
-    enabled: entityType !== 'user' && entityType !== 'representative'
+    enabled: entityType === 'legal' // Only show for legal entities
   });
 
   const { data: representantesLegales = [] } = useQuery({
@@ -291,7 +291,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   function getDefaultTipoEntidad(type: string) {
     switch (type) {
       case 'legal': return undefined; // Will be selected by user
-      case 'client': return undefined; // Will be selected by user
+      case 'client': return 7; // Prospecto by default
       case 'representative': return 1; // Representante Legal
       default: return undefined;
     }
@@ -387,7 +387,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       // Add entity-specific data
       const extendedFormData = {
         ...formData,
-        entityType: idTipoEntidad,
+        entityType: entityType === 'client' ? 7 : idTipoEntidad, // Default to Prospecto (7) for clients
         representativeId: idRepresentanteLegal === 'none' || !idRepresentanteLegal ? null : parseInt(idRepresentanteLegal),
       };
       onSubmit(extendedFormData);
@@ -537,14 +537,14 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   />
                 </div>
 
-                {(entityType === 'legal' || entityType === 'client') && (
+                {entityType === 'legal' && (
                   <div>
                     <Label htmlFor="idTipoEntidad">
-                      {entityType === 'legal' ? 'Tipo de Entidad Legal *' : 'Tipo de Cliente *'}
+                      Tipo de Entidad Legal *
                     </Label>
                     <Select value={idTipoEntidad?.toString() || ''} onValueChange={(value) => setIdTipoEntidad(parseInt(value))}>
                       <SelectTrigger>
-                        <SelectValue placeholder={`Selecciona el tipo de ${entityType === 'legal' ? 'entidad legal' : 'cliente'}`} />
+                        <SelectValue placeholder="Selecciona el tipo de entidad legal" />
                       </SelectTrigger>
                       <SelectContent>
                         {tiposEntidad.map((tipo) => (
