@@ -54,8 +54,11 @@ const Proyectos = () => {
           edificios!fk_edificios_proyecto (
             id,
             nombre,
-            propiedades!fk_propiedades_edificio_modelo (
-              id
+            edificios_modelos!fk_edificios_modelos_edificio (
+              id,
+              propiedades!fk_propiedades_edificio_modelo (
+                id
+              )
             )
           ),
           multimedias_proyecto (
@@ -117,8 +120,11 @@ const Proyectos = () => {
           edificios!fk_edificios_proyecto (
             id,
             nombre,
-            propiedades!fk_propiedades_edificio_modelo (
-              id
+            edificios_modelos!fk_edificios_modelos_edificio (
+              id,
+              propiedades!fk_propiedades_edificio_modelo (
+                id
+              )
             )
           ),
           multimedias_proyecto (
@@ -215,7 +221,9 @@ const Proyectos = () => {
                 const city = getCityName(project);
                 const developer = "Por definir"; // Simplificamos por ahora
                 const departmentCount = project.edificios?.reduce((total: number, edificio: any) => {
-                  return total + (edificio.propiedades?.length || 0);
+                  return total + (edificio.edificios_modelos?.reduce((edificioTotal: number, modelo: any) => {
+                    return edificioTotal + (modelo.propiedades?.length || 0);
+                  }, 0) || 0);
                 }, 0) || 0;
                 
                 return (
