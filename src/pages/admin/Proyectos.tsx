@@ -72,7 +72,9 @@ const Proyectos = () => {
             edificios_modelos!fk_edificios_modelos_edificio (
               id,
               propiedades!fk_propiedades_edificio_modelo (
-                id
+                id,
+                precio_lista,
+                m2_escriturables
               )
             )
           ),
@@ -139,7 +141,9 @@ const Proyectos = () => {
             edificios_modelos!fk_edificios_modelos_edificio (
               id,
               propiedades!fk_propiedades_edificio_modelo (
-                id
+                id,
+                precio_lista,
+                m2_escriturables
               )
             )
           ),
@@ -255,6 +259,40 @@ const Proyectos = () => {
     }
   };
 
+  const getAveragePropertyPrice = (project: any) => {
+    const properties = project.edificios?.flatMap((edificio: any) => 
+      edificio.edificios_modelos?.flatMap((modelo: any) => 
+        modelo.propiedades || []
+      ) || []
+    ) || [];
+    
+    if (properties.length === 0) return 0;
+    
+    const totalPrice = properties.reduce((sum: number, property: any) => 
+      sum + (property.precio_lista || 0), 0);
+    
+    return totalPrice / properties.length;
+  };
+
+  const getAveragePricePerM2 = (project: any) => {
+    const properties = project.edificios?.flatMap((edificio: any) => 
+      edificio.edificios_modelos?.flatMap((modelo: any) => 
+        modelo.propiedades || []
+      ) || []
+    ) || [];
+    
+    if (properties.length === 0) return 0;
+    
+    const totalPrice = properties.reduce((sum: number, property: any) => 
+      sum + (property.precio_lista || 0), 0);
+    const totalM2 = properties.reduce((sum: number, property: any) => 
+      sum + (property.m2_escriturables || 0), 0);
+    
+    if (totalM2 === 0) return 0;
+    
+    return totalPrice / totalM2;
+  };
+
   // Filter active projects based on search term and specific filters
   const filteredActiveProjects = activeProjects.filter(project => {
     const matchesSearch = project.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -333,6 +371,8 @@ const Proyectos = () => {
                 <TableHead>Número de Departamentos</TableHead>
                 <TableHead>Ciudad</TableHead>
                 <TableHead>Dirección</TableHead>
+                <TableHead>Precio Promedio Propiedades</TableHead>
+                <TableHead>Precio Promedio por M2</TableHead>
                 <TableHead>Multimedia</TableHead>
                 <TableHead>Estatus</TableHead>
                 <TableHead>Acciones</TableHead>
@@ -348,6 +388,8 @@ const Proyectos = () => {
                     return edificioTotal + (modelo.propiedades?.length || 0);
                   }, 0) || 0);
                 }, 0) || 0;
+                const avgPropertyPrice = getAveragePropertyPrice(project);
+                const avgPricePerM2 = getAveragePricePerM2(project);
                 
                 return (
                   <TableRow key={project.id}>
@@ -356,6 +398,18 @@ const Proyectos = () => {
                     <TableCell>{departmentCount}</TableCell>
                     <TableCell>{city}</TableCell>
                     <TableCell>{project.direccion || "No especificada"}</TableCell>
+                    <TableCell>
+                      {avgPropertyPrice > 0 ? `$${avgPropertyPrice.toLocaleString('es-MX', { 
+                        minimumFractionDigits: 0, 
+                        maximumFractionDigits: 0 
+                      })}` : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {avgPricePerM2 > 0 ? `$${avgPricePerM2.toLocaleString('es-MX', { 
+                        minimumFractionDigits: 0, 
+                        maximumFractionDigits: 0 
+                      })}` : "N/A"}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {multimedia.images > 0 && (
