@@ -15,13 +15,15 @@ import { useQuery } from "@tanstack/react-query";
 import { DocumentsTab } from "./DocumentsTab";
 
 const formSchema = z.object({
+  id_proyecto: z.string().min(1, "El proyecto es requerido"),
+  id_edificio: z.string().min(1, "El edificio es requerido"),
+  id_modelo: z.string().min(1, "El modelo es requerido"),
   numero_propiedad: z.string().min(1, "El número de propiedad es requerido"),
   numero_piso: z.string().min(1, "El número de piso es requerido"),
   m2_reales: z.string().min(1, "Los metros cuadrados son requeridos"),
   m2_escriturables: z.string().min(1, "Los metros cuadrados escriturables son requeridos"),
   precio_lista: z.string().min(1, "El precio de lista es requerido"),
   monto_apartado: z.string().optional(),
-  id_edificio_modelo: z.string().min(1, "El modelo del edificio es requerido"),
   id_tipo_transaccion: z.string().min(1, "El tipo de transacción es requerido"),
   id_tipo_propiedad: z.string().min(1, "El tipo de propiedad es requerido"),
   id_estatus_disponibilidad: z.string().min(1, "El estatus de disponibilidad es requerido"),
@@ -36,18 +38,22 @@ interface NewPropertyDialogProps {
 export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) => {
   const [open, setOpen] = useState(false);
   const [propertyId, setPropertyId] = useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedBuildingId, setSelectedBuildingId] = useState("");
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      id_proyecto: "",
+      id_edificio: "",
+      id_modelo: "",
       numero_propiedad: "",
       numero_piso: "",
       m2_reales: "",
       m2_escriturables: "",
       precio_lista: "",
       monto_apartado: "",
-      id_edificio_modelo: "",
       id_tipo_transaccion: "",
       id_tipo_propiedad: "",
       id_estatus_disponibilidad: "",
@@ -57,28 +63,59 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
   });
 
   // Queries para obtener los datos necesarios
-  const { data: edificiosModelos } = useQuery({
-    queryKey: ["edificios-modelos"],
+  const { data: proyectos } = useQuery({
+    queryKey: ["proyectos"],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proyectos")
+        .select("id, nombre")
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: edificios } = useQuery({
+    queryKey: ["edificios", selectedProjectId],
+    queryFn: async () => {
+      if (!selectedProjectId) return [];
+      
+      const { data, error } = await supabase
+        .from("edificios")
+        .select("id, nombre")
+        .eq("id_proyecto", parseInt(selectedProjectId))
+        .eq("activo", true)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedProjectId,
+  });
+
+  const { data: modelos } = useQuery({
+    queryKey: ["modelos", selectedBuildingId],
+    queryFn: async () => {
+      if (!selectedBuildingId) return [];
+      
       const { data, error } = await supabase
         .from("edificios_modelos")
         .select(`
           id,
-          edificios!fk_edificios_modelos_edificio (
-            nombre,
-            proyectos!fk_edificios_proyecto (
-              nombre
-            )
-          ),
           modelos!fk_edificios_modelos_modelo (
+            id,
             nombre
           )
         `)
+        .eq("id_edificio", parseInt(selectedBuildingId))
         .eq("activo", true);
       
       if (error) throw error;
       return data || [];
     },
+    enabled: !!selectedBuildingId,
   });
 
   const { data: tiposTransaccion } = useQuery({
@@ -153,6 +190,18 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      // Find the edificio_modelo ID
+      const edificioModelo = modelos?.find(em => em.modelos?.id === parseInt(values.id_modelo));
+      
+      if (!edificioModelo) {
+        toast({
+          title: "Error",
+          description: "No se pudo encontrar la relación edificio-modelo.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const propertyData = {
         numero_propiedad: values.numero_propiedad,
         numero_piso: parseInt(values.numero_piso),
@@ -160,7 +209,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         m2_escriturables: parseFloat(values.m2_escriturables),
         precio_lista: parseFloat(values.precio_lista),
         monto_apartado: values.monto_apartado ? parseFloat(values.monto_apartado) : null,
-        id_edificio_modelo: parseInt(values.id_edificio_modelo),
+        id_edificio_modelo: edificioModelo.id,
         id_tipo_transaccion: parseInt(values.id_tipo_transaccion),
         id_tipo_propiedad: parseInt(values.id_tipo_propiedad),
         id_estatus_disponibilidad: parseInt(values.id_estatus_disponibilidad),
@@ -187,6 +236,8 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
 
       // Don't close dialog immediately, let user add documents
       form.reset();
+      setSelectedProjectId("");
+      setSelectedBuildingId("");
     } catch (error) {
       console.error("Error creating property:", error);
       toast({
@@ -218,35 +269,139 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
           <TabsContent value="basic">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                {/* Project, Building and Model Selection - Priority Fields */}
+                <div className="space-y-4 mb-6 p-4 border rounded-lg bg-muted/50">
+                  <h3 className="text-lg font-medium">Selección de Proyecto y Modelo</h3>
+                  
                   <FormField
                     control={form.control}
-                    name="numero_propiedad"
+                    name="id_proyecto"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Número de Propiedad</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ej: A-101" {...field} />
-                        </FormControl>
+                        <FormLabel>Proyecto</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            setSelectedProjectId(value);
+                            setSelectedBuildingId("");
+                            form.setValue("id_edificio", "");
+                            form.setValue("id_modelo", "");
+                          }} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona un proyecto" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {proyectos?.map((proyecto) => (
+                              <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
+                                {proyecto.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-              <FormField
-                control={form.control}
-                name="numero_piso"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Piso</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                  <FormField
+                    control={form.control}
+                    name="id_edificio"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Edificio</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            setSelectedBuildingId(value);
+                            form.setValue("id_modelo", "");
+                          }} 
+                          value={field.value}
+                          disabled={!selectedProjectId}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={!selectedProjectId ? "Selecciona un proyecto primero" : "Selecciona un edificio"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {edificios?.map((edificio) => (
+                              <SelectItem key={edificio.id} value={edificio.id.toString()}>
+                                {edificio.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="id_modelo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Modelo</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                          disabled={!selectedBuildingId}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={!selectedBuildingId ? "Selecciona un edificio primero" : "Selecciona un modelo"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {modelos?.map((em) => (
+                              <SelectItem key={em.modelos?.id} value={em.modelos?.id.toString()}>
+                                {em.modelos?.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Show remaining fields only after project, building and model are selected */}
+                {form.watch("id_proyecto") && form.watch("id_edificio") && form.watch("id_modelo") && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="numero_propiedad"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Número de Propiedad</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: A-101" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="numero_piso"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Número de Piso</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="1" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -310,135 +465,6 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
 
             <FormField
               control={form.control}
-              name="id_edificio_modelo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Edificio y Modelo</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona edificio y modelo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {edificiosModelos?.map((em) => (
-                        <SelectItem key={em.id} value={em.id.toString()}>
-                          {em.edificios?.proyectos?.nombre} - {em.edificios?.nombre} - {em.modelos?.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="id_tipo_transaccion"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Transacción</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {tiposTransaccion?.map((tipo) => (
-                          <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                            {tipo.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="id_tipo_propiedad"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Propiedad</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {tiposPropiedad?.map((tipo) => (
-                          <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                            {tipo.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="id_estatus_disponibilidad"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Disponibilidad</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona disponibilidad" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {estatusDisponibilidad?.map((estatus) => (
-                          <SelectItem key={estatus.id} value={estatus.id.toString()}>
-                            {estatus.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="id_vista"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vista</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona vista" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {vistas?.map((vista) => (
-                          <SelectItem key={vista.id} value={vista.id.toString()}>
-                            {vista.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
               name="id_entidad_relacionada_dueno"
               render={({ field }) => (
                 <FormItem>
@@ -461,16 +487,149 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                 </FormItem>
               )}
             />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="id_tipo_transaccion"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Transacción</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona tipo" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {tiposTransaccion?.map((tipo) => (
+                                  <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                                    {tipo.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="id_tipo_propiedad"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Propiedad</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona tipo" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {tiposPropiedad?.map((tipo) => (
+                                  <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                                    {tipo.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="id_estatus_disponibilidad"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Disponibilidad</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona disponibilidad" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {estatusDisponibilidad?.map((estatus) => (
+                                  <SelectItem key={estatus.id} value={estatus.id.toString()}>
+                                    {estatus.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="id_vista"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Vista</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona vista" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {vistas?.map((vista) => (
+                                  <SelectItem key={vista.id} value={vista.id.toString()}>
+                                    {vista.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="id_entidad_relacionada_dueno"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Propietario</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona propietario" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {personas?.map((persona) => (
+                                <SelectItem key={persona.id} value={persona.id.toString()}>
+                                  {persona.nombre_legal}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
 
                 <div className="flex justify-end space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => {
                     setOpen(false);
                     setPropertyId(null);
+                    setSelectedProjectId("");
+                    setSelectedBuildingId("");
+                    form.reset();
                     onPropertyAdded();
                   }}>
                     Cancelar
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" disabled={!form.watch("id_proyecto") || !form.watch("id_edificio") || !form.watch("id_modelo")}>
                     {propertyId ? "Actualizar" : "Crear Propiedad"}
                   </Button>
                 </div>
