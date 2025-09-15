@@ -512,7 +512,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edificio_modelo">Modelos</Label>
+              <Label htmlFor="edificio_modelo">Edificio-Modelo</Label>
               <Select value={formData.id_edificio_modelo} onValueChange={(value) => setFormData(prev => ({ ...prev, id_edificio_modelo: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona modelo" />
