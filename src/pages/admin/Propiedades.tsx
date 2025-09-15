@@ -387,9 +387,11 @@ const Propiedades = () => {
 
   const formatConfiguracion = (config: Property['configuracion_modelo']) => {
     return (
-      <span>
-        {config.numero_recamaras} <span className="font-bold">rec</span>, {config.numero_completo_banos} <span className="font-bold">baños</span>, {config.numero_medio_bano} <span className="font-bold">1/2 baños</span>
-      </span>
+      <div className="text-sm">
+        <div>{config.numero_recamaras} rec,</div>
+        <div>{config.numero_completo_banos} baños,</div>
+        <div>{config.numero_medio_bano} 1/2 baños</div>
+      </div>
     );
   };
 
