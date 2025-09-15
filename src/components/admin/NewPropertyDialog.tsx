@@ -25,6 +25,7 @@ const formSchema = z.object({
   precio_lista: z.string().min(1, "El precio de lista es requerido"),
   monto_apartado: z.string().optional(),
   descripcion: z.string().optional(),
+  url_imagen_portada: z.string().url("Debe ser una URL válida").optional().or(z.literal("")),
   id_tipo_transaccion: z.string().min(1, "El tipo de transacción es requerido"),
   id_tipo_propiedad: z.string().min(1, "El tipo de propiedad es requerido"),
   id_estatus_disponibilidad: z.string().min(1, "El estatus de disponibilidad es requerido"),
@@ -59,6 +60,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
       precio_lista: "",
       monto_apartado: "",
       descripcion: "",
+      url_imagen_portada: "",
       id_tipo_transaccion: "",
       id_tipo_propiedad: "",
       id_estatus_disponibilidad: "",
@@ -253,6 +255,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         precio_lista: parseFloat(values.precio_lista),
         monto_apartado: values.monto_apartado ? parseFloat(values.monto_apartado) : null,
         descripcion: values.descripcion || null,
+        url_imagen_portada: values.url_imagen_portada || null,
         id_edificio_modelo: edificioModelo.id,
         id_tipo_transaccion: parseInt(values.id_tipo_transaccion),
         id_tipo_propiedad: parseInt(values.id_tipo_propiedad),
@@ -336,6 +339,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         precio_lista: "",
         monto_apartado: "",
         descripcion: "",
+        url_imagen_portada: "",
         id_tipo_transaccion: "",
         id_tipo_propiedad: "",
         id_estatus_disponibilidad: "",
@@ -769,10 +773,29 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                            <FormMessage />
                          </FormItem>
                        )}
-                     />
+                      />
 
-                   </>
-                 )}
+                      {/* URL Imagen Portada */}
+                      <FormField
+                        control={form.control}
+                        name="url_imagen_portada"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>URL Imagen de Portada (Opcional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="url"
+                                placeholder="https://ejemplo.com/imagen-portada.jpg"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                    </>
+                  )}
 
                  <div className="flex justify-end space-x-2 pt-4">
                    <Button type="button" variant="outline" onClick={() => {
@@ -787,8 +810,9 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                        m2_escriturables: "",
                        precio_lista: "",
                        monto_apartado: "",
-                       descripcion: "",
-                       id_tipo_transaccion: "",
+                        descripcion: "",
+                        url_imagen_portada: "",
+                        id_tipo_transaccion: "",
                        id_tipo_propiedad: "",
                        id_estatus_disponibilidad: "",
                        id_vista: "",

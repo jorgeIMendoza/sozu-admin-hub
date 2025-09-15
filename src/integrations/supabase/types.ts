@@ -2541,6 +2541,7 @@ export type Database = {
           numero_piso: number | null
           numero_propiedad: string
           precio_lista: number
+          url_imagen_portada: string | null
         }
         Insert: {
           activo?: boolean
@@ -2563,6 +2564,7 @@ export type Database = {
           numero_piso?: number | null
           numero_propiedad: string
           precio_lista: number
+          url_imagen_portada?: string | null
         }
         Update: {
           activo?: boolean
@@ -2585,6 +2587,7 @@ export type Database = {
           numero_piso?: number | null
           numero_propiedad?: string
           precio_lista?: number
+          url_imagen_portada?: string | null
         }
         Relationships: [
           {

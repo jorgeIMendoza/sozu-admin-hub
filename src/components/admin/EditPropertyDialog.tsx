@@ -269,17 +269,17 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           numero_piso: formData.numero_piso,
           m2_reales: formData.m2_reales,
           m2_escriturables: formData.m2_escriturables,
-          precio_lista: formData.precio_lista,
-          monto_apartado: formData.monto_apartado,
-          clabe_stp_tmp_apartado: formData.clabe_stp_tmp_apartado,
-          descripcion: formData.descripcion || null,
-          id_vista: parseInt(formData.id_vista),
-          id_tipo_transaccion: parseInt(formData.id_tipo_transaccion),
-          id_tipo_propiedad: parseInt(formData.id_tipo_propiedad),
-          id_estatus_disponibilidad: parseInt(formData.id_estatus_disponibilidad),
-          id_entidad_relacionada_dueno: parseInt(formData.id_entidad_relacionada_dueno),
-          id_edificio_modelo: parseInt(formData.id_edificio_modelo),
-          es_aprobado: false // Cuando se edita una propiedad, se pone en draft
+        precio_lista: formData.precio_lista,
+        monto_apartado: formData.monto_apartado,
+        clabe_stp_tmp_apartado: formData.clabe_stp_tmp_apartado,
+        descripcion: formData.descripcion || null,
+        id_vista: parseInt(formData.id_vista),
+        id_tipo_transaccion: parseInt(formData.id_tipo_transaccion),
+        id_tipo_propiedad: parseInt(formData.id_tipo_propiedad),
+        id_estatus_disponibilidad: parseInt(formData.id_estatus_disponibilidad),
+        id_entidad_relacionada_dueno: parseInt(formData.id_entidad_relacionada_dueno),
+        id_edificio_modelo: parseInt(formData.id_edificio_modelo),
+        es_aprobado: false // Cuando se edita una propiedad, se pone en draft
         })
         .eq('id', property.id);
 
