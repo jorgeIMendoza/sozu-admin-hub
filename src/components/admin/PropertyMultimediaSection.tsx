@@ -249,7 +249,7 @@ export function PropertyMultimediaSection({ propertyId }: PropertyMultimediaSect
 
   const handleYoutubeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!youtubeForm.titulo.trim() || !youtubeForm.url.trim()) {
+    if (!youtubeForm.nombre.trim() || !youtubeForm.link.trim()) {
       toast({ title: "Debes completar todos los campos", variant: "destructive" });
       return;
     }
@@ -552,8 +552,8 @@ export function PropertyMultimediaSection({ propertyId }: PropertyMultimediaSect
                     <Label htmlFor="titulo">Título</Label>
                     <Input
                       id="titulo"
-                      value={youtubeForm.titulo}
-                      onChange={(e) => setYoutubeForm({...youtubeForm, titulo: e.target.value})}
+                      value={youtubeForm.nombre}
+                      onChange={(e) => setYoutubeForm({...youtubeForm, nombre: e.target.value})}
                       placeholder="Título del video"
                       required
                     />
@@ -563,8 +563,8 @@ export function PropertyMultimediaSection({ propertyId }: PropertyMultimediaSect
                     <Label htmlFor="youtube-url">URL de YouTube</Label>
                     <Input
                       id="youtube-url"
-                      value={youtubeForm.url}
-                      onChange={(e) => setYoutubeForm({...youtubeForm, url: e.target.value})}
+                      value={youtubeForm.link}
+                      onChange={(e) => setYoutubeForm({...youtubeForm, link: e.target.value})}
                       placeholder="https://www.youtube.com/watch?v=..."
                       required
                     />
@@ -593,7 +593,7 @@ export function PropertyMultimediaSection({ propertyId }: PropertyMultimediaSect
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Play className="h-4 w-4" />
-                    <h4 className="font-semibold truncate">{video.titulo}</h4>
+                    <h4 className="font-semibold truncate">{video.nombre}</h4>
                   </div>
                   <div className="flex items-center justify-between mb-2">
                     <Badge variant={video.activo ? "default" : "secondary"}>
@@ -612,7 +612,7 @@ export function PropertyMultimediaSection({ propertyId }: PropertyMultimediaSect
                     </Button>
                   </div>
                   <a 
-                    href={video.url} 
+                    href={video.link} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-sm text-primary hover:underline"
@@ -622,10 +622,10 @@ export function PropertyMultimediaSection({ propertyId }: PropertyMultimediaSect
                   {video.activo && (
                     <div className="mt-2">
                       <iframe
-                        src={getYouTubeEmbedUrl(video.url)}
+                        src={getYouTubeEmbedUrl(video.link)}
                         className="w-full h-48 rounded-md"
                         allowFullScreen
-                        title={video.titulo}
+                        title={video.nombre}
                       />
                     </div>
                   )}
