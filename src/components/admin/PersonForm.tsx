@@ -16,6 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BeneficiariosForm } from "./BeneficiariosForm";
 import { ImageUploadField } from "./ImageUploadField";
+import { DocumentsTab } from "./DocumentsTab";
 
 interface PersonFormProps {
   onSubmit: (data: any) => void;
@@ -347,6 +348,11 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     return entityType === 'client' && initialData?.id;
   }
 
+  function shouldShowDocumentsTab() {
+    // Show documents tab for clients, buyers, and legal entities with an existing ID
+    return (entityType === 'buyer' || entityType === 'client' || entityType === 'legal') && initialData?.id;
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -443,11 +449,16 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       <form onSubmit={handleSubmit} className="space-y-6">
         {!isUser ? (
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className={`grid w-full ${shouldShowBeneficiariosTab() ? 'grid-cols-4' : shouldShowLegalTab() ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsList className={`grid w-full ${
+              shouldShowBeneficiariosTab() && shouldShowDocumentsTab() ? 'grid-cols-5' :
+              shouldShowBeneficiariosTab() || shouldShowDocumentsTab() ? 'grid-cols-4' : 
+              shouldShowLegalTab() ? 'grid-cols-3' : 'grid-cols-2'
+            }`}>
               <TabsTrigger value="basic">Información Básica</TabsTrigger>
               <TabsTrigger value="address">Dirección</TabsTrigger>
               {shouldShowLegalTab() && <TabsTrigger value="legal">Información Legal</TabsTrigger>}
               {shouldShowBeneficiariosTab() && <TabsTrigger value="beneficiarios">Beneficiarios</TabsTrigger>}
+              {shouldShowDocumentsTab() && <TabsTrigger value="documents">Documentos</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4 mt-6">
@@ -470,6 +481,16 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       disabled
                       className="bg-muted"
                     />
+                  ) : entityType === 'buyer' || entityType === 'client' ? (
+                    <Select value={tipoPersona} onValueChange={setTipoPersona}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona tipo de persona" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pf">Persona Física</SelectItem>
+                        <SelectItem value="pm">Persona Moral</SelectItem>
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Input
                       id="tipoPersona"
@@ -996,6 +1017,21 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     </p>
                   </div>
                 )}
+              </TabsContent>
+            )}
+
+            {shouldShowDocumentsTab() && (
+              <TabsContent value="documents" className="space-y-4 mt-6">
+                <DocumentsTab 
+                  entityId={initialData?.id || undefined} 
+                  entityType="persona"
+                  onDocumentAdded={() => {
+                    toast({
+                      title: "Documento agregado",
+                      description: "El documento se ha agregado correctamente."
+                    });
+                  }}
+                />
               </TabsContent>
             )}
           </Tabs>

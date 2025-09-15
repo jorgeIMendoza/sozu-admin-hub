@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +12,7 @@ import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { DocumentsTab } from "./DocumentsTab";
 
 const formSchema = z.object({
   numero_propiedad: z.string().min(1, "El número de propiedad es requerido"),
@@ -33,6 +35,7 @@ interface NewPropertyDialogProps {
 
 export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) => {
   const [open, setOpen] = useState(false);
+  const [propertyId, setPropertyId] = useState<number | null>(null);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -167,20 +170,23 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         activo: true,
       };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("propiedades")
-        .insert(propertyData);
+        .insert(propertyData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      setPropertyId(data?.id || null);
 
       toast({
         title: "Propiedad creada",
         description: "La propiedad se ha creado exitosamente.",
       });
 
-      setOpen(false);
+      // Don't close dialog immediately, let user add documents
       form.reset();
-      onPropertyAdded();
     } catch (error) {
       console.error("Error creating property:", error);
       toast({
@@ -203,22 +209,29 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         <DialogHeader>
           <DialogTitle>Nueva Propiedad</DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="numero_propiedad"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Propiedad</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej: A-101" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="basic">Datos Básicos</TabsTrigger>
+            <TabsTrigger value="documents" disabled={!propertyId}>Documentos</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="basic">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="numero_propiedad"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número de Propiedad</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej: A-101" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
               <FormField
                 control={form.control}
@@ -449,16 +462,44 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
               )}
             />
 
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                Crear Propiedad
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => {
+                    setOpen(false);
+                    setPropertyId(null);
+                    onPropertyAdded();
+                  }}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">
+                    {propertyId ? "Actualizar" : "Crear Propiedad"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </TabsContent>
+          
+          <TabsContent value="documents">
+            <DocumentsTab 
+              entityId={propertyId} 
+              entityType="propiedad"
+              onDocumentAdded={() => {
+                toast({
+                  title: "Documento agregado",
+                  description: "El documento se ha agregado correctamente."
+                });
+              }}
+            />
+            <div className="flex justify-end pt-4">
+              <Button onClick={() => {
+                setOpen(false);
+                setPropertyId(null);
+                onPropertyAdded();
+              }}>
+                Finalizar
               </Button>
             </div>
-          </form>
-        </Form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

@@ -17,30 +17,48 @@ interface DocumentsTabProps {
   onDocumentAdded?: () => void;
 }
 
+interface TipoDocumento {
+  id: number;
+  nombre: string;
+}
+
+interface Documento {
+  numero: number;
+  url: string;
+  es_verificado: boolean;
+  activo: boolean;
+  id_tipo_documento: number;
+  fecha_creacion: string;
+  id_persona?: number;
+  id_propiedad?: number;
+  tipo_documento_nombre?: string;
+}
+
 export function DocumentsTab({ entityId, entityType, onDocumentAdded }: DocumentsTabProps) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedTipoDocumento, setSelectedTipoDocumento] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
-  const [tiposDocumento, setTiposDocumento] = useState<any[]>([]);
-  const [documentos, setDocumentos] = useState<any[]>([]);
+  const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([]);
+  const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { toast } = useToast();
 
   // Load document types based on entity type
   const loadTiposDocumento = async () => {
-    const asignado_a = entityType === 'persona' ? 'per' : 'prop';
-    const { data, error } = await supabase
-      .from('tipos_documento')
-      .select('*')
-      .eq('activo', true)
-      .eq('asignado_a', asignado_a)
-      .order('nombre');
-    
-    if (error) {
-      console.error('Error loading document types:', error);
-    } else {
-      setTiposDocumento(data || []);
+    try {
+      const response = await supabase
+        .from('tipos_documento')
+        .select('id, nombre')
+        .eq('activo', true);
+      
+      if (response.error) {
+        console.error('Error loading document types:', response.error);
+      } else {
+        setTiposDocumento(response.data || []);
+      }
+    } catch (err) {
+      console.error('Error loading document types:', err);
     }
   };
 

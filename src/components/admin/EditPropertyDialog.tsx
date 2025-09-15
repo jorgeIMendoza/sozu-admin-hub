@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { DocumentsTab } from "./DocumentsTab";
 
 interface Property {
   id: number;
@@ -302,17 +304,24 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           <DialogTitle>Editar Propiedad: {property.numero_propiedad}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="numero_propiedad">Número de Propiedad</Label>
-              <Input
-                id="numero_propiedad"
-                value={formData.numero_propiedad}
-                onChange={(e) => setFormData(prev => ({ ...prev, numero_propiedad: e.target.value }))}
-                required
-              />
-            </div>
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="basic">Datos Básicos</TabsTrigger>
+            <TabsTrigger value="documents">Documentos</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="basic">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numero_propiedad">Número de Propiedad</Label>
+                  <Input
+                    id="numero_propiedad"
+                    value={formData.numero_propiedad}
+                    onChange={(e) => setFormData(prev => ({ ...prev, numero_propiedad: e.target.value }))}
+                    required
+                  />
+                </div>
 
             <div className="space-y-2">
               <Label htmlFor="numero_piso">Número de Piso</Label>
@@ -518,15 +527,30 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Guardando..." : "Guardar Cambios"}
-            </Button>
-          </div>
-        </form>
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Guardando..." : "Guardar Cambios"}
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="documents">
+            <DocumentsTab 
+              entityId={property.id} 
+              entityType="propiedad"
+              onDocumentAdded={() => {
+                toast({
+                  title: "Documento agregado",
+                  description: "El documento se ha agregado correctamente."
+                });
+              }}
+            />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
