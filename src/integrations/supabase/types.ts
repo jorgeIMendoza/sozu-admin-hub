@@ -105,6 +105,7 @@ export type Database = {
           activo: boolean
           fecha_actualizacion: string
           fecha_creacion: string
+          habilitar_asignar: boolean
           id: number
           nombre: string
           timestamp: string
@@ -114,6 +115,7 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
+          habilitar_asignar?: boolean
           id?: never
           nombre: string
           timestamp?: string
@@ -123,6 +125,7 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
+          habilitar_asignar?: boolean
           id?: never
           nombre?: string
           timestamp?: string
@@ -372,6 +375,7 @@ export type Database = {
           activo: boolean
           fecha_actualizacion: string
           fecha_creacion: string
+          habilitar_asignar: boolean
           id: number
           nombre: string
         }
@@ -379,6 +383,7 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
+          habilitar_asignar?: boolean
           id?: never
           nombre: string
         }
@@ -386,6 +391,7 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
+          habilitar_asignar?: boolean
           id?: never
           nombre?: string
         }
@@ -1576,6 +1582,7 @@ export type Database = {
       multimedias_modelo: {
         Row: {
           activo: boolean | null
+          descripcion: string | null
           es_imagen: boolean | null
           fecha_actualizacion: string | null
           fecha_creacion: string | null
@@ -1585,6 +1592,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean | null
+          descripcion?: string | null
           es_imagen?: boolean | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
@@ -1594,6 +1602,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean | null
+          descripcion?: string | null
           es_imagen?: boolean | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
@@ -1614,6 +1623,47 @@ export type Database = {
             columns: ["id_modelo"]
             isOneToOne: false
             referencedRelation: "modelos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      multimedias_propiedad: {
+        Row: {
+          activo: boolean
+          descripcion: string | null
+          es_imagen: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_propiedad: number
+          url: string
+        }
+        Insert: {
+          activo?: boolean
+          descripcion?: string | null
+          es_imagen?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_propiedad: number
+          url: string
+        }
+        Update: {
+          activo?: boolean
+          descripcion?: string | null
+          es_imagen?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_propiedad?: number
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "multimedias_propiedad_id_propiedad_fkey"
+            columns: ["id_propiedad"]
+            isOneToOne: false
+            referencedRelation: "propiedades"
             referencedColumns: ["id"]
           },
         ]
@@ -2570,6 +2620,48 @@ export type Database = {
             columns: ["id_vista"]
             isOneToOne: false
             referencedRelation: "vistas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      propiedades_caracteristicas: {
+        Row: {
+          activo: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_caracteristica: number
+          id_propiedad: number
+        }
+        Insert: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_caracteristica: number
+          id_propiedad: number
+        }
+        Update: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_caracteristica?: number
+          id_propiedad?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "propiedades_caracteristicas_id_caracteristica_fkey"
+            columns: ["id_caracteristica"]
+            isOneToOne: false
+            referencedRelation: "caracteristicas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "propiedades_caracteristicas_id_propiedad_fkey"
+            columns: ["id_propiedad"]
+            isOneToOne: false
+            referencedRelation: "propiedades"
             referencedColumns: ["id"]
           },
         ]
