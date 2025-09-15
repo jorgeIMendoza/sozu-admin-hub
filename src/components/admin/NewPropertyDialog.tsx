@@ -237,17 +237,45 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
 
       if (error) throw error;
 
-      setPropertyId(data?.id || null);
+      // Generate CLABE for the owner
+      try {
+        const { data: clabeData, error: clabeError } = await supabase
+          .rpc('crear_referencia_bancaria', {
+            id_er_dueno: parseInt(values.id_entidad_relacionada_dueno)
+          });
 
-      toast({
-        title: "Propiedad creada",
-        description: "La propiedad se ha creado exitosamente.",
-      });
+        if (clabeError) throw clabeError;
+
+        // Update the property with the generated CLABE
+        const { error: updateError } = await supabase
+          .from("propiedades")
+          .update({
+            clabe_stp_tmp_apartado: clabeData
+          })
+          .eq("id", data.id);
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Propiedad creada",
+          description: `La propiedad se ha creado exitosamente con CLABE: ${clabeData}`,
+        });
+      } catch (clabeError) {
+        console.error("Error generating CLABE:", clabeError);
+        toast({
+          title: "Propiedad creada",
+          description: "La propiedad se ha creado exitosamente, pero hubo un error al generar la CLABE.",
+          variant: "destructive",
+        });
+      }
+
+      setPropertyId(data?.id || null);
 
       // Don't close dialog immediately, let user add documents
       form.reset();
       setSelectedProjectId("");
       setSelectedBuildingId("");
+      onPropertyAdded(); // Refresh the properties list
     } catch (error) {
       console.error("Error creating property:", error);
       toast({
