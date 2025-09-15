@@ -273,7 +273,8 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           id_tipo_propiedad: parseInt(formData.id_tipo_propiedad),
           id_estatus_disponibilidad: parseInt(formData.id_estatus_disponibilidad),
           id_entidad_relacionada_dueno: parseInt(formData.id_entidad_relacionada_dueno),
-          id_edificio_modelo: parseInt(formData.id_edificio_modelo)
+          id_edificio_modelo: parseInt(formData.id_edificio_modelo),
+          es_aprobado: false // Cuando se edita una propiedad, se pone en draft
         })
         .eq('id', property.id);
 

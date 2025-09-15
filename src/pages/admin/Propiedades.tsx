@@ -24,6 +24,7 @@ interface Property {
   precio_lista: number;
   clabe_stp_tmp_apartado: string | null;
   activo: boolean;
+  es_aprobado: boolean;
   // Relaciones
   propietario: string;
   proyecto: string;
@@ -42,9 +43,10 @@ interface Property {
 
 const Propiedades = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("activas");
+  const [activeTab, setActiveTab] = useState("activos");
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [selectedProperties, setSelectedProperties] = useState<number[]>([]);
   
   // Filtros de texto
   const [proyectoFilter, setProyectoFilter] = useState("");
@@ -54,6 +56,7 @@ const Propiedades = () => {
   
   // Paginación
   const [currentPageActive, setCurrentPageActive] = useState(1);
+  const [currentPageDraft, setCurrentPageDraft] = useState(1);
   const [currentPageInactive, setCurrentPageInactive] = useState(1);
   const itemsPerPage = 25;
   
@@ -73,6 +76,7 @@ const Propiedades = () => {
           precio_lista,
           clabe_stp_tmp_apartado,
           activo,
+          es_aprobado,
           edificios_modelos!inner(
             edificios!edificios_modelos_id_edificio_fkey!inner(
               nombre,
@@ -108,6 +112,7 @@ const Propiedades = () => {
         precio_lista: property.precio_lista,
         clabe_stp_tmp_apartado: property.clabe_stp_tmp_apartado,
         activo: property.activo,
+        es_aprobado: property.es_aprobado,
         propietario: property.entidades_relacionadas?.personas?.nombre_legal || 'Sin propietario',
         proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
         edificio: property.edificios_modelos?.edificios?.nombre || 'Sin edificio',
@@ -140,6 +145,20 @@ const Propiedades = () => {
     },
   });
 
+  // Filtrar propiedades por pestaña
+  const getPropertiesByTab = (properties: Property[], tab: string) => {
+    switch (tab) {
+      case "activos":
+        return properties.filter(p => p.activo && p.es_aprobado);
+      case "draft":
+        return properties.filter(p => p.activo && !p.es_aprobado);
+      case "eliminados":
+        return properties.filter(p => !p.activo && !p.es_aprobado);
+      default:
+        return [];
+    }
+  };
+
   // Filtrar propiedades
   const filteredProperties = properties?.filter(property => {
     const searchLower = searchTerm.toLowerCase();
@@ -151,8 +170,6 @@ const Propiedades = () => {
       property.edificio.toLowerCase().includes(searchLower) ||
       property.modelo.toLowerCase().includes(searchLower);
     
-    const matchesTab = activeTab === "activas" ? property.activo : !property.activo;
-    
     const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
     const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
     
@@ -161,18 +178,25 @@ const Propiedades = () => {
     
     const matchesDisponibilidad = disponibilidadFilter === "" || property.disponibilidad.toLowerCase().includes(disponibilidadFilter.toLowerCase());
     
-    return matchesSearch && matchesTab && matchesProyecto && matchesModelo && matchesConfiguracion && matchesDisponibilidad;
+    return matchesSearch && matchesProyecto && matchesModelo && matchesConfiguracion && matchesDisponibilidad;
   }) || [];
 
-  // Separar propiedades activas e inactivas
-  const activeProperties = filteredProperties.filter(p => p.activo);
-  const inactiveProperties = filteredProperties.filter(p => !p.activo);
+  // Separar propiedades por pestaña
+  const activeProperties = getPropertiesByTab(filteredProperties, "activos");
+  const draftProperties = getPropertiesByTab(filteredProperties, "draft");
+  const inactiveProperties = getPropertiesByTab(filteredProperties, "eliminados");
 
   // Paginación para propiedades activas
   const totalActivePage = Math.ceil(activeProperties.length / itemsPerPage);
   const startIndexActive = (currentPageActive - 1) * itemsPerPage;
   const endIndexActive = startIndexActive + itemsPerPage;
   const paginatedActiveProperties = activeProperties.slice(startIndexActive, endIndexActive);
+
+  // Paginación para propiedades draft
+  const totalDraftPage = Math.ceil(draftProperties.length / itemsPerPage);
+  const startIndexDraft = (currentPageDraft - 1) * itemsPerPage;
+  const endIndexDraft = startIndexDraft + itemsPerPage;
+  const paginatedDraftProperties = draftProperties.slice(startIndexDraft, endIndexDraft);
 
   // Paginación para propiedades inactivas
   const totalInactivePage = Math.ceil(inactiveProperties.length / itemsPerPage);
@@ -184,7 +208,7 @@ const Propiedades = () => {
     try {
       const { error } = await supabase
         .from('propiedades')
-        .update({ activo: false })
+        .update({ activo: false, es_aprobado: false })
         .eq('id', propertyId);
 
       if (error) throw error;
@@ -208,14 +232,14 @@ const Propiedades = () => {
     try {
       const { error } = await supabase
         .from('propiedades')
-        .update({ activo: true })
+        .update({ activo: true, es_aprobado: false })
         .eq('id', propertyId);
 
       if (error) throw error;
 
       toast({
         title: "Propiedad restaurada",
-        description: "La propiedad se ha reactivado correctamente.",
+        description: "La propiedad se ha reactivado correctamente y está en Draft.",
       });
 
       queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
@@ -225,6 +249,103 @@ const Propiedades = () => {
         description: "No se pudo restaurar la propiedad.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleApprove = async (propertyId: number) => {
+    try {
+      const { error } = await supabase
+        .from('propiedades')
+        .update({ es_aprobado: true })
+        .eq('id', propertyId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Propiedad aprobada",
+        description: "La propiedad se ha aprobado correctamente.",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo aprobar la propiedad.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedProperties.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('propiedades')
+        .update({ es_aprobado: true })
+        .in('id', selectedProperties);
+
+      if (error) throw error;
+
+      toast({
+        title: "Propiedades aprobadas",
+        description: `${selectedProperties.length} propiedades han sido aprobadas correctamente.`,
+      });
+
+      setSelectedProperties([]);
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudieron aprobar las propiedades seleccionadas.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProperties.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('propiedades')
+        .update({ activo: false, es_aprobado: false })
+        .in('id', selectedProperties);
+
+      if (error) throw error;
+
+      toast({
+        title: "Propiedades eliminadas",
+        description: `${selectedProperties.length} propiedades han sido eliminadas correctamente.`,
+      });
+
+      setSelectedProperties([]);
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudieron eliminar las propiedades seleccionadas.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSelectProperty = (propertyId: number) => {
+    setSelectedProperties(prev => 
+      prev.includes(propertyId) 
+        ? prev.filter(id => id !== propertyId)
+        : [...prev, propertyId]
+    );
+  };
+
+  const handleSelectAll = (properties: Property[]) => {
+    const currentTabProperties = properties.map(p => p.id);
+    const allSelected = currentTabProperties.every(id => selectedProperties.includes(id));
+    
+    if (allSelected) {
+      setSelectedProperties(prev => prev.filter(id => !currentTabProperties.includes(id)));
+    } else {
+      setSelectedProperties(prev => [...new Set([...prev, ...currentTabProperties])]);
     }
   };
 
@@ -279,12 +400,22 @@ const Propiedades = () => {
     );
   };
 
-  const renderPropertiesTable = (propertiesToRender: Property[], isDeleted = false) => (
+  const renderPropertiesTable = (propertiesToRender: Property[], tabType: string) => (
     <>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
+              {tabType === "draft" && (
+                <TableHead className="w-12">
+                  <input
+                    type="checkbox"
+                    checked={propertiesToRender.length > 0 && propertiesToRender.every(p => selectedProperties.includes(p.id))}
+                    onChange={() => handleSelectAll(propertiesToRender)}
+                    className="rounded"
+                  />
+                </TableHead>
+              )}
               <TableHead>Proyecto</TableHead>
               <TableHead>Propietario</TableHead>
               <TableHead>Edificio</TableHead>
@@ -303,18 +434,30 @@ const Propiedades = () => {
           <TableBody>
             {propertiesToRender.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center py-6">
+                <TableCell colSpan={tabType === "draft" ? 14 : 13} className="text-center py-6">
                   {searchTerm || proyectoFilter || modeloFilter || configuracionFilter || disponibilidadFilter 
                     ? "No se encontraron resultados." 
-                    : isDeleted 
+                    : tabType === "eliminados"
                       ? "No hay propiedades eliminadas." 
-                      : "No hay propiedades activas."
+                      : tabType === "draft"
+                        ? "No hay propiedades en draft."
+                        : "No hay propiedades activas."
                   }
                 </TableCell>
               </TableRow>
             ) : (
               propertiesToRender.map((property) => (
-                <TableRow key={property.id} className={isDeleted ? "opacity-60" : ""}>
+                <TableRow key={property.id} className={tabType === "eliminados" ? "opacity-60" : ""}>
+                  {tabType === "draft" && (
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedProperties.includes(property.id)}
+                        onChange={() => handleSelectProperty(property.id)}
+                        className="rounded"
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">{property.proyecto}</TableCell>
                   <TableCell>{property.propietario}</TableCell>
                   <TableCell>{property.edificio}</TableCell>
@@ -332,7 +475,7 @@ const Propiedades = () => {
                     <Badge variant="secondary">{property.disponibilidad}</Badge>
                   </TableCell>
                   <TableCell>
-                    {isDeleted ? (
+                    {tabType === "eliminados" ? (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -341,6 +484,55 @@ const Propiedades = () => {
                       >
                         Restaurar
                       </Button>
+                    ) : tabType === "draft" ? (
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleApprove(property.id)}
+                          className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
+                        >
+                          Aprobar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setEditingProperty(property)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                              disabled={property.tieneOfertas}
+                              title={property.tieneOfertas ? "No se puede eliminar una propiedad con ofertas asociadas" : "Eliminar propiedad"}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar propiedad?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                ¿Estás seguro de que deseas eliminar la propiedad {property.numero_propiedad}? Esta acción se puede revertir posteriormente.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(property.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     ) : (
                       <div className="flex space-x-2">
                         <Button
@@ -484,22 +676,40 @@ const Propiedades = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="activas">
-                Propiedades Activas ({activeProperties.length})
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="activos">
+                Activos ({activeProperties.length})
               </TabsTrigger>
-              <TabsTrigger value="eliminadas">
-                Propiedades Eliminadas ({inactiveProperties.length})
+              <TabsTrigger value="draft">
+                Draft ({draftProperties.length})
+              </TabsTrigger>
+              <TabsTrigger value="eliminados">
+                Eliminados ({inactiveProperties.length})
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="activas" className="mt-4">
-              {renderPropertiesTable(paginatedActiveProperties, false)}
+            <TabsContent value="activos" className="mt-4">
+              {renderPropertiesTable(paginatedActiveProperties, "activos")}
               {renderPagination(currentPageActive, totalActivePage, setCurrentPageActive)}
             </TabsContent>
 
-            <TabsContent value="eliminadas" className="mt-4">
-              {renderPropertiesTable(paginatedInactiveProperties, true)}
+            <TabsContent value="draft" className="mt-4">
+              {selectedProperties.length > 0 && (
+                <div className="mb-4 flex gap-2">
+                  <Button onClick={handleBulkApprove} variant="default">
+                    Aprobar Seleccionadas ({selectedProperties.length})
+                  </Button>
+                  <Button onClick={handleBulkDelete} variant="destructive">
+                    Eliminar Seleccionadas ({selectedProperties.length})
+                  </Button>
+                </div>
+              )}
+              {renderPropertiesTable(paginatedDraftProperties, "draft")}
+              {renderPagination(currentPageDraft, totalDraftPage, setCurrentPageDraft)}
+            </TabsContent>
+
+            <TabsContent value="eliminados" className="mt-4">
+              {renderPropertiesTable(paginatedInactiveProperties, "eliminados")}
               {renderPagination(currentPageInactive, totalInactivePage, setCurrentPageInactive)}
             </TabsContent>
           </Tabs>
