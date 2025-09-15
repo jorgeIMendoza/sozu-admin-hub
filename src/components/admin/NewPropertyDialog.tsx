@@ -200,10 +200,12 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
   });
 
   // Query para obtener la CLABE del propietario seleccionado
-  const { data: ownerClabe } = useQuery({
+  const { data: ownerClabe, isLoading: isLoadingClabe, error: clabeError } = useQuery({
     queryKey: ["owner-clabe", selectedOwnerId],
     queryFn: async () => {
       if (!selectedOwnerId) return null;
+      
+      console.log("Generating CLABE for owner ID:", selectedOwnerId);
       
       try {
         const { data, error } = await supabase
@@ -211,14 +213,20 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
             id_er_dueno: parseInt(selectedOwnerId)
           });
 
-        if (error) throw error;
+        if (error) {
+          console.error("CLABE generation error:", error);
+          throw error;
+        }
+        
+        console.log("Generated CLABE:", data);
         return data;
       } catch (error) {
         console.error("Error getting CLABE:", error);
-        return null;
+        throw error;
       }
     },
-    enabled: !!selectedOwnerId,
+    enabled: !!selectedOwnerId && selectedOwnerId !== "no-owners",
+    retry: 1
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -546,6 +554,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                   <FormLabel>Propietario</FormLabel>
                   <Select 
                     onValueChange={(value) => {
+                      console.log("Owner selected:", value);
                       field.onChange(value);
                       setSelectedOwnerId(value);
                     }} 
@@ -576,14 +585,34 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
             />
 
             {/* Campo de solo lectura para mostrar la CLABE */}
-            {selectedOwnerId && ownerClabe && (
+            {selectedOwnerId && selectedOwnerId !== "no-owners" && (
               <div className="space-y-2">
                 <FormLabel>CLABE (Generada Automáticamente)</FormLabel>
-                <Input 
-                  value={ownerClabe} 
-                  readOnly 
-                  className="bg-muted text-muted-foreground cursor-not-allowed"
-                />
+                {isLoadingClabe ? (
+                  <Input 
+                    value="Generando CLABE..." 
+                    readOnly 
+                    className="bg-muted text-muted-foreground cursor-not-allowed"
+                  />
+                ) : clabeError ? (
+                  <Input 
+                    value="Error al generar CLABE" 
+                    readOnly 
+                    className="bg-destructive/10 text-destructive cursor-not-allowed"
+                  />
+                ) : ownerClabe ? (
+                  <Input 
+                    value={ownerClabe} 
+                    readOnly 
+                    className="bg-muted text-muted-foreground cursor-not-allowed font-mono"
+                  />
+                ) : (
+                  <Input 
+                    value="Sin CLABE disponible" 
+                    readOnly 
+                    className="bg-muted text-muted-foreground cursor-not-allowed"
+                  />
+                )}
               </div>
             )}
                     <div className="grid grid-cols-2 gap-4">
