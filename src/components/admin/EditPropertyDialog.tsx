@@ -42,6 +42,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     precio_lista: property.precio_lista,
     monto_apartado: 0,
     clabe_stp_tmp_apartado: property.clabe_stp,
+    descripcion: '',
     id_vista: '',
     id_tipo_transaccion: '',
     id_tipo_propiedad: '',
@@ -238,10 +239,11 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         numero_piso: fullPropertyData.numero_piso || 0,
         m2_reales: fullPropertyData.m2_reales || 0,
         m2_escriturables: fullPropertyData.m2_escriturables || 0,
-        precio_lista: fullPropertyData.precio_lista,
-        monto_apartado: fullPropertyData.monto_apartado || 0,
-        clabe_stp_tmp_apartado: currentProperty.clabe_stp || '', // This comes from the function with COALESCE logic
-        id_vista: fullPropertyData.id_vista?.toString() || '',
+    precio_lista: formData.precio_lista,
+    monto_apartado: formData.monto_apartado || 0,
+    clabe_stp_tmp_apartado: currentProperty.clabe_stp || '', // This comes from the function with COALESCE logic
+    descripcion: fullPropertyData.descripcion || '',
+    id_vista: fullPropertyData.id_vista?.toString() || '',
         id_tipo_transaccion: fullPropertyData.id_tipo_transaccion?.toString() || '',
         id_tipo_propiedad: fullPropertyData.id_tipo_propiedad?.toString() || '',
         id_estatus_disponibilidad: fullPropertyData.id_estatus_disponibilidad?.toString() || '',
@@ -268,6 +270,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           precio_lista: formData.precio_lista,
           monto_apartado: formData.monto_apartado,
           clabe_stp_tmp_apartado: formData.clabe_stp_tmp_apartado,
+          descripcion: formData.descripcion || null,
           id_vista: parseInt(formData.id_vista),
           id_tipo_transaccion: parseInt(formData.id_tipo_transaccion),
           id_tipo_propiedad: parseInt(formData.id_tipo_propiedad),
@@ -392,6 +395,17 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                 id="clabe_stp"
                 value={formData.clabe_stp_tmp_apartado}
                 readOnly
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="descripcion">Descripción</Label>
+              <textarea
+                id="descripcion"
+                className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.descripcion}
+                onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                placeholder="Descripción de la propiedad (opcional)"
               />
             </div>
 

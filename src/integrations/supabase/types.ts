@@ -415,6 +415,30 @@ export type Database = {
         }
         Relationships: []
       }
+      categorias_tipo_documento: {
+        Row: {
+          activo: boolean | null
+          fecha_actualizacion: string | null
+          fecha_creacion: string
+          id: number
+          nombre: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string
+          id?: number
+          nombre?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string
+          id?: number
+          nombre?: string | null
+        }
+        Relationships: []
+      }
       comisionistas: {
         Row: {
           activo: boolean
@@ -787,13 +811,6 @@ export type Database = {
           url?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "documentos_id_persona_fkey"
-            columns: ["id_persona"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "documentos_id_producto_fkey"
             columns: ["id_producto"]
@@ -2456,6 +2473,7 @@ export type Database = {
         Row: {
           activo: boolean
           clabe_stp_tmp_apartado: string | null
+          descripcion: string | null
           es_aprobado: boolean
           fecha_actualizacion: string
           fecha_creacion: string
@@ -2477,6 +2495,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           clabe_stp_tmp_apartado?: string | null
+          descripcion?: string | null
           es_aprobado?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
@@ -2498,6 +2517,7 @@ export type Database = {
         Update: {
           activo?: boolean
           clabe_stp_tmp_apartado?: string | null
+          descripcion?: string | null
           es_aprobado?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
@@ -2666,7 +2686,7 @@ export type Database = {
           fecha_inicio_construccion?: string | null
           fecha_lanzamiento?: string | null
           fecha_lanzamiento_proyecto?: string | null
-          id?: never
+          id?: number
           id_estatus_proyecto?: number | null
           id_tipo_uso?: number | null
           latitud?: number | null
@@ -2696,7 +2716,7 @@ export type Database = {
           fecha_inicio_construccion?: string | null
           fecha_lanzamiento?: string | null
           fecha_lanzamiento_proyecto?: string | null
-          id?: never
+          id?: number
           id_estatus_proyecto?: number | null
           id_tipo_uso?: number | null
           latitud?: number | null
@@ -2741,6 +2761,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "proyectos_direccion_id_estado_fkey1"
+            columns: ["direccion_id_estado"]
+            isOneToOne: false
+            referencedRelation: "estados_mx"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "proyectos_direccion_id_municipio_fkey"
             columns: ["direccion_id_municipio"]
             isOneToOne: false
@@ -2748,7 +2775,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "proyectos_direccion_id_municipio_fkey1"
+            columns: ["direccion_id_municipio"]
+            isOneToOne: false
+            referencedRelation: "municipios_mx"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "proyectos_direccion_id_pais_fkey"
+            columns: ["direccion_id_pais"]
+            isOneToOne: false
+            referencedRelation: "paises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyectos_direccion_id_pais_fkey1"
             columns: ["direccion_id_pais"]
             isOneToOne: false
             referencedRelation: "paises"
@@ -3010,26 +3051,43 @@ export type Database = {
       tipos_documento: {
         Row: {
           activo: boolean
+          asignado_a: string | null
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
+          id_categoria_documento: number
           nombre: string
+          padre: string | null
         }
         Insert: {
           activo?: boolean
+          asignado_a?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
+          id_categoria_documento: number
           nombre: string
+          padre?: string | null
         }
         Update: {
           activo?: boolean
+          asignado_a?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
+          id_categoria_documento?: number
           nombre?: string
+          padre?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tipos_documento_id_categoria_documento_fkey"
+            columns: ["id_categoria_documento"]
+            isOneToOne: false
+            referencedRelation: "categorias_tipo_documento"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tipos_entidad: {
         Row: {

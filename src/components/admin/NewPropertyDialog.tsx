@@ -24,6 +24,7 @@ const formSchema = z.object({
   m2_escriturables: z.string().min(1, "Los metros cuadrados escriturables son requeridos"),
   precio_lista: z.string().min(1, "El precio de lista es requerido"),
   monto_apartado: z.string().optional(),
+  descripcion: z.string().optional(),
   id_tipo_transaccion: z.string().min(1, "El tipo de transacción es requerido"),
   id_tipo_propiedad: z.string().min(1, "El tipo de propiedad es requerido"),
   id_estatus_disponibilidad: z.string().min(1, "El estatus de disponibilidad es requerido"),
@@ -57,6 +58,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
       m2_escriturables: "",
       precio_lista: "",
       monto_apartado: "",
+      descripcion: "",
       id_tipo_transaccion: "",
       id_tipo_propiedad: "",
       id_estatus_disponibilidad: "",
@@ -250,6 +252,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         m2_escriturables: parseFloat(values.m2_escriturables),
         precio_lista: parseFloat(values.precio_lista),
         monto_apartado: values.monto_apartado ? parseFloat(values.monto_apartado) : null,
+        descripcion: values.descripcion || null,
         id_edificio_modelo: edificioModelo.id,
         id_tipo_transaccion: parseInt(values.id_tipo_transaccion),
         id_tipo_propiedad: parseInt(values.id_tipo_propiedad),
@@ -716,13 +719,31 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                             <FormMessage />
                           </FormItem>
                         )}
-                      />
-                    </div>
+                       />
+                     </div>
 
-                  </>
-                )}
+                     <FormField
+                       control={form.control}
+                       name="descripcion"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Descripción</FormLabel>
+                           <FormControl>
+                             <textarea
+                               className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                               placeholder="Descripción de la propiedad (opcional)"
+                               {...field}
+                             />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
 
-                <div className="flex justify-end space-x-2 pt-4">
+                   </>
+                 )}
+
+                 <div className="flex justify-end space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => {
                     setOpen(false);
                     setPropertyId(null);
