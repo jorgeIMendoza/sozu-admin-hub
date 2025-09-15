@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileText, Upload, Eye, Trash2, Check, X } from "lucide-react";
+import { FileText, Upload, Eye, Trash2, Check, X, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -241,13 +241,60 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
       await loadDocumentos();
       toast({
         title: "Éxito",
-        description: "Estado de verificación actualizado",
+        description: `Documento ${documento.es_verificado ? 'marcado como pendiente' : 'verificado'} correctamente`,
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
         description: `Error al actualizar la verificación: ${error.message}`,
+      });
+    }
+  };
+
+  const handleViewDocument = (documento: any) => {
+    // Create a safe method to view documents that avoids CSP issues
+    const link = document.createElement('a');
+    link.href = documento.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadDocument = async (documento: any) => {
+    try {
+      // Extract file path from URL for proper download
+      const urlParts = documento.url.split('/');
+      const filePath = urlParts.slice(-2).join('/'); // Gets "documentos/filename.ext"
+      
+      const { data, error } = await supabase.storage
+        .from('documentos')
+        .download(filePath);
+      
+      if (error) throw error;
+      
+      // Create blob URL and download
+      const blob = new Blob([data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `documento_${documento.numero}_${documento.tipo_documento_nombre}.${documento.url.split('.').pop()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Descarga iniciada",
+        description: "El documento se está descargando",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Error al descargar: ${error.message}`,
       });
     }
   };
@@ -321,27 +368,38 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(documento.url, '_blank')}
+                            onClick={() => handleViewDocument(documento)}
+                            title="Ver documento"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => handleDownloadDocument(documento)}
+                            title="Descargar documento"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleToggleVerification(documento)}
+                            title={documento.es_verificado ? "Marcar como pendiente" : "Marcar como verificado"}
                           >
                             {documento.es_verificado ? (
-                              <X className="h-4 w-4" />
+                              <X className="h-4 w-4 text-orange-500" />
                             ) : (
-                              <Check className="h-4 w-4" />
+                              <Check className="h-4 w-4 text-green-500" />
                             )}
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleDelete(documento)}
+                            title="Eliminar documento"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </div>
                       </TableCell>
