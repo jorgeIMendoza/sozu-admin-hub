@@ -325,7 +325,23 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
   const handleClose = (newOpen: boolean) => {
     if (!newOpen) {
       // Clear all data when closing
-      form.reset();
+      form.reset({
+        id_proyecto: "",
+        id_edificio: "",
+        id_modelo: "",
+        numero_propiedad: "",
+        numero_piso: "",
+        m2_reales: "",
+        m2_escriturables: "",
+        precio_lista: "",
+        monto_apartado: "",
+        descripcion: "",
+        id_tipo_transaccion: "",
+        id_tipo_propiedad: "",
+        id_estatus_disponibilidad: "",
+        id_vista: "",
+        id_entidad_relacionada_dueno: "",
+      });
       setPropertyId(null);
       setSelectedProjectId("");
       setSelectedBuildingId("");
@@ -366,13 +382,16 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                       <FormItem>
                         <FormLabel>Proyecto</FormLabel>
                         <Select 
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            setSelectedProjectId(value);
-                            setSelectedBuildingId("");
-                            form.setValue("id_edificio", "");
-                            form.setValue("id_modelo", "");
-                          }} 
+                           onValueChange={(value) => {
+                             field.onChange(value);
+                             setSelectedProjectId(value);
+                             // Reset all subsequent fields when project changes
+                             setSelectedBuildingId("");
+                             setSelectedOwnerId("");
+                             form.setValue("id_edificio", "");
+                             form.setValue("id_modelo", "");
+                             form.setValue("id_entidad_relacionada_dueno", "");
+                           }}
                           value={field.value}
                         >
                           <FormControl>
@@ -400,11 +419,14 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                       <FormItem>
                         <FormLabel>Edificio</FormLabel>
                         <Select 
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            setSelectedBuildingId(value);
-                            form.setValue("id_modelo", "");
-                          }} 
+                           onValueChange={(value) => {
+                             field.onChange(value);
+                             setSelectedBuildingId(value);
+                             // Reset subsequent fields when building changes
+                             setSelectedOwnerId("");
+                             form.setValue("id_modelo", "");
+                             form.setValue("id_entidad_relacionada_dueno", "");
+                           }}
                           value={field.value}
                           disabled={!selectedProjectId}
                         >
@@ -432,11 +454,16 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Modelo</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value}
-                          disabled={!selectedBuildingId}
-                        >
+                         <Select 
+                           onValueChange={(value) => {
+                             field.onChange(value);
+                             // Reset subsequent fields when model changes
+                             setSelectedOwnerId("");
+                             form.setValue("id_entidad_relacionada_dueno", "");
+                           }} 
+                           value={field.value}
+                           disabled={!selectedBuildingId}
+                         >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder={!selectedBuildingId ? "Selecciona un edificio primero" : "Selecciona un modelo"} />
@@ -748,14 +775,32 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                  )}
 
                  <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => {
-                    setOpen(false);
-                    setPropertyId(null);
-                    setSelectedProjectId("");
-                    setSelectedBuildingId("");
-                    form.reset();
-                    onPropertyAdded();
-                  }}>
+                   <Button type="button" variant="outline" onClick={() => {
+                     // Reset form completely
+                     form.reset({
+                       id_proyecto: "",
+                       id_edificio: "",
+                       id_modelo: "",
+                       numero_propiedad: "",
+                       numero_piso: "",
+                       m2_reales: "",
+                       m2_escriturables: "",
+                       precio_lista: "",
+                       monto_apartado: "",
+                       descripcion: "",
+                       id_tipo_transaccion: "",
+                       id_tipo_propiedad: "",
+                       id_estatus_disponibilidad: "",
+                       id_vista: "",
+                       id_entidad_relacionada_dueno: "",
+                     });
+                     setPropertyId(null);
+                     setSelectedProjectId("");
+                     setSelectedBuildingId("");
+                     setSelectedOwnerId("");
+                     setOpen(false);
+                     onPropertyAdded();
+                   }}>
                     Cancelar
                   </Button>
                   <Button 
