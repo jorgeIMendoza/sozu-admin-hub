@@ -51,7 +51,8 @@ const Propiedades = () => {
   // Filtros de texto
   const [proyectoFilter, setProyectoFilter] = useState("");
   const [modeloFilter, setModeloFilter] = useState("");
-  const [configuracionFilter, setConfiguracionFilter] = useState("");
+  const [recamarasFilter, setRecamarasFilter] = useState("");
+  const [banosFilter, setBanosFilter] = useState("");
   const [disponibilidadFilter, setDisponibilidadFilter] = useState("");
   
   // Paginación
@@ -173,12 +174,12 @@ const Propiedades = () => {
     const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
     const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
     
-    const configuracionText = `${property.configuracion_modelo.numero_recamaras} rec, ${property.configuracion_modelo.numero_completo_banos} baños, ${property.configuracion_modelo.numero_medio_bano} medios baños`;
-    const matchesConfiguracion = configuracionFilter === "" || configuracionText.toLowerCase().includes(configuracionFilter.toLowerCase());
+    const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
+    const matchesBanos = banosFilter === "" || (property.configuracion_modelo.numero_completo_banos + property.configuracion_modelo.numero_medio_bano).toString().includes(banosFilter);
     
     const matchesDisponibilidad = disponibilidadFilter === "" || property.disponibilidad.toLowerCase().includes(disponibilidadFilter.toLowerCase());
     
-    return matchesSearch && matchesProyecto && matchesModelo && matchesConfiguracion && matchesDisponibilidad;
+    return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad;
   }) || [];
 
   // Separar propiedades por pestaña
@@ -435,7 +436,7 @@ const Propiedades = () => {
             {propertiesToRender.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={tabType === "draft" ? 14 : 13} className="text-center py-6">
-                  {searchTerm || proyectoFilter || modeloFilter || configuracionFilter || disponibilidadFilter 
+                  {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter 
                     ? "No se encontraron resultados." 
                     : tabType === "eliminados"
                       ? "No hay propiedades eliminadas." 
@@ -631,7 +632,7 @@ const Propiedades = () => {
             </div>
             
             {/* Filtros específicos */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
                 <label className="text-sm font-medium mb-2 block">Proyecto</label>
                 <Input
@@ -649,11 +650,19 @@ const Propiedades = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Configuración</label>
+                <label className="text-sm font-medium mb-2 block">Recámaras</label>
                 <Input
-                  placeholder="Ej: 2 rec, 1 baño..."
-                  value={configuracionFilter}
-                  onChange={(e) => setConfiguracionFilter(e.target.value)}
+                  placeholder="Ej: 2, 3..."
+                  value={recamarasFilter}
+                  onChange={(e) => setRecamarasFilter(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Baños</label>
+                <Input
+                  placeholder="Ej: 1, 2..."
+                  value={banosFilter}
+                  onChange={(e) => setBanosFilter(e.target.value)}
                 />
               </div>
               <div>
