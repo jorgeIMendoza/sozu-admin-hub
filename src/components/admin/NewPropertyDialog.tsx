@@ -42,6 +42,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
   const [propertyId, setPropertyId] = useState<number | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedBuildingId, setSelectedBuildingId] = useState("");
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -198,6 +199,28 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
     enabled: !!selectedProjectId,
   });
 
+  // Query para obtener la CLABE del propietario seleccionado
+  const { data: ownerClabe } = useQuery({
+    queryKey: ["owner-clabe", selectedOwnerId],
+    queryFn: async () => {
+      if (!selectedOwnerId) return null;
+      
+      try {
+        const { data, error } = await supabase
+          .rpc('crear_referencia_bancaria', {
+            id_er_dueno: parseInt(selectedOwnerId)
+          });
+
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.error("Error getting CLABE:", error);
+        return null;
+      }
+    },
+    enabled: !!selectedOwnerId,
+  });
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       // Find the edificio_modelo ID
@@ -270,12 +293,14 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
       }
 
       setPropertyId(data?.id || null);
+      onPropertyAdded(); // Refresh the properties list
 
-      // Don't close dialog immediately, let user add documents
+      // Reset form and close modal
       form.reset();
       setSelectedProjectId("");
       setSelectedBuildingId("");
-      onPropertyAdded(); // Refresh the properties list
+      setSelectedOwnerId("");
+      setOpen(false);
     } catch (error) {
       console.error("Error creating property:", error);
       toast({
@@ -293,6 +318,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
       setPropertyId(null);
       setSelectedProjectId("");
       setSelectedBuildingId("");
+      setSelectedOwnerId("");
     }
     setOpen(newOpen);
   };
@@ -518,7 +544,13 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Propietario</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      setSelectedOwnerId(value);
+                    }} 
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona propietario" />
@@ -542,6 +574,18 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
                 </FormItem>
               )}
             />
+
+            {/* Campo de solo lectura para mostrar la CLABE */}
+            {selectedOwnerId && ownerClabe && (
+              <div className="space-y-2">
+                <FormLabel>CLABE (Generada Automáticamente)</FormLabel>
+                <Input 
+                  value={ownerClabe} 
+                  readOnly 
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
+              </div>
+            )}
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
