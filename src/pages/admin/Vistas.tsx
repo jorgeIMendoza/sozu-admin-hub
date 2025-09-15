@@ -401,7 +401,7 @@ export default function Vistas() {
                                 }}
                               />
                             ) : (
-                              <Badge variant="secondary">Sin imagen</Badge>
+                              <span className="text-muted-foreground text-sm">Sin imagen</span>
                             )}
                           </TableCell>
                           <TableCell>
