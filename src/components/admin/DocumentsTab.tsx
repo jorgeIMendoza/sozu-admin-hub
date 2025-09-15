@@ -272,7 +272,7 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Documentos</h3>
-        <Button onClick={() => setIsUploadDialogOpen(true)}>
+        <Button type="button" onClick={() => setIsUploadDialogOpen(true)}>
           <Upload className="mr-2 h-4 w-4" />
           Subir Documento
         </Button>
@@ -323,6 +323,7 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end space-x-2">
                           <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => window.open(documento.url, '_blank')}
@@ -330,6 +331,7 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => handleToggleVerification(documento)}
@@ -341,6 +343,7 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
                             )}
                           </Button>
                           <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => handleDelete(documento)}
@@ -392,6 +395,7 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
           </div>
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               onClick={() => {
                 setIsUploadDialogOpen(false);
@@ -402,6 +406,7 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
               Cancelar
             </Button>
             <Button
+              type="button"
               onClick={handleUpload}
               disabled={!selectedFile || !selectedTipoDocumento || isUploading}
             >
