@@ -83,7 +83,7 @@ const Proyectos = () => {
             url,
             es_imagen
           ),
-          videos_youtube!videos_youtube_id_proyecto_fkey (
+          videos_youtube (
             id,
             nombre,
             activo
@@ -157,7 +157,7 @@ const Proyectos = () => {
             url,
             es_imagen
           ),
-          videos_youtube!videos_youtube_id_proyecto_fkey (
+          videos_youtube (
             id,
             nombre,
             activo
