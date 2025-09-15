@@ -302,7 +302,10 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Editar Propiedad: {property.numero_propiedad}</DialogTitle>
+          <DialogTitle>
+            Editar Propiedad: {property.numero_propiedad}
+            {propertyProject?.nombre && ` de ${propertyProject.nombre}`}
+          </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full">
