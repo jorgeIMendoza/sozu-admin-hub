@@ -331,6 +331,34 @@ const Propiedades = () => {
     }
   };
 
+  const handleApproveAllVisible = async () => {
+    if (draftProperties.length === 0) return;
+
+    try {
+      const propertyIds = draftProperties.map(p => p.id);
+      const { error } = await supabase
+        .from('propiedades')
+        .update({ es_aprobado: true })
+        .in('id', propertyIds);
+
+      if (error) throw error;
+
+      toast({
+        title: "Propiedades aprobadas",
+        description: `${draftProperties.length} propiedades han sido aprobadas correctamente.`,
+      });
+
+      setSelectedProperties([]);
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudieron aprobar todas las propiedades visibles.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSelectProperty = (propertyId: number) => {
     setSelectedProperties(prev => 
       prev.includes(propertyId) 
@@ -703,16 +731,23 @@ const Propiedades = () => {
             </TabsContent>
 
             <TabsContent value="draft" className="mt-4">
-              {selectedProperties.length > 0 && (
-                <div className="mb-4 flex gap-2">
-                  <Button onClick={handleBulkApprove} variant="default">
-                    Aprobar Seleccionadas ({selectedProperties.length})
+              <div className="mb-4 flex flex-wrap gap-2">
+                {draftProperties.length > 0 && (
+                  <Button onClick={handleApproveAllVisible} variant="default" className="bg-green-600 hover:bg-green-700">
+                    Aprobar Todas las Visibles ({draftProperties.length})
                   </Button>
-                  <Button onClick={handleBulkDelete} variant="destructive">
-                    Eliminar Seleccionadas ({selectedProperties.length})
-                  </Button>
-                </div>
-              )}
+                )}
+                {selectedProperties.length > 0 && (
+                  <>
+                    <Button onClick={handleBulkApprove} variant="outline">
+                      Aprobar Seleccionadas ({selectedProperties.length})
+                    </Button>
+                    <Button onClick={handleBulkDelete} variant="destructive">
+                      Eliminar Seleccionadas ({selectedProperties.length})
+                    </Button>
+                  </>
+                )}
+              </div>
               {renderPropertiesTable(paginatedDraftProperties, "draft")}
               {renderPagination(currentPageDraft, totalDraftPage, setCurrentPageDraft)}
             </TabsContent>
