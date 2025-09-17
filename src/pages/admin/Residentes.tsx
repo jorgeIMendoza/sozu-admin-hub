@@ -520,7 +520,7 @@ export default function Residentes() {
              onSubmit={(data) => createMutation.mutate(data)}
              isLoading={createMutation.isPending}
              onCancel={() => setIsNewDialogOpen(false)}
-             entityType="resident"
+              entityType="residente"
            />
         </DialogContent>
       </Dialog>
@@ -542,7 +542,7 @@ export default function Residentes() {
                setIsEditDialogOpen(false);
                setEditingResidente(null);
              }}
-             entityType="resident"
+             entityType="residente"
            />
         </DialogContent>
       </Dialog>

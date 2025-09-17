@@ -520,7 +520,7 @@ export default function Duenos() {
              onSubmit={(data) => createMutation.mutate(data)}
              isLoading={createMutation.isPending}
              onCancel={() => setIsNewDialogOpen(false)}
-             entityType="owner"
+              entityType="dueno"
            />
         </DialogContent>
       </Dialog>
@@ -542,7 +542,7 @@ export default function Duenos() {
                setIsEditDialogOpen(false);
                setEditingDueno(null);
              }}
-             entityType="owner"
+             entityType="dueno"
            />
         </DialogContent>
       </Dialog>

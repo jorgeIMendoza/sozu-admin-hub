@@ -520,7 +520,7 @@ export default function Agentes() {
              onSubmit={(data) => createMutation.mutate(data)}
              isLoading={createMutation.isPending}
              onCancel={() => setIsNewDialogOpen(false)}
-             entityType="agent"
+              entityType="agente"
            />
         </DialogContent>
       </Dialog>
@@ -542,7 +542,7 @@ export default function Agentes() {
                setIsEditDialogOpen(false);
                setEditingAgente(null);
              }}
-             entityType="agent"
+             entityType="agente"
            />
         </DialogContent>
       </Dialog>

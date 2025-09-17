@@ -542,7 +542,7 @@ export default function AdministradoresPersonas() {
                setIsEditDialogOpen(false);
                setEditingAdministrador(null);
              }}
-             entityType="administrator"
+              entityType="administrador"
            />
         </DialogContent>
       </Dialog>

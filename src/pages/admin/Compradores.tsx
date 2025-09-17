@@ -516,12 +516,12 @@ export default function Compradores() {
           <DialogHeader>
             <DialogTitle>Nuevo Comprador</DialogTitle>
           </DialogHeader>
-           <PersonForm
-             onSubmit={(data) => createMutation.mutate(data)}
-             isLoading={createMutation.isPending}
-             onCancel={() => setIsNewDialogOpen(false)}
-             entityType="buyer"
-           />
+            <PersonForm
+              onSubmit={(data) => createMutation.mutate(data)}
+              isLoading={createMutation.isPending}
+              onCancel={() => setIsNewDialogOpen(false)}
+              entityType="comprador"
+            />
         </DialogContent>
       </Dialog>
 
@@ -542,7 +542,7 @@ export default function Compradores() {
                setIsEditDialogOpen(false);
                setEditingComprador(null);
              }}
-             entityType="buyer"
+             entityType="comprador"
            />
         </DialogContent>
       </Dialog>
