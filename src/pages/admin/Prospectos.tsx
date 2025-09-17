@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -193,7 +194,22 @@ export default function Prospectos() {
   const prospectos = activeTab === 'active' ? activeProspectos : deletedProspectos;
   const isLoading = activeTab === 'active' ? loadingActive : loadingDeleted;
 
-  // Check if prospect can be deleted (not in any offers)  
+  // Query for available projects
+  const { data: proyectos = [] } = useQuery({
+    queryKey: ['proyectos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proyectos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Check if prospect can be deleted (not in any offers)
   const { data: canDeleteData = [] } = useQuery({
     queryKey: ['prospect_offers', prospectos.map(c => c.id)],
     queryFn: async () => {
@@ -395,6 +411,32 @@ export default function Prospectos() {
     },
   });
 
+  // Mutation to update project assignment
+  const updateProjectMutation = useMutation({
+    mutationFn: async ({ entidadRelacionadaId, proyectoId }: { entidadRelacionadaId: number; proyectoId: number | null }) => {
+      const { error } = await supabase
+        .from('entidades_relacionadas')
+        .update({ id_proyecto: proyectoId })
+        .eq('id', entidadRelacionadaId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prospectos'] });
+      toast({
+        title: "Éxito",
+        description: "Proyecto asignado correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al asignar el proyecto: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredProspectos = prospectos.filter(prospecto => 
     prospecto.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     prospecto.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -536,8 +578,29 @@ export default function Prospectos() {
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {prospecto.proyecto_nombre || 'Sin proyecto asignado'}
+                <TableCell>
+                  <Select
+                    value={prospecto.id_proyecto?.toString() || ""}
+                    onValueChange={(value) => {
+                      const proyectoId = value === "" ? null : parseInt(value);
+                      updateProjectMutation.mutate({
+                        entidadRelacionadaId: (prospecto as any).entidad_relacionada_id,
+                        proyectoId
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Sin proyecto asignado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Sin proyecto</SelectItem>
+                      {proyectos.map((proyecto) => (
+                        <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
+                          {proyecto.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(prospecto.fecha_creacion)}

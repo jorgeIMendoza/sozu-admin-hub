@@ -43,6 +43,9 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [idTipoEntidad, setIdTipoEntidad] = useState(initialData?.id_tipo_entidad || getDefaultTipoEntidad(entityType));
   const [idRepresentanteLegal, setIdRepresentanteLegal] = useState(initialData?.id_entidad_relacionada_rep_leg || '');
   
+  // Project selection for prospects (clients with tipo_entidad = 7)
+  const [idProyecto, setIdProyecto] = useState(initialData?.id_proyecto || '');
+  
   // Identification
   const [curp, setCurp] = useState(initialData?.curp || '');
   const [rfc, setRfc] = useState(initialData?.rfc || '');
@@ -325,6 +328,22 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     enabled: entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || entityType === 'banco' || (entityType === 'client' && tipoPersona === 'pm')
   });
 
+  // Query for available projects (for prospects)
+  const { data: proyectos = [] } = useQuery({
+    queryKey: ['proyectos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proyectos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: entityType === 'client' && getDefaultTipoEntidad(entityType) === 7 // Only for prospects
+  });
+
   function getDefaultTipoEntidad(type: string) {
     switch (type) {
       case 'legal': return undefined; // Will be selected by user
@@ -358,6 +377,11 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   function shouldShowDocumentsTab() {
     // Show documents tab for all person types except user form
     return entityType !== 'user';
+  }
+
+  // Helper function to determine if this is a prospect form
+  function isProspectForm() {
+    return entityType === 'client' && getDefaultTipoEntidad(entityType) === 7;
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -445,7 +469,12 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       activo: true,
     };
 
-    // Store documents info if provided  
+    // For prospects (client type with tipo_entidad 7), include project information
+    if (isProspectForm()) {
+      formData.id_proyecto = idProyecto ? parseInt(idProyecto) : null;
+    }
+
+    // Store documents info if provided
     if (pendingDocuments.length > 0) {
       formData.pendingDocuments = pendingDocuments;
     }
@@ -493,6 +522,26 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
             <TabsContent value="basic" className="space-y-4 mt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Project selection for prospects - shown as first field */}
+                {isProspectForm() && (
+                  <div className="md:col-span-2">
+                    <Label htmlFor="idProyecto">Proyecto de Interés *</Label>
+                    <Select value={idProyecto.toString()} onValueChange={setIdProyecto}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un proyecto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Sin proyecto</SelectItem>
+                        {proyectos.map((proyecto) => (
+                          <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
+                            {proyecto.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
                 <div>
                   <Label htmlFor="tipoPersona">Tipo de Persona *</Label>
                   {entityType === 'legal' ? (
