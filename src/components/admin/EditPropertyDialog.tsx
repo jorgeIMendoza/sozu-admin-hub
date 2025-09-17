@@ -11,6 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { DocumentsTab } from "./DocumentsTab";
 import { PropertyMultimediaTab } from "./PropertyMultimediaTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { PropertyCharacteristicsSection } from "./PropertyCharacteristicsSection";
+import { PropertyYouTubeVideosSection } from "./PropertyYouTubeVideosSection";
 
 interface Property {
   id: number;
@@ -583,37 +587,150 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
             </TabsContent>
             
             <TabsContent value="descripcion" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Descripción de la Propiedad</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="descripcion">Descripción</Label>
-                    <textarea
-                      id="descripcion"
-                      className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={formData.descripcion}
-                      onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
-                      placeholder="Descripción de la propiedad (opcional)"
-                    />
-                  </div>
+              <div className="grid gap-6">
+                {/* Descripción de la Propiedad */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Descripción de la Propiedad</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Label htmlFor="descripcion">Descripción</Label>
+                      <Textarea
+                        id="descripcion"
+                        value={formData.descripcion}
+                        onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                        placeholder="Describe las características y amenidades de la propiedad..."
+                        className="min-h-[120px]"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="url_imagen_portada">URL Imagen Portada</Label>
-                    <Input
-                      id="url_imagen_portada"
-                      value={formData.url_imagen_portada}
-                      onChange={(e) => setFormData(prev => ({ ...prev, url_imagen_portada: e.target.value }))}
-                      placeholder="https://ejemplo.com/imagen.jpg"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Configuración del Modelo */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Configuración del Modelo {property.modelo}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium">Número de Recámaras</Label>
+                        <div className="mt-1">
+                          <Badge variant="outline" className="text-sm">
+                            {property.configuracion_modelo.numero_recamaras} recámaras
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Número de Baños Completos</Label>
+                        <div className="mt-1">
+                          <Badge variant="outline" className="text-sm">
+                            {property.configuracion_modelo.numero_completo_banos} baños completos
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Número de Medios Baños</Label>
+                        <div className="mt-1">
+                          <Badge variant="outline" className="text-sm">
+                            {property.configuracion_modelo.numero_medio_bano} medios baños
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Características */}
+                <PropertyCharacteristicsSection propertyId={property.id} />
+              </div>
             </TabsContent>
 
-            <TabsContent value="multimedia">
-              <PropertyMultimediaTab propertyId={property.id} />
+            <TabsContent value="multimedia" className="space-y-6">
+              <div className="grid gap-6">
+                {/* Imagen de Portada */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-500">⭐</span>
+                      <CardTitle>Imagen de Portada</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="url_imagen_portada">URL de Imagen de Portada</Label>
+                        <Input
+                          id="url_imagen_portada"
+                          type="url"
+                          value={formData.url_imagen_portada}
+                          onChange={(e) => setFormData(prev => ({ ...prev, url_imagen_portada: e.target.value }))}
+                          placeholder="https://ejemplo.com/imagen.jpg"
+                          className="mt-1"
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        La imagen de portada principal de la propiedad
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Videos de YouTube */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span>▶️</span>
+                        <CardTitle>Videos de YouTube</CardTitle>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <PropertyYouTubeVideosSection propertyId={property.id} />
+                  </CardContent>
+                </Card>
+
+                {/* Vista de la Propiedad */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Vista de la Propiedad</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div>
+                      <Label htmlFor="vista">Vista *</Label>
+                      <Select value={formData.id_vista} onValueChange={(value) => setFormData(prev => ({ ...prev, id_vista: value }))}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Selecciona una vista" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vistas?.map((vista) => (
+                            <SelectItem key={vista.id} value={vista.id.toString()}>
+                              {vista.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Imágenes y Videos */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span>👁️</span>
+                        <CardTitle>Imágenes y Videos</CardTitle>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <PropertyMultimediaTab propertyId={property.id} />
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="documentos">
