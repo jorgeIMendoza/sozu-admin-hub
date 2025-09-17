@@ -44,7 +44,9 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [idRepresentanteLegal, setIdRepresentanteLegal] = useState(initialData?.id_entidad_relacionada_rep_leg || '');
   
   // Project selection for prospects (clients with tipo_entidad = 7)
-  const [idProyecto, setIdProyecto] = useState(initialData?.id_proyecto || '');
+  const [idProyecto, setIdProyecto] = useState(
+    initialData?.id_proyecto ? initialData.id_proyecto.toString() : "null"
+  );
   
   // Identification
   const [curp, setCurp] = useState(initialData?.curp || '');
@@ -471,7 +473,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
     // For prospects (client type with tipo_entidad 7), include project information
     if (isProspectForm()) {
-      formData.id_proyecto = idProyecto ? parseInt(idProyecto) : null;
+      formData.id_proyecto = idProyecto !== "null" ? parseInt(idProyecto) : null;
     }
 
     // Store documents info if provided
@@ -526,7 +528,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                 {isProspectForm() && (
                   <div className="md:col-span-2">
                     <Label htmlFor="idProyecto">Proyecto de Interés *</Label>
-                <Select value={idProyecto || "null"} onValueChange={(value) => setIdProyecto(value === "null" ? "" : value)}>
+                <Select value={idProyecto} onValueChange={setIdProyecto}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un proyecto" />
                   </SelectTrigger>
