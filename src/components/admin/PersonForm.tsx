@@ -483,14 +483,11 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       <form onSubmit={handleSubmit} className="space-y-6">
         {!isUser ? (
           <Tabs defaultValue="basic" className="w-full">
-              <TabsList className={`grid w-full mb-4 bg-muted ${
-                shouldShowBeneficiariosTab() ? 'grid-cols-3' :
-                shouldShowLegalTab() ? 'grid-cols-2' : 'grid-cols-1'
-              }`}>
+              <TabsList className="grid w-full mb-4 bg-muted grid-cols-1">
                 <TabsTrigger value="basic" className="text-foreground">Información Básica</TabsTrigger>
                 {/* Temporarily hidden - <TabsTrigger value="address" className="text-foreground">Dirección</TabsTrigger> */}
-                {shouldShowLegalTab() && <TabsTrigger value="legal" className="text-foreground">Información Legal</TabsTrigger>}
-                {shouldShowBeneficiariosTab() && <TabsTrigger value="beneficiarios" className="text-foreground">Beneficiarios</TabsTrigger>}
+                {/* Temporarily hidden - {shouldShowLegalTab() && <TabsTrigger value="legal" className="text-foreground">Información Legal</TabsTrigger>} */}
+                {/* Temporarily hidden - {shouldShowBeneficiariosTab() && <TabsTrigger value="beneficiarios" className="text-foreground">Beneficiarios</TabsTrigger>} */}
                 {/* Temporarily hidden - {shouldShowDocumentsTab() && <TabsTrigger value="documents" className="text-foreground">Documentos</TabsTrigger>} */}
             </TabsList>
 
@@ -920,7 +917,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
             </TabsContent>
             */}
 
-            {shouldShowLegalTab() && (
+            {/* Temporarily hidden - Legal Information Tab */}
+            {/* {shouldShowLegalTab() && (
               <TabsContent value="legal" className="space-y-4 mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1038,8 +1036,9 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   )}
                 </div>
               </TabsContent>
-            )}
+            )} */}
 
+            {/* Temporarily hidden - Beneficiarios Tab
             {shouldShowBeneficiariosTab() && (
               <TabsContent value="beneficiarios" className="space-y-4 mt-6">
                 {initialData && initialData.id ? (
@@ -1057,6 +1056,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                 )}
               </TabsContent>
             )}
+            */}
 
             {/* Temporarily hidden - Documents Tab
             {shouldShowDocumentsTab() && (
