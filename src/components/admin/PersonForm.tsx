@@ -55,6 +55,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [usoCfdi, setUsoCfdi] = useState(initialData?.uso_cfdi || '');
   const [regimen, setRegimen] = useState(initialData?.regimen || '');
   const [idTipoIdentificacion, setIdTipoIdentificacion] = useState(initialData?.id_tipo_identificacion || '');
+  const [numeroIdentificacion, setNumeroIdentificacion] = useState(initialData?.numero_identificacion || '');
   
   // Personal info
   const [sexo, setSexo] = useState(initialData?.sexo || '');
@@ -456,6 +457,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       uso_cfdi: usoCfdi.trim() || null,
       regimen: regimen ? parseInt(regimen) : null,
       id_tipo_identificacion: idTipoIdentificacion ? parseInt(idTipoIdentificacion) : null,
+      numero_identificacion: numeroIdentificacion.trim() || null,
       sexo: sexo || null,
       fecha_nacimiento: fechaNacimiento?.toISOString() || null,
       id_estado_civil: idEstadoCivil ? parseInt(idEstadoCivil) : null,
@@ -1137,7 +1139,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       </div>
 
                       <div>
-                        <Label htmlFor="tipoId">Tipo de ID *</Label>
+                        <Label htmlFor="tipoIdentificacion">Tipo de identificación *</Label>
                         <Select value={idTipoIdentificacion} onValueChange={setIdTipoIdentificacion}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecciona tipo de identificación" />
@@ -1148,6 +1150,26 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                             <SelectItem value="3">Licencia de Conducir</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="numeroIdentificacion">Número de identificación *</Label>
+                        <Input
+                          id="numeroIdentificacion"
+                          type="text"
+                          value={numeroIdentificacion}
+                          onChange={(e) => setNumeroIdentificacion(e.target.value)}
+                          placeholder="Ingresa el número de identificación"
+                        />
+                      </div>
+
+                      <div className="col-span-1 md:col-span-2">
+                        <ImageUploadField
+                          label="Documento de identificación"
+                          value={documentImageUrl}
+                          onChange={setDocumentImageUrl}
+                          accept="image/*,.pdf"
+                        />
                       </div>
 
                       <div>
