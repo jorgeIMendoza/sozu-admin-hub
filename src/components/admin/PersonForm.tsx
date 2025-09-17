@@ -349,8 +349,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   }
 
   function shouldShowDocumentsTab() {
-    // Show documents tab for clients, buyers, and legal entities (both new and existing)
-    return entityType === 'buyer' || entityType === 'client' || entityType === 'legal';
+    // Show documents tab for all person types except user form
+    return entityType !== 'user';
   }
 
   const handleSubmit = (e: React.FormEvent) => {
