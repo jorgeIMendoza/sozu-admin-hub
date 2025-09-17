@@ -159,64 +159,56 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         <DialogHeader>
           <DialogTitle>Nueva Propiedad</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="selection" className="w-full">
-          <TabsList className={`grid w-full mb-4 bg-muted ${selectedOwnerId && selectedOwnerId !== "no-owners" ? "grid-cols-3" : "grid-cols-1"}`}>
-            <TabsTrigger value="selection" className="text-foreground">Selección de Proyecto y Modelo</TabsTrigger>
-            {selectedOwnerId && selectedOwnerId !== "no-owners" && (
-              <>
-                <TabsTrigger value="basic" className="text-foreground">Datos Básicos</TabsTrigger>
-                <TabsTrigger value="classification" className="text-foreground">Clasificaciones</TabsTrigger>
-              </>
-            )}
-          </TabsList>
-          
-          <TabsContent value="selection">
-            <ProjectModelSelectionSection
-              form={form}
-              selectedProjectId={selectedProjectId}
-              selectedBuildingId={selectedBuildingId}
-              selectedOwnerId={selectedOwnerId}
-              setSelectedProjectId={setSelectedProjectId}
-              setSelectedBuildingId={setSelectedBuildingId}
-              setSelectedOwnerId={setSelectedOwnerId}
-              ownerClabe={ownerClabe}
-              isLoadingClabe={isLoadingClabe}
-              clabeError={clabeError}
-            />
-          </TabsContent>
-          
-          {selectedOwnerId && selectedOwnerId !== "no-owners" && (
-            <>
-              <TabsContent value="basic">
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <PropertyBasicDataSection form={form} />
-                    
-                    <div className="flex justify-end pt-4">
-                      <Button type="submit" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting ? "Creando..." : "Crear Propiedad"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <Tabs defaultValue="selection" className="w-full">
+              <TabsList className={`grid w-full mb-4 bg-muted ${selectedOwnerId && selectedOwnerId !== "no-owners" ? "grid-cols-3" : "grid-cols-1"}`}>
+                <TabsTrigger value="selection" className="text-foreground">Selección de Proyecto y Modelo</TabsTrigger>
+                {selectedOwnerId && selectedOwnerId !== "no-owners" && (
+                  <>
+                    <TabsTrigger value="basic" className="text-foreground">Datos Básicos</TabsTrigger>
+                    <TabsTrigger value="classification" className="text-foreground">Clasificaciones</TabsTrigger>
+                  </>
+                )}
+              </TabsList>
+              
+              <TabsContent value="selection">
+                <ProjectModelSelectionSection
+                  form={form}
+                  selectedProjectId={selectedProjectId}
+                  selectedBuildingId={selectedBuildingId}
+                  selectedOwnerId={selectedOwnerId}
+                  setSelectedProjectId={setSelectedProjectId}
+                  setSelectedBuildingId={setSelectedBuildingId}
+                  setSelectedOwnerId={setSelectedOwnerId}
+                  ownerClabe={ownerClabe}
+                  isLoadingClabe={isLoadingClabe}
+                  clabeError={clabeError}
+                />
               </TabsContent>
               
-              <TabsContent value="classification">
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {selectedOwnerId && selectedOwnerId !== "no-owners" && (
+                <>
+                  <TabsContent value="basic">
+                    <PropertyBasicDataSection form={form} />
+                  </TabsContent>
+                  
+                  <TabsContent value="classification">
                     <PropertyClassificationSection form={form} />
-                    
-                    <div className="flex justify-end pt-4">
-                      <Button type="submit" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting ? "Creando..." : "Crear Propiedad"}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </TabsContent>
-            </>
-          )}
-        </Tabs>
+                  </TabsContent>
+                </>
+              )}
+            </Tabs>
+            
+            {selectedOwnerId && selectedOwnerId !== "no-owners" && (
+              <div className="flex justify-end pt-4">
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? "Creando..." : "Crear Propiedad"}
+                </Button>
+              </div>
+            )}
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
