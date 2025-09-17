@@ -365,10 +365,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       case 'banco': return undefined; // Will be set by the parent component
       case 'comprador': return 2; // Comprador
       case 'vendedor': return 4; // Vendedor
-      case 'dueno': return 15; // Dueño
+      case 'dueno': return 17; // Dueño
       case 'residente': return 18; // Residente
       case 'agente': return 19; // Agente
-      case 'administrador': return 20; // Administrador personas
+      case 'administrador': return 6; // Administrador personas
       default: return undefined;
     }
   }
@@ -660,7 +660,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       disabled
                       className="bg-muted"
                     />
-                  ) : entityType === 'buyer' || entityType === 'client' || entityType === 'comprador' || entityType === 'vendedor' || entityType === 'dueno' || entityType === 'residente' || entityType === 'agente' || entityType === 'administrador' ? (
+                  ) : (
                     <Select value={tipoPersona} onValueChange={setTipoPersona}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona tipo de persona" />
@@ -670,14 +670,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                         <SelectItem value="pm">Persona Moral</SelectItem>
                       </SelectContent>
                     </Select>
-                  ) : (
-                    <Input
-                      id="tipoPersona"
-                      type="text"
-                      value={tipoPersona === 'pf' ? 'Persona Física' : 'Persona Moral'}
-                      disabled
-                      className="bg-muted"
-                    />
                   )}
                 </div>
 
