@@ -580,9 +580,9 @@ export default function Prospectos() {
                 </TableCell>
                 <TableCell>
                   <Select
-                    value={prospecto.id_proyecto?.toString() || ""}
+                    value={prospecto.id_proyecto?.toString() || "null"}
                     onValueChange={(value) => {
-                      const proyectoId = value === "" ? null : parseInt(value);
+                      const proyectoId = value === "null" ? null : parseInt(value);
                       updateProjectMutation.mutate({
                         entidadRelacionadaId: (prospecto as any).entidad_relacionada_id,
                         proyectoId
@@ -593,7 +593,7 @@ export default function Prospectos() {
                       <SelectValue placeholder="Sin proyecto asignado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin proyecto</SelectItem>
+                      <SelectItem value="null">Sin proyecto</SelectItem>
                       {proyectos.map((proyecto) => (
                         <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
                           {proyecto.nombre}

@@ -526,12 +526,12 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                 {isProspectForm() && (
                   <div className="md:col-span-2">
                     <Label htmlFor="idProyecto">Proyecto de Interés *</Label>
-                    <Select value={idProyecto.toString()} onValueChange={setIdProyecto}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un proyecto" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Sin proyecto</SelectItem>
+                <Select value={idProyecto || "null"} onValueChange={(value) => setIdProyecto(value === "null" ? "" : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un proyecto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="null">Sin proyecto</SelectItem>
                         {proyectos.map((proyecto) => (
                           <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
                             {proyecto.nombre}
