@@ -325,7 +325,7 @@ export default function Prospectos() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, id_proyecto, ...cleanPersonData } = personData;
       
       const { error: updateError } = await supabase
         .from('personas')
@@ -341,6 +341,17 @@ export default function Prospectos() {
           .eq('id', editingProspecto?.id);
           
         if (repError) throw repError;
+      }
+
+      // Handle project assignment update for prospects
+      if (id_proyecto !== undefined) {
+        const { error: projectError } = await supabase
+          .from('entidades_relacionadas')
+          .update({ id_proyecto: id_proyecto })
+          .eq('id_persona', editingProspecto?.id)
+          .eq('id_tipo_entidad', 7); // Prospecto type
+          
+        if (projectError) throw projectError;
       }
     },
     onSuccess: () => {
@@ -726,7 +737,8 @@ export default function Prospectos() {
            <PersonForm
              initialData={{
                ...editingProspecto,
-               representativeId: editingProspecto?.id_entidad_relacionada_rep_leg
+               representativeId: editingProspecto?.id_entidad_relacionada_rep_leg,
+               id_proyecto: editingProspecto?.id_proyecto
              }}
              onSubmit={(data) => updateMutation.mutate(data)}
              isLoading={updateMutation.isPending}
