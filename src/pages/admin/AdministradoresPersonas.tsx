@@ -520,7 +520,7 @@ export default function AdministradoresPersonas() {
              onSubmit={(data) => createMutation.mutate(data)}
              isLoading={createMutation.isPending}
              onCancel={() => setIsNewDialogOpen(false)}
-             entityType="administrator"
+             entityType="administrador"
            />
         </DialogContent>
       </Dialog>
