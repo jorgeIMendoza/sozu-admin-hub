@@ -1332,13 +1332,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                           />
                         </div>
                       </div>
-
-                      <div className="space-y-2">
-                        <Label>Ubicación Fiscal en Google Maps</Label>
-                        <div className="h-64 bg-muted rounded-md flex items-center justify-center">
-                          <p className="text-muted-foreground">Mapa de Google Maps aquí</p>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </TabsContent>
