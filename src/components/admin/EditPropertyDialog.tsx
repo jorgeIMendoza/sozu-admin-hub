@@ -74,7 +74,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vistas')
-        .select('id, nombre')
+        .select('id, nombre, url')
         .eq('activo', true)
         .order('nombre');
       if (error) throw error;
@@ -634,6 +634,70 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
 
             <TabsContent value="multimedia" className="space-y-6">
               <div className="grid gap-6">
+                {/* Vista de la Propiedad */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Vista de la Propiedad</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="vista">Vista *</Label>
+                      <Select value={formData.id_vista} onValueChange={(value) => setFormData(prev => ({ ...prev, id_vista: value }))}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Selecciona una vista" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vistas?.map((vista) => (
+                            <SelectItem key={vista.id} value={vista.id.toString()}>
+                              {vista.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Mostrar imagen de la vista seleccionada */}
+                    {formData.id_vista && (
+                      <div className="mt-4">
+                        <Label>Imagen de la Vista</Label>
+                        {(() => {
+                          const selectedVista = vistas?.find(v => v.id.toString() === formData.id_vista);
+                          
+                          if (selectedVista?.url) {
+                            return (
+                              <div className="mt-2 border rounded-lg overflow-hidden">
+                                <img
+                                  src={selectedVista.url}
+                                  alt={selectedVista.nombre}
+                                  className="w-full h-48 object-cover"
+                                  onError={(e) => {
+                                    const imgElement = e.currentTarget as HTMLImageElement;
+                                    const nextElement = imgElement.nextElementSibling as HTMLElement;
+                                    imgElement.style.display = 'none';
+                                    if (nextElement) nextElement.style.display = 'flex';
+                                  }}
+                                />
+                                <div 
+                                  className="hidden w-full h-48 bg-muted flex-col items-center justify-center text-muted-foreground"
+                                >
+                                  <p>Imagen no disponible</p>
+                                  <p className="text-sm">{selectedVista.nombre}</p>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="mt-2 w-full h-48 bg-muted rounded-lg flex flex-col items-center justify-center text-muted-foreground border">
+                                <p>Sin imagen disponible</p>
+                                <p className="text-sm">{selectedVista?.nombre}</p>
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Imágenes y Videos */}
                 <Card>
