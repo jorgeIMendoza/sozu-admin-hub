@@ -14,6 +14,16 @@ import { supabase } from "@/integrations/supabase/client";
 interface DocumentsTabProps {
   entityId?: number;
   entityType: 'persona' | 'propiedad';
+  pendingDocuments?: Array<{
+    file: File;
+    tipoDocumento: string;
+    tempId: string;
+  }>;
+  onPendingDocumentsChange?: (docs: Array<{
+    file: File;
+    tipoDocumento: string;
+    tempId: string;
+  }>) => void;
   onDocumentAdded?: () => void;
 }
 
@@ -34,7 +44,13 @@ interface Documento {
   tipo_documento_nombre?: string;
 }
 
-export function DocumentsTab({ entityId, entityType, onDocumentAdded }: DocumentsTabProps) {
+export function DocumentsTab({ 
+  entityId, 
+  entityType, 
+  pendingDocuments = [], 
+  onPendingDocumentsChange, 
+  onDocumentAdded 
+}: DocumentsTabProps) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedTipoDocumento, setSelectedTipoDocumento] = useState<string>("");
@@ -123,11 +139,34 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
   }, [entityId, entityType]);
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedTipoDocumento || !entityId) {
+    if (!selectedFile || !selectedTipoDocumento) {
       toast({
         variant: "destructive",
         title: "Error",
         description: "Faltan datos requeridos",
+      });
+      return;
+    }
+
+    // If no entityId, add to pending documents
+    if (!entityId) {
+      const tempId = `temp_${Date.now()}_${Math.random()}`;
+      const newPendingDoc = {
+        file: selectedFile,
+        tipoDocumento: selectedTipoDocumento,
+        tempId
+      };
+      
+      onPendingDocumentsChange?.([...pendingDocuments, newPendingDoc]);
+      
+      setIsUploadDialogOpen(false);
+      setSelectedFile(null);
+      setSelectedTipoDocumento("");
+      onDocumentAdded?.();
+      
+      toast({
+        title: "Documento agregado",
+        description: "El documento se agregará al guardar la información básica"
       });
       return;
     }
@@ -204,6 +243,15 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
     }
   };
 
+  const handleDeletePending = (tempId: string) => {
+    const updatedPending = pendingDocuments.filter(doc => doc.tempId !== tempId);
+    onPendingDocumentsChange?.(updatedPending);
+    toast({
+      title: "Documento eliminado",
+      description: "El documento pendiente ha sido eliminado"
+    });
+  };
+
   const handleDelete = async (documento: Documento) => {
     const column = entityType === 'persona' ? 'id_persona' : 'id_propiedad';
     
@@ -256,15 +304,83 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
     }
   };
 
-  if (!entityId) {
+  if (!entityId && pendingDocuments.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground text-center">
-            Guarda primero los datos básicos para poder agregar documentos
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Documentos</h3>
+          <Button type="button" onClick={() => setIsUploadDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Subir Documento
+          </Button>
+        </div>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center py-6">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground text-center">
+                Puedes agregar documentos que se guardarán al crear la persona
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Upload Dialog */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Subir Documento</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="tipo-documento">Tipo de Documento</Label>
+                <Select value={selectedTipoDocumento} onValueChange={setSelectedTipoDocumento}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona el tipo de documento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tiposDocumento.map((tipo) => (
+                      <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                        {tipo.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="file">Archivo</Label>
+                <Input
+                  id="file"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsUploadDialogOpen(false);
+                  setSelectedFile(null);
+                  setSelectedTipoDocumento("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleUpload}
+                disabled={!selectedFile || !selectedTipoDocumento}
+              >
+                Agregar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     );
   }
 
@@ -290,7 +406,7 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
             <div className="text-center py-6">
               <p className="text-muted-foreground">Cargando documentos...</p>
             </div>
-          ) : documentos.length === 0 ? (
+          ) : documentos.length === 0 && pendingDocuments.length === 0 ? (
             <div className="text-center py-6">
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
               <p className="text-muted-foreground">No hay documentos adjuntos</p>
@@ -308,6 +424,34 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* Pending documents */}
+                  {pendingDocuments.map((pendingDoc) => {
+                    const tipoDocumentoNombre = tiposDocumento.find(t => t.id.toString() === pendingDoc.tipoDocumento)?.nombre || 'Tipo desconocido';
+                    return (
+                      <TableRow key={pendingDoc.tempId}>
+                        <TableCell className="font-medium">Pendiente</TableCell>
+                        <TableCell>{tipoDocumentoNombre}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">Pendiente</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {pendingDoc.file.name}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeletePending(pendingDoc.tempId)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  
+                  {/* Saved documents */}
                   {documentos.map((documento) => (
                     <TableRow key={documento.numero}>
                       <TableCell className="font-medium">{documento.numero}</TableCell>
@@ -405,13 +549,13 @@ export function DocumentsTab({ entityId, entityType, onDocumentAdded }: Document
             >
               Cancelar
             </Button>
-            <Button
-              type="button"
-              onClick={handleUpload}
-              disabled={!selectedFile || !selectedTipoDocumento || isUploading}
-            >
-              {isUploading ? "Subiendo..." : "Subir"}
-            </Button>
+              <Button
+                type="button"
+                onClick={handleUpload}
+                disabled={!selectedFile || !selectedTipoDocumento || isUploading}
+              >
+                {isUploading ? "Subiendo..." : entityId ? "Subir" : "Agregar"}
+              </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

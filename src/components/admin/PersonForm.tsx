@@ -97,6 +97,13 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   // Logo
   const [urlLogo, setUrlLogo] = useState(initialData?.url_logo || '');
   
+  // Pending documents for new persons
+  const [pendingDocuments, setPendingDocuments] = useState<Array<{
+    file: File;
+    tipoDocumento: string;
+    tempId: string;
+  }>>([]);
+  
   const { toast } = useToast();
 
   // Copy address functionality
@@ -415,6 +422,11 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       url_logo: urlLogo.trim() || null,
       activo: true,
     };
+
+    // Store documents info if provided  
+    if (pendingDocuments.length > 0) {
+      formData.pendingDocuments = pendingDocuments;
+    }
 
     // For backwards compatibility with user form
     if (entityType === 'user') {
@@ -1025,6 +1037,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                 <DocumentsTab 
                   entityId={initialData?.id || undefined} 
                   entityType="persona"
+                  pendingDocuments={pendingDocuments}
+                  onPendingDocumentsChange={setPendingDocuments}
                   onDocumentAdded={() => {
                     toast({
                       title: "Documento agregado",

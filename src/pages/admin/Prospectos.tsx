@@ -183,7 +183,7 @@ export default function Prospectos() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, pendingDocuments, ...cleanPersonData } = personData;
       
       const { data: personResult, error: personError } = await supabase
         .from('personas')
@@ -211,6 +211,47 @@ export default function Prospectos() {
           .eq('id', personResult.id);
           
         if (updateError) throw updateError;
+      }
+
+      // Handle pending documents
+      if (pendingDocuments && pendingDocuments.length > 0) {
+        for (let i = 0; i < pendingDocuments.length; i++) {
+          const doc = pendingDocuments[i];
+          try {
+            // Upload file to Supabase Storage
+            const fileExt = doc.file.name.split('.').pop();
+            const fileName = `persona_${personResult.id}_${Date.now()}_${i}.${fileExt}`;
+            const filePath = `documentos/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('documentos')
+              .upload(filePath, doc.file);
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from('documentos')
+              .getPublicUrl(filePath);
+
+            // Save document record
+            const { error: dbError } = await supabase
+              .from('documentos')
+              .insert({
+                numero: i + 1,
+                url: urlData.publicUrl,
+                es_verificado: false,
+                activo: true,
+                id_tipo_documento: parseInt(doc.tipoDocumento),
+                id_persona: personResult.id
+              });
+
+            if (dbError) throw dbError;
+          } catch (docError) {
+            console.error('Error uploading document:', docError);
+            // Continue with other documents even if one fails
+          }
+        }
       }
     },
     onSuccess: () => {
