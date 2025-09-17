@@ -48,6 +48,9 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
   const [selectedBuildingId, setSelectedBuildingId] = useState("");
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [selectedCharacteristics, setSelectedCharacteristics] = useState<number[]>([]);
+  const [multimediaItems, setMultimediaItems] = useState<any[]>([]);
+  const [youtubeVideos, setYoutubeVideos] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -96,7 +99,10 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
+    
     try {
+      // Paso 1: Crear la propiedad
       const propertyData = {
         numero_propiedad: values.numero_propiedad,
         numero_piso: parseInt(values.numero_piso),
@@ -124,13 +130,13 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
 
       if (error) throw error;
 
-      const propertyId = data?.id;
-      setPropertyId(propertyId || null);
+      const createdPropertyId = data?.id;
+      setPropertyId(createdPropertyId || null);
 
-      // Si hay características seleccionadas, insertarlas
-      if (selectedCharacteristics.length > 0 && propertyId) {
+      // Paso 2: Insertar características si las hay
+      if (selectedCharacteristics.length > 0 && createdPropertyId) {
         const characteristicsData = selectedCharacteristics.map(caracteristicaId => ({
-          id_propiedad: propertyId,
+          id_propiedad: createdPropertyId,
           id_caracteristica: caracteristicaId,
           activo: true
         }));
@@ -141,24 +147,83 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
 
         if (characteristicsError) {
           console.error("Error inserting characteristics:", characteristicsError);
-          // No blocking error, just log it
+        }
+      }
+
+      // Paso 3: Subir archivos multimedia y guardar referencias
+      if (multimediaItems.length > 0 && createdPropertyId) {
+        for (const item of multimediaItems) {
+          let finalUrl = item.url;
+          
+          // Si hay un archivo, subirlo primero
+          if (item.file) {
+            try {
+              const fileExt = item.file.name.split('.').pop();
+              const fileName = `${Date.now()}.${fileExt}`;
+              const filePath = `properties/${createdPropertyId}/multimedia/${fileName}`;
+
+              const { error: uploadError } = await supabase.storage
+                .from('documentos')
+                .upload(filePath, item.file);
+
+              if (uploadError) throw uploadError;
+
+              const { data: urlData } = supabase.storage
+                .from('documentos')
+                .getPublicUrl(filePath);
+
+              finalUrl = urlData.publicUrl;
+            } catch (uploadError) {
+              console.error('Error uploading file:', uploadError);
+              continue; // Skip this item if upload fails
+            }
+          }
+
+          // Insertar referencia en la base de datos
+          const { error: multimediaError } = await supabase
+            .from('multimedias_propiedad')
+            .insert([{
+              id_propiedad: createdPropertyId,
+              url: finalUrl,
+              descripcion: item.descripcion,
+              es_imagen: item.es_imagen,
+              activo: true
+            }]);
+
+          if (multimediaError) {
+            console.error('Error inserting multimedia:', multimediaError);
+          }
+        }
+      }
+
+      // Paso 4: Insertar videos de YouTube
+      if (youtubeVideos.length > 0 && createdPropertyId) {
+        const youtubeData = youtubeVideos.map(video => ({
+          nombre: video.nombre,
+          link: video.link,
+          id_propiedad: createdPropertyId,
+          id_proyecto: null,
+          activo: true
+        }));
+
+        const { error: youtubeError } = await supabase
+          .from('videos_youtube')
+          .insert(youtubeData);
+
+        if (youtubeError) {
+          console.error('Error inserting YouTube videos:', youtubeError);
         }
       }
 
       onPropertyAdded();
 
       toast({
-        title: "Propiedad creada",
-        description: "La propiedad se ha creado exitosamente",
+        title: "Propiedad creada exitosamente",
+        description: `Se creó la propiedad con ${multimediaItems.length} archivos multimedia y ${youtubeVideos.length} videos de YouTube`,
       });
 
       // Reset form and close modal
-      form.reset();
-      setSelectedProjectId("");
-      setSelectedBuildingId("");
-      setSelectedOwnerId("");
-      setSelectedCharacteristics([]);
-      setOpen(false);
+      handleClose(false);
     } catch (error) {
       console.error("Error creating property:", error);
       toast({
@@ -166,6 +231,8 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
         description: "Hubo un error al crear la propiedad.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -177,8 +244,15 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
       setSelectedBuildingId("");
       setSelectedOwnerId("");
       setSelectedCharacteristics([]);
+      setMultimediaItems([]);
+      setYoutubeVideos([]);
     }
     setOpen(newOpen);
+  };
+
+  const handleMultimediaChange = (multimedia: any[], youtube: any[]) => {
+    setMultimediaItems(multimedia);
+    setYoutubeVideos(youtube);
   };
 
   return (
@@ -242,7 +316,10 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
               
               <TabsContent value="multimedia" className="space-y-6">
                 {selectedOwnerId && selectedOwnerId !== "no-owners" ? (
-                  <PropertyMultimediaSection form={form} />
+                  <PropertyMultimediaSection 
+                    form={form} 
+                    onMultimediaChange={handleMultimediaChange}
+                  />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     Selecciona un propietario para continuar con la multimedia
@@ -253,9 +330,14 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
               {/* Botón de crear - visible en todas las pestañas cuando hay propietario */}
               {selectedOwnerId && selectedOwnerId !== "no-owners" && (
                 <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? "Creando..." : "Crear Propiedad"}
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Creando..." : "Crear Propiedad"}
                   </Button>
+                  {(multimediaItems.length > 0 || youtubeVideos.length > 0) && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Se crearán {multimediaItems.length} archivos multimedia y {youtubeVideos.length} videos de YouTube
+                    </p>
+                  )}
                 </div>
               )}
             </form>
