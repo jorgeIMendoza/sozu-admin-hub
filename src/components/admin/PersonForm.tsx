@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Upload, CalendarIcon } from "lucide-react";
+import { Camera, Upload, CalendarIcon, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -965,13 +965,19 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <Label>Ubicación en Google Maps</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="w-4 h-4" />
+                        <label className="text-sm font-medium">Ubicación en Google Maps</label>
+                      </div>
                       <GoogleMapComponent
                         onLocationSelect={(location) => setCoordenadas(location)}
                         onAddressSelect={(address) => setDireccionMapa(address)}
                         initialLocation={coordenadas}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Haz clic en el mapa para seleccionar la ubicación
+                      </p>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
