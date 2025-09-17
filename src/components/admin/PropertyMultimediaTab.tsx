@@ -365,7 +365,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center gap-2">
               <Eye className="h-4 w-4" />
-              Vistas de la Propiedad
+              Imagenes y videos
             </CardTitle>
             {propertyId && (
               <Button
