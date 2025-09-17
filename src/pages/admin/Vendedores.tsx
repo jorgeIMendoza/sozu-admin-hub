@@ -73,7 +73,7 @@ export default function Vendedores() {
         `)
         .eq('activo', true)
         .eq('entidades_relacionadas.activo', true)
-        .eq('entidades_relacionadas.id_tipo_entidad', 16)
+        .eq('entidades_relacionadas.id_tipo_entidad', 4)
         .is('entidades_relacionadas.id_proyecto', null)
         .order('nombre_legal', { ascending: true });
       
@@ -125,7 +125,7 @@ export default function Vendedores() {
         `)
         .eq('activo', false)
         .eq('entidades_relacionadas.activo', true)
-        .eq('entidades_relacionadas.id_tipo_entidad', 16)
+        .eq('entidades_relacionadas.id_tipo_entidad', 4)
         .is('entidades_relacionadas.id_proyecto', null)
         .order('nombre_legal', { ascending: true });
       
@@ -167,7 +167,7 @@ export default function Vendedores() {
         .from('entidades_relacionadas')
         .insert([{
           id_persona: personResult.id,
-          id_tipo_entidad: 16, // Vendedor
+          id_tipo_entidad: 4, // Vendedor
           id_proyecto: null,
           activo: true
         }]);
