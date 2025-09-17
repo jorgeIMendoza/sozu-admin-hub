@@ -965,6 +965,7 @@ export type Database = {
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
+          id_estatus_persona: number | null
           id_persona: number | null
           id_proyecto: number | null
           id_tipo_entidad: number
@@ -975,6 +976,7 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
+          id_estatus_persona?: number | null
           id_persona?: number | null
           id_proyecto?: number | null
           id_tipo_entidad: number
@@ -985,6 +987,7 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
+          id_estatus_persona?: number | null
           id_persona?: number | null
           id_proyecto?: number | null
           id_tipo_entidad?: number
@@ -1009,6 +1012,13 @@ export type Database = {
             columns: ["id_tipo_entidad"]
             isOneToOne: false
             referencedRelation: "tipos_entidad"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_entidades_relacionadas_estatus_persona"
+            columns: ["id_estatus_persona"]
+            isOneToOne: false
+            referencedRelation: "estatus_persona"
             referencedColumns: ["id"]
           },
           {
@@ -1257,6 +1267,41 @@ export type Database = {
           nombre?: string
         }
         Relationships: []
+      }
+      estatus_persona: {
+        Row: {
+          activo: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_tipo_entidad: number
+          nombre: string
+        }
+        Insert: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_tipo_entidad: number
+          nombre: string
+        }
+        Update: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_tipo_entidad?: number
+          nombre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_estatus_persona_tipos_entidad"
+            columns: ["id_tipo_entidad"]
+            isOneToOne: false
+            referencedRelation: "tipos_entidad"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       estatus_proyecto: {
         Row: {
