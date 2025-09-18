@@ -82,19 +82,45 @@ const formSchema = z.object({
   mode: z.enum(["precargada", "manual"]).default("precargada"),
   selectedPersonId: z.number().optional(),
   ...baseProspectSchema.shape,
-  ...manualPaymentSchema.shape,
+  // Manual payment fields - only validated when mode is "manual"
+  porcentaje_enganche: z.string().optional(),
+  porcentaje_mensualidades: z.string().optional(),
+  porcentaje_entrega: z.string().optional(),
+  numero_mensualidades: z.string().optional(),
+  porcentaje_descuento_aumento: z.string().optional(),
 }).refine((data) => {
   if (data.mode === "manual") {
-    const enganche = parseFloat(data.porcentaje_enganche || "0");
-    const mensualidades = parseFloat(data.porcentaje_mensualidades || "0");
-    const entrega = parseFloat(data.porcentaje_entrega || "0");
+    // Validate required fields for manual mode
+    if (!data.porcentaje_enganche || data.porcentaje_enganche === "") {
+      return false;
+    }
+    if (!data.porcentaje_mensualidades || data.porcentaje_mensualidades === "") {
+      return false;
+    }
+    if (!data.porcentaje_entrega || data.porcentaje_entrega === "") {
+      return false;
+    }
+    if (!data.numero_mensualidades || data.numero_mensualidades === "") {
+      return false;
+    }
+    
+    // Validate numeric values
+    const enganche = parseFloat(data.porcentaje_enganche);
+    const mensualidades = parseFloat(data.porcentaje_mensualidades);
+    const entrega = parseFloat(data.porcentaje_entrega);
+    
+    if (isNaN(enganche) || enganche < 0) return false;
+    if (isNaN(mensualidades) || mensualidades < 0) return false;
+    if (isNaN(entrega) || entrega < 0) return false;
+    
+    // Validate percentages sum to 100
     const total = enganche + mensualidades + entrega;
-    return Math.abs(total - 100) < 0.01; // Allow for small floating point errors
+    return Math.abs(total - 100) < 0.01;
   }
   return true;
 }, {
-  message: "Los porcentajes de enganche, mensualidades y entrega deben sumar exactamente 100%",
-  path: ["porcentaje_entrega"]
+  message: "Para modo manual: todos los campos de pago son requeridos y los porcentajes deben sumar 100%",
+  path: ["mode"]
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -497,39 +523,9 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   });
 
   const onSubmit = (data: FormData) => {
-    console.log("onSubmit function called!");
-    console.log("Form submitted with data:", data);
-    console.log("Form validation state:", form.formState);
-    console.log("Form errors:", form.formState.errors);
-    console.log("Form is dirty:", form.formState.isDirty);
-    console.log("Form is valid:", form.formState.isValid);
-    console.log("Form is submitting:", form.formState.isSubmitting);
-    
-    // Check if form is valid
-    if (!form.formState.isValid) {
-      console.log("Form is not valid, triggering validation and logging specific errors");
-      console.log("Detailed errors:", Object.keys(form.formState.errors).map(key => ({
-        field: key,
-        error: form.formState.errors[key as keyof typeof form.formState.errors]
-      })));
-      form.trigger();
-      return;
-    }
-    
-    console.log("Form is valid, starting mutation...");
+    console.log("Form submitted successfully!");
+    console.log("Starting mutation...");
     createOfferMutation.mutate(data);
-  };
-
-  // Add a function to handle button click specifically
-  const handleButtonClick = (e: React.MouseEvent) => {
-    console.log("Button clicked!");
-    console.log("Event:", e);
-    console.log("Current form values:", form.getValues());
-    console.log("Form state before submit:", {
-      isValid: form.formState.isValid,
-      errors: form.formState.errors,
-      isDirty: form.formState.isDirty
-    });
   };
 
   const projectName = propertyDetails?.entidades_relacionadas?.proyectos?.nombre;
@@ -901,7 +897,6 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
               <Button
                 type="submit"
                 disabled={createOfferMutation.isPending}
-                onClick={handleButtonClick}
               >
                 {createOfferMutation.isPending ? "Generando..." : "Generar Oferta"}
               </Button>
