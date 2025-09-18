@@ -53,6 +53,29 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
     resolver: zodResolver(formSchema),
   });
 
+  // Fetch property details with project information
+  const { data: propertyDetails } = useQuery({
+    queryKey: ["property-details", propertyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("propiedades")
+        .select(`
+          id,
+          numero_propiedad,
+          entidades_relacionadas!id_entidad_relacionada_dueno(
+            proyectos!id_proyecto(
+              nombre
+            )
+          )
+        `)
+        .eq("id", propertyId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch potential leads (personas)
   const { data: leads } = useQuery({
     queryKey: ["leads"],
@@ -138,6 +161,8 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
     createOfferMutation.mutate(data);
   };
 
+  const projectName = propertyDetails?.entidades_relacionadas?.proyectos?.nombre;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -155,6 +180,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
           <DialogTitle>Generar Oferta</DialogTitle>
           <p className="text-sm text-muted-foreground">
             Crear una nueva oferta para la propiedad {propertyNumber}
+            {projectName && ` del proyecto ${projectName}`}
           </p>
         </DialogHeader>
         <Form {...form}>
