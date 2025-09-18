@@ -19,6 +19,7 @@ interface PropertyDetails {
   m2_reales: number | null;
   m2_escriturables: number | null;
   descripcion: string | null;
+  numero_piso?: number | null;
   building?: {
     id: number;
     nombre: string;
@@ -56,6 +57,7 @@ interface PaymentScheme {
   porcentaje_mensualidades: number;
   porcentaje_entrega: number;
   porcentaje_descuento_aumento: number;
+  es_manual: boolean;
 }
 
 interface ProjectAmenity {
@@ -239,6 +241,7 @@ class HTMLToPDFService {
         m2_reales,
         m2_escriturables,
         descripcion,
+        numero_piso,
         id_edificio_modelo,
         id_vista,
         id_entidad_relacionada_dueno
@@ -359,6 +362,7 @@ class HTMLToPDFService {
       m2_reales: propiedad.m2_reales,
       m2_escriturables: propiedad.m2_escriturables,
       descripcion: propiedad.descripcion,
+      numero_piso: propiedad.numero_piso,
       building,
       model,
       vista,

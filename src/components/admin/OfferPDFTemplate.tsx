@@ -54,6 +54,7 @@ interface PaymentScheme {
   porcentaje_mensualidades: number;
   porcentaje_entrega: number;
   porcentaje_descuento_aumento: number;
+  es_manual: boolean;
 }
 
 interface ProjectAmenity {
@@ -82,8 +83,6 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
       return new Intl.NumberFormat('es-MX', {
         style: 'currency',
         currency: 'MXN',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
       }).format(amount);
     };
 
@@ -92,6 +91,11 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
     };
 
     const selectedPaymentScheme = paymentSchemes[0]; // Use first payment scheme as default
+    
+    // Filter payment schemes based on whether the selected one is manual or not
+    const filteredPaymentSchemes = selectedPaymentScheme?.es_manual 
+      ? paymentSchemes.filter(scheme => scheme.es_manual)
+      : paymentSchemes.filter(scheme => !scheme.es_manual);
 
     const calculatePaymentAmounts = (scheme: PaymentScheme) => {
       const basePrice = propertyDetails.precio_lista;
@@ -151,17 +155,22 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
 
           {/* Property Summary */}
           <div className="relative z-10 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-border">
-            <div className="max-w-md">
-              <h3 className="text-2xl font-bold mb-4 text-primary">Detalles de la Propiedad</h3>
-              <div className="space-y-2">
+            <h3 className="text-2xl font-bold mb-4 text-primary">Detalles de la Propiedad</h3>
+            <div className="grid grid-cols-2 gap-8">
+              {/* Left Column - Property Details */}
+              <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Número de departamento:</span>
                   <span className="font-semibold">{propertyDetails.numero_propiedad}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Modelo, Configuración:</span>
+                  <span className="text-muted-foreground">Modelo:</span>
+                  <span className="font-semibold">{propertyDetails.model?.nombre || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Configuración:</span>
                   <span className="font-semibold">
-                    {propertyDetails.model?.nombre}, {propertyDetails.model?.numero_recamaras || 0} rec, {propertyDetails.model?.numero_completo_banos || 0} baños, {propertyDetails.model?.numero_medio_bano || 0} 1/2 baños
+                    {propertyDetails.model?.numero_recamaras || 0} rec, {propertyDetails.model?.numero_completo_banos || 0} baños, {propertyDetails.model?.numero_medio_bano || 0} 1/2 baños
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -170,12 +179,26 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Piso:</span>
-                  <span className="font-semibold">{propertyDetails.numero_piso || 'N/A'}</span>
+                  <span className="font-semibold">{propertyDetails.numero_piso !== null && propertyDetails.numero_piso !== undefined ? propertyDetails.numero_piso : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Precio de lista:</span>
                   <span className="font-semibold">{formatCurrency(propertyDetails.precio_lista)}</span>
                 </div>
+              </div>
+              
+              {/* Right Column - Amenity Icons */}
+              <div className="grid grid-cols-3 gap-4">
+                {amenities.filter(amenity => amenity.url).map((amenity) => (
+                  <div key={amenity.id} className="flex flex-col items-center text-center">
+                    <img
+                      src={amenity.url}
+                      alt={amenity.nombre}
+                      className="w-12 h-12 object-contain mb-2"
+                    />
+                    <span className="text-xs text-muted-foreground">{amenity.nombre}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -223,7 +246,7 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
             {/* All Payment Schemes */}
             <div className="space-y-6">
               <h3 className="text-2xl font-bold text-center mb-6">Opciones de Pago Disponibles</h3>
-              {paymentSchemes.map((scheme) => {
+              {filteredPaymentSchemes.map((scheme) => {
                 const calculation = calculatePaymentAmounts(scheme);
                 return (
                   <div key={scheme.id} className={`bg-white rounded-xl p-6 shadow-lg border-2 ${
