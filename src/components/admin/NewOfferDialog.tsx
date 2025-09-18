@@ -435,7 +435,6 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
               
               {!selectedPerson && (
                 <div className="space-y-2">
-                  <Label>Buscar persona existente</Label>
                   <Popover open={searchOpen} onOpenChange={setSearchOpen}>
                     <PopoverTrigger asChild>
                       <Button
