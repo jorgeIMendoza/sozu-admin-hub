@@ -72,11 +72,17 @@ const formSchema = z.object({
   ...baseProspectSchema.shape,
   ...manualPaymentSchema.shape,
 }).refine((data) => {
-  // No additional validation needed since individual fields are now required
+  if (data.mode === "manual") {
+    const enganche = parseFloat(data.porcentaje_enganche || "0");
+    const mensualidades = parseFloat(data.porcentaje_mensualidades || "0");
+    const entrega = parseFloat(data.porcentaje_entrega || "0");
+    const total = enganche + mensualidades + entrega;
+    return Math.abs(total - 100) < 0.01; // Allow for small floating point errors
+  }
   return true;
 }, {
-  message: "Todos los campos obligatorios deben completarse",
-  path: ["mode"]
+  message: "Los porcentajes de enganche, mensualidades y entrega deben sumar exactamente 100%",
+  path: ["porcentaje_entrega"]
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -115,6 +121,11 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
 
   const selectedMode = form.watch("mode");
   const selectedPersonType = form.watch("tipo_persona");
+
+  // Watch percentage fields for manual payment validation
+  const watchedEnganche = form.watch("porcentaje_enganche");
+  const watchedMensualidades = form.watch("porcentaje_mensualidades");
+  const remainingPercentage = 100 - (parseFloat(watchedEnganche || "0") + parseFloat(watchedMensualidades || "0"));
 
   // Search persons query
   const { data: persons = [] } = useQuery({
@@ -271,6 +282,16 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
 
       // If manual mode, create payment scheme
       if (data.mode === "manual") {
+        // Validate percentages sum to 100 before attempting to save
+        const enganche = parseFloat(data.porcentaje_enganche || "0");
+        const mensualidades = parseFloat(data.porcentaje_mensualidades || "0");
+        const entrega = parseFloat(data.porcentaje_entrega || "0");
+        const total = enganche + mensualidades + entrega;
+        
+        if (Math.abs(total - 100) >= 0.01) {
+          throw new Error("Los porcentajes de enganche, mensualidades y entrega deben sumar exactamente 100%");
+        }
+
         const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;
         const projectName = propertyDetails?.entidades_relacionadas?.proyectos?.nombre;
         
@@ -644,7 +665,14 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                        name="porcentaje_entrega"
                        render={({ field }) => (
                          <FormItem>
-                           <FormLabel>Porcentaje Entrega (%) *</FormLabel>
+                           <FormLabel>
+                             Porcentaje Entrega (%) *
+                             {selectedMode === "manual" && remainingPercentage !== 100 && (
+                               <span className="text-sm text-muted-foreground ml-1">
+                                 (Restante: {remainingPercentage.toFixed(2)}%)
+                               </span>
+                             )}
+                           </FormLabel>
                            <FormControl>
                              <Input type="number" step="0.01" placeholder="0.00" {...field} />
                            </FormControl>
