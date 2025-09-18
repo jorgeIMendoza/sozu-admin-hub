@@ -183,7 +183,7 @@ const Propiedades = () => {
         .from('cuentas_cobranza')
         .select('precio_final, fecha_compra, es_aprobado, clabe_stp')
         .eq('id_oferta', offer.id)
-        .single();
+        .maybeSingle();
       
       return {
         ...offer,
