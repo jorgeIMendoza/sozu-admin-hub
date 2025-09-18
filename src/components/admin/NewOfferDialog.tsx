@@ -209,7 +209,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
     mutationFn: async (data: FormData) => {
       let personId = data.selectedPersonId;
       
-      // Create or get person
+      // Create, get, or update person
       if (!personId) {
         // Check if person already exists by RFC
         const { data: existingPerson } = await supabase
@@ -241,6 +241,33 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
 
           if (personError) throw personError;
           personId = newPerson.id;
+        }
+      } else if (selectedPerson) {
+        // Update existing person if data has changed
+        const hasChanges = 
+          selectedPerson.tipo_persona !== data.tipo_persona ||
+          selectedPerson.nombre_legal !== data.nombre_completo ||
+          selectedPerson.email !== data.email ||
+          selectedPerson.telefono !== data.telefono ||
+          selectedPerson.rfc !== data.rfc ||
+          selectedPerson.curp !== data.curp;
+
+        if (hasChanges) {
+          const updateData = {
+            tipo_persona: data.tipo_persona,
+            nombre_legal: data.nombre_completo,
+            email: data.email,
+            telefono: data.telefono,
+            rfc: data.rfc || null,
+            curp: data.curp || null
+          };
+
+          const { error: updateError } = await supabase
+            .from("personas")
+            .update(updateData)
+            .eq("id", personId);
+
+          if (updateError) throw updateError;
         }
       }
 
