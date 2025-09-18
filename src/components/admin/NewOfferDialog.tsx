@@ -1,5 +1,5 @@
 import React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -33,7 +46,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileText } from "lucide-react";
+import { FileText, Check, ChevronsUpDown, UserPlus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const baseProspectSchema = z.object({
   tipo_persona: z.string().min(1, "El tipo de persona es requerido"),
@@ -54,12 +68,14 @@ const manualPaymentSchema = z.object({
 
 const formSchema = z.object({
   mode: z.enum(["precargada", "manual"]).default("precargada"),
+  selectedPersonId: z.number().optional(),
   ...baseProspectSchema.shape,
   ...manualPaymentSchema.shape,
 }).refine((data) => {
   if (data.mode === "manual") {
     return data.porcentaje_enganche && data.porcentaje_mensualidades && 
-           data.porcentaje_entrega && data.numero_mensualidades;
+           data.porcentaje_entrega && data.numero_mensualidades && 
+           data.porcentaje_descuento_aumento;
   }
   return true;
 }, {
@@ -76,6 +92,9 @@ interface NewOfferDialogProps {
 
 export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogProps) {
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPerson, setSelectedPerson] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -83,22 +102,84 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
     resolver: zodResolver(formSchema),
     defaultValues: {
       mode: "precargada",
+      selectedPersonId: undefined,
       tipo_persona: "pf",
       nombre_completo: "",
       email: "",
       telefono: "",
       rfc: "",
       curp: "",
-      porcentaje_enganche: "0",
-      porcentaje_mensualidades: "0", 
-      porcentaje_entrega: "0",
-      numero_mensualidades: "12",
-      porcentaje_descuento_aumento: "0",
+      porcentaje_enganche: "",
+      porcentaje_mensualidades: "", 
+      porcentaje_entrega: "",
+      numero_mensualidades: "",
+      porcentaje_descuento_aumento: "",
     },
   });
 
   const selectedMode = form.watch("mode");
   const selectedPersonType = form.watch("tipo_persona");
+
+  // Search persons query
+  const { data: persons = [] } = useQuery({
+    queryKey: ["persons-search", searchTerm],
+    queryFn: async () => {
+      if (searchTerm.length < 2) return [];
+      
+      const { data, error } = await supabase
+        .from("personas")
+        .select("id, nombre_legal, email, telefono, rfc, curp, tipo_persona")
+        .ilike("nombre_legal", `%${searchTerm}%`)
+        .eq("activo", true)
+        .limit(10);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: searchTerm.length >= 2,
+  });
+
+  // Fill form when person is selected
+  useEffect(() => {
+    if (selectedPerson) {
+      form.setValue("selectedPersonId", selectedPerson.id);
+      form.setValue("tipo_persona", selectedPerson.tipo_persona);
+      form.setValue("nombre_completo", selectedPerson.nombre_legal);
+      form.setValue("email", selectedPerson.email);
+      form.setValue("telefono", selectedPerson.telefono || "");
+      form.setValue("rfc", selectedPerson.rfc || "");
+      form.setValue("curp", selectedPerson.curp || "");
+    }
+  }, [selectedPerson, form]);
+
+  const clearPersonSelection = () => {
+    setSelectedPerson(null);
+    form.setValue("selectedPersonId", undefined);
+    form.reset({
+      mode: selectedMode,
+      selectedPersonId: undefined,
+      tipo_persona: "pf",
+      nombre_completo: "",
+      email: "",
+      telefono: "",
+      rfc: "",
+      curp: "",
+      porcentaje_enganche: "",
+      porcentaje_mensualidades: "",
+      porcentaje_entrega: "",
+      numero_mensualidades: "",
+      porcentaje_descuento_aumento: "",
+    });
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .substring(0, 3);
+  };
 
   // Fetch property details with project information
   const { data: propertyDetails } = useQuery({
@@ -126,39 +207,61 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
 
   const createOfferMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      // First, create the person/prospect
-      const personData = {
-        tipo_persona: data.tipo_persona,
-        nombre_legal: data.nombre_completo,
-        email: data.email,
-        telefono: data.telefono,
-        rfc: data.rfc || null,
-        curp: data.curp || null,
-        activo: true
-      };
+      let personId = data.selectedPersonId;
+      
+      // Create or get person
+      if (!personId) {
+        // Check if person already exists by RFC
+        const { data: existingPerson } = await supabase
+          .from("personas")
+          .select("id")
+          .eq("rfc", data.rfc)
+          .eq("activo", true)
+          .maybeSingle();
 
-      const { data: newPerson, error: personError } = await supabase
-        .from("personas")
-        .insert(personData)
-        .select("id")
-        .single();
+        if (existingPerson) {
+          personId = existingPerson.id;
+        } else {
+          // Create new person
+          const personData = {
+            tipo_persona: data.tipo_persona,
+            nombre_legal: data.nombre_completo,
+            email: data.email,
+            telefono: data.telefono,
+            rfc: data.rfc || null,
+            curp: data.curp || null,
+            activo: true
+          };
 
-      if (personError) throw personError;
+          const { data: newPerson, error: personError } = await supabase
+            .from("personas")
+            .insert(personData)
+            .select("id")
+            .single();
+
+          if (personError) throw personError;
+          personId = newPerson.id;
+        }
+      }
 
       let schemeId = null;
 
       // If manual mode, create payment scheme
       if (data.mode === "manual") {
         const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;
+        const projectName = propertyDetails?.entidades_relacionadas?.proyectos?.nombre;
         
-        if (projectId) {
+        if (projectId && projectName) {
+          const initials = getInitials(data.nombre_completo);
+          const schemeName = `manual_${propertyNumber}_${projectName}_${initials}`;
+          
           const schemeData = {
             id_proyecto: projectId,
-            nombre: `Esquema personalizado - ${data.nombre_completo}`,
+            nombre: schemeName,
             porcentaje_enganche: parseFloat(data.porcentaje_enganche || "0"),
             porcentaje_mensualidades: parseFloat(data.porcentaje_mensualidades || "0"),
             porcentaje_entrega: parseFloat(data.porcentaje_entrega || "0"),
-            numero_mensualidades: parseInt(data.numero_mensualidades || "12"),
+            numero_mensualidades: parseInt(data.numero_mensualidades || "0"),
             porcentaje_descuento_aumento: parseFloat(data.porcentaje_descuento_aumento || "0"),
             es_manual: true,
             activo: true
@@ -178,10 +281,10 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       // Finally, create the offer
       const offerData = {
         id_propiedad: propertyId,
-        id_persona_lead: newPerson.id,
+        id_persona_lead: personId,
         id_esquema_pago_seleccionado: schemeId,
-        id_producto: null,
         fecha_generacion: new Date().toISOString(),
+        activo: true
       };
 
       const { error: offerError } = await supabase
@@ -198,6 +301,8 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       queryClient.invalidateQueries({ queryKey: ["properties"] });
       setOpen(false);
       form.reset();
+      setSelectedPerson(null);
+      setSearchTerm("");
     },
     onError: (error) => {
       toast({
@@ -264,6 +369,102 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                 </FormItem>
               )}
             />
+
+            <Separator />
+
+            {/* Person Search Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">Buscar Prospecto</h3>
+                {selectedPerson && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={clearPersonSelection}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Nuevo Prospecto
+                  </Button>
+                )}
+              </div>
+              
+              {!selectedPerson && (
+                <div className="space-y-2">
+                  <Label>Buscar persona existente</Label>
+                  <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={searchOpen}
+                        className="w-full justify-between"
+                      >
+                        {selectedPerson
+                          ? selectedPerson.nombre_legal
+                          : "Buscar por nombre..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Buscar persona..." 
+                          value={searchTerm}
+                          onValueChange={setSearchTerm}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {searchTerm.length < 2 
+                              ? "Escribe al menos 2 caracteres para buscar" 
+                              : "No se encontraron personas"}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {persons.map((person) => (
+                              <CommandItem
+                                key={person.id}
+                                value={person.nombre_legal}
+                                onSelect={() => {
+                                  setSelectedPerson(person);
+                                  setSearchOpen(false);
+                                  setSearchTerm("");
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedPerson?.id === person.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{person.nombre_legal}</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {person.email} - {person.rfc}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {searchTerm.length >= 2 && persons.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No se encontró ninguna persona. Se creará una nueva al guardar.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {selectedPerson && (
+                <div className="p-4 border rounded-lg bg-muted/50">
+                  <p className="font-medium">{selectedPerson.nombre_legal}</p>
+                  <p className="text-sm text-muted-foreground">{selectedPerson.email}</p>
+                  <p className="text-sm text-muted-foreground">RFC: {selectedPerson.rfc}</p>
+                </div>
+              )}
+            </div>
 
             <Separator />
 
@@ -385,78 +586,78 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                   <h3 className="text-lg font-medium">Esquema de Pago Personalizado</h3>
                   
                   <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="porcentaje_enganche"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Porcentaje Enganche (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                     <FormField
+                       control={form.control}
+                       name="porcentaje_enganche"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Porcentaje Enganche (%) *</FormLabel>
+                           <FormControl>
+                             <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
 
-                    <FormField
-                      control={form.control}
-                      name="porcentaje_mensualidades"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Porcentaje Mensualidades (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                     <FormField
+                       control={form.control}
+                       name="porcentaje_mensualidades"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Porcentaje Mensualidades (%) *</FormLabel>
+                           <FormControl>
+                             <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="porcentaje_entrega"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Porcentaje Entrega (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                   <div className="grid grid-cols-2 gap-4">
+                     <FormField
+                       control={form.control}
+                       name="porcentaje_entrega"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Porcentaje Entrega (%) *</FormLabel>
+                           <FormControl>
+                             <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
 
-                    <FormField
-                      control={form.control}
-                      name="numero_mensualidades"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número de Mensualidades</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="12" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                     <FormField
+                       control={form.control}
+                       name="numero_mensualidades"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Número de Mensualidades *</FormLabel>
+                           <FormControl>
+                             <Input type="number" placeholder="12" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="porcentaje_descuento_aumento"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Porcentaje Descuento/Aumento (%)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                   <FormField
+                     control={form.control}
+                     name="porcentaje_descuento_aumento"
+                     render={({ field }) => (
+                       <FormItem>
+                         <FormLabel>Porcentaje Descuento/Aumento (%) *</FormLabel>
+                         <FormControl>
+                           <Input type="number" step="0.01" placeholder="0" {...field} />
+                         </FormControl>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
                 </div>
               </>
             )}
