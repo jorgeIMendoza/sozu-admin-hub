@@ -137,7 +137,11 @@ class HTMLToPDFService {
         propertyDetails,
         paymentSchemes,
         amenities,
-        creatorInfo
+        creatorInfo,
+        leadInfo: {
+          nombre_legal: offerData.leadName,
+          email: offerData.leadEmail
+        }
       });
 
       // Render the component

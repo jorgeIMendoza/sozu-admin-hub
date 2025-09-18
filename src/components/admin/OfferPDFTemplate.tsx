@@ -75,10 +75,11 @@ interface OfferPDFTemplateProps {
   paymentSchemes: PaymentScheme[];
   amenities: ProjectAmenity[];
   creatorInfo: any;
+  leadInfo: any;
 }
 
 export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps>(
-  ({ offerData, propertyDetails, paymentSchemes, amenities, creatorInfo }, ref) => {
+  ({ offerData, propertyDetails, paymentSchemes, amenities, creatorInfo, leadInfo }, ref) => {
     const formatCurrency = (amount: number) => {
       return new Intl.NumberFormat('es-MX', {
         style: 'currency',
@@ -205,122 +206,54 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
 
         </div>
 
-        {/* Payment Plans Page */}
-        {paymentCalculation && (
-          <div className="min-h-screen p-12 break-before-page">
-            <h2 className="text-3xl font-bold mb-8 text-primary text-center">Plan de Pagos</h2>
-            
-            <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-2xl p-8 mb-8">
-              <h3 className="text-2xl font-bold mb-6 text-center">{selectedPaymentScheme?.nombre}</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl p-6 shadow-lg text-center">
-                  <div className="text-3xl font-bold text-primary mb-2">
-                    {formatCurrency(paymentCalculation.enganche)}
+        {/* Payment Options Page */}
+        <div className="min-h-screen p-12 break-before-page">
+          <h2 className="text-3xl font-bold mb-8 text-primary text-center">Opciones de Pago Disponibles</h2>
+          
+          <div className="grid grid-cols-3 gap-6">
+            {filteredPaymentSchemes.map((scheme) => {
+              const calculation = calculatePaymentAmounts(scheme);
+              return (
+                <div key={scheme.id} className="bg-white rounded-xl p-6 shadow-lg border border-border">
+                  <div className="text-center mb-4">
+                    <h4 className="text-lg font-bold">{scheme.nombre}</h4>
                   </div>
-                  <div className="text-muted-foreground">
-                    Enganche ({selectedPaymentScheme.porcentaje_enganche}%)
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-6 shadow-lg text-center">
-                  <div className="text-3xl font-bold text-primary mb-2">
-                    {formatCurrency(paymentCalculation.mensualidad)}
-                  </div>
-                  <div className="text-muted-foreground">
-                    {selectedPaymentScheme.numero_mensualidades} mensualidades
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl p-6 shadow-lg text-center">
-                  <div className="text-3xl font-bold text-primary mb-2">
-                    {formatCurrency(paymentCalculation.entrega)}
-                  </div>
-                  <div className="text-muted-foreground">
-                    Contra entrega ({selectedPaymentScheme.porcentaje_entrega}%)
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* All Payment Schemes */}
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-center mb-6">Opciones de Pago Disponibles</h3>
-              {filteredPaymentSchemes.map((scheme) => {
-                const calculation = calculatePaymentAmounts(scheme);
-                return (
-                  <div key={scheme.id} className={`bg-white rounded-xl p-6 shadow-lg border-2 ${
-                    scheme.id === selectedPaymentScheme?.id ? 'border-primary' : 'border-border'
-                  }`}>
-                    <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-xl font-bold">{scheme.nombre}</h4>
-                      {scheme.id === selectedPaymentScheme?.id && (
-                        <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                          Seleccionado
-                        </span>
+                  
+                  <div className="space-y-3">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Enganche</p>
+                      <p className="font-bold text-sm">{formatCurrency(calculation.enganche)}</p>
+                      <p className="text-xs text-muted-foreground">({scheme.porcentaje_enganche}%)</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Mensualidad</p>
+                      <p className="font-bold text-sm">{formatCurrency(calculation.mensualidad)}</p>
+                      <p className="text-xs text-muted-foreground">{scheme.numero_mensualidades} meses</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Contra Entrega</p>
+                      <p className="font-bold text-sm">{formatCurrency(calculation.entrega)}</p>
+                      <p className="text-xs text-muted-foreground">({scheme.porcentaje_entrega}%)</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Precio Final</p>
+                      <p className="font-bold text-primary text-sm">{formatCurrency(calculation.finalPrice)}</p>
+                      {calculation.discount > 0 && (
+                        <p className="text-xs text-green-600">Ahorro: {formatCurrency(calculation.discount)}</p>
                       )}
                     </div>
-                    
-                    <div className="grid grid-cols-4 gap-4 text-center">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Enganche</p>
-                        <p className="font-bold">{formatCurrency(calculation.enganche)}</p>
-                        <p className="text-xs text-muted-foreground">({scheme.porcentaje_enganche}%)</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Mensualidad</p>
-                        <p className="font-bold">{formatCurrency(calculation.mensualidad)}</p>
-                        <p className="text-xs text-muted-foreground">{scheme.numero_mensualidades} meses</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Contra Entrega</p>
-                        <p className="font-bold">{formatCurrency(calculation.entrega)}</p>
-                        <p className="text-xs text-muted-foreground">({scheme.porcentaje_entrega}%)</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Precio Final</p>
-                        <p className="font-bold text-primary">{formatCurrency(calculation.finalPrice)}</p>
-                        {calculation.discount > 0 && (
-                          <p className="text-xs text-green-600">Ahorro: {formatCurrency(calculation.discount)}</p>
-                        )}
-                      </div>
-                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Amenities Page */}
-        {amenities.length > 0 && (
-          <div className="min-h-screen p-12 break-before-page">
-            <h2 className="text-3xl font-bold mb-8 text-primary text-center">Amenidades del Proyecto</h2>
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-              {amenities.map((amenity) => (
-                <div key={amenity.id} className="bg-white rounded-xl p-6 shadow-lg text-center">
-                  {amenity.url && (
-                    <div className="mb-4">
-                      <img
-                        src={amenity.url}
-                        alt={amenity.nombre}
-                        className="w-16 h-16 mx-auto object-contain"
-                      />
-                    </div>
-                  )}
-                  <h4 className="font-semibold text-lg">{amenity.nombre}</h4>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
-        {/* Contact Information Page */}
+        {/* Contacts Page */}
         <div className="min-h-screen p-12 break-before-page">
-          <h2 className="text-3xl font-bold mb-8 text-primary text-center">Información de Contacto</h2>
+          <h2 className="text-3xl font-bold mb-8 text-primary text-center">Contactos</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-2 gap-8 mb-12">
             {/* Seller Info */}
             <div className="bg-white rounded-2xl p-8 shadow-lg">
               <h3 className="text-2xl font-bold mb-6 text-primary">Información del Vendedor</h3>
@@ -329,10 +262,10 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
                   <p className="text-sm text-muted-foreground">Nombre</p>
                   <p className="font-semibold text-lg">{creatorInfo?.nombre_legal || 'No disponible'}</p>
                 </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-semibold">{creatorInfo?.email || 'No disponible'}</p>
-                  </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-semibold">{creatorInfo?.email || 'No disponible'}</p>
+                </div>
                 {creatorInfo?.telefono && (
                   <div>
                     <p className="text-sm text-muted-foreground">Teléfono</p>
@@ -342,28 +275,57 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
               </div>
             </div>
 
-            {/* Property Owner Info */}
-            {propertyDetails.ownerData && (
-              <div className="bg-white rounded-2xl p-8 shadow-lg">
-                <h3 className="text-2xl font-bold mb-6 text-primary">Información del Propietario</h3>
-                <div className="space-y-4">
+            {/* Lead/Prospect Info */}
+            <div className="bg-white rounded-2xl p-8 shadow-lg">
+              <h3 className="text-2xl font-bold mb-6 text-primary">Información del Comprador</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Nombre</p>
+                  <p className="font-semibold text-lg">{leadInfo?.nombre_legal || offerData.leadName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="font-semibold">{leadInfo?.email || offerData.leadEmail}</p>
+                </div>
+                {leadInfo?.telefono && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Nombre</p>
-                    <p className="font-semibold text-lg">{propertyDetails.ownerData.nombre_legal}</p>
+                    <p className="text-sm text-muted-foreground">Teléfono</p>
+                    <p className="font-semibold">{leadInfo.telefono}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Banking Data Page */}
+        <div className="min-h-screen p-12 break-before-page">
+          <h2 className="text-3xl font-bold mb-8 text-primary text-center">Datos Bancarios</h2>
+          
+          <div className="bg-white rounded-2xl p-8 shadow-lg">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-bold mb-4 text-primary">Información de Transferencia</h3>
+                <div className="grid grid-cols-2 gap-8">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Beneficiario</p>
+                    <p className="font-semibold">{propertyDetails.ownerData?.nombre_legal || 'No disponible'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-semibold">{propertyDetails.ownerData.email}</p>
+                    <p className="text-sm text-muted-foreground">Banco</p>
+                    <p className="font-semibold">STP</p>
                   </div>
-                  {propertyDetails.ownerData.telefono && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Teléfono</p>
-                      <p className="font-semibold">{propertyDetails.ownerData.telefono}</p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="text-sm text-muted-foreground">CLABE</p>
+                    <p className="font-semibold font-mono">Por asignar</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Concepto de Pago</p>
+                    <p className="font-semibold">Apartado Depto. {propertyDetails.numero_propiedad}</p>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Legal Notice */}
