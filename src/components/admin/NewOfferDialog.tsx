@@ -184,8 +184,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       .split(' ')
       .map(word => word.charAt(0))
       .join('')
-      .toUpperCase()
-      .substring(0, 3);
+      .toUpperCase();
   };
 
   // Fetch property details with project information
