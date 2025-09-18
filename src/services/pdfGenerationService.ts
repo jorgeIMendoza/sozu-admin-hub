@@ -607,7 +607,5 @@ export class PDFGenerationService {
   }
 }
 
-export const generateOfferPDF = async (offerData: OfferData): Promise<void> => {
-  const pdfService = new PDFGenerationService();
-  await pdfService.generateOfferPDF(offerData);
-};
+// Export the new HTML-based PDF generation as the main function
+export { generateOfferPDF } from './htmlToPdfService';
