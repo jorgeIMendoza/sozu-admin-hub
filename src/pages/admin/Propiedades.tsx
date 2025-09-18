@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { NewPropertyDialog } from "@/components/admin/NewPropertyDialog";
 import { EditPropertyDialog } from "@/components/admin/EditPropertyDialog";
 import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropertiesDialog";
+import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface Property {
@@ -585,16 +586,20 @@ const Propiedades = () => {
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
-                    ) : (
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setEditingProperty(property)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                     ) : (
+                       <div className="flex space-x-2">
+                         <NewOfferDialog 
+                           propertyId={property.id} 
+                           propertyNumber={property.numero_propiedad} 
+                         />
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-8 w-8 p-0"
+                           onClick={() => setEditingProperty(property)}
+                         >
+                           <Edit className="h-4 w-4" />
+                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
