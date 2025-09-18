@@ -497,19 +497,39 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   });
 
   const onSubmit = (data: FormData) => {
+    console.log("onSubmit function called!");
     console.log("Form submitted with data:", data);
     console.log("Form validation state:", form.formState);
     console.log("Form errors:", form.formState.errors);
+    console.log("Form is dirty:", form.formState.isDirty);
+    console.log("Form is valid:", form.formState.isValid);
+    console.log("Form is submitting:", form.formState.isSubmitting);
     
     // Check if form is valid
     if (!form.formState.isValid) {
-      console.log("Form is not valid, triggering validation");
+      console.log("Form is not valid, triggering validation and logging specific errors");
+      console.log("Detailed errors:", Object.keys(form.formState.errors).map(key => ({
+        field: key,
+        error: form.formState.errors[key as keyof typeof form.formState.errors]
+      })));
       form.trigger();
       return;
     }
     
-    console.log("Starting mutation...");
+    console.log("Form is valid, starting mutation...");
     createOfferMutation.mutate(data);
+  };
+
+  // Add a function to handle button click specifically
+  const handleButtonClick = (e: React.MouseEvent) => {
+    console.log("Button clicked!");
+    console.log("Event:", e);
+    console.log("Current form values:", form.getValues());
+    console.log("Form state before submit:", {
+      isValid: form.formState.isValid,
+      errors: form.formState.errors,
+      isDirty: form.formState.isDirty
+    });
   };
 
   const projectName = propertyDetails?.entidades_relacionadas?.proyectos?.nombre;
@@ -881,6 +901,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
               <Button
                 type="submit"
                 disabled={createOfferMutation.isPending}
+                onClick={handleButtonClick}
               >
                 {createOfferMutation.isPending ? "Generando..." : "Generar Oferta"}
               </Button>
