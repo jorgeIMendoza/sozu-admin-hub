@@ -27,6 +27,7 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
         .select("*")
         .eq("id_proyecto", projectId)
         .eq("activo", true)
+        .eq("es_manual", false)
         .order("nombre");
       
       if (error) {
