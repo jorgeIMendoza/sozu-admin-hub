@@ -826,6 +826,24 @@ const Propiedades = () => {
                 </Select>
               </div>
             </div>
+            
+            {/* Botón para limpiar filtros */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm("");
+                  setProyectoFilter("");
+                  setModeloFilter("");
+                  setRecamarasFilter("");
+                  setBanosFilter("");
+                  setDisponibilidadFilter("");
+                  setSelectedProperties([]);
+                }}
+              >
+                Limpiar Filtros
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
