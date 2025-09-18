@@ -328,7 +328,8 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         id_persona_lead: personId,
         id_esquema_pago_seleccionado: schemeId,
         fecha_generacion: new Date().toISOString(),
-        activo: true
+        activo: true,
+        email_creador: 'admin@system.com' // Default creator email
       };
 
       const { error: offerError } = await supabase

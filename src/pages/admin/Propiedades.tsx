@@ -153,53 +153,13 @@ const Propiedades = () => {
 
   // Función para obtener ofertas de una propiedad específica
   const fetchPropertyOffers = async (propertyId: number) => {
-    // Use raw SQL to fetch offers with agent information
-    const { data: offersData, error } = await supabase.rpc('get_offers_with_agent', {
-      property_id: propertyId
-    });
+    // Use the new database function to get offers with agent information
+    const { data: offersData, error } = await supabase
+      .rpc('get_offers_with_agent' as any, { property_id: propertyId });
     
     if (error) {
-      // Fallback to regular query if function doesn't exist
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('ofertas')
-        .select(`
-          id,
-          fecha_generacion,
-          activo,
-          id_persona_lead,
-          personas!ofertas_id_persona_lead_fkey(nombre_legal, email, telefono),
-          esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey(
-            id,
-            nombre,
-            porcentaje_enganche,
-            porcentaje_mensualidades,
-            porcentaje_entrega,
-            numero_mensualidades,
-            es_manual
-          )
-        `)
-        .eq('id_propiedad', propertyId)
-        .eq('activo', true)
-        .order('fecha_generacion', { ascending: false });
-      
-      if (fallbackError) throw fallbackError;
-
-      // Fetch additional data for fallback
-      const offersWithAccounts = await Promise.all((fallbackData || []).map(async (offer) => {
-        const { data: accountData } = await supabase
-          .from('cuentas_cobranza')
-          .select('precio_final, fecha_compra, es_aprobado, clabe_stp')
-          .eq('id_oferta', offer.id)
-          .maybeSingle();
-        
-        return {
-          ...offer,
-          cuentas_cobranza: accountData,
-          agent_name: 'AGENTE POR DEFINIR'
-        };
-      }));
-
-      return offersWithAccounts;
+      console.error('Error fetching offers:', error);
+      throw error;
     }
 
     return offersData || [];
@@ -957,25 +917,25 @@ const Propiedades = () => {
                         {String(offer.id).padStart(6, '0')}
                       </TableCell>
                       <TableCell>
-                        AGENTE POR DEFINIR
+                        {(offer.agent_name || 'AGENTE POR DEFINIR').toUpperCase()}
                       </TableCell>
                       <TableCell>
-                        {(offer.personas?.nombre_legal || 'N/A').toUpperCase()}
+                        {(offer.lead_name || 'N/A').toUpperCase()}
                       </TableCell>
                       <TableCell>
                         {new Date(offer.fecha_generacion).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        {offer.esquemas_pago?.es_manual ? (
-                          <span className="text-sm">{offer.esquemas_pago.nombre}</span>
-                        ) : offer.esquemas_pago?.id ? (
-                          <Select value={offer.esquemas_pago.id.toString()} disabled>
+                        {offer.esquema_es_manual ? (
+                          <span className="text-sm">{offer.esquema_nombre}</span>
+                        ) : offer.esquema_id ? (
+                          <Select value={offer.esquema_id.toString()} disabled>
                             <SelectTrigger className="w-48">
                               <SelectValue placeholder="Seleccionar esquema" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value={offer.esquemas_pago.id.toString()}>
-                                {offer.esquemas_pago.nombre || 'Sin esquema'}
+                              <SelectItem value={offer.esquema_id.toString()}>
+                                {offer.esquema_nombre || 'Sin esquema'}
                               </SelectItem>
                             </SelectContent>
                           </Select>

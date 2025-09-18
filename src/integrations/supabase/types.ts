@@ -1080,6 +1080,7 @@ export type Database = {
       esquemas_pago: {
         Row: {
           activo: boolean
+          es_manual: boolean
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
@@ -1094,6 +1095,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          es_manual?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
@@ -1108,6 +1110,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          es_manual?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
@@ -1872,6 +1875,7 @@ export type Database = {
       ofertas: {
         Row: {
           activo: boolean
+          email_creador: string
           fecha_actualizacion: string
           fecha_creacion: string
           fecha_generacion: string
@@ -1883,6 +1887,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean
+          email_creador: string
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_generacion?: string
@@ -1894,6 +1899,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean
+          email_creador?: string
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_generacion?: string
@@ -1931,6 +1937,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "propiedades"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ofertas_email_creador_fkey"
+            columns: ["email_creador"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["email"]
           },
           {
             foreignKeyName: "ofertas_id_esquema_pago_seleccionado_fkey"
@@ -3501,7 +3514,22 @@ export type Database = {
           rol_id?: number
           telefono?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_clave_pais_telefono_fkey"
+            columns: ["clave_pais_telefono"]
+            isOneToOne: false
+            referencedRelation: "paises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuarios_rol_id_fkey"
+            columns: ["rol_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       videos_youtube: {
         Row: {
@@ -3590,6 +3618,30 @@ export type Database = {
       etl_propiedades: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      get_offers_with_agent: {
+        Args: { property_id: number }
+        Returns: {
+          activo: boolean
+          agent_name: string
+          cuenta_clabe_stp: string
+          cuenta_es_aprobado: boolean
+          cuenta_fecha_compra: string
+          cuenta_precio_final: number
+          esquema_enganche: number
+          esquema_entrega: number
+          esquema_es_manual: boolean
+          esquema_id: number
+          esquema_mensualidades: number
+          esquema_nombre: string
+          esquema_numero_meses: number
+          fecha_generacion: string
+          id: number
+          id_persona_lead: number
+          lead_email: string
+          lead_name: string
+          lead_telefono: string
+        }[]
       }
       get_properties_with_details: {
         Args: Record<PropertyKey, never>
