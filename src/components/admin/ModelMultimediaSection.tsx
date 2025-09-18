@@ -311,7 +311,7 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
                   {item.activo ? (
                     <>
                       <PowerOff className="w-4 h-4 mr-1" />
-                      {item.ver_como_ubicacion_en_oferta ? "No se puede inactivar" : "Inactivar"}
+                      Inactivar
                     </>
                   ) : (
                     <>
