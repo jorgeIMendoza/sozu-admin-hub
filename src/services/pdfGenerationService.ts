@@ -237,7 +237,8 @@ export class PDFGenerationService {
       .from('esquemas_pago')
       .select('*')
       .eq('id_proyecto', entidadData.id_proyecto)
-      .eq('activo', true);
+      .eq('activo', true)
+      .eq('es_manual', false); // Solo esquemas no manuales
 
     if (error) throw error;
     return data || [];

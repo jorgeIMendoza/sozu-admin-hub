@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit, Trash2, Upload, Plus, Eye } from "lucide-react";
+import { Search, Edit, Trash2, Upload, Plus, Eye, Download } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropert
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { generateOfferPDF } from "@/services/pdfGenerationService";
 
 interface Property {
   id: number;
@@ -70,6 +71,38 @@ const Propiedades = () => {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Función para descargar PDF de oferta
+  const handleDownloadOffer = async (offer: any) => {
+    try {
+      toast({
+        title: "Generando PDF",
+        description: "Preparando la descarga del PDF de la oferta...",
+      });
+
+      await generateOfferPDF({
+        propertyId: offer.id_propiedad || selectedPropertyOffers?.[0]?.id_propiedad,
+        offerId: offer.id,
+        propertyNumber: offer.numero_propiedad || "N/A",
+        leadName: offer.lead_name || "N/A",
+        leadEmail: offer.lead_email || "N/A", 
+        leadPhone: offer.lead_telefono || "N/A",
+        creatorEmail: offer.agent_name || "jorge.mendoza@sozu.com"
+      });
+
+      toast({
+        title: "PDF generado",
+        description: "El PDF se ha descargado exitosamente.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Error al generar PDF",
+        description: "Hubo un problema al generar el PDF. Intente nuevamente.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const { data: properties, isLoading } = useQuery({
     queryKey: ['properties-detailed'],
@@ -951,6 +984,7 @@ const Propiedades = () => {
                     <TableHead>Lead</TableHead>
                     <TableHead>Fecha</TableHead>
                     <TableHead>Esquema de Pago</TableHead>
+                    <TableHead>Descarga</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -996,6 +1030,17 @@ const Propiedades = () => {
                             </SelectContent>
                           </Select>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadOffer(offer)}
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="h-4 w-4" />
+                          PDF
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
