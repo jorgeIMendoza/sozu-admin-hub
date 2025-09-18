@@ -26,6 +26,8 @@ interface PropertyDetails {
   proyecto: string;
   ubicacion_imagen?: string;
   proyecto_imagen?: string;
+  clabe_stp?: string;
+  propietario_nombre?: string;
 }
 
 interface PaymentScheme {
@@ -80,13 +82,13 @@ export class PDFGenerationService {
       await this.generateSellerAndClientInfo(creatorInfo, offerData);
       this.addNewPage();
       
-      await this.generateBankingSection();
+      await this.generateBankingSection(propertyDetails);
       this.addNewPage();
       
       await this.generateAmenitiesSection(projectAmenities);
 
       // Download PDF with the format: Oferta_{num_depa}_{nombre_proyecto}_{num_oferta}
-      const fileName = `Oferta_${offerData.propertyNumber}_${propertyDetails.proyecto}_${this.formatOfferNumber(offerData.offerId)}.pdf`;
+      const fileName = `Oferta_${propertyDetails.numero_propiedad}_${propertyDetails.proyecto}_${this.formatOfferNumber(offerData.offerId)}.pdf`;
       this.doc.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -106,12 +108,14 @@ export class PDFGenerationService {
         precio_lista,
         id_edificio_modelo,
         id_vista,
-        id_entidad_relacionada_dueno
+        id_entidad_relacionada_dueno,
+        clabe_stp_tmp_apartado
       `)
       .eq('id', propertyId)
-      .single();
+      .maybeSingle();
 
     if (propertyError) throw propertyError;
+    if (!propertyData) throw new Error('Property not found');
 
     // Get building and model information separately
     const { data: buildingModelData } = await supabase
@@ -152,22 +156,38 @@ export class PDFGenerationService {
       .eq('id', propertyData.id_vista)
       .maybeSingle();
 
-    // Get project information
+    // Get project information and owner
     const { data: entidadData } = await supabase
       .from('entidades_relacionadas')
-      .select('id_proyecto')
+      .select('id_proyecto, id_persona')
       .eq('id', propertyData.id_entidad_relacionada_dueno)
       .maybeSingle();
 
     let projectData = null;
-    if (entidadData?.id_proyecto) {
-      const { data: proyecto } = await supabase
-        .from('proyectos')
-        .select('id, nombre')
-        .eq('id', entidadData.id_proyecto)
-        .maybeSingle();
+    let propietarioNombre = 'No disponible';
+    
+    if (entidadData) {
+      // Get owner name
+      if (entidadData.id_persona) {
+        const { data: personaData } = await supabase
+          .from('personas')
+          .select('nombre_legal')
+          .eq('id', entidadData.id_persona)
+          .maybeSingle();
+        
+        propietarioNombre = personaData?.nombre_legal || 'No disponible';
+      }
       
-      projectData = proyecto;
+      // Get project data
+      if (entidadData.id_proyecto) {
+        const { data: proyecto } = await supabase
+          .from('proyectos')
+          .select('id, nombre')
+          .eq('id', entidadData.id_proyecto)
+          .maybeSingle();
+        
+        projectData = proyecto;
+      }
     }
 
     // Get project image
@@ -213,7 +233,9 @@ export class PDFGenerationService {
       vista: vistaData?.nombre || 'No especificada',
       proyecto: projectData?.nombre || 'No especificado',
       ubicacion_imagen: ubicacionImage,
-      proyecto_imagen: proyectoImage
+      proyecto_imagen: proyectoImage,
+      clabe_stp: propertyData.clabe_stp_tmp_apartado,
+      propietario_nombre: propietarioNombre
     };
   }
 
@@ -451,21 +473,43 @@ export class PDFGenerationService {
     this.doc.text(`Email: ${offerData.leadEmail}`, 20, this.currentY + 20);
   }
 
-  private async generateBankingSection(): Promise<void> {
+  private async generateBankingSection(propertyDetails: PropertyDetails): Promise<void> {
     this.currentY = 30;
     
     this.doc.setFontSize(18);
     this.doc.setFont('helvetica', 'bold');
     this.doc.text('DATOS BANCARIOS', 20, this.currentY);
     
-    this.currentY += 20;
+    this.currentY += 25;
+    this.doc.setFontSize(14);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('Transferencia', 20, this.currentY);
+    
+    this.currentY += 15;
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'normal');
-    this.doc.text('Esta sección se completará próximamente', 20, this.currentY);
     
-    // Add placeholder content
-    this.doc.rect(20, this.currentY + 10, 170, 100);
-    this.doc.text('Espacio reservado para información bancaria', 25, this.currentY + 60, { align: 'left' });
+    // Bank information
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('Banco:', 20, this.currentY);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.text('Sistema de Transacciones y Pagos STP', 90, this.currentY);
+    
+    this.currentY += 10;
+    
+    // Account holder
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('Titular:', 20, this.currentY);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.text(propertyDetails.propietario_nombre || 'No disponible', 90, this.currentY);
+    
+    this.currentY += 10;
+    
+    // CLABE account
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.text('Cuenta CLABE:', 20, this.currentY);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.text(propertyDetails.clabe_stp || 'No disponible', 90, this.currentY);
   }
 
   private async generateAmenitiesSection(amenities: ProjectAmenity[]): Promise<void> {
