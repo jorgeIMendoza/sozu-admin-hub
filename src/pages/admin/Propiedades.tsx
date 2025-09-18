@@ -52,6 +52,7 @@ const Propiedades = () => {
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [selectedPropertyOffers, setSelectedPropertyOffers] = useState<any[] | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [offersDialogOpen, setOffersDialogOpen] = useState(false);
   const [selectedProperties, setSelectedProperties] = useState<number[]>([]);
   const [availableSchemes, setAvailableSchemes] = useState<any[]>([]);
@@ -80,14 +81,21 @@ const Propiedades = () => {
         description: "Preparando la descarga del PDF de la oferta...",
       });
 
+      // Usar el propertyId guardado cuando se abrió el dialog
+      const propertyIdToUse = selectedPropertyId;
+
+      if (!propertyIdToUse) {
+        throw new Error("No se pudo determinar el ID de la propiedad");
+      }
+
       await generateOfferPDF({
-        propertyId: offer.id_propiedad || selectedPropertyOffers?.[0]?.id_propiedad,
+        propertyId: propertyIdToUse,
         offerId: offer.id,
         propertyNumber: offer.numero_propiedad || "N/A",
         leadName: offer.lead_name || "N/A",
         leadEmail: offer.lead_email || "N/A", 
         leadPhone: offer.lead_telefono || "N/A",
-        creatorEmail: offer.agent_name || "jorge.mendoza@sozu.com"
+        creatorEmail: offer.agent_name?.includes('@') ? offer.agent_name : "jorge.mendoza@sozu.com"
       });
 
       toast({
@@ -228,6 +236,7 @@ const Propiedades = () => {
         fetchAvailableSchemes(property.proyecto_id)
       ]);
       setSelectedPropertyOffers(offers);
+      setSelectedPropertyId(property.id); // Guardar el ID de la propiedad
       setAvailableSchemes(schemes);
       setOffersDialogOpen(true);
     } catch (error) {

@@ -85,8 +85,9 @@ export class PDFGenerationService {
       
       await this.generateAmenitiesSection(projectAmenities);
 
-      // Download PDF
-      this.doc.save(`Oferta_${offerData.propertyNumber}_${this.formatOfferNumber(offerData.offerId)}.pdf`);
+      // Download PDF with the format: Oferta_{num_depa}_{nombre_proyecto}_{num_oferta}
+      const fileName = `Oferta_${offerData.propertyNumber}_${propertyDetails.proyecto}_${this.formatOfferNumber(offerData.offerId)}.pdf`;
+      this.doc.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw error;
@@ -117,7 +118,7 @@ export class PDFGenerationService {
       .from('edificios_modelos')
       .select('id_edificio, id_modelo')
       .eq('id', propertyData.id_edificio_modelo)
-      .single();
+      .maybeSingle();
 
     let edificioName = 'No especificado';
     let modeloData = null;
@@ -128,7 +129,7 @@ export class PDFGenerationService {
         .from('edificios')
         .select('nombre')
         .eq('id', buildingModelData.id_edificio)
-        .single();
+        .maybeSingle();
       
       if (edificioData) {
         edificioName = edificioData.nombre;
@@ -139,7 +140,7 @@ export class PDFGenerationService {
         .from('modelos')
         .select('id, nombre, numero_recamaras, numero_completo_banos, numero_medio_bano')
         .eq('id', buildingModelData.id_modelo)
-        .single();
+        .maybeSingle();
       
       modeloData = modelo;
     }
@@ -149,14 +150,14 @@ export class PDFGenerationService {
       .from('vistas')
       .select('nombre')
       .eq('id', propertyData.id_vista)
-      .single();
+      .maybeSingle();
 
     // Get project information
     const { data: entidadData } = await supabase
       .from('entidades_relacionadas')
       .select('id_proyecto')
       .eq('id', propertyData.id_entidad_relacionada_dueno)
-      .single();
+      .maybeSingle();
 
     let projectData = null;
     if (entidadData?.id_proyecto) {
@@ -164,7 +165,7 @@ export class PDFGenerationService {
         .from('proyectos')
         .select('id, nombre')
         .eq('id', entidadData.id_proyecto)
-        .single();
+        .maybeSingle();
       
       projectData = proyecto;
     }
@@ -178,7 +179,7 @@ export class PDFGenerationService {
         .eq('id_proyecto', projectData.id)
         .eq('es_imagen', true)
         .limit(1)
-        .single();
+        .maybeSingle();
       
       proyectoImage = multimedia?.url;
     }
@@ -192,7 +193,7 @@ export class PDFGenerationService {
         .eq('id_modelo', modeloData.id)
         .eq('ver_como_ubicacion_en_oferta', true)
         .eq('activo', true)
-        .single();
+        .maybeSingle();
       
       ubicacionImage = ubicacion?.url;
     }
@@ -221,7 +222,7 @@ export class PDFGenerationService {
       .from('propiedades')
       .select('id_entidad_relacionada_dueno')
       .eq('id', propertyId)
-      .single();
+      .maybeSingle();
 
     if (!propertyData) return [];
 
@@ -229,7 +230,7 @@ export class PDFGenerationService {
       .from('entidades_relacionadas')
       .select('id_proyecto')
       .eq('id', propertyData.id_entidad_relacionada_dueno)
-      .single();
+      .maybeSingle();
 
     if (!entidadData?.id_proyecto) return [];
 
@@ -250,7 +251,7 @@ export class PDFGenerationService {
       .from('propiedades')
       .select('id_entidad_relacionada_dueno')
       .eq('id', propertyId)
-      .single();
+      .maybeSingle();
 
     if (!propertyData) return [];
 
@@ -258,7 +259,7 @@ export class PDFGenerationService {
       .from('entidades_relacionadas')
       .select('id_proyecto')
       .eq('id', propertyData.id_entidad_relacionada_dueno)
-      .single();
+      .maybeSingle();
 
     if (!entidadData?.id_proyecto) return [];
 
@@ -287,7 +288,7 @@ export class PDFGenerationService {
       .from('usuarios')
       .select('nombre, telefono, email')
       .eq('email', creatorEmail)
-      .single();
+      .maybeSingle();
 
     return data || { nombre: 'No disponible', telefono: 'No disponible', email: creatorEmail };
   }
