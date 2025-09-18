@@ -16,6 +16,7 @@ interface PropertyDetails {
   m2_reales: number | null;
   m2_escriturables: number | null;
   descripcion: string | null;
+  numero_piso?: number | null;
   building?: {
     id: number;
     nombre: string;
@@ -149,75 +150,36 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
           )}
 
           {/* Property Summary */}
-          <div className="relative z-10 bg-white/80 backdrop-blur-sm rounded-2xl p-10 shadow-lg border border-border">
-            <div className="grid grid-cols-2 gap-12">
-              <div>
-                <h3 className="text-3xl font-bold mb-6 text-primary">Detalles de la Propiedad</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-lg">
-                    <span className="text-muted-foreground">Modelo:</span>
-                    <span className="font-semibold">{propertyDetails.model?.nombre}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Recámaras:</span>
-                    <span className="font-semibold">{propertyDetails.model?.numero_recamaras || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Baños:</span>
-                    <span className="font-semibold">
-                      {(propertyDetails.model?.numero_completo_banos || 0) + 
-                       (propertyDetails.model?.numero_medio_bano || 0) * 0.5}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">M² Reales:</span>
-                    <span className="font-semibold">{propertyDetails.m2_reales || 'N/A'} m²</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Vista:</span>
-                    <span className="font-semibold">{propertyDetails.vista?.nombre || 'N/A'}</span>
-                  </div>
+          <div className="relative z-10 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-border">
+            <div className="max-w-md">
+              <h3 className="text-2xl font-bold mb-4 text-primary">Detalles de la Propiedad</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Número de departamento:</span>
+                  <span className="font-semibold">{propertyDetails.numero_propiedad}</span>
                 </div>
-              </div>
-              
-              <div>
-                <h3 className="text-3xl font-bold mb-6 text-primary">Información Financiera</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Precio Lista:</span>
-                    <span className="font-semibold">{formatCurrency(propertyDetails.precio_lista)}</span>
-                  </div>
-                  {paymentCalculation && paymentCalculation.discount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Descuento:</span>
-                      <span className="font-semibold">-{formatCurrency(paymentCalculation.discount)}</span>
-                    </div>
-                  )}
-                  {paymentCalculation && (
-                    <>
-                      <div className="flex justify-between text-2xl font-bold text-primary border-t pt-2">
-                        <span>Precio Final:</span>
-                        <span>{formatCurrency(paymentCalculation.finalPrice)}</span>
-                      </div>
-                      <div className="mt-4 p-4 bg-primary/5 rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-2">Esquema seleccionado:</p>
-                        <p className="font-semibold">{selectedPaymentScheme?.nombre}</p>
-                      </div>
-                    </>
-                  )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Modelo, Configuración:</span>
+                  <span className="font-semibold">
+                    {propertyDetails.model?.nombre}, {propertyDetails.model?.numero_recamaras || 0} rec, {propertyDetails.model?.numero_completo_banos || 0} baños, {propertyDetails.model?.numero_medio_bano || 0} 1/2 baños
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Edificio:</span>
+                  <span className="font-semibold">{propertyDetails.building?.nombre || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Piso:</span>
+                  <span className="font-semibold">{propertyDetails.numero_piso || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Precio de lista:</span>
+                  <span className="font-semibold">{formatCurrency(propertyDetails.precio_lista)}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="relative z-10 mt-auto pt-8">
-            <div className="text-center text-muted-foreground">
-              <p>Oferta generada por: {creatorInfo?.nombre_legal || 'No disponible'}</p>
-              <p className="text-sm mt-1">Cliente: {offerData.leadName} ({offerData.leadEmail})</p>
-              <p className="text-sm mt-1">Esta oferta es válida por 30 días a partir de su fecha de generación</p>
-            </div>
-          </div>
         </div>
 
         {/* Payment Plans Page */}
