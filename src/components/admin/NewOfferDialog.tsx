@@ -59,10 +59,10 @@ const baseProspectSchema = z.object({
 });
 
 const manualPaymentSchema = z.object({
-  porcentaje_enganche: z.string().optional(),
-  porcentaje_mensualidades: z.string().optional(),
-  porcentaje_entrega: z.string().optional(),
-  numero_mensualidades: z.string().optional(),
+  porcentaje_enganche: z.string().min(1, "El porcentaje de enganche es requerido"),
+  porcentaje_mensualidades: z.string().min(1, "El porcentaje de mensualidades es requerido"),
+  porcentaje_entrega: z.string().min(1, "El porcentaje de entrega es requerido"),
+  numero_mensualidades: z.string().min(1, "El número de mensualidades es requerido"),
   porcentaje_descuento_aumento: z.string().optional(),
 });
 
@@ -72,14 +72,10 @@ const formSchema = z.object({
   ...baseProspectSchema.shape,
   ...manualPaymentSchema.shape,
 }).refine((data) => {
-  if (data.mode === "manual") {
-    return data.porcentaje_enganche && data.porcentaje_mensualidades && 
-           data.porcentaje_entrega && data.numero_mensualidades && 
-           data.porcentaje_descuento_aumento;
-  }
+  // No additional validation needed since individual fields are now required
   return true;
 }, {
-  message: "En modo manual, todos los campos de pago son requeridos",
+  message: "Todos los campos obligatorios deben completarse",
   path: ["mode"]
 });
 
@@ -677,7 +673,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                      name="porcentaje_descuento_aumento"
                      render={({ field }) => (
                        <FormItem>
-                         <FormLabel>Porcentaje Descuento/Aumento (%) *</FormLabel>
+                         <FormLabel>Porcentaje Descuento/Aumento (%)</FormLabel>
                          <FormControl>
                            <Input type="number" step="0.01" placeholder="0" {...field} />
                          </FormControl>
