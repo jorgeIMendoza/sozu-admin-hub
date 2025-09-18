@@ -40,7 +40,7 @@ const baseProspectSchema = z.object({
   nombre_completo: z.string().min(1, "El nombre completo es requerido"),
   email: z.string().email("Email inválido"),
   telefono: z.string().min(10, "El teléfono debe tener al menos 10 dígitos"),
-  rfc: z.string().optional(),
+  rfc: z.string().min(1, "El RFC es requerido"),
   curp: z.string().optional(),
 });
 
@@ -350,7 +350,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                   name="rfc"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>RFC</FormLabel>
+                      <FormLabel>RFC *</FormLabel>
                       <FormControl>
                         <Input placeholder="Ingresa el RFC (Ej: ABC123456DEF)" {...field} />
                       </FormControl>
