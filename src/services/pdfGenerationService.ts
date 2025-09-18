@@ -182,6 +182,7 @@ export class PDFGenerationService {
         .maybeSingle();
       
       proyectoImage = multimedia?.url;
+      console.log('Project image found:', proyectoImage); // Debug log
     }
 
     // Get ubicacion image from model multimedia
@@ -300,12 +301,16 @@ export class PDFGenerationService {
     this.doc.text('OFERTA INMOBILIARIA', this.pageWidth / 2, 30, { align: 'center' });
 
     // Project image (if available)
+    console.log('Project image URL:', propertyDetails.proyecto_imagen); // Debug log
     if (propertyDetails.proyecto_imagen) {
       try {
         await this.addImageToPDF(propertyDetails.proyecto_imagen, 20, 50, 170, 100);
+        console.log('Project image added successfully');
       } catch (error) {
-        console.warn('Could not load project image:', error);
+        console.error('Could not load project image:', error);
       }
+    } else {
+      console.log('No project image found');
     }
 
     // Offer details
