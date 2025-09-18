@@ -168,7 +168,7 @@ const Propiedades = () => {
           porcentaje_entrega,
           numero_mensualidades
         ),
-        cuentas_cobranza(
+        cuentas_cobranza!fk_cuentas_cobranza_oferta(
           precio_final,
           fecha_compra,
           es_aprobado,
