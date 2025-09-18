@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit, Trash2, Upload, Plus } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -547,14 +548,21 @@ const Propiedades = () => {
                         >
                           Aprobar
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setEditingProperty(property)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => setEditingProperty(property)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Editar propiedad</p>
+                          </TooltipContent>
+                        </Tooltip>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
@@ -592,14 +600,21 @@ const Propiedades = () => {
                            propertyId={property.id} 
                            propertyNumber={property.numero_propiedad} 
                          />
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           className="h-8 w-8 p-0"
-                           onClick={() => setEditingProperty(property)}
-                         >
-                           <Edit className="h-4 w-4" />
-                         </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setEditingProperty(property)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Editar propiedad</p>
+                            </TooltipContent>
+                          </Tooltip>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
@@ -651,7 +666,8 @@ const Propiedades = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Propiedades</h1>
@@ -827,7 +843,8 @@ const Propiedades = () => {
           }}
         />
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
