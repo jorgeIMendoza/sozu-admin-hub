@@ -158,10 +158,13 @@ export const ProjectLegalEntitiesSection = ({
         .eq("id_proyecto", projectId)
         .eq("activo", true)
         .eq("tipos_entidad.padre", "p")
+        .eq("tipos_entidad.activo", true)
         .in("tipos_entidad.nombre", allowedEntityTypes);
       
       if (error) throw error;
-      return data || [];
+      
+      // Filter out any entries where tipos_entidad is null
+      return (data || []).filter(item => item.tipos_entidad !== null);
     },
     enabled: !!projectId,
   });
