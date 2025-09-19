@@ -42,11 +42,11 @@ const Estacionamientos = () => {
         .from('estacionamientos')
         .select(`
           *,
-          tipos_estacionamiento!inner(nombre),
-          propiedades!inner(
+          tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre),
+          propiedades!estacionamientos_id_propiedad_fkey(
             numero_propiedad,
-            entidades_relacionadas!inner(
-              proyectos!inner(nombre)
+            entidades_relacionadas!propiedades_id_entidad_relacionada_dueno_fkey(
+              proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
             )
           )
         `);
