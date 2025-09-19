@@ -43,24 +43,43 @@ const Bodegas = () => {
           *,
           propiedades!fk_bodegas_propiedad(
             numero_propiedad,
-            entidades_relacionadas!propiedades_id_entidad_relacionada_dueno_fkey(
-              proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
-            )
+            id_entidad_relacionada_dueno
           )
         `);
 
       if (error) throw error;
 
-      return data.map((item: any) => ({
-        id: item.id,
-        nombre: item.nombre,
-        m2: item.m2,
-        ubicacion: item.ubicacion,
-        es_incluido: item.es_incluido,
-        activo: item.activo,
-        proyecto_nombre: item.propiedades?.entidades_relacionadas?.proyectos?.nombre || 'N/A',
-        numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
-      }));
+      // Get all unique entity IDs to fetch project names
+      const entityIds = [...new Set(data.map(item => item.propiedades?.id_entidad_relacionada_dueno).filter(Boolean))];
+      
+      let entitiesData = [];
+      if (entityIds.length > 0) {
+        const { data: entities, error: entitiesError } = await supabase
+          .from('entidades_relacionadas')
+          .select(`
+            id,
+            proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
+          `)
+          .in('id', entityIds);
+        
+        if (!entitiesError) {
+          entitiesData = entities || [];
+        }
+      }
+
+      return data.map((item: any) => {
+        const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
+        return {
+          id: item.id,
+          nombre: item.nombre,
+          m2: item.m2,
+          ubicacion: item.ubicacion,
+          es_incluido: item.es_incluido,
+          activo: item.activo,
+          proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
+          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
+        };
+      });
     },
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
