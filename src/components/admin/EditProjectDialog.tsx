@@ -48,6 +48,13 @@ const formSchema = z.object({
   porcentaje_anual_cuota_extraordinaria: z.string().optional(),
   porcentaje_anual_cuota_estancia_corta: z.string().optional(),
   porcentaje_anual_cuota_garantia_renta: z.string().optional(),
+  mostrar_precio_m2_en_oferta: z.boolean().default(true),
+  mostrar_piso_en_oferta: z.boolean().default(true),
+  mostrar_seccion_efectivo_en_oferta: z.boolean().default(true),
+  mostrar_estacionamientos_en_oferta: z.boolean().default(true),
+  mostrar_bodega_en_oferta: z.boolean().default(true),
+  mostrar_modelo_en_oferta: z.boolean().default(true),
+  mostrar_edificio_en_oferta: z.boolean().default(true),
 });
 
 interface EditProjectDialogProps {
@@ -89,6 +96,13 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
       porcentaje_anual_cuota_extraordinaria: "",
       porcentaje_anual_cuota_estancia_corta: "",
       porcentaje_anual_cuota_garantia_renta: "",
+      mostrar_precio_m2_en_oferta: true,
+      mostrar_piso_en_oferta: true,
+      mostrar_seccion_efectivo_en_oferta: true,
+      mostrar_estacionamientos_en_oferta: true,
+      mostrar_bodega_en_oferta: true,
+      mostrar_modelo_en_oferta: true,
+      mostrar_edificio_en_oferta: true,
     },
   });
 
@@ -237,6 +251,13 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         porcentaje_anual_cuota_extraordinaria: project.porcentaje_anual_cuota_extraordinaria?.toString() || "",
         porcentaje_anual_cuota_estancia_corta: project.porcentaje_anual_cuota_estancia_corta?.toString() || "",
         porcentaje_anual_cuota_garantia_renta: project.porcentaje_anual_cuota_garantia_renta?.toString() || "",
+        mostrar_precio_m2_en_oferta: project.mostrar_precio_m2_en_oferta ?? true,
+        mostrar_piso_en_oferta: project.mostrar_piso_en_oferta ?? true,
+        mostrar_seccion_efectivo_en_oferta: project.mostrar_seccion_efectivo_en_oferta ?? true,
+        mostrar_estacionamientos_en_oferta: project.mostrar_estacionamientos_en_oferta ?? true,
+        mostrar_bodega_en_oferta: project.mostrar_bodega_en_oferta ?? true,
+        mostrar_modelo_en_oferta: project.mostrar_modelo_en_oferta ?? true,
+        mostrar_edificio_en_oferta: project.mostrar_edificio_en_oferta ?? true,
       });
       
       setSelectedCountry(project.direccion_id_pais || "");
@@ -268,6 +289,13 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         porcentaje_anual_cuota_extraordinaria: values.porcentaje_anual_cuota_extraordinaria ? parseFloat(values.porcentaje_anual_cuota_extraordinaria) : null,
         porcentaje_anual_cuota_estancia_corta: values.porcentaje_anual_cuota_estancia_corta ? parseFloat(values.porcentaje_anual_cuota_estancia_corta) : null,
         porcentaje_anual_cuota_garantia_renta: values.porcentaje_anual_cuota_garantia_renta ? parseFloat(values.porcentaje_anual_cuota_garantia_renta) : null,
+        mostrar_precio_m2_en_oferta: values.mostrar_precio_m2_en_oferta,
+        mostrar_piso_en_oferta: values.mostrar_piso_en_oferta,
+        mostrar_seccion_efectivo_en_oferta: values.mostrar_seccion_efectivo_en_oferta,
+        mostrar_estacionamientos_en_oferta: values.mostrar_estacionamientos_en_oferta,
+        mostrar_bodega_en_oferta: values.mostrar_bodega_en_oferta,
+        mostrar_modelo_en_oferta: values.mostrar_modelo_en_oferta,
+        mostrar_edificio_en_oferta: values.mostrar_edificio_en_oferta,
       };
 
       const { error: updateError } = await supabase
@@ -906,8 +934,142 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                   
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Mostrar en oferta</h3>
-                    <div className="text-muted-foreground text-sm">
-                      Esta sección estará disponible próximamente.
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Selecciona qué elementos aparecerán en la sección "Detalles de la propiedad" del PDF de la oferta.
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="mostrar_precio_m2_en_oferta"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Precio por m²</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="mostrar_piso_en_oferta"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Piso</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="mostrar_seccion_efectivo_en_oferta"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Sección En efectivo</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="mostrar_estacionamientos_en_oferta"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Estacionamientos</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Mostrará el número y entre paréntesis los tipos de estacionamientos
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="mostrar_bodega_en_oferta"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Bodega</FormLabel>
+                              <p className="text-xs text-muted-foreground">
+                                Mostrará el número de bodegas
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="mostrar_modelo_en_oferta"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Modelo</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="mostrar_edificio_en_oferta"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Edificio</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
                     </div>
                   </div>
                 </TabsContent>

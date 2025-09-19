@@ -370,39 +370,39 @@ export type Database = {
       bodegas: {
         Row: {
           activo: boolean
-          descripcion: string | null
           es_incluido: boolean
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
-          id_producto: number | null
+          id_producto: number
           id_propiedad: number
           m2: number
           nombre: string
+          ubicacion: string | null
         }
         Insert: {
           activo?: boolean
-          descripcion?: string | null
           es_incluido?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
-          id_producto?: number | null
+          id?: number
+          id_producto: number
           id_propiedad: number
-          m2: number
+          m2?: number
           nombre: string
+          ubicacion?: string | null
         }
         Update: {
           activo?: boolean
-          descripcion?: string | null
           es_incluido?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
-          id_producto?: number | null
+          id?: number
+          id_producto?: number
           id_propiedad?: number
           m2?: number
           nombre?: string
+          ubicacion?: string | null
         }
         Relationships: [
           {
@@ -428,6 +428,54 @@ export type Database = {
           },
           {
             foreignKeyName: "fk_bodegas_propiedad"
+            columns: ["id_propiedad"]
+            isOneToOne: false
+            referencedRelation: "propiedades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bodegas_stagin: {
+        Row: {
+          id: number
+          id_producto: number | null
+          id_propiedad: number | null
+          m2_bodega: string | null
+          nombre_bodega: string | null
+          nombre_proyecto: string | null
+          numero_departamento: string | null
+          ubicacion_bodega: string | null
+        }
+        Insert: {
+          id?: number
+          id_producto?: number | null
+          id_propiedad?: number | null
+          m2_bodega?: string | null
+          nombre_bodega?: string | null
+          nombre_proyecto?: string | null
+          numero_departamento?: string | null
+          ubicacion_bodega?: string | null
+        }
+        Update: {
+          id?: number
+          id_producto?: number | null
+          id_propiedad?: number | null
+          m2_bodega?: string | null
+          nombre_bodega?: string | null
+          nombre_proyecto?: string | null
+          numero_departamento?: string | null
+          ubicacion_bodega?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bodegas_stagin_id_producto_fkey"
+            columns: ["id_producto"]
+            isOneToOne: false
+            referencedRelation: "productos_servicios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bodegas_stagin_id_propiedad_fkey"
             columns: ["id_propiedad"]
             isOneToOne: false
             referencedRelation: "propiedades"
@@ -1195,7 +1243,6 @@ export type Database = {
       estacionamientos: {
         Row: {
           activo: boolean
-          descripcion: string | null
           es_incluido: boolean
           fecha_actualizacion: string
           fecha_creacion: string
@@ -1205,32 +1252,33 @@ export type Database = {
           id_tipo: number
           m2: number
           nombre: string
+          ubicacion: string | null
         }
         Insert: {
           activo?: boolean
-          descripcion?: string | null
           es_incluido?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           id_producto?: number | null
           id_propiedad: number
           id_tipo: number
-          m2: number
+          m2?: number
           nombre: string
+          ubicacion?: string | null
         }
         Update: {
           activo?: boolean
-          descripcion?: string | null
           es_incluido?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           id_producto?: number | null
           id_propiedad?: number
           id_tipo?: number
           m2?: number
           nombre?: string
+          ubicacion?: string | null
         }
         Relationships: [
           {
@@ -1248,6 +1296,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "estacionamientos_id_tipo_fkey"
+            columns: ["id_tipo"]
+            isOneToOne: false
+            referencedRelation: "tipos_estacionamiento"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_estac_producto"
             columns: ["id_producto"]
             isOneToOne: false
@@ -1262,6 +1317,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      estacionamientos_stagin: {
+        Row: {
+          id: number
+          id_producto: number | null
+          id_propiedad: number | null
+          m2_estacionamientos: string | null
+          nombre_proyecto: string | null
+          nombres_estacionamientos: string | null
+          numero_estacionamientos: string | null
+          numero_propiedad: string | null
+          tipos_estacionamientos: string | null
+          ubicaciones_estacionamientos: string | null
+        }
+        Insert: {
+          id?: number
+          id_producto?: number | null
+          id_propiedad?: number | null
+          m2_estacionamientos?: string | null
+          nombre_proyecto?: string | null
+          nombres_estacionamientos?: string | null
+          numero_estacionamientos?: string | null
+          numero_propiedad?: string | null
+          tipos_estacionamientos?: string | null
+          ubicaciones_estacionamientos?: string | null
+        }
+        Update: {
+          id?: number
+          id_producto?: number | null
+          id_propiedad?: number | null
+          m2_estacionamientos?: string | null
+          nombre_proyecto?: string | null
+          nombres_estacionamientos?: string | null
+          numero_estacionamientos?: string | null
+          numero_propiedad?: string | null
+          tipos_estacionamientos?: string | null
+          ubicaciones_estacionamientos?: string | null
+        }
+        Relationships: []
       }
       estados_civil: {
         Row: {
@@ -2587,7 +2681,7 @@ export type Database = {
           id: number
           id_categoria: number
           id_persona: number
-          id_unidad_sat: string
+          id_unidad_sat: string | null
           nombre: string
           sat_id: string | null
           stock: number
@@ -2598,10 +2692,10 @@ export type Database = {
           es_producto?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           id_categoria: number
           id_persona: number
-          id_unidad_sat: string
+          id_unidad_sat?: string | null
           nombre: string
           sat_id?: string | null
           stock?: number
@@ -2612,10 +2706,10 @@ export type Database = {
           es_producto?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           id_categoria?: number
           id_persona?: number
-          id_unidad_sat?: string
+          id_unidad_sat?: string | null
           nombre?: string
           sat_id?: string | null
           stock?: number
@@ -2895,6 +2989,13 @@ export type Database = {
           id_tipo_uso: number | null
           latitud: number | null
           longitud: number | null
+          mostrar_bodega_en_oferta: boolean
+          mostrar_edificio_en_oferta: boolean
+          mostrar_estacionamientos_en_oferta: boolean
+          mostrar_modelo_en_oferta: boolean
+          mostrar_piso_en_oferta: boolean
+          mostrar_precio_m2_en_oferta: boolean
+          mostrar_seccion_efectivo_en_oferta: boolean
           nombre: string
           nombre_firmante_recibos: string | null
           porcentaje_anual_cuota_estancia_corta: number | null
@@ -2925,6 +3026,13 @@ export type Database = {
           id_tipo_uso?: number | null
           latitud?: number | null
           longitud?: number | null
+          mostrar_bodega_en_oferta?: boolean
+          mostrar_edificio_en_oferta?: boolean
+          mostrar_estacionamientos_en_oferta?: boolean
+          mostrar_modelo_en_oferta?: boolean
+          mostrar_piso_en_oferta?: boolean
+          mostrar_precio_m2_en_oferta?: boolean
+          mostrar_seccion_efectivo_en_oferta?: boolean
           nombre: string
           nombre_firmante_recibos?: string | null
           porcentaje_anual_cuota_estancia_corta?: number | null
@@ -2955,6 +3063,13 @@ export type Database = {
           id_tipo_uso?: number | null
           latitud?: number | null
           longitud?: number | null
+          mostrar_bodega_en_oferta?: boolean
+          mostrar_edificio_en_oferta?: boolean
+          mostrar_estacionamientos_en_oferta?: boolean
+          mostrar_modelo_en_oferta?: boolean
+          mostrar_piso_en_oferta?: boolean
+          mostrar_precio_m2_en_oferta?: boolean
+          mostrar_seccion_efectivo_en_oferta?: boolean
           nombre?: string
           nombre_firmante_recibos?: string | null
           porcentaje_anual_cuota_estancia_corta?: number | null
@@ -3362,14 +3477,14 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           nombre: string
         }
         Update: {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           nombre?: string
         }
         Relationships: []
@@ -3655,6 +3770,14 @@ export type Database = {
       crear_referencia_bancaria: {
         Args: { id_er_dueno: number }
         Returns: string
+      }
+      etl_bodegas: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      etl_estacionamientos: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       etl_propiedades: {
         Args: Record<PropertyKey, never>
