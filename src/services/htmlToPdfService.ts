@@ -590,9 +590,23 @@ class HTMLToPDFService {
         return [];
       }
 
-      // TODO: Create and implement query for legal notices from project
-      // For now, return empty array as the table doesn't exist yet
-      return [];
+      const projectId = edificio.id_proyecto;
+
+      // Fetch legal notices from avisos_legales table
+      const { data: legalNotices, error } = await supabase
+        .from('avisos_legales')
+        .select('contenido, orden')
+        .eq('id_proyecto', projectId)
+        .eq('activo', true)
+        .order('orden');
+
+      if (error) {
+        console.error('Error fetching legal notices:', error);
+        return [];
+      }
+
+      // Return the contents as an array of strings
+      return (legalNotices || []).map(notice => notice.contenido);
     } catch (error) {
       console.error('Error fetching legal notices:', error);
       return [];

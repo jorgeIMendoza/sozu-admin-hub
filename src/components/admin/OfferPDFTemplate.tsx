@@ -190,18 +190,20 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
                 </div>
               </div>
               
-              {/* Right Column - Amenity Icons */}
-              <div className="grid grid-cols-3 gap-4">
-                {amenities.filter(amenity => amenity.url).map((amenity) => (
-                  <div key={amenity.id} className="flex flex-col items-center text-center">
-                    <img
-                      src={amenity.url}
-                      alt={amenity.nombre}
-                      className="w-12 h-12 object-contain mb-2"
-                    />
-                    <span className="text-xs text-muted-foreground">{amenity.nombre}</span>
-                  </div>
-                ))}
+              {/* Right Column - Amenities */}
+              <div>
+                <h4 className="text-sm font-bold mb-3 text-primary">Amenidades</h4>
+                <div className="grid grid-cols-5 gap-2">
+                  {amenities.filter(amenity => amenity.url).slice(0, 15).map((amenity) => (
+                    <div key={amenity.id} className="flex justify-center">
+                      <img
+                        src={amenity.url}
+                        alt={amenity.nombre}
+                        className="w-8 h-8 object-contain"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
