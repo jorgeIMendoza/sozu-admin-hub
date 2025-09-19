@@ -24,6 +24,7 @@ interface Estacionamiento {
   tipo_nombre: string;
   proyecto_nombre: string;
   numero_propiedad: string;
+  id_tipo: number;
 }
 
 const Estacionamientos = () => {
@@ -82,7 +83,8 @@ const Estacionamientos = () => {
           activo: item.activo,
           tipo_nombre: item.tipos_estacionamiento?.nombre || 'N/A',
           proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
-          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
+          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A',
+          id_tipo: item.id_tipo
         };
       });
     },

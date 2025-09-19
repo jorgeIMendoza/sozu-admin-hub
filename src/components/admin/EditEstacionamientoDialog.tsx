@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Estacionamiento {
   id: number;
@@ -16,6 +19,7 @@ interface Estacionamiento {
   tipo_nombre: string;
   proyecto_nombre: string;
   numero_propiedad: string;
+  id_tipo: number;
 }
 
 interface EditEstacionamientoDialogProps {
@@ -36,7 +40,23 @@ export const EditEstacionamientoDialog = ({
     m2: estacionamiento?.m2 || 0,
     ubicacion: estacionamiento?.ubicacion || "",
     es_incluido: estacionamiento?.es_incluido || false,
+    id_tipo: estacionamiento?.id_tipo || 0,
   }));
+
+  // Query para obtener tipos de estacionamiento
+  const { data: tiposEstacionamiento = [] } = useQuery({
+    queryKey: ['tipos_estacionamiento'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tipos_estacionamiento')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) throw error;
+      return data;
+    }
+  });
 
   // Update form data when estacionamiento changes
   useEffect(() => {
@@ -46,6 +66,7 @@ export const EditEstacionamientoDialog = ({
         m2: estacionamiento.m2,
         ubicacion: estacionamiento.ubicacion,
         es_incluido: estacionamiento.es_incluido,
+        id_tipo: estacionamiento.id_tipo,
       });
     }
   }, [estacionamiento]);
@@ -63,6 +84,7 @@ export const EditEstacionamientoDialog = ({
       m2: 0,
       ubicacion: "",
       es_incluido: false,
+      id_tipo: 0,
     });
   };
 
@@ -103,6 +125,25 @@ export const EditEstacionamientoDialog = ({
               onChange={(e) => setFormData({ ...formData, ubicacion: e.target.value })}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tipo">Tipo de Estacionamiento</Label>
+            <Select 
+              value={formData.id_tipo.toString()} 
+              onValueChange={(value) => setFormData({ ...formData, id_tipo: parseInt(value) })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                {tiposEstacionamiento.map((tipo) => (
+                  <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                    {tipo.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center space-x-2">
