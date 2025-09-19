@@ -75,7 +75,7 @@ export const BulkUploadBodegasDialog = ({
       }, 500);
 
       const response = await fetch(
-        'https://automatizacion-n8n.fbqqbe.easypanel.host/webhook-test/carga-archivo-bodegas',
+        'https://automatizacion-n8n.fbqqbe.easypanel.host/webhook/carga-archivo-bodegas',
         {
           method: 'POST',
           body: formData,
