@@ -336,7 +336,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
           {trigger}
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1200px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Proyecto</DialogTitle>
         </DialogHeader>
@@ -901,7 +901,6 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                 
                 <TabsContent value="offer-config" className="mt-6 space-y-6">
                   <div>
-                    <h3 className="text-lg font-semibold mb-4">Avisos Legales</h3>
                     <ProjectLegalNoticesSection projectId={projectId} />
                   </div>
                   
