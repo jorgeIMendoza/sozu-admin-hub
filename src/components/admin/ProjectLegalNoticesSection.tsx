@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -130,17 +130,6 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
     })
   );
 
-  // Create dynamic schema with validation
-  const getSchema = () => createLegalNoticeSchema(legalNotices, editingNotice?.id);
-
-  const form = useForm({
-    resolver: zodResolver(getSchema()),
-    defaultValues: {
-      contenido: "",
-      orden: "",
-    },
-  });
-
   // Query to fetch legal notices for the project
   const { data: legalNotices = [], isLoading } = useQuery({
     queryKey: ["legal-notices", projectId],
@@ -157,9 +146,30 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
     },
   });
 
+  // Create dynamic schema with validation
+  const legalNoticeSchema = createLegalNoticeSchema(legalNotices, editingNotice?.id);
+
+  const form = useForm<z.infer<typeof legalNoticeSchema>>({
+    resolver: zodResolver(legalNoticeSchema),
+    defaultValues: {
+      contenido: "",
+      orden: "",
+    },
+  });
+
+  // Update form when editing notice changes
+  useEffect(() => {
+    if (editingNotice) {
+      form.reset({
+        contenido: editingNotice.contenido,
+        orden: editingNotice.orden.toString(),
+      });
+    }
+  }, [editingNotice, form]);
+
   // Mutation to create a new legal notice
   const createMutation = useMutation({
-    mutationFn: async (values: z.infer<ReturnType<typeof getSchema>>) => {
+    mutationFn: async (values: z.infer<typeof legalNoticeSchema>) => {
       if (legalNotices.length >= 5) {
         throw new Error("No se pueden agregar más de 5 avisos legales por proyecto");
       }
@@ -200,7 +210,7 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
 
   // Mutation to update a legal notice
   const updateMutation = useMutation({
-    mutationFn: async (values: z.infer<ReturnType<typeof getSchema>> & { id: number }) => {
+    mutationFn: async (values: z.infer<typeof legalNoticeSchema> & { id: number }) => {
       const { data, error } = await supabase
         .from("avisos_legales")
         .update({
@@ -291,7 +301,7 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
     },
   });
 
-  const onSubmit = async (values: z.infer<ReturnType<typeof getSchema>>) => {
+  const onSubmit = async (values: z.infer<typeof legalNoticeSchema>) => {
     if (editingNotice) {
       updateMutation.mutate({ ...values, id: editingNotice.id });
     } else {
@@ -320,10 +330,6 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
 
   const handleEdit = (notice: LegalNotice) => {
     setEditingNotice(notice);
-    form.reset({
-      contenido: notice.contenido,
-      orden: notice.orden.toString(),
-    });
     setIsDialogOpen(true);
   };
 
