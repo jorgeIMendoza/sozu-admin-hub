@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -67,6 +67,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
   const [open, setOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -265,6 +266,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
   }, [project, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsSubmitting(true);
     try {
       const projectData = {
         nombre: values.nombre,
@@ -342,6 +344,8 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         description: "Hubo un error al actualizar el proyecto.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1077,6 +1081,11 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
             </form>
           </Form>
         )}
+        <DialogFooter className="px-6 pb-6">
+          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
+            {isSubmitting ? "Guardando..." : "Guardar Cambios"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
