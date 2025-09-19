@@ -1,6 +1,9 @@
-import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { OfferPDFTemplate } from '@/components/admin/OfferPDFTemplate';
 
 interface OfferData {
   propertyId: number;
@@ -76,17 +79,7 @@ interface ProjectAmenity {
 }
 
 class HTMLToPDFService {
-  private doc: jsPDF;
-  private currentY: number = 0;
-  private pageWidth: number;
-  private pageHeight: number;
-  private margin: number = 20;
-
-  constructor() {
-    this.doc = new jsPDF('p', 'mm', 'a4');
-    this.pageWidth = this.doc.internal.pageSize.getWidth();
-    this.pageHeight = this.doc.internal.pageSize.getHeight();
-  }
+  private doc: jsPDF | null = null;
 
   async generateOfferPDF(offerData: OfferData): Promise<void> {
     try {
@@ -126,26 +119,8 @@ class HTMLToPDFService {
         leadEmail: offerData.leadEmail,
       };
 
-      // Generate PDF pages
-      await this.generateCoverPage(templateOfferData, propertyDetails, creatorInfo, leadInfo);
-      this.addNewPage(); // Página 2: Opciones de pago
-      this.generatePaymentOptionsPage(propertyDetails, paymentSchemes);
-      this.addNewPage(); // Página 3: Datos bancarios
-      await this.generateBankingDataPage(propertyDetails, legalNotices);
-
-      // Generate filename
-      const projectName = propertyDetails.projectData?.nombre || 'Proyecto';
-      const propertyNumber = propertyDetails.numero_propiedad || 'N/A';
-      const offerNumber = offerData.offerId.toString().padStart(6, '0') || '000000';
-      
-      const cleanProjectName = projectName.replace(/[^a-zA-Z0-9]/g, '_');
-      const cleanPropertyNumber = propertyNumber.replace(/[^a-zA-Z0-9]/g, '_');
-      
-      const filename = `Oferta_${cleanPropertyNumber}_${cleanProjectName}_${offerNumber}.pdf`;
-
-      // Download the PDF
-      this.doc.save(filename);
-      console.log('PDF generated successfully:', filename);
+      // Generate PDF using the React component
+      await this.generatePDFFromHTML(templateOfferData, propertyDetails, paymentSchemes, amenities, creatorInfo, leadInfo, legalNotices, estacionamientos, bodegas);
 
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -153,378 +128,143 @@ class HTMLToPDFService {
     }
   }
 
-  private async generateCoverPage(
-    offerData: any,
+  private async generatePDFFromHTML(
+    offerData: {
+      id: number;
+      fecha_generacion: string;
+      propertyNumber: string;
+      leadName: string;
+      leadEmail: string;
+    },
     propertyDetails: PropertyDetails,
+    paymentSchemes: PaymentScheme[],
+    amenities: ProjectAmenity[],
     creatorInfo: any,
-    leadInfo: any
+    leadInfo: any,
+    legalNotices: string[],
+    estacionamientos: any[],
+    bodegas: any[]
   ): Promise<void> {
-    this.currentY = this.margin;
+    // Create a temporary container for the React component
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.top = '-9999px';
+    container.style.left = '-9999px';
+    container.style.width = '8.5in'; // Letter width
+    container.style.minHeight = '11in'; // Letter height
+    container.style.backgroundColor = 'white';
+    container.style.fontSize = '16px'; // Increase base font size
+    document.body.appendChild(container);
 
-    // Title
-    this.doc.setFontSize(24);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text('OFERTA DE COMPRA VENTA', this.pageWidth / 2, this.currentY, { align: 'center' });
-    this.currentY += 15;
-
-    // Offer number and date
-    this.doc.setFontSize(14);
-    this.doc.setFont('helvetica', 'normal');
-    this.doc.text(`Oferta N°: ${this.formatOfferNumber(offerData.id)}`, this.pageWidth / 2, this.currentY, { align: 'center' });
-    this.currentY += 8;
-    
-    const fecha = new Date(offerData.fecha_generacion).toLocaleDateString('es-MX');
-    this.doc.text(`Fecha: ${fecha}`, this.pageWidth / 2, this.currentY, { align: 'center' });
-    this.currentY += 20;
-
-    // Project image
-    if (propertyDetails.projectData?.url_imagen_portada) {
-      try {
-        await this.addImageToPDF(propertyDetails.projectData.url_imagen_portada, this.margin, this.currentY, 170, 100);
-        this.currentY += 110;
-      } catch (error) {
-        console.log('Could not load project image');
-        this.currentY += 20;
-      }
-    }
-
-    // Property details section
-    this.doc.setFontSize(16);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text('DETALLES DE LA PROPIEDAD', this.margin, this.currentY);
-    this.currentY += 12;
-
-    this.doc.setFontSize(12);
-    this.doc.setFont('helvetica', 'normal');
-    
-    // Project name
-    if (propertyDetails.projectData?.nombre) {
-      this.doc.text(`Proyecto: ${propertyDetails.projectData.nombre}`, this.margin, this.currentY);
-      this.currentY += 8;
-    }
-
-    // Building
-    if (propertyDetails.building?.nombre && propertyDetails.projectData?.mostrar_edificio_en_oferta) {
-      this.doc.text(`Edificio: ${propertyDetails.building.nombre}`, this.margin, this.currentY);
-      this.currentY += 8;
-    }
-
-    // Property number
-    this.doc.text(`Departamento: ${propertyDetails.numero_propiedad}`, this.margin, this.currentY);
-    this.currentY += 8;
-
-    // Model
-    if (propertyDetails.model?.nombre && propertyDetails.projectData?.mostrar_modelo_en_oferta) {
-      this.doc.text(`Modelo: ${propertyDetails.model.nombre}`, this.margin, this.currentY);
-      this.currentY += 8;
-    }
-
-    // Floor
-    if (propertyDetails.numero_piso && propertyDetails.projectData?.mostrar_piso_en_oferta) {
-      this.doc.text(`Piso: ${propertyDetails.numero_piso}`, this.margin, this.currentY);
-      this.currentY += 8;
-    }
-
-    // Areas
-    if (propertyDetails.m2_reales) {
-      this.doc.text(`Área real: ${propertyDetails.m2_reales} m²`, this.margin, this.currentY);
-      this.currentY += 8;
-    }
-
-    if (propertyDetails.m2_escriturables) {
-      this.doc.text(`Área escriturable: ${propertyDetails.m2_escriturables} m²`, this.margin, this.currentY);
-      this.currentY += 8;
-    }
-
-    // Price
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text(`Precio: ${this.formatCurrency(propertyDetails.precio_lista)}`, this.margin, this.currentY);
-    this.currentY += 8;
-
-    // Price per m2
-    if (propertyDetails.projectData?.mostrar_precio_m2_en_oferta && propertyDetails.projectData?.precio_m2) {
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.text(`Precio por m²: ${this.formatCurrency(propertyDetails.projectData.precio_m2)}`, this.margin, this.currentY);
-      this.currentY += 15;
-    }
-
-    // Contact information
-    this.doc.setFontSize(16);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text('INFORMACIÓN DE CONTACTO', this.margin, this.currentY);
-    this.currentY += 12;
-
-    // Lead info
-    this.doc.setFontSize(14);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text('Cliente:', this.margin, this.currentY);
-    this.currentY += 8;
-
-    this.doc.setFontSize(12);
-    this.doc.setFont('helvetica', 'normal');
-    this.doc.text(`Nombre: ${offerData.leadName}`, this.margin, this.currentY);
-    this.currentY += 6;
-    this.doc.text(`Email: ${offerData.leadEmail}`, this.margin, this.currentY);
-    this.currentY += 10;
-
-    // Creator info
-    if (creatorInfo) {
-      this.doc.setFontSize(14);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text('Agente:', this.margin, this.currentY);
-      this.currentY += 8;
-
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.text(`Nombre: ${creatorInfo.nombre_legal || creatorInfo.email}`, this.margin, this.currentY);
-      this.currentY += 6;
-      this.doc.text(`Email: ${creatorInfo.email}`, this.margin, this.currentY);
-      
-      if (creatorInfo.telefono) {
-        this.currentY += 6;
-        this.doc.text(`Teléfono: ${creatorInfo.telefono}`, this.margin, this.currentY);
-      }
-    }
-  }
-
-  private generatePaymentOptionsPage(propertyDetails: PropertyDetails, paymentSchemes: PaymentScheme[]): void {
-    this.currentY = this.margin;
-
-    // Title
-    this.doc.setFontSize(20);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text('OPCIONES DE PAGO DISPONIBLES', this.pageWidth / 2, this.currentY, { align: 'center' });
-    this.currentY += 20;
-
-    if (paymentSchemes.length === 0) {
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.text('No hay esquemas de pago disponibles para esta propiedad.', this.margin, this.currentY);
-      return;
-    }
-
-    paymentSchemes.forEach((scheme, index) => {
-      if (this.currentY > this.pageHeight - 60) {
-        this.addNewPage();
-        this.currentY = this.margin;
-      }
-
-      // Scheme title
-      this.doc.setFontSize(16);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text(`${index + 1}. ${scheme.nombre}`, this.margin, this.currentY);
-      this.currentY += 12;
-
-      // Calculate amounts
-      const amounts = this.calculatePaymentAmounts(scheme, propertyDetails);
-
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'normal');
-
-      // Down payment
-      this.doc.text(`Enganche (${scheme.porcentaje_enganche}%): ${this.formatCurrency(amounts.downPayment)}`, this.margin + 10, this.currentY);
-      this.currentY += 8;
-
-      // Monthly payments
-      if (scheme.numero_mensualidades > 0) {
-        this.doc.text(`${scheme.numero_mensualidades} mensualidades de: ${this.formatCurrency(amounts.monthlyPayment)}`, this.margin + 10, this.currentY);
-        this.currentY += 8;
-      }
-
-      // Final payment
-      if (scheme.porcentaje_entrega > 0) {
-        this.doc.text(`Pago final (${scheme.porcentaje_entrega}%): ${this.formatCurrency(amounts.finalPayment)}`, this.margin + 10, this.currentY);
-        this.currentY += 8;
-      }
-
-      // Total price
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text(`Precio final: ${this.formatCurrency(amounts.totalPrice)}`, this.margin + 10, this.currentY);
-      this.currentY += 15;
-      this.doc.setFont('helvetica', 'normal');
-
-      // Add separator line
-      if (index < paymentSchemes.length - 1) {
-        this.doc.line(this.margin, this.currentY, this.pageWidth - this.margin, this.currentY);
-        this.currentY += 10;
-      }
-    });
-
-    // Cash payment section
-    if (propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta) {
-      this.currentY += 20;
-      
-      if (this.currentY > this.pageHeight - 40) {
-        this.addNewPage();
-        this.currentY = this.margin;
-      }
-
-      this.doc.setFontSize(16);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text('PAGO DE CONTADO', this.margin, this.currentY);
-      this.currentY += 12;
-
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.text(`Precio de lista: ${this.formatCurrency(propertyDetails.precio_lista)}`, this.margin + 10, this.currentY);
-      this.currentY += 8;
-      this.doc.text('Beneficios del pago de contado:', this.margin + 10, this.currentY);
-      this.currentY += 8;
-      this.doc.text('• Sin intereses', this.margin + 20, this.currentY);
-      this.currentY += 6;
-      this.doc.text('• Proceso más rápido', this.margin + 20, this.currentY);
-      this.currentY += 6;
-      this.doc.text('• Posibles descuentos adicionales', this.margin + 20, this.currentY);
-    }
-  }
-
-  private async generateBankingDataPage(propertyDetails: PropertyDetails, legalNotices: string[]): Promise<void> {
-    this.currentY = this.margin;
-
-    // Title
-    this.doc.setFontSize(20);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.text('DATOS BANCARIOS', this.pageWidth / 2, this.currentY, { align: 'center' });
-    this.currentY += 20;
-
-    // Banking information
-    if (propertyDetails.clabe_stp_tmp_apartado) {
-      this.doc.setFontSize(14);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text('Información para apartado temporal:', this.margin, this.currentY);
-      this.currentY += 12;
-
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.text(`CLABE: ${propertyDetails.clabe_stp_tmp_apartado}`, this.margin, this.currentY);
-      this.currentY += 8;
-
-      this.doc.text('Esta CLABE es únicamente para el apartado temporal de la propiedad.', this.margin, this.currentY);
-      this.currentY += 8;
-      this.doc.text('Para los pagos del esquema seleccionado, se proporcionarán datos bancarios específicos.', this.margin, this.currentY);
-      this.currentY += 20;
-    }
-
-    // Owner information
-    if (propertyDetails.ownerData) {
-      this.doc.setFontSize(14);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text('Información del propietario:', this.margin, this.currentY);
-      this.currentY += 12;
-
-      this.doc.setFontSize(12);
-      this.doc.setFont('helvetica', 'normal');
-      this.doc.text(`Nombre: ${propertyDetails.ownerData.nombre_legal}`, this.margin, this.currentY);
-      this.currentY += 8;
-      this.doc.text(`Email: ${propertyDetails.ownerData.email}`, this.margin, this.currentY);
-      this.currentY += 8;
-      
-      if (propertyDetails.ownerData.telefono) {
-        this.doc.text(`Teléfono: ${propertyDetails.ownerData.telefono}`, this.margin, this.currentY);
-        this.currentY += 20;
-      }
-    }
-
-    // Legal notices
-    if (legalNotices.length > 0) {
-      this.doc.setFontSize(14);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text('AVISOS LEGALES', this.margin, this.currentY);
-      this.currentY += 12;
-
-      this.doc.setFontSize(10);
-      this.doc.setFont('helvetica', 'normal');
-
-      legalNotices.forEach((notice) => {
-        if (this.currentY > this.pageHeight - 30) {
-          this.addNewPage();
-          this.currentY = this.margin;
-        }
-
-        const lines = this.doc.splitTextToSize(notice, this.pageWidth - (2 * this.margin));
-        lines.forEach((line: string) => {
-          this.doc.text(line, this.margin, this.currentY);
-          this.currentY += 5;
-        });
-        this.currentY += 5;
-      });
-    }
-
-    // Footer
-    this.currentY = this.pageHeight - 30;
-    this.doc.setFontSize(10);
-    this.doc.setFont('helvetica', 'italic');
-    this.doc.text('Esta oferta tiene una validez de 30 días a partir de la fecha de generación.', this.pageWidth / 2, this.currentY, { align: 'center' });
-  }
-
-  private addNewPage(): void {
-    this.doc.addPage();
-    this.currentY = this.margin;
-  }
-
-  private async addImageToPDF(imageUrl: string, x: number, y: number, width: number, height: number): Promise<void> {
     try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = imageUrl;
+      // Create the React element
+      const element = React.createElement(OfferPDFTemplate, {
+        offerData,
+        propertyDetails,
+        paymentSchemes,
+        amenities,
+        creatorInfo,
+        leadInfo: leadInfo || {
+          nombre_legal: offerData.leadName,
+          email: offerData.leadEmail
+        },
+        legalNotices,
+        estacionamientos,
+        bodegas
       });
 
-      // Create a canvas to convert the image
-      const canvas = document.createElement('canvas');
-      canvas.width = width * 2;
-      canvas.height = height * 2;
-      const ctx = canvas.getContext('2d');
+      // Render the component
+      const root = createRoot(container);
+      root.render(element);
+
+      // Wait for rendering to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Convert to PDF
+      const canvas = await html2canvas(container, {
+        scale: 2.5, // Higher scale for better quality
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: container.scrollWidth,
+        height: container.scrollHeight
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'in', 'letter'); // Use inches and letter size
       
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const imgData = canvas.toDataURL('image/jpeg', 0.8);
-        this.doc.addImage(imgData, 'JPEG', x, y, width, height);
+      const pdfWidth = pdf.internal.pageSize.getWidth(); // 8.5 inches
+      const pdfHeight = pdf.internal.pageSize.getHeight(); // 11 inches
+      
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      
+      // Convert pixels to inches (assuming 96 DPI)
+      const imgWidthInches = imgWidth / (96 * 2.5); // Account for scale
+      const imgHeightInches = imgHeight / (96 * 2.5);
+      
+      let currentY = 0;
+      let remainingHeight = imgHeightInches;
+      
+      // Split content across multiple pages if needed
+      while (remainingHeight > 0) {
+        const pageHeight = Math.min(remainingHeight, pdfHeight - 0.5); // Leave 0.5" margin
+        const sourceY = (imgHeightInches - remainingHeight) * (96 * 2.5);
+        const sourceHeight = pageHeight * (96 * 2.5);
+        
+        // Create canvas for this page
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = imgWidth;
+        pageCanvas.height = sourceHeight;
+        const pageCtx = pageCanvas.getContext('2d');
+        
+        if (pageCtx) {
+          pageCtx.drawImage(canvas, 0, sourceY, imgWidth, sourceHeight, 0, 0, imgWidth, sourceHeight);
+          const pageImgData = pageCanvas.toDataURL('image/png');
+          
+          if (currentY > 0) {
+            pdf.addPage();
+          }
+          
+          // Center the content with margins
+          const xMargin = 0.25; // 0.25" margin
+          const yMargin = 0.25;
+          const contentWidth = Math.min(imgWidthInches, pdfWidth - (2 * xMargin));
+          const contentHeight = pageHeight;
+          
+          pdf.addImage(pageImgData, 'PNG', xMargin, yMargin, contentWidth, contentHeight);
+        }
+        
+        remainingHeight -= pageHeight;
+        currentY += pageHeight;
       }
-    } catch (error) {
-      console.error('Error adding image to PDF:', error);
-      throw error;
+
+      // Generate filename: Oferta_{numero_departamento}_{nombre_proyecto}_{numero_oferta}.pdf
+      const projectName = propertyDetails.projectData?.nombre || 'Proyecto';
+      const propertyNumber = propertyDetails.numero_propiedad || 'N/A';
+      const offerNumber = offerData.id.toString().padStart(6, '0') || '000000';
+      
+      // Clean names for filename (remove special characters)
+      const cleanProjectName = projectName.replace(/[^a-zA-Z0-9]/g, '_');
+      const cleanPropertyNumber = propertyNumber.replace(/[^a-zA-Z0-9]/g, '_');
+      
+      const filename = `Oferta_${cleanPropertyNumber}_${cleanProjectName}_${offerNumber}.pdf`;
+
+      // Download the PDF
+      pdf.save(filename);
+
+      console.log('PDF generated successfully:', filename);
+
+    } finally {
+      // Clean up
+      document.body.removeChild(container);
     }
   }
 
-  private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  }
-
-  private formatOfferNumber(offerId: number): string {
-    return `OF-${offerId.toString().padStart(6, '0')}`;
-  }
-
-  private calculatePaymentAmounts(scheme: PaymentScheme, propertyDetails: PropertyDetails) {
-    const basePrice = propertyDetails.precio_lista;
-    const adjustmentFactor = 1 + (scheme.porcentaje_descuento_aumento / 100);
-    const totalPrice = basePrice * adjustmentFactor;
-
-    const downPayment = totalPrice * (scheme.porcentaje_enganche / 100);
-    const finalPayment = totalPrice * (scheme.porcentaje_entrega / 100);
-    const monthlyAmount = totalPrice * (scheme.porcentaje_mensualidades / 100);
-    const monthlyPayment = scheme.numero_mensualidades > 0 ? monthlyAmount / scheme.numero_mensualidades : 0;
-
-    return {
-      totalPrice,
-      downPayment,
-      monthlyPayment,
-      finalPayment,
-    };
-  }
-
-  // Data fetching methods (keeping the same implementation)
   private async fetchPropertyDetails(propertyId: number): Promise<PropertyDetails> {
     console.log('Fetching property details for ID:', propertyId);
 
+    // Get property basic data
     const { data: propiedad, error: propiedadError } = await supabase
       .from('propiedades')
       .select(`
@@ -792,15 +532,10 @@ class HTMLToPDFService {
 
     const projectId = edificio.id_proyecto;
 
-    // Join amenidades_proyectos with amenidades to get the actual amenity data
-    const { data: amenities, error } = await supabase
+    const { data: amenityRelations, error } = await supabase
       .from('amenidades_proyectos')
       .select(`
-        amenidades:id_amenidad (
-          id,
-          nombre,
-          url
-        )
+        amenidades!inner(id, nombre, url)
       `)
       .eq('id_proyecto', projectId)
       .eq('activo', true);
@@ -810,138 +545,178 @@ class HTMLToPDFService {
       return [];
     }
 
-    // Transform the nested structure to flat array
-    const transformedAmenities = amenities
-      ?.map(item => item.amenidades)
-      .filter(amenity => amenity !== null)  // Just filter out null values
-      .map(amenity => ({
-        id: amenity.id,
-        nombre: amenity.nombre,
-        url: amenity.url
-      })) || [];
-
-    return transformedAmenities;
+    return amenityRelations?.map(relation => ({
+      id: relation.amenidades.id,
+      nombre: relation.amenidades.nombre,
+      url: relation.amenidades.url,
+    })) || [];
   }
 
   private async fetchCreatorInfo(creatorEmail: string): Promise<any> {
     console.log('Fetching creator info for email:', creatorEmail);
 
-    const { data: personData, error } = await supabase
+    // Try to fetch from usuarios table first
+    const { data: usuario, error: usuarioError } = await supabase
+      .from('usuarios')
+      .select('nombre, email, telefono')
+      .eq('email', creatorEmail)
+      .single();
+
+    if (!usuarioError && usuario) {
+      return {
+        nombre_legal: usuario.nombre,
+        email: usuario.email,
+        telefono: usuario.telefono
+      };
+    }
+
+    // If not found in usuarios, try personas table
+    const { data: persona, error } = await supabase
       .from('personas')
       .select('id, nombre_legal, email, telefono')
       .eq('email', creatorEmail)
-      .maybeSingle();
+      .single();
 
     if (error) {
       console.error('Error fetching creator info:', error);
       return null;
     }
 
-    return personData;
+    return persona;
   }
 
-  private async fetchLeadInfo(leadId: number | null): Promise<any> {
-    if (!leadId) {
-      console.log('No lead ID provided');
-      return null;
-    }
-
+  private async fetchLeadInfo(leadId: number): Promise<any> {
     console.log('Fetching lead info for ID:', leadId);
 
-    const { data: leadData, error } = await supabase
+    const { data: persona, error } = await supabase
       .from('personas')
-      .select('id, nombre_legal, email, telefono')
+      .select('id, nombre_legal, email, telefono, rfc')
       .eq('id', leadId)
-      .maybeSingle();
+      .single();
 
     if (error) {
       console.error('Error fetching lead info:', error);
       return null;
     }
 
-    return leadData;
+    return persona;
   }
 
   private async fetchLegalNotices(propertyId: number): Promise<string[]> {
     console.log('Fetching legal notices for property:', propertyId);
+    
+    try {
+      // Get project ID first
+      const { data: propertyData } = await supabase
+        .from('propiedades')
+        .select('id_edificio_modelo')
+        .eq('id', propertyId)
+        .single();
 
-    // Get project ID from property
-    const { data: propertyData } = await supabase
-      .from('propiedades')
-      .select('id_edificio_modelo')
-      .eq('id', propertyId)
-      .single();
+      if (!propertyData?.id_edificio_modelo) {
+        return [];
+      }
 
-    if (!propertyData?.id_edificio_modelo) return [];
+      const { data: edificioModelo } = await supabase
+        .from('edificios_modelos')
+        .select('id_edificio')
+        .eq('id', propertyData.id_edificio_modelo)
+        .single();
 
-    const { data: edificioModelo } = await supabase
-      .from('edificios_modelos')
-      .select('id_edificio')
-      .eq('id', propertyData.id_edificio_modelo)
-      .single();
+      if (!edificioModelo?.id_edificio) {
+        return [];
+      }
 
-    if (!edificioModelo?.id_edificio) return [];
+      const { data: edificio } = await supabase
+        .from('edificios')
+        .select('id_proyecto')
+        .eq('id', edificioModelo.id_edificio)
+        .single();
 
-    const { data: edificio } = await supabase
-      .from('edificios')
-      .select('id_proyecto')
-      .eq('id', edificioModelo.id_edificio)
-      .single();
+      if (!edificio?.id_proyecto) {
+        return [];
+      }
 
-    if (!edificio?.id_proyecto) return [];
+      const projectId = edificio.id_proyecto;
 
-    const { data: notices, error } = await supabase
-      .from('avisos_legales')
-      .select('contenido')
-      .eq('id_proyecto', edificio.id_proyecto)
-      .eq('activo', true)
-      .order('orden');
+      // Fetch legal notices from avisos_legales table
+      const { data: legalNotices, error } = await supabase
+        .from('avisos_legales')
+        .select('contenido, orden')
+        .eq('id_proyecto', projectId)
+        .eq('activo', true)
+        .order('orden');
 
-    if (error) {
+      if (error) {
+        console.error('Error fetching legal notices:', error);
+        return [];
+      }
+
+      // Return the contents as an array of strings
+      return (legalNotices || []).map(notice => notice.contenido);
+    } catch (error) {
       console.error('Error fetching legal notices:', error);
       return [];
     }
-
-    return notices?.map(notice => notice.contenido) || [];
   }
-
+  
   private async fetchEstacionamientos(propertyId: number): Promise<any[]> {
-    console.log('Fetching parking spaces for property:', propertyId);
-
-    const { data: estacionamientos, error } = await supabase
+    console.log('Fetching estacionamientos for property:', propertyId);
+    
+    const { data, error } = await supabase
       .from('estacionamientos')
-      .select('*')
+      .select(`
+        id,
+        nombre,
+        m2,
+        ubicacion,
+        es_incluido,
+        id_tipo,
+        tipos_estacionamiento!inner (
+          id,
+          nombre
+        )
+      `)
       .eq('id_propiedad', propertyId)
       .eq('activo', true);
 
     if (error) {
-      console.error('Error fetching parking spaces:', error);
+      console.error('Error fetching estacionamientos:', error);
       return [];
     }
 
-    return estacionamientos || [];
+    return data || [];
+  }
+  
+  private async fetchBodegas(propertyId: number): Promise<any[]> {
+    console.log('Fetching bodegas for property:', propertyId);
+    
+    const { data, error } = await supabase
+      .from('bodegas')
+      .select(`
+        id,
+        nombre,
+        m2,
+        ubicacion,
+        es_incluido
+      `)
+      .eq('id_propiedad', propertyId)
+      .eq('activo', true);
+
+    if (error) {
+      console.error('Error fetching bodegas:', error);
+      return [];
+    }
+
+    return data || [];
   }
 
-  private async fetchBodegas(propertyId: number): Promise<any[]> {
-    console.log('Fetching storage units for property:', propertyId);
-
-    const { data: bodegas, error } = await supabase
-      .from('bodegas')
-      .select('*')
-      .eq('id_propiedad', propertyId)
-      .eq('activo', true);
-
-    if (error) {
-      console.error('Error fetching storage units:', error);
-      return [];
-    }
-
-    return bodegas || [];
+  private formatOfferNumber(offerId: number): string {
+    return `OFE-${offerId.toString().padStart(6, '0')}`;
   }
 }
 
-// Export the main function
-export async function generateOfferPDF(offerData: OfferData): Promise<void> {
+export const generateOfferPDF = async (offerData: OfferData) => {
   const service = new HTMLToPDFService();
   await service.generateOfferPDF(offerData);
-}
+};
