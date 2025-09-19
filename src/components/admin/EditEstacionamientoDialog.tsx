@@ -109,7 +109,7 @@ export const EditEstacionamientoDialog = ({
             <Switch
               id="es_incluido"
               checked={formData.es_incluido}
-              onCheckedChange={(checked) => setFormData({ ...formData, es_incluido: checked })}
+              disabled
             />
             <Label htmlFor="es_incluido">Incluido</Label>
           </div>
