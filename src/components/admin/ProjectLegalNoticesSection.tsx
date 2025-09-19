@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,23 +31,6 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
-const createLegalNoticeSchema = (existingNotices: LegalNotice[], editingId?: number) => z.object({
-  contenido: z.string().min(1, "El contenido es requerido"),
-  orden: z.string()
-    .min(1, "El orden es requerido")
-    .refine((val) => {
-      const num = parseInt(val);
-      return num >= 1 && num <= 5;
-    }, "El orden debe estar entre 1 y 5")
-    .refine((val) => {
-      const num = parseInt(val);
-      const isDuplicate = existingNotices.some(notice => 
-        notice.orden === num && notice.id !== editingId
-      );
-      return !isDuplicate;
-    }, "Ya existe un aviso legal con este orden"),
-});
 
 interface LegalNotice {
   id: number;
@@ -146,11 +129,28 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
     },
   });
 
-  // Create dynamic schema with validation
-  const legalNoticeSchema = createLegalNoticeSchema(legalNotices, editingNotice?.id);
+  // Create validation schema with memoization
+  const validationSchema = useMemo(() => {
+    return z.object({
+      contenido: z.string().min(1, "El contenido es requerido"),
+      orden: z.string()
+        .min(1, "El orden es requerido")
+        .refine((val) => {
+          const num = parseInt(val);
+          return num >= 1 && num <= 5;
+        }, "El orden debe estar entre 1 y 5")
+        .refine((val) => {
+          const num = parseInt(val);
+          const isDuplicate = legalNotices.some(notice => 
+            notice.orden === num && notice.id !== editingNotice?.id
+          );
+          return !isDuplicate;
+        }, "Ya existe un aviso legal con este orden"),
+    });
+  }, [legalNotices, editingNotice?.id]);
 
-  const form = useForm<z.infer<typeof legalNoticeSchema>>({
-    resolver: zodResolver(legalNoticeSchema),
+  const form = useForm<z.infer<typeof validationSchema>>({
+    resolver: zodResolver(validationSchema),
     defaultValues: {
       contenido: "",
       orden: "",
@@ -164,12 +164,17 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
         contenido: editingNotice.contenido,
         orden: editingNotice.orden.toString(),
       });
+    } else {
+      form.reset({
+        contenido: "",
+        orden: "",
+      });
     }
   }, [editingNotice, form]);
 
   // Mutation to create a new legal notice
   const createMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof legalNoticeSchema>) => {
+    mutationFn: async (values: z.infer<typeof validationSchema>) => {
       if (legalNotices.length >= 5) {
         throw new Error("No se pueden agregar más de 5 avisos legales por proyecto");
       }
@@ -210,7 +215,7 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
 
   // Mutation to update a legal notice
   const updateMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof legalNoticeSchema> & { id: number }) => {
+    mutationFn: async (values: z.infer<typeof validationSchema> & { id: number }) => {
       const { data, error } = await supabase
         .from("avisos_legales")
         .update({
@@ -301,7 +306,7 @@ export const ProjectLegalNoticesSection = ({ projectId }: ProjectLegalNoticesSec
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof legalNoticeSchema>) => {
+  const onSubmit = async (values: z.infer<typeof validationSchema>) => {
     if (editingNotice) {
       updateMutation.mutate({ ...values, id: editingNotice.id });
     } else {
