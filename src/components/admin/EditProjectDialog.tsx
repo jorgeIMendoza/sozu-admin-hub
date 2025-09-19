@@ -353,7 +353,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                   <TabsTrigger value="images">Configuración general</TabsTrigger>
                   <TabsTrigger value="multimedia">Multimedia</TabsTrigger>
                   <TabsTrigger value="legal-entities">Entidades Legales</TabsTrigger>
-                  <TabsTrigger value="legal-notices">Avisos Legales</TabsTrigger>
+                  <TabsTrigger value="offer-config">Configuración de oferta</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="information" className="mt-6">
@@ -899,8 +899,18 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                   <ProjectLegalEntitiesSection projectId={projectId} />
                 </TabsContent>
                 
-                <TabsContent value="legal-notices" className="mt-6">
-                  <ProjectLegalNoticesSection projectId={projectId} />
+                <TabsContent value="offer-config" className="mt-6 space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Avisos Legales</h3>
+                    <ProjectLegalNoticesSection projectId={projectId} />
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Mostrar en oferta</h3>
+                    <div className="text-muted-foreground text-sm">
+                      Esta sección estará disponible próximamente.
+                    </div>
+                  </div>
                 </TabsContent>
               </Tabs>
             </form>
