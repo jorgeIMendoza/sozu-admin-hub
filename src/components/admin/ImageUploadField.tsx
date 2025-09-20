@@ -19,15 +19,19 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🔧 handleFileUpload llamado');
     const file = event.target.files?.[0];
+    console.log('🔧 Archivo seleccionado:', file);
     if (!file) return;
 
     setUploading(true);
     try {
+      console.log('🔧 Iniciando upload del archivo:', file.name);
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `projects/images/${fileName}`;
 
+      console.log('🔧 Subiendo a:', filePath);
       const { error: uploadError } = await supabase.storage
         .from('documentos')
         .upload(filePath, file);
@@ -38,10 +42,11 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
         .from('documentos')
         .getPublicUrl(filePath);
 
+      console.log('🔧 URL pública generada:', data.publicUrl);
       onChange(data.publicUrl);
       toast({ title: "Imagen subida exitosamente" });
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('🔧 Error uploading file:', error);
       toast({ title: "Error al subir imagen", variant: "destructive" });
     } finally {
       setUploading(false);
@@ -53,6 +58,8 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
   };
 
   const handleUploadClick = () => {
+    console.log('🔧 handleUploadClick llamado');
+    console.log('🔧 fileInputRef.current:', fileInputRef.current);
     fileInputRef.current?.click();
   };
 

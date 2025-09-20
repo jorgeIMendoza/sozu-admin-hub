@@ -118,6 +118,7 @@ export function EditAmenityDialog({
 
   const generateIconMutation = useMutation({
     mutationFn: async (description: string) => {
+      console.log('🔧 Iniciando generación de icono con descripción:', description, 'y nombre:', amenityName);
       const { data, error } = await supabase.functions.invoke('generate-amenity-icon', {
         body: { 
           description: description,
@@ -125,19 +126,25 @@ export function EditAmenityDialog({
         }
       });
       
+      console.log('🔧 Respuesta de generate-amenity-icon:', { data, error });
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
+      console.log('🔧 Éxito en generar icono, data recibida:', data);
       if (data?.iconUrl) {
+        console.log('🔧 Estableciendo iconUrl:', data.iconUrl);
         setIconUrl(data.iconUrl);
         setShowAiGenerator(false);
         setIconDescription("");
         toast({ title: "Icono generado exitosamente" });
+      } else {
+        console.log('🔧 Error: No se encontró iconUrl en la respuesta:', data);
+        toast({ title: "Error: No se pudo obtener la URL del icono", variant: "destructive" });
       }
     },
     onError: (error) => {
-      console.error('Error generating icon:', error);
+      console.error('🔧 Error generating icon:', error);
       toast({ title: "Error al generar icono", variant: "destructive" });
     }
   });
