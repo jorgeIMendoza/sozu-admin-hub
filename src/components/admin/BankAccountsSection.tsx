@@ -288,7 +288,8 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                   id="numero_cuenta"
                   value={newAccount.numero_cuenta}
                   onChange={(e) => setNewAccount(prev => ({ ...prev, numero_cuenta: e.target.value }))}
-                  placeholder={newAccount.es_cuenta_fisica_para_stp ? "18 dígitos exactos para STP" : "Entre 8 y 34 caracteres"}
+                  placeholder={newAccount.es_cuenta_fisica_para_stp ? "18 dígitos exactos" : "Entre 8 y 34 caracteres"}
+                  maxLength={18}
                   required
                 />
                 {newAccount.es_cuenta_fisica_para_stp && (
