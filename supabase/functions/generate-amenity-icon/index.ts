@@ -108,7 +108,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        imageUrl: publicUrl,
+        iconUrl: publicUrl,
         message: 'Icono generado y subido exitosamente'
       }),
       {
