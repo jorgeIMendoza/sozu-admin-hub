@@ -292,11 +292,6 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                   maxLength={18}
                   required
                 />
-                {newAccount.es_cuenta_fisica_para_stp && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Cuenta STP: debe tener exactamente 18 dígitos
-                  </p>
-                )}
               </div>
 
               <div>
