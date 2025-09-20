@@ -377,6 +377,12 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     enabled: entityType === 'client' && getDefaultTipoEntidad(entityType) === 7 // Only for prospects
   });
 
+  // Check if this entity type should show STP checkbox (Dueño Vendedor only for now)
+  const shouldShowStpCheckbox = () => {
+    const defaultTipoEntidad = getDefaultTipoEntidad(entityType || '');
+    return defaultTipoEntidad === 4; // Only Vendedor (Dueño Vendedor)
+  };
+
   function getDefaultTipoEntidad(type: string) {
     switch (type) {
       case 'legal': return undefined; // Will be selected by user
@@ -1396,13 +1402,14 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     {initialData?.id ? (
                       <BankAccountsSection 
                         personId={initialData.id}
-                        showStpCheckbox={true}
+                        showStpCheckbox={shouldShowStpCheckbox()}
                       />
                     ) : (
                       <TempBankAccountsSection
                         bankAccounts={tempBankAccounts}
                         onBankAccountsChange={setTempBankAccounts}
-                        showStpCheckbox={true}
+                        showStpCheckbox={shouldShowStpCheckbox()}
+                        entityTypeId={getDefaultTipoEntidad(entityType || '')}
                       />
                     )}
                   </div>

@@ -531,6 +531,7 @@ export default function EntidadesLegales() {
                         <StandardizedBankAccountsButton
                           personId={entidad.id}
                           personName={entidad.nombre_comercial || entidad.nombre_legal}
+                          showStpCheckbox={entidad.id_tipo_entidad === 4 || entidad.id_tipo_entidad === 15}
                         />
                         <Button 
                           variant="outline" 
