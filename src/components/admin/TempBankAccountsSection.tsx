@@ -91,7 +91,7 @@ export function TempBankAccountsSection({ bankAccounts, onBankAccountsChange, sh
 
     // If trying to set STP account, check if another exists
     if (newAccount.es_cuenta_fisica_para_stp && existingStpAccount) {
-      toast({ title: "Solo puede haber una cuenta STP por proyecto", variant: "destructive" });
+      toast({ title: "Solo puede haber una cuenta STP por entidad", variant: "destructive" });
       return;
     }
 
@@ -222,7 +222,7 @@ export function TempBankAccountsSection({ bankAccounts, onBankAccountsChange, sh
                     Es cuenta física para STP
                     {existingStpAccount && (
                       <span className="text-xs text-muted-foreground block">
-                        (Solo puede haber una cuenta STP por proyecto)
+                        (Solo puede haber una cuenta STP por entidad)
                       </span>
                     )}
                   </Label>

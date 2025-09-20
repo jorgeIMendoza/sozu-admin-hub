@@ -97,48 +97,20 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
     enabled: showStpCheckbox
   });
 
-  // Check if there's already an STP account for this project (or globally if no project)
+  // Check if this person already has an STP account
   const { data: existingStpAccount } = useQuery({
-    queryKey: ['existing_stp_account', projectId, personId],
+    queryKey: ['existing_stp_account', personId],
     queryFn: async () => {
-      if (!projectId) {
-        // If no project, just check if this person already has an STP account
-        const { data, error } = await supabase
-          .from('cuentas_bancarias')
-          .select('id, id_persona')
-          .eq('id_persona', personId)
-          .eq('es_cuenta_fisica_para_stp', true)
-          .eq('activo', true)
-          .single();
-        
-        if (error) return null;
-        return data;
-      }
-      
       const { data, error } = await supabase
         .from('cuentas_bancarias')
         .select('id, id_persona')
+        .eq('id_persona', personId)
         .eq('es_cuenta_fisica_para_stp', true)
-        .eq('activo', true);
+        .eq('activo', true)
+        .single();
       
-      if (error) throw error;
-      
-      // Filter by project through entidades_relacionadas
-      if (data && data.length > 0) {
-        for (const account of data) {
-          const { data: entityCheck } = await supabase
-            .from('entidades_relacionadas')
-            .select('id')
-            .eq('id_persona', account.id_persona)
-            .eq('id_proyecto', projectId)
-            .eq('activo', true);
-          
-          if (entityCheck && entityCheck.length > 0) {
-            return account;
-          }
-        }
-      }
-      return null;
+      if (error) return null;
+      return data;
     },
     enabled: showStpCheckbox
   });
@@ -149,13 +121,9 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
 
   const addMutation = useMutation({
     mutationFn: async (accountData: typeof newAccount) => {
-      // If trying to set STP account, check if another exists
-      if (accountData.es_cuenta_fisica_para_stp && existingStpAccount && existingStpAccount.id_persona !== personId) {
-        if (projectId) {
-          throw new Error('Ya existe una cuenta STP para este proyecto');
-        } else {
-          throw new Error('Esta persona ya tiene una cuenta STP');
-        }
+      // If trying to set STP account, check if this person already has one
+      if (accountData.es_cuenta_fisica_para_stp && existingStpAccount) {
+        throw new Error('Esta entidad ya tiene una cuenta STP');
       }
 
       const { data, error } = await supabase
@@ -330,13 +298,13 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                     onCheckedChange={(checked) => 
                       setNewAccount(prev => ({ ...prev, es_cuenta_fisica_para_stp: checked as boolean }))
                     }
-                    disabled={existingStpAccount && existingStpAccount.id_persona !== personId}
+                    disabled={!!existingStpAccount}
                   />
                   <Label htmlFor="es_cuenta_fisica_para_stp">
                     Es cuenta física para STP
-                    {existingStpAccount && existingStpAccount.id_persona !== personId && (
+                    {existingStpAccount && (
                       <span className="text-xs text-muted-foreground block">
-                        {projectId ? '(Ya existe una cuenta STP para este proyecto)' : '(Esta persona ya tiene una cuenta STP)'}
+                        (Esta entidad ya tiene una cuenta STP)
                       </span>
                     )}
                   </Label>
