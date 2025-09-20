@@ -93,13 +93,13 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
       )}
       
       <div className="flex gap-2">
-        <Input
+        <input
           ref={fileInputRef}
           type="file"
           accept={accept}
           onChange={handleFileUpload}
           disabled={uploading}
-          className="flex-1"
+          className="hidden"
         />
         <Button
           type="button"
