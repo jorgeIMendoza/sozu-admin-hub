@@ -201,7 +201,7 @@ export default function EntidadesLegales() {
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
       // Extract entity type and representative from personData
-      const { entityType, representativeId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
       
       // First, create the person record
       const { data: personResult, error: personError } = await supabase
