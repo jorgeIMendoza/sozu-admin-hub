@@ -60,8 +60,12 @@ export function EditAmenityDialog({
     if (amenityDetails) {
       setAmenityName(amenityDetails.nombre);
       setIconUrl(amenityDetails.url || "");
+      // Auto-populate description with amenity name when opening AI generator
+      if (showAiGenerator && !iconDescription) {
+        setIconDescription(`Icono de ${amenityDetails.nombre.toLowerCase()}, estilo minimalista`);
+      }
     }
-  }, [amenityDetails]);
+  }, [amenityDetails, showAiGenerator]);
 
   const updateAmenityMutation = useMutation({
     mutationFn: async (amenityData: { name: string; iconUrl: string }) => {
@@ -255,31 +259,32 @@ export function EditAmenityDialog({
                 </Button>
               </div>
 
-              {showAiGenerator && (
-                <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
-                  <div>
-                    <Label htmlFor="icon-description">Descripción para generar icono</Label>
-                    <Textarea
-                      id="icon-description"
-                      value={iconDescription}
-                      onChange={(e) => setIconDescription(e.target.value)}
-                      placeholder="Describe cómo quieres que se vea el icono..."
-                      className="mt-1"
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <Button
-                    type="button"
-                    onClick={handleGenerateIcon}
-                    disabled={isGeneratingIcon || !iconDescription.trim()}
-                    className="w-full"
-                  >
-                    <Wand2 className="w-4 h-4 mr-2" />
-                    {isGeneratingIcon ? "Generando..." : "Generar Icono"}
-                  </Button>
-                </div>
-              )}
+               {showAiGenerator && (
+                 <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+                   <div>
+                     <Label htmlFor="icon-description">Descripción para generar icono</Label>
+                     <Textarea
+                       id="icon-description"
+                       value={iconDescription}
+                       onChange={(e) => setIconDescription(e.target.value)}
+                       placeholder={`Ej: Icono de ${amenityName.toLowerCase()}, estilo minimalista...`}
+                       className="mt-1"
+                       rows={2}
+                       autoFocus
+                     />
+                   </div>
+                   
+                   <Button
+                     type="button"
+                     onClick={handleGenerateIcon}
+                     disabled={isGeneratingIcon || !iconDescription.trim()}
+                     className="w-full"
+                   >
+                     <Wand2 className="w-4 h-4 mr-2" />
+                     {isGeneratingIcon ? "Generando..." : "Generar Icono"}
+                   </Button>
+                 </div>
+               )}
 
               <ImageUploadField
                 label="O sube tu propio icono"
