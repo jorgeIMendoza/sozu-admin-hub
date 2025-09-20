@@ -138,6 +138,13 @@ export function EditAmenityDialog({
         setShowAiGenerator(false);
         setIconDescription("");
         toast({ title: "Icono generado exitosamente" });
+        
+        // Guardar automáticamente en la BD
+        console.log('🔧 Guardando automáticamente en BD...');
+        updateAmenityMutation.mutate({
+          name: amenityName.trim(),
+          iconUrl: data.iconUrl
+        });
       } else {
         console.log('🔧 Error: No se encontró iconUrl en la respuesta:', data);
         toast({ title: "Error: No se pudo obtener la URL del icono", variant: "destructive" });
@@ -169,10 +176,11 @@ export function EditAmenityDialog({
 
   const handleGenerateIcon = () => {
     if (!iconDescription.trim()) {
-      toast({ title: "Primero ingresa el nombre de la amenidad", variant: "destructive" });
+      toast({ title: "Por favor ingresa una descripción para el icono", variant: "destructive" });
       return;
     }
 
+    console.log('🔧 Iniciando generación de icono...');
     setIsGeneratingIcon(true);
     generateIconMutation.mutate(iconDescription.trim());
   };

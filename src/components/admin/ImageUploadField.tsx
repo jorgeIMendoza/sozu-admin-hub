@@ -108,15 +108,20 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
           disabled={uploading}
           className="hidden"
         />
-        <Button
-          type="button"
-          variant="outline"
-          disabled={uploading}
-          onClick={handleUploadClick}
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          {uploading ? "Subiendo..." : "Subir"}
-        </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={uploading}
+                  onClick={(e) => {
+                    console.log('🔧 Click en botón Subir detectado');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleUploadClick();
+                  }}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {uploading ? "Subiendo..." : "Subir"}
+                </Button>
       </div>
       
       {uploading && (
