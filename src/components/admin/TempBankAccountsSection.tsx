@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
@@ -31,6 +31,7 @@ interface TempBankAccountsSectionProps {
 export function TempBankAccountsSection({ bankAccounts, onBankAccountsChange, showStpCheckbox = false, entityTypeId }: TempBankAccountsSectionProps) {
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<TempBankAccount | null>(null);
   const [newAccount, setNewAccount] = useState({
     id_banco: "",
     numero_cuenta: "",
@@ -117,6 +118,56 @@ export function TempBankAccountsSection({ bankAccounts, onBankAccountsChange, sh
     toast({ title: "Cuenta bancaria agregada temporalmente" });
   };
 
+  const handleUpdate = (updatedAccount: TempBankAccount) => {
+    if (!updatedAccount.id_banco || !updatedAccount.numero_cuenta) {
+      toast({ title: "Por favor completa los campos requeridos", variant: "destructive" });
+      return;
+    }
+
+    // Validate account number length based on STP checkbox
+    const accountLength = updatedAccount.numero_cuenta.length;
+    if (updatedAccount.es_cuenta_fisica_para_stp) {
+      if (accountLength !== 18) {
+        toast({ 
+          title: "Error de validación", 
+          description: "Las cuentas STP deben tener exactamente 18 dígitos",
+          variant: "destructive" 
+        });
+        return;
+      }
+    } else {
+      if (accountLength < 8 || accountLength > 34) {
+        toast({ 
+          title: "Error de validación", 
+          description: "El número de cuenta debe tener entre 8 y 34 caracteres",
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
+    // If trying to set STP account, check if another exists (excluding current account)
+    const otherStpAccount = bankAccounts.find(account => 
+      account.es_cuenta_fisica_para_stp && account.tempId !== updatedAccount.tempId
+    );
+    if (updatedAccount.es_cuenta_fisica_para_stp && otherStpAccount) {
+      toast({ title: "Solo puede haber una cuenta STP por entidad", variant: "destructive" });
+      return;
+    }
+
+    const updatedAccounts = bankAccounts.map(acc => 
+      acc.tempId === updatedAccount.tempId ? updatedAccount : acc
+    );
+    
+    onBankAccountsChange(updatedAccounts);
+    setEditingAccount(null);
+    toast({ title: "Cuenta bancaria actualizada" });
+  };
+
+  const handleEdit = (account: TempBankAccount) => {
+    setEditingAccount(account);
+  };
+
   const handleRemove = (tempId: string) => {
     onBankAccountsChange(bankAccounts.filter(acc => acc.tempId !== tempId));
     toast({ title: "Cuenta bancaria eliminada" });
@@ -133,13 +184,118 @@ export function TempBankAccountsSection({ bankAccounts, onBankAccountsChange, sh
         <h3 className="text-lg font-semibold">Cuentas Bancarias</h3>
         <Button
           onClick={() => setIsAdding(true)}
-          disabled={isAdding}
+          disabled={isAdding || !!editingAccount}
           type="button"
         >
           <Plus className="w-4 h-4 mr-2" />
           Agregar Cuenta
         </Button>
       </div>
+
+      {editingAccount && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Editar Cuenta Bancaria</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit_id_banco">Banco *</Label>
+                <Select 
+                  value={editingAccount.id_banco} 
+                  onValueChange={(value) => setEditingAccount(prev => ({ ...prev!, id_banco: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un banco" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {banks.map((bank) => (
+                      <SelectItem key={bank.id} value={bank.id.toString()}>
+                        {bank.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit_numero_cuenta">Número de Cuenta *</Label>
+                <Input
+                  id="edit_numero_cuenta"
+                  value={editingAccount.numero_cuenta}
+                  onChange={(e) => setEditingAccount(prev => ({ ...prev!, numero_cuenta: e.target.value }))}
+                  placeholder={editingAccount.es_cuenta_fisica_para_stp ? "18 dígitos exactos" : "Entre 8 y 34 caracteres"}
+                  maxLength={18}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit_cuenta_clabe">CLABE</Label>
+                <Input
+                  id="edit_cuenta_clabe"
+                  value={editingAccount.cuenta_clabe}
+                  onChange={(e) => setEditingAccount(prev => ({ ...prev!, cuenta_clabe: e.target.value }))}
+                  placeholder="18 dígitos (opcional)"
+                  maxLength={18}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit_cuenta_swift">Código SWIFT</Label>
+                <Input
+                  id="edit_cuenta_swift"
+                  value={editingAccount.cuenta_swift}
+                  onChange={(e) => setEditingAccount(prev => ({ ...prev!, cuenta_swift: e.target.value }))}
+                  placeholder="8 u 11 caracteres (opcional)"
+                />
+              </div>
+
+              <ImageUploadField
+                label="Evidencia"
+                value={editingAccount.url_evidencia}
+                onChange={(url) => setEditingAccount(prev => ({ ...prev!, url_evidencia: url }))}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+              />
+
+              {shouldShowStpCheckbox && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_es_cuenta_fisica_para_stp"
+                    checked={editingAccount.es_cuenta_fisica_para_stp}
+                    onCheckedChange={(checked) => 
+                      setEditingAccount(prev => ({ ...prev!, es_cuenta_fisica_para_stp: checked as boolean }))
+                    }
+                    disabled={bankAccounts.some(acc => acc.es_cuenta_fisica_para_stp && acc.tempId !== editingAccount.tempId)}
+                  />
+                  <Label htmlFor="edit_es_cuenta_fisica_para_stp">
+                    Es cuenta física para STP
+                    {bankAccounts.some(acc => acc.es_cuenta_fisica_para_stp && acc.tempId !== editingAccount.tempId) && (
+                      <span className="text-xs text-muted-foreground block">
+                        (Solo puede haber una cuenta STP por entidad)
+                      </span>
+                    )}
+                  </Label>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button type="button" onClick={() => handleUpdate(editingAccount)}>
+                  Actualizar
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setEditingAccount(null)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isAdding && (
         <Card>
@@ -277,20 +433,34 @@ export function TempBankAccountsSection({ bankAccounts, onBankAccountsChange, sh
                     <p className="text-sm text-green-600 font-medium">✓ Cuenta física para STP</p>
                   )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleRemove(account.tempId)}
-                  type="button"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleEdit(account)}
+                    disabled={!!editingAccount || isAdding}
+                    type="button"
+                    title="Editar cuenta"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleRemove(account.tempId)}
+                    disabled={!!editingAccount || isAdding}
+                    type="button"
+                    title="Eliminar cuenta"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
 
-        {bankAccounts.length === 0 && !isAdding && (
+        {bankAccounts.length === 0 && !isAdding && !editingAccount && (
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground">No hay cuentas bancarias registradas</p>
