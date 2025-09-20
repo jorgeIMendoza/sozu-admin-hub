@@ -403,7 +403,7 @@ export function TempBankAccountsSection({ bankAccounts, onBankAccountsChange, sh
       )}
 
       <div className="grid gap-4">
-        {bankAccounts.map((account) => (
+        {!isAdding && !editingAccount && bankAccounts.map((account) => (
           <Card key={account.tempId}>
             <CardContent className="p-4">
               <div className="flex justify-between items-start">

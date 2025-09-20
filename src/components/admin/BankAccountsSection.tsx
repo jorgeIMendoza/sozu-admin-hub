@@ -512,7 +512,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
       )}
 
       <div className="grid gap-4">
-        {bankAccounts.map((account) => (
+        {!isAdding && !editingAccount && bankAccounts.map((account) => (
           <Card key={account.id}>
             <CardContent className="p-4">
               <div className="flex justify-between items-start">
