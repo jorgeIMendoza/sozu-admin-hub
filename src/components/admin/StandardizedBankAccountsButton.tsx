@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BankAccountsSection } from "./BankAccountsSection";
 import { useState } from "react";
+import { CreditCard } from "lucide-react";
 
 interface StandardizedBankAccountsButtonProps {
   personId: number;
@@ -27,7 +28,7 @@ export function StandardizedBankAccountsButton({
         className="hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-colors"
         title="Gestionar cuentas bancarias"
       >
-        💳
+        <CreditCard className="w-4 h-4" />
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
