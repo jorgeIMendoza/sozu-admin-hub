@@ -216,6 +216,29 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
       toast({ title: "Por favor completa los campos requeridos", variant: "destructive" });
       return;
     }
+
+    // Validate account number length based on STP checkbox
+    const accountLength = newAccount.numero_cuenta.length;
+    if (newAccount.es_cuenta_fisica_para_stp) {
+      if (accountLength !== 18) {
+        toast({ 
+          title: "Error de validación", 
+          description: "Las cuentas STP deben tener exactamente 18 dígitos",
+          variant: "destructive" 
+        });
+        return;
+      }
+    } else {
+      if (accountLength < 8 || accountLength > 34) {
+        toast({ 
+          title: "Error de validación", 
+          description: "El número de cuenta debe tener entre 8 y 34 caracteres",
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
     addMutation.mutate(newAccount);
   };
 
