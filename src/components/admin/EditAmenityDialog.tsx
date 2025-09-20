@@ -187,10 +187,15 @@ export function EditAmenityDialog({
       setOpen(newOpen);
       if (!newOpen) resetForm();
     }}>
-      <div onClick={(e) => {
-        e.stopPropagation();
-        setOpen(true);
-      }}>
+      <div 
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{ display: 'contents' }}
+      >
         {trigger || defaultTrigger}
       </div>
       

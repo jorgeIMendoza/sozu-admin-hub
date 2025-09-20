@@ -724,7 +724,16 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                                         <FormLabel className="text-sm font-normal">
                                           {amenidad.nombre}
                                         </FormLabel>
-                                        <div onClick={(e) => e.stopPropagation()}>
+                                        <div 
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                          }}
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                          }}
+                                        >
                                           <EditAmenityDialog 
                                             amenityId={amenidad.id}
                                             amenityName={amenidad.nombre}
