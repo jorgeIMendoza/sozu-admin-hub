@@ -76,6 +76,7 @@ const Propiedades = () => {
   const [banosFilter, setBanosFilter] = useState("");
   const [disponibilidadFilter, setDisponibilidadFilter] = useState("");
   const [bodegasFilter, setBodegasFilter] = useState("");
+  const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   
   // Paginación
   const [currentPageActive, setCurrentPageActive] = useState(1);
@@ -417,7 +418,11 @@ const Propiedades = () => {
       (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
       (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
     
-    return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas;
+    const matchesEstacionamientos = estacionamientosFilter === "" || 
+      (estacionamientosFilter === "con_estacionamientos" && property.estacionamientos_count > 0) ||
+      (estacionamientosFilter === "sin_estacionamientos" && property.estacionamientos_count === 0);
+    
+    return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos;
   }) || [];
 
   // Separar propiedades por pestaña
@@ -733,7 +738,7 @@ const Propiedades = () => {
             {propertiesToRender.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={tabType === "draft" ? 19 : 18} className="text-center py-6">
-                  {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter || bodegasFilter 
+                  {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter || bodegasFilter || estacionamientosFilter 
                     ? "No se encontraron resultados." 
                     : tabType === "eliminados"
                       ? "No hay propiedades eliminadas." 
@@ -1005,7 +1010,7 @@ const Propiedades = () => {
             </div>
             
             {/* Filtros específicos */}
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-muted/50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-7 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
                 <label className="text-sm font-medium mb-2 block">Proyecto</label>
                 <Input
@@ -1065,6 +1070,18 @@ const Propiedades = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Estacionamientos</label>
+                <Select value={estacionamientosFilter} onValueChange={setEstacionamientosFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por estacionamientos..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="con_estacionamientos">Con Estacionamientos</SelectItem>
+                    <SelectItem value="sin_estacionamientos">Sin Estacionamientos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             {/* Botón para limpiar filtros */}
@@ -1079,6 +1096,7 @@ const Propiedades = () => {
                   setBanosFilter("");
                   setDisponibilidadFilter("");
                   setBodegasFilter("");
+                  setEstacionamientosFilter("");
                   setSelectedProperties([]);
                 }}
               >
