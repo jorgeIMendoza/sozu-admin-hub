@@ -679,24 +679,9 @@ const Propiedades = () => {
             </PaginationItem>
           </PaginationContent>
         </Pagination>
-      
-      {/* Modals para detalles */}
-      <EstacionamientosDetailDialog
-        open={estacionamientosDialogOpen}
-        onClose={() => setEstacionamientosDialogOpen(false)}
-        estacionamientos={selectedPropertyEstacionamientos}
-        propertyNumber={selectedPropertyForDetail?.numero_propiedad || ""}
-      />
-      
-      <BodegasDetailDialog
-        open={bodegasDialogOpen}
-        onClose={() => setBodegasDialogOpen(false)}
-        bodegas={selectedPropertyBodegas}
-        propertyNumber={selectedPropertyForDetail?.numero_propiedad || ""}
-      />
-    </div>
-  );
-};
+      </div>
+    );
+  };
 
   const renderPropertiesTable = (propertiesToRender: Property[], tabType: string) => (
     <>
@@ -1280,6 +1265,21 @@ const Propiedades = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modals para detalles - movidos desde renderPagination para que siempre estén disponibles */}
+      <EstacionamientosDetailDialog
+        open={estacionamientosDialogOpen}
+        onClose={() => setEstacionamientosDialogOpen(false)}
+        estacionamientos={selectedPropertyEstacionamientos}
+        propertyNumber={selectedPropertyForDetail?.numero_propiedad || ""}
+      />
+      
+      <BodegasDetailDialog
+        open={bodegasDialogOpen}
+        onClose={() => setBodegasDialogOpen(false)}
+        bodegas={selectedPropertyBodegas}
+        propertyNumber={selectedPropertyForDetail?.numero_propiedad || ""}
+      />
       </div>
     </TooltipProvider>
   );
