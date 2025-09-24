@@ -503,10 +503,14 @@ const Propiedades = () => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              siguiente_accion: "genera_acuerdo_para_cuenta_cobranza",
-              id_oferta: offerId,
-              id_propiedad: selectedPropertyId,
-              id: currentOffer.cuenta_cobranza_id
+              json: {
+                body: {
+                  siguiente_accion: "genera_acuerdo_para_cuenta_cobranza",
+                  id_oferta: offerId,
+                  id_propiedad: selectedPropertyId,
+                  id: currentOffer.cuenta_cobranza_id
+                }
+              }
             }),
           });
 
