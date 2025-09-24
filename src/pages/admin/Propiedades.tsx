@@ -1344,28 +1344,36 @@ const Propiedades = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(() => {
-                    // Check if there's an active account
-                    const hasActiveAccount = selectedPropertyOffers.some((offer: any) => 
-                      offer.cuenta_clabe_stp && offer.cuenta_es_aprobado
-                    );
-                    
-                    return selectedPropertyOffers.map((offer: any, index: number) => {
-                      const hasAccount = !!offer.cuenta_clabe_stp;
-                      const isAccountActive = hasAccount && offer.cuenta_es_aprobado;
-                      const isAccountCancelled = hasAccount && !offer.cuenta_es_aprobado;
-                      
-                      return (
-                        <TableRow 
-                          key={offer.id}
-                          className={
-                            isAccountActive 
-                              ? "border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20" 
-                              : isAccountCancelled 
-                              ? "border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20" 
-                              : ""
-                          }
-                        >
+                   {(() => {
+                     // Check if there's any active account with payment scheme selected
+                     const hasActiveAccountWithScheme = selectedPropertyOffers.some((offer: any) => 
+                       offer.cuenta_clabe_stp && offer.cuenta_es_aprobado && offer.esquema_id
+                     );
+                     
+                     return selectedPropertyOffers.map((offer: any, index: number) => {
+                       const hasAccount = !!offer.cuenta_clabe_stp;
+                       const isAccountActive = hasAccount && offer.cuenta_es_aprobado;
+                       const isAccountCancelled = hasAccount && !offer.cuenta_es_aprobado;
+                       const hasPaymentScheme = !!offer.esquema_id;
+                       
+                       // Determine row color based on status
+                       let rowClassName = "";
+                       if (isAccountActive && hasPaymentScheme) {
+                         // Green: Active account WITH payment scheme selected
+                         rowClassName = "border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20";
+                       } else if (isAccountActive && !hasPaymentScheme) {
+                         // Blue: Active account WITHOUT payment scheme selected
+                         rowClassName = "border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20";
+                       } else if (isAccountCancelled) {
+                         // Orange: Cancelled account
+                         rowClassName = "border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20";
+                       }
+                       
+                       return (
+                         <TableRow 
+                           key={offer.id}
+                           className={rowClassName}
+                         >
                           <TableCell className="font-medium">
                             {String(offer.id).padStart(6, '0')}
                           </TableCell>
@@ -1379,23 +1387,34 @@ const Propiedades = () => {
                             {new Date(offer.fecha_generacion).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
-                            {offer.esquema_es_manual ? (
-                              <span className="text-sm">{offer.esquema_nombre}</span>
-                            ) : (
-                               <Select 
-                                 value={offer.esquema_id ? offer.esquema_id.toString() : ""}
-                                 disabled={hasActiveAccount || hasAccount}
-                                 onValueChange={(value) => handleSchemeSelection(offer.id, parseInt(value))}
-                               >
-                                 <SelectTrigger className="w-48">
-                                  <SelectValue placeholder={
-                                    hasAccount 
-                                      ? "Cuenta de cobranza existente" 
-                                      : hasActiveAccount
-                                      ? "Esquema deshabilitado - Cuenta activa"
-                                      : "Seleccionar esquema de pago"
-                                  } />
-                                </SelectTrigger>
+                             {offer.esquema_es_manual ? (
+                               <span className="text-sm">{offer.esquema_nombre}</span>
+                             ) : (
+                                <Select 
+                                  value={offer.esquema_id ? offer.esquema_id.toString() : ""}
+                                  disabled={
+                                    // Disable if this offer has active account WITH scheme
+                                    (isAccountActive && hasPaymentScheme) ||
+                                    // Disable if this offer has cancelled account
+                                    isAccountCancelled ||
+                                    // Disable if there's another offer with active account WITH scheme
+                                    (hasActiveAccountWithScheme && !(isAccountActive && !hasPaymentScheme))
+                                  }
+                                  onValueChange={(value) => handleSchemeSelection(offer.id, parseInt(value))}
+                                >
+                                  <SelectTrigger className="w-48">
+                                   <SelectValue placeholder={
+                                     isAccountActive && hasPaymentScheme
+                                       ? "Esquema ya seleccionado"
+                                       : isAccountActive && !hasPaymentScheme
+                                       ? "Seleccionar esquema de pago"
+                                       : isAccountCancelled
+                                       ? "Cuenta cancelada"
+                                       : hasActiveAccountWithScheme
+                                       ? "Esquema deshabilitado - Cuenta activa"
+                                       : "Seleccionar esquema de pago"
+                                   } />
+                                 </SelectTrigger>
                                 <SelectContent className="bg-background border z-50">
                                   {availableSchemes.map((scheme) => (
                                     <SelectItem key={scheme.id} value={scheme.id.toString()}>
