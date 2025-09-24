@@ -1248,23 +1248,9 @@ const Propiedades = () => {
                       <TableCell>
                         {offer.esquema_es_manual ? (
                           <span className="text-sm">{offer.esquema_nombre}</span>
-                        ) : offer.esquema_id ? (
-                          <Select 
-                            value={offer.esquema_id.toString()} 
-                            disabled={!!offer.cuenta_clabe_stp}
-                          >
-                            <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Seleccionar esquema" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={offer.esquema_id.toString()}>
-                                {offer.esquema_nombre || 'Sin esquema'}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
                         ) : (
                            <Select 
-                             value=""
+                             value={offer.esquema_id ? offer.esquema_id.toString() : ""}
                              disabled={!!offer.cuenta_clabe_stp}
                              onValueChange={(value) => handleSchemeSelection(offer.id, parseInt(value))}
                            >
