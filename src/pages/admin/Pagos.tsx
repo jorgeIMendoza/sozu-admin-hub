@@ -25,56 +25,101 @@ export default function Pagos() {
   const { data: cuentasCobranza, isLoading } = useQuery({
     queryKey: ["cuentas_cobranza"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get basic cuenta cobranza data
+      const { data: cuentas, error: cuentasError } = await supabase
         .from('cuentas_cobranza')
         .select(`
           id,
           clabe_stp,
           precio_final,
-          ofertas!fk_cuentas_cobranza_oferta(
-            propiedades!ofertas_id_propiedad_fkey(
-              numero_propiedad,
-              entidades_relacionadas!id_entidad_relacionada_dueno(
-                personas!fk_entrel_persona(nombre_legal),
-                proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
-              ),
-              edificios_modelos!id_edificio_modelo(
-                edificios!fk_edificios_modelos_edificio(nombre),
-                modelos!edificios_modelos_id_modelo_fkey(nombre)
-              )
-            )
-          ),
-          compradores!id_cuenta_cobranza(
-            personas!compradores_id_persona_fkey(nombre_legal)
-          )
+          id_oferta
         `)
         .eq('activo', true);
-      
-      if (error) {
-        console.error('Error fetching cuentas cobranza:', error);
+
+      if (cuentasError) {
+        console.error('Error fetching cuentas:', cuentasError);
         return [];
       }
-      
-      // Transform the data to match our interface
-      const transformedData: CuentaCobranza[] = (data || []).map(cuenta => {
-        const oferta = cuenta.ofertas as any;
+
+      if (!cuentas || cuentas.length === 0) return [];
+
+      // Get offer IDs to fetch related data
+      const ofertaIds = cuentas.map(c => c.id_oferta);
+
+      // Get ofertas with properties
+      const { data: ofertas, error: ofertasError } = await supabase
+        .from('ofertas')
+        .select(`
+          id,
+          id_propiedad,
+          propiedades!ofertas_id_propiedad_fkey(
+            id,
+            numero_propiedad,
+            id_entidad_relacionada_dueno,
+            id_edificio_modelo
+          )
+        `)
+        .in('id', ofertaIds);
+
+      if (ofertasError) {
+        console.error('Error fetching ofertas:', ofertasError);
+        return [];
+      }
+
+      // Get compradores
+      const cuentaIds = cuentas.map(c => c.id);
+      const { data: compradores } = await supabase
+        .from('compradores')
+        .select(`
+          id_cuenta_cobranza,
+          personas!compradores_id_persona_fkey(nombre_legal)
+        `)
+        .in('id_cuenta_cobranza', cuentaIds);
+
+      // Get entidades relacionadas, proyectos, edificios, modelos
+      const entidadIds = ofertas?.map(o => o.propiedades?.id_entidad_relacionada_dueno).filter(Boolean) || [];
+      const edificioModeloIds = ofertas?.map(o => o.propiedades?.id_edificio_modelo).filter(Boolean) || [];
+
+      const [entidadesResult, edificiosModelosResult] = await Promise.all([
+        supabase
+          .from('entidades_relacionadas')
+          .select(`
+            id,
+            personas!fk_entrel_persona(nombre_legal),
+            proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
+          `)
+          .in('id', entidadIds),
+        supabase
+          .from('edificios_modelos')
+          .select(`
+            id,
+            edificios!edificios_modelos_id_edificio_fkey(nombre),
+            modelos!edificios_modelos_id_modelo_fkey(nombre)
+          `)
+          .in('id', edificioModeloIds)
+      ]);
+
+      // Transform the data
+      const transformedData: CuentaCobranza[] = cuentas.map(cuenta => {
+        const oferta = ofertas?.find(o => o.id === cuenta.id_oferta);
         const propiedad = oferta?.propiedades;
-        const entidadRelacionada = propiedad?.entidades_relacionadas;
-        const edificioModelo = propiedad?.edificios_modelos;
-        
+        const entidad = entidadesResult.data?.find(e => e.id === propiedad?.id_entidad_relacionada_dueno);
+        const edificioModelo = edificiosModelosResult.data?.find(em => em.id === propiedad?.id_edificio_modelo);
+        const cuentaCompradores = compradores?.filter(c => c.id_cuenta_cobranza === cuenta.id) || [];
+
         return {
           id: cuenta.id,
           clabe_stp: cuenta.clabe_stp,
           precio_final: cuenta.precio_final || 0,
-          compradores: (cuenta.compradores as any)?.map((c: any) => c.personas?.nombre_legal).filter(Boolean) || [],
-          dueno: entidadRelacionada?.personas?.nombre_legal || 'Sin dueño',
-          proyecto: entidadRelacionada?.proyectos?.nombre || 'Sin proyecto',
+          compradores: cuentaCompradores.map(c => c.personas?.nombre_legal).filter(Boolean),
+          dueno: entidad?.personas?.nombre_legal || 'Sin dueño',
+          proyecto: entidad?.proyectos?.nombre || 'Sin proyecto',
           edificio: edificioModelo?.edificios?.nombre || 'Sin edificio',
           numero_propiedad: propiedad?.numero_propiedad || 'Sin número',
           modelo: edificioModelo?.modelos?.nombre || 'Sin modelo'
         };
       });
-      
+
       return transformedData.sort((a, b) => b.id - a.id);
     },
   });
