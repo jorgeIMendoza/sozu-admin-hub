@@ -280,7 +280,7 @@ export default function DetalleCuentaCobranza() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link to="/admin/pagos">
+          <Link to="/admin/cuentas-cobranza">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
