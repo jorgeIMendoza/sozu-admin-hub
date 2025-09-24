@@ -484,6 +484,9 @@ const Propiedades = () => {
 
   const handleGenerateCollectionAccount = async (offerId: number, propertyId: number) => {
     try {
+      // Find the specific offer to get id_persona_lead
+      const currentOffer = selectedPropertyOffers?.find(offer => offer.id === offerId);
+      
       const response = await fetch('https://automatizacion-n8n.fbqqbe.easypanel.host/webhook-test/aplicaPago', {
         method: 'POST',
         headers: {
@@ -493,6 +496,7 @@ const Propiedades = () => {
           siguiente_accion: 'genera_cuenta_cobranza_por_oferta',
           id_oferta: offerId,
           id_propiedad: propertyId,
+          id_persona_lead: currentOffer?.id_persona_lead,
           monto_apartado_pagando: selectedPropertyForOffers?.monto_apartado_pagando || 0,
           clabe_stp_tmp_apartado: selectedPropertyForOffers?.clabe_stp_tmp_apartado || ''
         }),
