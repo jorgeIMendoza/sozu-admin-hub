@@ -1438,10 +1438,9 @@ const Propiedades = () => {
                                          size="sm"
                                          onClick={() => handleGenerateCollectionAccount(offer.id, selectedPropertyForOffers.id)}
                                          disabled={!offer.esquema_id}
-                                         className="text-xs gap-1 min-w-[120px]"
+                                         className="h-8 w-8 p-0"
                                        >
-                                         <CreditCard className="h-3 w-3" />
-                                         Generar Cuenta
+                                         <CreditCard className="h-4 w-4" />
                                        </Button>
                                      </TooltipTrigger>
                                      <TooltipContent>
