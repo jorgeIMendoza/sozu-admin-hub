@@ -32,7 +32,7 @@ export default function Pagos() {
           clabe_stp,
           precio_final,
           ofertas!fk_cuentas_cobranza_oferta(
-            propiedades!id_propiedad(
+            propiedades!ofertas_id_propiedad_fkey(
               numero_propiedad,
               entidades_relacionadas!id_entidad_relacionada_dueno(
                 personas!id_persona(nombre_legal),
