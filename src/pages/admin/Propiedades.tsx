@@ -1249,7 +1249,10 @@ const Propiedades = () => {
                         {offer.esquema_es_manual ? (
                           <span className="text-sm">{offer.esquema_nombre}</span>
                         ) : offer.esquema_id ? (
-                          <Select value={offer.esquema_id.toString()} disabled>
+                          <Select 
+                            value={offer.esquema_id.toString()} 
+                            disabled={offer.cuenta_es_aprobado || false}
+                          >
                             <SelectTrigger className="w-48">
                               <SelectValue placeholder="Seleccionar esquema" />
                             </SelectTrigger>
@@ -1261,13 +1264,18 @@ const Propiedades = () => {
                           </Select>
                         ) : (
                            <Select 
-                             defaultValue=""
+                             value=""
+                             disabled={offer.cuenta_es_aprobado || false}
                              onValueChange={(value) => handleSchemeSelection(offer.id, parseInt(value))}
                            >
                              <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Seleccionar esquema de pago" />
+                              <SelectValue placeholder={
+                                offer.cuenta_es_aprobado 
+                                  ? "Cuenta ya aprobada" 
+                                  : "Seleccionar esquema de pago"
+                              } />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-background border z-50">
                               {availableSchemes.map((scheme) => (
                                 <SelectItem key={scheme.id} value={scheme.id.toString()}>
                                   {scheme.nombre}
