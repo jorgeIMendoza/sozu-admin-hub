@@ -31,7 +31,7 @@ export default function Pagos() {
           id,
           clabe_stp,
           precio_final,
-          ofertas!id_oferta(
+          ofertas!fk_cuentas_cobranza_oferta(
             propiedades!id_propiedad(
               numero_propiedad,
               entidades_relacionadas!id_entidad_relacionada_dueno(
