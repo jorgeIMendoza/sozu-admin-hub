@@ -412,7 +412,7 @@ export default function DetalleCuentaCobranza() {
                         <div className="w-full p-4 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold">Acuerdo #{acuerdo.orden} - {acuerdo.concepto}</h4>
+                              <h4 className="font-semibold">Pago #{acuerdo.orden} - {acuerdo.concepto}</h4>
                               <Badge variant={acuerdo.pago_completado ? "default" : "secondary"}>
                                 {acuerdo.pago_completado ? "Completado" : "Pendiente"}
                               </Badge>
