@@ -12,6 +12,7 @@ import Vistas from "./pages/admin/Vistas";
 import Estacionamientos from "./pages/admin/Estacionamientos";
 import Bodegas from "./pages/admin/Bodegas";
 import Pagos from "./pages/admin/Pagos";
+import DetalleCuentaCobranza from "./pages/admin/DetalleCuentaCobranza";
 import Usuarios from "./pages/admin/Usuarios";
 import NuevoUsuario from "./pages/admin/NuevoUsuario";
 import EntidadesLegales from "./pages/admin/EntidadesLegales";
@@ -74,6 +75,7 @@ const App = () => (
             <Route path="estacionamientos" element={<Estacionamientos />} />
             <Route path="bodegas" element={<Bodegas />} />
             <Route path="cuentas-cobranza" element={<Pagos />} />
+            <Route path="cuentas-cobranza/:id/detalle" element={<DetalleCuentaCobranza />} />
             <Route path="pagos" element={<ComingSoon title="Pagos" />} />
             <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
             <Route path="documentos" element={<ComingSoon title="Documentos" />} />

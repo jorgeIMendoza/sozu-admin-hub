@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, CreditCard } from "lucide-react";
+import { Search, CreditCard, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 interface CuentaCobranza {
   id: number;
@@ -220,6 +222,7 @@ export default function Pagos() {
                   <TableHead>No. Propiedad</TableHead>
                   <TableHead>Modelo</TableHead>
                   <TableHead>Precio Final</TableHead>
+                  <TableHead>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -253,6 +256,14 @@ export default function Pagos() {
                     <TableCell>{cuenta.modelo}</TableCell>
                     <TableCell className="font-semibold">
                       {formatCurrency(Number(cuenta.precio_final))}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/admin/cuentas-cobranza/${cuenta.id}/detalle`}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver Detalle
+                        </Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
