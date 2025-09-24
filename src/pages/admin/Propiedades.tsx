@@ -914,7 +914,7 @@ const Propiedades = () => {
                           onClick={() => navigate(`/admin/cuentas-cobranza/${property.cuenta_cobranza_id}/detalle`)}
                           className="h-6 px-2 text-xs font-semibold cursor-pointer hover:bg-accent"
                         >
-                          CC-{property.cuenta_cobranza_id}
+                          CC-{String(property.cuenta_cobranza_id).padStart(6, '0')}
                         </Button>
                       ) : (
                         <Badge variant="outline">N/A</Badge>
