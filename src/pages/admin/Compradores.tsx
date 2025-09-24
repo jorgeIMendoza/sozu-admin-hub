@@ -302,7 +302,9 @@ export default function Compradores() {
   const filteredCompradores = compradores.filter(comprador => 
     comprador.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     comprador.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comprador.telefono?.toLowerCase().includes(searchTerm.toLowerCase())
+    comprador.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    comprador.rfc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    comprador.curp?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleEdit = (comprador: Comprador) => {

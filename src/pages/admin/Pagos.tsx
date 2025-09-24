@@ -232,8 +232,8 @@ export default function Pagos() {
     navigate(`/admin/propiedades?search=${encodeURIComponent(clabe)}`);
   };
 
-  const handleCompradorClick = (nombreComprador: string) => {
-    navigate(`/admin/compradores?search=${encodeURIComponent(nombreComprador)}`);
+  const handleCompradorClick = (rfc: string) => {
+    navigate(`/admin/compradores?search=${encodeURIComponent(rfc)}`);
   };
 
   const handleVendedorClick = (nombreVendedor: string) => {
@@ -337,11 +337,11 @@ export default function Pagos() {
                                <CompradoresDetailDialog compradores={cuenta.compradores} />
                              ) : (
                                <div className="space-y-1">
-                                 <Badge 
-                                   variant="secondary" 
-                                   className="block w-fit cursor-pointer hover:bg-secondary/80" 
-                                   onClick={() => handleCompradorClick(cuenta.compradores[0].nombre_legal)}
-                                 >
+                                  <Badge 
+                                    variant="secondary" 
+                                    className="block w-fit cursor-pointer hover:bg-secondary/80" 
+                                    onClick={() => handleCompradorClick(cuenta.compradores[0].rfc || cuenta.compradores[0].nombre_legal)}
+                                  >
                                    {cuenta.compradores[0].nombre_legal}
                                  </Badge>
                                  <div className="text-xs text-muted-foreground">
@@ -486,11 +486,11 @@ export default function Pagos() {
                                <CompradoresDetailDialog compradores={cuenta.compradores} />
                              ) : (
                                <div className="space-y-1">
-                                 <Badge 
-                                   variant="secondary" 
-                                   className="block w-fit cursor-pointer hover:bg-secondary/80"
-                                   onClick={() => handleCompradorClick(cuenta.compradores[0].nombre_legal)}
-                                 >
+                                  <Badge 
+                                    variant="secondary" 
+                                    className="block w-fit cursor-pointer hover:bg-secondary/80"
+                                    onClick={() => handleCompradorClick(cuenta.compradores[0].rfc || cuenta.compradores[0].nombre_legal)}
+                                  >
                                    {cuenta.compradores[0].nombre_legal}
                                  </Badge>
                                   <div className="text-xs text-muted-foreground">
