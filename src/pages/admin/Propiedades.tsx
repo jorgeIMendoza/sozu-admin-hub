@@ -394,7 +394,8 @@ const Propiedades = () => {
         fetchAvailableSchemes(property.proyecto_id)
       ]);
       setSelectedPropertyOffers(offers);
-      setSelectedPropertyId(property.id); // Guardar el ID de la propiedad
+      setSelectedPropertyId(property.id);
+      setSelectedPropertyForOffers(property); // Guardar la propiedad completa
       setAvailableSchemes(schemes);
       setOffersDialogOpen(true);
     } catch (error) {
