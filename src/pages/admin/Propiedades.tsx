@@ -294,7 +294,28 @@ const Propiedades = () => {
       throw error;
     }
 
-    return offersData || [];
+    // For each offer that has a cuenta_clabe_stp, get the cuenta_cobranza ID
+    const enrichedOffers = await Promise.all((offersData || []).map(async (offer: any) => {
+      if (offer.cuenta_clabe_stp) {
+        try {
+          const { data: cuentaData, error: cuentaError } = await supabase
+            .from('cuentas_cobranza')
+            .select('id')
+            .eq('clabe_stp', offer.cuenta_clabe_stp)
+            .eq('activo', true)
+            .single();
+          
+          if (!cuentaError && cuentaData) {
+            return { ...offer, cuenta_cobranza_id: cuentaData.id };
+          }
+        } catch (err) {
+          console.warn('Error fetching cuenta_cobranza ID for offer:', offer.id);
+        }
+      }
+      return offer;
+    }));
+
+    return enrichedOffers;
   };
 
   // Función para obtener esquemas de pago disponibles para un proyecto
@@ -1357,9 +1378,9 @@ const Propiedades = () => {
                                         ? "text-green-700 bg-green-100 hover:bg-green-200 dark:text-green-300 dark:bg-green-900/50" 
                                         : "text-orange-700 bg-orange-100 hover:bg-orange-200 dark:text-orange-300 dark:bg-orange-900/50"
                                     }`}
-                                    onClick={() => navigate(`/admin/cuentas-cobranza/${offer.cuenta_precio_final ? 'id' : 'buscar'}${offer.cuenta_precio_final ? `/${offer.cuenta_precio_final}` : ''}/detalle`)}
+                                    onClick={() => navigate(`/admin/cuentas-cobranza/${offer.cuenta_cobranza_id}/detalle`)}
                                   >
-                                    CC-{String(offer.cuenta_precio_final || offer.id).padStart(6, '0')}
+                                    CC-{String(offer.cuenta_cobranza_id).padStart(6, '0')}
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
