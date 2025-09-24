@@ -401,9 +401,19 @@ export default function DetalleCuentaCobranza() {
         <CardContent>
           {acuerdosPago && acuerdosPago.length > 0 ? (
             <div className="space-y-4">
-              {acuerdosPago.map((acuerdo) => {
+              {acuerdosPago.map((acuerdo, index) => {
                 const totalAplicado = acuerdo.aplicaciones.reduce((sum, app) => sum + app.monto, 0);
                 const isOpen = openAcuerdos[acuerdo.id];
+                
+                // Count how many "Parcialidad" concepts come before this one
+                const parcialidadNumber = acuerdosPago
+                  .slice(0, index + 1)
+                  .filter(a => a.concepto.toLowerCase().includes('parcialidad')).length;
+                
+                // Format the concept name with parcialidad numbering
+                const conceptoDisplay = acuerdo.concepto.toLowerCase().includes('parcialidad') 
+                  ? `Parcialidad #${parcialidadNumber}`
+                  : acuerdo.concepto;
                 
                 return (
                   <Collapsible key={acuerdo.id} open={isOpen} onOpenChange={() => toggleAcuerdo(acuerdo.id)}>
@@ -412,7 +422,7 @@ export default function DetalleCuentaCobranza() {
                         <div className="w-full p-4 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold">{acuerdo.concepto}</h4>
+                              <h4 className="font-semibold">{conceptoDisplay}</h4>
                               <Badge variant={acuerdo.pago_completado ? "default" : "secondary"}>
                                 {acuerdo.pago_completado ? "Completado" : "Pendiente"}
                               </Badge>
