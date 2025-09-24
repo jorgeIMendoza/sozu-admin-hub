@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
@@ -88,6 +89,7 @@ const Propiedades = () => {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Función para obtener la clase CSS del badge según la disponibilidad
   const getDisponibilidadBadgeClass = (disponibilidad: string) => {
@@ -883,13 +885,20 @@ const Propiedades = () => {
                     <TableCell>
                       <span className={getDisponibilidadBadgeClass(property.disponibilidad)}>{property.disponibilidad}</span>
                     </TableCell>
-                   <TableCell>
-                     {property.cuenta_cobranza_id ? (
-                       <Badge variant="outline">CC-{property.cuenta_cobranza_id}</Badge>
-                     ) : (
-                       <Badge variant="outline">N/A</Badge>
-                     )}
-                   </TableCell>
+                    <TableCell>
+                      {property.cuenta_cobranza_id ? (
+                        <Button
+                          variant="outline"  
+                          size="sm"
+                          onClick={() => navigate(`/admin/cuentas-cobranza/${property.cuenta_cobranza_id}/detalle`)}
+                          className="h-6 px-2 text-xs font-semibold cursor-pointer hover:bg-accent"
+                        >
+                          CC-{property.cuenta_cobranza_id}
+                        </Button>
+                      ) : (
+                        <Badge variant="outline">N/A</Badge>
+                      )}
+                    </TableCell>
                   <TableCell className="font-mono text-sm">{property.clabe_stp || 'Sin CLABE'}</TableCell>
                   <TableCell>
                     {tabType === "eliminados" ? (
