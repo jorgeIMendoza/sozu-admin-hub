@@ -507,7 +507,6 @@ export default function DetalleCuentaCobranza() {
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead>Parcialidad</TableHead>
                                   <TableHead>Fecha Pago</TableHead>
                                   <TableHead>Método</TableHead>
                                   <TableHead>Clave Rastreo</TableHead>
@@ -522,7 +521,6 @@ export default function DetalleCuentaCobranza() {
                                   
                                   return (
                                     <TableRow key={aplicacion.id}>
-                                      <TableCell className="font-medium">Parcialidad #{index + 1}</TableCell>
                                       <TableCell>{formatDate(aplicacion.pago.fecha_pago)}</TableCell>
                                       <TableCell>{aplicacion.pago.metodo_pago}</TableCell>
                                       <TableCell>
