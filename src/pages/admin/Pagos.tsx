@@ -294,7 +294,7 @@ export default function Pagos() {
                   <TableBody>
                     {filteredCuentas.map((cuenta) => (
                       <TableRow key={cuenta.id}>
-                        <TableCell className="font-semibold">{cuenta.id}</TableCell>
+                        <TableCell className="font-semibold">CC-{String(cuenta.id).padStart(6, '0')}</TableCell>
                         <TableCell>
                           {cuenta.compradores.length > 0 ? (
                             <div className="space-y-1">
@@ -404,7 +404,7 @@ export default function Pagos() {
                   <TableBody>
                     {filteredCuentas.map((cuenta) => (
                       <TableRow key={cuenta.id}>
-                        <TableCell className="font-semibold">{cuenta.id}</TableCell>
+                        <TableCell className="font-semibold">CC-{String(cuenta.id).padStart(6, '0')}</TableCell>
                         <TableCell>
                           {cuenta.compradores.length > 0 ? (
                             <div className="space-y-1">

@@ -346,7 +346,7 @@ export default function DetalleCuentaCobranza() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Detalle Cuenta de Cobranza #{cuentaDetalle.id}</h1>
+          <h1 className="text-3xl font-bold">Detalle Cuenta de Cobranza CC-{String(cuentaDetalle.id).padStart(6, '0')}</h1>
           <p className="text-muted-foreground">
             Información detallada de pagos y acuerdos
           </p>
