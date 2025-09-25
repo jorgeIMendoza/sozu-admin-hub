@@ -455,8 +455,9 @@ export default function DetalleCuentaCobranza() {
           };
         });
         
-        // Use database value for payment completion status
-        const totalAplicado = acuerdoAplicaciones.reduce((sum, app) => sum + app.monto, 0);
+        // Calculate normal payments (exclude penalty payments)
+        const pagosNormales = acuerdoAplicaciones.filter(a => !a.es_multa);
+        const totalAplicado = pagosNormales.reduce((sum, app) => sum + app.monto, 0);
         
         return {
           id: acuerdo.id,
@@ -465,7 +466,7 @@ export default function DetalleCuentaCobranza() {
           fecha_pago: acuerdo.fecha_pago,
           pago_completado: acuerdo.pago_completado,
           concepto: concepto?.nombre || 'Sin concepto',
-          aplicaciones: acuerdoAplicaciones.map(a => {
+          aplicaciones: pagosNormales.map(a => {
             const pago = pagos.find(p => p.id === a.id_pago);
             const metodoPago = metodosPago.find(m => m.id === pago?.id_metodos_pago);
             
