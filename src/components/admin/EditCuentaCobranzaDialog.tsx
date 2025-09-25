@@ -883,7 +883,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
   const handleNotarioChange = (value: string) => {
     setSelectedNotario(value);
-    const notarioId = value ? parseInt(value) : null;
+    const notarioId = parseInt(value);
     updateNotarioMutation.mutate(notarioId);
   };
 
@@ -971,7 +971,6 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             <SelectValue placeholder="Seleccionar notario" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Sin notario</SelectItem>
                             {notarios?.map((notario) => (
                               <SelectItem key={notario.id} value={notario.id.toString()}>
                                 {notario.nombre} - {notario.notaria}
