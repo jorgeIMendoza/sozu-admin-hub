@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { NewMultaDialog } from "@/components/admin/NewMultaDialog";
-import { EditMultaDialog } from "@/components/admin/EditMultaDialog";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,14 +97,10 @@ export default function DetalleCuentaCobranza() {
   });
   const [multaDialog, setMultaDialog] = useState<{ 
     isOpen: boolean; 
-    type: 'new' | 'edit'; 
     acuerdoId: number | null; 
-    multa: Multa | null 
   }>({
     isOpen: false,
-    type: 'new',
-    acuerdoId: null,
-    multa: null
+    acuerdoId: null
   });
   const [deleteMultaDialog, setDeleteMultaDialog] = useState<{ 
     isOpen: boolean; 
@@ -537,18 +533,7 @@ export default function DetalleCuentaCobranza() {
   const handleNewMulta = (acuerdoId: number) => {
     setMultaDialog({
       isOpen: true,
-      type: 'new',
-      acuerdoId,
-      multa: null
-    });
-  };
-
-  const handleEditMulta = (multa: Multa) => {
-    setMultaDialog({
-      isOpen: true,
-      type: 'edit',
-      acuerdoId: null,
-      multa
+      acuerdoId
     });
   };
 
@@ -564,7 +549,7 @@ export default function DetalleCuentaCobranza() {
     mutationFn: async (multaId: number) => {
       const { error } = await supabase
         .from('multas')
-        .update({ activo: false })
+        .delete()
         .eq('id', multaId);
       
       if (error) throw error;
@@ -941,39 +926,25 @@ export default function DetalleCuentaCobranza() {
                                         {multa.descripcion}
                                       </p>
                                     </div>
-                                    <div className="flex gap-2 ml-4">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              variant="outline"
-                                              size="icon"
-                                              onClick={() => handleEditMulta(multa)}
-                                            >
-                                              <Edit className="h-4 w-4" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Editar Multa</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              variant="destructive"
-                                              size="icon"
-                                              onClick={() => handleDeleteMulta(multa)}
-                                              disabled={deleteMultaMutation.isPending}
-                                            >
-                                              <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Eliminar Multa</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </div>
+                                     <div className="flex gap-2 ml-4">
+                                       <TooltipProvider>
+                                         <Tooltip>
+                                           <TooltipTrigger asChild>
+                                             <Button
+                                               variant="destructive"
+                                               size="icon"
+                                               onClick={() => setDeleteMultaDialog({ isOpen: true, multa })}
+                                               disabled={deleteMultaMutation.isPending}
+                                             >
+                                               <Trash2 className="h-4 w-4" />
+                                             </Button>
+                                           </TooltipTrigger>
+                                           <TooltipContent>
+                                             <p>Eliminar Multa</p>
+                                           </TooltipContent>
+                                         </Tooltip>
+                                       </TooltipProvider>
+                                     </div>
                                   </div>
                                 ))}
                               </div>
@@ -1025,16 +996,9 @@ export default function DetalleCuentaCobranza() {
       />
 
       <NewMultaDialog
-        open={multaDialog.isOpen && multaDialog.type === 'new'}
-        onOpenChange={(open) => setMultaDialog(prev => ({ ...prev, isOpen: open }))}
+        open={multaDialog.isOpen}
+        onOpenChange={(open) => setMultaDialog({ isOpen: open, acuerdoId: open ? multaDialog.acuerdoId : null })}
         acuerdoId={multaDialog.acuerdoId || 0}
-        cuentaId={cuentaId}
-      />
-
-      <EditMultaDialog
-        open={multaDialog.isOpen && multaDialog.type === 'edit'}
-        onOpenChange={(open) => setMultaDialog(prev => ({ ...prev, isOpen: open }))}
-        multa={multaDialog.multa}
         cuentaId={cuentaId}
       />
     </div>
