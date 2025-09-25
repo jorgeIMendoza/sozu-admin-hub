@@ -349,11 +349,12 @@ export default function DetalleCuentaCobranza() {
           orden,
           monto,
           fecha_pago,
+          pago_completado,
           id_concepto
         `)
         .eq('id_cuenta_cobranza', cuentaId)
         .eq('activo', true)
-        .order('orden');
+        .order('orden') as { data: any[] | null, error: any };
 
       if (acuerdosError) throw acuerdosError;
 
@@ -422,16 +423,15 @@ export default function DetalleCuentaCobranza() {
         const acuerdoAplicaciones = aplicaciones?.filter(a => a.id_acuerdo_pago === acuerdo.id) || [];
         const acuerdoMultas = multas?.filter(m => m.id_acuerdo_pago === acuerdo.id) || [];
         
-        // Calculate if payment is completed
+        // Use database value for payment completion status
         const totalAplicado = acuerdoAplicaciones.reduce((sum, app) => sum + app.monto, 0);
-        const pagoCompletado = totalAplicado >= acuerdo.monto;
         
         return {
           id: acuerdo.id,
           orden: acuerdo.orden,
           monto: acuerdo.monto,
           fecha_pago: acuerdo.fecha_pago,
-          pago_completado: pagoCompletado,
+          pago_completado: acuerdo.pago_completado,
           concepto: concepto?.nombre || 'Sin concepto',
           aplicaciones: acuerdoAplicaciones.map(a => {
             const pago = pagos.find(p => p.id === a.id_pago);
@@ -912,14 +912,16 @@ export default function DetalleCuentaCobranza() {
                                 <AlertTriangle className="h-4 w-4 text-warning" />
                                 Multas
                               </h5>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleNewMulta(acuerdo.id)}
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Agregar Multa
-                              </Button>
+                              {!acuerdo.pago_completado && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleNewMulta(acuerdo.id)}
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Agregar Multa
+                                </Button>
+                              )}
                             </div>
 
                             {acuerdo.multas && acuerdo.multas.length > 0 ? (
