@@ -715,6 +715,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     if (fecha) {
       updateAcuerdoMutation.mutate({ id: acuerdoId, fecha_pago: fecha });
       
+      // Close the editing state immediately
+      setEditingAcuerdo(null);
+      setEditingDate(undefined);
+      
       // After updating the date, reorder by fecha_pago
       setTimeout(() => {
         const updatedAcuerdos = [...acuerdos].sort((a, b) => {
@@ -726,6 +730,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         setAcuerdos(updatedAcuerdos);
         updateOrderMutation.mutate(updatedAcuerdos);
       }, 500);
+      
+      toast.success("Fecha actualizada correctamente");
     }
   };
 
