@@ -1118,16 +1118,18 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                         />
                       </div>
 
-                      <div>
-                        <Label htmlFor="rfc">RFC</Label>
-                        <Input
-                          id="rfc"
-                          type="text"
-                          value={rfc}
-                          onChange={(e) => setRfc(e.target.value)}
-                          placeholder="Ingresa el RFC"
-                        />
-                      </div>
+                      {!(restrictToBasicTab && entityType === 'comprador') && (
+                        <div>
+                          <Label htmlFor="rfc">RFC</Label>
+                          <Input
+                            id="rfc"
+                            type="text"
+                            value={rfc}
+                            onChange={(e) => setRfc(e.target.value)}
+                            placeholder="Ingresa el RFC"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <Label htmlFor="sexo">Sexo</Label>
