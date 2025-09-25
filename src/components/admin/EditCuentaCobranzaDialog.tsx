@@ -998,9 +998,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           <TabsContent value="acuerdo" className="space-y-4">
             <Card>
               <CardContent className="pt-6">
-                {/* UMA Value Section */}
+                {/* Purchase and UMA Information Section */}
                 <div className="mb-6 p-4 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-between">
+                  {/* UMA Value - Top Row */}
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-border/50">
                     <div>
                       <h4 className="font-medium text-foreground">Valor de la UMA</h4>
                       <p className="text-sm text-muted-foreground">Unidad de Medida y Actualización vigente</p>
@@ -1020,11 +1021,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       </p>
                     </div>
                   </div>
-                </div>
 
-                {/* Purchase Details Section */}
-                <div className="mb-6 p-4 bg-muted/30 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Purchase Details - Bottom Row */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <h4 className="font-medium text-foreground mb-1">Fecha de Compra</h4>
                       <p className="text-sm text-muted-foreground">
@@ -1047,8 +1046,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           {(() => {
                             const difference = ((cuentaDetalle.precio_final - propiedadDetalle.precio_lista) / propiedadDetalle.precio_lista) * 100;
                             return difference > 0 ? 
-                              `+${difference.toFixed(2)}% interés` : 
-                              `${difference.toFixed(2)}% descuento`;
+                              `${difference.toFixed(2)}% interés` : 
+                              difference < 0 ?
+                              `${Math.abs(difference).toFixed(2)}% descuento` :
+                              '0.00% descuento';
                           })()}
                         </p>
                       )}
