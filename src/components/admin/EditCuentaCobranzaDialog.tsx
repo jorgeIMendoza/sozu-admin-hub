@@ -343,6 +343,33 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     }
   });
 
+  // Mutation to delete buyer
+  const deleteBuyerMutation = useMutation({
+    mutationFn: async (personaId: number) => {
+      const { error } = await supabase
+        .from('compradores')
+        .delete()
+        .eq('id_cuenta_cobranza', cuenta.id)
+        .eq('id_persona', personaId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Comprador eliminado exitosamente");
+      refetchCompradores();
+    },
+    onError: (error) => {
+      console.error("Error deleting buyer:", error);
+      toast.error("Error al eliminar comprador: " + (error as Error).message);
+    }
+  });
+
+  const handleDeleteBuyer = (personaId: number, nombreComprador: string) => {
+    if (confirm(`¿Estás seguro de que deseas eliminar a "${nombreComprador}" de la lista de compradores?`)) {
+      deleteBuyerMutation.mutate(personaId);
+    }
+  };
+
   const handlePercentageChange = (buyerId: number, newValue: string) => {
     const newPercentage = parseFloat(newValue) || 0;
     if (newPercentage >= 0 && newPercentage <= 100) {
@@ -796,15 +823,17 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                  disabled={updateBuyerPercentageMutation.isPending}
                                />
                              </TableCell>
-                            <TableCell className="text-right">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </TableCell>
+                             <TableCell className="text-right">
+                               <Button 
+                                 variant="outline" 
+                                 size="sm"
+                                 onClick={() => handleDeleteBuyer(comprador.personas?.id || 0, comprador.personas?.nombre_legal || '')}
+                                 disabled={deleteBuyerMutation.isPending}
+                                 className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                               >
+                                 <Trash2 className="w-4 h-4" />
+                               </Button>
+                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
