@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, CreditCard, Eye, X, Edit, Plus, Download } from "lucide-react";
+import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -45,6 +45,7 @@ export default function Pagos() {
     isOpen: false,
     cuenta: null
   });
+  const [loadingDownload, setLoadingDownload] = useState<number | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -247,6 +248,8 @@ export default function Pagos() {
 
   const handleDownloadOffer = async (cuenta: CuentaCobranza) => {
     try {
+      setLoadingDownload(cuenta.id);
+      
       // Get the offer and property data for this account
       const { data: offerData } = await supabase
         .from('cuentas_cobranza')
@@ -291,6 +294,8 @@ export default function Pagos() {
         description: "No se pudo descargar la oferta",
         variant: "destructive",
       });
+    } finally {
+      setLoadingDownload(null);
     }
   };
 
@@ -487,8 +492,13 @@ export default function Pagos() {
                                       variant="outline" 
                                       size="icon"
                                       onClick={() => handleDownloadOffer(cuenta)}
+                                      disabled={loadingDownload === cuenta.id}
                                     >
-                                      <Download className="h-4 w-4" />
+                                      {loadingDownload === cuenta.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Download className="h-4 w-4" />
+                                      )}
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
@@ -630,20 +640,25 @@ export default function Pagos() {
                                    <p>Ver Detalle</p>
                                  </TooltipContent>
                                </Tooltip>
-                               <Tooltip>
-                                 <TooltipTrigger asChild>
-                                   <Button 
-                                     variant="outline" 
-                                     size="icon"
-                                     onClick={() => handleDownloadOffer(cuenta)}
-                                   >
-                                     <Download className="h-4 w-4" />
-                                   </Button>
-                                 </TooltipTrigger>
-                                 <TooltipContent>
-                                   <p>Descargar Oferta</p>
-                                 </TooltipContent>
-                               </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="outline" 
+                                      size="icon"
+                                      onClick={() => handleDownloadOffer(cuenta)}
+                                      disabled={loadingDownload === cuenta.id}
+                                    >
+                                      {loadingDownload === cuenta.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Download className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Descargar Oferta</p>
+                                  </TooltipContent>
+                                </Tooltip>
                              </div>
                            </TooltipProvider>
                          </TableCell>
