@@ -774,7 +774,6 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Orden</TableHead>
                           <TableHead>Concepto</TableHead>
                           <TableHead>Monto</TableHead>
                           <TableHead>Porcentaje</TableHead>
@@ -789,12 +788,6 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                         >
                           {acuerdos.map((acuerdo, index) => (
                             <SortableItem key={acuerdo.id} id={acuerdo.id.toString()}>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  {acuerdo.orden}
-                                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                                </div>
-                              </TableCell>
                               <TableCell>{acuerdo.concepto_nombre}</TableCell>
                               <TableCell>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto)}</TableCell>
                               <TableCell>{cuentaDetalle?.precio_final ? ((acuerdo.monto / cuentaDetalle.precio_final) * 100).toFixed(2) : 0}%</TableCell>
