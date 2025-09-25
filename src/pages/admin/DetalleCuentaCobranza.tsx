@@ -496,6 +496,24 @@ export default function DetalleCuentaCobranza() {
         };
       });
 
+      // Update database for penalties that are now fully paid
+      const multasParaActualizar: { id: number; es_pagada: boolean }[] = [];
+      acuerdosConAplicaciones.forEach(acuerdo => {
+        acuerdo.multas.forEach(multa => {
+          if (multa.estaPagada) {
+            multasParaActualizar.push({
+              id: multa.id,
+              es_pagada: true
+            });
+          }
+        });
+      });
+
+      // Call mutation to update payment status if there are penalties to update
+      if (multasParaActualizar.length > 0) {
+        updateMultaPagadaMutation.mutate(multasParaActualizar);
+      }
+
       return acuerdosConAplicaciones;
     },
     enabled: !!cuentaId,
@@ -621,6 +639,32 @@ export default function DetalleCuentaCobranza() {
       multa
     });
   };
+
+  // Mutation to update multa payment status
+  const updateMultaPagadaMutation = useMutation({
+    mutationFn: async (multasToUpdate: { id: number; es_pagada: boolean }[]) => {
+      if (multasToUpdate.length === 0) return;
+      
+      // Update each multa individually
+      const updates = multasToUpdate.map(multa => 
+        supabase
+          .from('multas')
+          .update({ es_pagada: multa.es_pagada } as any)
+          .eq('id', multa.id)
+      );
+      
+      const results = await Promise.all(updates);
+      
+      // Check for errors
+      const errors = results.filter(result => result.error);
+      if (errors.length > 0) {
+        throw errors[0].error;
+      }
+    },
+    onError: (error) => {
+      console.error('Error al actualizar estado de multas:', error);
+    }
+  });
 
   // Mutation to delete multa
   const deleteMultaMutation = useMutation({
