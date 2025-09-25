@@ -969,9 +969,9 @@ export default function DetalleCuentaCobranza() {
                               {acuerdo.pago_completado ? "Pagado" : "Pendiente"}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-2">
+                           <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground">
-                              {formatCurrency(totalAplicado)} / {formatCurrency(acuerdo.monto)}
+                              Pago #{acuerdo.orden} - Pagado: {formatCurrency(totalAplicado)} / {formatCurrency(acuerdo.monto)}
                             </span>
                             {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </div>
