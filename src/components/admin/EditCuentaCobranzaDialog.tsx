@@ -1274,73 +1274,47 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 disabled={acuerdo.pago_completado || acuerdo.monto_pagado > 0}
                               >
                                 <TableCell>{acuerdo.concepto_nombre}</TableCell>
-                                 <TableCell>
-                                   {!acuerdo.pago_completado && editingAcuerdo === acuerdo.id ? (
-                                     <Popover open={editingAcuerdo === acuerdo.id} onOpenChange={(open) => {
-                                       if (!open) {
-                                         setEditingAcuerdo(null);
-                                         setEditingDate(undefined);
-                                       }
-                                     }}>
-                                       <PopoverTrigger asChild>
-                                         <Button variant="outline" className="h-8 text-xs">
-                                           <CalendarIcon className="mr-2 h-3 w-3" />
-                                           {editingDate ? format(editingDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
-                                         </Button>
-                                       </PopoverTrigger>
-                                       <PopoverContent className="w-auto p-0" align="start">
-                                         <Calendar
-                                           mode="single"
-                                           selected={editingDate}
-                                           onSelect={(date) => {
-                                             console.log('Calendar date selected:', date);
-                                             setEditingDate(date);
-                                             if (date) {
-                                               handleDateUpdate(acuerdo.id, date);
-                                             }
-                                           }}
-                                           disabled={(date) => date < new Date('1900-01-01')}
-                                           initialFocus
-                                           className="p-3 pointer-events-auto"
-                                         />
-                                         <div className="p-3 border-t flex gap-2">
-                                           <Button
-                                             size="sm"
-                                             variant="outline"
-                                             onClick={() => {
-                                               setEditingAcuerdo(null);
-                                               setEditingDate(undefined);
-                                             }}
-                                           >
-                                             Cancelar
-                                           </Button>
-                                         </div>
-                                       </PopoverContent>
-                                     </Popover>
-                                   ) : (
-                                     <div className="flex items-center gap-2">
-                                       <span>
-                                         {acuerdo.fecha_pago ? format(new Date(acuerdo.fecha_pago), 'dd/MM/yyyy', { locale: es }) : 'Sin fecha'}
-                                       </span>
-                                       {!acuerdo.pago_completado && (
-                                         <Button
-                                           variant="ghost"
-                                           size="sm"
-                                           className="h-6 w-6 p-0"
-                                           onClick={() => {
-                                             console.log('Edit button clicked for acuerdo:', acuerdo.id);
-                                             console.log('Current editingAcuerdo:', editingAcuerdo);
-                                             setEditingAcuerdo(acuerdo.id);
-                                             setEditingDate(acuerdo.fecha_pago ? new Date(acuerdo.fecha_pago) : undefined);
-                                             console.log('Set editingAcuerdo to:', acuerdo.id);
-                                           }}
-                                         >
-                                           <Edit className="h-3 w-3" />
-                                         </Button>
-                                       )}
-                                     </div>
-                                   )}
-                                 </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <span>
+                                        {acuerdo.fecha_pago ? format(new Date(acuerdo.fecha_pago), 'dd/MM/yyyy', { locale: es }) : 'Sin fecha'}
+                                      </span>
+                                      {!acuerdo.pago_completado && (
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 w-6 p-0"
+                                              onClick={() => {
+                                                console.log('Date edit button clicked for acuerdo:', acuerdo.id);
+                                                setEditingAcuerdo(acuerdo.id);
+                                                setEditingDate(acuerdo.fecha_pago ? new Date(acuerdo.fecha_pago) : undefined);
+                                              }}
+                                            >
+                                              <Edit className="h-3 w-3" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                              mode="single"
+                                              selected={editingDate}
+                                              onSelect={(date) => {
+                                                console.log('Calendar date selected:', date);
+                                                setEditingDate(date);
+                                                if (date) {
+                                                  handleDateUpdate(acuerdo.id, date);
+                                                }
+                                              }}
+                                              disabled={(date) => date < new Date('1900-01-01')}
+                                              initialFocus
+                                              className="p-3 pointer-events-auto"
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      )}
+                                    </div>
+                                  </TableCell>
                                 <TableCell>
                                   {!acuerdo.pago_completado && editingAmount === acuerdo.id ? (
                                     <div className="flex items-center gap-2">
