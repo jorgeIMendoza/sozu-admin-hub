@@ -933,27 +933,35 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           const nextAcuerdo = acuerdos[i];
           if (nextAcuerdo.concepto_nombre?.toLowerCase().includes('parcialidad')) {
             const monthsToAdd = i - currentAcuerdoIndex;
-            const nextDate = new Date(fecha);
             
             // Get the target day from the original date
             const targetDay = fecha.getDate();
+            const originalMonth = fecha.getMonth();
+            const originalYear = fecha.getFullYear();
             
-            // Add the months
-            nextDate.setMonth(nextDate.getMonth() + monthsToAdd);
+            // Calculate the new month and year
+            let newMonth = originalMonth + monthsToAdd;
+            let newYear = originalYear;
             
-            // Handle cases where the target day doesn't exist in the new month
-            // (e.g., January 31 -> February 31 doesn't exist)
-            let finalDay = targetDay;
-            const daysInMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
-            
-            if (targetDay > daysInMonth) {
-              // If the target day doesn't exist, use the last day of the month
-              finalDay = daysInMonth;
+            // Handle year rollover
+            while (newMonth > 11) {
+              newMonth -= 12;
+              newYear++;
             }
             
-            nextDate.setDate(finalDay);
+            // Get the maximum days in the target month
+            const daysInTargetMonth = new Date(newYear, newMonth + 1, 0).getDate();
             
-            console.log(`Updating subsequent Parcialidad ${nextAcuerdo.id} with date:`, nextDate);
+            // Determine the final day (handle cases like Feb 30 -> Feb 28/29)
+            let finalDay = targetDay;
+            if (targetDay > daysInTargetMonth) {
+              finalDay = daysInTargetMonth;
+            }
+            
+            // Create the new date correctly
+            const nextDate = new Date(newYear, newMonth, finalDay);
+            
+            console.log(`Updating subsequent Parcialidad ${nextAcuerdo.id} with date:`, nextDate, `(target day: ${targetDay}, final day: ${finalDay}, days in month: ${daysInTargetMonth})`);
             updateAcuerdoMutation.mutate({ id: nextAcuerdo.id, fecha_pago: nextDate });
           }
         }
