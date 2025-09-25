@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,6 +118,7 @@ interface EditCuentaCobranzaDialogProps {
 }
 
 export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuentaCobranzaDialogProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('propiedad');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
@@ -126,6 +128,15 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [editingAcuerdo, setEditingAcuerdo] = useState<number | null>(null);
   const [editingDate, setEditingDate] = useState<Date | undefined>(undefined);
   const [showPersonForm, setShowPersonForm] = useState(false);
+
+  const handleNavigateToCompradores = (rfc?: string) => {
+    if (rfc) {
+      // Navigate to compradores page with RFC filter
+      navigate(`/admin/compradores?rfc=${encodeURIComponent(rfc)}`);
+    } else {
+      navigate('/admin/compradores');
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -403,7 +414,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       refetchCompradores();
       onUpdate();
       setSelectedPersona(null);
-      // Don't close modal - keep it open for adding more buyers
+      // Reset the PersonForm but keep the modal open
+      setShowPersonForm(false);
+      setTimeout(() => setShowPersonForm(true), 100);
     },
     onError: (error) => {
       console.error("Error adding buyer:", error);
@@ -706,14 +719,24 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {compradoresExistentes.map((comprador, index) => (
-                          <TableRow key={index} className="hover:bg-muted/30 transition-colors">
-                            <TableCell className="font-medium">
-                              {comprador.personas?.nombre_legal}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {comprador.personas?.rfc || 'N/A'}
-                            </TableCell>
+                         {compradoresExistentes.map((comprador, index) => (
+                           <TableRow key={index} className="hover:bg-muted/30 transition-colors">
+                             <TableCell className="font-medium">
+                               <button
+                                 onClick={() => handleNavigateToCompradores(comprador.personas?.rfc)}
+                                 className="text-primary hover:underline cursor-pointer text-left"
+                               >
+                                 {comprador.personas?.nombre_legal}
+                               </button>
+                             </TableCell>
+                             <TableCell className="text-muted-foreground">
+                               <button
+                                 onClick={() => handleNavigateToCompradores(comprador.personas?.rfc)}
+                                 className="text-primary hover:underline cursor-pointer"
+                               >
+                                 {comprador.personas?.rfc || 'N/A'}
+                               </button>
+                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {comprador.personas?.email || 'N/A'}
                             </TableCell>
@@ -989,13 +1012,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     return;
                   }
                   
-                  // Don't close the modal or set selected person - just add the buyer
-                  // This allows the user to continue adding more buyers
-                  setTimeout(() => {
-                    if (persona.id && typeof persona.id === 'number') {
-                      addCompradorMutation.mutate({ personaId: persona.id });
-                    }
-                  }, 100);
+                   // Don't close the modal - just add the buyer and stay open
+                   // This allows the user to continue adding more buyers
+                   addCompradorMutation.mutate({ personaId: persona.id });
                 }}
                 initialData={{ tipo_persona: 'pf' }}
                 entityType="comprador"
