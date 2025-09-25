@@ -232,6 +232,25 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     enabled: !!propiedadDetalle?.id_entidad_relacionada_dueno
   });
 
+  // Get legal representative details for persona moral
+  const { data: representanteLegal } = useQuery({
+    queryKey: ["representante_legal", vendedorDetalle?.id_entidad_relacionada_rep_leg],
+    queryFn: async () => {
+      if (!vendedorDetalle?.id_entidad_relacionada_rep_leg) return null;
+      
+      const { data } = await supabase
+        .from('entidades_relacionadas')
+        .select(`
+          personas!entidades_relacionadas_id_persona_fkey(*)
+        `)
+        .eq('id', vendedorDetalle.id_entidad_relacionada_rep_leg)
+        .single();
+
+      return data?.personas;
+    },
+    enabled: !!vendedorDetalle?.id_entidad_relacionada_rep_leg && vendedorDetalle?.tipo_persona === 'pm'
+  });
+
   // Get estacionamientos details
   const { data: estacionamientosDetalle } = useQuery({
     queryKey: ["estacionamientos_detalle", propiedadDetalle?.id],
@@ -967,7 +986,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 <CardTitle>Información del Vendedor</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {vendedorDetalle ? (
+                 {vendedorDetalle ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Nombre Legal</Label>
@@ -989,6 +1008,24 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       <Label>Tipo de Persona</Label>
                       <Input value={getPersonTypeLabel(vendedorDetalle.tipo_persona || '')} readOnly />
                     </div>
+                    
+                    {/* Campos adicionales para Persona Moral */}
+                    {vendedorDetalle.tipo_persona === 'pm' && (
+                      <>
+                        {vendedorDetalle.nombre_comercial && (
+                          <div>
+                            <Label>Nombre Comercial</Label>
+                            <Input value={vendedorDetalle.nombre_comercial} readOnly />
+                          </div>
+                        )}
+                        {representanteLegal && (
+                          <div>
+                            <Label>Representante Legal</Label>
+                            <Input value={representanteLegal.nombre_legal || ''} readOnly />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8">Cargando información del vendedor...</div>
