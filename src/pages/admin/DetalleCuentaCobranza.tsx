@@ -996,7 +996,7 @@ export default function DetalleCuentaCobranza() {
                                         <span className="font-medium text-warning">
                                           {formatCurrency(multa.montoOriginal || multa.monto)}
                                         </span>
-                                        {multa.pagosAplicados && multa.pagosAplicados > 0 && (
+                                        {multa.pagosAplicados > 0 && (
                                           <Badge variant="secondary" className="text-xs">
                                             Pagado: {formatCurrency(multa.pagosAplicados)}
                                           </Badge>
