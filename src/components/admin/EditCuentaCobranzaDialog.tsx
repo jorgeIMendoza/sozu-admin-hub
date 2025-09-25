@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -227,6 +228,53 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       return data?.personas;
     },
     enabled: !!propiedadDetalle?.id_entidad_relacionada_dueno
+  });
+
+  // Get estacionamientos details
+  const { data: estacionamientosDetalle } = useQuery({
+    queryKey: ["estacionamientos_detalle", propiedadDetalle?.id],
+    queryFn: async () => {
+      if (!propiedadDetalle?.id) return [];
+      
+      const { data } = await supabase
+        .from('estacionamientos')
+        .select(`
+          id,
+          nombre,
+          m2,
+          ubicacion,
+          es_incluido,
+          tipos_estacionamiento:id_tipo(nombre)
+        `)
+        .eq('id_propiedad', propiedadDetalle.id)
+        .eq('activo', true);
+
+      return data || [];
+    },
+    enabled: !!propiedadDetalle?.id
+  });
+
+  // Get bodegas details
+  const { data: bodegasDetalle } = useQuery({
+    queryKey: ["bodegas_detalle", propiedadDetalle?.id],
+    queryFn: async () => {
+      if (!propiedadDetalle?.id) return [];
+      
+      const { data } = await supabase
+        .from('bodegas')
+        .select(`
+          id,
+          nombre,
+          m2,
+          ubicacion,
+          es_incluido
+        `)
+        .eq('id_propiedad', propiedadDetalle.id)
+        .eq('activo', true);
+
+      return data || [];
+    },
+    enabled: !!propiedadDetalle?.id
   });
 
   // Get existing buyers
@@ -784,28 +832,86 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
               </CardHeader>
               <CardContent className="space-y-4">
                 {propiedadDetalle ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Número de Propiedad</Label>
-                      <Input value={propiedadDetalle.numero_propiedad || ''} readOnly />
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Número de Propiedad</Label>
+                        <Input value={propiedadDetalle.numero_propiedad || ''} readOnly />
+                      </div>
+                      <div>
+                        <Label>Piso</Label>
+                        <Input value={propiedadDetalle.numero_piso || ''} readOnly />
+                      </div>
+                      <div>
+                        <Label>Metros Cuadrados</Label>
+                        <Input value={`${propiedadDetalle.m2_reales || 0} m²`} readOnly />
+                      </div>
+                      <div>
+                        <Label>Precio de Lista</Label>
+                        <Input value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(propiedadDetalle.precio_lista || 0)} readOnly />
+                      </div>
+                      <div className="col-span-2">
+                        <Label>Descripción</Label>
+                        <Textarea value={propiedadDetalle.descripcion || 'Sin descripción'} readOnly />
+                      </div>
                     </div>
-                    <div>
-                      <Label>Piso</Label>
-                      <Input value={propiedadDetalle.numero_piso || ''} readOnly />
-                    </div>
-                    <div>
-                      <Label>Metros Cuadrados</Label>
-                      <Input value={`${propiedadDetalle.m2_reales || 0} m²`} readOnly />
-                    </div>
-                    <div>
-                      <Label>Precio de Lista</Label>
-                      <Input value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(propiedadDetalle.precio_lista || 0)} readOnly />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>Descripción</Label>
-                      <Textarea value={propiedadDetalle.descripcion || 'Sin descripción'} readOnly />
-                    </div>
-                  </div>
+
+                    {/* Estacionamientos Section */}
+                    {estacionamientosDetalle && estacionamientosDetalle.filter(e => e.es_incluido).length > 0 && (
+                      <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+                        <h4 className="font-medium text-foreground mb-4">Estacionamientos Incluidos</h4>
+                        <div className="grid gap-3">
+                          {estacionamientosDetalle.filter(e => e.es_incluido).map((estacionamiento) => (
+                            <div key={estacionamiento.id} className="flex justify-between items-center p-3 bg-background rounded border">
+                              <div className="flex gap-4">
+                                <div>
+                                  <p className="font-medium">{estacionamiento.nombre}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {estacionamiento.tipos_estacionamiento?.nombre || 'Tipo no especificado'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium">{estacionamiento.m2} m²</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {estacionamiento.ubicacion || 'Ubicación no especificada'}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant="default">Incluido</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bodegas Section */}
+                    {bodegasDetalle && bodegasDetalle.filter(b => b.es_incluido).length > 0 && (
+                      <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+                        <h4 className="font-medium text-foreground mb-4">Bodegas Incluidas</h4>
+                        <div className="grid gap-3">
+                          {bodegasDetalle.filter(b => b.es_incluido).map((bodega) => (
+                            <div key={bodega.id} className="flex justify-between items-center p-3 bg-background rounded border">
+                              <div className="flex gap-4">
+                                <div>
+                                  <p className="font-medium">{bodega.nombre}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Bodega de almacenamiento
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium">{bodega.m2} m²</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {bodega.ubicacion || 'Ubicación no especificada'}  
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge variant="default">Incluida</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-8">Cargando información de la propiedad...</div>
                 )}
