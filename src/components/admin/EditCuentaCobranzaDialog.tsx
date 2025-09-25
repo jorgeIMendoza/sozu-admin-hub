@@ -249,30 +249,30 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const { data: acuerdosPago } = useQuery({
     queryKey: ["acuerdos_pago", cuenta.id],
     queryFn: async () => {
-      const { data: acuerdos } = await supabase
+      // Use raw query to avoid TypeScript type issues
+      const { data: acuerdos, error } = await supabase
         .from('acuerdos_pago')
-        .select(`
-          id,
-          orden,
-          monto,
-          fecha_pago,
-          id_concepto
-        `)
+        .select('*')
         .eq('id_cuenta_cobranza', cuenta.id)
         .eq('activo', true)
         .order('orden', { ascending: true });
 
+      if (error) {
+        console.error('Error fetching acuerdos_pago:', error);
+        throw error;
+      }
+
       if (!acuerdos || acuerdos.length === 0) return [];
 
       // Get conceptos de pago
-      const conceptoIds = [...new Set(acuerdos.map(a => a.id_concepto))];
+      const conceptoIds = [...new Set(acuerdos.map((a: any) => a.id_concepto))];
       const { data: conceptos } = await supabase
         .from('conceptos_pago')
         .select('id, nombre')
         .in('id', conceptoIds);
 
       // Get aplicaciones de pago for each acuerdo
-      const acuerdoIds = acuerdos.map(a => a.id);
+      const acuerdoIds = acuerdos.map((a: any) => a.id);
       const { data: aplicaciones } = await supabase
         .from('aplicaciones_pago')
         .select(`
@@ -283,18 +283,21 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         .in('id_acuerdo_pago', acuerdoIds)
         .eq('activo', true);
 
-      return acuerdos.map(acuerdo => {
+      return acuerdos.map((acuerdo: any) => {
         const concepto = conceptos?.find(c => c.id === acuerdo.id_concepto);
         const acuerdoAplicaciones = aplicaciones?.filter(a => a.id_acuerdo_pago === acuerdo.id) || [];
         
-        // Calculate total paid amount and payment status
+        // Calculate total paid amount from aplicaciones
         const totalAplicado = acuerdoAplicaciones.reduce((sum, app) => sum + app.monto, 0);
-        const pagoCompletado = totalAplicado >= acuerdo.monto;
         
         return {
-          ...acuerdo,
+          id: acuerdo.id,
+          orden: acuerdo.orden,
+          monto: acuerdo.monto,
+          fecha_pago: acuerdo.fecha_pago,
+          id_concepto: acuerdo.id_concepto,
           concepto_nombre: concepto?.nombre || 'Sin concepto',
-          pago_completado: pagoCompletado,
+          pago_completado: acuerdo.pago_completado, // Use the database field directly
           monto_pagado: totalAplicado
         };
       });
@@ -1057,18 +1060,19 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                        </Button>
                                      </PopoverTrigger>
                                      <PopoverContent className="w-auto p-0" align="start">
-                                       <Calendar
-                                         mode="single"
-                                         selected={editingDate}
-                                         onSelect={(date) => {
-                                           setEditingDate(date);
-                                           if (date) {
-                                             handleDateUpdate(acuerdo.id, date);
-                                           }
-                                         }}
-                                         disabled={(date) => date < new Date('1900-01-01')}
-                                         initialFocus
-                                       />
+                                        <Calendar
+                                          mode="single"
+                                          selected={editingDate}
+                                          onSelect={(date) => {
+                                            setEditingDate(date);
+                                            if (date) {
+                                              handleDateUpdate(acuerdo.id, date);
+                                            }
+                                          }}
+                                          disabled={(date) => date < new Date('1900-01-01')}
+                                          initialFocus
+                                          className="p-3 pointer-events-auto"
+                                        />
                                      </PopoverContent>
                                    </Popover>
                                  ) : (
