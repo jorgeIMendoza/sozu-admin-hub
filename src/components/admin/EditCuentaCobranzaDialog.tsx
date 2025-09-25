@@ -149,6 +149,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [showPersonForm, setShowPersonForm] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [buyerToDelete, setBuyerToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [selectedNotario, setSelectedNotario] = useState<string>('');
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
@@ -401,6 +402,20 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     enabled: !!propiedadDetalle
   });
 
+  // Get notarios
+  const { data: notarios } = useQuery({
+    queryKey: ["notarios"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('notarios')
+        .select('id, nombre, notaria')
+        .eq('activo', true)
+        .order('nombre', { ascending: true });
+
+      return data || [];
+    }
+  });
+
   // Search for persons (buyers/leads) - search by name, RFC, CURP, email
   const { data: personasBusqueda } = useQuery({
     queryKey: ["personas_busqueda", searchTerm, compradoresExistentes?.map(c => c.personas?.id)],
@@ -428,6 +443,13 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       setAcuerdos(acuerdosPago);
     }
   }, [acuerdosPago]);
+
+  // Update selectedNotario when cuentaDetalle is loaded
+  useEffect(() => {
+    if (cuentaDetalle?.id_notario) {
+      setSelectedNotario(cuentaDetalle.id_notario.toString());
+    }
+  }, [cuentaDetalle]);
 
   const totalPorcentajes = compradoresExistentes?.reduce((sum, c) => sum + (c.porcentaje_copropiedad || 0), 0) || 0;
   const porcentajeDisponible = 100 - totalPorcentajes;
@@ -826,6 +848,27 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     }
   });
 
+  // Mutation to update notario
+  const updateNotarioMutation = useMutation({
+    mutationFn: async (notarioId: number | null) => {
+      const { error } = await supabase
+        .from('cuentas_cobranza')
+        .update({ id_notario: notarioId })
+        .eq('id', cuenta.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Notario actualizado exitosamente");
+      // Refetch the cuenta data to update the UI
+      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuenta.id] });
+    },
+    onError: (error) => {
+      console.error("Error updating notario:", error);
+      toast.error("Error al actualizar el notario");
+    }
+  });
+
   const handleAmountUpdate = (acuerdoId: number, monto: number) => {
     console.log('Updating amount for acuerdo:', acuerdoId, 'to:', monto);
     updateAmountMutation.mutate({ id: acuerdoId, monto });
@@ -836,6 +879,12 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       console.log('Updating date for acuerdo:', acuerdoId, 'to:', fecha);
       updateAcuerdoMutation.mutate({ id: acuerdoId, fecha_pago: fecha });
     }
+  };
+
+  const handleNotarioChange = (value: string) => {
+    setSelectedNotario(value);
+    const notarioId = value ? parseInt(value) : null;
+    updateNotarioMutation.mutate(notarioId);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -914,6 +963,22 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       <div className="col-span-2">
                         <Label>Descripción</Label>
                         <Textarea value={propiedadDetalle.descripcion || 'Sin descripción'} readOnly />
+                      </div>
+                      <div>
+                        <Label>Notario</Label>
+                        <Select value={selectedNotario} onValueChange={handleNotarioChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar notario" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Sin notario</SelectItem>
+                            {notarios?.map((notario) => (
+                              <SelectItem key={notario.id} value={notario.id.toString()}>
+                                {notario.nombre} - {notario.notaria}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 
