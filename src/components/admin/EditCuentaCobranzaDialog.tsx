@@ -945,6 +945,21 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
+                        <Label>Notario asignado</Label>
+                        <Select value={selectedNotario} onValueChange={handleNotarioChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar notario" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {notarios?.map((notario) => (
+                              <SelectItem key={notario.id} value={notario.id.toString()}>
+                                {notario.nombre} - {notario.notaria}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
                         <Label>Número de Propiedad</Label>
                         <Input value={propiedadDetalle.numero_propiedad || ''} readOnly />
                       </div>
@@ -959,21 +974,6 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       <div>
                         <Label>Precio de Lista</Label>
                         <Input value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(propiedadDetalle.precio_lista || 0)} readOnly />
-                      </div>
-                      <div>
-                        <Label>Notario asignado</Label>
-                        <Select value={selectedNotario} onValueChange={handleNotarioChange}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar notario" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {notarios?.map((notario) => (
-                              <SelectItem key={notario.id} value={notario.id.toString()}>
-                                {notario.nombre} - {notario.notaria}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
                       </div>
                       <div className="col-span-2">
                         <Label>Descripción</Label>
