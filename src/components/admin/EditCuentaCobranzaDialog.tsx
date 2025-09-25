@@ -1027,15 +1027,15 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   >
                      <Table>
                        <TableHeader>
-                         <TableRow>
-                           <TableHead>Concepto</TableHead>
-                           <TableHead>Monto</TableHead>
-                           <TableHead>Porcentaje</TableHead>
-                           <TableHead>Fecha de Pago</TableHead>
-                           <TableHead>Estatus</TableHead>
-                           <TableHead>Pagado</TableHead>
-                         </TableRow>
-                       </TableHeader>
+                          <TableRow>
+                            <TableHead>Concepto</TableHead>
+                            <TableHead>Monto</TableHead>
+                            <TableHead>Porcentaje</TableHead>
+                            <TableHead>Estatus</TableHead>
+                            <TableHead>Fecha de Pago</TableHead>
+                            <TableHead>Pagado</TableHead>
+                          </TableRow>
+                        </TableHeader>
                       <TableBody>
                         <SortableContext
                           items={acuerdos.map(a => a.id.toString())}
@@ -1047,19 +1047,32 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                id={acuerdo.id.toString()}
                                disabled={acuerdo.pago_completado}
                              >
-                               <TableCell>{acuerdo.concepto_nombre}</TableCell>
-                               <TableCell>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto)}</TableCell>
-                               <TableCell>{cuentaDetalle?.precio_final ? ((acuerdo.monto / cuentaDetalle.precio_final) * 100).toFixed(2) : 0}%</TableCell>
-                               <TableCell>
-                                 {!acuerdo.pago_completado && editingAcuerdo === acuerdo.id ? (
-                                   <Popover>
-                                     <PopoverTrigger asChild>
-                                       <Button variant="outline" className="h-8 text-xs">
-                                         <CalendarIcon className="mr-2 h-3 w-3" />
-                                         {editingDate ? format(editingDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
-                                       </Button>
-                                     </PopoverTrigger>
-                                     <PopoverContent className="w-auto p-0" align="start">
+                                <TableCell>{acuerdo.concepto_nombre}</TableCell>
+                                <TableCell>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto)}</TableCell>
+                                <TableCell>{cuentaDetalle?.precio_final ? ((acuerdo.monto / cuentaDetalle.precio_final) * 100).toFixed(2) : 0}%</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-center">
+                                    {acuerdo.pago_completado ? (
+                                      <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded-full text-xs font-medium">
+                                        Pagado
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 rounded-full text-xs font-medium">
+                                        Pendiente
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {!acuerdo.pago_completado && editingAcuerdo === acuerdo.id ? (
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button variant="outline" className="h-8 text-xs">
+                                          <CalendarIcon className="mr-2 h-3 w-3" />
+                                          {editingDate ? format(editingDate, 'dd/MM/yyyy', { locale: es }) : 'Seleccionar'}
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-0" align="start">
                                         <Calendar
                                           mode="single"
                                           selected={editingDate}
@@ -1073,45 +1086,32 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                           initialFocus
                                           className="p-3 pointer-events-auto"
                                         />
-                                     </PopoverContent>
-                                   </Popover>
-                                 ) : (
-                                   <div className="flex items-center gap-2">
-                                     <span>
-                                       {acuerdo.fecha_pago ? format(new Date(acuerdo.fecha_pago), 'dd/MM/yyyy', { locale: es }) : 'Sin fecha'}
-                                     </span>
-                                     {!acuerdo.pago_completado && (
-                                       <Button
-                                         variant="ghost"
-                                         size="sm"
-                                         className="h-6 w-6 p-0"
-                                         onClick={() => {
-                                           setEditingAcuerdo(acuerdo.id);
-                                           setEditingDate(acuerdo.fecha_pago ? new Date(acuerdo.fecha_pago) : undefined);
-                                         }}
-                                       >
-                                         <Edit className="h-3 w-3" />
-                                       </Button>
-                                     )}
-                                   </div>
-                                 )}
-                               </TableCell>
-                               <TableCell>
-                                 <div className="flex items-center justify-center">
-                                   {acuerdo.pago_completado ? (
-                                     <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded-full text-xs font-medium">
-                                       Pagado
-                                     </span>
-                                   ) : (
-                                     <span className="px-2 py-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 rounded-full text-xs font-medium">
-                                       Pendiente
-                                     </span>
-                                   )}
-                                 </div>
-                               </TableCell>
-                               <TableCell>
-                                 {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto_pagado || 0)}
-                               </TableCell>
+                                      </PopoverContent>
+                                    </Popover>
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      <span>
+                                        {acuerdo.fecha_pago ? format(new Date(acuerdo.fecha_pago), 'dd/MM/yyyy', { locale: es }) : 'Sin fecha'}
+                                      </span>
+                                      {!acuerdo.pago_completado && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0"
+                                          onClick={() => {
+                                            setEditingAcuerdo(acuerdo.id);
+                                            setEditingDate(acuerdo.fecha_pago ? new Date(acuerdo.fecha_pago) : undefined);
+                                          }}
+                                        >
+                                          <Edit className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto_pagado || 0)}
+                                </TableCell>
                              </SortableItem>
                            ))}
                         </SortableContext>
