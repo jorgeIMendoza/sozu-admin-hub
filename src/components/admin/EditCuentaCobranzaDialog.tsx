@@ -1039,19 +1039,29 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     
     console.log(`Base date found at index ${baseDateIndex}:`, baseDate);
     
-    // Update ALL subsequent payments (whether they have dates or not) to maintain chronological order
-    let monthsFromBase = 0;
+    // Group payments by concept to handle them separately
+    const conceptCounts: { [key: number]: number } = {};
     
+    // Update ALL subsequent payments (whether they have dates or not) to maintain chronological order
     for (let i = baseDateIndex; i < reorderedAcuerdos.length; i++) {
       const acuerdo = reorderedAcuerdos[i];
       
       // Only update Parcialidad or Entrega payments
       if (acuerdo.concepto_nombre?.toLowerCase().includes('parcialidad') || acuerdo.id_concepto === 3) {
+        // Initialize concept count if not exists
+        if (!conceptCounts[acuerdo.id_concepto]) {
+          conceptCounts[acuerdo.id_concepto] = 0;
+        }
+        
         // For the base date payment, don't change its date
         if (i === baseDateIndex) {
-          monthsFromBase++;
+          conceptCounts[acuerdo.id_concepto]++;
           continue;
         }
+        
+        // Calculate months to add based on the concept occurrence count
+        const monthsFromBase = conceptCounts[acuerdo.id_concepto];
+        conceptCounts[acuerdo.id_concepto]++;
         
         // Get the target day from the base date
         const targetDay = baseDate.getDate();
@@ -1073,10 +1083,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         const nextDate = new Date(actualYear, actualMonth, finalDay);
         
         const conceptType = acuerdo.concepto_nombre?.toLowerCase().includes('parcialidad') ? 'Parcialidad' : 'Entrega';
-        console.log(`Updating reordered ${conceptType} ${acuerdo.id} with date:`, nextDate, `(${monthsFromBase} months from base)`);
+        console.log(`Updating reordered ${conceptType} ${acuerdo.id} with date:`, nextDate, `(${monthsFromBase} months from base, concept count: ${conceptCounts[acuerdo.id_concepto]})`);
         updateAcuerdoMutation.mutate({ id: acuerdo.id, fecha_pago: nextDate });
-        
-        monthsFromBase++;
       }
     }
   };
