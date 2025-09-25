@@ -1029,11 +1029,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                        <TableHeader>
                           <TableRow>
                             <TableHead>Concepto</TableHead>
+                            <TableHead>Fecha de Pago</TableHead>
                             <TableHead>Monto</TableHead>
                             <TableHead>Porcentaje</TableHead>
-                            <TableHead>Estatus</TableHead>
-                            <TableHead>Fecha de Pago</TableHead>
                             <TableHead>Pagado</TableHead>
+                            <TableHead>Estatus</TableHead>
                           </TableRow>
                         </TableHeader>
                       <TableBody>
@@ -1048,21 +1048,6 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                disabled={acuerdo.pago_completado}
                              >
                                 <TableCell>{acuerdo.concepto_nombre}</TableCell>
-                                <TableCell>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto)}</TableCell>
-                                <TableCell>{cuentaDetalle?.precio_final ? ((acuerdo.monto / cuentaDetalle.precio_final) * 100).toFixed(2) : 0}%</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center justify-center">
-                                    {acuerdo.pago_completado ? (
-                                      <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded-full text-xs font-medium">
-                                        Pagado
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 rounded-full text-xs font-medium">
-                                        Pendiente
-                                      </span>
-                                    )}
-                                  </div>
-                                </TableCell>
                                 <TableCell>
                                   {!acuerdo.pago_completado && editingAcuerdo === acuerdo.id ? (
                                     <Popover>
@@ -1109,8 +1094,23 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                     </div>
                                   )}
                                 </TableCell>
+                                <TableCell>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto)}</TableCell>
+                                <TableCell>{cuentaDetalle?.precio_final ? ((acuerdo.monto / cuentaDetalle.precio_final) * 100).toFixed(2) : 0}%</TableCell>
                                 <TableCell>
                                   {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(acuerdo.monto_pagado || 0)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-center">
+                                    {acuerdo.pago_completado ? (
+                                      <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded-full text-xs font-medium">
+                                        Pagado
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 rounded-full text-xs font-medium">
+                                        Pendiente
+                                      </span>
+                                    )}
+                                  </div>
                                 </TableCell>
                              </SortableItem>
                            ))}
