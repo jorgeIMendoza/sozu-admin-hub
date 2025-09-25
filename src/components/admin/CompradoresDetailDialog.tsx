@@ -23,7 +23,7 @@ export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDet
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
-      navigate(`/admin/compradores?rfc=${encodeURIComponent(rfc)}`);
+      navigate(`/admin/compradores?search=${encodeURIComponent(rfc)}`);
     } else {
       navigate('/admin/compradores');
     }

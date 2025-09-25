@@ -131,8 +131,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
-      // Navigate to compradores page with RFC filter
-      navigate(`/admin/compradores?rfc=${encodeURIComponent(rfc)}`);
+      // Navigate to compradores page with search filter (not rfc filter)
+      navigate(`/admin/compradores?search=${encodeURIComponent(rfc)}`);
     } else {
       navigate('/admin/compradores');
     }
@@ -416,7 +416,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     onSuccess: () => {
       toast.success("Comprador agregado exitosamente. Puedes agregar más compradores.");
       refetchCompradores();
-      onUpdate();
+      // Don't call onUpdate() to prevent modal from closing
       setSelectedPersona(null);
       // Keep modal open and stay in "comprador" tab
       setActiveTab('comprador');
