@@ -1463,14 +1463,17 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                >
                                 <TableCell>{acuerdo.concepto_nombre}</TableCell>
                                   <TableCell>
-                                    {editingAcuerdo === acuerdo.id ? (
+                                     {editingAcuerdo === acuerdo.id ? (
                                         <Input
                                           type="date"
-                                          value={editingDate ? editingDate.toISOString().split('T')[0] : (acuerdo.fecha_pago || '')}
+                                          value={editingDate ? 
+                                            `${editingDate.getFullYear()}-${String(editingDate.getMonth() + 1).padStart(2, '0')}-${String(editingDate.getDate()).padStart(2, '0')}` : 
+                                            (acuerdo.fecha_pago || '')
+                                          }
                                           onChange={(e) => {
                                             console.log('Date input changed:', e.target.value);
-                                            // Fix timezone issue by using local date parsing
-                                            const selectedDate = e.target.value ? new Date(e.target.value + 'T12:00:00') : undefined;
+                                            // Create date object using the exact date value without timezone conversion
+                                            const selectedDate = e.target.value ? new Date(e.target.value + 'T00:00:00') : undefined;
                                             setEditingDate(selectedDate);
                                           }}
                                          className="w-40"
