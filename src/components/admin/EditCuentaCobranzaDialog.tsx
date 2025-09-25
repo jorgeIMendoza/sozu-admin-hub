@@ -1891,19 +1891,19 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                  </TableCell>
                                  <TableCell>
                                    <div className="flex items-center justify-center">
-                                     <Button
-                                       variant="outline"
-                                       size="sm"
-                                       onClick={(e) => {
-                                         e.preventDefault();
-                                         e.stopPropagation();
-                                         handleDeleteAcuerdo(acuerdo.id, acuerdo.concepto_nombre);
-                                       }}
-                                       disabled={deleteAcuerdoMutation.isPending}
-                                       className="h-8 w-8 p-0 hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
-                                     >
-                                       <Trash2 className="w-4 h-4" />
-                                     </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleDeleteAcuerdo(acuerdo.id, acuerdo.concepto_nombre);
+                                        }}
+                                        disabled={deleteAcuerdoMutation.isPending || (acuerdo.monto_pagado > 0)}
+                                        className="h-8 w-8 p-0 hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
                                    </div>
                                  </TableCell>
                              </SortableItem>
