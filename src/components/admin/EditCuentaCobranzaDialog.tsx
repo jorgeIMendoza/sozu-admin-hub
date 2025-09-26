@@ -162,7 +162,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [buyerToDelete, setBuyerToDelete] = useState<{ id: number; name: string } | null>(null);
   const [selectedNotario, setSelectedNotario] = useState<string>('');
   const [deleteAcuerdoDialogOpen, setDeleteAcuerdoDialogOpen] = useState(false);
-  const [acuerdoToDelete, setAcuerdoToDelete] = useState<{ id: number; concepto: string } | null>(null);
+  const [acuerdoToDelete, setAcuerdoToDelete] = useState<{ id: number; concepto: string; monto: number } | null>(null);
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
@@ -1223,8 +1223,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     updateNotarioMutation.mutate(notarioId);
   };
 
-  const handleDeleteAcuerdo = (acuerdoId: number, conceptoNombre: string) => {
-    setAcuerdoToDelete({ id: acuerdoId, concepto: conceptoNombre });
+  const handleDeleteAcuerdo = (acuerdoId: number, conceptoNombre: string, monto: number) => {
+    setAcuerdoToDelete({ id: acuerdoId, concepto: conceptoNombre, monto });
     setDeleteAcuerdoDialogOpen(true);
   };
 
@@ -2056,7 +2056,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                         onClick={(e) => {
                                           e.preventDefault();
                                           e.stopPropagation();
-                                          handleDeleteAcuerdo(acuerdo.id, acuerdo.concepto_nombre);
+                                          handleDeleteAcuerdo(acuerdo.id, acuerdo.concepto_nombre, acuerdo.monto);
                                         }}
                                         disabled={deleteAcuerdoMutation.isPending || (acuerdo.monto_pagado > 0)}
                                         className="h-8 w-8 p-0 hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
@@ -2203,7 +2203,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
               <AlertDialogDescription>
                 ¿Estás seguro de que deseas eliminar el pago de <strong>"{acuerdoToDelete?.concepto}"</strong>?
                 <br /><br />
-                Esta acción no se puede deshacer. Si este pago tenía montos aplicados, también se eliminarán.
+                Esta acción no se puede deshacer. El monto de este pago (${acuerdoToDelete?.monto?.toLocaleString('es-MX')}) se agregará automáticamente al último pago.
+                <br /><br />
                 Las fechas de los pagos siguientes se recalcularán automáticamente.
               </AlertDialogDescription>
             </AlertDialogHeader>
