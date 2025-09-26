@@ -606,12 +606,29 @@ export default function DetalleCuentaCobranza() {
   })() : null;
 
   // Check if payment plan has been modified by comparing with actual database records
-  const isPaymentPlanModified = originalScheme && currentPaymentPlan ? (
-    Math.abs(originalScheme.porcentaje_enganche - currentPaymentPlan.porcentaje_enganche) > 0.01 ||
-    Math.abs(originalScheme.porcentaje_mensualidades - currentPaymentPlan.porcentaje_mensualidades) > 0.01 ||
-    Math.abs(originalScheme.porcentaje_entrega - currentPaymentPlan.porcentaje_entrega) > 0.01 ||
-    originalScheme.numero_mensualidades !== currentPaymentPlan.numero_mensualidades
-  ) : false;
+  const isPaymentPlanModified = originalScheme && currentPaymentPlan ? (() => {
+    console.log('Original scheme:', {
+      porcentaje_enganche: originalScheme.porcentaje_enganche,
+      porcentaje_mensualidades: originalScheme.porcentaje_mensualidades,
+      porcentaje_entrega: originalScheme.porcentaje_entrega,
+      numero_mensualidades: originalScheme.numero_mensualidades
+    });
+    
+    console.log('Current payment plan:', {
+      porcentaje_enganche: currentPaymentPlan.porcentaje_enganche,
+      porcentaje_mensualidades: currentPaymentPlan.porcentaje_mensualidades,
+      porcentaje_entrega: currentPaymentPlan.porcentaje_entrega,
+      numero_mensualidades: currentPaymentPlan.numero_mensualidades
+    });
+
+    const isModified = Math.abs(originalScheme.porcentaje_enganche - currentPaymentPlan.porcentaje_enganche) > 0.01 ||
+      Math.abs(originalScheme.porcentaje_mensualidades - currentPaymentPlan.porcentaje_mensualidades) > 0.01 ||
+      Math.abs(originalScheme.porcentaje_entrega - currentPaymentPlan.porcentaje_entrega) > 0.01 ||
+      originalScheme.numero_mensualidades !== currentPaymentPlan.numero_mensualidades;
+    
+    console.log('Is payment plan modified:', isModified);
+    return isModified;
+  })() : false;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
