@@ -50,8 +50,15 @@ export function TransferirEntreComisionesDialog({
   useEffect(() => {
     if (isOpen && ultimoPagoSTP?.clave_rastreo) {
       fetchPagadorInfo();
+    } else if (!isOpen) {
+      // Reset state when dialog closes
+      setPagadorInfo(null);
+      setCuentasDestino([]);
+      setCuentaDestinoSeleccionada("");
+      setMontoTransferir(0);
+      setLoading(false);
     }
-  }, [isOpen, ultimoPagoSTP]);
+  }, [isOpen, ultimoPagoSTP?.clave_rastreo]);
 
   const fetchPagadorInfo = async () => {
     if (!ultimoPagoSTP?.clave_rastreo) return;
@@ -273,10 +280,6 @@ export function TransferirEntreComisionesDialog({
   };
 
   const handleClose = () => {
-    setPagadorInfo(null);
-    setCuentasDestino([]);
-    setCuentaDestinoSeleccionada("");
-    setMontoTransferir(0);
     onClose();
   };
 
