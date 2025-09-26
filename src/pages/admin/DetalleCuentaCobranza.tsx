@@ -1068,7 +1068,6 @@ export default function DetalleCuentaCobranza() {
                 <span className="text-sm text-muted-foreground">Plan de pagos:</span>
                 <Badge variant="default">
                   {offerData.esquema_nombre}
-                  {currentPaymentPlan && ` (${1 + currentPaymentPlan.numero_mensualidades + 1} pagos)`}
                   {isPaymentPlanModified && " modificado"}
                 </Badge>
               </div>
