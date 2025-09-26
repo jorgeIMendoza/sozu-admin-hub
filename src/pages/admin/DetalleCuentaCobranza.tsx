@@ -1101,7 +1101,12 @@ export default function DetalleCuentaCobranza() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Entrega</label>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Entrega 
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          {1 + (currentPaymentPlan?.numero_mensualidades || 0) + 1} pagos
+                        </Badge>
+                      </label>
                       <p className="text-sm font-semibold">{currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%</p>
                     </div>
                   </div>
@@ -1127,7 +1132,12 @@ export default function DetalleCuentaCobranza() {
                           </p>
                         </div>
                         <div>
-                          <label className="text-sm font-medium text-muted-foreground">Entrega</label>
+                          <label className="text-sm font-medium text-muted-foreground">
+                            Entrega
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              {1 + originalScheme.numero_mensualidades + 1} pagos
+                            </Badge>
+                          </label>
                           <p className="text-sm">{originalScheme.porcentaje_entrega.toFixed(1)}%</p>
                         </div>
                       </div>
@@ -1159,15 +1169,20 @@ export default function DetalleCuentaCobranza() {
                             {formatCurrency(actualAmounts?.mensualidades || 0)}
                           </p>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Entrega</label>
-                          <p className="text-sm font-semibold">
-                            {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency(actualAmounts?.entrega || 0)}
-                          </p>
-                        </div>
+                         <div>
+                           <label className="text-sm font-medium text-muted-foreground">
+                             Entrega
+                             <Badge variant="secondary" className="ml-2 text-xs">
+                               {1 + (currentPaymentPlan?.numero_mensualidades || 0) + 1} pagos
+                             </Badge>
+                           </label>
+                           <p className="text-sm font-semibold">
+                             {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
+                           </p>
+                           <p className="text-xs text-muted-foreground">
+                             {formatCurrency(actualAmounts?.entrega || 0)}
+                           </p>
+                         </div>
                       </div>
                     </div>
                   </div>
