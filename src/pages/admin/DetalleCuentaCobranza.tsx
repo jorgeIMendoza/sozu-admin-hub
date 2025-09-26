@@ -605,14 +605,21 @@ export default function DetalleCuentaCobranza() {
     };
   })() : null;
 
-  // Calculate expected amounts based on payment plan percentages
-  const expectedAmounts = currentPaymentPlan && cuentaDetalle?.precio_final ? (() => {
-    const precioFinal = cuentaDetalle.precio_final;
-    
+  // Calculate actual amounts from acuerdos de pago
+  const actualAmounts = acuerdosPago ? (() => {
+    const apartados = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'apartado');
+    const enganches = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'enganche');
+    const parcialidades = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'parcialidad');
+    const contraentrega = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'pago a contra entrega');
+
+    const totalEnganche = [...apartados, ...enganches].reduce((sum, a) => sum + a.monto, 0);
+    const totalMensualidades = parcialidades.reduce((sum, a) => sum + a.monto, 0);
+    const totalEntrega = contraentrega.reduce((sum, a) => sum + a.monto, 0);
+
     return {
-      enganche: (precioFinal * currentPaymentPlan.porcentaje_enganche) / 100,
-      mensualidades: (precioFinal * currentPaymentPlan.porcentaje_mensualidades) / 100,
-      entrega: (precioFinal * currentPaymentPlan.porcentaje_entrega) / 100
+      enganche: totalEnganche,
+      mensualidades: totalMensualidades,
+      entrega: totalEntrega
     };
   })() : null;
 
@@ -1085,7 +1092,7 @@ export default function DetalleCuentaCobranza() {
                             {currentPaymentPlan?.porcentaje_enganche.toFixed(1)}%
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(expectedAmounts?.enganche || 0)}
+                            {formatCurrency(actualAmounts?.enganche || 0)}
                           </p>
                         </div>
                         <div>
@@ -1094,7 +1101,7 @@ export default function DetalleCuentaCobranza() {
                             {currentPaymentPlan?.numero_mensualidades} pagos de {currentPaymentPlan?.porcentaje_mensualidades.toFixed(1)}%
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(expectedAmounts?.mensualidades || 0)}
+                            {formatCurrency(actualAmounts?.mensualidades || 0)}
                           </p>
                         </div>
                         <div>
@@ -1103,7 +1110,7 @@ export default function DetalleCuentaCobranza() {
                             {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(expectedAmounts?.entrega || 0)}
+                            {formatCurrency(actualAmounts?.entrega || 0)}
                           </p>
                         </div>
                       </div>
