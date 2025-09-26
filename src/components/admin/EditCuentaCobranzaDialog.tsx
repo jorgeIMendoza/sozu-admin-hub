@@ -955,23 +955,26 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       
       return remainingAcuerdos;
     },
-    onSuccess: (remainingAcuerdos) => {
+    onSuccess: async (remainingAcuerdos) => {
       toast.success("Pago eliminado exitosamente");
-      // Refresh acuerdos data
-      queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuenta.id] });
       
-      // Recalculate dates for remaining payments after a short delay
+      // Refresh acuerdos data and recalculate dates
+      await queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuenta.id] });
+      
+      // Get fresh data after invalidation and recalculate dates
       if (remainingAcuerdos && remainingAcuerdos.length > 0) {
         setTimeout(async () => {
-          // Get fresh data and recalculate dates
-          const freshData = await queryClient.refetchQueries({ queryKey: ["acuerdos_pago", cuenta.id] });
+          // Refetch the data
+          await queryClient.refetchQueries({ queryKey: ["acuerdos_pago", cuenta.id] });
           
-          // Get the updated acuerdos from the query result
-          const updatedAcuerdos = freshData[0]?.data;
-          if (updatedAcuerdos && Array.isArray(updatedAcuerdos)) {
-            updatePaymentDatesAfterReorder(updatedAcuerdos);
+          // Get the updated acuerdos from the query cache
+          const freshAcuerdos = queryClient.getQueryData<any[]>(["acuerdos_pago", cuenta.id]);
+          
+          if (freshAcuerdos && Array.isArray(freshAcuerdos)) {
+            console.log("Recalculating dates for remaining payments:", freshAcuerdos.length);
+            await updatePaymentDatesAfterReorder(freshAcuerdos);
           }
-        }, 500);
+        }, 300);
       }
       
       setDeleteAcuerdoDialogOpen(false);
