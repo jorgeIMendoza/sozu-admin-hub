@@ -586,10 +586,10 @@ export default function DetalleCuentaCobranza() {
 
   // Calculate current payment plan details from acuerdos
   const currentPaymentPlan = acuerdosPago ? (() => {
-    const apartado = acuerdosPago.find(a => a.concepto.toLowerCase() === 'apartado');
-    const enganche = acuerdosPago.find(a => a.concepto.toLowerCase() === 'enganche');  
-    const parcialidades = acuerdosPago.filter(a => a.concepto.toLowerCase() === 'parcialidad');
-    const contraentrega = acuerdosPago.find(a => a.concepto.toLowerCase() === 'pago a contra entrega');
+    const apartado = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'apartado');
+    const enganche = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'enganche');  
+    const parcialidades = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'parcialidad');
+    const contraentrega = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'pago a contra entrega');
 
     if (!cuentaDetalle?.precio_final) return null;
 
@@ -1102,9 +1102,9 @@ export default function DetalleCuentaCobranza() {
                 
                 const parcialidadNumber = acuerdosPago
                   .slice(0, index + 1)
-                  .filter(a => a.concepto.toLowerCase().includes('parcialidad')).length;
+                  .filter(a => a.concepto?.toLowerCase().includes('parcialidad')).length;
                 
-                const conceptoDisplay = acuerdo.concepto.toLowerCase().includes('parcialidad') 
+                const conceptoDisplay = acuerdo.concepto?.toLowerCase().includes('parcialidad') 
                   ? `Parcialidad #${parcialidadNumber}`
                   : acuerdo.concepto;
 
