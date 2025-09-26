@@ -156,12 +156,10 @@ export function AddManualPaymentDialog({
         cepUrl = fileName;
       }
 
-      // Generate clave_rastreo: for STP-Manual use provided value, for others auto-generate
-      let claveRastreo: string;
+      // Only generate clave_rastreo for STP-Manual
+      let claveRastreo: string | null = null;
       if (isStpManual) {
         claveRastreo = data.clave_rastreo || "";
-      } else {
-        claveRastreo = await generateClaveRastreo(data.fecha_pago);
       }
 
       const { error } = await supabase
