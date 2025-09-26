@@ -16,6 +16,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 
 const formSchema = z.object({
   monto: z.string({
@@ -176,8 +177,41 @@ export function AddManualPaymentDialog({
         });
 
       if (error) throw error;
+
+      // Return data needed for webhook
+      return {
+        monto: data.monto,
+        clave_rastreo: claveRastreo
+      };
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
+      // Call webhook after successful payment creation
+      try {
+        const webhookBody = {
+          success: true,
+          siguiente_accion: "aplicar_pago_manual",
+          message: "Pago manual aplicado",
+          claverastreo: result.clave_rastreo,
+          id_cuenta_cobranza: cuentaCobranzaId,
+          monto_pagado: result.monto,
+          environment: ENVIRONMENT
+        };
+
+        const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ body: webhookBody }),
+        });
+
+        if (!response.ok) {
+          console.error('Webhook call failed:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error calling webhook:', error);
+      }
+
       toast({
         title: "Pago agregado",
         description: "El pago manual ha sido registrado exitosamente",
