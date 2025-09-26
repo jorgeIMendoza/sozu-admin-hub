@@ -1717,43 +1717,13 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
               <CardContent className="pt-6">
                 {/* Purchase and UMA Information Section */}
                 <div className="mb-6 p-4 bg-muted/30 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <h4 className="font-medium text-foreground mb-1">Fecha de Compra</h4>
                       <p className="text-sm text-muted-foreground">
                         {cuentaDetalle?.fecha_compra ? 
                           format(new Date(cuentaDetalle.fecha_compra), 'dd/MM/yyyy', { locale: es }) : 
                           'No definida'
-                        }
-                      </p>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-foreground mb-1">Precio de Lista</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {propiedadDetalle?.precio_lista ? 
-                          new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(propiedadDetalle.precio_lista) : 
-                          'No definido'
-                        }
-                      </p>
-                      {propiedadDetalle?.precio_lista && cuentaDetalle?.precio_final && (
-                        <p className="text-xs text-muted-foreground">
-                          {(() => {
-                            const difference = ((cuentaDetalle.precio_final - propiedadDetalle.precio_lista) / propiedadDetalle.precio_lista) * 100;
-                            return difference > 0 ? 
-                              `${difference.toFixed(2)}% interés` : 
-                              difference < 0 ?
-                              `${Math.abs(difference).toFixed(2)}% descuento` :
-                              '0.00% descuento';
-                          })()}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-foreground mb-1">Precio Final</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {cuentaDetalle?.precio_final ? 
-                          new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.precio_final) : 
-                          'No definido'
                         }
                       </p>
                     </div>
