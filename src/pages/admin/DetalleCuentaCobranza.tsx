@@ -706,9 +706,9 @@ export default function DetalleCuentaCobranza() {
   const handleDeletePayment = (aplicacion: AplicacionToDelete) => {
     // Check if payment method is STP
     const acuerdo = acuerdosPago?.find(a => 
-      a.aplicaciones.some(app => app.id === aplicacion.id)
+      (a.aplicaciones || []).some(app => app.id === aplicacion.id)
     );
-    const aplicacionData = acuerdo?.aplicaciones.find(app => app.id === aplicacion.id);
+    const aplicacionData = acuerdo?.aplicaciones?.find(app => app.id === aplicacion.id);
     
     if (aplicacionData?.pago.metodo_pago === 'STP') {
       toast({
@@ -931,7 +931,7 @@ export default function DetalleCuentaCobranza() {
             </div>
           </div>
           
-          {cuentaDetalle.compradores.length > 0 && (
+          {cuentaDetalle?.compradores && cuentaDetalle.compradores.length > 0 && (
             <div className="mt-4">
               <label className="text-sm font-medium">Compradores</label>
               <div className="mt-3 space-y-3">
@@ -948,7 +948,7 @@ export default function DetalleCuentaCobranza() {
                         {comprador.porcentaje_copropiedad.toFixed(2)}%
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {cuentaDetalle.compradores.length === 1 ? 'Propiedad' : 'Copropiedad'}
+                        {(cuentaDetalle?.compradores?.length || 0) === 1 ? 'Propiedad' : 'Copropiedad'}
                       </div>
                     </div>
                   </div>
@@ -957,10 +957,10 @@ export default function DetalleCuentaCobranza() {
                 {/* Total verification */}
                 <div className="flex justify-between items-center pt-2 border-t">
                   <span className="text-sm font-medium">
-                    Total {cuentaDetalle.compradores.length === 1 ? 'Propiedad' : 'Copropiedad'}:
+                    Total {(cuentaDetalle?.compradores?.length || 0) === 1 ? 'Propiedad' : 'Copropiedad'}:
                   </span>
                   <span className="font-bold">
-                    {cuentaDetalle.compradores.reduce((sum, c) => sum + c.porcentaje_copropiedad, 0).toFixed(2)}%
+                    {(cuentaDetalle?.compradores || []).reduce((sum, c) => sum + c.porcentaje_copropiedad, 0).toFixed(2)}%
                   </span>
                 </div>
               </div>
@@ -1097,7 +1097,7 @@ export default function DetalleCuentaCobranza() {
           {acuerdosPago && acuerdosPago.length > 0 ? (
             <div className="space-y-2">
               {acuerdosPago.map((acuerdo, index) => {
-                const totalAplicado = acuerdo.aplicaciones.reduce((sum, app) => sum + app.monto, 0);
+                const totalAplicado = (acuerdo.aplicaciones || []).reduce((sum, app) => sum + app.monto, 0);
                 const isOpen = openAcuerdos[acuerdo.id];
                 
                 const parcialidadNumber = acuerdosPago
@@ -1121,7 +1121,7 @@ export default function DetalleCuentaCobranza() {
                           <div className="flex items-center gap-4">
                             <span className="text-sm font-medium">{conceptoDisplay}</span>
                             <Badge variant="outline" className="text-xs">
-                              {acuerdo.aplicaciones.length} aplicación(es)
+                              {(acuerdo.aplicaciones || []).length} aplicación(es)
                             </Badge>
                             <span className="text-xs text-muted-foreground">
                               {porcentaje}% - {acuerdo.fecha_pago ? formatDate(acuerdo.fecha_pago) : 'Sin fecha'}
@@ -1141,7 +1141,7 @@ export default function DetalleCuentaCobranza() {
                       
                       <CollapsibleContent>
                         <div className="px-3 pb-3">
-                          {acuerdo.aplicaciones.length > 0 ? (
+                          {(acuerdo.aplicaciones || []).length > 0 ? (
                             <Table>
                               <TableHeader>
                                 <TableRow>
@@ -1153,7 +1153,7 @@ export default function DetalleCuentaCobranza() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {acuerdo.aplicaciones.map((aplicacion, index) => {
+                                {(acuerdo.aplicaciones || []).map((aplicacion, index) => {
                                   const isStpPayment = aplicacion.pago.metodo_pago?.toLowerCase().includes('stp');
                                   
                                   return (
