@@ -1081,6 +1081,11 @@ export default function DetalleCuentaCobranza() {
               <div className="border rounded-lg p-4 space-y-4">
                 <h3 className="text-lg font-semibold">
                   {isPaymentPlanModified ? "Plan de Pagos" : "Plan de pagos"}
+                  {!isPaymentPlanModified && acuerdosPago && acuerdosPago.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {Math.max(...acuerdosPago.map(a => a.orden))} pagos
+                    </Badge>
+                  )}
                 </h3>
                 
                 {!isPaymentPlanModified ? (
@@ -1101,12 +1106,7 @@ export default function DetalleCuentaCobranza() {
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Entrega 
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          {1 + (currentPaymentPlan?.numero_mensualidades || 0) + 1} pagos
-                        </Badge>
-                      </label>
+                      <label className="text-sm font-medium text-muted-foreground">Entrega</label>
                       <p className="text-sm font-semibold">{currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%</p>
                     </div>
                   </div>
@@ -1115,7 +1115,14 @@ export default function DetalleCuentaCobranza() {
                   <div className="space-y-4">
                     {/* Original Plan - Disabled */}
                     <div className="opacity-50 pointer-events-none border rounded p-3 bg-muted/20">
-                      <label className="text-xs text-muted-foreground mb-2 block">Plan Original</label>
+                      <label className="text-xs text-muted-foreground mb-2 block">
+                        Plan Original
+                        {acuerdosPago && acuerdosPago.length > 0 && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {Math.max(...acuerdosPago.map(a => a.orden))} pagos
+                          </Badge>
+                        )}
+                      </label>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
@@ -1132,12 +1139,7 @@ export default function DetalleCuentaCobranza() {
                           </p>
                         </div>
                         <div>
-                          <label className="text-sm font-medium text-muted-foreground">
-                            Entrega
-                            <Badge variant="secondary" className="ml-2 text-xs">
-                              {1 + originalScheme.numero_mensualidades + 1} pagos
-                            </Badge>
-                          </label>
+                          <label className="text-sm font-medium text-muted-foreground">Entrega</label>
                           <p className="text-sm">{originalScheme.porcentaje_entrega.toFixed(1)}%</p>
                         </div>
                       </div>
@@ -1145,7 +1147,14 @@ export default function DetalleCuentaCobranza() {
 
                     {/* Modified Plan - Active */}
                     <div className="border-2 border-primary rounded p-3">
-                      <label className="text-xs text-primary font-semibold mb-2 block">Plan Modificado</label>
+                      <label className="text-xs text-primary font-semibold mb-2 block">
+                        Plan Modificado
+                        {acuerdosPago && acuerdosPago.length > 0 && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            {Math.max(...acuerdosPago.map(a => a.orden))} pagos
+                          </Badge>
+                        )}
+                      </label>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
@@ -1170,12 +1179,7 @@ export default function DetalleCuentaCobranza() {
                           </p>
                         </div>
                          <div>
-                           <label className="text-sm font-medium text-muted-foreground">
-                             Entrega
-                             <Badge variant="secondary" className="ml-2 text-xs">
-                               {1 + (currentPaymentPlan?.numero_mensualidades || 0) + 1} pagos
-                             </Badge>
-                           </label>
+                           <label className="text-sm font-medium text-muted-foreground">Entrega</label>
                            <p className="text-sm font-semibold">
                              {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
                            </p>
