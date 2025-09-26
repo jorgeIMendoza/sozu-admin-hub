@@ -1016,7 +1016,7 @@ export default function DetalleCuentaCobranza() {
                 <span className="text-sm text-muted-foreground">Plan de pagos:</span>
                 <Badge variant="default">
                   {offerData.esquema_nombre}
-                  {isPaymentPlanModified && " (modificado)"}
+                  {isPaymentPlanModified && " modificado"}
                 </Badge>
               </div>
             )}
@@ -1058,7 +1058,7 @@ export default function DetalleCuentaCobranza() {
                   <div className="space-y-4">
                     {/* Original Plan - Disabled */}
                     <div className="opacity-50 pointer-events-none border rounded p-3 bg-muted/20">
-                      <label className="text-xs text-muted-foreground mb-2 block">Plan Original (Deshabilitado)</label>
+                      <label className="text-xs text-muted-foreground mb-2 block">Plan Original</label>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
@@ -1083,7 +1083,7 @@ export default function DetalleCuentaCobranza() {
 
                     {/* Modified Plan - Active */}
                     <div className="border-2 border-primary rounded p-3">
-                      <label className="text-xs text-primary font-semibold mb-2 block">Plan Modificado (Activo)</label>
+                      <label className="text-xs text-primary font-semibold mb-2 block">Plan Modificado</label>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
