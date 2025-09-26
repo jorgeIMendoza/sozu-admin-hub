@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationD
 import { NewMultaDialog } from "@/components/admin/NewMultaDialog";
 import { AddCepDialog } from "@/components/admin/AddCepDialog";
 import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
+import { TransferirEntreComisionesDialog } from "@/components/admin/TransferirEntreComisionesDialog";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -146,6 +147,11 @@ export default function DetalleCuentaCobranza() {
     paymentId: null
   });
   const [manualPaymentDialog, setManualPaymentDialog] = useState(false);
+  const [transferDialog, setTransferDialog] = useState<{
+    isOpen: boolean;
+  }>({
+    isOpen: false
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -672,6 +678,15 @@ export default function DetalleCuentaCobranza() {
 
   const totalPendiente = (cuentaDetalle?.precio_final || 0) - totalPagado;
 
+  // Find last STP payment
+  const pagosAplicados = acuerdosPago?.flatMap(acuerdo => 
+    (acuerdo.aplicaciones || []).filter(app => !app.es_multa)
+  ) || [];
+  
+  const ultimoPagoSTP = pagosAplicados
+    .filter(app => app.pago.id_metodos_pago === 6) // STP method ID
+    .sort((a, b) => new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime())[0]?.pago || null;
+
   // Mutation to delete payment application
   const deletePaymentMutation = useMutation({
     mutationFn: async (aplicacionId: number) => {
@@ -872,10 +887,20 @@ export default function DetalleCuentaCobranza() {
             <p className="text-muted-foreground">Información detallada de pagos y acuerdos</p>
           </div>
         </div>
-        <Button onClick={() => setManualPaymentDialog(true)}>
-          <CreditCard className="h-4 w-4 mr-2" />
-          Agregar pago manual
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setTransferDialog({ isOpen: true })}
+            disabled={!ultimoPagoSTP}
+            variant="outline"
+          >
+            <ArrowRight className="h-4 w-4 mr-2" />
+            Transferir entre cuentas
+          </Button>
+          <Button onClick={() => setManualPaymentDialog(true)}>
+            <CreditCard className="h-4 w-4 mr-2" />
+            Agregar pago manual
+          </Button>
+        </div>
       </div>
 
       {/* Información general de la cuenta */}
@@ -1490,6 +1515,17 @@ export default function DetalleCuentaCobranza() {
         onClose={() => setManualPaymentDialog(false)}
         cuentaCobranzaId={cuentaId}
         cuentaCobranzaLabel={`CC-${String(cuentaDetalle.id).padStart(6, '0')}`}
+      />
+
+      <TransferirEntreComisionesDialog
+        isOpen={transferDialog.isOpen}
+        onClose={() => setTransferDialog({ isOpen: false })}
+        cuentaOrigenId={cuentaId}
+        ultimoPagoSTP={ultimoPagoSTP ? {
+          id: ultimoPagoSTP.id,
+          clave_rastreo: ultimoPagoSTP.clave_rastreo || '',
+          monto: ultimoPagoSTP.monto
+        } : null}
       />
     </div>
   );
