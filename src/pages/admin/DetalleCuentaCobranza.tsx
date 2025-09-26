@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Edit, Trash2, Plus, AlertTriangle } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +42,8 @@ interface AplicacionPago {
     monto: number;
     metodo_pago: string;
     clave_rastreo: string | null;
+    url_cep: string | null;
+    url_recibo: string | null;
   };
 }
 
@@ -443,10 +445,10 @@ export default function DetalleCuentaCobranza() {
       
       if (pagoIds.length > 0) {
         const [pagosResult, metodosResult] = await Promise.all([
-          supabase
-            .from('pagos')
-            .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago')
-            .in('id', pagoIds),
+        supabase
+          .from('pagos')
+          .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago, url_cep, url_recibo')
+          .in('id', pagoIds),
           supabase
             .from('metodos_pago')
             .select('id, nombre')
@@ -1180,6 +1182,7 @@ export default function DetalleCuentaCobranza() {
                                    <TableHead className="text-xs">Método</TableHead>
                                    <TableHead className="text-xs">Clave Rastreo</TableHead>
                                    <TableHead className="text-xs">Monto Aplicado</TableHead>
+                                   <TableHead className="text-xs">Evidencia</TableHead>
                                    <TableHead className="text-xs">Acciones</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -1202,25 +1205,36 @@ export default function DetalleCuentaCobranza() {
                                          {formatCurrency(aplicacion.monto)}
                                        </TableCell>
                                        <TableCell>
+                                         {(aplicacion.pago.url_cep || aplicacion.pago.url_recibo) ? (
+                                           <TooltipProvider>
+                                             <Tooltip>
+                                               <TooltipTrigger asChild>
+                                                 <Button
+                                                   variant="outline"
+                                                   size="icon"
+                                                   className="h-6 w-6"
+                                                   onClick={() => {
+                                                     const evidenceUrl = aplicacion.pago.url_cep || aplicacion.pago.url_recibo;
+                                                     if (evidenceUrl) {
+                                                       window.open(evidenceUrl, '_blank');
+                                                     }
+                                                   }}
+                                                 >
+                                                   <Eye className="h-3 w-3" />
+                                                 </Button>
+                                               </TooltipTrigger>
+                                               <TooltipContent>
+                                                 <p>Ver evidencia</p>
+                                               </TooltipContent>
+                                             </Tooltip>
+                                           </TooltipProvider>
+                                         ) : (
+                                           <span className="text-muted-foreground text-xs">N/A</span>
+                                         )}
+                                       </TableCell>
+                                       <TableCell>
                                         <TooltipProvider>
                                           <div className="flex gap-2">
-                                            {!isStpPayment && (
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    className="h-6 w-6"
-                                                    onClick={() => handleEditPayment(aplicacion.id)}
-                                                  >
-                                                    <Edit className="h-3 w-3" />
-                                                  </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p>Editar Pago</p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            )}
                                             <Tooltip>
                                               <TooltipTrigger asChild>
                                                 <Button
