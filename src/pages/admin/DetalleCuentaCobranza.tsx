@@ -1115,14 +1115,14 @@ export default function DetalleCuentaCobranza() {
                   <div className="space-y-4">
                     {/* Original Plan - Disabled */}
                     <div className="opacity-50 pointer-events-none border rounded p-3 bg-muted/20">
-                      <label className="text-xs text-muted-foreground mb-2 block">
-                        Plan Original
-                        {acuerdosPago && acuerdosPago.length > 0 && (
-                          <Badge variant="secondary" className="ml-2 text-xs">
-                            {Math.max(...acuerdosPago.map(a => a.orden))} pagos
-                          </Badge>
-                        )}
-                      </label>
+                       <label className="text-xs text-muted-foreground mb-2 block">
+                         Plan Original
+                         {originalScheme && (
+                           <Badge variant="secondary" className="ml-2 text-xs">
+                             {originalScheme.numero_mensualidades + 1 + 1 + 1} pagos
+                           </Badge>
+                         )}
+                       </label>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
@@ -1149,9 +1149,9 @@ export default function DetalleCuentaCobranza() {
                     <div className="border-2 border-primary rounded p-3">
                       <label className="text-xs text-primary font-semibold mb-2 block">
                         Plan Modificado
-                        {acuerdosPago && acuerdosPago.length > 0 && (
+                        {currentPaymentPlan && (
                           <Badge variant="secondary" className="ml-2 text-xs">
-                            {Math.max(...acuerdosPago.map(a => a.orden))} pagos
+                            {(currentPaymentPlan.numero_mensualidades || 0) + 1 + 1 + 1} pagos
                           </Badge>
                         )}
                       </label>
