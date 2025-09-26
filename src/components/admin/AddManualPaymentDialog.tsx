@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,7 +23,7 @@ const formSchema = z.object({
     required_error: "La fecha de pago es requerida",
   }),
   id_metodos_pago: z.string().min(1, "El método de pago es requerido"),
-  clave_rastreo: z.string().optional(),
+  clave_rastreo: z.string().min(1, "La clave de rastreo es requerida"),
   url_recibo: z.string().optional(),
   url_cep: z.string().optional(),
 });
@@ -47,6 +47,45 @@ export function AddManualPaymentDialog({
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Function to generate automatic clave_rastreo
+  const generateClaveRastreo = async (fechaPago: Date): Promise<string> => {
+    // Format date as yyyymmdd
+    const year = fechaPago.getFullYear();
+    const month = String(fechaPago.getMonth() + 1).padStart(2, '0');
+    const day = String(fechaPago.getDate()).padStart(2, '0');
+    const dateStr = `${year}${month}${day}`;
+    
+    // Format cuenta_cobranza id with 6 digits
+    const cuentaIdStr = String(cuentaCobranzaId).padStart(6, '0');
+    
+    // Query existing manual payments for this cuenta_cobranza to get next consecutive
+    const { data: existingPayments } = await supabase
+      .from("pagos")
+      .select("clave_rastreo")
+      .eq("id_cuenta_cobranza", cuentaCobranzaId)
+      .like("clave_rastreo", `manual_%`)
+      .order("clave_rastreo", { ascending: false });
+    
+    // Find the highest consecutive number for this cuenta_cobranza
+    let maxConsecutive = 0;
+    if (existingPayments) {
+      existingPayments.forEach(payment => {
+        if (payment.clave_rastreo) {
+          const match = payment.clave_rastreo.match(/manual_\d{8}_\d{6}_(\d{6})$/);
+          if (match) {
+            const consecutive = parseInt(match[1]);
+            if (consecutive > maxConsecutive) {
+              maxConsecutive = consecutive;
+            }
+          }
+        }
+      });
+    }
+    
+    const nextConsecutive = String(maxConsecutive + 1).padStart(6, '0');
+    return `manual_${dateStr}_${cuentaIdStr}_${nextConsecutive}`;
+  };
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -58,6 +97,18 @@ export function AddManualPaymentDialog({
       url_cep: "",
     },
   });
+
+  // Auto-generate clave_rastreo when fecha_pago changes
+  useEffect(() => {
+    const fechaPago = form.watch("fecha_pago");
+    if (fechaPago) {
+      generateClaveRastreo(fechaPago).then((claveRastreo) => {
+        form.setValue("clave_rastreo", claveRastreo);
+      }).catch((error) => {
+        console.error("Error generating clave_rastreo:", error);
+      });
+    }
+  }, [form.watch("fecha_pago")]);
 
   // Fetch payment methods
   const { data: metodosPago } = useQuery({
@@ -231,9 +282,14 @@ export function AddManualPaymentDialog({
               name="clave_rastreo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Clave de Rastreo</FormLabel>
+                  <FormLabel>Clave de Rastreo (Generada automáticamente)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Número de referencia o clave de rastreo" {...field} />
+                    <Input 
+                      placeholder="Se genera automáticamente" 
+                      readOnly 
+                      className="bg-muted"
+                      {...field} 
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
