@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 import { NewPropertyDialog } from "@/components/admin/NewPropertyDialog";
 import { EditPropertyDialog } from "@/components/admin/EditPropertyDialog";
 import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropertiesDialog";
@@ -511,7 +512,7 @@ const Propiedades = () => {
       const currentOffer = selectedPropertyOffers?.find(offer => offer.id === offerId);
       if (currentOffer?.cuenta_cobranza_id && currentOffer?.cuenta_es_aprobado) {
         try {
-          const webhookResponse = await fetch('https://automatizacion-n8n.fbqqbe.easypanel.host/webhook-test/aplicaPago', {
+          const webhookResponse = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -555,7 +556,7 @@ const Propiedades = () => {
       // Find the specific offer to get id_persona_lead
       const currentOffer = selectedPropertyOffers?.find(offer => offer.id === offerId);
       
-      const response = await fetch('https://automatizacion-n8n.fbqqbe.easypanel.host/webhook-test/aplicaPago', {
+      const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

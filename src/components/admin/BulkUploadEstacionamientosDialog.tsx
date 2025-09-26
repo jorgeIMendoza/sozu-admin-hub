@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 
 interface BulkUploadEstacionamientosDialogProps {
   open: boolean;
@@ -75,7 +76,7 @@ export const BulkUploadEstacionamientosDialog = ({
       }, 500);
 
       const response = await fetch(
-        'https://automatizacion-n8n.fbqqbe.easypanel.host/webhook/cargar-archivo-estacionamientos',
+        `${N8N_WEBHOOK_BASE_URL}/cargar-archivo-estacionamientos`,
         {
           method: 'POST',
           body: formData,
