@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => ({
           }
         ]
       },
-      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['app-icon.png'],
       manifest: {
         name: 'SOZU Admin - Panel de Administración',
         short_name: 'SOZU Admin',
