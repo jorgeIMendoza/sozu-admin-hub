@@ -246,10 +246,10 @@ export function TransferirEntreComisionesDialog({
       return;
     }
 
-    if (montoTransferir > (ultimoPagoSTP?.monto || 0)) {
+    if (montoTransferir >= (ultimoPagoSTP?.monto || 0)) {
       toast({
         title: "Error",
-        description: "El monto no puede ser mayor al pago original",
+        description: "El monto debe ser menor al pago original",
         variant: "destructive",
       });
       return;
@@ -369,7 +369,7 @@ export function TransferirEntreComisionesDialog({
                   id="monto"
                   type="number"
                   min="0"
-                  max={ultimoPagoSTP?.monto || 0}
+                  max={(ultimoPagoSTP?.monto || 0) - 0.01}
                   step="0.01"
                   value={montoTransferir}
                   onChange={(e) => setMontoTransferir(parseFloat(e.target.value) || 0)}
@@ -395,7 +395,7 @@ export function TransferirEntreComisionesDialog({
           </Button>
           <Button 
             onClick={handleTransferir} 
-            disabled={loading || !cuentaDestinoSeleccionada || montoTransferir <= 0 || cuentasDestino.length === 0}
+            disabled={loading || !cuentaDestinoSeleccionada || montoTransferir <= 0 || montoTransferir >= (ultimoPagoSTP?.monto || 0) || cuentasDestino.length === 0}
           >
             Transferir
           </Button>
