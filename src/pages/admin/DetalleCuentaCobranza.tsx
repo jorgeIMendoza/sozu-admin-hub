@@ -1014,7 +1014,10 @@ export default function DetalleCuentaCobranza() {
             {offerData && offerData.id_esquema_pago_seleccionado && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Plan de pagos:</span>
-                <Badge variant="default">{offerData.esquema_nombre}</Badge>
+                <Badge variant="default">
+                  {offerData.esquema_nombre}
+                  {isPaymentPlanModified && " (modificado)"}
+                </Badge>
               </div>
             )}
           </div>
