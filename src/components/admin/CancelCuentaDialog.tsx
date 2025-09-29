@@ -277,13 +277,21 @@ export function CancelCuentaDialog({
 
       // Si es Cesión de derechos
       if (tipoCancelacion === "1") {
-        // Obtener id_er_dueno
+        // Obtener id_er_dueno y datos del esquema de pago
         const { data: ofertaData, error: ofertaError } = await supabase
           .from('ofertas')
           .select(`
             id_propiedad,
+            id_esquema_pago_seleccionado,
             propiedades!ofertas_id_propiedad_fkey(
-              id_entidad_relacionada_dueno
+              id_entidad_relacionada_dueno,
+              monto_apartado
+            ),
+            esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey(
+              porcentaje_enganche,
+              porcentaje_mensualidades,
+              porcentaje_entrega,
+              numero_mensualidades
             )
           `)
           .eq('id', idOferta)
@@ -295,6 +303,12 @@ export function CancelCuentaDialog({
         if (!idErDueno) {
           throw new Error('No se pudo obtener id_er_dueno');
         }
+
+        // Calcular montos basados en precio final
+        const esquema = ofertaData?.esquemas_pago;
+        const montoApartado = ofertaData?.propiedades?.monto_apartado || 0;
+        const montoEnganche = esquema ? (precioFinal * esquema.porcentaje_enganche / 100) : 0;
+        const montoEntrega = esquema ? (precioFinal * esquema.porcentaje_entrega / 100) : 0;
 
         // Guardar los pagos en la base de datos ANTES de enviar el webhook
         const pagosGuardados = [];
@@ -360,7 +374,16 @@ export function CancelCuentaDialog({
             precio_final: precioFinal,
             clabe_stp_tmp_apartado: clabeStpOriginal,
             id_er_dueno: idErDueno,
-            id_persona_lead: parseInt(nuevoCompradorId)
+            id_persona_lead: parseInt(nuevoCompradorId),
+            datos_propiedad: {
+              porcentaje_enganche: esquema?.porcentaje_enganche || 0,
+              monto_apartado: montoApartado,
+              monto_enganche: montoEnganche,
+              porcentaje_mensualidades: esquema?.porcentaje_mensualidades || 0,
+              numero_mensualidades: esquema?.numero_mensualidades || 0,
+              porcentaje_entrega: esquema?.porcentaje_entrega || 0,
+              monto_entrega: montoEntrega
+            }
           })
         });
 
