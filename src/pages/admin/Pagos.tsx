@@ -15,6 +15,7 @@ import { CompradoresDetailDialog } from "@/components/admin/CompradoresDetailDia
 import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
 import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
 import { TransferMoneyDialog } from "@/components/admin/TransferMoneyDialog";
+import { CancelCuentaDialog } from "@/components/admin/CancelCuentaDialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface Comprador {
@@ -36,6 +37,8 @@ interface CuentaCobranza {
   numero_propiedad: string;
   modelo: string;
   activo: boolean;
+  id_oferta: number;
+  motivo_cancelacion?: string | null;
 }
 
 export default function Pagos() {
@@ -74,7 +77,8 @@ export default function Pagos() {
           clabe_stp,
           precio_final,
           id_oferta,
-          activo
+          activo,
+          tipos_cancelacion:id_tipo_cancelacion(nombre)
         `);
 
       if (cuentasError) {
@@ -192,7 +196,9 @@ export default function Pagos() {
           edificio: edificioModelo?.edificios?.nombre || 'Sin edificio',
           numero_propiedad: propiedad?.numero_propiedad || 'Sin número',
           modelo: edificioModelo?.modelos?.nombre || 'Sin modelo',
-          activo: cuenta.activo
+          activo: cuenta.activo,
+          id_oferta: cuenta.id_oferta,
+          motivo_cancelacion: (cuenta as any).tipos_cancelacion?.nombre || null
         };
       });
 
@@ -228,110 +234,13 @@ export default function Pagos() {
     }).format(amount);
   };
 
-  // Mutation to cancel a cuenta de cobranza
-  const cancelCuentaMutation = useMutation({
-    mutationFn: async (cuentaId: number) => {
-      const { error } = await supabase
-        .from('cuentas_cobranza')
-        .update({ activo: false })
-        .eq('id', cuentaId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Cuenta cancelada",
-        description: "La cuenta de cobranza ha sido cancelada exitosamente",
-      });
-      queryClient.invalidateQueries({ queryKey: ["cuentas_cobranza"] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "No se pudo cancelar la cuenta de cobranza",
-        variant: "destructive",
-      });
-    },
-  });
-
+  // Handler to open cancel dialog
   const handleCancelCuenta = (cuenta: CuentaCobranza) => {
     setCancelDialog({ isOpen: true, cuenta });
   };
 
   const handleEditCuenta = (cuenta: CuentaCobranza) => {
     setEditDialog({ isOpen: true, cuenta });
-  };
-
-  const confirmCancel = () => {
-    if (cancelDialog.cuenta) {
-      // Check if there are payments before showing transfer dialog
-      checkPaymentsAndProceed(cancelDialog.cuenta);
-    }
-    setCancelDialog({ isOpen: false, cuenta: null });
-  };
-
-  const checkPaymentsAndProceed = async (cuenta: CuentaCobranza) => {
-    try {
-      // Check if there are payments for this account
-      const { data: aplicaciones, error: aplicacionesError } = await supabase
-        .from('aplicaciones_pago')
-        .select('id, id_pago')
-        .eq('activo', true);
-
-      if (aplicacionesError) throw aplicacionesError;
-
-      if (!aplicaciones || aplicaciones.length === 0) {
-        cancelCuentaMutation.mutate(cuenta.id);
-        return;
-      }
-
-      // Get pagos for this cuenta
-      const pagoIds = aplicaciones.map(ap => ap.id_pago);
-      const { data: pagos, error: pagosError } = await supabase
-        .from('pagos')
-        .select('id')
-        .in('id', pagoIds)
-        .eq('id_cuenta_cobranza', cuenta.id);
-
-      if (pagosError) throw pagosError;
-
-      const hasPayments = (pagos?.length || 0) > 0;
-
-      if (hasPayments) {
-        // Show transfer dialog
-        setTransferDialog({ isOpen: true, cuenta });
-      } else {
-        // Cancel directly
-        cancelCuentaMutation.mutate(cuenta.id);
-      }
-    } catch (error) {
-      console.error('Error checking payments:', error);
-      // If there's an error, proceed with cancellation
-      cancelCuentaMutation.mutate(cuenta.id);
-    }
-  };
-
-  const handleTransferMoney = async (cuentaDestinoId: number) => {
-    if (!transferDialog.cuenta) return;
-
-    try {
-      // Transfer logic would go here
-      // For now, just cancel the account after transfer
-      cancelCuentaMutation.mutate(transferDialog.cuenta.id);
-      setTransferDialog({ isOpen: false, cuenta: null });
-      
-      toast({
-        title: "Transferencia completada",
-        description: "El dinero ha sido transferido y la cuenta ha sido cancelada",
-      });
-    } catch (error) {
-      console.error('Error transferring money:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo completar la transferencia",
-        variant: "destructive",
-      });
-    }
   };
 
   // Navigation functions
@@ -620,11 +529,10 @@ export default function Pagos() {
                                 </Tooltip>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button 
+                                     <Button 
                                       variant="destructive" 
                                       size="icon"
                                       onClick={() => handleCancelCuenta(cuenta)}
-                                      disabled={cancelCuentaMutation.isPending}
                                     >
                                       <X className="h-4 w-4" />
                                     </Button>
@@ -680,6 +588,7 @@ export default function Pagos() {
                       <TableHead>Precio Final</TableHead>
                       <TableHead>Pagado</TableHead>
                       <TableHead>Restante</TableHead>
+                      <TableHead>Motivo Cancelación</TableHead>
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -746,6 +655,11 @@ export default function Pagos() {
                         <TableCell className="font-semibold text-orange-600">
                           {formatCurrency(cuenta.restante)}
                         </TableCell>
+                        <TableCell>
+                          <Badge variant={cuenta.motivo_cancelacion === "Cesión de derechos" ? "secondary" : "destructive"}>
+                            {cuenta.motivo_cancelacion || "Sin especificar"}
+                          </Badge>
+                        </TableCell>
                          <TableCell>
                            <TooltipProvider>
                              <div className="flex gap-2">
@@ -793,15 +707,21 @@ export default function Pagos() {
         </TabsContent>
       </Tabs>
 
-      <DeleteConfirmationDialog
-        open={cancelDialog.isOpen}
-        onOpenChange={(open) => setCancelDialog({ isOpen: open, cuenta: null })}
-        onConfirm={confirmCancel}
-        title="Cancelar Cuenta de Cobranza"
-        description={`¿Estás seguro de que deseas cancelar la cuenta de cobranza #${cancelDialog.cuenta?.id}? Esta acción marcará la cuenta como inactiva.`}
-        isLoading={cancelCuentaMutation.isPending}
-        actionType="delete"
-      />
+      {cancelDialog.isOpen && cancelDialog.cuenta && (
+        <CancelCuentaDialog
+          isOpen={cancelDialog.isOpen}
+          onClose={() => setCancelDialog({ isOpen: false, cuenta: null })}
+          cuentaId={cancelDialog.cuenta.id}
+          precioFinal={cancelDialog.cuenta.precio_final}
+          totalPagado={cancelDialog.cuenta.pagado}
+          idOferta={cancelDialog.cuenta.id_oferta}
+          clabeStpOriginal={cancelDialog.cuenta.clabe_stp}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["cuentas_cobranza"] });
+            setCancelDialog({ isOpen: false, cuenta: null });
+          }}
+        />
+      )}
 
       {editDialog.isOpen && editDialog.cuenta && (
         <EditCuentaCobranzaDialog
