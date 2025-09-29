@@ -310,12 +310,34 @@ export function CancelCuentaDialog({
         const montoEnganche = esquema ? (precioFinal * esquema.porcentaje_enganche / 100) : 0;
         const montoEntrega = esquema ? (precioFinal * esquema.porcentaje_entrega / 100) : 0;
 
-        // Preparar los pagos para enviar en el webhook (sin guardarlos en la BD)
-        const pagosParaWebhook = pagosNuevos.map(pago => ({
-          monto_pagado: pago.monto,
-          fecha_pago: pago.fecha_pago,
-          id_metodo_pago: parseInt(pago.id_metodo_pago)
-        }));
+        // Preparar los pagos con sus evidencias (sin guardarlos en la BD)
+        const pagosParaWebhook = [];
+        for (const pago of pagosNuevos) {
+          let urlRecibo = null;
+          
+          // Subir evidencia del pago si existe
+          if (pago.evidencia) {
+            const fileName = `evidencia_pago_${cuentaId}_${Date.now()}_${Math.random()}.${pago.evidencia.name.split('.').pop()}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('documentos')
+              .upload(fileName, pago.evidencia);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('documentos')
+              .getPublicUrl(fileName);
+
+            urlRecibo = publicUrl;
+          }
+
+          pagosParaWebhook.push({
+            monto_pagado: pago.monto,
+            fecha_pago: pago.fecha_pago,
+            id_metodo_pago: parseInt(pago.id_metodo_pago),
+            url_recibo: urlRecibo
+          });
+        }
 
         // Llamar al webhook con los pagos
         const webhookBaseUrl = import.meta.env.VITE_N8N_WEBHOOK_BASE_URL;
@@ -331,7 +353,6 @@ export function CancelCuentaDialog({
             success: true,
             siguiente_accion: "genera_cuenta_cobranza_completa_cesion",
             message: "Cancelación con cesión de derechos",
-            id_cuenta_cobranza: cuentaId,
             id_oferta: idOferta,
             pagos: pagosParaWebhook,
             es_cancelacion: true,
