@@ -225,8 +225,8 @@ export function CancelCuentaDialog({
       const pagosSinMetodo = pagosNuevos.some(p => !p.id_metodo_pago);
       if (pagosSinMetodo) return "Todos los pagos deben tener un método de pago";
       
-      if (totalPagosNuevos < minimoRequerido) {
-        return `La suma de los pagos ($${formatCurrency(totalPagosNuevos)}) debe ser mayor o igual a $${formatCurrency(minimoRequerido)}`;
+      if (totalPagosNuevos !== minimoRequerido) {
+        return `La suma de los pagos debe ser exactamente $${formatCurrency(minimoRequerido)} (actualmente: $${formatCurrency(totalPagosNuevos)})`;
       }
     }
 
@@ -576,6 +576,11 @@ export function CancelCuentaDialog({
                       {totalPagosNuevos < minimoRequerido && (
                         <span className="text-destructive ml-2">
                           (Faltan ${formatCurrency(minimoRequerido - totalPagosNuevos)})
+                        </span>
+                      )}
+                      {totalPagosNuevos > minimoRequerido && (
+                        <span className="text-destructive ml-2">
+                          (Excede por ${formatCurrency(totalPagosNuevos - minimoRequerido)})
                         </span>
                       )}
                     </div>
