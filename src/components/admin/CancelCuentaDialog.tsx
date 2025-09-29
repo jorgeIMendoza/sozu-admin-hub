@@ -277,39 +277,6 @@ export function CancelCuentaDialog({
 
       // Si es Cesión de derechos
       if (tipoCancelacion === "1") {
-        // Agregar pagos con sus evidencias
-        for (const pago of pagosNuevos) {
-          // Subir evidencia del pago si existe
-          let urlEvidenciaPago = null;
-          if (pago.evidencia) {
-            const fileNamePago = `evidencia_pago_${cuentaId}_${Date.now()}_${Math.random()}.${pago.evidencia.name.split('.').pop()}`;
-            const { error: uploadError } = await supabase.storage
-              .from('documentos')
-              .upload(fileNamePago, pago.evidencia);
-
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-              .from('documentos')
-              .getPublicUrl(fileNamePago);
-
-            urlEvidenciaPago = publicUrl;
-          }
-
-          const { error: pagoError } = await supabase
-            .from('pagos')
-            .insert({
-              id_cuenta_cobranza: cuentaId,
-              id_metodos_pago: parseInt(pago.id_metodo_pago),
-              monto: pago.monto,
-              fecha_pago: pago.fecha_pago,
-              url_recibo: urlEvidenciaPago,
-              activo: true
-            });
-
-          if (pagoError) throw pagoError;
-        }
-
         // Obtener id_er_dueno
         const { data: ofertaData, error: ofertaError } = await supabase
           .from('ofertas')
