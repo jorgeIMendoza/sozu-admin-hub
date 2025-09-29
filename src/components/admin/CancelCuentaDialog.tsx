@@ -296,7 +296,50 @@ export function CancelCuentaDialog({
           throw new Error('No se pudo obtener id_er_dueno');
         }
 
-        // Llamar al webhook
+        // Guardar los pagos en la base de datos ANTES de enviar el webhook
+        const pagosGuardados = [];
+        for (const pago of pagosNuevos) {
+          // Subir evidencia del pago si existe
+          let urlEvidenciaPago = null;
+          if (pago.evidencia) {
+            const fileName = `evidencia_pago_${cuentaId}_${Date.now()}.${pago.evidencia.name.split('.').pop()}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('documentos')
+              .upload(fileName, pago.evidencia);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('documentos')
+              .getPublicUrl(fileName);
+
+            urlEvidenciaPago = publicUrl;
+          }
+
+          // Insertar el pago en la base de datos
+          const { data: pagoInsertado, error: pagoError } = await supabase
+            .from('pagos')
+            .insert({
+              id_cuenta_cobranza: cuentaId,
+              monto: pago.monto,
+              fecha_pago: pago.fecha_pago,
+              id_metodos_pago: parseInt(pago.id_metodo_pago),
+              url_recibo: urlEvidenciaPago,
+              activo: true
+            })
+            .select()
+            .single();
+
+          if (pagoError) throw pagoError;
+
+          // Agregar al array con el formato correcto
+          pagosGuardados.push({
+            monto_pagado: pagoInsertado.monto,
+            id_pago: pagoInsertado.id
+          });
+        }
+
+        // Llamar al webhook con los pagos que ya tienen id_pago
         const webhookBaseUrl = import.meta.env.VITE_N8N_WEBHOOK_BASE_URL;
         if (!webhookBaseUrl) {
           throw new Error('VITE_N8N_WEBHOOK_BASE_URL no está configurado');
@@ -312,7 +355,7 @@ export function CancelCuentaDialog({
             message: "Cancelación con cesión de derechos",
             id_cuenta_cobranza: cuentaId,
             id_oferta: idOferta,
-            pagos: pagosNuevos.map(pago => ({ monto_pagado: pago.monto })),
+            pagos: pagosGuardados,
             es_cancelacion: true,
             precio_final: precioFinal,
             clabe_stp_tmp_apartado: clabeStpOriginal,
