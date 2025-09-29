@@ -89,12 +89,19 @@ export function CancelCuentaDialog({
       return;
     }
 
-    // Filtrar solo Cheque, Efectivo y Transferencia electrónica
+    // Filtrar solo Cheque, Efectivo y Transferencia bancaria
     const metodosFiltrados = (data || []).filter(metodo => 
-      ['cheque', 'efectivo', 'transferencia electrónica', 'transferencia electronica'].includes(metodo.nombre.toLowerCase())
+      ['cheque', 'efectivo', 'transferencia bancaria'].includes(metodo.nombre.toLowerCase())
     );
     
     setMetodosPago(metodosFiltrados);
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
   };
 
   const fetchCompradores = async () => {
@@ -182,12 +189,12 @@ export function CancelCuentaDialog({
     
     const maxCincoPerciento = precioFinal * 0.05;
     if (monto > maxCincoPerciento) {
-      setErrorMontoCobro(`No puede ser mayor al 5% del precio final ($${maxCincoPerciento.toFixed(2)})`);
+      setErrorMontoCobro(`No puede ser mayor al 5% del precio final ($${formatCurrency(maxCincoPerciento)})`);
       return;
     }
     
     if (monto > totalPagado) {
-      setErrorMontoCobro(`No puede ser mayor al monto ya pagado ($${totalPagado.toFixed(2)})`);
+      setErrorMontoCobro(`No puede ser mayor al monto ya pagado ($${formatCurrency(totalPagado)})`);
       return;
     }
     
@@ -219,7 +226,7 @@ export function CancelCuentaDialog({
       if (pagosSinMetodo) return "Todos los pagos deben tener un método de pago";
       
       if (totalPagosNuevos < minimoRequerido) {
-        return `La suma de los pagos (${totalPagosNuevos.toFixed(2)}) debe ser mayor o igual a ${minimoRequerido.toFixed(2)}`;
+        return `La suma de los pagos ($${formatCurrency(totalPagosNuevos)}) debe ser mayor o igual a $${formatCurrency(minimoRequerido)}`;
       }
     }
 
@@ -372,7 +379,7 @@ export function CancelCuentaDialog({
 
           {/* Cobro por Cancelación */}
           <div className="space-y-2">
-            <Label>Cobro por Cancelación * ({porcentajePrecioFinal}% del precio final)</Label>
+            <Label>Cobro por Cancelación * ({porcentajePrecioFinal}% del precio final: ${formatCurrency(precioFinal)})</Label>
             <Input
               type="number"
               step="0.01"
@@ -433,7 +440,7 @@ export function CancelCuentaDialog({
                 {/* Pagos */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <Label>Pagos (mínimo requerido: ${minimoRequerido.toFixed(2)})</Label>
+                    <Label>Pagos (mínimo requerido: ${formatCurrency(minimoRequerido)})</Label>
                     <Button onClick={agregarPago} size="sm" variant="outline">
                       <Plus className="h-4 w-4 mr-1" /> Agregar Pago
                     </Button>
@@ -531,10 +538,10 @@ export function CancelCuentaDialog({
 
                   {pagosNuevos.length > 0 && (
                     <div className="text-sm font-medium mt-2">
-                      Total: ${totalPagosNuevos.toFixed(2)}
+                      Total: ${formatCurrency(totalPagosNuevos)}
                       {totalPagosNuevos < minimoRequerido && (
                         <span className="text-destructive ml-2">
-                          (Faltan ${(minimoRequerido - totalPagosNuevos).toFixed(2)})
+                          (Faltan ${formatCurrency(minimoRequerido - totalPagosNuevos)})
                         </span>
                       )}
                     </div>
