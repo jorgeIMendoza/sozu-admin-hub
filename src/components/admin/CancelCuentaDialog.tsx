@@ -372,7 +372,6 @@ export function CancelCuentaDialog({
             pagos: pagosGuardados,
             es_cancelacion: true,
             precio_final: precioFinal,
-            clabe_stp_tmp_apartado: clabeStpOriginal,
             id_er_dueno: idErDueno,
             id_persona_lead: parseInt(nuevoCompradorId),
             datos_propiedad: {
