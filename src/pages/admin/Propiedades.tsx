@@ -272,6 +272,14 @@ const Propiedades = () => {
       
       // Build payment status map
       const paymentStatusMap: any = {};
+      
+      // Create a map to store apartado amounts per property
+      const apartadoMap: any = {};
+      data?.forEach((property: any) => {
+        if (property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
+          apartadoMap[property.id] = property.monto_apartado_pagando;
+        }
+      });
 
       if (cuentaIds.length > 0) {
         const { data: acuerdosData } = await supabase
@@ -324,12 +332,42 @@ const Propiedades = () => {
           else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
           else return;
 
+          // Acumular montos totales y pagados por concepto
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
 
+          // Determinar el estado basado en si el acuerdo está completado
           if (acuerdo.pago_completado) {
+            // Si algún acuerdo está completado, verificar si todos están completados
+            // Para eso necesitamos contar cuántos acuerdos hay por concepto
             paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'pagado';
           } else if (montoPagado > 0) {
+            if (paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status !== 'pagado') {
+              paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'en_proceso';
+            }
+          }
+        });
+        
+        // Después de procesar todos los acuerdos, ajustar el estado 'pagado' solo si todos los acuerdos están completados
+        (acuerdosData || []).forEach((acuerdo: any) => {
+          let conceptoKey: 'mensualidades' | 'enganche' | 'entrega';
+          if (acuerdo.id_concepto === 1) conceptoKey = 'mensualidades';
+          else if (acuerdo.id_concepto === 2) conceptoKey = 'enganche';
+          else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
+          else return;
+
+          // Verificar si TODOS los acuerdos del mismo concepto están completados
+          const acuerdosMismoConcepto = (acuerdosData || []).filter(
+            (a: any) => a.id_cuenta_cobranza === acuerdo.id_cuenta_cobranza && a.id_concepto === acuerdo.id_concepto
+          );
+          const todosCompletados = acuerdosMismoConcepto.every((a: any) => a.pago_completado);
+          
+          if (todosCompletados && acuerdosMismoConcepto.length > 0) {
+            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'pagado';
+          } else if (acuerdosMismoConcepto.some((a: any) => {
+            const apps = aplicacionesMap[a.id] || [];
+            return apps.length > 0 && !a.pago_completado;
+          })) {
             if (paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status !== 'pagado') {
               paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'en_proceso';
             }
@@ -344,7 +382,19 @@ const Propiedades = () => {
           activeCuentasMap[oferta.id]
         ).find((cuenta: any) => cuenta !== undefined);
         
-        const paymentStatus = cuentaCobranzaData?.id ? paymentStatusMap[cuentaCobranzaData.id] : null;
+        let paymentStatus = cuentaCobranzaData?.id ? paymentStatusMap[cuentaCobranzaData.id] : null;
+        
+        // Add apartado amount to enganche if it exists
+        if (paymentStatus && property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
+          paymentStatus.enganche.monto_pagado += Number(property.monto_apartado_pagando) || 0;
+          
+          // Recalculate enganche status considering apartado
+          if (paymentStatus.enganche.monto_pagado >= paymentStatus.enganche.monto && paymentStatus.enganche.monto > 0) {
+            paymentStatus.enganche.status = 'pagado';
+          } else if (paymentStatus.enganche.monto_pagado > 0) {
+            paymentStatus.enganche.status = 'en_proceso';
+          }
+        }
         
         return {
           id: property.id,
@@ -1465,7 +1515,7 @@ const Propiedades = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Cuenta de Cobranza</label>
+                <label className="text-sm font-medium mb-2 block">Tiene C.C.</label>
                 <Select value={cuentaCobranzaFilter} onValueChange={setCuentaCobranzaFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="Filtrar por cuenta..." />
