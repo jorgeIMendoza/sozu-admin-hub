@@ -781,9 +781,12 @@ export type Database = {
           id: number
           id_notario: number | null
           id_oferta: number
+          id_tipo_cancelacion: number | null
           moneda: string | null
+          monto_cobro_cancelacion: number | null
           porcentaje_comision_venta: number
           precio_final: number
+          url_evidencia_cancelacion: string | null
           valor_uma: number | null
         }
         Insert: {
@@ -800,9 +803,12 @@ export type Database = {
           id?: number
           id_notario?: number | null
           id_oferta: number
+          id_tipo_cancelacion?: number | null
           moneda?: string | null
+          monto_cobro_cancelacion?: number | null
           porcentaje_comision_venta?: number
           precio_final?: number
+          url_evidencia_cancelacion?: string | null
           valor_uma?: number | null
         }
         Update: {
@@ -819,12 +825,22 @@ export type Database = {
           id?: number
           id_notario?: number | null
           id_oferta?: number
+          id_tipo_cancelacion?: number | null
           moneda?: string | null
+          monto_cobro_cancelacion?: number | null
           porcentaje_comision_venta?: number
           precio_final?: number
+          url_evidencia_cancelacion?: string | null
           valor_uma?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cuentas_cobranza_id_tipo_cancelacion_fkey"
+            columns: ["id_tipo_cancelacion"]
+            isOneToOne: false
+            referencedRelation: "tipos_cancelacion"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_ccob_notario"
             columns: ["id_notario"]
@@ -964,6 +980,13 @@ export type Database = {
             columns: ["id_propiedad"]
             isOneToOne: false
             referencedRelation: "propiedades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_id_tipo_documento_fkey"
+            columns: ["id_tipo_documento"]
+            isOneToOne: false
+            referencedRelation: "tipos_documento"
             referencedColumns: ["id"]
           },
           {
@@ -2163,13 +2186,6 @@ export type Database = {
           url_recibo?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_pagos_clave_rastreo"
-            columns: ["clave_rastreo"]
-            isOneToOne: true
-            referencedRelation: "pagos_stp_raw"
-            referencedColumns: ["claverastreo"]
-          },
           {
             foreignKeyName: "fk_pagos_cuenta"
             columns: ["id_cuenta_cobranza"]
@@ -3403,6 +3419,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tipos_cancelacion: {
+        Row: {
+          activo: boolean | null
+          fecha_actualizacion: string | null
+          fecha_creacion: string
+          id: number
+          nombre: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string
+          id?: number
+          nombre?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string
+          id?: number
+          nombre?: string | null
+        }
+        Relationships: []
       }
       tipos_cep: {
         Row: {
