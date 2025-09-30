@@ -61,7 +61,7 @@ export default function Productos() {
       .select(`
         *,
         categorias_producto!productos_servicios_id_categoria_fkey (nombre),
-        personas (nombre_legal),
+        personas!productos_servicios_id_persona_fkey (nombre_legal),
         unidades_sat (descripcion)
       `)
       .eq('activo', activo)
