@@ -936,6 +936,7 @@ export type Database = {
           es_verificado: boolean
           fecha_actualizacion: string
           fecha_creacion: string
+          id: number
           id_cuenta_cobranza: number | null
           id_persona: number | null
           id_producto: number | null
@@ -949,6 +950,7 @@ export type Database = {
           es_verificado?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
+          id?: number
           id_cuenta_cobranza?: number | null
           id_persona?: number | null
           id_producto?: number | null
@@ -962,6 +964,7 @@ export type Database = {
           es_verificado?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
+          id?: number
           id_cuenta_cobranza?: number | null
           id_persona?: number | null
           id_producto?: number | null
