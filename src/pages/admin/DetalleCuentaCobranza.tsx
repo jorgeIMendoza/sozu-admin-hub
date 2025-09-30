@@ -1141,7 +1141,12 @@ export default function DetalleCuentaCobranza() {
                       <label className="text-sm font-medium text-muted-foreground">
                         {currentPaymentPlan?.hayCesionDerechos ? 'Cesión de derechos' : 'Enganche'}
                       </label>
-                      <p className="text-sm font-semibold">{currentPaymentPlan?.porcentaje_enganche.toFixed(1)}%</p>
+                      <p className="text-sm font-semibold">
+                        {currentPaymentPlan?.hayCesionDerechos ? 
+                          ((actualAmounts?.cesion || 0) / (cuentaDetalle?.precio_final || 1) * 100).toFixed(1) :
+                          currentPaymentPlan?.porcentaje_enganche.toFixed(1)
+                        }%
+                      </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
@@ -1209,10 +1214,13 @@ export default function DetalleCuentaCobranza() {
                             {currentPaymentPlan?.hayCesionDerechos ? 'Cesión de derechos' : 'Enganche'}
                           </label>
                           <p className="text-sm font-semibold">
-                            {currentPaymentPlan?.porcentaje_enganche.toFixed(1)}%
+                            {currentPaymentPlan?.hayCesionDerechos ? 
+                              ((actualAmounts?.cesion || 0) / (cuentaDetalle?.precio_final || 1) * 100).toFixed(1) :
+                              currentPaymentPlan?.porcentaje_enganche.toFixed(1)
+                            }%
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(actualAmounts?.enganche || 0)}
+                            {formatCurrency(currentPaymentPlan?.hayCesionDerechos ? (actualAmounts?.cesion || 0) : (actualAmounts?.enganche || 0))}
                           </p>
                         </div>
                         <div>
