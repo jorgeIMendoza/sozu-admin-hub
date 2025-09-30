@@ -158,7 +158,7 @@ export default function DetalleCuentaCobranza() {
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
     queryKey: ["cuenta_detalle", cuentaId],
     queryFn: async () => {
-      // Get cuenta cobranza with related data
+      // Get cuenta cobranza with related data (including cancelled ones)
       const { data: cuenta, error: cuentaError } = await supabase
         .from('cuentas_cobranza')
         .select(`
@@ -167,13 +167,14 @@ export default function DetalleCuentaCobranza() {
           precio_final,
           es_aprobado,
           fecha_compra,
-          id_oferta
+          id_oferta,
+          activo
         `)
         .eq('id', cuentaId)
-        .eq('activo', true)
-        .single();
+        .maybeSingle();
 
       if (cuentaError) throw cuentaError;
+      if (!cuenta) throw new Error('Cuenta de cobranza no encontrada');
 
       // Get oferta and related data
       const { data: oferta } = await supabase
@@ -189,7 +190,7 @@ export default function DetalleCuentaCobranza() {
           )
         `)
         .eq('id', cuenta.id_oferta)
-        .single();
+        .maybeSingle();
 
       // Get compradores
       const { data: compradores } = await supabase
@@ -279,9 +280,10 @@ export default function DetalleCuentaCobranza() {
           )
         `)
         .eq('id', cuentaDetalle.oferta_id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!offer) return null;
 
       return {
         id: offer.id,
@@ -326,7 +328,7 @@ export default function DetalleCuentaCobranza() {
         .from('esquemas_pago')
         .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
         .eq('id', offerData.id_esquema_pago_seleccionado)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return scheme;
