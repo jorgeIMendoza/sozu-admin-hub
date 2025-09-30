@@ -377,11 +377,18 @@ export function DocumentsTab({
                     <SelectValue placeholder="Selecciona el tipo de documento" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tiposDocumento.map((tipo) => (
-                      <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                        {tipo.nombre}
-                      </SelectItem>
-                    ))}
+                    {tiposDocumento
+                      .filter((tipo) => {
+                        // Filter out document types that are already added (in saved or pending documents)
+                        const existsInSaved = documentos.some(doc => doc.id_tipo_documento === tipo.id && doc.activo);
+                        const existsInPending = pendingDocuments.some(doc => doc.tipoDocumento === tipo.id.toString());
+                        return !existsInSaved && !existsInPending;
+                      })
+                      .map((tipo) => (
+                        <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                          {tipo.nombre}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -583,11 +590,18 @@ export function DocumentsTab({
                   <SelectValue placeholder="Selecciona el tipo de documento" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tiposDocumento.map((tipo) => (
-                    <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                      {tipo.nombre}
-                    </SelectItem>
-                  ))}
+                  {tiposDocumento
+                    .filter((tipo) => {
+                      // Filter out document types that are already added (in saved or pending documents)
+                      const existsInSaved = documentos.some(doc => doc.id_tipo_documento === tipo.id && doc.activo);
+                      const existsInPending = pendingDocuments.some(doc => doc.tipoDocumento === tipo.id.toString());
+                      return !existsInSaved && !existsInPending;
+                    })
+                    .map((tipo) => (
+                      <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                        {tipo.nombre}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

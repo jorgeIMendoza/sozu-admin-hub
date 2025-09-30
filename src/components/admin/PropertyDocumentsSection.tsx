@@ -342,11 +342,18 @@ export const PropertyDocumentsSection = ({
                   <SelectValue placeholder="Selecciona el tipo de documento" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tiposDocumento.map((tipo) => (
-                    <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                      {tipo.nombre}
-                    </SelectItem>
-                  ))}
+                  {tiposDocumento
+                    .filter((tipo) => {
+                      // Filter out document types that are already added (in saved or temp documents)
+                      const existsInSaved = documentos.some(doc => doc.id_tipo_documento === tipo.id && doc.activo);
+                      const existsInTemp = tempDocuments.some(doc => doc.tipoDocumentoId === tipo.id);
+                      return !existsInSaved && !existsInTemp;
+                    })
+                    .map((tipo) => (
+                      <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                        {tipo.nombre}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
