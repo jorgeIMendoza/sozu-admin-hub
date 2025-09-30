@@ -261,61 +261,80 @@ const Propiedades = () => {
         .select('id, clabe_stp, id_oferta')
         .eq('activo', true);
 
-      // Get payment agreements and applications for each cuenta_cobranza
-      const cuentaIds = (activeCuentas || []).map(c => c.id);
-      
-      const { data: acuerdosData } = await supabase
-        .from('acuerdos_pago')
-        .select(`
-          id,
-          monto,
-          pago_completado,
-          id_concepto,
-          id_cuenta_cobranza,
-          aplicaciones_pago!fk_aplicaciones_pago_acuerdo(
-            monto
-          )
-        `)
-        .in('id_cuenta_cobranza', cuentaIds)
-        .eq('activo', true);
-
-      // Build payment status map
-      const paymentStatusMap: any = {};
-      
-      (acuerdosData || []).forEach((acuerdo: any) => {
-        if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
-          paymentStatusMap[acuerdo.id_cuenta_cobranza] = {
-            enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
-            mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
-            entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0 }
-          };
-        }
-
-        const montoPagado = (acuerdo.aplicaciones_pago || [])
-          .reduce((sum: number, app: any) => sum + (Number(app.monto) || 0), 0);
-        
-        let conceptoKey: 'mensualidades' | 'enganche' | 'entrega';
-        if (acuerdo.id_concepto === 1) conceptoKey = 'mensualidades';
-        else if (acuerdo.id_concepto === 2) conceptoKey = 'enganche';
-        else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
-        else return;
-
-        paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
-        paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
-
-        if (acuerdo.pago_completado) {
-          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'pagado';
-        } else if (montoPagado > 0) {
-          if (paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status !== 'pagado') {
-            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'en_proceso';
-          }
-        }
-      });
-
       const activeCuentasMap = (activeCuentas || []).reduce((acc: any, cuenta: any) => {
         acc[cuenta.id_oferta] = cuenta;
         return acc;
       }, {});
+
+      // Get payment agreements and applications for each cuenta_cobranza
+      const cuentaIds = (activeCuentas || []).map(c => c.id);
+      
+      // Build payment status map
+      const paymentStatusMap: any = {};
+
+      if (cuentaIds.length > 0) {
+        const { data: acuerdosData } = await supabase
+          .from('acuerdos_pago')
+          .select(`
+            id,
+            monto,
+            pago_completado,
+            id_concepto,
+            id_cuenta_cobranza
+          `)
+          .in('id_cuenta_cobranza', cuentaIds)
+          .eq('activo', true);
+
+        // Get all aplicaciones_pago for these acuerdos
+        const acuerdoIds = (acuerdosData || []).map(a => a.id);
+        
+        let aplicacionesMap: any = {};
+        if (acuerdoIds.length > 0) {
+          const { data: aplicacionesData } = await supabase
+            .from('aplicaciones_pago')
+            .select('id_acuerdo_pago, monto')
+            .in('id_acuerdo_pago', acuerdoIds)
+            .eq('activo', true);
+
+          aplicacionesMap = (aplicacionesData || []).reduce((acc: any, app: any) => {
+            if (!acc[app.id_acuerdo_pago]) {
+              acc[app.id_acuerdo_pago] = [];
+            }
+            acc[app.id_acuerdo_pago].push(app);
+            return acc;
+          }, {});
+        }
+
+        (acuerdosData || []).forEach((acuerdo: any) => {
+          if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
+            paymentStatusMap[acuerdo.id_cuenta_cobranza] = {
+              enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
+              mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
+              entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0 }
+            };
+          }
+
+          const aplicaciones = aplicacionesMap[acuerdo.id] || [];
+          const montoPagado = aplicaciones.reduce((sum: number, app: any) => sum + (Number(app.monto) || 0), 0);
+          
+          let conceptoKey: 'mensualidades' | 'enganche' | 'entrega';
+          if (acuerdo.id_concepto === 1) conceptoKey = 'mensualidades';
+          else if (acuerdo.id_concepto === 2) conceptoKey = 'enganche';
+          else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
+          else return;
+
+          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
+          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
+
+          if (acuerdo.pago_completado) {
+            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'pagado';
+          } else if (montoPagado > 0) {
+            if (paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status !== 'pagado') {
+              paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'en_proceso';
+            }
+          }
+        });
+      }
 
       // Transform the data with counts
       const transformedData = data?.map((property: any) => {
