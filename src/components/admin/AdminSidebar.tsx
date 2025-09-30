@@ -22,7 +22,16 @@ import {
   ChevronRight,
   Car,
   Warehouse,
-  Eye
+  Eye,
+  UserSearch,
+  Wallet,
+  BadgeDollarSign,
+  UserCheck,
+  UserCog,
+  Scale,
+  Receipt,
+  Banknote,
+  Landmark
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -65,14 +74,14 @@ const navigationItems = [
     title: "Personas",
     icon: User,
     children: [
-      { title: "Prospectos", href: "/admin/prospectos", icon: Users },
-      { title: "Compradores", href: "/admin/compradores", icon: Users },
-      { title: "Vendedores", href: "/admin/vendedores", icon: Users },
-      { title: "Dueños", href: "/admin/duenos", icon: Users },
-      { title: "Residentes", href: "/admin/residentes", icon: Users },
-      { title: "Agentes", href: "/admin/agentes", icon: Users },
-      { title: "Administradores", href: "/admin/administradores-personas", icon: Users },
-      { title: "Representantes Legales", href: "/admin/representantes-legales", icon: User },
+      { title: "Prospectos", href: "/admin/prospectos", icon: UserSearch },
+      { title: "Compradores", href: "/admin/compradores", icon: Wallet },
+      { title: "Vendedores", href: "/admin/vendedores", icon: BadgeDollarSign },
+      { title: "Dueños", href: "/admin/duenos", icon: UserCheck },
+      { title: "Residentes", href: "/admin/residentes", icon: Home },
+      { title: "Agentes", href: "/admin/agentes", icon: Briefcase },
+      { title: "Administradores", href: "/admin/administradores-personas", icon: UserCog },
+      { title: "Representantes Legales", href: "/admin/representantes-legales", icon: Scale },
     ]
   },
   {
@@ -89,21 +98,16 @@ const navigationItems = [
     title: "Finanzas",
     icon: CreditCard,
     children: [
-      { title: "Cuentas Cobranza", href: "/admin/cuentas-cobranza", icon: CreditCard },
-      { title: "Pagos", href: "/admin/pagos", icon: CreditCard },
-      { title: "Cuentas Bancarias", href: "/admin/cuentas-bancarias", icon: CreditCard },
+      { title: "Cuentas Cobranza", href: "/admin/cuentas-cobranza", icon: Receipt },
+      { title: "Pagos", href: "/admin/pagos", icon: Banknote },
+      { title: "Cuentas Bancarias", href: "/admin/cuentas-bancarias", icon: Landmark },
     ]
-  },
-  {
-    title: "Documentos",
-    href: "/admin/documentos",
-    icon: FileText,
   },
 ];
 
 export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(["Inventarios"]) // Start with Inventarios expanded by default
+    new Set([]) // All groups collapsed by default, Dashboard selected
   );
 
   const toggleGroup = (groupTitle: string) => {
