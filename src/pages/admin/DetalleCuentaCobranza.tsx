@@ -616,6 +616,12 @@ export default function DetalleCuentaCobranza() {
     (acuerdo.aplicaciones || []).filter(app => app.pago.id_metodos_pago === 8)
   ) || [];
   
+  console.log('DEBUG - Acuerdos de pago:', acuerdosPago);
+  console.log('DEBUG - Pagos con cesión:', pagosConCesion);
+  console.log('DEBUG - Payment methods in applications:', acuerdosPago?.flatMap(acuerdo => 
+    (acuerdo.aplicaciones || []).map(app => ({ id: app.pago.id, metodo: app.pago.id_metodos_pago }))
+  ));
+  
   const hayCesionDerechos = pagosConCesion.length > 0;
 
   // Calculate current payment plan details from acuerdos
@@ -624,24 +630,44 @@ export default function DetalleCuentaCobranza() {
     const enganche = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'enganche');  
     const parcialidades = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'parcialidad');
     const contraentrega = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'pago a contra entrega');
+    
+    // Also check for "Cesión de derechos" as a concepto
+    const cesionDerechos = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'cesión de derechos');
+    
+    // Update hayCesionDerechos to include both cases: as payment method OR as concepto
+    const hayCesionDerechosConcepto = !!cesionDerechos;
+    const hayCesionDerechosActual = hayCesionDerechos || hayCesionDerechosConcepto;
 
     if (!cuentaDetalle?.precio_final) return null;
 
     // Calculate total payments by "Cesión de derechos" method
     const totalCesion = pagosConCesion.reduce((sum, app) => sum + app.monto, 0);
     
+    // Add cesión de derechos amount if it exists as a concepto
+    const totalCesionConcepto = cesionDerechos?.monto || 0;
+    const totalCesionFinal = totalCesion + totalCesionConcepto;
+    
+    console.log('DEBUG - Total cesión (method):', totalCesion);
+    console.log('DEBUG - Total cesión (concepto):', totalCesionConcepto);
+    console.log('DEBUG - Total cesión final:', totalCesionFinal);
+    console.log('DEBUG - Hay cesión de derechos:', hayCesionDerechosActual);
+    
     // If there's "Cesión de derechos", use it instead of traditional "Enganche"
-    const totalEnganche = hayCesionDerechos ? totalCesion : (apartado?.monto || 0) + (enganche?.monto || 0);
+    const totalEnganche = hayCesionDerechosActual ? totalCesionFinal : (apartado?.monto || 0) + (enganche?.monto || 0);
     const totalParcialidades = parcialidades.reduce((sum, p) => sum + p.monto, 0);
     const totalContraentrega = contraentrega?.monto || 0;
 
-    return {
+    const result = {
       porcentaje_enganche: Number(((totalEnganche / cuentaDetalle.precio_final) * 100).toFixed(1)),
       porcentaje_mensualidades: Number(((totalParcialidades / cuentaDetalle.precio_final) * 100).toFixed(1)),
       porcentaje_entrega: Number(((totalContraentrega / cuentaDetalle.precio_final) * 100).toFixed(1)),
       numero_mensualidades: parcialidades.length,
-      hayCesionDerechos
+      hayCesionDerechos: hayCesionDerechosActual
     };
+    
+    console.log('DEBUG - Current payment plan:', result);
+    
+    return result;
   })() : null;
 
   // Calculate actual amounts from acuerdos de pago
@@ -650,12 +676,22 @@ export default function DetalleCuentaCobranza() {
     const enganches = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'enganche');
     const parcialidades = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'parcialidad');
     const contraentrega = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'pago a contra entrega');
+    
+    // Also get cesión de derechos as concepto
+    const cesionDerechos = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'cesión de derechos');
 
     // Calculate total payments by "Cesión de derechos" method
     const totalCesion = pagosConCesion.reduce((sum, app) => sum + app.monto, 0);
     
+    // Add cesión de derechos amount if it exists as a concepto
+    const totalCesionConcepto = cesionDerechos.reduce((sum, a) => sum + a.monto, 0);
+    const totalCesionFinal = totalCesion + totalCesionConcepto;
+    
+    // Update to use the combined hayCesionDerechos logic
+    const hayCesionDerechosActual = hayCesionDerechos || cesionDerechos.length > 0;
+    
     // If there's "Cesión de derechos", use it instead of traditional "Enganche"
-    const totalEnganche = hayCesionDerechos ? totalCesion : [...apartados, ...enganches].reduce((sum, a) => sum + a.monto, 0);
+    const totalEnganche = hayCesionDerechosActual ? totalCesionFinal : [...apartados, ...enganches].reduce((sum, a) => sum + a.monto, 0);
     const totalMensualidades = parcialidades.reduce((sum, a) => sum + a.monto, 0);
     const totalEntrega = contraentrega.reduce((sum, a) => sum + a.monto, 0);
 
@@ -663,7 +699,7 @@ export default function DetalleCuentaCobranza() {
       enganche: totalEnganche,
       mensualidades: totalMensualidades,
       entrega: totalEntrega,
-      cesion: totalCesion
+      cesion: totalCesionFinal
     };
   })() : null;
 
