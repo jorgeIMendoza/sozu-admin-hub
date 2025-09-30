@@ -609,6 +609,13 @@ export default function DetalleCuentaCobranza() {
     enabled: !!cuentaId,
   });
 
+  // Check if there are payments with "Cesión de derechos" method (ID 8)
+  const pagosConCesion = acuerdosPago?.flatMap(acuerdo => 
+    (acuerdo.aplicaciones || []).filter(app => app.pago.id_metodos_pago === 8)
+  ) || [];
+  
+  const hayCesionDerechos = pagosConCesion.length > 0;
+
   // Calculate current payment plan details from acuerdos
   const currentPaymentPlan = acuerdosPago ? (() => {
     const apartado = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'apartado');
@@ -618,7 +625,11 @@ export default function DetalleCuentaCobranza() {
 
     if (!cuentaDetalle?.precio_final) return null;
 
-    const totalEnganche = (apartado?.monto || 0) + (enganche?.monto || 0);
+    // Calculate total payments by "Cesión de derechos" method
+    const totalCesion = pagosConCesion.reduce((sum, app) => sum + app.monto, 0);
+    
+    // If there's "Cesión de derechos", use it instead of traditional "Enganche"
+    const totalEnganche = hayCesionDerechos ? totalCesion : (apartado?.monto || 0) + (enganche?.monto || 0);
     const totalParcialidades = parcialidades.reduce((sum, p) => sum + p.monto, 0);
     const totalContraentrega = contraentrega?.monto || 0;
 
@@ -626,7 +637,8 @@ export default function DetalleCuentaCobranza() {
       porcentaje_enganche: Number(((totalEnganche / cuentaDetalle.precio_final) * 100).toFixed(1)),
       porcentaje_mensualidades: Number(((totalParcialidades / cuentaDetalle.precio_final) * 100).toFixed(1)),
       porcentaje_entrega: Number(((totalContraentrega / cuentaDetalle.precio_final) * 100).toFixed(1)),
-      numero_mensualidades: parcialidades.length
+      numero_mensualidades: parcialidades.length,
+      hayCesionDerechos
     };
   })() : null;
 
@@ -637,14 +649,19 @@ export default function DetalleCuentaCobranza() {
     const parcialidades = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'parcialidad');
     const contraentrega = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'pago a contra entrega');
 
-    const totalEnganche = [...apartados, ...enganches].reduce((sum, a) => sum + a.monto, 0);
+    // Calculate total payments by "Cesión de derechos" method
+    const totalCesion = pagosConCesion.reduce((sum, app) => sum + app.monto, 0);
+    
+    // If there's "Cesión de derechos", use it instead of traditional "Enganche"
+    const totalEnganche = hayCesionDerechos ? totalCesion : [...apartados, ...enganches].reduce((sum, a) => sum + a.monto, 0);
     const totalMensualidades = parcialidades.reduce((sum, a) => sum + a.monto, 0);
     const totalEntrega = contraentrega.reduce((sum, a) => sum + a.monto, 0);
 
     return {
       enganche: totalEnganche,
       mensualidades: totalMensualidades,
-      entrega: totalEntrega
+      entrega: totalEntrega,
+      cesion: totalCesion
     };
   })() : null;
 
@@ -1098,7 +1115,9 @@ export default function DetalleCuentaCobranza() {
                       <p className="text-sm font-semibold">{originalScheme.nombre}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Enganche</label>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {currentPaymentPlan?.hayCesionDerechos ? 'Cesión de derechos' : 'Enganche'}
+                      </label>
                       <p className="text-sm font-semibold">{currentPaymentPlan?.porcentaje_enganche.toFixed(1)}%</p>
                     </div>
                     <div>
@@ -1130,10 +1149,10 @@ export default function DetalleCuentaCobranza() {
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
                           <p className="text-sm">{originalScheme.nombre}</p>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Enganche</label>
-                          <p className="text-sm">{originalScheme.porcentaje_enganche.toFixed(1)}%</p>
-                        </div>
+                         <div>
+                           <label className="text-sm font-medium text-muted-foreground">Enganche</label>
+                           <p className="text-sm">{originalScheme.porcentaje_enganche.toFixed(1)}%</p>
+                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
                           <p className="text-sm">
@@ -1163,7 +1182,9 @@ export default function DetalleCuentaCobranza() {
                           <p className="text-sm font-semibold">{originalScheme.nombre} modificado</p>
                         </div>
                         <div>
-                          <label className="text-sm font-medium text-muted-foreground">Enganche</label>
+                          <label className="text-sm font-medium text-muted-foreground">
+                            {currentPaymentPlan?.hayCesionDerechos ? 'Cesión de derechos' : 'Enganche'}
+                          </label>
                           <p className="text-sm font-semibold">
                             {currentPaymentPlan?.porcentaje_enganche.toFixed(1)}%
                           </p>
