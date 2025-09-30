@@ -89,11 +89,18 @@ const navigationItems = [
     ]
   },
   {
-    title: "Productos/Servicios",
+    title: "Productos",
     icon: Package,
     children: [
       { title: "Productos", href: "/admin/productos", icon: Package },
-      { title: "Categorías", href: "/admin/categorias", icon: ShoppingCart },
+      { title: "Servicios", href: "/admin/servicios", icon: Wrench },
+      { title: "Categorías Productos", href: "/admin/categorias-productos", icon: ShoppingCart },
+    ]
+  },
+  {
+    title: "Configuración",
+    icon: Settings,
+    children: [
       { title: "Amenidades", href: "/admin/amenidades", icon: Calendar },
       { title: "Características", href: "/admin/caracteristicas", icon: Settings },
     ]

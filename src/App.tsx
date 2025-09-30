@@ -31,6 +31,9 @@ import Residentes from "./pages/admin/Residentes";
 import Agentes from "./pages/admin/Agentes";
 import AdministradoresPersonas from "./pages/admin/AdministradoresPersonas";
 import RepresentantesLegales from "./pages/admin/RepresentantesLegales";
+import Productos from "./pages/admin/Productos";
+import Servicios from "./pages/admin/Servicios";
+import CategoriasProductos from "./pages/admin/CategoriasProductos";
 import ComingSoon from "./pages/admin/ComingSoon";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -75,8 +78,9 @@ const App = () => (
             <Route path="agentes" element={<Agentes />} />
             <Route path="administradores-personas" element={<AdministradoresPersonas />} />
             <Route path="representantes-legales" element={<RepresentantesLegales />} />
-            <Route path="productos" element={<ComingSoon title="Productos" />} />
-            <Route path="categorias" element={<ComingSoon title="Categorías de Producto" />} />
+            <Route path="productos" element={<Productos />} />
+            <Route path="servicios" element={<Servicios />} />
+            <Route path="categorias-productos" element={<CategoriasProductos />} />
             <Route path="amenidades" element={<ComingSoon title="Amenidades" />} />
             <Route path="caracteristicas" element={<ComingSoon title="Características" />} />
             <Route path="modelos" element={<Modelos />} />
