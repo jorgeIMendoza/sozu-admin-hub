@@ -906,18 +906,11 @@ export default function DetalleCuentaCobranza() {
     <div className="space-y-6 relative">
       {/* Diagonal "CANCELADA" stamp for cancelled accounts */}
       {esCuentaCancelada && (
-        <>
-          <div className="fixed inset-0 pointer-events-none z-40 flex items-center justify-center">
-            <div className="absolute transform rotate-45 bg-red-600 text-white px-12 py-3 text-5xl font-bold opacity-20 select-none shadow-lg">
-              CANCELADA
-            </div>
+        <div className="fixed inset-0 pointer-events-none z-40 flex items-center justify-center">
+          <div className="absolute transform rotate-45 bg-red-600 text-white px-12 py-3 text-5xl font-bold opacity-20 select-none shadow-lg">
+            CANCELADA
           </div>
-          <div className="fixed top-4 right-4 z-50 pointer-events-none">
-            <div className="transform rotate-12 bg-red-600 text-white px-4 py-2 text-lg font-bold opacity-90 select-none shadow-lg rounded">
-              CANCELADA
-            </div>
-          </div>
-        </>
+        </div>
       )}
       
       <div className="flex items-center justify-between">
@@ -1369,12 +1362,13 @@ export default function DetalleCuentaCobranza() {
                                                      variant="outline"
                                                      size="icon"
                                                      className="h-6 w-6"
-                                                      onClick={() => {
-                                                        setCepDialog({
-                                                          isOpen: true,
-                                                          paymentId: aplicacion.pago.id
-                                                        });
-                                                      }}
+                                                    onClick={() => {
+                                                         setCepDialog({
+                                                           isOpen: true,
+                                                           paymentId: aplicacion.pago.id
+                                                         });
+                                                       }}
+                                                      disabled={esCuentaCancelada}
                                                    >
                                                      <FileText className="h-3 w-3" />
                                                    </Button>
