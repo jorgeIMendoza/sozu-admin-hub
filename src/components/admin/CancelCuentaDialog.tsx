@@ -275,8 +275,53 @@ export function CancelCuentaDialog({
 
       if (updateError) throw updateError;
 
+      // Si es Rescisión de contrato
+      if (tipoCancelacion === "2") {
+        // Obtener id_propiedad y id_er_dueno
+        const { data: ofertaData, error: ofertaError } = await supabase
+          .from('ofertas')
+          .select(`
+            id_propiedad,
+            propiedades!ofertas_id_propiedad_fkey(
+              id_entidad_relacionada_dueno
+            )
+          `)
+          .eq('id', idOferta)
+          .single();
+
+        if (ofertaError) throw ofertaError;
+
+        const idPropiedad = ofertaData?.id_propiedad;
+        const idErDueno = ofertaData?.propiedades?.id_entidad_relacionada_dueno;
+        
+        if (!idPropiedad || !idErDueno) {
+          throw new Error('No se pudo obtener la información de la propiedad');
+        }
+
+        // Generar nueva CLABE usando la función de BD
+        const { data: nuevaClabeData, error: clabeError } = await supabase
+          .rpc('crear_referencia_bancaria', { id_er_dueno: idErDueno });
+
+        if (clabeError) throw clabeError;
+
+        const nuevaClabe = nuevaClabeData;
+        if (!nuevaClabe) {
+          throw new Error('No se pudo generar la nueva CLABE');
+        }
+
+        // Actualizar la propiedad
+        const { error: propiedadError } = await supabase
+          .from('propiedades')
+          .update({
+            id_estatus_disponibilidad: 2, // Disponible
+            clabe_stp_tmp_apartado: nuevaClabe
+          })
+          .eq('id', idPropiedad);
+
+        if (propiedadError) throw propiedadError;
+      }
       // Si es Cesión de derechos
-      if (tipoCancelacion === "1") {
+      else if (tipoCancelacion === "1") {
         // Obtener id_er_dueno y datos del esquema de pago
         const { data: ofertaData, error: ofertaError } = await supabase
           .from('ofertas')
