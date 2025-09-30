@@ -92,6 +92,11 @@ All colors MUST be HSL.
     
     --entregado: 158 64% 52%;
     --entregado-foreground: 0 0% 100%;
+    
+    /* Payment status colors */
+    --pago-no-pagado: 0 84% 60%;
+    --pago-pagado: 142 71% 45%;
+    --pago-en-proceso: 221 83% 53%;
   }
 
   .dark {

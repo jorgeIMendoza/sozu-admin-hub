@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2 } from "lucide-react";
+import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,12 @@ interface Property {
   // Nuevas propiedades para estacionamientos y bodegas
   estacionamientos_count: number;
   bodegas_count: number;
+  // Estado de pagos
+  payment_status?: {
+    enganche: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
+    mensualidades: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
+    entrega: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
+  } | null;
 }
 
 const Propiedades = () => {
@@ -255,6 +261,57 @@ const Propiedades = () => {
         .select('id, clabe_stp, id_oferta')
         .eq('activo', true);
 
+      // Get payment agreements and applications for each cuenta_cobranza
+      const cuentaIds = (activeCuentas || []).map(c => c.id);
+      
+      const { data: acuerdosData } = await supabase
+        .from('acuerdos_pago')
+        .select(`
+          id,
+          monto,
+          pago_completado,
+          id_concepto,
+          id_cuenta_cobranza,
+          aplicaciones_pago!fk_aplicaciones_pago_acuerdo(
+            monto
+          )
+        `)
+        .in('id_cuenta_cobranza', cuentaIds)
+        .eq('activo', true);
+
+      // Build payment status map
+      const paymentStatusMap: any = {};
+      
+      (acuerdosData || []).forEach((acuerdo: any) => {
+        if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
+          paymentStatusMap[acuerdo.id_cuenta_cobranza] = {
+            enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
+            mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
+            entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0 }
+          };
+        }
+
+        const montoPagado = (acuerdo.aplicaciones_pago || [])
+          .reduce((sum: number, app: any) => sum + (Number(app.monto) || 0), 0);
+        
+        let conceptoKey: 'mensualidades' | 'enganche' | 'entrega';
+        if (acuerdo.id_concepto === 1) conceptoKey = 'mensualidades';
+        else if (acuerdo.id_concepto === 2) conceptoKey = 'enganche';
+        else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
+        else return;
+
+        paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
+        paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
+
+        if (acuerdo.pago_completado) {
+          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'pagado';
+        } else if (montoPagado > 0) {
+          if (paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status !== 'pagado') {
+            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'en_proceso';
+          }
+        }
+      });
+
       const activeCuentasMap = (activeCuentas || []).reduce((acc: any, cuenta: any) => {
         acc[cuenta.id_oferta] = cuenta;
         return acc;
@@ -266,6 +323,8 @@ const Propiedades = () => {
         const cuentaCobranzaData = property.ofertas?.map((oferta: any) => 
           activeCuentasMap[oferta.id]
         ).find((cuenta: any) => cuenta !== undefined);
+        
+        const paymentStatus = cuentaCobranzaData?.id ? paymentStatusMap[cuentaCobranzaData.id] : null;
         
         return {
           id: property.id,
@@ -290,6 +349,7 @@ const Propiedades = () => {
           tieneOfertas: property.ofertas && property.ofertas.length > 0,
           estacionamientos_count: estacionamientosCounts[property.id] || 0,
           bodegas_count: bodegasCounts[property.id] || 0,
+          payment_status: paymentStatus,
           configuracion_modelo: {
             numero_recamaras: property.edificios_modelos?.modelos?.numero_recamaras || 0,
             numero_completo_banos: property.edificios_modelos?.modelos?.numero_completo_banos || 0,
@@ -944,13 +1004,14 @@ const Propiedades = () => {
               <TableHead>Disponibilidad</TableHead>
               <TableHead>Cuenta de cobranza</TableHead>
               <TableHead>Cuenta Clabe</TableHead>
+              <TableHead>Estado de Pagos</TableHead>
               <TableHead>Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {propertiesToRender.length === 0 ? (
+          {propertiesToRender.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={tabType === "draft" ? 19 : 18} className="text-center py-6">
+                <TableCell colSpan={tabType === "draft" ? 20 : 19} className="text-center py-6">
                   {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter || bodegasFilter || estacionamientosFilter 
                     ? "No se encontraron resultados." 
                     : tabType === "eliminados"
@@ -1055,8 +1116,81 @@ const Propiedades = () => {
                         <Badge variant="outline">N/A</Badge>
                       )}
                     </TableCell>
-                  <TableCell className="font-mono text-sm">{property.clabe_stp || 'Sin CLABE'}</TableCell>
-                  <TableCell>
+                   <TableCell className="font-mono text-sm">{property.clabe_stp || 'Sin CLABE'}</TableCell>
+                   <TableCell>
+                     {property.payment_status ? (
+                       <div className="flex gap-2 items-center">
+                         {/* Enganche */}
+                         <Tooltip>
+                           <TooltipTrigger asChild>
+                             <div className={`p-1.5 rounded-md ${
+                               property.payment_status.enganche.status === 'pagado' 
+                                 ? 'bg-[hsl(var(--pago-pagado))]' 
+                                 : property.payment_status.enganche.status === 'en_proceso'
+                                 ? 'bg-[hsl(var(--pago-en-proceso))]'
+                                 : 'bg-[hsl(var(--pago-no-pagado))]'
+                             }`}>
+                               <DollarSign className="h-4 w-4 text-white" />
+                             </div>
+                           </TooltipTrigger>
+                           <TooltipContent>
+                             <div className="text-sm">
+                               <p className="font-semibold">Enganche</p>
+                               <p>Monto: ${property.payment_status.enganche.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                               <p>Pagado: ${property.payment_status.enganche.monto_pagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                             </div>
+                           </TooltipContent>
+                         </Tooltip>
+
+                         {/* Mensualidades */}
+                         <Tooltip>
+                           <TooltipTrigger asChild>
+                             <div className={`p-1.5 rounded-md ${
+                               property.payment_status.mensualidades.status === 'pagado' 
+                                 ? 'bg-[hsl(var(--pago-pagado))]' 
+                                 : property.payment_status.mensualidades.status === 'en_proceso'
+                                 ? 'bg-[hsl(var(--pago-en-proceso))]'
+                                 : 'bg-[hsl(var(--pago-no-pagado))]'
+                             }`}>
+                               <Calendar className="h-4 w-4 text-white" />
+                             </div>
+                           </TooltipTrigger>
+                           <TooltipContent>
+                             <div className="text-sm">
+                               <p className="font-semibold">Mensualidades</p>
+                               <p>Monto: ${property.payment_status.mensualidades.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                               <p>Pagado: ${property.payment_status.mensualidades.monto_pagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                             </div>
+                           </TooltipContent>
+                         </Tooltip>
+
+                         {/* Entrega */}
+                         <Tooltip>
+                           <TooltipTrigger asChild>
+                             <div className={`p-1.5 rounded-md ${
+                               property.payment_status.entrega.status === 'pagado' 
+                                 ? 'bg-[hsl(var(--pago-pagado))]' 
+                                 : property.payment_status.entrega.status === 'en_proceso'
+                                 ? 'bg-[hsl(var(--pago-en-proceso))]'
+                                 : 'bg-[hsl(var(--pago-no-pagado))]'
+                             }`}>
+                               <Home className="h-4 w-4 text-white" />
+                             </div>
+                           </TooltipTrigger>
+                           <TooltipContent>
+                             <div className="text-sm">
+                               <p className="font-semibold">Pago a Contraentrega</p>
+                               <p>Monto: ${property.payment_status.entrega.monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                               <p>Pagado: ${property.payment_status.entrega.monto_pagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                             </div>
+                           </TooltipContent>
+                         </Tooltip>
+                       </div>
+                     ) : (
+                       <Badge variant="outline" className="text-xs">N/A</Badge>
+                     )}
+                   </TableCell>
+                   <TableCell>
                     {tabType === "eliminados" ? (
                       <Button
                         variant="ghost"
