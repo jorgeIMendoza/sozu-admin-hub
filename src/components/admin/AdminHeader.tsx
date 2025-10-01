@@ -47,6 +47,7 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
             size="sm"
             onClick={onMenuClick}
             className="lg:hidden"
+            aria-label="Abrir menú de navegación"
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -60,11 +61,11 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
         <div className="flex items-center space-x-2">
           <ThemeToggle />
           
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Notificaciones">
             <Bell className="h-5 w-5" />
           </Button>
           
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Configuración">
             <Settings className="h-5 w-5" />
           </Button>
         </div>
