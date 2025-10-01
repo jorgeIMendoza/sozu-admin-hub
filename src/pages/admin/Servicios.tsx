@@ -45,7 +45,6 @@ export default function Servicios() {
     descripcion: "",
     sat_id: "",
     id_unidad_sat: "",
-    id_categoria: "",
     id_persona: "",
   });
   const { toast } = useToast();
@@ -183,7 +182,6 @@ export default function Servicios() {
       descripcion: "",
       sat_id: "",
       id_unidad_sat: "",
-      id_categoria: "",
       id_persona: "",
     });
   };
@@ -196,7 +194,7 @@ export default function Servicios() {
           ...data,
           es_producto: false,
           stock: 0,
-          id_categoria: data.id_categoria === "" ? null : parseInt(data.id_categoria),
+          id_categoria: null,
           id_persona: parseInt(data.id_persona),
           id_unidad_sat: data.id_unidad_sat === "" ? null : data.id_unidad_sat,
           sat_id: data.sat_id === "" ? null : data.sat_id,
@@ -228,7 +226,7 @@ export default function Servicios() {
         .from('productos_servicios')
         .update({
           ...data,
-          id_categoria: data.id_categoria === "" ? null : parseInt(data.id_categoria),
+          id_categoria: null,
           id_persona: parseInt(data.id_persona),
           id_unidad_sat: data.id_unidad_sat === "" ? null : data.id_unidad_sat,
           sat_id: data.sat_id === "" ? null : data.sat_id,
@@ -317,7 +315,6 @@ export default function Servicios() {
       descripcion: servicio.descripcion || "",
       sat_id: servicio.sat_id || "",
       id_unidad_sat: servicio.id_unidad_sat || "",
-      id_categoria: servicio.id_categoria.toString(),
       id_persona: servicio.id_persona.toString(),
     });
     setIsEditDialogOpen(true);
@@ -582,26 +579,6 @@ export default function Servicios() {
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 required
               />
-            </div>
-
-            {/* Categoría */}
-            <div className="space-y-2">
-              <Label htmlFor="id_categoria">Categoría</Label>
-              <Select
-                value={formData.id_categoria}
-                onValueChange={(value) => setFormData({ ...formData, id_categoria: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una categoría (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categorias.map((cat: any) => (
-                    <SelectItem key={cat.id} value={cat.id.toString()}>
-                      {cat.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Dueño */}
