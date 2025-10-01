@@ -1262,7 +1262,7 @@ const Propiedades = () => {
                    <TableCell>
                       {property.payment_status ? (
                         <div className="flex gap-1 items-center">
-                          {/* Apartado */}
+                          {/* 1. Apartado (id_concepto: 1) */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className={`p-1 rounded-md ${
@@ -1294,7 +1294,7 @@ const Propiedades = () => {
                             </TooltipContent>
                           </Tooltip>
 
-                          {/* Enganche */}
+                          {/* 2. Enganche (id_concepto: 2) */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className={`p-1 rounded-md ${
@@ -1326,7 +1326,7 @@ const Propiedades = () => {
                             </TooltipContent>
                           </Tooltip>
 
-                          {/* Parcialidades/Mensualidades */}
+                          {/* 3. Parcialidades/Mensualidades (id_concepto: 5, 6) */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className={`p-1 rounded-md ${
@@ -1358,7 +1358,7 @@ const Propiedades = () => {
                             </TooltipContent>
                           </Tooltip>
 
-                          {/* Entrega */}
+                          {/* 4. Entrega/Contraentrega (id_concepto: 3) */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className={`p-1 rounded-md ${
@@ -1377,7 +1377,7 @@ const Propiedades = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               <div className="text-sm">
-                                <p className="font-semibold">Entrega</p>
+                                <p className="font-semibold">Contraentrega</p>
                                 {(property.payment_status?.entrega?.monto || 0) > 0 ? (
                                   <>
                                     <p>Monto: ${(property.payment_status?.entrega?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -1390,7 +1390,7 @@ const Propiedades = () => {
                             </TooltipContent>
                           </Tooltip>
 
-                          {/* Especial */}
+                          {/* 5. Especial (id_concepto: 4) */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className={`p-1 rounded-md ${
@@ -1422,7 +1422,7 @@ const Propiedades = () => {
                             </TooltipContent>
                           </Tooltip>
 
-                          {/* Cesión de derechos */}
+                          {/* 6. Cesión de derechos (método pago 8 en id_concepto: 2) */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className={`p-1 rounded-md ${
