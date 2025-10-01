@@ -1292,7 +1292,6 @@ const Propiedades = () => {
                                  fecha: property.payment_status?.[type.key]?.fecha || null,
                                  monto: property.payment_status?.[type.key]?.monto || 0
                                }))
-                               .filter(type => type.monto > 0) // Only show payment types with amount
                                .sort((a, b) => {
                                  if (a.fecha === null && b.fecha === null) return 0;
                                  if (a.fecha === null) return 1;
