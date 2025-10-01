@@ -291,12 +291,12 @@ const Propiedades = () => {
       // Create payment status structure for each cuenta
       (activeCuentas || []).forEach(cuenta => {
         paymentStatusMap[cuenta.id] = {
-          apartado: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
-          enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
-          mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
-          entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
-          especial: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
-          cesion_derechos: { status: 'no_pagado', monto: 0, monto_pagado: 0 }
+          apartado: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
+          enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
+          mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
+          entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
+          especial: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
+          cesion_derechos: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 }
         };
       });
 
@@ -351,10 +351,13 @@ const Propiedades = () => {
           });
         }
 
-        // Process each acuerdo
+        // Group acuerdos by cuenta and concepto
+        const acuerdosPorCuentaConcepto: any = {};
+        
         (acuerdosData || []).forEach((acuerdo: any) => {
           // Skip if payment status map doesn't have this cuenta
           if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
+            console.warn(`⚠️ Cuenta ${acuerdo.id_cuenta_cobranza} no encontrada en paymentStatusMap`);
             return;
           }
           
@@ -367,7 +370,7 @@ const Propiedades = () => {
 
           let conceptoKey: 'apartado' | 'mensualidades' | 'enganche' | 'entrega' | 'especial' | 'cesion_derechos';
           
-          // Map concept IDs to keys (corrected mapping)
+          // Map concept IDs to keys - Apartado(1), Enganche(2), Contraentrega(3), Especial(4), Parcialidad(5,6)
           if (acuerdo.id_concepto === 1) conceptoKey = 'apartado';
           else if (acuerdo.id_concepto === 2) {
             // Check if this is cesion de derechos
@@ -379,65 +382,56 @@ const Propiedades = () => {
           }
           else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
           else if (acuerdo.id_concepto === 4) conceptoKey = 'especial';
-          else if (acuerdo.id_concepto === 5) conceptoKey = 'mensualidades';
-          else if (acuerdo.id_concepto === 6) conceptoKey = 'mensualidades';
+          else if (acuerdo.id_concepto === 5 || acuerdo.id_concepto === 6) conceptoKey = 'mensualidades';
           else return;
+
+          // Group acuerdos for later processing
+          const groupKey = `${acuerdo.id_cuenta_cobranza}_${conceptoKey}`;
+          if (!acuerdosPorCuentaConcepto[groupKey]) {
+            acuerdosPorCuentaConcepto[groupKey] = [];
+          }
+          acuerdosPorCuentaConcepto[groupKey].push({
+            ...acuerdo,
+            montoPagado,
+            conceptoKey
+          });
 
           // Acumular montos totales y pagados por concepto
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
-
-          // Determinar el estado basado en si el acuerdo está completado
+          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].total += 1;
+          
           if (acuerdo.pago_completado) {
-            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'pagado';
-          } else if (montoPagado > 0) {
-            if (paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status !== 'pagado') {
-              paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'en_proceso';
-            }
+            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].completados += 1;
           }
         });
         
-        // Verificar estado final por concepto (todos completados = pagado)
-        (acuerdosData || []).forEach((acuerdo: any) => {
-          // Skip if payment status map doesn't have this cuenta
-          if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
+        // Determine final status based on completados vs total
+        Object.keys(acuerdosPorCuentaConcepto).forEach(groupKey => {
+          const acuerdos = acuerdosPorCuentaConcepto[groupKey];
+          if (acuerdos.length === 0) return;
+          
+          const primeracuerdo = acuerdos[0];
+          const cuentaId = primeracuerdo.id_cuenta_cobranza;
+          const conceptoKey = primeracuerdo.conceptoKey;
+          
+          if (!paymentStatusMap[cuentaId]) {
+            console.warn(`⚠️ Cuenta ${cuentaId} no encontrada al determinar estado final`);
             return;
           }
           
-          const metodosUsados = pagosPorMetodo[acuerdo.id] || {};
-          const tieneCesionDerechos = !!metodosUsados[8];
+          const info = paymentStatusMap[cuentaId][conceptoKey];
+          const todosCompletados = info.completados === info.total && info.total > 0;
+          const algunoPagado = acuerdos.some((a: any) => a.montoPagado > 0);
           
-          let conceptoKey: 'apartado' | 'mensualidades' | 'enganche' | 'entrega' | 'especial' | 'cesion_derechos';
+          console.log(`📊 Cuenta ${cuentaId} - ${conceptoKey}: ${info.completados}/${info.total} completados, monto: ${info.monto_pagado}/${info.monto}`);
           
-          if (acuerdo.id_concepto === 1) conceptoKey = 'apartado';
-          else if (acuerdo.id_concepto === 2) {
-            if (tieneCesionDerechos) {
-              conceptoKey = 'cesion_derechos';
-            } else {
-              conceptoKey = 'enganche';
-            }
-          }
-          else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
-          else if (acuerdo.id_concepto === 4) conceptoKey = 'especial';
-          else if (acuerdo.id_concepto === 5) conceptoKey = 'mensualidades';
-          else if (acuerdo.id_concepto === 6) conceptoKey = 'mensualidades';
-          else return;
-
-          // Verificar si TODOS los acuerdos del mismo concepto están completados
-          const acuerdosMismoConcepto = (acuerdosData || []).filter(
-            (a: any) => a.id_cuenta_cobranza === acuerdo.id_cuenta_cobranza && a.id_concepto === acuerdo.id_concepto
-          );
-          const todosCompletados = acuerdosMismoConcepto.every((a: any) => a.pago_completado);
-          
-          if (todosCompletados && acuerdosMismoConcepto.length > 0) {
-            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'pagado';
-          } else if (acuerdosMismoConcepto.some((a: any) => {
-            const apps = aplicacionesMap[a.id] || [];
-            return apps.length > 0 && !a.pago_completado;
-          })) {
-            if (paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status !== 'pagado') {
-              paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].status = 'en_proceso';
-            }
+          if (todosCompletados) {
+            info.status = 'pagado';
+          } else if (algunoPagado || info.completados > 0) {
+            info.status = 'en_proceso';
+          } else {
+            info.status = 'no_pagado';
           }
         });
       }
