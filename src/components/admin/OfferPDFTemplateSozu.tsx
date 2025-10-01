@@ -96,6 +96,7 @@ interface OfferPDFTemplateSozuProps {
     propertyNumber: string;
     leadName: string;
     leadEmail: string;
+    email_creador: string;
     id_esquema_pago_seleccionado?: number | null;
   };
   propertyDetails: PropertyDetails;
@@ -232,7 +233,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
         }} />
 
         {/* Property Details Section */}
-        <div style={{ marginBottom: '80px' }}>
+        <div style={{ marginBottom: '60px' }}>
           <h2 style={{ 
             fontSize: '40px', 
             fontWeight: 'bold', 
@@ -398,9 +399,19 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           </div>
         </div>
 
+        {/* Divider Line before Payment Schemes */}
+        {filteredPaymentSchemes.length > 0 && (
+          <div style={{ 
+            width: '100%',
+            height: '4px',
+            backgroundColor: '#585858',
+            marginBottom: '32px'
+          }} />
+        )}
+
         {/* Payment Schemes */}
         {filteredPaymentSchemes.length > 0 && (
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '60px' }}>
             <h2 style={{ 
               fontSize: '40px', 
               fontWeight: 'bold', 
@@ -499,6 +510,15 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           </div>
         )}
 
+        {/* Divider Line before Banking Data */}
+        <div style={{ 
+          position: 'absolute',
+          bottom: '980px',
+          left: '80px',
+          right: '80px',
+          height: '4px',
+          backgroundColor: '#585858'
+        }} />
 
         {/* Banking Data Section */}
         <div style={{ 
@@ -609,6 +629,15 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           </div>
         </div>
 
+        {/* Divider Line before Contact Info */}
+        <div style={{ 
+          position: 'absolute',
+          bottom: '370px',
+          left: '80px',
+          right: '80px',
+          height: '4px',
+          backgroundColor: '#585858'
+        }} />
 
         {/* Contact Info (Datos de Contacto) */}
         <div style={{ 
@@ -644,11 +673,11 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
               <div style={{ fontSize: '22px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
                 <p style={{ color: '#000000', marginBottom: '8px' }}>
                   <span style={{ fontWeight: '600' }}>Nombre: </span>
-                  <span style={{ fontWeight: '400' }}>{creatorInfo?.nombre || 'N/A'}</span>
+                  <span style={{ fontWeight: '400' }}>{creatorInfo?.nombre || creatorInfo?.nombre_legal || offerData.email_creador}</span>
                 </p>
                 <p style={{ color: '#000000', marginBottom: '8px' }}>
                   <span style={{ fontWeight: '600' }}>Email: </span>
-                  <span style={{ fontWeight: '400' }}>{creatorInfo?.email || offerData.leadEmail}</span>
+                  <span style={{ fontWeight: '400' }}>{creatorInfo?.email || offerData.email_creador}</span>
                 </p>
                 <p style={{ color: '#000000' }}>
                   <span style={{ fontWeight: '600' }}>Teléfono: </span>

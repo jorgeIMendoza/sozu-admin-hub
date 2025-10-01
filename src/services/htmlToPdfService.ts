@@ -133,6 +133,7 @@ class HTMLToPDFService {
         propertyNumber: offerData.propertyNumber,
         leadName: offerData.leadName,
         leadEmail: offerData.leadEmail,
+        email_creador: offerData.creatorEmail,
         id_esquema_pago_seleccionado: offerDetails.id_esquema_pago_seleccionado,
       };
 
@@ -158,6 +159,7 @@ class HTMLToPDFService {
       propertyNumber: string;
       leadName: string;
       leadEmail: string;
+      email_creador: string;
     },
     propertyDetails: PropertyDetails,
     paymentSchemes: PaymentScheme[],
@@ -179,6 +181,7 @@ class HTMLToPDFService {
       propertyNumber: string;
       leadName: string;
       leadEmail: string;
+      email_creador: string;
     },
     propertyDetails: PropertyDetails,
     paymentSchemes: PaymentScheme[],
