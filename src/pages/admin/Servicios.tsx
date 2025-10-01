@@ -409,7 +409,7 @@ export default function Servicios() {
                 <TableCell className="max-w-xs truncate">{servicio.descripcion || '-'}</TableCell>
                 <TableCell>
                   <span className="font-semibold">
-                    ${parseFloat(servicio.precio_lista.toString()).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                    ${parseFloat((servicio.precio_lista || 0).toString()).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                   </span>
                 </TableCell>
                 <TableCell className="font-mono text-sm">{servicio.sat_id || '-'}</TableCell>
