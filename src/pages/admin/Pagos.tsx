@@ -286,7 +286,7 @@ export default function Pagos() {
       }
 
       // Generate and download the PDF
-      const { generateOfferPDF } = await import('@/services/pdfGenerationService');
+      const { generateOfferPDF } = await import('@/services/htmlToPdfService');
       await generateOfferPDF({
         propertyId: offerData.ofertas.id_propiedad,
         offerId: offerData.id_oferta,

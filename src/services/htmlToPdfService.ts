@@ -157,7 +157,13 @@ class HTMLToPDFService {
     const projectName = propertyDetails.projectData?.nombre || '';
     const useSozuTemplate = projectName.toLowerCase().includes('dotar') || 
                            projectName.toLowerCase().includes('expedición') ||
+                           projectName.toLowerCase().includes('expedicion') ||
                            projectName.toLowerCase().includes('sozu');
+
+    console.log('=== PDF GENERATION DEBUG ===');
+    console.log('Project name:', projectName);
+    console.log('Using Sozu template:', useSozuTemplate);
+    console.log('========================');
 
     if (useSozuTemplate) {
       // Use Sozu template for A4 sized single-page PDF

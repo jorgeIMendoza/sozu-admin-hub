@@ -20,7 +20,7 @@ import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropert
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { generateOfferPDF } from "@/services/pdfGenerationService";
+import { generateOfferPDF } from "@/services/htmlToPdfService";
 import { EstacionamientosDetailDialog } from "@/components/admin/EstacionamientosDetailDialog";
 import { BodegasDetailDialog } from "@/components/admin/BodegasDetailDialog";
 
