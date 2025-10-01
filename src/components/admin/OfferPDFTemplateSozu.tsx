@@ -200,22 +200,6 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           </div>
         </div>
 
-        {/* Main Property Image */}
-        {propertyDetails.projectData?.url_imagen_portada && (
-          <div style={{ 
-            marginBottom: '80px',
-            width: '100%',
-            height: '800px',
-            borderRadius: '12px',
-            overflow: 'hidden'
-          }}>
-            <img
-              src={propertyDetails.projectData.url_imagen_portada}
-              alt="Proyecto"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          </div>
-        )}
 
         {/* Property Details Section */}
         <div style={{ marginBottom: '80px' }}>
@@ -234,52 +218,52 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
             gap: '40px'
           }}>
             {/* Left Column: Property Data List */}
-            <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-              <div style={{ marginBottom: '8px' }}>
+            <div style={{ fontSize: '28px', lineHeight: '1.8' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'normal' }}>No° de propiedad: </span>
                 <span style={{ fontWeight: 'bold' }}>{propertyDetails.numero_propiedad}</span>
               </div>
               {propertyDetails.model && (
-                <div style={{ marginBottom: '8px' }}>
+                <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'normal' }}>Modelo: </span>
                   <span style={{ fontWeight: 'bold' }}>{propertyDetails.model.nombre}</span>
                 </div>
               )}
-              <div style={{ marginBottom: '8px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'normal' }}>Área: </span>
-                <span style={{ fontWeight: 'bold' }}>$ {propertyDetails.m2_reales?.toFixed(2) || 'N/A'}</span>
+                <span style={{ fontWeight: 'bold' }}>{propertyDetails.m2_reales?.toFixed(2) || 'N/A'} m²</span>
               </div>
-              <div style={{ marginBottom: '8px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
                 <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.precio_lista)}</span>
               </div>
               {propertyDetails.projectData?.precio_m2 && (
-                <div style={{ marginBottom: '8px' }}>
+                <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'normal' }}>Precio m2: </span>
                   <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.projectData.precio_m2)}</span>
                 </div>
               )}
-              <div style={{ marginBottom: '8px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'normal' }}>Piso: </span>
                 <span style={{ fontWeight: 'bold' }}>{propertyDetails.numero_piso || 'N/A'}</span>
               </div>
               {propertyDetails.building && (
-                <div style={{ marginBottom: '8px' }}>
+                <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'normal' }}>Torre: </span>
                   <span style={{ fontWeight: 'bold' }}>{propertyDetails.building.nombre}</span>
                 </div>
               )}
               {propertyDetails.vista && (
-                <div style={{ marginBottom: '8px' }}>
+                <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontWeight: 'normal' }}>Vista: </span>
                   <span style={{ fontWeight: 'bold' }}>{propertyDetails.vista.nombre}</span>
                 </div>
               )}
-              <div style={{ marginBottom: '8px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'normal' }}>Precio bodega: </span>
                 <span style={{ fontWeight: 'bold' }}>N/A</span>
               </div>
-              <div style={{ marginBottom: '8px' }}>
+              <div style={{ marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'normal' }}>Bodega m2: </span>
                 <span style={{ fontWeight: 'bold' }}>N/A</span>
               </div>
@@ -345,8 +329,8 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
             {/* Right Column: Location Image */}
             {propertyDetails.modelImages && propertyDetails.modelImages.length > 0 && (
               <div style={{ 
-                width: '100%',
-                height: '400px',
+                width: '600px',
+                height: '280px',
                 borderRadius: '8px',
                 overflow: 'hidden',
                 border: '1px solid #e0e0e0'
