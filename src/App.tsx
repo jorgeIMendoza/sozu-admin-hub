@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,37 +7,39 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { AdminLayout } from "./components/admin/AdminLayout";
-import Dashboard from "./pages/admin/Dashboard";
-import Proyectos from "./pages/admin/Proyectos";
-import Propiedades from "./pages/admin/Propiedades";
-import Modelos from "./pages/admin/Modelos";
-import Vistas from "./pages/admin/Vistas";
-import Estacionamientos from "./pages/admin/Estacionamientos";
-import Bodegas from "./pages/admin/Bodegas";
-import Pagos from "./pages/admin/Pagos";
-import DetalleCuentaCobranza from "./pages/admin/DetalleCuentaCobranza";
-import Usuarios from "./pages/admin/Usuarios";
-import NuevoUsuario from "./pages/admin/NuevoUsuario";
-import EntidadesLegales from "./pages/admin/EntidadesLegales";
-import Desarrolladores from "./pages/admin/Desarrolladores";
-import Inmobiliarias from "./pages/admin/Inmobiliarias";
-import Administradoras from "./pages/admin/Administradoras";
-import Notarias from "./pages/admin/Notarias";
-import Bancos from "./pages/admin/Bancos";
-import Prospectos from "./pages/admin/Prospectos";
-import Compradores from "./pages/admin/Compradores";
-import Vendedores from "./pages/admin/Vendedores";
-import Duenos from "./pages/admin/Duenos";
-import Residentes from "./pages/admin/Residentes";
-import Agentes from "./pages/admin/Agentes";
-import AdministradoresPersonas from "./pages/admin/AdministradoresPersonas";
-import RepresentantesLegales from "./pages/admin/RepresentantesLegales";
-import Productos from "./pages/admin/Productos";
-import Servicios from "./pages/admin/Servicios";
-import CategoriasProductos from "./pages/admin/CategoriasProductos";
-import ComingSoon from "./pages/admin/ComingSoon";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+
+// Lazy load all route components
+const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
+const Proyectos = lazy(() => import("./pages/admin/Proyectos"));
+const Propiedades = lazy(() => import("./pages/admin/Propiedades"));
+const Modelos = lazy(() => import("./pages/admin/Modelos"));
+const Vistas = lazy(() => import("./pages/admin/Vistas"));
+const Estacionamientos = lazy(() => import("./pages/admin/Estacionamientos"));
+const Bodegas = lazy(() => import("./pages/admin/Bodegas"));
+const Pagos = lazy(() => import("./pages/admin/Pagos"));
+const DetalleCuentaCobranza = lazy(() => import("./pages/admin/DetalleCuentaCobranza"));
+const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
+const NuevoUsuario = lazy(() => import("./pages/admin/NuevoUsuario"));
+const EntidadesLegales = lazy(() => import("./pages/admin/EntidadesLegales"));
+const Desarrolladores = lazy(() => import("./pages/admin/Desarrolladores"));
+const Inmobiliarias = lazy(() => import("./pages/admin/Inmobiliarias"));
+const Administradoras = lazy(() => import("./pages/admin/Administradoras"));
+const Notarias = lazy(() => import("./pages/admin/Notarias"));
+const Bancos = lazy(() => import("./pages/admin/Bancos"));
+const Prospectos = lazy(() => import("./pages/admin/Prospectos"));
+const Compradores = lazy(() => import("./pages/admin/Compradores"));
+const Vendedores = lazy(() => import("./pages/admin/Vendedores"));
+const Duenos = lazy(() => import("./pages/admin/Duenos"));
+const Residentes = lazy(() => import("./pages/admin/Residentes"));
+const Agentes = lazy(() => import("./pages/admin/Agentes"));
+const AdministradoresPersonas = lazy(() => import("./pages/admin/AdministradoresPersonas"));
+const RepresentantesLegales = lazy(() => import("./pages/admin/RepresentantesLegales"));
+const Productos = lazy(() => import("./pages/admin/Productos"));
+const Servicios = lazy(() => import("./pages/admin/Servicios"));
+const CategoriasProductos = lazy(() => import("./pages/admin/CategoriasProductos"));
+const ComingSoon = lazy(() => import("./pages/admin/ComingSoon"));
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -53,6 +56,7 @@ const App = () => (
         <Sonner />
         <PWAInstallPrompt />
         <BrowserRouter>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
         <Routes>
           <Route path="/" element={<Navigate to="/admin" replace />} />
           <Route path="/welcome" element={<Index />} />
@@ -97,6 +101,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
     </ThemeProvider>
