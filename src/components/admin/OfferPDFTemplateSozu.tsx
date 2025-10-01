@@ -228,7 +228,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
         <div style={{ 
           width: '100%',
           height: '4px',
-          backgroundColor: '#585858',
+          backgroundColor: '#D3D3D3',
           marginBottom: '32px'
         }} />
 
@@ -404,7 +404,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           <div style={{ 
             width: '100%',
             height: '4px',
-            backgroundColor: '#585858',
+            backgroundColor: '#D3D3D3',
             marginBottom: '32px'
           }} />
         )}
@@ -512,20 +512,16 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
 
         {/* Divider Line before Banking Data */}
         <div style={{ 
-          position: 'absolute',
-          bottom: '980px',
-          left: '80px',
-          right: '80px',
+          width: '100%',
           height: '4px',
-          backgroundColor: '#585858'
+          backgroundColor: '#D3D3D3',
+          marginBottom: '32px',
+          marginTop: '40px'
         }} />
 
         {/* Banking Data Section */}
         <div style={{ 
-          position: 'absolute',
-          bottom: '600px',
-          left: '80px',
-          right: '80px'
+          marginBottom: '40px'
         }}>
           <h2 style={{ 
             fontSize: '40px', 
@@ -631,20 +627,16 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
 
         {/* Divider Line before Contact Info */}
         <div style={{ 
-          position: 'absolute',
-          bottom: '370px',
-          left: '80px',
-          right: '80px',
+          width: '100%',
           height: '4px',
-          backgroundColor: '#585858'
+          backgroundColor: '#D3D3D3',
+          marginBottom: '32px',
+          marginTop: '40px'
         }} />
 
         {/* Contact Info (Datos de Contacto) */}
         <div style={{ 
-          position: 'absolute',
-          bottom: '80px',
-          left: '80px',
-          right: '80px'
+          marginBottom: '40px'
         }}>
           <h2 style={{ 
             fontSize: '40px', 
