@@ -108,14 +108,13 @@ export default function Productos() {
         .from('entidades_relacionadas')
         .select(`
           id_persona,
-          personas!inner (
+          personas!entidades_relacionadas_id_persona_fkey (
             id,
             nombre_legal
           )
         `)
         .in('id_tipo_entidad', [4, 8, 13])
-        .eq('activo', true)
-        .order('personas(nombre_legal)');
+        .eq('activo', true);
       if (error) throw error;
       
       // Extraer personas únicas y mapear al formato esperado
