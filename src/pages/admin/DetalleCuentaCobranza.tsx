@@ -1220,16 +1220,25 @@ export default function DetalleCuentaCobranza() {
                          <div>
                            <label className="text-sm font-medium text-muted-foreground">Enganche</label>
                            <p className="text-sm">{originalScheme.porcentaje_enganche.toFixed(1)}%</p>
+                           <p className="text-xs text-muted-foreground">
+                             {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_enganche / 100))}
+                           </p>
                          </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
                           <p className="text-sm">
                             {originalScheme.numero_mensualidades} pagos de {originalScheme.porcentaje_mensualidades.toFixed(1)}%
                           </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_mensualidades / 100))}
+                          </p>
                         </div>
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Entrega</label>
                           <p className="text-sm">{originalScheme.porcentaje_entrega.toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_entrega / 100))}
+                          </p>
                         </div>
                       </div>
                     </div>
