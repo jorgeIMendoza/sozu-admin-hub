@@ -563,18 +563,18 @@ const Propiedades = () => {
     const enrichedOffers = await Promise.all((offersData || []).map(async (offer: any) => {
       let enrichedOffer = { ...offer };
       
-      // Get cuenta_cobranza ID if available
+      // Get cuenta_cobranza ID and status if available
       if (offer.cuenta_clabe_stp) {
         try {
           const { data: cuentaData, error: cuentaError } = await supabase
             .from('cuentas_cobranza')
-            .select('id')
+            .select('id, activo')
             .eq('clabe_stp', offer.cuenta_clabe_stp)
-            .eq('activo', true)
             .single();
           
           if (!cuentaError && cuentaData) {
             enrichedOffer.cuenta_cobranza_id = cuentaData.id;
+            enrichedOffer.cuenta_activo = cuentaData.activo;
           }
         } catch (err) {
           console.warn('Error fetching cuenta_cobranza ID for offer:', offer.id);
@@ -1819,16 +1819,16 @@ const Propiedades = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                   {(() => {
-                     // Check if there's any active account with payment scheme selected
-                     const hasActiveAccountWithScheme = selectedPropertyOffers.some((offer: any) => 
-                       offer.cuenta_clabe_stp && offer.cuenta_es_aprobado && offer.esquema_id
-                     );
-                     
-                     return selectedPropertyOffers.map((offer: any, index: number) => {
-                       const hasAccount = !!offer.cuenta_clabe_stp;
-                       const isAccountActive = hasAccount && offer.cuenta_es_aprobado;
-                       const isAccountCancelled = hasAccount && !offer.cuenta_es_aprobado;
+                     {(() => {
+                      // Check if there's any active account with payment scheme selected
+                      const hasActiveAccountWithScheme = selectedPropertyOffers.some((offer: any) => 
+                        offer.cuenta_clabe_stp && offer.cuenta_activo && offer.esquema_id
+                      );
+                      
+                      return selectedPropertyOffers.map((offer: any, index: number) => {
+                        const hasAccount = !!offer.cuenta_clabe_stp;
+                        const isAccountActive = hasAccount && offer.cuenta_activo;
+                        const isAccountCancelled = hasAccount && !offer.cuenta_activo;
                        const hasPaymentScheme = !!offer.esquema_id;
                        
                        // Determine row color based on status
