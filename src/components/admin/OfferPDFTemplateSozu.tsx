@@ -204,123 +204,149 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
         {/* Property Details Section */}
         <div style={{ marginBottom: '80px' }}>
           <h2 style={{ 
-            fontSize: '24px', 
+            fontSize: '48px', 
             fontWeight: 'bold', 
             color: '#000',
-            marginBottom: '32px'
+            marginBottom: '40px'
           }}>
             Datos de la Propiedad:
           </h2>
           
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: '300px 200px 1fr', 
-            gap: '40px'
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '60px'
           }}>
-            {/* Left Column: Property Data List */}
-            <div style={{ fontSize: '28px', lineHeight: '1.8' }}>
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'normal' }}>No° de propiedad: </span>
-                <span style={{ fontWeight: 'bold' }}>{propertyDetails.numero_propiedad}</span>
-              </div>
-              {propertyDetails.model && (
+            {/* Left Column: Property Data List and Icons */}
+            <div>
+              {/* Property Details Text */}
+              <div style={{ fontSize: '28px', lineHeight: '2', marginBottom: '48px' }}>
                 <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'normal' }}>Modelo: </span>
-                  <span style={{ fontWeight: 'bold' }}>{propertyDetails.model.nombre}</span>
+                  <span style={{ fontWeight: 'normal' }}>No° de propiedad: </span>
+                  <span style={{ fontWeight: 'bold' }}>{propertyDetails.numero_propiedad}</span>
                 </div>
-              )}
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'normal' }}>Área: </span>
-                <span style={{ fontWeight: 'bold' }}>{propertyDetails.m2_reales?.toFixed(2) || 'N/A'} m²</span>
-              </div>
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
-                <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.precio_lista)}</span>
-              </div>
-              {propertyDetails.projectData?.precio_m2 && (
+                {propertyDetails.model && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ fontWeight: 'normal' }}>Modelo: </span>
+                    <span style={{ fontWeight: 'bold' }}>{propertyDetails.model.nombre}</span>
+                  </div>
+                )}
                 <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'normal' }}>Precio m2: </span>
-                  <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.projectData.precio_m2)}</span>
+                  <span style={{ fontWeight: 'normal' }}>Área: </span>
+                  <span style={{ fontWeight: 'bold' }}>{propertyDetails.m2_reales?.toFixed(2) || 'N/A'} m²</span>
                 </div>
-              )}
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'normal' }}>Piso: </span>
-                <span style={{ fontWeight: 'bold' }}>{propertyDetails.numero_piso || 'N/A'}</span>
-              </div>
-              {propertyDetails.building && (
                 <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'normal' }}>Torre: </span>
-                  <span style={{ fontWeight: 'bold' }}>{propertyDetails.building.nombre}</span>
+                  <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
+                  <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.precio_lista)}</span>
                 </div>
-              )}
-              {propertyDetails.vista && (
+                {propertyDetails.projectData?.precio_m2 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ fontWeight: 'normal' }}>Precio m2: </span>
+                    <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.projectData.precio_m2)}</span>
+                  </div>
+                )}
                 <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontWeight: 'normal' }}>Vista: </span>
-                  <span style={{ fontWeight: 'bold' }}>{propertyDetails.vista.nombre}</span>
+                  <span style={{ fontWeight: 'normal' }}>Piso: </span>
+                  <span style={{ fontWeight: 'bold' }}>{propertyDetails.numero_piso || 'N/A'}</span>
                 </div>
-              )}
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'normal' }}>Precio bodega: </span>
-                <span style={{ fontWeight: 'bold' }}>N/A</span>
+                {propertyDetails.building && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ fontWeight: 'normal' }}>Torre: </span>
+                    <span style={{ fontWeight: 'bold' }}>{propertyDetails.building.nombre}</span>
+                  </div>
+                )}
+                {propertyDetails.vista && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ fontWeight: 'normal' }}>Vista: </span>
+                    <span style={{ fontWeight: 'bold' }}>{propertyDetails.vista.nombre}</span>
+                  </div>
+                )}
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontWeight: 'normal' }}>Precio bodega: </span>
+                  <span style={{ fontWeight: 'bold' }}>N/A</span>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontWeight: 'normal' }}>Bodega m2: </span>
+                  <span style={{ fontWeight: 'bold' }}>N/A</span>
+                </div>
               </div>
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontWeight: 'normal' }}>Bodega m2: </span>
-                <span style={{ fontWeight: 'bold' }}>N/A</span>
-              </div>
-            </div>
 
-            {/* Center Column: Icons with Numbers */}
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              gap: '32px',
-              alignItems: 'center',
-              justifyContent: 'flex-start'
-            }}>
-              {/* Recámaras */}
-              <div style={{ textAlign: 'center' }}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 8px' }}>
-                  <rect x="3" y="11" width="18" height="10" rx="1" stroke="#666" strokeWidth="1.5"/>
-                  <path d="M7 11V9C7 7.89543 7.89543 7 9 7H15C16.1046 7 17 7.89543 17 9V11" stroke="#666" strokeWidth="1.5"/>
-                  <line x1="3" y1="16" x2="21" y2="16" stroke="#666" strokeWidth="1.5"/>
-                </svg>
-                <div style={{ fontSize: '20px', fontWeight: 'normal', color: '#666' }}>
-                  Una
+              {/* Icons Row */}
+              <div style={{ 
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '32px',
+                paddingTop: '32px',
+                borderTop: '1px solid #e0e0e0'
+              }}>
+                {/* Recámaras */}
+                <div style={{ textAlign: 'center' }}>
+                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 12px' }}>
+                    <rect x="2" y="10" width="20" height="11" rx="1.5" stroke="#333" strokeWidth="1.8"/>
+                    <path d="M6 10V8C6 6.34315 7.34315 5 9 5H15C16.6569 5 18 6.34315 18 8V10" stroke="#333" strokeWidth="1.8"/>
+                    <rect x="6" y="14" width="4" height="3" fill="#333"/>
+                    <rect x="14" y="14" width="4" height="3" fill="#333"/>
+                    <line x1="2" y1="17" x2="22" y2="17" stroke="#333" strokeWidth="1.8"/>
+                  </svg>
+                  <div style={{ fontSize: '24px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>
+                    Una
+                  </div>
+                  <div style={{ fontSize: '18px', color: '#666' }}>
+                    Recámara
+                  </div>
                 </div>
-              </div>
-              
-              {/* Baños */}
-              <div style={{ textAlign: 'center' }}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 8px' }}>
-                  <path d="M12 3V8M12 8C10.3431 8 9 9.34315 9 11V12H15V11C15 9.34315 13.6569 8 12 8Z" stroke="#666" strokeWidth="1.5"/>
-                  <path d="M4 12H20V16C20 18.2091 18.2091 20 16 20H8C5.79086 20 4 18.2091 4 16V12Z" stroke="#666" strokeWidth="1.5"/>
-                </svg>
-                <div style={{ fontSize: '20px', fontWeight: 'normal', color: '#666' }}>
-                  Uno
+                
+                {/* Baños */}
+                <div style={{ textAlign: 'center' }}>
+                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 12px' }}>
+                    <circle cx="12" cy="6" r="2" fill="#333"/>
+                    <path d="M9 11C9 9.34315 10.3431 8 12 8C13.6569 8 15 9.34315 15 11V12H9V11Z" fill="#333"/>
+                    <path d="M4 12H20V15C20 17.7614 17.7614 20 15 20H9C6.23858 20 4 17.7614 4 15V12Z" stroke="#333" strokeWidth="1.8"/>
+                    <line x1="8" y1="15" x2="8" y2="18" stroke="#fff" strokeWidth="1.5"/>
+                    <line x1="12" y1="15" x2="12" y2="18" stroke="#fff" strokeWidth="1.5"/>
+                    <line x1="16" y1="15" x2="16" y2="18" stroke="#fff" strokeWidth="1.5"/>
+                  </svg>
+                  <div style={{ fontSize: '24px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>
+                    Uno
+                  </div>
+                  <div style={{ fontSize: '18px', color: '#666' }}>
+                    Baño
+                  </div>
                 </div>
-              </div>
-              
-              {/* Estacionamientos */}
-              <div style={{ textAlign: 'center' }}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 8px' }}>
-                  <path d="M5 17C5 18.1046 5.89543 19 7 19C8.10457 19 9 18.1046 9 17M15 17C15 18.1046 15.8954 19 17 19C18.1046 19 19 18.1046 19 17" stroke="#666" strokeWidth="1.5"/>
-                  <path d="M5 17H4C3.44772 17 3 16.5523 3 16V11L5.4 6.2C5.73137 5.53726 6.41316 5.07143 7.16667 5.07143H16.8333C17.5868 5.07143 18.2686 5.53726 18.6 6.2L21 11V16C21 16.5523 20.5523 17 20 17H19M5 17C5 15.8954 5.89543 15 7 15C8.10457 15 9 15.8954 9 17M5 17H9M19 17C19 15.8954 18.1046 15 17 15C15.8954 15 15 15.8954 15 17M19 17H15M9 17H15" stroke="#666" strokeWidth="1.5"/>
-                  <path d="M5 11L7 8H17L19 11H5Z" stroke="#666" strokeWidth="1.5"/>
-                </svg>
-                <div style={{ fontSize: '20px', fontWeight: 'normal', color: '#666' }}>
-                  1 Normal
+                
+                {/* Estacionamientos */}
+                <div style={{ textAlign: 'center' }}>
+                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 12px' }}>
+                    <circle cx="7" cy="17" r="1.5" fill="#333"/>
+                    <circle cx="17" cy="17" r="1.5" fill="#333"/>
+                    <path d="M3 11L5.2 6.6C5.6 5.7 6.5 5 7.5 5H16.5C17.5 5 18.4 5.7 18.8 6.6L21 11" stroke="#333" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M3 11V16C3 16.6 3.4 17 4 17H5M21 11V16C21 16.6 20.6 17 20 17H19" stroke="#333" strokeWidth="1.8" strokeLinecap="round"/>
+                    <path d="M5 17C5 15.3 6.3 14 8 14H16C17.7 14 19 15.3 19 17" stroke="#333" strokeWidth="1.8"/>
+                    <rect x="6" y="8" width="12" height="3" rx="0.5" fill="#333"/>
+                  </svg>
+                  <div style={{ fontSize: '24px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>
+                    1 Normal
+                  </div>
+                  <div style={{ fontSize: '18px', color: '#666' }}>
+                    Estacionamiento
+                  </div>
                 </div>
-              </div>
-              
-              {/* Bodegas (if exists) */}
-              <div style={{ textAlign: 'center' }}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 8px' }}>
-                  <rect x="4" y="8" width="16" height="12" rx="1" stroke="#666" strokeWidth="1.5"/>
-                  <path d="M8 8V6C8 4.89543 8.89543 4 10 4H14C15.1046 4 16 4.89543 16 6V8" stroke="#666" strokeWidth="1.5"/>
-                  <line x1="4" y1="12" x2="20" y2="12" stroke="#666" strokeWidth="1.5"/>
-                </svg>
-                <div style={{ fontSize: '20px', fontWeight: 'normal', color: '#666' }}>
-                  N/A
+                
+                {/* Bodegas */}
+                <div style={{ textAlign: 'center' }}>
+                  <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ margin: '0 auto 12px' }}>
+                    <rect x="4" y="9" width="16" height="11" rx="1.5" stroke="#333" strokeWidth="1.8"/>
+                    <path d="M8 9V6C8 4.34315 9.34315 3 11 3H13C14.6569 3 16 4.34315 16 6V9" stroke="#333" strokeWidth="1.8"/>
+                    <line x1="4" y1="13" x2="20" y2="13" stroke="#333" strokeWidth="1.8"/>
+                    <line x1="4" y1="16" x2="20" y2="16" stroke="#333" strokeWidth="1.8"/>
+                    <circle cx="15" cy="13" r="1" fill="#333"/>
+                  </svg>
+                  <div style={{ fontSize: '24px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>
+                    N/A
+                  </div>
+                  <div style={{ fontSize: '18px', color: '#666' }}>
+                    Bodega
+                  </div>
                 </div>
               </div>
             </div>
@@ -328,11 +354,12 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
             {/* Right Column: Location Image */}
             {propertyDetails.modelImages && propertyDetails.modelImages.length > 0 && (
               <div style={{ 
-                width: '600px',
-                height: '280px',
-                borderRadius: '8px',
+                width: '100%',
+                height: '100%',
+                minHeight: '700px',
+                borderRadius: '12px',
                 overflow: 'hidden',
-                border: '1px solid #e0e0e0'
+                border: '2px solid #e0e0e0'
               }}>
                 <img
                   src={propertyDetails.modelImages.find(img => img.ver_como_ubicacion_en_oferta)?.url || propertyDetails.modelImages[0]?.url}
