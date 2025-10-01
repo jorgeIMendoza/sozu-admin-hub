@@ -434,6 +434,7 @@ class HTMLToPDFService {
                 id, 
                 nombre, 
                 url_imagen_portada,
+                url_logo,
                 mostrar_precio_m2_en_oferta,
                 mostrar_piso_en_oferta,
                 mostrar_seccion_efectivo_en_oferta,
