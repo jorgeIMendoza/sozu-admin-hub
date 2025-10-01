@@ -289,8 +289,8 @@ const Propiedades = () => {
       });
       
       // Create payment status structure for each cuenta
-      Object.keys(activeCuentasMap).forEach(cuentaId => {
-        paymentStatusMap[cuentaId] = {
+      (activeCuentas || []).forEach(cuenta => {
+        paymentStatusMap[cuenta.id] = {
           apartado: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
           enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
           mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0 },
@@ -367,8 +367,8 @@ const Propiedades = () => {
 
           let conceptoKey: 'apartado' | 'mensualidades' | 'enganche' | 'entrega' | 'especial' | 'cesion_derechos';
           
-          // Map concept IDs to keys
-          if (acuerdo.id_concepto === 1) conceptoKey = 'mensualidades';
+          // Map concept IDs to keys (corrected mapping)
+          if (acuerdo.id_concepto === 1) conceptoKey = 'apartado';
           else if (acuerdo.id_concepto === 2) {
             // Check if this is cesion de derechos
             if (tieneCesionDerechos) {
@@ -379,7 +379,8 @@ const Propiedades = () => {
           }
           else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
           else if (acuerdo.id_concepto === 4) conceptoKey = 'especial';
-          else if (acuerdo.id_concepto === 5) conceptoKey = 'apartado';
+          else if (acuerdo.id_concepto === 5) conceptoKey = 'mensualidades';
+          else if (acuerdo.id_concepto === 6) conceptoKey = 'mensualidades';
           else return;
 
           // Acumular montos totales y pagados por concepto
@@ -408,7 +409,7 @@ const Propiedades = () => {
           
           let conceptoKey: 'apartado' | 'mensualidades' | 'enganche' | 'entrega' | 'especial' | 'cesion_derechos';
           
-          if (acuerdo.id_concepto === 1) conceptoKey = 'mensualidades';
+          if (acuerdo.id_concepto === 1) conceptoKey = 'apartado';
           else if (acuerdo.id_concepto === 2) {
             if (tieneCesionDerechos) {
               conceptoKey = 'cesion_derechos';
@@ -418,7 +419,8 @@ const Propiedades = () => {
           }
           else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
           else if (acuerdo.id_concepto === 4) conceptoKey = 'especial';
-          else if (acuerdo.id_concepto === 5) conceptoKey = 'apartado';
+          else if (acuerdo.id_concepto === 5) conceptoKey = 'mensualidades';
+          else if (acuerdo.id_concepto === 6) conceptoKey = 'mensualidades';
           else return;
 
           // Verificar si TODOS los acuerdos del mismo concepto están completados
