@@ -216,10 +216,11 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
             display: 'grid', 
             gridTemplateColumns: 'auto 160px 1fr', 
             gap: '60px',
-            alignItems: 'start'
+            alignItems: 'start',
+            border: '2px solid red'
           }}>
             {/* Column 1: Property Data */}
-            <div>
+            <div style={{ border: '2px solid blue' }}>
               <div style={{ fontSize: '28px', lineHeight: '1.6' }}>
                 <div style={{ marginBottom: '8px' }}>
                   <span style={{ fontWeight: 'normal' }}>No° de propiedad: </span>
@@ -278,7 +279,8 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
               flexDirection: 'column',
               gap: '48px',
               paddingTop: '20px',
-              alignItems: 'center'
+              alignItems: 'center',
+              border: '2px solid green'
             }}>
               {/* Recámara */}
               <div style={{ textAlign: 'center', width: '100%' }}>
@@ -362,7 +364,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                 height: '450px',
                 borderRadius: '8px',
                 overflow: 'hidden',
-                border: '1.5px solid #d0d0d0'
+                border: '3px solid orange'
               }}>
                 <img
                   src={propertyDetails.modelImages.find(img => img.ver_como_ubicacion_en_oferta)?.url || propertyDetails.modelImages[0]?.url}
