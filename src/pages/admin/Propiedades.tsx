@@ -35,6 +35,9 @@ interface Property {
   clabe_stp_tmp_apartado: string | null;
   clabe_stp: string | null; // Nueva propiedad para CLABE de cuentas_cobranza
   cuenta_cobranza_id: number | null; // Nueva propiedad para ID de cuenta de cobranza
+  precio_final: number | null; // Nueva propiedad para precio final de cuenta de cobranza
+  total_pagado: number; // Nueva propiedad para total pagado
+  restante: number; // Nueva propiedad para monto restante
   activo: boolean;
   es_aprobado: boolean;
   // Relaciones
@@ -266,7 +269,7 @@ const Propiedades = () => {
       // Get active cuentas_cobranza separately
       const { data: activeCuentas } = await supabase
         .from('cuentas_cobranza')
-        .select('id, clabe_stp, id_oferta')
+        .select('id, clabe_stp, id_oferta, precio_final')
         .eq('activo', true);
 
       const activeCuentasMap = (activeCuentas || []).reduce((acc: any, cuenta: any) => {
@@ -467,6 +470,18 @@ const Propiedades = () => {
           }
         }
         
+        // Calculate total pagado and restante
+        const precio_final = cuentaCobranzaData?.precio_final || 0;
+        const total_pagado = paymentStatus ? (
+          (paymentStatus.apartado?.monto_pagado || 0) +
+          (paymentStatus.enganche?.monto_pagado || 0) +
+          (paymentStatus.mensualidades?.monto_pagado || 0) +
+          (paymentStatus.entrega?.monto_pagado || 0) +
+          (paymentStatus.especial?.monto_pagado || 0) +
+          (paymentStatus.cesion_derechos?.monto_pagado || 0)
+        ) : 0;
+        const restante = precio_final - total_pagado;
+        
         return {
           id: property.id,
           numero_propiedad: property.numero_propiedad,
@@ -478,6 +493,9 @@ const Propiedades = () => {
           clabe_stp_tmp_apartado: property.clabe_stp_tmp_apartado,
           clabe_stp: cuentaCobranzaData?.clabe_stp || property.clabe_stp_tmp_apartado,
           cuenta_cobranza_id: cuentaCobranzaData?.id || null,
+          precio_final: precio_final > 0 ? precio_final : null,
+          total_pagado,
+          restante,
           activo: property.activo,
           es_aprobado: property.es_aprobado,
           propietario: property.entidades_relacionadas?.personas?.nombre_legal || 'Sin propietario',
@@ -1154,6 +1172,9 @@ const Propiedades = () => {
               <TableHead>Disponibilidad</TableHead>
               <TableHead>Cuenta de cobranza</TableHead>
               <TableHead>Cuenta Clabe</TableHead>
+              <TableHead>Precio Final</TableHead>
+              <TableHead>Pagado</TableHead>
+              <TableHead>Restante</TableHead>
               <TableHead>Estado de Pagos</TableHead>
               <TableHead>Acciones</TableHead>
             </TableRow>
@@ -1267,6 +1288,19 @@ const Propiedades = () => {
                       )}
                     </TableCell>
                    <TableCell className="font-mono text-sm">{property.clabe_stp || 'Sin CLABE'}</TableCell>
+                   <TableCell className="text-right font-semibold">
+                     {property.precio_final ? formatCurrency(property.precio_final) : '-'}
+                   </TableCell>
+                   <TableCell className="text-right">
+                     {property.total_pagado > 0 ? formatCurrency(property.total_pagado) : '-'}
+                   </TableCell>
+                   <TableCell className="text-right">
+                     {property.precio_final && property.restante !== 0 ? (
+                       <span className={property.restante > 0 ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold'}>
+                         {formatCurrency(property.restante)}
+                       </span>
+                     ) : '-'}
+                   </TableCell>
                     <TableCell>
                        {property.payment_status ? (
                          <div className="flex gap-1 items-center">
