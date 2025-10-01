@@ -370,10 +370,10 @@ const Propiedades = () => {
 
           let conceptoKey: 'apartado' | 'mensualidades' | 'enganche' | 'entrega' | 'especial' | 'cesion_derechos';
           
-          // Map concept IDs to keys - Apartado(1), Enganche(2), Contraentrega(3), Especial(4), Parcialidad(5,6)
+          // Map concept IDs to keys - Apartado(1), Enganche(2), Contraentrega(3), Especial(4), Parcialidad(5), Cesión de derechos(6)
           if (acuerdo.id_concepto === 1) conceptoKey = 'apartado';
           else if (acuerdo.id_concepto === 2) {
-            // Check if this is cesion de derechos
+            // Enganche - Check if payment method is Cesión de derechos (ID 8)
             if (tieneCesionDerechos) {
               conceptoKey = 'cesion_derechos';
             } else {
@@ -382,7 +382,8 @@ const Propiedades = () => {
           }
           else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
           else if (acuerdo.id_concepto === 4) conceptoKey = 'especial';
-          else if (acuerdo.id_concepto === 5 || acuerdo.id_concepto === 6) conceptoKey = 'mensualidades';
+          else if (acuerdo.id_concepto === 5) conceptoKey = 'mensualidades';
+          else if (acuerdo.id_concepto === 6) conceptoKey = 'cesion_derechos';
           else return;
 
           // Group acuerdos for later processing
