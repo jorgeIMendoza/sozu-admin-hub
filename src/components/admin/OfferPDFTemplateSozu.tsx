@@ -621,46 +621,50 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           </h2>
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta ? '1fr 1fr' : '1fr', 
+            gridTemplateColumns: (propertyDetails.clabe_stp_tmp_apartado && propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount) 
+              ? '1fr 1fr' 
+              : '1fr', 
             gap: '40px',
             backgroundColor: '#D3D3D3',
             padding: '0',
             borderRadius: '20px'
           }}>
-            {/* Transfer Banking Data - Always shown */}
-            <div style={{ 
-              backgroundColor: '#D3D3D3',
-              padding: '32px',
-              borderRadius: '20px'
-            }}>
-              <h3 style={{ 
-                fontSize: '28px', 
-                fontWeight: 'bold', 
-                color: '#000000', 
-                marginBottom: '24px',
-                fontFamily: 'Arial, sans-serif'
+            {/* Transfer Banking Data - Only shown if CLABE exists */}
+            {propertyDetails.clabe_stp_tmp_apartado && (
+              <div style={{ 
+                backgroundColor: '#D3D3D3',
+                padding: '32px',
+                borderRadius: '20px'
               }}>
-                Pago por transferencia
-              </h3>
-              <div style={{ fontSize: '24px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
-                <p style={{ color: '#000000', marginBottom: '12px' }}>
-                  <span style={{ fontWeight: '400' }}>Banco: </span>
-                  <span style={{ fontWeight: '400' }}>Sistema de Transacciones y Pagos</span>
-                </p>
-                <p style={{ color: '#000000', marginBottom: '12px' }}>
-                  <span style={{ fontWeight: '400' }}>Titular: </span>
-                  <span style={{ fontWeight: '400' }}>
-                    {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
-                  </span>
-                </p>
-                <p style={{ color: '#000000' }}>
-                  <span style={{ fontWeight: '400' }}>Cuenta CLABE: </span>
-                  <span style={{ fontWeight: '400' }}>
-                    {propertyDetails.clabe_stp_tmp_apartado || 'N/A'}
-                  </span>
-                </p>
+                <h3 style={{ 
+                  fontSize: '28px', 
+                  fontWeight: 'bold', 
+                  color: '#000000', 
+                  marginBottom: '24px',
+                  fontFamily: 'Arial, sans-serif'
+                }}>
+                  Pago por transferencia
+                </h3>
+                <div style={{ fontSize: '24px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
+                  <p style={{ color: '#000000', marginBottom: '12px' }}>
+                    <span style={{ fontWeight: '400' }}>Banco: </span>
+                    <span style={{ fontWeight: '400' }}>Sistema de Transacciones y Pagos</span>
+                  </p>
+                  <p style={{ color: '#000000', marginBottom: '12px' }}>
+                    <span style={{ fontWeight: '400' }}>Titular: </span>
+                    <span style={{ fontWeight: '400' }}>
+                      {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
+                    </span>
+                  </p>
+                  <p style={{ color: '#000000' }}>
+                    <span style={{ fontWeight: '400' }}>Cuenta CLABE: </span>
+                    <span style={{ fontWeight: '400' }}>
+                      {propertyDetails.clabe_stp_tmp_apartado}
+                    </span>
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Cash Banking Data - Conditional */}
             {propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount && (
