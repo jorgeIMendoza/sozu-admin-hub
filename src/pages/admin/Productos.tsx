@@ -25,6 +25,7 @@ type Producto = {
   id_persona: number;
   stock: number;
   activo: boolean;
+  precio_lista: number;
   categoria_nombre?: string;
   persona_nombre?: string;
   unidad_sat_descripcion?: string;
@@ -49,6 +50,7 @@ export default function Productos() {
     id_categoria: "",
     id_persona: "",
     stock: 0,
+    precio_lista: 0,
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -80,6 +82,7 @@ export default function Productos() {
       id_persona: item.id_persona,
       stock: item.stock,
       activo: item.activo,
+      precio_lista: item.precio_lista || 0,
       categoria_nombre: item.categorias_producto?.nombre,
       persona_nombre: item.personas?.nombre_legal,
       unidad_sat_descripcion: item.unidades_sat?.descripcion,
@@ -189,6 +192,7 @@ export default function Productos() {
       id_categoria: "",
       id_persona: "",
       stock: 0,
+      precio_lista: 0,
     });
   };
 
@@ -323,6 +327,7 @@ export default function Productos() {
       id_categoria: producto.id_categoria.toString(),
       id_persona: producto.id_persona.toString(),
       stock: producto.stock,
+      precio_lista: producto.precio_lista || 0,
     });
     setIsEditDialogOpen(true);
   };
@@ -395,6 +400,7 @@ export default function Productos() {
               <TableHead className="font-semibold">Nombre</TableHead>
               <TableHead className="font-semibold">Descripción</TableHead>
               <TableHead className="font-semibold">Categoría</TableHead>
+              <TableHead className="font-semibold">Precio Lista</TableHead>
               <TableHead className="font-semibold">Stock</TableHead>
               <TableHead className="font-semibold">SAT ID</TableHead>
               <TableHead className="font-semibold">Unidad SAT</TableHead>
@@ -411,6 +417,11 @@ export default function Productos() {
                 <TableCell className="font-medium">{producto.nombre}</TableCell>
                 <TableCell className="max-w-xs truncate">{producto.descripcion || '-'}</TableCell>
                 <TableCell>{producto.categoria_nombre || '-'}</TableCell>
+                <TableCell>
+                  <span className="font-semibold">
+                    ${parseFloat(producto.precio_lista.toString()).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
                     {producto.stock}
@@ -688,6 +699,19 @@ export default function Productos() {
                 min="0"
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+
+            {/* Precio Lista */}
+            <div className="space-y-2">
+              <Label htmlFor="precio_lista">Precio Lista</Label>
+              <Input
+                id="precio_lista"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.precio_lista}
+                onChange={(e) => setFormData({ ...formData, precio_lista: parseFloat(e.target.value) || 0 })}
               />
             </div>
 

@@ -2721,6 +2721,7 @@ export type Database = {
           id_persona: number
           id_unidad_sat: string | null
           nombre: string
+          precio_lista: number | null
           sat_id: string | null
           stock: number
         }
@@ -2735,6 +2736,7 @@ export type Database = {
           id_persona: number
           id_unidad_sat?: string | null
           nombre: string
+          precio_lista?: number | null
           sat_id?: string | null
           stock?: number
         }
@@ -2749,6 +2751,7 @@ export type Database = {
           id_persona?: number
           id_unidad_sat?: string | null
           nombre?: string
+          precio_lista?: number | null
           sat_id?: string | null
           stock?: number
         }

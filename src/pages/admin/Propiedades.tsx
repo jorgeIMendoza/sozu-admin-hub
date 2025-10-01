@@ -18,6 +18,7 @@ import { NewPropertyDialog } from "@/components/admin/NewPropertyDialog";
 import { EditPropertyDialog } from "@/components/admin/EditPropertyDialog";
 import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropertiesDialog";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
+import { NewProductOfferDialog } from "@/components/admin/NewProductOfferDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { generateOfferPDF } from "@/services/htmlToPdfService";
@@ -1491,28 +1492,37 @@ const Propiedades = () => {
                       </div>
                      ) : (
                        <div className="flex space-x-2">
-                         {property.disponibilidad === "Disponible" && (
-                           <NewOfferDialog 
-                             propertyId={property.id} 
-                             propertyNumber={property.numero_propiedad} 
-                           />
-                         )}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setEditingProperty(property)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Editar propiedad</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        <AlertDialog>
+                          {property.disponibilidad === "Disponible" && (
+                            <NewOfferDialog 
+                              propertyId={property.id} 
+                              propertyNumber={property.numero_propiedad} 
+                            />
+                          )}
+                          {(property.disponibilidad === "Apartado" || 
+                            property.disponibilidad === "Vendido" || 
+                            property.disponibilidad === "En escrituración" ||
+                            property.disponibilidad === "Entregado") && (
+                            <NewProductOfferDialog 
+                              propertyId={property.id}
+                              currentBuyerData={null}
+                            />
+                          )}
+                           <Tooltip>
+                             <TooltipTrigger asChild>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 p-0"
+                                 onClick={() => setEditingProperty(property)}
+                               >
+                                 <Edit className="h-4 w-4" />
+                               </Button>
+                             </TooltipTrigger>
+                             <TooltipContent>
+                               <p>Editar propiedad</p>
+                             </TooltipContent>
+                           </Tooltip>
+                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
                               variant="ghost"
