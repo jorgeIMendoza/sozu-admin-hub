@@ -57,12 +57,12 @@ interface Property {
   bodegas_count: number;
   // Estado de pagos
   payment_status?: {
-    apartado: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
-    enganche: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
-    mensualidades: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
-    entrega: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
-    especial: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
-    cesion_derechos: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number };
+    apartado: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number; fecha: string | null };
+    enganche: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number; fecha: string | null };
+    mensualidades: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number; fecha: string | null };
+    entrega: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number; fecha: string | null };
+    especial: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number; fecha: string | null };
+    cesion_derechos: { status: 'no_pagado' | 'en_proceso' | 'pagado'; monto: number; monto_pagado: number; fecha: string | null };
   } | null;
 }
 
@@ -291,12 +291,12 @@ const Propiedades = () => {
       // Create payment status structure for each cuenta
       (activeCuentas || []).forEach(cuenta => {
         paymentStatusMap[cuenta.id] = {
-          apartado: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
-          enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
-          mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
-          entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
-          especial: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 },
-          cesion_derechos: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0 }
+          apartado: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+          enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+          mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+          entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+          especial: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+          cesion_derechos: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null }
         };
       });
 
@@ -308,7 +308,8 @@ const Propiedades = () => {
             monto,
             pago_completado,
             id_concepto,
-            id_cuenta_cobranza
+            id_cuenta_cobranza,
+            fecha_pago
           `)
           .in('id_cuenta_cobranza', cuentaIds)
           .eq('activo', true);
@@ -401,6 +402,12 @@ const Propiedades = () => {
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].total += 1;
+          
+          // Store the first fecha_pago (earliest acuerdo date) for sorting
+          if (!paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha || 
+              (acuerdo.fecha_pago && acuerdo.fecha_pago < paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha)) {
+            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha = acuerdo.fecha_pago;
+          }
           
           if (acuerdo.pago_completado) {
             paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].completados += 1;
@@ -1260,205 +1267,83 @@ const Propiedades = () => {
                       )}
                     </TableCell>
                    <TableCell className="font-mono text-sm">{property.clabe_stp || 'Sin CLABE'}</TableCell>
-                   <TableCell>
-                      {property.payment_status ? (
-                        <div className="flex gap-1 items-center">
-                          {/* 1. Apartado (id_concepto: 1) */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className={`p-1 rounded-md ${
-                                property.payment_status?.apartado?.status === 'pagado' 
-                                  ? 'bg-[hsl(var(--pago-pagado))]' 
-                                  : property.payment_status?.apartado?.status === 'en_proceso'
-                                  ? 'bg-[hsl(var(--pago-en-proceso))]'
-                                  : (property.payment_status?.apartado?.monto || 0) > 0
-                                  ? 'bg-[hsl(var(--pago-no-pagado))]'
-                                  : 'border-2 border-muted'
-                              }`}>
-                                <FileText className={`h-3 w-3 ${
-                                  (property.payment_status?.apartado?.monto || 0) > 0 ? 'text-white' : 'text-muted-foreground'
-                                }`} />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-sm">
-                                <p className="font-semibold">Apartado</p>
-                                {(property.payment_status?.apartado?.monto || 0) > 0 ? (
-                                  <>
-                                    <p>Monto: ${(property.payment_status?.apartado?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p>Pagado: ${(property.payment_status?.apartado?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                  </>
-                                ) : (
-                                  <p>No aplica</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
+                    <TableCell>
+                       {property.payment_status ? (
+                         <div className="flex gap-1 items-center">
+                           {/* Sort payment icons by date */}
+                           {(() => {
+                             const paymentTypes: Array<{
+                               key: 'apartado' | 'enganche' | 'mensualidades' | 'entrega' | 'especial' | 'cesion_derechos';
+                               label: string;
+                               icon: typeof FileText;
+                             }> = [
+                               { key: 'apartado', label: 'Apartado', icon: FileText },
+                               { key: 'enganche', label: 'Enganche', icon: DollarSign },
+                               { key: 'mensualidades', label: 'Parcialidades', icon: Calendar },
+                               { key: 'entrega', label: 'Contraentrega', icon: Home },
+                               { key: 'especial', label: 'Especial', icon: Zap },
+                               { key: 'cesion_derechos', label: 'Cesión de derechos', icon: ArrowRightLeft },
+                             ];
 
-                          {/* 2. Enganche (id_concepto: 2) */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className={`p-1 rounded-md ${
-                                property.payment_status?.enganche?.status === 'pagado' 
-                                  ? 'bg-[hsl(var(--pago-pagado))]' 
-                                  : property.payment_status?.enganche?.status === 'en_proceso'
-                                  ? 'bg-[hsl(var(--pago-en-proceso))]'
-                                  : (property.payment_status?.enganche?.monto || 0) > 0
-                                  ? 'bg-[hsl(var(--pago-no-pagado))]'
-                                  : 'border-2 border-muted'
-                              }`}>
-                                <DollarSign className={`h-3 w-3 ${
-                                  (property.payment_status?.enganche?.monto || 0) > 0 ? 'text-white' : 'text-muted-foreground'
-                                }`} />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-sm">
-                                <p className="font-semibold">Enganche</p>
-                                {(property.payment_status?.enganche?.monto || 0) > 0 ? (
-                                  <>
-                                    <p>Monto: ${(property.payment_status?.enganche?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p>Pagado: ${(property.payment_status?.enganche?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                  </>
-                                ) : (
-                                  <p>No aplica</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
+                             // Sort by date: null dates go last
+                             const sortedPaymentTypes = paymentTypes
+                               .map(type => ({
+                                 ...type,
+                                 fecha: property.payment_status?.[type.key]?.fecha || null,
+                                 monto: property.payment_status?.[type.key]?.monto || 0
+                               }))
+                               .filter(type => type.monto > 0) // Only show payment types with amount
+                               .sort((a, b) => {
+                                 if (a.fecha === null && b.fecha === null) return 0;
+                                 if (a.fecha === null) return 1;
+                                 if (b.fecha === null) return -1;
+                                 return a.fecha.localeCompare(b.fecha);
+                               });
 
-                          {/* 3. Parcialidades/Mensualidades (id_concepto: 5, 6) */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className={`p-1 rounded-md ${
-                                property.payment_status?.mensualidades?.status === 'pagado' 
-                                  ? 'bg-[hsl(var(--pago-pagado))]' 
-                                  : property.payment_status?.mensualidades?.status === 'en_proceso'
-                                  ? 'bg-[hsl(var(--pago-en-proceso))]'
-                                  : (property.payment_status?.mensualidades?.monto || 0) > 0
-                                  ? 'bg-[hsl(var(--pago-no-pagado))]'
-                                  : 'border-2 border-muted'
-                              }`}>
-                                <Calendar className={`h-3 w-3 ${
-                                  (property.payment_status?.mensualidades?.monto || 0) > 0 ? 'text-white' : 'text-muted-foreground'
-                                }`} />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-sm">
-                                <p className="font-semibold">Parcialidades</p>
-                                {(property.payment_status?.mensualidades?.monto || 0) > 0 ? (
-                                  <>
-                                    <p>Monto: ${(property.payment_status?.mensualidades?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p>Pagado: ${(property.payment_status?.mensualidades?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                  </>
-                                ) : (
-                                  <p>No aplica</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-
-                          {/* 4. Entrega/Contraentrega (id_concepto: 3) */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className={`p-1 rounded-md ${
-                                property.payment_status?.entrega?.status === 'pagado' 
-                                  ? 'bg-[hsl(var(--pago-pagado))]' 
-                                  : property.payment_status?.entrega?.status === 'en_proceso'
-                                  ? 'bg-[hsl(var(--pago-en-proceso))]'
-                                  : (property.payment_status?.entrega?.monto || 0) > 0
-                                  ? 'bg-[hsl(var(--pago-no-pagado))]'
-                                  : 'border-2 border-muted'
-                              }`}>
-                                <Home className={`h-3 w-3 ${
-                                  (property.payment_status?.entrega?.monto || 0) > 0 ? 'text-white' : 'text-muted-foreground'
-                                }`} />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-sm">
-                                <p className="font-semibold">Contraentrega</p>
-                                {(property.payment_status?.entrega?.monto || 0) > 0 ? (
-                                  <>
-                                    <p>Monto: ${(property.payment_status?.entrega?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p>Pagado: ${(property.payment_status?.entrega?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                  </>
-                                ) : (
-                                  <p>No aplica</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-
-                          {/* 5. Especial (id_concepto: 4) */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className={`p-1 rounded-md ${
-                                property.payment_status?.especial?.status === 'pagado' 
-                                  ? 'bg-[hsl(var(--pago-pagado))]' 
-                                  : property.payment_status?.especial?.status === 'en_proceso'
-                                  ? 'bg-[hsl(var(--pago-en-proceso))]'
-                                  : (property.payment_status?.especial?.monto || 0) > 0
-                                  ? 'bg-[hsl(var(--pago-no-pagado))]'
-                                  : 'border-2 border-muted'
-                              }`}>
-                                <Zap className={`h-3 w-3 ${
-                                  (property.payment_status?.especial?.monto || 0) > 0 ? 'text-white' : 'text-muted-foreground'
-                                }`} />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-sm">
-                                <p className="font-semibold">Especial</p>
-                                {(property.payment_status?.especial?.monto || 0) > 0 ? (
-                                  <>
-                                    <p>Monto: ${(property.payment_status?.especial?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p>Pagado: ${(property.payment_status?.especial?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                  </>
-                                ) : (
-                                  <p>No aplica</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-
-                          {/* 6. Cesión de derechos (método pago 8 en id_concepto: 2) */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className={`p-1 rounded-md ${
-                                property.payment_status?.cesion_derechos?.status === 'pagado' 
-                                  ? 'bg-[hsl(var(--pago-pagado))]' 
-                                  : property.payment_status?.cesion_derechos?.status === 'en_proceso'
-                                  ? 'bg-[hsl(var(--pago-en-proceso))]'
-                                  : (property.payment_status?.cesion_derechos?.monto || 0) > 0
-                                  ? 'bg-[hsl(var(--pago-no-pagado))]'
-                                  : 'border-2 border-muted'
-                              }`}>
-                                <ArrowRightLeft className={`h-3 w-3 ${
-                                  (property.payment_status?.cesion_derechos?.monto || 0) > 0 ? 'text-white' : 'text-muted-foreground'
-                                }`} />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-sm">
-                                <p className="font-semibold">Cesión de derechos</p>
-                                {(property.payment_status?.cesion_derechos?.monto || 0) > 0 ? (
-                                  <>
-                                    <p>Monto: ${(property.payment_status?.cesion_derechos?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p>Pagado: ${(property.payment_status?.cesion_derechos?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                  </>
-                                ) : (
-                                  <p>No aplica</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">N/A</Badge>
-                      )}
-                    </TableCell>
+                             return sortedPaymentTypes.map((type) => {
+                               const IconComponent = type.icon;
+                               const paymentInfo = property.payment_status?.[type.key];
+                               
+                               return (
+                                 <Tooltip key={type.key}>
+                                   <TooltipTrigger asChild>
+                                     <div className={`p-1 rounded-md ${
+                                       paymentInfo?.status === 'pagado' 
+                                         ? 'bg-[hsl(var(--pago-pagado))]' 
+                                         : paymentInfo?.status === 'en_proceso'
+                                         ? 'bg-[hsl(var(--pago-en-proceso))]'
+                                         : (paymentInfo?.monto || 0) > 0
+                                         ? 'bg-[hsl(var(--pago-no-pagado))]'
+                                         : 'border-2 border-muted'
+                                     }`}>
+                                       <IconComponent className={`h-3 w-3 ${
+                                         (paymentInfo?.monto || 0) > 0 ? 'text-white' : 'text-muted-foreground'
+                                       }`} />
+                                     </div>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <div className="text-sm">
+                                       <p className="font-semibold">{type.label}</p>
+                                       {(paymentInfo?.monto || 0) > 0 ? (
+                                         <>
+                                           <p>Monto: ${(paymentInfo?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                           <p>Pagado: ${(paymentInfo?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                           {type.fecha && <p className="text-xs text-muted-foreground mt-1">Fecha: {new Date(type.fecha).toLocaleDateString('es-MX')}</p>}
+                                         </>
+                                       ) : (
+                                         <p>No aplica</p>
+                                       )}
+                                     </div>
+                                   </TooltipContent>
+                                 </Tooltip>
+                               );
+                             });
+                           })()}
+                         </div>
+                       ) : (
+                         <Badge variant="outline" className="text-xs">N/A</Badge>
+                       )}
+                     </TableCell>
                    <TableCell>
                     {tabType === "eliminados" ? (
                       <Button
