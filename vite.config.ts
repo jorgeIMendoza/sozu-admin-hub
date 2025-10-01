@@ -103,6 +103,13 @@ export default defineConfig(({ mode }) => ({
     sourcemap: true,
     cssCodeSplit: true,
     cssMinify: true,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        passes: 2,
+      },
+    },
     assetsInlineLimit: 4096,
     rollupOptions: {
       output: {
