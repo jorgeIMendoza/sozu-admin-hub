@@ -353,6 +353,11 @@ const Propiedades = () => {
 
         // Process each acuerdo
         (acuerdosData || []).forEach((acuerdo: any) => {
+          // Skip if payment status map doesn't have this cuenta
+          if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
+            return;
+          }
+          
           const aplicaciones = aplicacionesMap[acuerdo.id] || [];
           const montoPagado = aplicaciones.reduce((sum: number, app: any) => sum + (Number(app.monto) || 0), 0);
           
@@ -393,6 +398,11 @@ const Propiedades = () => {
         
         // Verificar estado final por concepto (todos completados = pagado)
         (acuerdosData || []).forEach((acuerdo: any) => {
+          // Skip if payment status map doesn't have this cuenta
+          if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
+            return;
+          }
+          
           const metodosUsados = pagosPorMetodo[acuerdo.id] || {};
           const tieneCesionDerechos = !!metodosUsados[8];
           
