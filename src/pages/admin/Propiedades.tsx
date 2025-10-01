@@ -317,7 +317,7 @@ const Propiedades = () => {
           .in('id_cuenta_cobranza', cuentaIds)
           .eq('activo', true);
 
-        // Get all aplicaciones_pago for these acuerdos WITH payment method info
+        // Get all aplicaciones_pago for these acuerdos WITH payment method info AND payment dates
         const acuerdoIds = (acuerdosData || []).map(a => a.id);
         
         let aplicacionesMap: any = {};
@@ -328,7 +328,7 @@ const Propiedades = () => {
             .select(`
               id_acuerdo_pago,
               monto,
-              pagos!fk_aplicaciones_pago_pago!inner(id_metodos_pago)
+              pagos!fk_aplicaciones_pago_pago!inner(id_metodos_pago, fecha_pago)
             `)
             .in('id_acuerdo_pago', acuerdoIds)
             .eq('activo', true);
@@ -406,11 +406,16 @@ const Propiedades = () => {
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
           paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].total += 1;
           
-          // Store the first fecha_pago (earliest acuerdo date) for sorting
-          if (!paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha || 
-              (acuerdo.fecha_pago && acuerdo.fecha_pago < paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha)) {
-            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha = acuerdo.fecha_pago;
-          }
+          // Store the most recent fecha_pago from actual payments (pagos table)
+          aplicaciones.forEach((app: any) => {
+            const fechaPago = app.pagos?.fecha_pago;
+            if (fechaPago) {
+              if (!paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha || 
+                  fechaPago > paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha) {
+                paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha = fechaPago;
+              }
+            }
+          });
           
           if (acuerdo.pago_completado) {
             paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].completados += 1;
@@ -1399,7 +1404,7 @@ const Propiedades = () => {
                                          <>
                                            <p>Monto: ${(paymentInfo?.monto || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                            <p>Pagado: ${(paymentInfo?.monto_pagado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                           {type.fecha && <p className="text-xs text-muted-foreground mt-1">Fecha: {new Date(type.fecha).toLocaleDateString('es-MX')}</p>}
+                                           {type.fecha && <p className="text-xs text-muted-foreground mt-1">Ultima fecha de pago: {new Date(type.fecha).toLocaleDateString('es-MX')}</p>}
                                          </>
                                        ) : (
                                          <p>No aplica</p>
