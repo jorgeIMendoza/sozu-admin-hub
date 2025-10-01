@@ -1803,7 +1803,7 @@ const Propiedades = () => {
         <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Ofertas comerciales para propiedad {selectedPropertyForOffers?.numero_propiedad} de {selectedPropertyForOffers?.proyecto}
+              Ofertas para propiedad {selectedPropertyForOffers?.numero_propiedad} de {selectedPropertyForOffers?.proyecto}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">

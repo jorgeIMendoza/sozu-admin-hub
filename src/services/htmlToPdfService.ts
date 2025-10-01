@@ -245,7 +245,7 @@ class HTMLToPDFService {
       const cleanProjectName = projectName.replace(/[^a-zA-Z0-9]/g, '_');
       const cleanPropertyNumber = propertyNumber.replace(/[^a-zA-Z0-9]/g, '_');
       
-      const filename = `OC_${cleanPropertyNumber}_${cleanProjectName}_${offerNumber}.pdf`;
+      const filename = `O_${offerNumber}_${cleanPropertyNumber}_${cleanProjectName}.pdf`;
 
       // Download the PDF
       pdf.save(filename);
