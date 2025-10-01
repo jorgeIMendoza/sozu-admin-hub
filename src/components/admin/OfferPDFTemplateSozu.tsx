@@ -38,6 +38,7 @@ interface PropertyDetails {
     id: number;
     nombre: string;
     url_imagen_portada?: string;
+    url_logo?: string;
     mostrar_precio_m2_en_oferta?: boolean;
     mostrar_piso_en_oferta?: boolean;
     mostrar_seccion_efectivo_en_oferta?: boolean;
@@ -170,11 +171,11 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           borderBottom: '2px solid #e0e0e0'
         }}>
           <div style={{ flex: '0 0 auto' }}>
-            {propertyDetails.projectData?.url_imagen_portada && (
+            {propertyDetails.projectData?.url_logo && (
               <img
-                src={propertyDetails.projectData.url_imagen_portada}
+                src={propertyDetails.projectData.url_logo}
                 alt="Logo Proyecto"
-                style={{ height: '150px', width: 'auto', objectFit: 'contain' }}
+                style={{ height: '120px', width: '320px', objectFit: 'contain' }}
               />
             )}
           </div>
