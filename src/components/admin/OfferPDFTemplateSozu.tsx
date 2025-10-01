@@ -164,44 +164,32 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
-          alignItems: 'flex-start',
+          alignItems: 'center',
           marginBottom: '60px',
           paddingBottom: '40px',
           borderBottom: '2px solid #e0e0e0'
         }}>
-          <div>
+          <div style={{ flex: '0 0 auto' }}>
             {propertyDetails.projectData?.url_imagen_portada && (
               <img
                 src={propertyDetails.projectData.url_imagen_portada}
                 alt="Logo Proyecto"
-                style={{ height: '180px', objectFit: 'contain' }}
+                style={{ height: '150px', width: 'auto', objectFit: 'contain' }}
               />
             )}
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '28px', color: '#000', fontWeight: '600', marginBottom: '8px' }}>
-                ID Oferta
-              </div>
-              <div style={{ fontSize: '32px', color: '#000', fontWeight: '400' }}>
-                {formatOfferNumber(offerData.id)}
-              </div>
+          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ fontSize: '28px', color: '#000' }}>
+              <span style={{ fontWeight: '600' }}>ID Oferta:</span>{' '}
+              <span style={{ fontWeight: '400' }}>{formatOfferNumber(offerData.id)}</span>
             </div>
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '28px', color: '#000', fontWeight: '600', marginBottom: '8px' }}>
-                Expedición
-              </div>
-              <div style={{ fontSize: '32px', color: '#000', fontWeight: '400' }}>
-                {formatDate(offerData.fecha_generacion)}
-              </div>
+            <div style={{ fontSize: '28px', color: '#000' }}>
+              <span style={{ fontWeight: '600' }}>Expedición:</span>{' '}
+              <span style={{ fontWeight: '400' }}>{formatDate(offerData.fecha_generacion)}</span>
             </div>
-            <div>
-              <div style={{ fontSize: '28px', color: '#000', fontWeight: '600', marginBottom: '8px' }}>
-                Vigencia
-              </div>
-              <div style={{ fontSize: '32px', color: '#000', fontWeight: '400' }}>
-                {calculateVigencia(offerData.fecha_generacion)}
-              </div>
+            <div style={{ fontSize: '28px', color: '#000' }}>
+              <span style={{ fontWeight: '600' }}>Vigencia:</span>{' '}
+              <span style={{ fontWeight: '400' }}>{calculateVigencia(offerData.fecha_generacion)}</span>
             </div>
           </div>
         </div>
