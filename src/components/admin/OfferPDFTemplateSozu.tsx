@@ -213,13 +213,12 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           </h2>
           
           <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'auto 140px 1fr', 
-            gap: '80px',
-            alignItems: 'start'
+            display: 'flex',
+            gap: '60px',
+            alignItems: 'flex-start'
           }}>
             {/* Left Column: Property Data */}
-            <div>
+            <div style={{ flex: '0 0 auto' }}>
               <div style={{ fontSize: '28px', lineHeight: '1.6' }}>
                 <div style={{ marginBottom: '8px' }}>
                   <span style={{ fontWeight: 'normal' }}>No° de propiedad: </span>
@@ -278,7 +277,8 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
               flexDirection: 'column',
               gap: '48px',
               paddingTop: '20px',
-              alignItems: 'center'
+              alignItems: 'center',
+              flex: '0 0 140px'
             }}>
               {/* Recámara */}
               <div style={{ textAlign: 'center', width: '100%' }}>
@@ -331,7 +331,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                   <path d="M42 24V32C42 33.1046 41.1046 34 40 34H38" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round"/>
                   <circle cx="14" cy="34" r="3.5" fill="#1a1a1a"/>
                   <circle cx="34" cy="34" r="3.5" fill="#1a1a1a"/>
-                  <path d="M10 34C10 30.134 13.134 27 17 27H31C34.866 27 38 30.134 38 34" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M10 34C10 30.134 13.134 27 17 27H31C34.866 27 38 34 38 34" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round"/>
                   <path d="M10 24L14.4 13.6C15.2 11.8 17 10.4 19 10.4H29C31 10.4 32.8 11.8 33.6 13.6L38 24" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round"/>
                   <rect x="14" y="17" width="20" height="5" rx="1" fill="#1a1a1a"/>
                 </svg>
@@ -355,20 +355,31 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
               </div>
             </div>
 
-            {/* Right Column: Location Image */}
+            {/* Right Column: Images (3 images side by side) */}
             {propertyDetails.modelImages && propertyDetails.modelImages.length > 0 && (
               <div style={{ 
-                width: '100%',
-                height: '450px',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                border: '1.5px solid #d0d0d0'
+                display: 'flex',
+                gap: '20px',
+                flex: '1'
               }}>
-                <img
-                  src={propertyDetails.modelImages.find(img => img.ver_como_ubicacion_en_oferta)?.url || propertyDetails.modelImages[0]?.url}
-                  alt="Ubicación"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
+                {propertyDetails.modelImages.slice(0, 3).map((img, index) => (
+                  <div 
+                    key={index}
+                    style={{ 
+                      flex: '1',
+                      height: '350px',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      border: '1.5px solid #d0d0d0'
+                    }}
+                  >
+                    <img
+                      src={img.url}
+                      alt={`Imagen ${index + 1}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>
