@@ -106,7 +106,26 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
     };
 
     const formatOfferNumber = (offerId: number) => {
-      return `OC-${offerId.toString().padStart(6, '0')}`;
+      return `O-${offerId.toString().padStart(6, '0')}`;
+    };
+
+    const formatDate = (dateString: string) => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('es-MX', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: '2-digit' 
+      });
+    };
+
+    const calculateVigencia = (dateString: string) => {
+      const date = new Date(dateString);
+      date.setDate(date.getDate() + 30);
+      return date.toLocaleDateString('es-MX', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: '2-digit' 
+      });
     };
 
     const selectedPaymentScheme = paymentSchemes[0];
@@ -146,23 +165,43 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'flex-start',
-          marginBottom: '60px'
+          marginBottom: '60px',
+          paddingBottom: '40px',
+          borderBottom: '2px solid #e0e0e0'
         }}>
           <div>
             {propertyDetails.projectData?.url_imagen_portada && (
               <img
                 src={propertyDetails.projectData.url_imagen_portada}
-                alt="Logo"
-                style={{ height: '120px', objectFit: 'contain' }}
+                alt="Logo Proyecto"
+                style={{ height: '180px', objectFit: 'contain' }}
               />
             )}
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#1a1a1a', marginBottom: '12px' }}>
-              {formatOfferNumber(offerData.id)}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '28px', color: '#000', fontWeight: '600', marginBottom: '8px' }}>
+                ID Oferta
+              </div>
+              <div style={{ fontSize: '32px', color: '#000', fontWeight: '400' }}>
+                {formatOfferNumber(offerData.id)}
+              </div>
             </div>
-            <div style={{ fontSize: '32px', color: '#585858' }}>
-              {new Date(offerData.fecha_generacion).toLocaleDateString('es-MX')}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '28px', color: '#000', fontWeight: '600', marginBottom: '8px' }}>
+                Expedición
+              </div>
+              <div style={{ fontSize: '32px', color: '#000', fontWeight: '400' }}>
+                {formatDate(offerData.fecha_generacion)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '28px', color: '#000', fontWeight: '600', marginBottom: '8px' }}>
+                Vigencia
+              </div>
+              <div style={{ fontSize: '32px', color: '#000', fontWeight: '400' }}>
+                {calculateVigencia(offerData.fecha_generacion)}
+              </div>
             </div>
           </div>
         </div>
