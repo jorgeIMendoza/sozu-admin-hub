@@ -180,13 +180,14 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           paddingBottom: '40px',
           borderBottom: '2px solid #e0e0e0'
         }}>
-          <div style={{ flex: '0 0 auto', minWidth: '320px', height: '120px', display: 'flex', alignItems: 'center' }}>
+          <div style={{ flex: '0 0 auto', minWidth: '320px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
             {propertyDetails.projectData?.url_logo ? (
               <img
                 src={propertyDetails.projectData.url_logo}
                 alt="Logo Proyecto"
-                crossOrigin="anonymous"
-                style={{ maxHeight: '120px', maxWidth: '320px', objectFit: 'contain', display: 'block' }}
+                style={{ maxHeight: '120px', maxWidth: '320px', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }}
+                onLoad={() => console.log('Logo loaded successfully:', propertyDetails.projectData?.url_logo)}
+                onError={(e) => console.error('Logo failed to load:', propertyDetails.projectData?.url_logo, e)}
               />
             ) : (
               <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1a1a1a' }}>

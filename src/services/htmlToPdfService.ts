@@ -123,6 +123,8 @@ class HTMLToPDFService {
       ]);
 
       console.log('Data fetched successfully, generating PDF...');
+      console.log('Project logo URL being used:', propertyDetails.projectData?.url_logo);
+      console.log('Project name:', propertyDetails.projectData?.nombre);
 
       // Transform data for the template
       const templateOfferData = {
@@ -209,19 +211,29 @@ class HTMLToPDFService {
       root.render(templateElement);
       
       // Wait longer for all images (including logo) to load
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise<void>(resolve => setTimeout(resolve, 5000));
       
       // Ensure all images are loaded
       const images = container.querySelectorAll('img');
+      console.log('Total images found in container:', images.length);
       await Promise.all(
-        Array.from(images).map(img => {
+        Array.from(images).map((img, index) => {
+          console.log(`Image ${index}:`, img.src, 'complete:', img.complete);
           if (img.complete) return Promise.resolve();
-          return new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
+          return new Promise<void>((resolve) => {
+            img.onload = () => {
+              console.log(`Image ${index} loaded successfully`);
+              resolve();
+            };
+            img.onerror = (e) => {
+              console.error(`Image ${index} failed to load:`, e);
+              resolve();
+            };
           });
         })
       );
+      
+      console.log('All images processed, capturing canvas...');
       
       // Capture as canvas
       const canvas = await html2canvas(container, {
@@ -231,7 +243,13 @@ class HTMLToPDFService {
         logging: true,
         backgroundColor: '#ffffff',
         width: 2550,
-        height: 3300
+        height: 3300,
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          console.log('Cloning document for canvas capture');
+          const clonedImages = clonedDoc.querySelectorAll('img');
+          console.log('Images in cloned document:', clonedImages.length);
+        }
       });
       
       // Create PDF with A4 dimensions
