@@ -437,10 +437,12 @@ const Propiedades = () => {
           activeCuentasMap[oferta.id]
         ).find((cuenta: any) => cuenta !== undefined);
         
-        let paymentStatus = cuentaCobranzaData?.id ? paymentStatusMap[cuentaCobranzaData.id] : null;
+        let paymentStatus = cuentaCobranzaData?.id && paymentStatusMap[cuentaCobranzaData.id] 
+          ? paymentStatusMap[cuentaCobranzaData.id] 
+          : null;
         
         // Add apartado amount to enganche if it exists
-        if (paymentStatus && property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
+        if (paymentStatus && paymentStatus.enganche && property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
           paymentStatus.enganche.monto_pagado += Number(property.monto_apartado_pagando) || 0;
           
           // Recalculate enganche status considering apartado
