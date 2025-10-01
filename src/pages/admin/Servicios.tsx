@@ -24,6 +24,7 @@ type Servicio = {
   id_categoria: number;
   id_persona: number;
   activo: boolean;
+  precio_lista: number;
   categoria_nombre?: string;
   persona_nombre?: string;
   unidad_sat_descripcion?: string;
@@ -46,6 +47,7 @@ export default function Servicios() {
     sat_id: "",
     id_unidad_sat: "",
     id_persona: "",
+    precio_lista: 0,
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -76,6 +78,7 @@ export default function Servicios() {
       id_categoria: item.id_categoria,
       id_persona: item.id_persona,
       activo: item.activo,
+      precio_lista: item.precio_lista || 0,
       categoria_nombre: item.categorias_producto?.nombre,
       persona_nombre: item.personas?.nombre_legal,
       unidad_sat_descripcion: item.unidades_sat?.descripcion,
@@ -183,6 +186,7 @@ export default function Servicios() {
       sat_id: "",
       id_unidad_sat: "",
       id_persona: "",
+      precio_lista: 0,
     });
   };
 
@@ -316,6 +320,7 @@ export default function Servicios() {
       sat_id: servicio.sat_id || "",
       id_unidad_sat: servicio.id_unidad_sat || "",
       id_persona: servicio.id_persona.toString(),
+      precio_lista: servicio.precio_lista || 0,
     });
     setIsEditDialogOpen(true);
   };
@@ -387,6 +392,7 @@ export default function Servicios() {
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="font-semibold">Nombre</TableHead>
               <TableHead className="font-semibold">Descripción</TableHead>
+              <TableHead className="font-semibold">Precio Lista</TableHead>
               <TableHead className="font-semibold">SAT ID</TableHead>
               <TableHead className="font-semibold">Unidad SAT</TableHead>
               <TableHead className="font-semibold">Dueño</TableHead>
@@ -401,6 +407,11 @@ export default function Servicios() {
               >
                 <TableCell className="font-medium">{servicio.nombre}</TableCell>
                 <TableCell className="max-w-xs truncate">{servicio.descripcion || '-'}</TableCell>
+                <TableCell>
+                  <span className="font-semibold">
+                    ${parseFloat(servicio.precio_lista.toString()).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </span>
+                </TableCell>
                 <TableCell className="font-mono text-sm">{servicio.sat_id || '-'}</TableCell>
                 <TableCell>{servicio.unidad_sat_descripcion || '-'}</TableCell>
                 <TableCell>{servicio.persona_nombre || '-'}</TableCell>
@@ -641,6 +652,19 @@ export default function Servicios() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Precio Lista */}
+            <div className="space-y-2">
+              <Label htmlFor="precio_lista">Precio Lista</Label>
+              <Input
+                id="precio_lista"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.precio_lista}
+                onChange={(e) => setFormData({ ...formData, precio_lista: parseFloat(e.target.value) || 0 })}
+              />
             </div>
 
             <DialogFooter>
