@@ -96,6 +96,7 @@ interface OfferPDFTemplateSozuProps {
     propertyNumber: string;
     leadName: string;
     leadEmail: string;
+    id_esquema_pago_seleccionado?: number | null;
   };
   propertyDetails: PropertyDetails;
   paymentSchemes: PaymentScheme[];
@@ -394,104 +395,98 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
         {filteredPaymentSchemes.length > 0 && (
           <div style={{ marginBottom: '80px' }}>
             <h2 style={{ 
-              fontSize: '56px', 
+              fontSize: '40px', 
               fontWeight: 'bold', 
-              color: '#1a1a1a',
-              marginBottom: '48px',
-              borderBottom: '4px solid #1a1a1a',
-              paddingBottom: '20px'
+              color: '#000000',
+              marginBottom: '40px',
+              borderBottom: '3px solid #00A9E0',
+              paddingBottom: '12px'
             }}>
-              Esquemas de Pago
+              Esquemas de pago:
             </h2>
             
-            {filteredPaymentSchemes.map((scheme, index) => {
-              const amounts = calculatePaymentAmounts(scheme);
-              return (
-                <div 
-                  key={scheme.id} 
-                  style={{ 
-                    backgroundColor: '#f8f8f8',
-                    padding: '48px',
-                    marginBottom: '32px',
-                    borderRadius: '12px',
-                    border: '2px solid #d0d0d0'
-                  }}
-                >
-                  <h3 style={{ 
-                    fontSize: '40px', 
-                    fontWeight: 'bold', 
-                    color: '#1a1a1a',
-                    marginBottom: '40px'
-                  }}>
-                    {scheme.nombre}
-                  </h3>
-                  
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '1fr 1fr 1fr', 
-                    gap: '40px',
-                    fontSize: '28px'
-                  }}>
-                    <div style={{ 
-                      padding: '32px', 
-                      backgroundColor: '#fff',
-                      borderRadius: '8px',
-                      textAlign: 'center'
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr', 
+              gap: '48px',
+              fontSize: '28px'
+            }}>
+              {filteredPaymentSchemes.map((scheme, index) => {
+                const amounts = calculatePaymentAmounts(scheme);
+                const isSelected = offerData.id_esquema_pago_seleccionado === scheme.id;
+                
+                return (
+                  <div 
+                    key={scheme.id} 
+                    style={{ 
+                      backgroundColor: isSelected ? '#E8F7FC' : '#FFFFFF',
+                      padding: '32px',
+                      border: isSelected ? '4px solid #00A9E0' : '2px solid #D0D0D0',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    <h3 style={{ 
+                      fontSize: '32px', 
+                      fontWeight: 'bold', 
+                      color: '#000000',
+                      marginBottom: '24px'
                     }}>
-                      <div style={{ color: '#585858', marginBottom: '16px' }}>
-                        Enganche ({scheme.porcentaje_enganche}%)
-                      </div>
-                      <div style={{ color: '#1a1a1a', fontSize: '48px', fontWeight: 'bold' }}>
-                        {formatCurrency(amounts.enganche)}
-                      </div>
-                    </div>
+                      Plan {index + 1}
+                    </h3>
                     
                     <div style={{ 
-                      padding: '32px', 
-                      backgroundColor: '#fff',
-                      borderRadius: '8px',
-                      textAlign: 'center'
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      fontSize: '22px',
+                      lineHeight: '1.4'
                     }}>
-                      <div style={{ color: '#585858', marginBottom: '16px' }}>
-                        Mensualidades ({scheme.numero_mensualidades})
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#000000' }}>Precio final:</span>
+                        <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                          {formatCurrency(amounts.finalPrice)}
+                        </span>
                       </div>
-                      <div style={{ color: '#1a1a1a', fontSize: '48px', fontWeight: 'bold' }}>
-                        {formatCurrency(amounts.mensualidad)}
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#000000' }}>Ahorro:</span>
+                        <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                          {formatCurrency(amounts.discount)}
+                        </span>
                       </div>
-                    </div>
-                    
-                    <div style={{ 
-                      padding: '32px', 
-                      backgroundColor: '#fff',
-                      borderRadius: '8px',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{ color: '#585858', marginBottom: '16px' }}>
-                        Contra Entrega ({scheme.porcentaje_entrega}%)
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#000000' }}>Enganche:</span>
+                        <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                          {scheme.porcentaje_enganche}% {formatCurrency(amounts.enganche)}
+                        </span>
                       </div>
-                      <div style={{ color: '#1a1a1a', fontSize: '48px', fontWeight: 'bold' }}>
-                        {formatCurrency(amounts.entrega)}
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#000000' }}>Durante la obra:</span>
+                        <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                          {scheme.porcentaje_mensualidades}% {formatCurrency(amounts.enganche * (scheme.porcentaje_mensualidades / scheme.porcentaje_enganche))}
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#000000' }}>48 mensualidades:</span>
+                        <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                          {formatCurrency(amounts.mensualidad)}
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#000000' }}>A la entrega:</span>
+                        <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                          {scheme.porcentaje_entrega}% {formatCurrency(amounts.entrega)}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  
-                  <div style={{ 
-                    marginTop: '40px', 
-                    padding: '32px', 
-                    backgroundColor: '#1a1a1a',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}>
-                    <span style={{ color: '#fff', fontSize: '32px', marginRight: '20px' }}>
-                      Precio Final:
-                    </span>
-                    <span style={{ color: '#fff', fontSize: '56px', fontWeight: 'bold' }}>
-                      {formatCurrency(amounts.finalPrice)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 
