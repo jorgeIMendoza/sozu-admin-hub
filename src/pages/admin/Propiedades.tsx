@@ -186,7 +186,7 @@ const Propiedades = () => {
   };
 
   const { data: properties, isLoading, error: queryError } = useQuery({
-    queryKey: ['properties-detailed'],
+    queryKey: ['properties-detailed-with-payment-dates'],
     queryFn: async () => {
       try {
         console.log('Starting properties query...');
@@ -333,6 +333,8 @@ const Propiedades = () => {
             .in('id_acuerdo_pago', acuerdoIds)
             .eq('activo', true);
 
+          console.log('📅 Aplicaciones data sample:', aplicacionesData?.slice(0, 3));
+
           aplicacionesMap = (aplicacionesData || []).reduce((acc: any, app: any) => {
             if (!acc[app.id_acuerdo_pago]) {
               acc[app.id_acuerdo_pago] = [];
@@ -409,6 +411,7 @@ const Propiedades = () => {
           // Store the most recent fecha_pago from actual payments (pagos table)
           aplicaciones.forEach((app: any) => {
             const fechaPago = app.pagos?.fecha_pago;
+            console.log(`🔍 Acuerdo ${acuerdo.id}, concepto ${conceptoKey}: fecha_pago =`, fechaPago);
             if (fechaPago) {
               if (!paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha || 
                   fechaPago > paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha) {
@@ -923,7 +926,7 @@ const Propiedades = () => {
         description: "La propiedad se ha marcado como inactiva correctamente.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
     } catch (error) {
       toast({
         title: "Error",
@@ -947,7 +950,7 @@ const Propiedades = () => {
         description: "La propiedad se ha reactivado correctamente y está en Draft.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
     } catch (error) {
       toast({
         title: "Error",
@@ -971,7 +974,7 @@ const Propiedades = () => {
         description: "La propiedad se ha aprobado correctamente.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
     } catch (error) {
       toast({
         title: "Error",
@@ -998,7 +1001,7 @@ const Propiedades = () => {
       });
 
       setSelectedProperties([]);
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
     } catch (error) {
       toast({
         title: "Error",
@@ -1025,7 +1028,7 @@ const Propiedades = () => {
       });
 
       setSelectedProperties([]);
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
     } catch (error) {
       toast({
         title: "Error",
@@ -1053,7 +1056,7 @@ const Propiedades = () => {
       });
 
       setSelectedProperties([]);
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
     } catch (error) {
       toast({
         title: "Error",
@@ -1105,7 +1108,7 @@ const Propiedades = () => {
   };
 
   const handlePropertyAdded = () => {
-    queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+    queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
   };
 
   const renderPagination = (currentPage: number, totalPages: number, onPageChange: (page: number) => void) => {
@@ -1759,7 +1762,7 @@ const Propiedades = () => {
         open={bulkUploadOpen}
         onClose={() => setBulkUploadOpen(false)}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+          queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
           toast({
             title: "Éxito", 
             description: "Las propiedades se han cargado correctamente.",
@@ -1790,7 +1793,7 @@ const Propiedades = () => {
           onClose={() => setEditingProperty(null)}
           onSuccess={() => {
             setEditingProperty(null);
-            queryClient.invalidateQueries({ queryKey: ['properties-detailed'] });
+            queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
           }}
         />
       )}
