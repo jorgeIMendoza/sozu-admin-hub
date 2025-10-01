@@ -355,22 +355,6 @@ export function CancelCuentaDialog({
         const montoEnganche = esquema ? (precioFinal * esquema.porcentaje_enganche / 100) : 0;
         const montoEntrega = esquema ? (precioFinal * esquema.porcentaje_entrega / 100) : 0;
 
-        // Obtener la fecha de cancelación (fecha del primer pago o fecha actual)
-        const fechaCancelacion = pagosNuevos.length > 0 && pagosNuevos[0].fecha_pago 
-          ? new Date(pagosNuevos[0].fecha_pago)
-          : new Date();
-
-        // Calcular fechas para pagos subsecuentes (parcialidades)
-        const numeroMensualidades = esquema?.numero_mensualidades || 0;
-        const fechasParcialidades: string[] = [];
-        
-        for (let i = 0; i < numeroMensualidades; i++) {
-          const fechaParcialidad = new Date(fechaCancelacion);
-          // Agregar i+1 meses a partir de la fecha de cancelación
-          fechaParcialidad.setMonth(fechaParcialidad.getMonth() + (i + 1));
-          fechasParcialidades.push(fechaParcialidad.toISOString().split('T')[0]);
-        }
-
         // Preparar los pagos con sus evidencias (sin guardarlos en la BD)
         const pagosParaWebhook = [];
         for (const pago of pagosNuevos) {
@@ -420,8 +404,6 @@ export function CancelCuentaDialog({
             precio_final: precioFinal,
             id_er_dueno: idErDueno,
             id_persona_lead: parseInt(nuevoCompradorId),
-            fecha_cancelacion: fechaCancelacion.toISOString().split('T')[0],
-            fechas_parcialidades: fechasParcialidades,
             datos_propiedad: {
               porcentaje_enganche: esquema?.porcentaje_enganche || 0,
               monto_apartado: montoApartado,
