@@ -201,14 +201,27 @@ class HTMLToPDFService {
       const root = createRoot(container);
       root.render(templateElement);
       
-      // Wait for rendering
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait longer for all images (including logo) to load
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Ensure all images are loaded
+      const images = container.querySelectorAll('img');
+      await Promise.all(
+        Array.from(images).map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        })
+      );
       
       // Capture as canvas
       const canvas = await html2canvas(container, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
+        logging: true,
         backgroundColor: '#ffffff',
         width: 2550,
         height: 3300
