@@ -180,13 +180,17 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           paddingBottom: '40px',
           borderBottom: '2px solid #e0e0e0'
         }}>
-          <div style={{ flex: '0 0 auto' }}>
-            {propertyDetails.projectData?.url_logo && (
+          <div style={{ flex: '0 0 auto', minWidth: '320px', height: '120px', display: 'flex', alignItems: 'center' }}>
+            {propertyDetails.projectData?.url_logo ? (
               <img
                 src={propertyDetails.projectData.url_logo}
                 alt="Logo Proyecto"
-                style={{ height: '120px', width: '320px', objectFit: 'contain' }}
+                style={{ maxHeight: '120px', maxWidth: '320px', objectFit: 'contain' }}
               />
+            ) : (
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1a1a1a' }}>
+                {propertyDetails.projectData?.nombre || 'Proyecto'}
+              </div>
             )}
           </div>
           <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '16px' }}>
