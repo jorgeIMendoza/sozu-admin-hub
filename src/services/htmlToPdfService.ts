@@ -46,6 +46,7 @@ interface PropertyDetails {
     id: number;
     nombre: string;
     url_imagen_portada?: string;
+    url_logo?: string;
     mostrar_precio_m2_en_oferta?: boolean;
     mostrar_piso_en_oferta?: boolean;
     mostrar_seccion_efectivo_en_oferta?: boolean;
@@ -131,6 +132,12 @@ class HTMLToPDFService {
         leadName: offerData.leadName,
         leadEmail: offerData.leadEmail,
       };
+
+      console.log('Property details before PDF generation:', {
+        hasProjectData: !!propertyDetails.projectData,
+        projectName: propertyDetails.projectData?.nombre,
+        logoUrl: propertyDetails.projectData?.url_logo
+      });
 
       // Generate PDF using the React component
       await this.generatePDFFromHTML(templateOfferData, propertyDetails, paymentSchemes, amenities, creatorInfo, leadInfo, legalNotices, estacionamientos, bodegas);
@@ -466,6 +473,8 @@ class HTMLToPDFService {
               .single();
 
             if (proyecto) {
+              console.log('Project data fetched:', proyecto);
+              console.log('Logo URL:', proyecto.url_logo);
               projectData = proyecto;
               
               // If cash section should be shown, get the STP bank account
