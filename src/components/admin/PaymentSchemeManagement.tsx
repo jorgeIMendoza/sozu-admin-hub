@@ -109,8 +109,8 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
 
   const PaymentSchemeDetailsDialog = ({ scheme }: { scheme: any }) => {
     const discountAmount = scheme.porcentaje_descuento_aumento || 0;
-    const isIncrement = discountAmount > 0;
-    const isDiscount = discountAmount < 0;
+    const isDiscount = discountAmount > 0; // Positive = discount (reduces price)
+    const isIncrement = discountAmount < 0; // Negative = increment (increases price)
     const hasDiscountIncrement = discountAmount !== 0;
 
     return (
@@ -144,9 +144,16 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
               <div className="pt-2 border-t">
                 <div className="flex justify-between items-center">
                   <span className="font-medium">
-                    {isIncrement ? "Incremento:" : "Descuento:"}
+                    {isDiscount ? "Descuento:" : "Incremento:"}
                   </span>
-                  <Badge variant={isIncrement ? "default" : "secondary"}>
+                  <Badge 
+                    variant="outline"
+                    className={`font-medium ${
+                      isDiscount 
+                        ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/50 dark:text-green-200 dark:border-green-700" 
+                        : "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
+                    }`}
+                  >
                     {Math.abs(discountAmount)}%
                   </Badge>
                 </div>
