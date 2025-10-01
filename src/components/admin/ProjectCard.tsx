@@ -15,7 +15,7 @@ interface ProjectCardProps {
   id: number;
   nombre: string;
   direccion?: string;
-  precio_m2?: number;
+  precio_m2_actual?: number;
   activo: boolean;
   tipo_uso?: string;
   numero_edificios?: number;
@@ -30,7 +30,7 @@ export const ProjectCard = ({
   id, 
   nombre, 
   direccion, 
-  precio_m2, 
+  precio_m2_actual, 
   activo, 
   tipo_uso,
   numero_edificios = 0,
@@ -130,7 +130,7 @@ export const ProjectCard = ({
 
           <div className="flex items-center text-primary font-semibold text-lg">
             <DollarSign className="h-5 w-5 mr-1" />
-            {formatPrice(precio_m2)}
+            {formatPrice(precio_m2_actual)}
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">

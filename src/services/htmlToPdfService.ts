@@ -54,7 +54,7 @@ interface PropertyDetails {
     mostrar_bodega_en_oferta?: boolean;
     mostrar_modelo_en_oferta?: boolean;
     mostrar_edificio_en_oferta?: boolean;
-    precio_m2?: number;
+    precio_m2_actual?: number;
   };
   ownerStpBankAccount?: {
     numero_cuenta: string;
@@ -459,7 +459,7 @@ class HTMLToPDFService {
                 mostrar_bodega_en_oferta,
                 mostrar_modelo_en_oferta,
                 mostrar_edificio_en_oferta,
-                precio_m2
+                precio_m2_actual
               `)
               .eq('id', edificioData.id_proyecto)
               .single();

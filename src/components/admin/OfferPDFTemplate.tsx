@@ -45,7 +45,7 @@ interface PropertyDetails {
     mostrar_bodega_en_oferta?: boolean;
     mostrar_modelo_en_oferta?: boolean;
     mostrar_edificio_en_oferta?: boolean;
-    precio_m2?: number;
+    precio_m2_actual?: number;
   };
   ownerData?: {
     id: number;
@@ -206,10 +206,10 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
                   <span className="font-semibold">{propertyDetails.numero_piso !== null && propertyDetails.numero_piso !== undefined ? propertyDetails.numero_piso : 'N/A'}</span>
                 </div>
               )}
-              {propertyDetails.projectData?.mostrar_precio_m2_en_oferta !== false && propertyDetails.projectData?.precio_m2 && (
+              {propertyDetails.projectData?.mostrar_precio_m2_en_oferta !== false && propertyDetails.projectData?.precio_m2_actual && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Precio por m²:</span>
-                  <span className="font-semibold">{formatCurrency(propertyDetails.projectData.precio_m2)}</span>
+                  <span className="font-semibold">{formatCurrency(propertyDetails.projectData.precio_m2_actual)}</span>
                 </div>
               )}
               <div className="flex justify-between">

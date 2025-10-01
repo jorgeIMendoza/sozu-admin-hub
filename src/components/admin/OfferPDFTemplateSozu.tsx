@@ -52,7 +52,7 @@ interface PropertyDetails {
     mostrar_bodega_en_oferta?: boolean;
     mostrar_modelo_en_oferta?: boolean;
     mostrar_edificio_en_oferta?: boolean;
-    precio_m2?: number;
+    precio_m2_actual?: number;
   };
   ownerData?: {
     id: number;
@@ -261,10 +261,10 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                   <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
                   <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.precio_lista)}</span>
                 </div>
-                {propertyDetails.projectData?.precio_m2 && (
+                {propertyDetails.projectData?.precio_m2_actual && (
                   <div style={{ marginBottom: '8px' }}>
                     <span style={{ fontWeight: 'normal' }}>Precio m2: </span>
-                    <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.projectData.precio_m2)}</span>
+                    <span style={{ fontWeight: 'bold' }}>{formatCurrency(propertyDetails.projectData.precio_m2_actual)}</span>
                   </div>
                 )}
                 <div style={{ marginBottom: '8px' }}>

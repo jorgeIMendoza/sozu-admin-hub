@@ -31,7 +31,7 @@ const formSchema = z.object({
   direccion: z.string().optional(),
   id_tipo_uso: z.string().min(1, "El tipo de uso es requerido"),
   id_estatus_proyecto: z.string().min(1, "El estatus del proyecto es requerido"),
-  precio_m2: z.string().optional(),
+  precio_m2_actual: z.string().optional(),
   fecha_lanzamiento: z.string().optional(),
   fecha_inicio_construccion: z.string().optional(),
   fecha_entrega: z.string().optional(),
@@ -80,7 +80,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
       direccion: "",
       id_tipo_uso: "",
       id_estatus_proyecto: "",
-      precio_m2: "",
+      precio_m2_actual: "",
       fecha_lanzamiento: "",
       fecha_inicio_construccion: "",
       fecha_entrega: "",
@@ -235,7 +235,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         direccion: project.direccion || "",
         id_tipo_uso: project.id_tipo_uso?.toString() || "",
         id_estatus_proyecto: project.id_estatus_proyecto?.toString() || "",
-        precio_m2: project.precio_m2?.toString() || "",
+        precio_m2_actual: project.precio_m2_actual?.toString() || "",
         fecha_lanzamiento: project.fecha_lanzamiento || "",
         fecha_inicio_construccion: project.fecha_inicio_construccion || "",
         fecha_entrega: project.fecha_entrega || "",
@@ -275,7 +275,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         direccion: values.direccion || null,
         id_tipo_uso: parseInt(values.id_tipo_uso),
         id_estatus_proyecto: parseInt(values.id_estatus_proyecto),
-        precio_m2: values.precio_m2 ? parseFloat(values.precio_m2) : null,
+        precio_m2_actual: values.precio_m2_actual ? parseFloat(values.precio_m2_actual) : null,
         fecha_lanzamiento: values.fecha_lanzamiento || null,
         fecha_inicio_construccion: values.fecha_inicio_construccion || null,
         fecha_entrega: values.fecha_entrega || null,
@@ -476,7 +476,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                    <div className="grid grid-cols-2 gap-4">
                      <FormField
                        control={form.control}
-                       name="precio_m2"
+                       name="precio_m2_actual"
                        render={({ field }) => (
                          <FormItem>
                            <FormLabel>Precio por m²</FormLabel>

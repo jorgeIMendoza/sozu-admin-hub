@@ -92,7 +92,7 @@ export const ProjectDetailsDialog = ({ projectId, projectName }: ProjectDetailsD
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4" />
-                    <strong>Precio m²:</strong> {formatPrice(project.precio_m2)}
+                    <strong>Precio m²:</strong> {formatPrice(project.precio_m2_actual)}
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
