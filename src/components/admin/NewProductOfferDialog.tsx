@@ -264,6 +264,21 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
     
     if (!checked) {
       form.setValue("tipo_persona", "pf");
+      form.setValue("razon_social", "");
+      form.setValue("email", "");
+      form.setValue("telefono", "");
+      form.setValue("rfc", "");
+      form.setValue("curp", "");
+      setSelectedPerson(null);
+    } else if (currentBuyerData) {
+      // When checking the box, populate with current buyer data
+      form.setValue("tipo_persona", currentBuyerData.tipo_persona || "pf");
+      form.setValue("razon_social", currentBuyerData.nombre_legal || "");
+      form.setValue("email", currentBuyerData.email || "");
+      form.setValue("telefono", currentBuyerData.telefono || "");
+      form.setValue("rfc", currentBuyerData.rfc || "");
+      form.setValue("curp", currentBuyerData.curp || "");
+      setSelectedPerson(null);
     }
   };
 
