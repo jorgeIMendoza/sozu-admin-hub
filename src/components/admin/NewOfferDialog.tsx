@@ -731,7 +731,11 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Tipo de Persona *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={selectedPerson !== null}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Seleccionar" />
@@ -758,6 +762,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                       <FormControl>
                         <Input 
                           placeholder={selectedPersonType === "pm" ? "Ingresa la razón social" : "Ingresa el nombre completo"} 
+                          disabled={selectedPerson !== null}
                           {...field} 
                         />
                       </FormControl>
@@ -775,7 +780,12 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                     <FormItem>
                       <FormLabel>Email *</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="Ingresa el email" {...field} />
+                        <Input 
+                          type="email" 
+                          placeholder="Ingresa el email" 
+                          disabled={selectedPerson !== null}
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -791,6 +801,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                       <FormControl>
                         <Input 
                           placeholder="Ingresa el teléfono (10 dígitos obligatorios)" 
+                          disabled={selectedPerson !== null}
                           {...field}
                           onChange={(e) => {
                             // Solo permitir números y máximo 10 dígitos
@@ -817,6 +828,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                              <Input 
                                placeholder="Ingresa el RFC (Ej: ABC123456DEF)" 
                                maxLength={13}
+                               disabled={selectedPerson !== null}
                                {...field} 
                              />
                            </FormControl>
@@ -836,6 +848,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                                <Input 
                                  placeholder="Ingresa la CURP (Ej: ABCD123456HMNEFFD01)" 
                                  maxLength={18}
+                                 disabled={selectedPerson !== null}
                                  {...field} 
                                />
                              </FormControl>
