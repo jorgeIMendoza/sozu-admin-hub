@@ -426,8 +426,10 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                     onValueChange={(value) => setProspectData({ ...prospectData, tipo_persona: value })}
                     disabled={useCurrentBuyer}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona tipo de persona" />
+                    <SelectTrigger id="tipo-persona">
+                      <SelectValue>
+                        {prospectData.tipo_persona || "Selecciona tipo de persona"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Persona Física">Persona Física</SelectItem>
@@ -437,12 +439,14 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="razon-social">Razón Social *</Label>
+                  <Label htmlFor="razon-social">
+                    {prospectData.tipo_persona === "Persona Física" ? "Nombre completo *" : "Razón Social *"}
+                  </Label>
                   <Input
                     id="razon-social"
                     value={prospectData.razon_social}
                     onChange={(e) => setProspectData({ ...prospectData, razon_social: e.target.value })}
-                    placeholder="Ingresa la razón social"
+                    placeholder={prospectData.tipo_persona === "Persona Física" ? "Ingresa el nombre completo" : "Ingresa la razón social"}
                     disabled={useCurrentBuyer}
                   />
                 </div>
