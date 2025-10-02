@@ -360,13 +360,6 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
     setIsGenerating(true);
     
     try {
-      // Get current user email from session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.email) {
-        throw new Error("No se pudo obtener el email del usuario");
-      }
-      const userEmail = session.user.email;
-
       const formValues = form.getValues();
       
       // Step 1: Create or get persona (comprador)
@@ -431,7 +424,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
           id_producto: selectedProduct,
           id_propiedad: null,
           id_esquema_pago_seleccionado: esquemaPago.id,
-          email_creador: userEmail,
+          email_creador: 'jorge.mendoza@sozu.com', // Fixed user email
           clabe_stp_tmp_producto: clabeData,
         });
       
