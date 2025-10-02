@@ -2038,12 +2038,12 @@ const Propiedades = () => {
                               variant="link"
                               size="sm"
                               onClick={() => {
-                                if (!isAccountActive && offer.esquema_id) {
+                                if (!hasAccount && !hasActiveAccountWithScheme && offer.esquema_id) {
                                   // Crear cuenta de cobranza
                                   handleGenerateCollectionAccount(offer.id, selectedPropertyForOffers!.id);
                                 }
                               }}
-                              disabled={isAccountActive || !offer.esquema_id}
+                              disabled={hasAccount || hasActiveAccountWithScheme || !offer.esquema_id}
                               className="p-0 h-auto font-semibold"
                             >
                               O-{String(offer.id).padStart(6, '0')}
@@ -2207,23 +2207,29 @@ const Propiedades = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedPropertyProductOffers.map((offer: any) => {
-                    const hasAccount = !!offer.cuenta_cobranza_id;
-                    const isAccountActive = hasAccount && offer.cuenta_activo;
+                  {(() => {
+                    // Check if there's any active account among product offers
+                    const hasActiveAccountWithScheme = selectedPropertyProductOffers.some((offer: any) => 
+                      offer.cuenta_cobranza_id && offer.cuenta_activo
+                    );
                     
-                    return (
-                      <TableRow key={offer.id}>
+                    return selectedPropertyProductOffers.map((offer: any) => {
+                      const hasAccount = !!offer.cuenta_cobranza_id;
+                      const isAccountActive = hasAccount && offer.cuenta_activo;
+                      
+                      return (
+                        <TableRow key={offer.id}>
                          <TableCell className="font-medium">
                            <Button
                              variant="link"
                              size="sm"
                              onClick={() => {
-                               if (!isAccountActive) {
+                               if (!hasAccount && !hasActiveAccountWithScheme) {
                                  // Crear cuenta de cobranza
                                  handleGenerateCollectionAccount(offer.id, selectedPropertyForProductOffers!.id);
                                }
                              }}
-                             disabled={isAccountActive}
+                             disabled={hasAccount || hasActiveAccountWithScheme}
                              className="p-0 h-auto font-semibold"
                            >
                              OP-{String(offer.id).padStart(6, '0')}
@@ -2289,7 +2295,8 @@ const Propiedades = () => {
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  });
+                })()}
                 </TableBody>
               </Table>
             ) : (
