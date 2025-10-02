@@ -155,7 +155,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
         .select('personas!compradores_id_persona_fkey(*)')
         .eq('id_cuenta_cobranza', property.cuenta_cobranza_id)
         .eq('activo', true)
-        .order('id', { ascending: true })
+        .order('fecha_creacion', { ascending: true })
         .limit(1)
         .single();
       
