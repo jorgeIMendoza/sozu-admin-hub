@@ -919,11 +919,13 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-4">
+                  <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                     <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button type="button" onClick={() => form.handleSubmit(onSubmit)()}>Crear Proyecto</Button>
+                    <Button type="button" onClick={() => form.handleSubmit(onSubmit)()}>
+                      Crear Proyecto
+                    </Button>
                   </div>
                 </div>
                 </TabsContent>

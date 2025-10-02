@@ -1105,10 +1105,15 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
             </form>
           </Form>
         )}
-        <DialogFooter className="px-6 pb-6 gap-4">
-          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
-            {isSubmitting ? "Guardando..." : "Guardar Cambios"}
-          </Button>
+        <DialogFooter className="px-6 pb-6 pt-4 border-t mt-6">
+          <div className="flex justify-end gap-3 w-full">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
+              {isSubmitting ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
