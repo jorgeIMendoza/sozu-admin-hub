@@ -257,33 +257,89 @@ export const ProjectLegalEntitiesSection = ({
     projectLegalEntities.map(entity => entity.id_tipo_entidad)
   );
 
-  // Check if entity has collection accounts
+  // Check if entity has generated STP accounts (first 14 digits match)
   const { data: entitiesWithAccounts = [] } = useQuery({
     queryKey: ["entities-with-accounts", projectId],
     queryFn: async () => {
       if (!projectId) return [];
       
-      const { data, error } = await supabase
-        .from("propiedades")
-        .select(`
-          id_entidad_relacionada_dueno,
-          ofertas!inner (
-            id,
-            cuentas_cobranza!inner (
-              id
-            )
-          )
-        `)
-        .eq("activo", true);
+      // Get all entities with their cuenta_madre_stp for this project
+      const { data: entities, error: entitiesError } = await supabase
+        .from("entidades_relacionadas")
+        .select("id, cuenta_madre_stp")
+        .eq("id_proyecto", projectId)
+        .eq("activo", true)
+        .not("cuenta_madre_stp", "is", null);
       
-      if (error) throw error;
+      if (entitiesError) throw entitiesError;
+      if (!entities || entities.length === 0) return [];
+
+      const entityIdsWithAccounts = new Set<number>();
+
+      // Check each entity's cuenta_madre_stp against all tables
+      for (const entity of entities) {
+        const cuentaMadrePrefix = entity.cuenta_madre_stp?.substring(0, 14);
+        if (!cuentaMadrePrefix) continue;
+
+        // Check propiedades.clabe_stp_tmp_apartado
+        const { data: propiedades } = await supabase
+          .from("propiedades")
+          .select("id, clabe_stp_tmp_apartado")
+          .eq("id_entidad_relacionada_dueno", entity.id)
+          .eq("activo", true)
+          .not("clabe_stp_tmp_apartado", "is", null);
+
+        if (propiedades?.some((p: any) => p.clabe_stp_tmp_apartado?.substring(0, 14) === cuentaMadrePrefix)) {
+          entityIdsWithAccounts.add(entity.id);
+          continue;
+        }
+
+        // Get propiedades for this entity to check other tables
+        const { data: propiedadesForEntity } = await supabase
+          .from("propiedades")
+          .select("id")
+          .eq("id_entidad_relacionada_dueno", entity.id)
+          .eq("activo", true);
+
+        if (propiedadesForEntity && propiedadesForEntity.length > 0) {
+          const propiedadIds = propiedadesForEntity.map(p => p.id);
+          
+          // Get ofertas for these properties
+          const { data: ofertasData } = await supabase
+            .from("ofertas")
+            .select("*")
+            .in("id_propiedad", propiedadIds)
+            .eq("activo", true);
+
+          // Check ofertas.clabe_stp_tmp_producto
+          if (ofertasData?.some((o: any) => o.clabe_stp_tmp_producto?.substring(0, 14) === cuentaMadrePrefix)) {
+            entityIdsWithAccounts.add(entity.id);
+            continue;
+          }
+
+          if (ofertasData && ofertasData.length > 0) {
+            const ofertaIds = ofertasData.map((o: any) => o.id);
+            
+            // Check cuentas_cobranza.clabe_stp
+            const { data: cuentasData } = await supabase
+              .from("cuentas_cobranza")
+              .select("id, clabe_stp")
+              .in("id_oferta", ofertaIds)
+              .eq("activo", true)
+              .not("clabe_stp", "is", null);
+
+            if (cuentasData?.some((c: any) => c.clabe_stp?.substring(0, 14) === cuentaMadrePrefix)) {
+              entityIdsWithAccounts.add(entity.id);
+              continue;
+            }
+
+            // TODO: Add check for cuentas_cobranza_mantenimiento.clabe_stp_mantenimiento
+            // when Supabase types are regenerated
+          }
+        }
+      }
       
-      // Extract unique entity IDs that have collection accounts
-      const entityIds = new Set(
-        (data || []).map(prop => prop.id_entidad_relacionada_dueno)
-      );
-      
-      return Array.from(entityIds);
+      return Array.from(entityIdsWithAccounts);
     },
     enabled: !!projectId,
   });
@@ -466,73 +522,78 @@ export const ProjectLegalEntitiesSection = ({
                           )}
                         </div>
                         
-                        {/* Cuenta Madre STP Field */}
-                        <div className="mt-3 pt-3 border-t">
-                          <label className="text-sm font-medium">Cuenta Madre STP:</label>
-                          {isEditing ? (
-                            <div className="flex items-center gap-2 mt-1">
-                              <Input
-                                value={tempCuentaMadre}
-                                onChange={(e) => setTempCuentaMadre(e.target.value)}
-                                placeholder="17 dígitos"
-                                maxLength={17}
-                                className="flex-1"
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  updateCuentaMadreMutation.mutate({
-                                    entityId: entity.id,
-                                    cuentaMadre: tempCuentaMadre
-                                  });
-                                }}
-                                disabled={updateCuentaMadreMutation.isPending}
-                              >
-                                <Save className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setEditingCuentaMadre(null);
-                                  setTempCuentaMadre("");
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-sm font-mono flex-1">
-                                {entity.cuenta_madre_stp || <span className="text-muted-foreground italic">No asignada</span>}
-                              </span>
-                              {!hasAccounts && (
+                        {/* Cuenta Madre STP Field - Only for Dueño Vendedor and Aportante */}
+                        {(entity.tipos_entidad?.nombre === "Dueño Vendedor" || entity.tipos_entidad?.nombre === "Aportante") && (
+                          <div className="mt-3 pt-3 border-t">
+                            <label className="text-sm font-medium">Cuenta Madre STP:</label>
+                            {isEditing ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                <Input
+                                  value={tempCuentaMadre}
+                                  onChange={(e) => setTempCuentaMadre(e.target.value)}
+                                  placeholder="17 dígitos"
+                                  maxLength={17}
+                                  className="flex-1"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    updateCuentaMadreMutation.mutate({
+                                      entityId: entity.id,
+                                      cuentaMadre: tempCuentaMadre
+                                    });
+                                  }}
+                                  disabled={updateCuentaMadreMutation.isPending}
+                                >
+                                  <Save className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => {
-                                    setEditingCuentaMadre(entity.id);
-                                    setTempCuentaMadre(entity.cuenta_madre_stp || "");
+                                    setEditingCuentaMadre(null);
+                                    setTempCuentaMadre("");
                                   }}
                                 >
-                                  <Edit2 className="h-4 w-4" />
+                                  <X className="h-4 w-4" />
                                 </Button>
-                              )}
-                              {hasAccounts && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Con cuentas generadas
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-sm font-mono flex-1">
+                                  {entity.cuenta_madre_stp || <span className="text-muted-foreground italic">No asignada</span>}
+                                </span>
+                                {!hasAccounts && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setEditingCuentaMadre(entity.id);
+                                      setTempCuentaMadre(entity.cuenta_madre_stp || "");
+                                    }}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {hasAccounts && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Con cuentas generadas
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => removeEntityMutation.mutate(entity.id)}
-                        disabled={removeEntityMutation.isPending}
+                        disabled={removeEntityMutation.isPending || hasAccounts}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title={hasAccounts ? "No se puede eliminar: tiene cuentas STP generadas" : "Eliminar entidad"}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
