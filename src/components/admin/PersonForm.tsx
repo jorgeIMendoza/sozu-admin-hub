@@ -951,7 +951,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                 {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria') && (
                   <div>
                     <Label htmlFor="idTipoEntidad">
-                      Tipo de Entidad Legal
+                      Tipo de Entidad Legal *
                     </Label>
                     <Select 
                       value={idTipoEntidad?.toString() || ''} 
