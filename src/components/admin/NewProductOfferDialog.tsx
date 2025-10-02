@@ -389,10 +389,22 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       }
 
       // Step 2: Create payment scheme
+      // Generate initials from buyer name
+      const getInitials = (name: string) => {
+        return name
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase())
+          .join('');
+      };
+      
+      const buyerInitials = getInitials(formValues.razon_social);
+      const productName = selectedProductData?.nombre || 'Producto';
+      const schemeName = `${productName}_${propertyNumber}_${projectName}_${buyerInitials}`;
+      
       const { data: esquemaPago, error: esquemaError } = await supabase
         .from('esquemas_pago')
         .insert({
-          nombre: `Esquema ${formValues.razon_social} - ${new Date().toLocaleDateString()}`,
+          nombre: schemeName,
           porcentaje_enganche: parseFloat(formValues.porcentaje_enganche),
           porcentaje_mensualidades: parseFloat(formValues.porcentaje_mensualidades),
           porcentaje_entrega: parseFloat(formValues.porcentaje_entrega),
