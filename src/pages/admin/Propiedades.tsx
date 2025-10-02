@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home, FileText, ArrowRightLeft, Zap, TrendingUp, TrendingDown, Equal } from "lucide-react";
+import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home, FileText, ArrowRightLeft, Zap, TrendingUp, TrendingDown, Equal, Check, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { generateOfferPDF } from "@/services/htmlToPdfService";
 import { EstacionamientosDetailDialog } from "@/components/admin/EstacionamientosDetailDialog";
 import { BodegasDetailDialog } from "@/components/admin/BodegasDetailDialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Property {
   id: number;
@@ -104,7 +107,7 @@ const Propiedades = () => {
   const [modeloFilter, setModeloFilter] = useState("");
   const [recamarasFilter, setRecamarasFilter] = useState("");
   const [banosFilter, setBanosFilter] = useState("");
-  const [disponibilidadFilter, setDisponibilidadFilter] = useState("");
+  const [disponibilidadFilter, setDisponibilidadFilter] = useState<string[]>([]);
   const [bodegasFilter, setBodegasFilter] = useState("");
   const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   const [cuentaCobranzaFilter, setCuentaCobranzaFilter] = useState("");
@@ -873,7 +876,7 @@ const Propiedades = () => {
     const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
     const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
     
-    const matchesDisponibilidad = disponibilidadFilter === "" || property.disponibilidad.toLowerCase().includes(disponibilidadFilter.toLowerCase());
+    const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
     
     const matchesBodegas = bodegasFilter === "" || 
       (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
@@ -1192,7 +1195,7 @@ const Propiedades = () => {
           {propertiesToRender.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={tabType === "draft" ? 20 : 19} className="text-center py-6">
-                  {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter || bodegasFilter || estacionamientosFilter || cuentaCobranzaFilter
+                  {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter.length > 0 || bodegasFilter || estacionamientosFilter || cuentaCobranzaFilter
                     ? "No se encontraron resultados." 
                     : tabType === "eliminados"
                       ? "No hay propiedades eliminadas." 
@@ -1646,18 +1649,60 @@ const Propiedades = () => {
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Disponibilidad</label>
-                <Select value={disponibilidadFilter} onValueChange={setDisponibilidadFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por disponibilidad..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availabilityOptions?.map((option) => (
-                      <SelectItem key={option.id} value={option.nombre}>
-                        {option.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      {disponibilidadFilter.length === 0 
+                        ? "Filtrar por disponibilidad..." 
+                        : `${disponibilidadFilter.length} seleccionado${disponibilidadFilter.length > 1 ? 's' : ''}`
+                      }
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar disponibilidad..." />
+                      <CommandEmpty>No se encontró disponibilidad.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {availabilityOptions?.map((option) => (
+                          <CommandItem
+                            key={option.id}
+                            onSelect={() => {
+                              setDisponibilidadFilter(prev => 
+                                prev.includes(option.nombre)
+                                  ? prev.filter(item => item !== option.nombre)
+                                  : [...prev, option.nombre]
+                              );
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={disponibilidadFilter.includes(option.nombre)}
+                              className="mr-2"
+                            />
+                            {option.nombre}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {disponibilidadFilter.length > 0 && (
+                        <div className="border-t p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDisponibilidadFilter([])}
+                            className="w-full justify-center"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Limpiar selección
+                          </Button>
+                        </div>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Bodegas</label>
@@ -1707,7 +1752,7 @@ const Propiedades = () => {
                   setModeloFilter("");
                   setRecamarasFilter("");
                   setBanosFilter("");
-                  setDisponibilidadFilter("");
+                  setDisponibilidadFilter([]);
                   setBodegasFilter("");
                   setEstacionamientosFilter("");
                   setCuentaCobranzaFilter("");
