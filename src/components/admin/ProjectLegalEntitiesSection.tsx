@@ -557,8 +557,11 @@ export const ProjectLegalEntitiesSection = ({
                                   className="flex-1"
                                 />
                                 <Button
+                                  type="button"
                                   size="sm"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     updateCuentaMadreMutation.mutate({
                                       entityId: entity.id,
                                       cuentaMadre: tempCuentaMadre
@@ -569,9 +572,12 @@ export const ProjectLegalEntitiesSection = ({
                                   <Save className="h-4 w-4" />
                                 </Button>
                                 <Button
+                                  type="button"
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     setEditingCuentaMadre(null);
                                     setTempCuentaMadre("");
                                   }}
