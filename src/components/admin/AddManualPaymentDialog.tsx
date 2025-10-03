@@ -67,21 +67,21 @@ export function AddManualPaymentDialog({
   const { data: metodosPago } = useQuery({
     queryKey: ["metodos_pago", tipoCuenta],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("metodos_pago")
         .select("id, nombre")
         .eq("activo", true)
-        .neq("nombre", "STP");
-      
-      // Exclude "Cesión de derechos" for products and services
-      if (tipoCuenta === 'Producto' || tipoCuenta === 'Servicio') {
-        query = query.neq("nombre", "Cesión de derechos");
-      }
-      
-      const { data, error } = await query.order("nombre");
+        .neq("nombre", "STP")
+        .order("nombre");
       
       if (error) throw error;
-      return data;
+      
+      // Filter out "Cesión de derechos" for products and services
+      if (tipoCuenta === 'Producto' || tipoCuenta === 'Servicio') {
+        return data?.filter(metodo => metodo.nombre !== "Cesión de derechos") || [];
+      }
+      
+      return data || [];
     },
   });
 
