@@ -98,6 +98,8 @@ const Propiedades = () => {
   const [selectedProperties, setSelectedProperties] = useState<number[]>([]);
   const [availableSchemes, setAvailableSchemes] = useState<any[]>([]);
   const [downloadingOfferId, setDownloadingOfferId] = useState<number | null>(null);
+  const [confirmGenerateAccountOpen, setConfirmGenerateAccountOpen] = useState(false);
+  const [selectedOfferForAccount, setSelectedOfferForAccount] = useState<any | null>(null);
   
   // Estados para modales de detalle
   const [estacionamientosDialogOpen, setEstacionamientosDialogOpen] = useState(false);
@@ -910,7 +912,8 @@ const Propiedades = () => {
   const handleGenerateCollectionAccount = async (offerId: number, propertyId: number) => {
     try {
       // Find the specific offer to get id_persona_lead
-      const currentOffer = selectedPropertyOffers?.find(offer => offer.id === offerId);
+      const currentOffer = selectedPropertyOffers?.find(offer => offer.id === offerId) || 
+                          selectedPropertyProductOffers?.find(offer => offer.id === offerId);
       
       const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
         method: 'POST',
@@ -922,8 +925,8 @@ const Propiedades = () => {
           id_oferta: offerId,
           id_propiedad: propertyId,
           id_persona_lead: currentOffer?.id_persona_lead,
-          monto_apartado_pagando: selectedPropertyForOffers?.monto_apartado_pagando || 0,
-          clabe_stp: selectedPropertyForOffers?.clabe_stp_tmp_apartado || '',
+          monto_apartado_pagando: selectedPropertyForOffers?.monto_apartado_pagando || selectedPropertyForProductOffers?.monto_apartado_pagando || 0,
+          clabe_stp: selectedPropertyForOffers?.clabe_stp_tmp_apartado || selectedPropertyForProductOffers?.clabe_stp_tmp_apartado || '',
           rfc_curp_ordenante: currentOffer?.lead_rfc || ''
         }),
       });
@@ -941,7 +944,13 @@ const Propiedades = () => {
       if (selectedPropertyId) {
         const updatedOffers = await fetchPropertyOffers(selectedPropertyId);
         setSelectedPropertyOffers(updatedOffers);
+        const updatedProductOffers = await fetchPropertyProductOffers(selectedPropertyId);
+        setSelectedPropertyProductOffers(updatedProductOffers);
       }
+      
+      // Close confirmation dialog
+      setConfirmGenerateAccountOpen(false);
+      setSelectedOfferForAccount(null);
     } catch (error) {
       console.error('Error generating collection account:', error);
       toast({
@@ -2042,7 +2051,8 @@ const Propiedades = () => {
                                    onClick={() => {
                                      const isCreditCardEnabled = !hasAccount && !hasActiveAccountWithScheme && selectedPropertyForOffers?.disponibilidad === 'Apartado' && offer.esquema_id;
                                      if (!hasAccount && !hasActiveAccountWithScheme && offer.esquema_id && !isCreditCardEnabled) {
-                                       handleGenerateCollectionAccount(offer.id, selectedPropertyForOffers!.id);
+                                       setSelectedOfferForAccount({ ...offer, propertyId: selectedPropertyForOffers!.id, isProductOffer: false });
+                                       setConfirmGenerateAccountOpen(true);
                                      }
                                    }}
                                    disabled={
@@ -2240,7 +2250,8 @@ const Propiedades = () => {
                                  size="sm"
                                  onClick={() => {
                                    if (!hasAccount && !hasActiveAccountWithScheme) {
-                                     handleGenerateCollectionAccount(offer.id, selectedPropertyForProductOffers!.id);
+                                     setSelectedOfferForAccount({ ...offer, propertyId: selectedPropertyForProductOffers!.id, isProductOffer: true });
+                                     setConfirmGenerateAccountOpen(true);
                                    }
                                  }}
                                  disabled={hasAccount || hasActiveAccountWithScheme}
@@ -2341,6 +2352,76 @@ const Propiedades = () => {
         bodegas={selectedPropertyBodegas}
         propertyNumber={selectedPropertyForDetail?.numero_propiedad || ""}
       />
+
+      {/* Modal de confirmación para generar cuenta de cobranza */}
+      <AlertDialog open={confirmGenerateAccountOpen} onOpenChange={setConfirmGenerateAccountOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar generación de cuenta de cobranza</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              {selectedOfferForAccount && (
+                <div className="space-y-3 pt-4">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="font-medium text-foreground">Folio:</div>
+                    <div>
+                      {selectedOfferForAccount.isProductOffer 
+                        ? `OP-${String(selectedOfferForAccount.id).padStart(6, '0')}`
+                        : `O-${String(selectedOfferForAccount.id).padStart(6, '0')}`
+                      }
+                    </div>
+                    
+                    <div className="font-medium text-foreground">
+                      {selectedOfferForAccount.isProductOffer ? 'Producto/Servicio:' : 'Agente:'}
+                    </div>
+                    <div>
+                      {selectedOfferForAccount.isProductOffer 
+                        ? (selectedOfferForAccount.product_name || 'N/A').toUpperCase()
+                        : (selectedOfferForAccount.agent_name || 'AGENTE POR DEFINIR').toUpperCase()
+                      }
+                    </div>
+                    
+                    <div className="font-medium text-foreground">Lead:</div>
+                    <div>{(selectedOfferForAccount.lead_name || 'N/A').toUpperCase()}</div>
+                    
+                    <div className="font-medium text-foreground">Fecha:</div>
+                    <div>{new Date(selectedOfferForAccount.fecha_generacion).toLocaleDateString()}</div>
+                    
+                    <div className="font-medium text-foreground">Esquema de pago:</div>
+                    <div>
+                      {selectedOfferForAccount.esquema_nombre || 
+                       availableSchemes.find(s => s.id === selectedOfferForAccount.esquema_id)?.nombre || 
+                       `ID: ${selectedOfferForAccount.esquema_id}`}
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-muted rounded-md">
+                    <p className="text-sm text-foreground">
+                      ¿Está seguro que desea generar una cuenta de cobranza para esta oferta?
+                    </p>
+                  </div>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setConfirmGenerateAccountOpen(false);
+              setSelectedOfferForAccount(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedOfferForAccount) {
+                  handleGenerateCollectionAccount(selectedOfferForAccount.id, selectedOfferForAccount.propertyId);
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </TooltipProvider>
   );
