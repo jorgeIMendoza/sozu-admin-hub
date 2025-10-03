@@ -830,8 +830,10 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                         <FormLabel>Teléfono *</FormLabel>
                         <FormControl>
                           <Input
+                            type="tel"
                             placeholder="Ingresa el teléfono (10 dígitos obligatorios)"
                             disabled={isFieldDisabled}
+                            maxLength={10}
                             {...field}
                           />
                         </FormControl>
