@@ -2326,9 +2326,9 @@ const Propiedades = () => {
                 </TableHeader>
                 <TableBody>
                   {(() => {
-                    // Check if there's any active account among product offers
+                    // Check if there's any active account WITH payment scheme among product offers
                     const hasActiveAccountWithScheme = selectedPropertyProductOffers.some((offer: any) => 
-                      offer.cuenta_cobranza_id && offer.cuenta_activo
+                      offer.cuenta_cobranza_id && offer.cuenta_activo && offer.esquema_id
                     );
                     
                     return selectedPropertyProductOffers.map((offer: any) => {
@@ -2403,16 +2403,21 @@ const Propiedades = () => {
                           {new Date(offer.fecha_generacion).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            variant="outline" 
-                            className={`font-medium ${
-                              offer.esquema_id
-                                ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/50 dark:text-green-200 dark:border-green-700" 
-                                : "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
-                            }`}
-                          >
-                            {offer.esquema_nombre || 'Sin esquema'}
-                          </Badge>
+                          {offer.esquema_id ? (
+                            <Badge 
+                              variant="outline" 
+                              className="font-medium bg-green-100 text-green-800 border-green-300 dark:bg-green-900/50 dark:text-green-200 dark:border-green-700"
+                            >
+                              {offer.esquema_nombre || 'Sin nombre'}
+                            </Badge>
+                          ) : (
+                            <Badge 
+                              variant="outline" 
+                              className="font-medium bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
+                            >
+                              Sin esquema
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {hasAccount ? (
