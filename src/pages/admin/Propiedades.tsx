@@ -982,7 +982,7 @@ const Propiedades = () => {
       const precio_final = precio_lista * (1 + porcentaje_descuento_aumento / 100);
       
       // Calculate montos for datos_propiedad
-      const monto_apartado = selectedPropertyForOffers?.monto_apartado_pagando || selectedPropertyForProductOffers?.monto_apartado_pagando || 0;
+      const monto_apartado = selectedPropertyForOffers?.monto_apartado || selectedPropertyForProductOffers?.monto_apartado || 0;
       const monto_enganche = precio_final * ((currentOffer.esquema_porcentaje_enganche || 0) / 100);
       const monto_entrega = precio_final * ((currentOffer.esquema_porcentaje_entrega || 0) / 100);
       
