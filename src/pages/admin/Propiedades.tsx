@@ -2308,19 +2308,7 @@ const Propiedades = () => {
                               </TooltipContent>
                             </Tooltip>
                           ) : (
-                            <div className="flex flex-col gap-2">
-                              <span className="text-muted-foreground text-sm">Sin cuenta</span>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="text-xs text-blue-600 dark:text-blue-400">
-                                    Haz clic en el folio para crear
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Click en el folio arriba para generar cuenta de cobranza</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
+                            <span className="text-muted-foreground text-sm">Sin cuenta</span>
                           )}
                         </TableCell>
                       </TableRow>
