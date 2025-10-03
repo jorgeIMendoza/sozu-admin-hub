@@ -1049,13 +1049,13 @@ const Propiedades = () => {
       if (isProductOffer) {
         // Body for product offers
         requestBody = {
-          siguiente_accion: 'genera_cuenta_cobranza_producto_manual_por_oferta',
+          siguiente_accion: 'genera_cuenta_cobranza_manual_por_oferta',
           id_oferta: offerId,
           id_propiedad: propertyId,
           id_persona_lead: currentOffer.id_persona_lead,
           clabe_stp: currentOffer.clabe_stp_tmp_producto || '',
           precio_final: precio_final,
-          datos_producto: {
+          datos_propiedad: {
             porcentaje_enganche: esquema_data.porcentaje_enganche,
             monto_enganche: monto_enganche,
             porcentaje_mensualidades: esquema_data.porcentaje_mensualidades,
