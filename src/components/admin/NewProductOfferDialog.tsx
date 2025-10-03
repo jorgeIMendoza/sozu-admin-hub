@@ -322,17 +322,45 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
   };
 
   const handleProductSelect = async (productId: number) => {
-    // Fetch full product data
+    // Fetch full product data including owner entity
     const { data: productData, error } = await supabase
       .from('productos_servicios')
-      .select('*')
+      .select(`
+        *,
+        entidades_relacionadas!productos_servicios_id_entidad_relacionada_dueno_fkey (
+          id,
+          cuenta_madre_stp,
+          personas!entidades_relacionadas_id_persona_fkey (nombre_legal)
+        )
+      `)
       .eq('id', productId)
       .single();
     
+    console.log('🔍 Producto seleccionado completo:', productData);
+    
     if (error) {
+      console.error('❌ Error cargando producto:', error);
       toast({
         title: "Error",
         description: "No se pudo cargar la información del producto",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!productData.id_entidad_relacionada_dueno) {
+      toast({
+        title: "Error",
+        description: "Este producto no tiene un dueño asignado. Configure el dueño del producto primero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!productData.entidades_relacionadas?.cuenta_madre_stp) {
+      toast({
+        title: "Error",
+        description: "El dueño del producto no tiene una cuenta madre STP configurada.",
         variant: "destructive",
       });
       return;
