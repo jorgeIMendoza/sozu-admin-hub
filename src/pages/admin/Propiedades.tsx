@@ -2352,13 +2352,13 @@ const Propiedades = () => {
                                   }
                                   
                                   // Si no tiene cuenta pero tiene esquema, ofrecer generarla
-                                  if (!hasActiveAccountWithScheme && offer.esquema_id) {
+                                  if (!hasActiveAccountWithScheme && offer.id_esquema_pago_seleccionado) {
                                     // Load the specific scheme if not already loaded
-                                    if (!availableSchemes.find(s => s.id === offer.esquema_id)) {
+                                    if (!availableSchemes.find(s => s.id === offer.id_esquema_pago_seleccionado)) {
                                       const { data: schemeData } = await supabase
                                         .from('esquemas_pago')
                                         .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
-                                        .eq('id', offer.esquema_id)
+                                        .eq('id', offer.id_esquema_pago_seleccionado)
                                         .maybeSingle();
                                       
                                       if (schemeData) {
