@@ -982,38 +982,96 @@ const Propiedades = () => {
       // Calculate precio_final
       const precio_final = precio_lista * (1 + porcentaje_descuento_aumento / 100);
       
-      // Calculate montos for datos_propiedad
+      // Get payment scheme data
+      let esquema_data = {
+        porcentaje_enganche: 0,
+        porcentaje_mensualidades: 0,
+        numero_mensualidades: 0,
+        porcentaje_entrega: 0
+      };
+
+      if (isProductOffer && currentOffer.id_esquema_pago_seleccionado) {
+        // For product offers, fetch the scheme
+        const { data: schemeData } = await supabase
+          .from('esquemas_pago')
+          .select('porcentaje_enganche, porcentaje_mensualidades, numero_mensualidades, porcentaje_entrega')
+          .eq('id', currentOffer.id_esquema_pago_seleccionado)
+          .maybeSingle();
+        
+        if (schemeData) {
+          esquema_data = schemeData;
+        }
+      } else {
+        // For property offers, use data from currentOffer
+        esquema_data = {
+          porcentaje_enganche: currentOffer.esquema_porcentaje_enganche || 0,
+          porcentaje_mensualidades: currentOffer.esquema_porcentaje_mensualidades || 0,
+          numero_mensualidades: currentOffer.esquema_numero_mensualidades || 0,
+          porcentaje_entrega: currentOffer.esquema_porcentaje_entrega || 0
+        };
+      }
+      
+      // Calculate montos
       const monto_apartado = selectedPropertyForOffers?.monto_apartado || selectedPropertyForProductOffers?.monto_apartado || 0;
-      const monto_enganche = precio_final * ((currentOffer.esquema_porcentaje_enganche || 0) / 100);
-      const monto_mensualidades = precio_final * ((currentOffer.esquema_porcentaje_mensualidades || 0) / 100);
-      const monto_entrega = precio_final * ((currentOffer.esquema_porcentaje_entrega || 0) / 100);
+      const monto_enganche = precio_final * (esquema_data.porcentaje_enganche / 100);
+      const monto_mensualidades = precio_final * (esquema_data.porcentaje_mensualidades / 100);
+      const monto_entrega = precio_final * (esquema_data.porcentaje_entrega / 100);
+      
+      // Build request body based on offer type
+      let requestBody: any;
+      
+      if (isProductOffer) {
+        // Body for product offers
+        requestBody = {
+          siguiente_accion: 'genera_cuenta_cobranza_producto_manual_por_oferta',
+          id_oferta: offerId,
+          id_propiedad: propertyId,
+          id_persona_lead: currentOffer.id_persona_lead,
+          clabe_stp: currentOffer.clabe_stp_tmp_producto || '',
+          precio_final: precio_final,
+          datos_producto: {
+            porcentaje_enganche: esquema_data.porcentaje_enganche,
+            monto_enganche: monto_enganche,
+            porcentaje_mensualidades: esquema_data.porcentaje_mensualidades,
+            monto_mensualidades: monto_mensualidades,
+            numero_mensualidades: esquema_data.numero_mensualidades,
+            porcentaje_entrega: esquema_data.porcentaje_entrega,
+            monto_entrega: monto_entrega
+          }
+        };
+      } else {
+        // Body for property offers
+        requestBody = {
+          siguiente_accion: 'genera_cuenta_cobranza_manual_por_oferta',
+          id_oferta: offerId,
+          id_propiedad: propertyId,
+          id_persona_lead: currentOffer.id_persona_lead,
+          monto_apartado_pagando: monto_apartado,
+          clabe_stp: selectedPropertyForOffers?.clabe_stp_tmp_apartado || '',
+          rfc_curp_ordenante: currentOffer.lead_rfc || '',
+          id_er_dueno: id_er_dueno,
+          precio_final: precio_final,
+          datos_propiedad: {
+            porcentaje_enganche: esquema_data.porcentaje_enganche,
+            monto_apartado: monto_apartado,
+            monto_enganche: monto_enganche,
+            porcentaje_mensualidades: esquema_data.porcentaje_mensualidades,
+            monto_mensualidades: monto_mensualidades,
+            numero_mensualidades: esquema_data.numero_mensualidades,
+            porcentaje_entrega: esquema_data.porcentaje_entrega,
+            monto_entrega: monto_entrega
+          }
+        };
+      }
+      
+      console.log('🚀 Generando cuenta de cobranza:', requestBody);
       
       const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          siguiente_accion: 'genera_cuenta_cobranza_manual_por_oferta',
-          id_oferta: offerId,
-          id_propiedad: propertyId,
-          id_persona_lead: currentOffer?.id_persona_lead,
-          monto_apartado_pagando: monto_apartado,
-          clabe_stp: selectedPropertyForOffers?.clabe_stp_tmp_apartado || selectedPropertyForProductOffers?.clabe_stp_tmp_apartado || '',
-          rfc_curp_ordenante: currentOffer?.lead_rfc || '',
-          id_er_dueno: id_er_dueno,
-          precio_final: precio_final,
-          datos_propiedad: {
-            porcentaje_enganche: currentOffer.esquema_porcentaje_enganche || 0,
-            monto_apartado: monto_apartado,
-            monto_enganche: monto_enganche,
-            porcentaje_mensualidades: currentOffer.esquema_porcentaje_mensualidades || 0,
-            monto_mensualidades: monto_mensualidades,
-            numero_mensualidades: currentOffer.esquema_numero_mensualidades || 0,
-            porcentaje_entrega: currentOffer.esquema_porcentaje_entrega || 0,
-            monto_entrega: monto_entrega
-          }
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
