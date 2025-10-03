@@ -421,12 +421,29 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       if (esquemaError) throw esquemaError;
 
       // Step 3: Get CLABE STP using crear_referencia_bancaria
+      console.log('🔍 Llamando crear_referencia_bancaria con id_er_dueno:', selectedProductData.id_entidad_relacionada_dueno);
+      console.log('📦 selectedProductData completo:', selectedProductData);
+      
       const { data: clabeData, error: clabeError } = await supabase
         .rpc('crear_referencia_bancaria', {
           id_er_dueno: selectedProductData.id_entidad_relacionada_dueno
         });
       
-      if (clabeError) throw clabeError;
+      console.log('✅ CLABE generada:', clabeData);
+      console.log('❌ Error CLABE:', clabeError);
+      
+      if (clabeError) {
+        console.error('💥 Error generando CLABE:', clabeError);
+        throw clabeError;
+      }
+
+      if (!clabeData || typeof clabeData !== 'string' || clabeData.length !== 18) {
+        const errorMsg = `CLABE inválida generada: "${clabeData}" (tipo: ${typeof clabeData}, longitud: ${clabeData?.length || 0})`;
+        console.error('⚠️', errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      console.log('✨ CLABE válida, procediendo a crear oferta con:', clabeData);
 
       // Step 4: Create offer
       const { error: ofertaError } = await supabase
@@ -459,7 +476,13 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       setSelectedPerson(null);
 
     } catch (error: any) {
-      console.error("Error generating offer:", error);
+      console.error("💥 Error generating offer:", error);
+      console.error("🔍 Error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
       toast({
         title: "Error",
         description: error.message || "Error al generar la oferta",
