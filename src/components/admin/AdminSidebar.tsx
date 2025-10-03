@@ -102,8 +102,6 @@ const navigationItems = [
     icon: CreditCard,
     children: [
       { title: "Cuentas Cobranza", href: "/admin/cuentas-cobranza", icon: Receipt },
-      { title: "Pagos", href: "/admin/pagos", icon: Banknote },
-      { title: "Cuentas Bancarias", href: "/admin/cuentas-bancarias", icon: Landmark },
     ]
   },
 ];
