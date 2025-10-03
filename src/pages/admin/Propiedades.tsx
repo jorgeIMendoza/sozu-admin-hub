@@ -1949,7 +1949,7 @@ const Propiedades = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Tiene C.C.</label>
+                <label className="text-sm font-medium mb-2 block">Tiene Cuenta de Cobranza</label>
                 <Select value={cuentaCobranzaFilter} onValueChange={setCuentaCobranzaFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="Filtrar por cuenta..." />
