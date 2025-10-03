@@ -656,6 +656,7 @@ const Propiedades = () => {
         clabe_stp_tmp_producto,
         productos_servicios!ofertas_id_producto_fkey(nombre, precio_lista),
         esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey(
+          nombre,
           porcentaje_descuento_aumento,
           porcentaje_enganche,
           porcentaje_mensualidades,
@@ -679,6 +680,7 @@ const Propiedades = () => {
         ...offer,
         product_name: offer.productos_servicios?.nombre || 'N/A',
         product_precio_lista: offer.productos_servicios?.precio_lista || 0,
+        esquema_nombre: offer.esquemas_pago?.nombre || null,
         porcentaje_descuento_aumento: offer.esquemas_pago?.porcentaje_descuento_aumento || 0,
         esquema_porcentaje_enganche: offer.esquemas_pago?.porcentaje_enganche || 0,
         esquema_porcentaje_mensualidades: offer.esquemas_pago?.porcentaje_mensualidades || 0,
