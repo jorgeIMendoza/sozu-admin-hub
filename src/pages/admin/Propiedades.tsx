@@ -2033,22 +2033,21 @@ const Propiedades = () => {
                            key={offer.id}
                            className={rowClassName}
                          >
-                          <TableCell className="font-medium">
-                            <Button
-                              variant="link"
-                              size="sm"
-                              onClick={() => {
-                                if (((!hasAccount || isAccountCancelled) && !hasActiveAccountWithScheme && offer.esquema_id) ||
-                                    (isAccountCancelled && offer.esquema_id)) {
-                                  handleGenerateCollectionAccount(offer.id, selectedPropertyForOffers!.id);
-                                }
-                              }}
-                              disabled={(hasAccount && !isAccountCancelled) || !offer.esquema_id || (hasActiveAccountWithScheme && !isAccountCancelled)}
-                              className="p-0 h-auto font-semibold"
-                            >
-                              O-{String(offer.id).padStart(6, '0')}
-                            </Button>
-                          </TableCell>
+                           <TableCell className="font-medium">
+                             <Button
+                               variant="link"
+                               size="sm"
+                               onClick={() => {
+                                 if (!hasAccount && !hasActiveAccountWithScheme && offer.esquema_id) {
+                                   handleGenerateCollectionAccount(offer.id, selectedPropertyForOffers!.id);
+                                 }
+                               }}
+                               disabled={hasAccount || !offer.esquema_id || hasActiveAccountWithScheme}
+                               className="p-0 h-auto font-semibold"
+                             >
+                               O-{String(offer.id).padStart(6, '0')}
+                             </Button>
+                           </TableCell>
                           <TableCell>
                             {(offer.agent_name || 'AGENTE POR DEFINIR').toUpperCase()}
                           </TableCell>
@@ -2219,18 +2218,17 @@ const Propiedades = () => {
                       const isAccountCancelled = hasAccount && !offer.cuenta_activo;
                       
                       return (
-                        <TableRow key={offer.id}>
-                         <TableCell className="font-medium">
+                         <TableRow key={offer.id}>
+                          <TableCell className="font-medium">
                            <Button
                              variant="link"
                              size="sm"
                              onClick={() => {
-                               if (((!hasAccount || isAccountCancelled) && !hasActiveAccountWithScheme) ||
-                                   isAccountCancelled) {
+                               if (!hasAccount && !hasActiveAccountWithScheme) {
                                  handleGenerateCollectionAccount(offer.id, selectedPropertyForProductOffers!.id);
                                }
                              }}
-                             disabled={(hasAccount && !isAccountCancelled) || (hasActiveAccountWithScheme && !isAccountCancelled)}
+                             disabled={hasAccount || hasActiveAccountWithScheme}
                              className="p-0 h-auto font-semibold"
                            >
                              OP-{String(offer.id).padStart(6, '0')}
