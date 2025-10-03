@@ -2429,6 +2429,7 @@ const Propiedades = () => {
                               <Button
                                 variant="link"
                                 size="sm"
+                                disabled={isAccountActive}
                                 onClick={async () => {
                                   // Si tiene cuenta de cobranza, navegar a ella
                                   if (hasAccount) {
@@ -2468,11 +2469,13 @@ const Propiedades = () => {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>
-                                {hasAccount 
-                                  ? 'Ver detalle de cuenta de cobranza' 
-                                  : !hasActiveAccountWithScheme && offer.esquema_id
-                                    ? 'Generar cuenta de cobranza'
-                                    : 'Ver información de oferta'
+                                {isAccountActive
+                                  ? 'Cuenta de cobranza ya generada'
+                                  : hasAccount 
+                                    ? 'Ver detalle de cuenta de cobranza' 
+                                    : !hasActiveAccountWithScheme && offer.id_esquema_pago_seleccionado
+                                      ? 'Generar cuenta de cobranza'
+                                      : 'Ver información de oferta'
                                 }
                               </p>
                             </TooltipContent>
