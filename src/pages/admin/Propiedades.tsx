@@ -723,16 +723,17 @@ const Propiedades = () => {
         }
       }
       
-      // Get product price if this is a product offer
+      // Get product price and name if this is a product offer
       if (offer.id_producto) {
         const { data: productData } = await supabase
           .from('productos_servicios')
-          .select('precio_lista')
+          .select('precio_lista, nombre')
           .eq('id', offer.id_producto)
           .maybeSingle();
         
         if (productData) {
           enrichedOffer.product_precio_lista = productData.precio_lista;
+          enrichedOffer.product_name = productData.nombre;
         }
       }
       
@@ -2515,11 +2516,14 @@ const Propiedades = () => {
                       <div className="flex flex-col gap-1">
                         <div className="font-medium">
                           {selectedOfferForAccount.esquema_nombre || 
-                           availableSchemes.find(s => s.id === selectedOfferForAccount.esquema_id)?.nombre || 
-                           `ID: ${selectedOfferForAccount.esquema_id}`}
+                           availableSchemes.find(s => s.id === (selectedOfferForAccount.isProductOffer ? selectedOfferForAccount.id_esquema_pago_seleccionado : selectedOfferForAccount.esquema_id))?.nombre || 
+                           `ID: ${selectedOfferForAccount.isProductOffer ? selectedOfferForAccount.id_esquema_pago_seleccionado : selectedOfferForAccount.esquema_id}`}
                         </div>
                         {(() => {
-                          const scheme = availableSchemes.find(s => s.id === selectedOfferForAccount.esquema_id);
+                          const schemeId = selectedOfferForAccount.isProductOffer 
+                            ? selectedOfferForAccount.id_esquema_pago_seleccionado 
+                            : selectedOfferForAccount.esquema_id;
+                          const scheme = availableSchemes.find(s => s.id === schemeId);
                           if (scheme) {
                             return (
                               <div className="flex flex-wrap gap-2 text-xs">
