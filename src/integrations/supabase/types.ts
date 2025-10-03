@@ -2877,13 +2877,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_prodserv_persona"
-            columns: ["id_entidad_relacionada_dueno"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_prodserv_unidad_sat"
             columns: ["id_unidad_sat"]
             isOneToOne: false
@@ -2898,10 +2891,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "productos_servicios_id_persona_fkey"
+            foreignKeyName: "productos_servicios_id_entidad_relacionada_dueno_fkey"
             columns: ["id_entidad_relacionada_dueno"]
             isOneToOne: false
-            referencedRelation: "personas"
+            referencedRelation: "entidades_relacionadas"
             referencedColumns: ["id"]
           },
         ]
