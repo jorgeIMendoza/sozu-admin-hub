@@ -614,6 +614,27 @@ const Propiedades = () => {
         }
       }
       
+      // Get payment scheme info if esquema is selected
+      if (offer.esquema_id) {
+        try {
+          const { data: schemeData, error: schemeError } = await supabase
+            .from('esquemas_pago')
+            .select('porcentaje_enganche, porcentaje_mensualidades, numero_mensualidades, porcentaje_entrega, porcentaje_descuento_aumento')
+            .eq('id', offer.esquema_id)
+            .single();
+          
+          if (!schemeError && schemeData) {
+            enrichedOffer.esquema_porcentaje_enganche = schemeData.porcentaje_enganche;
+            enrichedOffer.esquema_porcentaje_mensualidades = schemeData.porcentaje_mensualidades;
+            enrichedOffer.esquema_numero_mensualidades = schemeData.numero_mensualidades;
+            enrichedOffer.esquema_porcentaje_entrega = schemeData.porcentaje_entrega;
+            enrichedOffer.porcentaje_descuento_aumento = schemeData.porcentaje_descuento_aumento;
+          }
+        } catch (err) {
+          console.warn('Error fetching payment scheme for offer:', offer.id);
+        }
+      }
+      
       return enrichedOffer;
     }));
 
@@ -687,7 +708,7 @@ const Propiedades = () => {
       if (offer.id_esquema_pago_seleccionado) {
         const { data: schemeData } = await supabase
           .from('esquemas_pago')
-          .select('nombre, es_manual, porcentaje_descuento_aumento')
+          .select('nombre, es_manual, porcentaje_descuento_aumento, porcentaje_enganche, porcentaje_mensualidades, numero_mensualidades, porcentaje_entrega')
           .eq('id', offer.id_esquema_pago_seleccionado)
           .single();
         
@@ -695,6 +716,10 @@ const Propiedades = () => {
           enrichedOffer.esquema_nombre = schemeData.nombre;
           enrichedOffer.esquema_es_manual = schemeData.es_manual;
           enrichedOffer.porcentaje_descuento_aumento = schemeData.porcentaje_descuento_aumento;
+          enrichedOffer.esquema_porcentaje_enganche = schemeData.porcentaje_enganche;
+          enrichedOffer.esquema_porcentaje_mensualidades = schemeData.porcentaje_mensualidades;
+          enrichedOffer.esquema_numero_mensualidades = schemeData.numero_mensualidades;
+          enrichedOffer.esquema_porcentaje_entrega = schemeData.porcentaje_entrega;
         }
       }
       
@@ -956,6 +981,11 @@ const Propiedades = () => {
       // Calculate precio_final
       const precio_final = precio_lista * (1 + porcentaje_descuento_aumento / 100);
       
+      // Calculate montos for datos_propiedad
+      const monto_apartado = selectedPropertyForOffers?.monto_apartado_pagando || selectedPropertyForProductOffers?.monto_apartado_pagando || 0;
+      const monto_enganche = precio_final * ((currentOffer.esquema_porcentaje_enganche || 0) / 100);
+      const monto_entrega = precio_final * ((currentOffer.esquema_porcentaje_entrega || 0) / 100);
+      
       const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
         method: 'POST',
         headers: {
@@ -966,11 +996,20 @@ const Propiedades = () => {
           id_oferta: offerId,
           id_propiedad: propertyId,
           id_persona_lead: currentOffer?.id_persona_lead,
-          monto_apartado_pagando: selectedPropertyForOffers?.monto_apartado_pagando || selectedPropertyForProductOffers?.monto_apartado_pagando || 0,
+          monto_apartado_pagando: monto_apartado,
           clabe_stp: selectedPropertyForOffers?.clabe_stp_tmp_apartado || selectedPropertyForProductOffers?.clabe_stp_tmp_apartado || '',
           rfc_curp_ordenante: currentOffer?.lead_rfc || '',
           id_er_dueno: id_er_dueno,
-          precio_final: precio_final
+          precio_final: precio_final,
+          datos_propiedad: {
+            porcentaje_enganche: currentOffer.esquema_porcentaje_enganche || 0,
+            monto_apartado: monto_apartado,
+            monto_enganche: monto_enganche,
+            porcentaje_mensualidades: currentOffer.esquema_porcentaje_mensualidades || 0,
+            numero_mensualidades: currentOffer.esquema_numero_mensualidades || 0,
+            porcentaje_entrega: currentOffer.esquema_porcentaje_entrega || 0,
+            monto_entrega: monto_entrega
+          }
         }),
       });
 
