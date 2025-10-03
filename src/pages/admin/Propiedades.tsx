@@ -914,13 +914,13 @@ const Propiedades = () => {
       const currentOffer = selectedPropertyOffers?.find(offer => offer.id === offerId) || 
                           selectedPropertyProductOffers?.find(offer => offer.id === offerId);
       
-      const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
+      const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaP`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          siguiente_accion: 'genera_cuenta_cobranza_por_oferta',
+          siguiente_accion: 'genera_cuenta_cobranza_manual_por_oferta',
           id_oferta: offerId,
           id_propiedad: propertyId,
           id_persona_lead: currentOffer?.id_persona_lead,
