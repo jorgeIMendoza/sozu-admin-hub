@@ -914,7 +914,7 @@ const Propiedades = () => {
       const currentOffer = selectedPropertyOffers?.find(offer => offer.id === offerId) || 
                           selectedPropertyProductOffers?.find(offer => offer.id === offerId);
       
-      const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaP`, {
+      const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
