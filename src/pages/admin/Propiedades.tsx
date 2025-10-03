@@ -984,6 +984,7 @@ const Propiedades = () => {
       // Calculate montos for datos_propiedad
       const monto_apartado = selectedPropertyForOffers?.monto_apartado || selectedPropertyForProductOffers?.monto_apartado || 0;
       const monto_enganche = precio_final * ((currentOffer.esquema_porcentaje_enganche || 0) / 100);
+      const monto_mensualidades = precio_final * ((currentOffer.esquema_porcentaje_mensualidades || 0) / 100);
       const monto_entrega = precio_final * ((currentOffer.esquema_porcentaje_entrega || 0) / 100);
       
       const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
@@ -1006,6 +1007,7 @@ const Propiedades = () => {
             monto_apartado: monto_apartado,
             monto_enganche: monto_enganche,
             porcentaje_mensualidades: currentOffer.esquema_porcentaje_mensualidades || 0,
+            monto_mensualidades: monto_mensualidades,
             numero_mensualidades: currentOffer.esquema_numero_mensualidades || 0,
             porcentaje_entrega: currentOffer.esquema_porcentaje_entrega || 0,
             monto_entrega: monto_entrega
