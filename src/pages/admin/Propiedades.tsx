@@ -1561,9 +1561,9 @@ const Propiedades = () => {
                        </div>
                      ) : '-'}
                    </TableCell>
-                   <TableCell className="text-right">
-                     {property.total_pagado > 0 ? formatCurrency(property.total_pagado) : '-'}
-                   </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(property.total_pagado)}
+                    </TableCell>
                    <TableCell className="text-right">
                      {property.precio_final && property.restante !== 0 ? (
                        <span className={property.restante > 0 ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold'}>
