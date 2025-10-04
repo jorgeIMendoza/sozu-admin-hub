@@ -79,6 +79,7 @@ interface OfferPDFTemplateProductoProps {
     email_creador: string;
     id_esquema_pago_seleccionado?: number | null;
     clabe_stp_tmp_producto?: string | null;
+    clabe_stp?: string | null;
   };
   propertyDetails: PropertyDetails;
   productDetails: ProductDetails;
@@ -255,12 +256,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
             </div>
 
             {/* Column 2: Product Information */}
-            <div style={{ 
-              backgroundColor: '#F5F5F5',
-              padding: '40px',
-              borderRadius: '8px',
-              border: '2px solid #D0D0D0'
-            }}>
+            <div>
               <h3 style={{ 
                 fontSize: '40px', 
                 fontWeight: 'bold', 
@@ -269,24 +265,31 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
               }}>
                 Datos del producto:
               </h3>
-              <div style={{ fontSize: '28px', lineHeight: '1.8' }}>
-                <div style={{ marginBottom: '20px' }}>
-                  <span style={{ fontWeight: 'normal' }}>Categoría: </span>
-                  <span style={{ fontWeight: 'bold', color: '#000' }}>
-                    {productDetails.categoria_nombre || 'N/A'}
-                  </span>
-                </div>
-                <div style={{ marginBottom: '20px' }}>
-                  <span style={{ fontWeight: 'normal' }}>Producto: </span>
-                  <span style={{ fontWeight: 'bold', color: '#000', fontSize: '32px' }}>
-                    {productDetails.nombre}
-                  </span>
-                </div>
-                <div style={{ marginBottom: '0' }}>
-                  <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
-                  <span style={{ fontWeight: 'bold', color: '#000', fontSize: '36px' }}>
-                    {formatCurrency(productDetails.precio_lista)}
-                  </span>
+              <div style={{ 
+                backgroundColor: '#F5F5F5',
+                padding: '40px',
+                borderRadius: '8px',
+                border: '2px solid #D0D0D0'
+              }}>
+                <div style={{ fontSize: '28px', lineHeight: '1.8' }}>
+                  <div style={{ marginBottom: '20px' }}>
+                    <span style={{ fontWeight: 'normal' }}>Categoría: </span>
+                    <span style={{ fontWeight: 'bold', color: '#000' }}>
+                      {productDetails.categoria_nombre || 'N/A'}
+                    </span>
+                  </div>
+                  <div style={{ marginBottom: '20px' }}>
+                    <span style={{ fontWeight: 'normal' }}>Producto: </span>
+                    <span style={{ fontWeight: 'bold', color: '#000', fontSize: '32px' }}>
+                      {productDetails.nombre}
+                    </span>
+                  </div>
+                  <div style={{ marginBottom: '0' }}>
+                    <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
+                    <span style={{ fontWeight: 'bold', color: '#000', fontSize: '36px' }}>
+                      {formatCurrency(productDetails.precio_lista)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -402,7 +405,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
           
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: (offerData.clabe_stp_tmp_producto && productDetails.ownerStpBankAccount) 
+            gridTemplateColumns: ((offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && productDetails.ownerStpBankAccount) 
               ? '1fr 1fr' 
               : '1fr', 
             gap: '40px',
@@ -411,7 +414,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
             borderRadius: '20px'
           }}>
             {/* Pago por transferencia - Only shown if CLABE exists */}
-            {offerData.clabe_stp_tmp_producto && (
+            {(offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && (
               <div style={{ 
                 backgroundColor: '#D3D3D3',
                 padding: '32px',
@@ -440,7 +443,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                   <p style={{ color: '#000000' }}>
                     <span style={{ fontWeight: '400' }}>Cuenta CLABE: </span>
                     <span style={{ fontWeight: '400' }}>
-                      {offerData.clabe_stp_tmp_producto}
+                      {offerData.clabe_stp_tmp_producto || offerData.clabe_stp}
                     </span>
                   </p>
                 </div>

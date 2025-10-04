@@ -171,6 +171,20 @@ class HTMLToPDFService {
       // Fetch product details
       const productDetails = await this.fetchProductDetails(offerData.productId!);
       
+      // Fetch cuenta de cobranza to get clabe_stp
+      let clabeStp = offerDetails.clabe_stp_tmp_producto;
+      if (!clabeStp) {
+        const { data: cuentaCobranza } = await supabase
+          .from('cuentas_cobranza')
+          .select('clabe_stp')
+          .eq('id_oferta', offerData.offerId)
+          .single();
+        
+        if (cuentaCobranza?.clabe_stp) {
+          clabeStp = cuentaCobranza.clabe_stp;
+        }
+      }
+      
       // Fetch payment scheme if selected
       let paymentScheme = null;
       if (offerDetails.id_esquema_pago_seleccionado) {
@@ -199,6 +213,7 @@ class HTMLToPDFService {
         email_creador: offerData.creatorEmail,
         id_esquema_pago_seleccionado: offerDetails.id_esquema_pago_seleccionado,
         clabe_stp_tmp_producto: offerDetails.clabe_stp_tmp_producto,
+        clabe_stp: clabeStp,
       };
 
       await this.generateProductPDFFromHTML(
