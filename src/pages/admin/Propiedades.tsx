@@ -2284,14 +2284,15 @@ const Propiedades = () => {
                                     size="sm"
                                      onClick={async () => {
                                        const isCreditCardEnabled = !hasAccount && !hasActiveAccountWithScheme && selectedPropertyForOffers?.disponibilidad === 'Apartado' && offer.esquema_id;
-                                       if (!hasAccount && !hasActiveAccountWithScheme && offer.esquema_id && !isCreditCardEnabled) {
-                                         // Load the specific scheme if not already loaded
-                                         if (!availableSchemes.find(s => s.id === offer.esquema_id)) {
-                                           const { data: schemeData } = await supabase
-                                             .from('esquemas_pago')
-                                             .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
-                                             .eq('id', offer.esquema_id)
-                                             .single();
+                                        if (!hasAccount && !hasActiveAccountWithScheme && offer.esquema_id && !isCreditCardEnabled) {
+                                          // Load the specific scheme if not already loaded
+                                          if (!availableSchemes.find(s => s.id === offer.esquema_id)) {
+                                            const { data: schemeData } = await supabase
+                                              .from('esquemas_pago')
+                                              .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                              .eq('id', offer.esquema_id)
+                                              .eq('es_manual', false)
+                                              .single();
                                            
                                            if (schemeData) {
                                              setAvailableSchemes([...availableSchemes, schemeData]);
@@ -2544,14 +2545,15 @@ const Propiedades = () => {
                                   }
                                   
                                   // Si tiene esquema y no hay otra cuenta activa para este producto, ofrecer generarla
-                                  if (!hasActiveAccountForThisProduct && offer.id_esquema_pago_seleccionado) {
-                                    // Load the specific scheme if not already loaded
-                                    if (!availableSchemes.find(s => s.id === offer.id_esquema_pago_seleccionado)) {
-                                      const { data: schemeData } = await supabase
-                                        .from('esquemas_pago')
-                                        .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
-                                        .eq('id', offer.id_esquema_pago_seleccionado)
-                                        .maybeSingle();
+                                   if (!hasActiveAccountForThisProduct && offer.id_esquema_pago_seleccionado) {
+                                     // Load the specific scheme if not already loaded
+                                     if (!availableSchemes.find(s => s.id === offer.id_esquema_pago_seleccionado)) {
+                                       const { data: schemeData } = await supabase
+                                         .from('esquemas_pago')
+                                         .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                         .eq('id', offer.id_esquema_pago_seleccionado)
+                                         .eq('es_manual', false)
+                                         .maybeSingle();
                                       
                                       if (schemeData) {
                                         setAvailableSchemes([...availableSchemes, schemeData]);
