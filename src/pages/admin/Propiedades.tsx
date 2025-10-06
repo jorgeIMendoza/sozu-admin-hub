@@ -778,6 +778,7 @@ const Propiedades = () => {
       .from('esquemas_pago')
       .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
       .eq('id_proyecto', projectId)
+      .eq('es_manual', false)
       .eq('activo', true)
       .order('nombre');
     
