@@ -76,6 +76,7 @@ interface CuentaDetalle {
   tipo_cuenta: 'Propiedad' | 'Producto' | 'Servicio';
   producto_servicio_nombre?: string;
   producto_servicio_id?: number;
+  estatus_disponibilidad?: string;
 }
 
 interface OfferData {
@@ -192,7 +193,8 @@ export default function DetalleCuentaCobranza() {
             id,
             numero_propiedad,
             id_entidad_relacionada_dueno,
-            id_edificio_modelo
+            id_edificio_modelo,
+            id_estatus_disponibilidad
           ),
           productos_servicios!ofertas_id_producto_fkey(
             id,
@@ -217,7 +219,7 @@ export default function DetalleCuentaCobranza() {
         .eq('activo', true);
 
       // Get project and building info
-      const [entidadResult, edificioModeloResult, duenoResult] = await Promise.all([
+      const [entidadResult, edificioModeloResult, duenoResult, estatusResult] = await Promise.all([
         supabase
           .from('entidades_relacionadas')
           .select(`
@@ -240,7 +242,14 @@ export default function DetalleCuentaCobranza() {
             personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
           `)
           .eq('id', oferta?.propiedades?.id_entidad_relacionada_dueno)
-          .maybeSingle()
+          .maybeSingle(),
+        oferta?.propiedades?.id_estatus_disponibilidad 
+          ? supabase
+              .from('estatus_disponibilidad')
+              .select('nombre')
+              .eq('id', oferta.propiedades.id_estatus_disponibilidad)
+              .maybeSingle()
+          : Promise.resolve({ data: null })
       ]);
 
       // Determine account type
@@ -276,7 +285,8 @@ export default function DetalleCuentaCobranza() {
         oferta_id: cuenta.id_oferta,
         tipo_cuenta: tipoCuenta,
         producto_servicio_nombre: productoServicioNombre,
-        producto_servicio_id: productoServicioId
+        producto_servicio_id: productoServicioId,
+        estatus_disponibilidad: estatusResult.data?.nombre || undefined
       };
 
       return detalle;
@@ -1120,6 +1130,12 @@ export default function DetalleCuentaCobranza() {
                   <label className="text-sm font-medium">CLABE STP</label>
                   <p className="text-sm text-muted-foreground">{cuentaDetalle.clabe_stp || 'No asignada'}</p>
                 </div>
+                {cuentaDetalle.estatus_disponibilidad && (
+                  <div>
+                    <label className="text-sm font-medium">Estatus</label>
+                    <p className="text-sm text-muted-foreground">{cuentaDetalle.estatus_disponibilidad}</p>
+                  </div>
+                )}
                 <div>
                   <label className="text-sm font-medium">Fecha Compra</label>
                   <p className="text-sm text-muted-foreground">{formatDate(cuentaDetalle.fecha_compra)}</p>
