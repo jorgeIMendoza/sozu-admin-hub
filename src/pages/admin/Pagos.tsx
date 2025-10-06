@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle } from "lucide-react";
+import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -46,6 +46,10 @@ interface CuentaCobranza {
   id_oferta: number;
   motivo_cancelacion?: string | null;
   apartado_pagado: boolean;
+  cash_limit?: number;
+  cash_paid?: number;
+  cash_remaining?: number;
+  cash_percentage?: number;
 }
 
 export default function Pagos() {
@@ -86,6 +90,7 @@ export default function Pagos() {
           precio_final,
           id_oferta,
           activo,
+          valor_uma,
           tipos_cancelacion:id_tipo_cancelacion(nombre)
         `);
 
@@ -119,6 +124,22 @@ export default function Pagos() {
       }, {});
       
       console.log('Pagado por cuenta:', pagadoPorCuenta);
+
+      // Get cash payments (id_metodos_pago = 1) for all accounts
+      const { data: pagosCash } = await supabase
+        .from('pagos')
+        .select('id_cuenta_cobranza, monto')
+        .in('id_cuenta_cobranza', cuentaIds)
+        .eq('id_metodos_pago', 1)
+        .eq('activo', true);
+
+      const pagadoEfectivoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
+        const totalEfectivo = pagosCash
+          ?.filter(p => p.id_cuenta_cobranza === cuenta.id)
+          ?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
+        acc[cuenta.id] = totalEfectivo;
+        return acc;
+      }, {});
 
       // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid
       const { data: acuerdosPago } = await supabase
@@ -296,6 +317,13 @@ export default function Pagos() {
         const precio_final = cuenta.precio_final || 0;
         const restante = precio_final - pagado;
 
+        // Calculate cash payment data (only for properties)
+        const valorUma = cuenta.valor_uma || 0;
+        const limiteEfectivo = valorUma * 825;
+        const pagadoEfectivo = tipo === 'Propiedad' ? (pagadoEfectivoPorCuenta[cuenta.id] || 0) : 0;
+        const restanteEfectivo = limiteEfectivo - pagadoEfectivo;
+        const porcentajeEfectivo = limiteEfectivo > 0 ? (pagadoEfectivo / limiteEfectivo) * 100 : 0;
+
         return {
           id: cuenta.id,
           tipo,
@@ -304,6 +332,10 @@ export default function Pagos() {
           precio_lista: propiedad?.precio_lista || null,
           pagado,
           restante,
+          cash_limit: limiteEfectivo,
+          cash_paid: pagadoEfectivo,
+          cash_remaining: restanteEfectivo,
+          cash_percentage: porcentajeEfectivo,
           compradores: cuentaCompradores.map(c => ({
             nombre_legal: c.personas?.nombre_legal || '',
             rfc: c.personas?.rfc || null,
@@ -582,6 +614,7 @@ export default function Pagos() {
                       <TableHead>Precio Final</TableHead>
                       <TableHead>Pagado</TableHead>
                       <TableHead>Restante</TableHead>
+                      <TableHead>Pagos en Efectivo</TableHead>
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -708,10 +741,56 @@ export default function Pagos() {
                         <TableCell className="font-semibold text-blue-600">
                           {formatCurrency(cuenta.pagado)}
                         </TableCell>
-                        <TableCell className="font-semibold text-orange-600">
-                          {formatCurrency(cuenta.restante)}
-                        </TableCell>
-                          <TableCell>
+                         <TableCell className="font-semibold text-orange-600">
+                           {formatCurrency(cuenta.restante)}
+                         </TableCell>
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' ? (
+                             <TooltipProvider>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <Link to={`/admin/cuentas-cobranza/${cuenta.id}/detalle`}>
+                                     <Button variant="ghost" size="icon">
+                                       <DollarSign className={`h-4 w-4 ${
+                                         cuenta.cash_percentage >= 85 ? 'text-red-600' :
+                                         cuenta.cash_percentage >= 75 ? 'text-yellow-600' :
+                                         'text-green-600'
+                                       }`} />
+                                     </Button>
+                                   </Link>
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>Límite: {formatCurrency(cuenta.cash_limit || 0)}</p>
+                                   <p>Pagado: {formatCurrency(cuenta.cash_paid || 0)}</p>
+                                   <p>Restante: {formatCurrency(cuenta.cash_remaining || 0)}</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
+                         </TableCell>
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' ? (
+                             <TooltipProvider>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <Link to={`/admin/cuentas-cobranza/${cuenta.id}/detalle`}>
+                                     <Button variant="ghost" size="icon">
+                                       <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                     </Button>
+                                   </Link>
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>Ver detalle de pagos en efectivo</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
+                         </TableCell>
+                           <TableCell>
                             <TooltipProvider>
                               <div className="flex gap-2">
                                 <Tooltip>
@@ -882,6 +961,7 @@ export default function Pagos() {
                       <TableHead>Precio Final</TableHead>
                       <TableHead>Pagado</TableHead>
                       <TableHead>Restante</TableHead>
+                      <TableHead>Pagos en Efectivo</TableHead>
                       <TableHead>Motivo Cancelación</TableHead>
                       <TableHead>Acciones</TableHead>
                     </TableRow>
@@ -1009,10 +1089,56 @@ export default function Pagos() {
                         <TableCell className="font-semibold text-blue-600">
                           {formatCurrency(cuenta.pagado)}
                         </TableCell>
-                        <TableCell className="font-semibold text-orange-600">
-                          {formatCurrency(cuenta.restante)}
-                        </TableCell>
-                        <TableCell>
+                         <TableCell className="font-semibold text-orange-600">
+                           {formatCurrency(cuenta.restante)}
+                         </TableCell>
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' ? (
+                             <TooltipProvider>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <Link to={`/admin/cuentas-cobranza/${cuenta.id}/detalle`}>
+                                     <Button variant="ghost" size="icon">
+                                       <DollarSign className={`h-4 w-4 ${
+                                         cuenta.cash_percentage >= 85 ? 'text-red-600' :
+                                         cuenta.cash_percentage >= 75 ? 'text-yellow-600' :
+                                         'text-green-600'
+                                       }`} />
+                                     </Button>
+                                   </Link>
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>Límite: {formatCurrency(cuenta.cash_limit || 0)}</p>
+                                   <p>Pagado: {formatCurrency(cuenta.cash_paid || 0)}</p>
+                                   <p>Restante: {formatCurrency(cuenta.cash_remaining || 0)}</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
+                         </TableCell>
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' ? (
+                             <TooltipProvider>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <Link to={`/admin/cuentas-cobranza/${cuenta.id}/detalle`}>
+                                     <Button variant="ghost" size="icon">
+                                       <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                     </Button>
+                                   </Link>
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>Ver detalle de pagos en efectivo</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
+                         </TableCell>
+                         <TableCell>
                           <Badge variant={cuenta.motivo_cancelacion === "Cesión de derechos" ? "secondary" : "destructive"}>
                             {cuenta.motivo_cancelacion || "Sin especificar"}
                           </Badge>

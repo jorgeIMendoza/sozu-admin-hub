@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -77,6 +77,8 @@ interface CuentaDetalle {
   producto_servicio_nombre?: string;
   producto_servicio_id?: number;
   estatus_disponibilidad?: string;
+  valor_uma?: number;
+  id_propiedad?: number;
 }
 
 interface OfferData {
@@ -174,7 +176,8 @@ export default function DetalleCuentaCobranza() {
           es_aprobado,
           fecha_compra,
           id_oferta,
-          activo
+          activo,
+          valor_uma
         `)
         .eq('id', cuentaId)
         .maybeSingle();
@@ -286,7 +289,9 @@ export default function DetalleCuentaCobranza() {
         tipo_cuenta: tipoCuenta,
         producto_servicio_nombre: productoServicioNombre,
         producto_servicio_id: productoServicioId,
-        estatus_disponibilidad: estatusResult.data?.nombre || undefined
+        estatus_disponibilidad: estatusResult.data?.nombre || undefined,
+        valor_uma: cuenta.valor_uma || undefined,
+        id_propiedad: oferta?.propiedades?.id || undefined
       };
 
       return detalle;
@@ -647,6 +652,152 @@ export default function DetalleCuentaCobranza() {
       return acuerdosConAplicaciones;
     },
     enabled: !!cuentaId,
+  });
+
+  // Query for cash payments limit calculation (only for properties)
+  const { data: cashPaymentsData } = useQuery({
+    queryKey: ["cash_payments", cuentaId, cuentaDetalle?.id_propiedad],
+    queryFn: async () => {
+      if (!cuentaDetalle || cuentaDetalle.tipo_cuenta !== 'Propiedad' || !cuentaDetalle.id_propiedad) {
+        return null;
+      }
+
+      // Get bodegas not included
+      const { data: bodegas } = await supabase
+        .from('bodegas')
+        .select('id, id_producto, es_incluido')
+        .eq('id_propiedad', cuentaDetalle.id_propiedad)
+        .eq('es_incluido', false)
+        .eq('activo', true);
+
+      // Get estacionamientos not included
+      const { data: estacionamientos } = await supabase
+        .from('estacionamientos')
+        .select('id, id_producto, es_incluido')
+        .eq('id_propiedad', cuentaDetalle.id_propiedad)
+        .eq('es_incluido', false)
+        .eq('activo', true);
+
+      // Get all payment IDs from aplicaciones_pago for this cuenta
+      const { data: aplicaciones } = await supabase
+        .from('aplicaciones_pago')
+        .select(`
+          id_pago,
+          monto,
+          acuerdos_pago!aplicaciones_pago_id_acuerdo_pago_fkey(id_cuenta_cobranza)
+        `)
+        .eq('activo', true);
+
+      const aplicacionesDeEstaCuenta = aplicaciones?.filter(
+        a => a.acuerdos_pago?.id_cuenta_cobranza === cuentaId
+      );
+
+      // Get cash payments for property
+      const pagoIdsPropiedad = aplicacionesDeEstaCuenta?.map(a => a.id_pago).filter(Boolean) || [];
+      let pagosPropiedadEfectivo = 0;
+      
+      if (pagoIdsPropiedad.length > 0) {
+        const { data: pagosPropiedad } = await supabase
+          .from('pagos')
+          .select('id, monto, id_cuenta_cobranza')
+          .in('id', pagoIdsPropiedad)
+          .eq('id_metodos_pago', 1) // Efectivo
+          .eq('activo', true);
+
+        pagosPropiedadEfectivo = pagosPropiedad?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
+      }
+
+      // Get cash payments for bodegas (not included)
+      let pagosBodegasEfectivo = 0;
+      if (bodegas && bodegas.length > 0) {
+        const bodegaProductIds = bodegas.map(b => b.id_producto).filter(Boolean);
+        
+        if (bodegaProductIds.length > 0) {
+          // Get ofertas for these products
+          const { data: ofertasBodegas } = await supabase
+            .from('ofertas')
+            .select('id')
+            .in('id_producto', bodegaProductIds)
+            .eq('activo', true);
+
+          if (ofertasBodegas && ofertasBodegas.length > 0) {
+            const ofertaBodegaIds = ofertasBodegas.map(o => o.id);
+            
+            // Get cuentas_cobranza for these ofertas
+            const { data: cuentasBodegas } = await supabase
+              .from('cuentas_cobranza')
+              .select('id')
+              .in('id_oferta', ofertaBodegaIds)
+              .eq('activo', true);
+
+            if (cuentasBodegas && cuentasBodegas.length > 0) {
+              const cuentaBodegaIds = cuentasBodegas.map(c => c.id);
+              
+              // Get pagos for these cuentas
+              const { data: pagosBodegas } = await supabase
+                .from('pagos')
+                .select('id, monto')
+                .in('id_cuenta_cobranza', cuentaBodegaIds)
+                .eq('id_metodos_pago', 1)
+                .eq('activo', true);
+
+              pagosBodegasEfectivo = pagosBodegas?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
+            }
+          }
+        }
+      }
+
+      // Get cash payments for estacionamientos (not included)
+      let pagosEstacionamientosEfectivo = 0;
+      if (estacionamientos && estacionamientos.length > 0) {
+        const estacionamientoProductIds = estacionamientos.map(e => e.id_producto).filter(Boolean);
+        
+        if (estacionamientoProductIds.length > 0) {
+          const { data: ofertasEstacionamientos } = await supabase
+            .from('ofertas')
+            .select('id')
+            .in('id_producto', estacionamientoProductIds)
+            .eq('activo', true);
+
+          if (ofertasEstacionamientos && ofertasEstacionamientos.length > 0) {
+            const ofertaEstacionamientoIds = ofertasEstacionamientos.map(o => o.id);
+            
+            const { data: cuentasEstacionamientos } = await supabase
+              .from('cuentas_cobranza')
+              .select('id')
+              .in('id_oferta', ofertaEstacionamientoIds)
+              .eq('activo', true);
+
+            if (cuentasEstacionamientos && cuentasEstacionamientos.length > 0) {
+              const cuentaEstacionamientoIds = cuentasEstacionamientos.map(c => c.id);
+              
+              const { data: pagosEstacionamientos } = await supabase
+                .from('pagos')
+                .select('id, monto')
+                .in('id_cuenta_cobranza', cuentaEstacionamientoIds)
+                .eq('id_metodos_pago', 1)
+                .eq('activo', true);
+
+              pagosEstacionamientosEfectivo = pagosEstacionamientos?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
+            }
+          }
+        }
+      }
+
+      const valorUma = cuentaDetalle.valor_uma || 0;
+      const limiteEfectivo = valorUma * 825;
+      const pagadoEfectivo = pagosPropiedadEfectivo + pagosBodegasEfectivo + pagosEstacionamientosEfectivo;
+      const restanteEfectivo = limiteEfectivo - pagadoEfectivo;
+
+      return {
+        limiteEfectivo,
+        pagadoEfectivo,
+        restanteEfectivo,
+        tieneBodegas: (bodegas?.length || 0) > 0,
+        tieneEstacionamientos: (estacionamientos?.length || 0) > 0
+      };
+    },
+    enabled: !!cuentaDetalle && cuentaDetalle.tipo_cuenta === 'Propiedad' && !!cuentaDetalle.id_propiedad,
   });
 
   // Check if there are payments with "Cesión de derechos" method (ID 8)
@@ -1081,17 +1232,64 @@ export default function DetalleCuentaCobranza() {
           </Card>
         )}
 
-        {/* Only show Estado card for property accounts, not for products/services */}
-        {cuentaDetalle.tipo_cuenta === 'Propiedad' && (
+        {/* Cash payments card for property accounts only */}
+        {cuentaDetalle.tipo_cuenta === 'Propiedad' && cashPaymentsData && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Estado</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Pago en efectivo</CardTitle>
+                <div className="flex items-center gap-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Home className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Propiedad</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {cashPaymentsData.tieneEstacionamientos && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Car className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Estacionamiento no incluido</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {cashPaymentsData.tieneBodegas && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Warehouse className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Bodega no incluida</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              </div>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <Badge variant={cuentaDetalle.es_aprobado ? "default" : "secondary"}>
-                {cuentaDetalle.es_aprobado ? "Aprobado" : "Pendiente"}
-              </Badge>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Límite:</span>
+                <span className="font-medium">{formatCurrency(cashPaymentsData.limiteEfectivo)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Pagado:</span>
+                <span className="font-medium">{formatCurrency(cashPaymentsData.pagadoEfectivo)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Restante:</span>
+                <span className="font-medium">{formatCurrency(cashPaymentsData.restanteEfectivo)}</span>
+              </div>
             </CardContent>
           </Card>
         )}
