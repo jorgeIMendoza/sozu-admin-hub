@@ -1615,8 +1615,8 @@ const Propiedades = () => {
                                   </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-xs">
-                                  <p className="font-semibold">⚠️ Apartado pendiente de pago</p>
-                                  <p className="text-sm">Esta cuenta fue generada pero aún no ha recibido el pago inicial.</p>
+                                  <p className="font-semibold">⚠️ Pago inicial pendiente</p>
+                                  <p className="text-sm">Esta cuenta fue generada pero aún no ha recibido el pago inicial completo</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
