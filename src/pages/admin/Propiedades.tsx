@@ -1617,22 +1617,7 @@ const Propiedades = () => {
                           >
                             {formatCuentaCobranzaId(property.cuenta_cobranza_id, 'Propiedad')}
                           </Button>
-                          {!property.apartado_pagado && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 h-6 w-6 p-0 flex items-center justify-center">
-                                    <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <p className="font-semibold">⚠️ Pago inicial pendiente</p>
-                                  <p className="text-sm">Esta cuenta fue generada pero aún no ha recibido el pago inicial completo</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          {property.cuenta_sin_esquema && (
+                          {property.cuenta_sin_esquema ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
@@ -1646,7 +1631,21 @@ const Propiedades = () => {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          )}
+                          ) : !property.apartado_pagado ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 h-6 w-6 p-0 flex items-center justify-center">
+                                    <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p className="font-semibold">⚠️ Pago inicial pendiente</p>
+                                  <p className="text-sm">Esta cuenta fue generada pero aún no ha recibido el pago inicial completo</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : null}
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
