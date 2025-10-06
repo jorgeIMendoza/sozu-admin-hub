@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home, FileText, ArrowRightLeft, Zap, TrendingUp, TrendingDown, Equal, Check, X, ShoppingCart } from "lucide-react";
+import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home, FileText, ArrowRightLeft, Zap, TrendingUp, TrendingDown, Equal, Check, X, ShoppingCart, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ interface Property {
   restante: number; // Nueva propiedad para monto restante
   activo: boolean;
   es_aprobado: boolean;
+  apartado_pagado: boolean; // Nueva propiedad para saber si el apartado está pagado
   // Relaciones
   propietario: string;
   proyecto: string;
@@ -522,6 +523,7 @@ const Propiedades = () => {
           restante,
           activo: property.activo,
           es_aprobado: property.es_aprobado,
+          apartado_pagado: paymentStatus?.apartado?.status === 'pagado',
           propietario: property.entidades_relacionadas?.personas?.nombre_legal || 'Sin propietario',
           proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
           proyecto_id: property.edificios_modelos?.edificios?.proyectos?.id || 0,
@@ -1595,14 +1597,31 @@ const Propiedades = () => {
                     </TableCell>
                     <TableCell>
                       {property.cuenta_cobranza_id ? (
-                        <Button
-                          variant="outline"  
-                          size="sm"
-                          onClick={() => navigate(`/admin/cuentas-cobranza/${property.cuenta_cobranza_id}/detalle`)}
-                          className="h-6 px-2 text-xs font-semibold cursor-pointer hover:bg-accent"
-                        >
-                          {formatCuentaCobranzaId(property.cuenta_cobranza_id, 'Propiedad')}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"  
+                            size="sm"
+                            onClick={() => navigate(`/admin/cuentas-cobranza/${property.cuenta_cobranza_id}/detalle`)}
+                            className="h-6 px-2 text-xs font-semibold cursor-pointer hover:bg-accent"
+                          >
+                            {formatCuentaCobranzaId(property.cuenta_cobranza_id, 'Propiedad')}
+                          </Button>
+                          {!property.apartado_pagado && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 h-6 w-6 p-0 flex items-center justify-center">
+                                    <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p className="font-semibold">⚠️ Apartado pendiente de pago</p>
+                                  <p className="text-sm">Esta cuenta fue generada pero aún no ha recibido el pago inicial.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                       ) : (
                         <Badge variant="outline">N/A</Badge>
                       )}
