@@ -120,14 +120,14 @@ export default function Pagos() {
       
       console.log('Pagado por cuenta:', pagadoPorCuenta);
 
-      // Get acuerdos_pago to check if "Apartado" is paid
+      // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid
       const { data: acuerdosPago } = await supabase
         .from('acuerdos_pago')
         .select('id, id_cuenta_cobranza, id_concepto, pago_completado')
         .in('id_cuenta_cobranza', cuentaIds)
         .eq('activo', true);
 
-      console.log('🔍 Acuerdos de apartado y cesión:', acuerdosPago);
+      console.log('🔍 Acuerdos de pago:', acuerdosPago);
 
       // Get aplicaciones_pago para verificar si hay pagos de cesión de derechos
       const acuerdoIds = acuerdosPago?.map(a => a.id) || [];
@@ -157,18 +157,41 @@ export default function Pagos() {
         console.log('🔍 Cuentas con cesión de derechos:', cesionDerechosMap);
       }
 
-      // Create a map of whether apartado is paid for each cuenta
+      // Primero necesitamos determinar qué cuentas son de productos
+      // Obtenemos las ofertas para saber cuáles tienen id_producto
+      const { data: ofertasTemp } = await supabase
+        .from('ofertas')
+        .select('id, id_producto')
+        .in('id', cuentas.map(c => c.id_oferta));
+
+      const cuentasProductoSet = new Set(
+        ofertasTemp?.filter(o => o.id_producto).map(o => 
+          cuentas.find(c => c.id_oferta === o.id)?.id
+        ).filter(Boolean) || []
+      );
+
+      console.log('🔍 Cuentas de productos:', Array.from(cuentasProductoSet));
+
+      // Create a map of whether initial payment is made for each cuenta
       const apartadoPagadoPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
-        // Buscar acuerdo de apartado
-        const acuerdoApartado = acuerdosPago?.find(
-          ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 1
-        );
+        const esProducto = cuentasProductoSet.has(cuenta.id);
         
-        // Considerar pagado si:
-        // 1. El acuerdo de apartado está marcado como completado, O
-        // 2. Hay pagos de cesión de derechos para esta cuenta
-        acc[cuenta.id] = (acuerdoApartado?.pago_completado || false) || (cesionDerechosMap[cuenta.id] || false);
-        console.log(`💰 Cuenta ${cuenta.id}: apartado_pagado = ${acc[cuenta.id]} (apartado: ${acuerdoApartado?.pago_completado}, cesión: ${cesionDerechosMap[cuenta.id]})`);
+        if (esProducto) {
+          // Para productos, el pago inicial es el Enganche (id_concepto = 2)
+          const acuerdoEnganche = acuerdosPago?.find(
+            ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 2
+          );
+          acc[cuenta.id] = acuerdoEnganche?.pago_completado || false;
+          console.log(`💰 Cuenta ${cuenta.id} [PRODUCTO]: enganche_pagado = ${acc[cuenta.id]}`);
+        } else {
+          // Para propiedades, el pago inicial es Apartado (id_concepto = 1) o Cesión de derechos (id_concepto = 6)
+          const acuerdoApartado = acuerdosPago?.find(
+            ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 1
+          );
+          acc[cuenta.id] = (acuerdoApartado?.pago_completado || false) || (cesionDerechosMap[cuenta.id] || false);
+          console.log(`💰 Cuenta ${cuenta.id} [PROPIEDAD]: apartado_pagado = ${acc[cuenta.id]} (apartado: ${acuerdoApartado?.pago_completado}, cesión: ${cesionDerechosMap[cuenta.id]})`);
+        }
+        
         return acc;
       }, {});
 
