@@ -1619,7 +1619,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2">
                         <Label>Notario asignado</Label>
-                        <Select value={selectedNotario} onValueChange={handleNotarioChange}>
+                        <Select value={selectedNotario} onValueChange={handleNotarioChange} disabled={tipoCuenta === 'Producto'}>
                           <SelectTrigger>
                             <SelectValue placeholder="Seleccionar notario" />
                           </SelectTrigger>
@@ -1643,6 +1643,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               onChange={(e) => setClaveCatastral(e.target.value)}
                               onBlur={() => updateEscrituraMutation.mutate({ clave_catastral: claveCatastral })}
                               placeholder="Ingrese clave catastral"
+                              disabled={tipoCuenta === 'Producto'}
                             />
                           </div>
                           <div>
@@ -1652,6 +1653,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               onChange={(e) => setNumeroEscritura(e.target.value)}
                               onBlur={() => updateEscrituraMutation.mutate({ numero_escritura: numeroEscritura })}
                               placeholder="Ingrese número de escritura"
+                              disabled={tipoCuenta === 'Producto'}
                             />
                           </div>
                           <div>
@@ -1661,6 +1663,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               onChange={(e) => setLibro(e.target.value)}
                               onBlur={() => updateEscrituraMutation.mutate({ libro: libro })}
                               placeholder="Ingrese libro"
+                              disabled={tipoCuenta === 'Producto'}
                             />
                           </div>
                           <div>
@@ -1670,6 +1673,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               onChange={(e) => setHoja(e.target.value)}
                               onBlur={() => updateEscrituraMutation.mutate({ hoja: hoja })}
                               placeholder="Ingrese hoja"
+                              disabled={tipoCuenta === 'Producto'}
                             />
                           </div>
                           <div>
@@ -1679,6 +1683,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 <Button
                                   variant="outline"
                                   className="w-full justify-start text-left font-normal"
+                                  disabled={tipoCuenta === 'Producto'}
                                 >
                                   <CalendarIcon className="mr-2 h-4 w-4" />
                                   {fechaEscritura ? format(fechaEscritura, "PPP", { locale: es }) : "Seleccionar fecha"}
@@ -1695,6 +1700,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                     });
                                   }}
                                   initialFocus
+                                  disabled={tipoCuenta === 'Producto'}
                                 />
                               </PopoverContent>
                             </Popover>
@@ -1706,6 +1712,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               onChange={(e) => setNumeroUnidadPrivativa(e.target.value)}
                               onBlur={() => updateEscrituraMutation.mutate({ numero_unidad_privativa: numeroUnidadPrivativa })}
                               placeholder="Ingrese número de unidad privativa"
+                              disabled={tipoCuenta === 'Producto'}
                             />
                           </div>
                         </>
