@@ -87,7 +87,7 @@ export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDet
                     <HeartHandshake className="h-5 w-5 text-pink-500" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Los compradores son cónyuges</p>
+                    <p>Hay compradores cónyuges</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
