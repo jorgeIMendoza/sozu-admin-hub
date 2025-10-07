@@ -46,6 +46,7 @@ interface CuentaCobranza {
   id_oferta: number;
   motivo_cancelacion?: string | null;
   apartado_pagado: boolean;
+  tiene_acuerdos: boolean;
   cash_limit?: number;
   cash_paid?: number;
   cash_remaining?: number;
@@ -216,6 +217,13 @@ export default function Pagos() {
         return acc;
       }, {});
 
+      // Create a map to check if each cuenta has acuerdos
+      const tieneAcuerdosPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
+        const tieneAcuerdos = acuerdosPago?.some(ap => ap.id_cuenta_cobranza === cuenta.id) || false;
+        acc[cuenta.id] = tieneAcuerdos;
+        return acc;
+      }, {});
+
       // Get offer IDs to fetch related data
       const ofertaIds = cuentas.map(c => c.id_oferta);
 
@@ -349,7 +357,8 @@ export default function Pagos() {
           activo: cuenta.activo,
           id_oferta: cuenta.id_oferta,
           motivo_cancelacion: (cuenta as any).tipos_cancelacion?.nombre || null,
-          apartado_pagado: apartadoPagadoPorCuenta[cuenta.id]
+          apartado_pagado: apartadoPagadoPorCuenta[cuenta.id],
+          tiene_acuerdos: tieneAcuerdosPorCuenta[cuenta.id]
         };
       });
 
