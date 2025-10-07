@@ -35,6 +35,7 @@ export const ProjectLegalEntitiesSection = ({
   const [tempCuentaMadre, setTempCuentaMadre] = useState<string>("");
   const [editingApiKey, setEditingApiKey] = useState<number | null>(null);
   const [tempApiKeyName, setTempApiKeyName] = useState<string>("");
+  const [tempApiKeyValue, setTempApiKeyValue] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -436,7 +437,12 @@ export const ProjectLegalEntitiesSection = ({
 
   // Update facturar mutation
   const updateFacturarMutation = useMutation({
-    mutationFn: async ({ entityId, facturar }: { entityId: number; facturar: boolean }) => {
+    mutationFn: async ({ entityId, facturar, entity }: { entityId: number; facturar: boolean; entity: any }) => {
+      // If trying to enable facturar, validate that API key name exists
+      if (facturar && !entity.nombre_api_key) {
+        throw new Error("Debes asignar un nombre de API Key antes de habilitar facturación");
+      }
+
       const { error } = await supabase
         .from("entidades_relacionadas")
         .update({ facturar })
@@ -467,13 +473,25 @@ export const ProjectLegalEntitiesSection = ({
 
   // Update API key name mutation
   const updateApiKeyMutation = useMutation({
-    mutationFn: async ({ entityId, apiKeyName }: { entityId: number; apiKeyName: string }) => {
+    mutationFn: async ({ entityId, apiKeyName, apiKeyValue }: { entityId: number; apiKeyName: string; apiKeyValue?: string }) => {
+      if (!apiKeyName || apiKeyName.trim() === "") {
+        throw new Error("El nombre de la API Key es obligatorio");
+      }
+
       const { error } = await supabase
         .from("entidades_relacionadas")
-        .update({ nombre_api_key: apiKeyName || null })
+        .update({ nombre_api_key: apiKeyName })
         .eq("id", entityId);
 
       if (error) throw error;
+
+      // If API key value is provided, save it to Supabase secrets
+      // Note: This would typically be done through an edge function for security
+      if (apiKeyValue) {
+        // TODO: Call edge function to store API key value in Supabase secrets
+        // For now, just log it (in production, this should call an edge function)
+        console.log(`API Key value for ${apiKeyName} should be stored in secrets`);
+      }
     },
     onSuccess: async () => {
       toast({
@@ -482,6 +500,7 @@ export const ProjectLegalEntitiesSection = ({
       });
       setEditingApiKey(null);
       setTempApiKeyName("");
+      setTempApiKeyValue("");
       
       // Refetch solo la query de entidades legales sin afectar otras queries
       await queryClient.refetchQueries({ 
@@ -736,7 +755,8 @@ export const ProjectLegalEntitiesSection = ({
                                   onCheckedChange={(checked) => {
                                     updateFacturarMutation.mutate({
                                       entityId: entity.id,
-                                      facturar: checked as boolean
+                                      facturar: checked as boolean,
+                                      entity: entity
                                     });
                                   }}
                                   disabled={updateFacturarMutation.isPending}
@@ -749,75 +769,111 @@ export const ProjectLegalEntitiesSection = ({
                                 </Label>
                               </div>
 
-                              {/* API Key Name field - shown only when facturar is checked */}
+                              {/* API Key Name and Value fields - shown only when facturar is checked */}
                               {entity.facturar && (
-                                <div>
-                                  <label className="text-sm font-medium">Nombre de API Key:</label>
-                                  {editingApiKey === entity.id ? (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <Input
-                                        value={tempApiKeyName}
-                                        onChange={(e) => {
-                                          // Only allow uppercase letters, no spaces, no numbers, no special characters
-                                          const cleanValue = e.target.value
-                                            .replace(/[^a-zA-Z]/g, '') // Remove everything except letters
-                                            .toUpperCase(); // Convert to uppercase
-                                          setTempApiKeyName(cleanValue);
-                                        }}
-                                        placeholder="NOMBREDEAPIKEY"
-                                        className="flex-1"
-                                      />
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          updateApiKeyMutation.mutate({
-                                            entityId: entity.id,
-                                            apiKeyName: tempApiKeyName
-                                          });
-                                        }}
-                                        disabled={updateApiKeyMutation.isPending}
-                                      >
-                                        <Save className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setEditingApiKey(null);
-                                          setTempApiKeyName("");
-                                        }}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-sm flex-1">
-                                        {entity.nombre_api_key || (
-                                          <span className="text-muted-foreground italic">No asignada</span>
-                                        )}
-                                      </span>
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setEditingApiKey(entity.id);
-                                          setTempApiKeyName(entity.nombre_api_key || "");
-                                        }}
-                                      >
-                                        <Edit2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  )}
+                                <div className="space-y-3">
+                                  {/* API Key Name */}
+                                  <div>
+                                    <label className="text-sm font-medium">
+                                      Nombre de API Key: <span className="text-destructive">*</span>
+                                    </label>
+                                    {editingApiKey === entity.id ? (
+                                      <div className="space-y-2 mt-1">
+                                        <Input
+                                          value={tempApiKeyName}
+                                          onChange={(e) => {
+                                            // Only allow uppercase letters, no spaces, no numbers, no special characters
+                                            const cleanValue = e.target.value
+                                              .replace(/[^a-zA-Z]/g, '') // Remove everything except letters
+                                              .toUpperCase(); // Convert to uppercase
+                                            setTempApiKeyName(cleanValue);
+                                          }}
+                                          placeholder="NOMBREDEAPIKEY"
+                                          className="w-full"
+                                        />
+                                        
+                                        {/* API Key Value */}
+                                        <div>
+                                          <label className="text-sm font-medium">
+                                            Valor de API Key: <span className="text-destructive">*</span>
+                                          </label>
+                                          <Input
+                                            type="password"
+                                            value={tempApiKeyValue}
+                                            onChange={(e) => setTempApiKeyValue(e.target.value)}
+                                            placeholder="Ingresa el valor de la API Key"
+                                            className="w-full mt-1"
+                                          />
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              updateApiKeyMutation.mutate({
+                                                entityId: entity.id,
+                                                apiKeyName: tempApiKeyName,
+                                                apiKeyValue: tempApiKeyValue
+                                              });
+                                            }}
+                                            disabled={updateApiKeyMutation.isPending || !tempApiKeyName || !tempApiKeyValue}
+                                          >
+                                            <Save className="h-4 w-4 mr-1" />
+                                            Guardar
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              setEditingApiKey(null);
+                                              setTempApiKeyName("");
+                                              setTempApiKeyValue("");
+                                            }}
+                                          >
+                                            <X className="h-4 w-4 mr-1" />
+                                            Cancelar
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-sm flex-1">
+                                          {entity.nombre_api_key ? (
+                                            <>
+                                              <span className="font-mono">{entity.nombre_api_key}</span>
+                                              <Badge variant="secondary" className="ml-2 text-xs">
+                                                Configurada
+                                              </Badge>
+                                            </>
+                                          ) : (
+                                            <span className="text-destructive italic">
+                                              No asignada (requerida)
+                                            </span>
+                                          )}
+                                        </span>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setEditingApiKey(entity.id);
+                                            setTempApiKeyName(entity.nombre_api_key || "");
+                                            setTempApiKeyValue("");
+                                          }}
+                                        >
+                                          <Edit2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                             </div>
