@@ -1346,7 +1346,7 @@ export default function DetalleCuentaCobranza() {
                 <span className="font-medium">{formatCurrency(cashPaymentsData.pagadoEfectivo)}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Restante:</span>
+                <span className="text-muted-foreground">Aún permitido:</span>
                 <span className="font-medium">{formatCurrency(cashPaymentsData.restanteEfectivo)}</span>
               </div>
             </CardContent>

@@ -759,11 +759,11 @@ export default function Pagos() {
                                      </Button>
                                    </Link>
                                  </TooltipTrigger>
-                                 <TooltipContent>
-                                   <p>Límite: {formatCurrency(cuenta.cash_limit || 0)}</p>
-                                   <p>Pagado: {formatCurrency(cuenta.cash_paid || 0)}</p>
-                                   <p>Restante: {formatCurrency(cuenta.cash_remaining || 0)}</p>
-                                 </TooltipContent>
+                                  <TooltipContent>
+                                    <p>Límite: {formatCurrency(cuenta.cash_limit || 0)}</p>
+                                    <p>Pagado: {formatCurrency(cuenta.cash_paid || 0)}</p>
+                                    <p>Aún permitido: {formatCurrency(cuenta.cash_remaining || 0)}</p>
+                                  </TooltipContent>
                                </Tooltip>
                              </TooltipProvider>
                            ) : (
@@ -1107,11 +1107,11 @@ export default function Pagos() {
                                      </Button>
                                    </Link>
                                  </TooltipTrigger>
-                                 <TooltipContent>
-                                   <p>Límite: {formatCurrency(cuenta.cash_limit || 0)}</p>
-                                   <p>Pagado: {formatCurrency(cuenta.cash_paid || 0)}</p>
-                                   <p>Restante: {formatCurrency(cuenta.cash_remaining || 0)}</p>
-                                 </TooltipContent>
+                                  <TooltipContent>
+                                    <p>Límite: {formatCurrency(cuenta.cash_limit || 0)}</p>
+                                    <p>Pagado: {formatCurrency(cuenta.cash_paid || 0)}</p>
+                                    <p>Aún permitido: {formatCurrency(cuenta.cash_remaining || 0)}</p>
+                                  </TooltipContent>
                                </Tooltip>
                              </TooltipProvider>
                            ) : (
