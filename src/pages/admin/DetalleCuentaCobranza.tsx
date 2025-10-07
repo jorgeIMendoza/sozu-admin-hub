@@ -692,19 +692,29 @@ export default function DetalleCuentaCobranza() {
         a => a.acuerdos_pago?.id_cuenta_cobranza === cuentaId
       );
 
-      // Get cash payments for property
-      const pagoIdsPropiedad = aplicacionesDeEstaCuenta?.map(a => a.id_pago).filter(Boolean) || [];
+      // Get cash payments for property - sum from aplicaciones_pago to avoid duplicates
       let pagosPropiedadEfectivo = 0;
       
-      if (pagoIdsPropiedad.length > 0) {
-        const { data: pagosPropiedad } = await supabase
-          .from('pagos')
-          .select('id, monto, id_cuenta_cobranza')
-          .in('id', pagoIdsPropiedad)
-          .eq('id_metodos_pago', 1) // Efectivo
-          .eq('activo', true);
+      if (aplicacionesDeEstaCuenta && aplicacionesDeEstaCuenta.length > 0) {
+        const pagoIds = aplicacionesDeEstaCuenta.map(a => a.id_pago).filter(Boolean);
+        
+        if (pagoIds.length > 0) {
+          // Get the payment methods for these payments
+          const { data: pagosData } = await supabase
+            .from('pagos')
+            .select('id, id_metodos_pago')
+            .in('id', pagoIds)
+            .eq('id_metodos_pago', 1) // Efectivo only
+            .eq('activo', true);
 
-        pagosPropiedadEfectivo = pagosPropiedad?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
+          // Get the IDs of cash payments
+          const pagoEfectivoIds = pagosData?.map(p => p.id) || [];
+          
+          // Sum only the application amounts for cash payments
+          pagosPropiedadEfectivo = aplicacionesDeEstaCuenta
+            .filter(app => pagoEfectivoIds.includes(app.id_pago))
+            .reduce((sum, app) => sum + (app.monto || 0), 0);
+        }
       }
 
       // Get cash payments for bodegas (not included)
@@ -733,15 +743,39 @@ export default function DetalleCuentaCobranza() {
             if (cuentasBodegas && cuentasBodegas.length > 0) {
               const cuentaBodegaIds = cuentasBodegas.map(c => c.id);
               
-              // Get pagos for these cuentas
-              const { data: pagosBodegas } = await supabase
-                .from('pagos')
-                .select('id, monto')
-                .in('id_cuenta_cobranza', cuentaBodegaIds)
-                .eq('id_metodos_pago', 1)
+              // Get aplicaciones_pago for these cuentas to avoid duplicates
+              const { data: aplicacionesBodegas } = await supabase
+                .from('aplicaciones_pago')
+                .select(`
+                  id_pago,
+                  monto,
+                  acuerdos_pago!aplicaciones_pago_id_acuerdo_pago_fkey(id_cuenta_cobranza)
+                `)
                 .eq('activo', true);
 
-              pagosBodegasEfectivo = pagosBodegas?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
+              const aplicacionesBodegasDeEstaCuenta = aplicacionesBodegas?.filter(
+                a => cuentaBodegaIds.includes(a.acuerdos_pago?.id_cuenta_cobranza)
+              );
+
+              if (aplicacionesBodegasDeEstaCuenta && aplicacionesBodegasDeEstaCuenta.length > 0) {
+                const pagoBodegaIds = aplicacionesBodegasDeEstaCuenta.map(a => a.id_pago).filter(Boolean);
+                
+                // Get the payment methods for these payments
+                const { data: pagosBodegasData } = await supabase
+                  .from('pagos')
+                  .select('id, id_metodos_pago')
+                  .in('id', pagoBodegaIds)
+                  .eq('id_metodos_pago', 1) // Efectivo only
+                  .eq('activo', true);
+
+                // Get the IDs of cash payments
+                const pagoBodegaEfectivoIds = pagosBodegasData?.map(p => p.id) || [];
+                
+                // Sum only the application amounts for cash payments
+                pagosBodegasEfectivo = aplicacionesBodegasDeEstaCuenta
+                  .filter(app => pagoBodegaEfectivoIds.includes(app.id_pago))
+                  .reduce((sum, app) => sum + (app.monto || 0), 0);
+              }
             }
           }
         }
@@ -771,14 +805,39 @@ export default function DetalleCuentaCobranza() {
             if (cuentasEstacionamientos && cuentasEstacionamientos.length > 0) {
               const cuentaEstacionamientoIds = cuentasEstacionamientos.map(c => c.id);
               
-              const { data: pagosEstacionamientos } = await supabase
-                .from('pagos')
-                .select('id, monto')
-                .in('id_cuenta_cobranza', cuentaEstacionamientoIds)
-                .eq('id_metodos_pago', 1)
+              // Get aplicaciones_pago for these cuentas to avoid duplicates
+              const { data: aplicacionesEstacionamientos } = await supabase
+                .from('aplicaciones_pago')
+                .select(`
+                  id_pago,
+                  monto,
+                  acuerdos_pago!aplicaciones_pago_id_acuerdo_pago_fkey(id_cuenta_cobranza)
+                `)
                 .eq('activo', true);
 
-              pagosEstacionamientosEfectivo = pagosEstacionamientos?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
+              const aplicacionesEstacionamientosDeEstaCuenta = aplicacionesEstacionamientos?.filter(
+                a => cuentaEstacionamientoIds.includes(a.acuerdos_pago?.id_cuenta_cobranza)
+              );
+
+              if (aplicacionesEstacionamientosDeEstaCuenta && aplicacionesEstacionamientosDeEstaCuenta.length > 0) {
+                const pagoEstacionamientoIds = aplicacionesEstacionamientosDeEstaCuenta.map(a => a.id_pago).filter(Boolean);
+                
+                // Get the payment methods for these payments
+                const { data: pagosEstacionamientosData } = await supabase
+                  .from('pagos')
+                  .select('id, id_metodos_pago')
+                  .in('id', pagoEstacionamientoIds)
+                  .eq('id_metodos_pago', 1) // Efectivo only
+                  .eq('activo', true);
+
+                // Get the IDs of cash payments
+                const pagoEstacionamientoEfectivoIds = pagosEstacionamientosData?.map(p => p.id) || [];
+                
+                // Sum only the application amounts for cash payments
+                pagosEstacionamientosEfectivo = aplicacionesEstacionamientosDeEstaCuenta
+                  .filter(app => pagoEstacionamientoEfectivoIds.includes(app.id_pago))
+                  .reduce((sum, app) => sum + (app.monto || 0), 0);
+              }
             }
           }
         }
