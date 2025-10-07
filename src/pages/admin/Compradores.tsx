@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, CreditCard, UserX, Bell } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, CreditCard, UserX, HeartHandshake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -497,7 +497,7 @@ export default function Compradores() {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Bell className="h-4 w-4 text-amber-500 cursor-help" />
+                              <HeartHandshake className="h-4 w-4 text-pink-500 cursor-help" />
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="font-medium">Cónyuge: {comprador.conyuge_nombre}</p>

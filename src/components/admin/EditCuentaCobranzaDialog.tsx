@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Edit, Trash2, Plus } from 'lucide-react';
+import { CalendarIcon, Edit, Trash2, Plus, HeartHandshake } from 'lucide-react';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from 'sonner';
@@ -2021,12 +2021,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             <React.Fragment key={index}>
                            <TableRow className="hover:bg-muted/30 transition-colors">
                               <TableCell className="font-medium">
-                                <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
                                   <span>{comprador.personas?.nombre_legal}</span>
-                                  {esCasadoMancomunados && (
-                                    <Badge variant="outline" className="w-fit text-xs">
-                                      Casado(a) bienes mancomunados
-                                    </Badge>
+                                  {esCasadoMancomunados && comprador.personas?.id_conyuge && (
+                                    <HeartHandshake className="h-4 w-4 text-pink-500" />
                                   )}
                                 </div>
                               </TableCell>
@@ -2073,76 +2071,63 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                                           !Array.isArray(conyugeData) &&
                                                           'nombre_legal' in conyugeData;
                               
+                              // Check if spouse is already added as comprador
+                              const conyugeYaAgregado = compradoresExistentes?.some(c => c.personas?.id === comprador.personas?.id_conyuge);
+                              
                               return (
-                                <TableRow className="bg-blue-50 dark:bg-blue-950/20">
-                                  <TableCell colSpan={6}>
-                                    <div className="p-3 space-y-3">
-                                      {tieneConyugeAsignado ? (
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2">
-                                            <Label className="text-sm font-medium">Cónyuge asignado:</Label>
-                                            <Badge variant="default" className="text-xs">
-                                              {(conyugeData as { nombre_legal: string; rfc?: string; email: string }).nombre_legal}
-                                            </Badge>
-                                          </div>
-                                          
-                                          {/* Check if spouse is already added as comprador */}
-                                          {!compradoresExistentes?.some(c => c.personas?.id === comprador.personas?.id_conyuge) && (
-                                            <div className="bg-background p-3 rounded border">
-                                              <div className="flex justify-between items-start">
-                                                <div className="flex-1">
-                                                  <p className="font-medium text-sm">
-                                                    {(conyugeData as { nombre_legal: string; rfc?: string; email: string }).nombre_legal}
-                                                  </p>
-                                                  <p className="text-xs text-muted-foreground">
-                                                    {(conyugeData as { nombre_legal: string; rfc?: string; email: string }).rfc && `RFC: ${(conyugeData as { nombre_legal: string; rfc?: string; email: string }).rfc} | `}
-                                                    {(conyugeData as { nombre_legal: string; rfc?: string; email: string }).email}
-                                                  </p>
-                                                  <div className="mt-2 text-xs text-muted-foreground">
-                                                    <p>• Se agregará como comprador automáticamente</p>
-                                                    <p>• Los porcentajes se redistribuirán equitativamente</p>
-                                                  </div>
+                                <>
+                                  {tieneConyugeAsignado && !conyugeYaAgregado && (
+                                    <TableRow className="bg-blue-50 dark:bg-blue-950/20">
+                                      <TableCell colSpan={6}>
+                                        <div className="p-3">
+                                          <div className="bg-background p-3 rounded border">
+                                            <div className="flex justify-between items-start">
+                                              <div className="flex-1">
+                                                <p className="font-medium text-sm">
+                                                  {(conyugeData as { nombre_legal: string; rfc?: string; email: string }).nombre_legal}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  {(conyugeData as { nombre_legal: string; rfc?: string; email: string }).rfc && `RFC: ${(conyugeData as { nombre_legal: string; rfc?: string; email: string }).rfc} | `}
+                                                  {(conyugeData as { nombre_legal: string; rfc?: string; email: string }).email}
+                                                </p>
+                                                <div className="mt-2 text-xs text-muted-foreground">
+                                                  <p>• Se agregará como comprador automáticamente</p>
+                                                  <p>• Los porcentajes se redistribuirán equitativamente</p>
                                                 </div>
-                                                <Button
-                                                  size="sm"
-                                                  onClick={() => {
-                                                    if (comprador.personas?.id_conyuge) {
-                                                      addCompradorMutation.mutate({ 
-                                                        personaId: comprador.personas.id_conyuge
-                                                      });
-                                                    }
-                                                  }}
-                                                  disabled={addCompradorMutation.isPending}
-                                                >
-                                                  <Plus className="h-3 w-3 mr-1" />
-                                                  Agregar Cónyuge
-                                                </Button>
                                               </div>
+                                              <Button
+                                                size="sm"
+                                                onClick={() => {
+                                                  if (comprador.personas?.id_conyuge) {
+                                                    addCompradorMutation.mutate({ 
+                                                      personaId: comprador.personas.id_conyuge
+                                                    });
+                                                  }
+                                                }}
+                                                disabled={addCompradorMutation.isPending}
+                                              >
+                                                <Plus className="h-3 w-3 mr-1" />
+                                                Agregar Cónyuge
+                                              </Button>
                                             </div>
-                                          )}
-                                          
-                                          {compradoresExistentes?.some(c => c.personas?.id === comprador.personas?.id_conyuge) && (
-                                            <p className="text-sm text-muted-foreground">
-                                              ✓ El cónyuge ya está agregado como comprador
-                                            </p>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2">
-                                            <Label className="text-sm font-medium">Cónyuge:</Label>
-                                            <Badge variant="secondary" className="text-xs">
-                                              Obligatorio para bienes mancomunados
-                                            </Badge>
                                           </div>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                  
+                                  {!tieneConyugeAsignado && (
+                                    <TableRow className="bg-yellow-50 dark:bg-yellow-950/20">
+                                      <TableCell colSpan={6}>
+                                        <div className="p-3">
                                           <p className="text-xs text-yellow-600 dark:text-yellow-400">
                                             ⚠️ Este comprador no tiene un cónyuge asignado. Ve a la vista de Compradores para asignar el cónyuge.
                                           </p>
                                         </div>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </>
                               );
                             })()}
                             </React.Fragment>

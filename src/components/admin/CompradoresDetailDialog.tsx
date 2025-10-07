@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, ExternalLink } from "lucide-react";
+import { Users, HeartHandshake } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Comprador {
   nombre_legal: string;
@@ -78,17 +78,21 @@ export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDet
           <DialogTitle>Detalle de Compradores</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            Total de compradores: {compradores.length}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Total de compradores: {compradores.length}</span>
+            {areSpouses && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HeartHandshake className="h-5 w-5 text-pink-500" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Los compradores son cónyuges</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
-
-          {areSpouses && (
-            <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-              <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
-                Los compradores son cónyuges
-              </AlertDescription>
-            </Alert>
-          )}
           
           <Table>
             <TableHeader>
