@@ -602,8 +602,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       return;
     }
 
-    // Validation for spouse selection
-    if (idEstadoCivil === '2' || idEstadoCivil === 2) {
+    // Validation for spouse selection (solo para personas físicas)
+    if (tipoPersona === 'pf' && (idEstadoCivil === '2' || idEstadoCivil === 2)) {
       if (!idConyuge) {
         toast({
           title: "Error",
@@ -628,8 +628,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       id_tipo_identificacion: idTipoIdentificacion ? parseInt(idTipoIdentificacion) : null,
       sexo: sexo || null,
       fecha_nacimiento: fechaNacimiento?.toISOString() || null,
-      id_estado_civil: idEstadoCivil ? parseInt(idEstadoCivil) : null,
-      id_conyuge: idConyuge ? parseInt(idConyuge) : null,
+      id_estado_civil: tipoPersona === 'pf' && idEstadoCivil ? parseInt(idEstadoCivil) : null,
+      id_conyuge: tipoPersona === 'pf' && idConyuge ? parseInt(idConyuge) : null,
       ocupacion: ocupacion.trim() || null,
       id_pais_nacimiento: idPaisNacimiento || null,
       id_estado_nacimiento: idEstadoNacimiento ? parseInt(idEstadoNacimiento) : null,
@@ -1304,88 +1304,93 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                          </Select>
                        </div>
 
-                      <div>
-                        <Label htmlFor="estadoCivil">Estado Civil</Label>
-                        <Select 
-                          value={idEstadoCivil} 
-                          onValueChange={(value) => {
-                            setIdEstadoCivil(value);
-                            // Si no es casado por bienes mancomunados, limpiar cónyuge
-                            if (value !== '2') {
-                              setIdConyuge('');
-                              setSearchConyuge('');
-                            }
-                          }}
-                          disabled={!!initialData?.id_conyuge}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona estado civil" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {estadosCivil.map((estado) => (
-                              <SelectItem key={estado.id} value={estado.id.toString()}>
-                                {estado.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {initialData?.id_conyuge && (
-                          <p className="text-sm font-medium text-amber-600 mt-1">
-                            ⚠️ El estado civil no puede modificarse cuando ya hay un cónyuge asignado.
-                          </p>
-                        )}
-                      </div>
+                      {/* Estado Civil - solo para personas físicas */}
+                      {tipoPersona === 'pf' && (
+                        <>
+                          <div>
+                            <Label htmlFor="estadoCivil">Estado Civil</Label>
+                            <Select 
+                              value={idEstadoCivil} 
+                              onValueChange={(value) => {
+                                setIdEstadoCivil(value);
+                                // Si no es casado por bienes mancomunados, limpiar cónyuge
+                                if (value !== '2') {
+                                  setIdConyuge('');
+                                  setSearchConyuge('');
+                                }
+                              }}
+                              disabled={!!initialData?.id_conyuge}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona estado civil" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {estadosCivil.map((estado) => (
+                                  <SelectItem key={estado.id} value={estado.id.toString()}>
+                                    {estado.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {initialData?.id_conyuge && (
+                              <p className="text-sm font-medium text-amber-600 mt-1">
+                                ⚠️ El estado civil no puede modificarse cuando ya hay un cónyuge asignado.
+                              </p>
+                            )}
+                          </div>
 
-                      {/* Selector de cónyuge - solo visible cuando estado civil es "Casado(a) bienes mancomunados" */}
-                      {(idEstadoCivil === '2' || idEstadoCivil === 2) && (
-                        <div className="col-span-1 md:col-span-2">
-                          <Label htmlFor="conyuge">Cónyuge *</Label>
-                          {initialData?.id_conyuge && conyugeData ? (
-                            <div className="space-y-2">
-                              <div className="p-3 border rounded-md bg-muted/50">
-                                <p className="font-medium">{conyugeData.nombre_legal}</p>
-                                <div className="text-sm text-muted-foreground space-y-1 mt-1">
-                                  {conyugeData.rfc && <p>RFC: {conyugeData.rfc}</p>}
-                                  {conyugeData.curp && <p>CURP: {conyugeData.curp}</p>}
-                                  {conyugeData.email && <p>Email: {conyugeData.email}</p>}
+                          {/* Selector de cónyuge - solo visible cuando estado civil es "Casado(a) bienes mancomunados" */}
+                          {(idEstadoCivil === '2' || idEstadoCivil === 2) && (
+                            <div className="col-span-1 md:col-span-2">
+                              <Label htmlFor="conyuge">Cónyuge *</Label>
+                              {initialData?.id_conyuge && conyugeData ? (
+                                <div className="space-y-2">
+                                  <div className="p-3 border rounded-md bg-muted/50">
+                                    <p className="font-medium">{conyugeData.nombre_legal}</p>
+                                    <div className="text-sm text-muted-foreground space-y-1 mt-1">
+                                      {conyugeData.rfc && <p>RFC: {conyugeData.rfc}</p>}
+                                      {conyugeData.curp && <p>CURP: {conyugeData.curp}</p>}
+                                      {conyugeData.email && <p>Email: {conyugeData.email}</p>}
+                                    </div>
+                                  </div>
+                                  <p className="text-sm font-medium text-amber-600">
+                                    ⚠️ El cónyuge ya está asignado y no puede ser modificado.
+                                  </p>
                                 </div>
-                              </div>
-                              <p className="text-sm font-medium text-amber-600">
-                                ⚠️ El cónyuge ya está asignado y no puede ser modificado.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <Input
-                                placeholder="Buscar cónyuge por nombre, RFC o CURP..."
-                                value={searchConyuge}
-                                onChange={(e) => setSearchConyuge(e.target.value)}
-                              />
-                              <Select value={idConyuge} onValueChange={setIdConyuge}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecciona el cónyuge" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {personasDisponibles
-                                    .filter(persona => 
-                                      !searchConyuge || 
-                                      persona.nombre_legal.toLowerCase().includes(searchConyuge.toLowerCase()) ||
-                                      (persona.rfc && persona.rfc.toLowerCase().includes(searchConyuge.toLowerCase())) ||
-                                      (persona.curp && persona.curp.toLowerCase().includes(searchConyuge.toLowerCase()))
-                                    )
-                                    .map((persona) => (
-                                      <SelectItem key={persona.id} value={persona.id.toString()}>
-                                        {persona.nombre_legal} {persona.rfc ? `(RFC: ${persona.rfc})` : persona.curp ? `(CURP: ${persona.curp})` : ''}
-                                      </SelectItem>
-                                    ))}
-                                </SelectContent>
-                              </Select>
-                              <p className="text-sm text-muted-foreground">
-                                Al seleccionar un cónyuge, automáticamente se actualizará su estado civil a "Casado(a) bienes mancomunados" y se establecerá la relación recíproca.
-                              </p>
+                              ) : (
+                                <div className="space-y-2">
+                                  <Input
+                                    placeholder="Buscar cónyuge por nombre, RFC o CURP..."
+                                    value={searchConyuge}
+                                    onChange={(e) => setSearchConyuge(e.target.value)}
+                                  />
+                                  <Select value={idConyuge} onValueChange={setIdConyuge}>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecciona el cónyuge" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {personasDisponibles
+                                        .filter(persona => 
+                                          !searchConyuge || 
+                                          persona.nombre_legal.toLowerCase().includes(searchConyuge.toLowerCase()) ||
+                                          (persona.rfc && persona.rfc.toLowerCase().includes(searchConyuge.toLowerCase())) ||
+                                          (persona.curp && persona.curp.toLowerCase().includes(searchConyuge.toLowerCase()))
+                                        )
+                                        .map((persona) => (
+                                          <SelectItem key={persona.id} value={persona.id.toString()}>
+                                            {persona.nombre_legal} {persona.rfc ? `(RFC: ${persona.rfc})` : persona.curp ? `(CURP: ${persona.curp})` : ''}
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-sm text-muted-foreground">
+                                    Al seleccionar un cónyuge, automáticamente se actualizará su estado civil a "Casado(a) bienes mancomunados" y se establecerá la relación recíproca.
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           )}
-                        </div>
+                        </>
                       )}
 
                       <div>
