@@ -138,7 +138,23 @@ function ReadOnlyDocumentsView({ propiedadId }: { propiedadId: number }) {
         .order('fecha_creacion', { ascending: false });
 
       if (error) throw error;
-      return docs || [];
+      
+      // Corregir URLs con path duplicado
+      const docsWithCorrectedUrls = (docs || []).map(doc => {
+        let correctedUrl = doc.url;
+        
+        // Si la URL tiene el patrón /documentos/documentos/, corregirlo
+        if (correctedUrl && correctedUrl.includes('/documentos/documentos/')) {
+          correctedUrl = correctedUrl.replace('/documentos/documentos/', '/documentos/');
+        }
+        
+        return {
+          ...doc,
+          url: correctedUrl
+        };
+      });
+      
+      return docsWithCorrectedUrls;
     }
   });
 

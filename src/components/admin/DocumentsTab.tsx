@@ -190,7 +190,7 @@ export function DocumentsTab({
       // Upload file to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${entityType}_${entityId}_${Date.now()}.${fileExt}`;
-      const filePath = `documentos/${fileName}`;
+      const filePath = fileName; // Sin prefijo 'documentos/' para evitar duplicación
 
       const { error: uploadError } = await supabase.storage
         .from('documentos')
