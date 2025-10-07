@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { SUPABASE_PROJECT_ID } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Building2, Users, Edit2, Save, X } from "lucide-react";
+import { Plus, Trash2, Building2, Users, Edit2, Save, X, Info, ExternalLink, Copy } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -33,9 +34,6 @@ export const ProjectLegalEntitiesSection = ({
   const [selectedEntityTypeId, setSelectedEntityTypeId] = useState<string>(isProductosOrServicios ? "4" : "");
   const [editingCuentaMadre, setEditingCuentaMadre] = useState<number | null>(null);
   const [tempCuentaMadre, setTempCuentaMadre] = useState<string>("");
-  const [editingApiKey, setEditingApiKey] = useState<number | null>(null);
-  const [tempApiKeyName, setTempApiKeyName] = useState<string>("");
-  const [tempApiKeyValue, setTempApiKeyValue] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -504,42 +502,6 @@ export const ProjectLegalEntitiesSection = ({
     },
   });
 
-  // Update API key value mutation
-  const updateApiKeyMutation = useMutation({
-    mutationFn: async ({ apiKeyName, apiKeyValue }: { apiKeyName: string; apiKeyValue: string }) => {
-      if (!apiKeyValue || apiKeyValue.trim() === "") {
-        throw new Error("El valor de la API Key es obligatorio");
-      }
-
-      // Call edge function to store API key value in Supabase secrets
-      const { data, error } = await supabase.functions.invoke('manage-api-key-secret', {
-        body: { 
-          action: 'set',
-          secretName: apiKeyName,
-          secretValue: apiKeyValue 
-        }
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-    },
-    onSuccess: async () => {
-      toast({
-        title: "API Key actualizada",
-        description: "El valor de la API Key se guardó exitosamente en Secrets.",
-      });
-      setEditingApiKey(null);
-      setTempApiKeyName("");
-      setTempApiKeyValue("");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Hubo un error al actualizar la API Key.",
-        variant: "destructive",
-      });
-    },
-  });
 
 
   if (isCreating) {
@@ -793,95 +755,59 @@ export const ProjectLegalEntitiesSection = ({
                                 </Label>
                               </div>
 
-                              {/* API Key Name and Value fields - shown only when facturar is checked */}
-                              {entity.facturar && (
-                                <div className="space-y-3">
-                                  {/* API Key Name - Auto-generated, read-only */}
-                                  <div>
-                                    <label className="text-sm font-medium">
-                                      Nombre de API Key:
-                                    </label>
-                                    <div className="mt-1 p-2 bg-muted rounded-md">
-                                      <span className="text-sm font-mono">
-                                        {entity.nombre_api_key || generateApiKeyName(
-                                          entity.proyectos?.nombre || '',
-                                          entity.personas?.nombre_legal || ''
-                                        )}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* API Key Value - Only field that can be edited */}
-                                  <div>
-                                    <label className="text-sm font-medium">
-                                      Valor de API Key: <span className="text-destructive">*</span>
-                                    </label>
-                                    {editingApiKey === entity.id ? (
-                                      <div className="space-y-2 mt-1">
+                              {/* API Key configuration - shown only when facturar is checked */}
+                              {entity.facturar && entity.nombre_api_key && (
+                                <div className="mt-3 p-4 border rounded-lg bg-muted/30">
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground">Nombre del Secret (generado automáticamente)</Label>
+                                      <div className="flex gap-2 mt-1">
                                         <Input
-                                          type="password"
-                                          value={tempApiKeyValue}
-                                          onChange={(e) => setTempApiKeyValue(e.target.value)}
-                                          placeholder="Ingresa el valor de la API Key"
-                                          className="w-full"
+                                          value={entity.nombre_api_key}
+                                          readOnly
+                                          className="flex-1 bg-background font-mono text-sm"
                                         />
-                                        <div className="flex gap-2">
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              const apiKeyName = entity.nombre_api_key || generateApiKeyName(
-                                                entity.proyectos?.nombre || '',
-                                                entity.personas?.nombre_legal || ''
-                                              );
-                                              updateApiKeyMutation.mutate({
-                                                apiKeyName,
-                                                apiKeyValue: tempApiKeyValue
-                                              });
-                                            }}
-                                            disabled={updateApiKeyMutation.isPending || !tempApiKeyValue}
-                                          >
-                                            <Save className="h-4 w-4 mr-1" />
-                                            Guardar
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              setEditingApiKey(null);
-                                              setTempApiKeyValue("");
-                                            }}
-                                          >
-                                            <X className="h-4 w-4 mr-1" />
-                                            Cancelar
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <Badge variant="secondary" className="text-xs">
-                                          ••••••••
-                                        </Badge>
                                         <Button
                                           type="button"
+                                          variant="outline"
                                           size="sm"
-                                          variant="ghost"
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setEditingApiKey(entity.id);
-                                            setTempApiKeyValue("");
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(entity.nombre_api_key || '');
+                                            toast({
+                                              title: "Copiado",
+                                              description: "Nombre del secret copiado al portapapeles",
+                                            });
                                           }}
                                         >
-                                          <Edit2 className="h-4 w-4" />
+                                          <Copy className="h-4 w-4" />
                                         </Button>
                                       </div>
-                                    )}
+                                    </div>
+                                    
+                                    <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
+                                      <div className="flex gap-2 mb-2">
+                                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                        <div className="text-sm space-y-2">
+                                          <p className="font-medium text-blue-900 dark:text-blue-100">Instrucciones para configurar el Secret:</p>
+                                          <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200">
+                                            <li>Copia el nombre del secret mostrado arriba</li>
+                                            <li>Ve al Dashboard de Supabase → Edge Functions → Secrets</li>
+                                            <li>Crea un nuevo secret con el nombre copiado</li>
+                                            <li>Ingresa el valor de tu API key</li>
+                                          </ol>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-2 w-full"
+                                        onClick={() => window.open(`https://supabase.com/dashboard/project/${SUPABASE_PROJECT_ID}/settings/functions`, '_blank')}
+                                      >
+                                        <ExternalLink className="h-4 w-4 mr-2" />
+                                        Abrir Configuración de Secrets en Supabase
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               )}
