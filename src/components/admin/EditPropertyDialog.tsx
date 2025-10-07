@@ -253,29 +253,32 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
       // Check if there's a cuenta_cobranza de PROPIEDAD associated
       let clabeStp = currentProperty.clabe_stp || '';
 
-      // First, get the most recent active property offer
-      const { data: ofertas } = await supabase
-        .from('ofertas')
-        .select('id')
-        .eq('id_propiedad', property.id)
+      // Get all active cuentas_cobranza with CLABE for this property
+      const { data: cuentasCobranza } = await supabase
+        .from('cuentas_cobranza')
+        .select(`
+          clabe_stp,
+          id_oferta,
+          ofertas!fk_cuentas_cobranza_oferta (
+            id,
+            id_propiedad,
+            id_producto,
+            activo
+          )
+        `)
         .eq('activo', true)
-        .is('id_producto', null)
-        .order('fecha_creacion', { ascending: false })
-        .limit(1);
+        .not('clabe_stp', 'is', null);
 
-      // Then, get the cuenta_cobranza with CLABE for that offer
-      if (ofertas && ofertas.length > 0) {
-        const { data: cuentas } = await supabase
-          .from('cuentas_cobranza')
-          .select('clabe_stp')
-          .eq('id_oferta', ofertas[0].id)
-          .eq('activo', true)
-          .not('clabe_stp', 'is', null)
-          .order('fecha_creacion', { ascending: false })
-          .limit(1);
-
-        if (cuentas && cuentas.length > 0 && cuentas[0].clabe_stp) {
-          clabeStp = cuentas[0].clabe_stp;
+      // Filter for this property's offers (client-side filtering to avoid JOIN issues)
+      if (cuentasCobranza && cuentasCobranza.length > 0) {
+        const cuentaPropiedad = cuentasCobranza.find(cc => 
+          cc.ofertas?.id_propiedad === property.id && 
+          cc.ofertas?.activo === true &&
+          cc.ofertas?.id_producto === null
+        );
+        
+        if (cuentaPropiedad?.clabe_stp) {
+          clabeStp = cuentaPropiedad.clabe_stp;
         }
       }
 
