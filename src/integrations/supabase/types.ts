@@ -770,6 +770,7 @@ export type Database = {
         Row: {
           activo: boolean
           clabe_stp: string | null
+          clave_catastral: string | null
           clave_rastreo_comision_venta: string | null
           es_aprobado: boolean
           es_comision_venta_efectivo: boolean
@@ -777,12 +778,17 @@ export type Database = {
           fecha_actualizacion: string
           fecha_compra: string | null
           fecha_creacion: string
+          fecha_escritura: string | null
+          hoja: string | null
           id: number
           id_notario: number | null
           id_oferta: number
           id_tipo_cancelacion: number | null
+          libro: string | null
           moneda: string | null
           monto_cobro_cancelacion: number | null
+          numero_escritura: string | null
+          numero_unidad_privativa: string | null
           porcentaje_comision_venta: number
           precio_final: number
           url_evidencia_cancelacion: string | null
@@ -791,6 +797,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           clabe_stp?: string | null
+          clave_catastral?: string | null
           clave_rastreo_comision_venta?: string | null
           es_aprobado?: boolean
           es_comision_venta_efectivo?: boolean
@@ -798,12 +805,17 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_compra?: string | null
           fecha_creacion?: string
+          fecha_escritura?: string | null
+          hoja?: string | null
           id?: number
           id_notario?: number | null
           id_oferta: number
           id_tipo_cancelacion?: number | null
+          libro?: string | null
           moneda?: string | null
           monto_cobro_cancelacion?: number | null
+          numero_escritura?: string | null
+          numero_unidad_privativa?: string | null
           porcentaje_comision_venta?: number
           precio_final?: number
           url_evidencia_cancelacion?: string | null
@@ -812,6 +824,7 @@ export type Database = {
         Update: {
           activo?: boolean
           clabe_stp?: string | null
+          clave_catastral?: string | null
           clave_rastreo_comision_venta?: string | null
           es_aprobado?: boolean
           es_comision_venta_efectivo?: boolean
@@ -819,12 +832,17 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_compra?: string | null
           fecha_creacion?: string
+          fecha_escritura?: string | null
+          hoja?: string | null
           id?: number
           id_notario?: number | null
           id_oferta?: number
           id_tipo_cancelacion?: number | null
+          libro?: string | null
           moneda?: string | null
           monto_cobro_cancelacion?: number | null
+          numero_escritura?: string | null
+          numero_unidad_privativa?: string | null
           porcentaje_comision_venta?: number
           precio_final?: number
           url_evidencia_cancelacion?: string | null

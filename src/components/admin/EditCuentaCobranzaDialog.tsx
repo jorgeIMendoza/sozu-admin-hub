@@ -177,6 +177,14 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [productoServicioInfo, setProductoServicioInfo] = useState<any>(null);
   const [fechaCompra, setFechaCompra] = useState<Date | undefined>(undefined);
   const [selectedConyugeForBuyer, setSelectedConyugeForBuyer] = useState<{ buyerPersonaId: number | null; conyugePersonaId: number | null }>({ buyerPersonaId: null, conyugePersonaId: null });
+  
+  // Estados para campos de escritura
+  const [claveCatastral, setClaveCatastral] = useState<string>('');
+  const [numeroEscritura, setNumeroEscritura] = useState<string>('');
+  const [libro, setLibro] = useState<string>('');
+  const [hoja, setHoja] = useState<string>('');
+  const [fechaEscritura, setFechaEscritura] = useState<Date | undefined>(undefined);
+  const [numeroUnidadPrivativa, setNumeroUnidadPrivativa] = useState<string>('');
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
@@ -566,10 +574,20 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     }
   }, [acuerdosPago]);
 
-  // Update selectedNotario when cuentaDetalle is loaded
+  // Update selectedNotario and escritura fields when cuentaDetalle is loaded
   useEffect(() => {
     if (cuentaDetalle?.id_notario) {
       setSelectedNotario(cuentaDetalle.id_notario.toString());
+    }
+    if (cuentaDetalle) {
+      setClaveCatastral(cuentaDetalle.clave_catastral || '');
+      setNumeroEscritura(cuentaDetalle.numero_escritura || '');
+      setLibro(cuentaDetalle.libro || '');
+      setHoja(cuentaDetalle.hoja || '');
+      setNumeroUnidadPrivativa(cuentaDetalle.numero_unidad_privativa || '');
+      if (cuentaDetalle.fecha_escritura) {
+        setFechaEscritura(new Date(cuentaDetalle.fecha_escritura));
+      }
     }
   }, [cuentaDetalle]);
 
@@ -1157,6 +1175,33 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     }
   });
 
+  // Mutation to update escritura fields
+  const updateEscrituraMutation = useMutation({
+    mutationFn: async (fields: {
+      clave_catastral?: string;
+      numero_escritura?: string;
+      libro?: string;
+      hoja?: string;
+      fecha_escritura?: string | null;
+      numero_unidad_privativa?: string;
+    }) => {
+      const { error } = await supabase
+        .from('cuentas_cobranza')
+        .update(fields)
+        .eq('id', cuenta.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Datos de escritura actualizados");
+      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuenta.id] });
+    },
+    onError: (error) => {
+      console.error("Error updating escritura fields:", error);
+      toast.error("Error al actualizar los datos de escritura");
+    }
+  });
+
   // Mutation to delete payment agreement
   const deleteAcuerdoMutation = useMutation({
     mutationFn: async (acuerdoId: number) => {
@@ -1570,7 +1615,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 {propiedadDetalle ? (
                   <>
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="col-span-2">
                         <Label>Notario asignado</Label>
                         <Select value={selectedNotario} onValueChange={handleNotarioChange}>
                           <SelectTrigger>
@@ -1585,6 +1630,85 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Campos de escritura - solo visibles cuando hay notario seleccionado */}
+                      {selectedNotario && (
+                        <>
+                          <div>
+                            <Label>Clave Catastral</Label>
+                            <Input 
+                              value={claveCatastral} 
+                              onChange={(e) => setClaveCatastral(e.target.value)}
+                              onBlur={() => updateEscrituraMutation.mutate({ clave_catastral: claveCatastral })}
+                              placeholder="Ingrese clave catastral"
+                            />
+                          </div>
+                          <div>
+                            <Label>Número de Escritura</Label>
+                            <Input 
+                              value={numeroEscritura} 
+                              onChange={(e) => setNumeroEscritura(e.target.value)}
+                              onBlur={() => updateEscrituraMutation.mutate({ numero_escritura: numeroEscritura })}
+                              placeholder="Ingrese número de escritura"
+                            />
+                          </div>
+                          <div>
+                            <Label>Libro</Label>
+                            <Input 
+                              value={libro} 
+                              onChange={(e) => setLibro(e.target.value)}
+                              onBlur={() => updateEscrituraMutation.mutate({ libro: libro })}
+                              placeholder="Ingrese libro"
+                            />
+                          </div>
+                          <div>
+                            <Label>Hoja</Label>
+                            <Input 
+                              value={hoja} 
+                              onChange={(e) => setHoja(e.target.value)}
+                              onBlur={() => updateEscrituraMutation.mutate({ hoja: hoja })}
+                              placeholder="Ingrese hoja"
+                            />
+                          </div>
+                          <div>
+                            <Label>Fecha de Escritura</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start text-left font-normal"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {fechaEscritura ? format(fechaEscritura, "PPP", { locale: es }) : "Seleccionar fecha"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={fechaEscritura}
+                                  onSelect={(date) => {
+                                    setFechaEscritura(date);
+                                    updateEscrituraMutation.mutate({ 
+                                      fecha_escritura: date ? format(date, 'yyyy-MM-dd') : null 
+                                    });
+                                  }}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div>
+                            <Label>Número de Unidad Privativa</Label>
+                            <Input 
+                              value={numeroUnidadPrivativa} 
+                              onChange={(e) => setNumeroUnidadPrivativa(e.target.value)}
+                              onBlur={() => updateEscrituraMutation.mutate({ numero_unidad_privativa: numeroUnidadPrivativa })}
+                              placeholder="Ingrese número de unidad privativa"
+                            />
+                          </div>
+                        </>
+                      )}
+
                       <div>
                         <Label>Número de Propiedad</Label>
                         <Input value={propiedadDetalle.numero_propiedad || ''} readOnly />
