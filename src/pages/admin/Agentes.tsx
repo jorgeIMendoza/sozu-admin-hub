@@ -340,7 +340,7 @@ export default function Agentes() {
     if (filteredAgentes.length === 0) {
       return (
         <div className="text-center py-12">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <UserX className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium text-foreground">No hay agentes</h3>
           <p className="mt-2 text-muted-foreground">
             {searchTerm ? 'No se encontraron agentes que coincidan con tu búsqueda.' : 'Comienza creando tu primer agente.'}
@@ -413,14 +413,6 @@ export default function Agentes() {
                           className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleBeneficiarios(agente)}
-                          className="h-8 px-2 text-xs hover:bg-accent"
-                        >
-                          Benef.
                         </Button>
                         <Button
                           variant="ghost"
@@ -539,21 +531,6 @@ export default function Agentes() {
              }}
              entityType="agente"
            />
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para gestionar beneficiarios */}
-      <Dialog open={isBeneficiariosDialogOpen} onOpenChange={setIsBeneficiariosDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Gestionar Beneficiarios - {selectedAgenteForBeneficiarios?.nombre_legal}</DialogTitle>
-          </DialogHeader>
-          {selectedAgenteForBeneficiarios && (
-            <BeneficiariosForm
-              personaId={selectedAgenteForBeneficiarios.id}
-              personaNombre={selectedAgenteForBeneficiarios.nombre_legal}
-            />
-          )}
         </DialogContent>
       </Dialog>
 

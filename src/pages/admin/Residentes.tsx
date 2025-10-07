@@ -340,7 +340,7 @@ export default function Residentes() {
     if (filteredResidentes.length === 0) {
       return (
         <div className="text-center py-12">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <UserX className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium text-foreground">No hay residentes</h3>
           <p className="mt-2 text-muted-foreground">
             {searchTerm ? 'No se encontraron residentes que coincidan con tu búsqueda.' : 'Comienza creando tu primer residente.'}
@@ -413,14 +413,6 @@ export default function Residentes() {
                           className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleBeneficiarios(residente)}
-                          className="h-8 px-2 text-xs hover:bg-accent"
-                        >
-                          Benef.
                         </Button>
                         <Button
                           variant="ghost"
@@ -539,21 +531,6 @@ export default function Residentes() {
              }}
              entityType="residente"
            />
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para gestionar beneficiarios */}
-      <Dialog open={isBeneficiariosDialogOpen} onOpenChange={setIsBeneficiariosDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Gestionar Beneficiarios - {selectedResidenteForBeneficiarios?.nombre_legal}</DialogTitle>
-          </DialogHeader>
-          {selectedResidenteForBeneficiarios && (
-            <BeneficiariosForm
-              personaId={selectedResidenteForBeneficiarios.id}
-              personaNombre={selectedResidenteForBeneficiarios.nombre_legal}
-            />
-          )}
         </DialogContent>
       </Dialog>
 
