@@ -497,7 +497,7 @@ export default function Compradores() {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <HeartHandshake className="h-4 w-4 text-pink-500 cursor-help" />
+                              <HeartHandshake className="h-5 w-5 text-pink-500 cursor-help" />
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="font-medium">Cónyuge: {comprador.conyuge_nombre}</p>
