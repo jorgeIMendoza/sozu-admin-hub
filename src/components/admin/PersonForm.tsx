@@ -62,8 +62,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   // Personal info
   const [sexo, setSexo] = useState(initialData?.sexo || '');
   const [fechaNacimiento, setFechaNacimiento] = useState(initialData?.fecha_nacimiento ? new Date(initialData.fecha_nacimiento) : undefined);
-  const [idEstadoCivil, setIdEstadoCivil] = useState(initialData?.id_estado_civil || '');
-  const [idConyuge, setIdConyuge] = useState(initialData?.id_conyuge || '');
+  const [idEstadoCivil, setIdEstadoCivil] = useState(initialData?.id_estado_civil ? initialData.id_estado_civil.toString() : '');
+  const [idConyuge, setIdConyuge] = useState(initialData?.id_conyuge ? initialData.id_conyuge.toString() : '');
   const [searchConyuge, setSearchConyuge] = useState('');
   const [ocupacion, setOcupacion] = useState(initialData?.ocupacion || '');
   
