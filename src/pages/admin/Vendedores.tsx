@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, Users, RotateCcw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
-import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { saveTempPersonData } from "@/utils/personUtils";
@@ -33,9 +32,7 @@ export default function Vendedores() {
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isBeneficiariosDialogOpen, setIsBeneficiariosDialogOpen] = useState(false);
   const [editingVendedor, setEditingVendedor] = useState<Vendedor | null>(null);
-  const [selectedVendedorForBeneficiarios, setSelectedVendedorForBeneficiarios] = useState<Vendedor | null>(null);
   const [selectedVendedorForBankAccounts, setSelectedVendedorForBankAccounts] = useState<Vendedor | null>(null);
   const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -329,11 +326,6 @@ export default function Vendedores() {
     }
   };
 
-  const handleBeneficiarios = (vendedor: Vendedor) => {
-    setSelectedVendedorForBeneficiarios(vendedor);
-    setIsBeneficiariosDialogOpen(true);
-  };
-
   const handleBankAccounts = (vendedor: Vendedor) => {
     setSelectedVendedorForBankAccounts(vendedor);
     setIsBankAccountsDialogOpen(true);
@@ -352,7 +344,7 @@ export default function Vendedores() {
     if (filteredVendedores.length === 0) {
       return (
         <div className="text-center py-12">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <UserX className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium text-foreground">No hay vendedores</h3>
           <p className="mt-2 text-muted-foreground">
             {searchTerm ? 'No se encontraron vendedores que coincidan con tu búsqueda.' : 'Comienza creando tu primer vendedor.'}
@@ -425,14 +417,6 @@ export default function Vendedores() {
                           className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleBeneficiarios(vendedor)}
-                          className="h-8 px-2 text-xs hover:bg-accent"
-                        >
-                          Benef.
                         </Button>
                         <Button
                           variant="ghost"
@@ -552,22 +536,7 @@ export default function Vendedores() {
              entityType="vendedor"
            />
         </DialogContent>
-      </Dialog>
-
-      {/* Dialog para gestionar beneficiarios */}
-      <Dialog open={isBeneficiariosDialogOpen} onOpenChange={setIsBeneficiariosDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Gestionar Beneficiarios - {selectedVendedorForBeneficiarios?.nombre_legal}</DialogTitle>
-          </DialogHeader>
-          {selectedVendedorForBeneficiarios && (
-            <BeneficiariosForm
-              personaId={selectedVendedorForBeneficiarios.id}
-              personaNombre={selectedVendedorForBeneficiarios.nombre_legal}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+       </Dialog>
 
       {/* Dialog para cuentas bancarias */}
       <Dialog open={isBankAccountsDialogOpen} onOpenChange={setIsBankAccountsDialogOpen}>

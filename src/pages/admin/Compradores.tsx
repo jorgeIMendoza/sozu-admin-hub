@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, Users, RotateCcw, CreditCard, UserCheck } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, CreditCard, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,6 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
-import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -43,9 +42,7 @@ export default function Compradores() {
   }, [searchParams]);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isBeneficiariosDialogOpen, setIsBeneficiariosDialogOpen] = useState(false);
   const [editingComprador, setEditingComprador] = useState<Comprador | null>(null);
-  const [selectedCompradorForBeneficiarios, setSelectedCompradorForBeneficiarios] = useState<Comprador | null>(null);
   const [selectedCompradorForBankAccounts, setSelectedCompradorForBankAccounts] = useState<Comprador | null>(null);
   const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -338,11 +335,6 @@ export default function Compradores() {
     }
   };
 
-  const handleBeneficiarios = (comprador: Comprador) => {
-    setSelectedCompradorForBeneficiarios(comprador);
-    setIsBeneficiariosDialogOpen(true);
-  };
-
   const handleBankAccounts = (comprador: Comprador) => {
     setSelectedCompradorForBankAccounts(comprador);
     setIsBankAccountsDialogOpen(true);
@@ -361,7 +353,7 @@ export default function Compradores() {
     if (filteredCompradores.length === 0) {
       return (
         <div className="text-center py-12">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
+          <UserX className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-medium text-foreground">No hay compradores</h3>
           <p className="mt-2 text-muted-foreground">
             {searchTerm ? 'No se encontraron compradores que coincidan con tu búsqueda.' : 'Comienza creando tu primer comprador.'}
@@ -435,23 +427,6 @@ export default function Compradores() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleBeneficiarios(comprador)}
-                                className="h-8 w-8 p-0 hover:bg-accent hover:text-accent-foreground"
-                              >
-                                <UserCheck className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Gestionar beneficiarios</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -578,21 +553,6 @@ export default function Compradores() {
              }}
              entityType="comprador"
            />
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para gestionar beneficiarios */}
-      <Dialog open={isBeneficiariosDialogOpen} onOpenChange={setIsBeneficiariosDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Gestionar Beneficiarios - {selectedCompradorForBeneficiarios?.nombre_legal}</DialogTitle>
-          </DialogHeader>
-          {selectedCompradorForBeneficiarios && (
-            <BeneficiariosForm
-              personaId={selectedCompradorForBeneficiarios.id}
-              personaNombre={selectedCompradorForBeneficiarios.nombre_legal}
-            />
-          )}
         </DialogContent>
       </Dialog>
 

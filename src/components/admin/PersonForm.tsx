@@ -733,13 +733,12 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                 <TabsTrigger value="basic" className="text-foreground">Información Básica</TabsTrigger>
               </TabsList>
             ) : isSpecialEntityType ? (
-              <TabsList className="grid w-full mb-4 bg-muted grid-cols-6">
+              <TabsList className="grid w-full mb-4 bg-muted grid-cols-5">
                 <TabsTrigger value="basic" className="text-foreground">Información Básica</TabsTrigger>
                 <TabsTrigger value="address" className="text-foreground">Dirección</TabsTrigger>
                 <TabsTrigger value="fiscal" className="text-foreground">Información Fiscal</TabsTrigger>
                 <TabsTrigger value="documents" className="text-foreground">Documentos</TabsTrigger>
                 <TabsTrigger value="bank-accounts" className="text-foreground">Cuentas Bancarias</TabsTrigger>
-                <TabsTrigger value="beneficiarios" className="text-foreground">Beneficiarios</TabsTrigger>
               </TabsList>
             ) : (
               <TabsList className="grid w-full mb-4 bg-muted grid-cols-1">
@@ -1571,26 +1570,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                         onBankAccountsChange={setTempBankAccounts}
                         showStpCheckbox={shouldShowStpCheckbox()}
                         entityTypeId={getDefaultTipoEntidad(entityType || '')}
-                      />
-                    )}
-                   </div>
-                 </TabsContent>
-                 )}
-
-                 {/* Beneficiarios Tab */}
-                 {!restrictToBasicTab && shouldShowBeneficiariosTab() && (
-                   <TabsContent value="beneficiarios" className="space-y-4 mt-6">
-                  <div className="space-y-4">
-                    {initialData?.id ? (
-                      <BeneficiariosForm 
-                        personaId={initialData.id}
-                        personaNombre={nombre}
-                      />
-                    ) : (
-                      <TempBeneficiariosSection
-                        beneficiaries={tempBeneficiaries}
-                        onBeneficiariesChange={setTempBeneficiaries}
-                        personaNombre={nombre || "Nueva Persona"}
                       />
                     )}
                    </div>

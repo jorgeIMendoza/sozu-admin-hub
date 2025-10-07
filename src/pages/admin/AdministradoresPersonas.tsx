@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, Users, RotateCcw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";  
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
-import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 
@@ -32,9 +31,7 @@ export default function AdministradoresPersonas() {
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isBeneficiariosDialogOpen, setIsBeneficiariosDialogOpen] = useState(false);
   const [editingAdministrador, setEditingAdministrador] = useState<Administrador | null>(null);
-  const [selectedAdministradorForBeneficiarios, setSelectedAdministradorForBeneficiarios] = useState<Administrador | null>(null);
   const [selectedAdministradorForBankAccounts, setSelectedAdministradorForBankAccounts] = useState<Administrador | null>(null);
   const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -323,11 +320,6 @@ export default function AdministradoresPersonas() {
       setRestoreDialogOpen(false);
       setAdministradorToRestore(null);
     }
-  };
-
-  const handleBeneficiarios = (administrador: Administrador) => {
-    setSelectedAdministradorForBeneficiarios(administrador);
-    setIsBeneficiariosDialogOpen(true);
   };
 
   const handleBankAccounts = (administrador: Administrador) => {
