@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { DocumentsTab } from "./DocumentsTab";
 import { PropertyMultimediaTab } from "./PropertyMultimediaTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -331,16 +330,10 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         </DialogHeader>
 
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">Características Generales</TabsTrigger>
             <TabsTrigger value="descripcion">Descripción</TabsTrigger>
             <TabsTrigger value="multimedia">Multimedia</TabsTrigger>
-            <TabsTrigger 
-              value="documentos" 
-              disabled={parseInt(formData.id_estatus_disponibilidad) < 4}
-            >
-              Documentos
-            </TabsTrigger>
           </TabsList>
           
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -721,18 +714,6 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
               </div>
             </TabsContent>
 
-            <TabsContent value="documentos">
-              <DocumentsTab 
-                entityId={property.id} 
-                entityType="propiedad"
-                onDocumentAdded={() => {
-                  toast({
-                    title: "Documento agregado",
-                    description: "El documento se ha agregado correctamente."
-                  });
-                }}
-              />
-            </TabsContent>
 
             {/* Botones de acción - visibles en todas las pestañas */}
             <div className="flex justify-end space-x-2 pt-4">

@@ -19,6 +19,7 @@ import { AddCepDialog } from "@/components/admin/AddCepDialog";
 import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
 import { TransferirEntreComisionesDialog } from "@/components/admin/TransferirEntreComisionesDialog";
 import { formatCuentaCobranzaId, formatOfertaId } from "@/utils/cuentaCobranzaUtils";
+import { DocumentsTab } from "@/components/admin/DocumentsTab";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -2112,6 +2113,30 @@ export default function DetalleCuentaCobranza() {
           )}
         </CardContent>
       </Card>
+
+      {/* Documentos Section - only show for properties with id_propiedad */}
+      {cuentaDetalle?.tipo_cuenta === 'Propiedad' && cuentaDetalle?.id_propiedad && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Documentos de la Propiedad
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DocumentsTab 
+              entityId={cuentaDetalle.id_propiedad} 
+              entityType="propiedad"
+              onDocumentAdded={() => {
+                toast({
+                  title: "Documento agregado",
+                  description: "El documento se ha agregado correctamente."
+                });
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <DeleteConfirmationDialog
         open={deleteDialog.isOpen}
