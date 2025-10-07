@@ -103,29 +103,50 @@ export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDet
               </TableRow>
             </TableHeader>
             <TableBody>
-              {compradores.map((comprador, index) => (
-                <TableRow key={index} className="hover:bg-muted/50 cursor-pointer transition-colors">
-                  <TableCell 
-                    className="font-medium hover:text-primary cursor-pointer"
-                    onClick={() => handleNavigateToCompradores(comprador.rfc || undefined)}
-                  >
-                    {comprador.nombre_legal}
-                  </TableCell>
-                  <TableCell 
-                    className="cursor-pointer"
-                    onClick={() => handleNavigateToCompradores(comprador.rfc || undefined)}
-                  >
-                    {comprador.rfc ? (
-                      <Badge variant="outline" className="hover:bg-primary/10">{comprador.rfc}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">Sin RFC</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold">
-                    {formatPercentage(comprador.porcentaje_copropiedad)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {compradores.map((comprador, index) => {
+                // Find persona details for this comprador
+                const personaDetail = personasDetails?.find(p => p.id === comprador.id_persona);
+                const hasSpouse = personaDetail?.id_conyuge != null;
+                const spouseName = hasSpouse ? personasDetails?.find(p => p.id === personaDetail.id_conyuge)?.nombre_legal : null;
+                
+                return (
+                  <TableRow key={index} className="hover:bg-muted/50 cursor-pointer transition-colors">
+                    <TableCell 
+                      className="font-medium hover:text-primary cursor-pointer"
+                      onClick={() => handleNavigateToCompradores(comprador.rfc || undefined)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{comprador.nombre_legal}</span>
+                        {hasSpouse && spouseName && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HeartHandshake className="h-4 w-4 text-pink-500 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="font-medium">Cónyuge: {spouseName}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell 
+                      className="cursor-pointer"
+                      onClick={() => handleNavigateToCompradores(comprador.rfc || undefined)}
+                    >
+                      {comprador.rfc ? (
+                        <Badge variant="outline" className="hover:bg-primary/10">{comprador.rfc}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">Sin RFC</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatPercentage(comprador.porcentaje_copropiedad)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
 

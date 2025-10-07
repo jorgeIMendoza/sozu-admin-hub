@@ -20,6 +20,7 @@ import { es } from "date-fns/locale";
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCuentaCobranzaId, formatOfertaId } from "@/utils/cuentaCobranzaUtils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DndContext,
   closestCenter,
@@ -169,7 +170,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [editingMonto, setEditingMonto] = useState<string>('');
   const [showPersonForm, setShowPersonForm] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [buyerToDelete, setBuyerToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [buyerToDelete, setBuyerToDelete] = useState<{ id: number; name: string; conyugeId?: number; conyugeName?: string } | null>(null);
   const [selectedNotario, setSelectedNotario] = useState<string>('');
   const [deleteAcuerdoDialogOpen, setDeleteAcuerdoDialogOpen] = useState(false);
   const [acuerdoToDelete, setAcuerdoToDelete] = useState<{ id: number; concepto: string; monto: number } | null>(null);
@@ -738,15 +739,26 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
   // Mutation to delete buyer
   const deleteBuyerMutation = useMutation({
-    mutationFn: async (personaId: number) => {
-      // First delete the buyer
+    mutationFn: async (params: { personaId: number; conyugeId?: number }) => {
+      // Delete the main buyer
       const { error: deleteError } = await supabase
         .from('compradores')
         .delete()
         .eq('id_cuenta_cobranza', cuenta.id)
-        .eq('id_persona', personaId);
+        .eq('id_persona', params.personaId);
       
       if (deleteError) throw deleteError;
+
+      // If there's a spouse, delete them too
+      if (params.conyugeId) {
+        const { error: deleteConyugeError } = await supabase
+          .from('compradores')
+          .delete()
+          .eq('id_cuenta_cobranza', cuenta.id)
+          .eq('id_persona', params.conyugeId);
+        
+        if (deleteConyugeError) throw deleteConyugeError;
+      }
 
       // Get remaining buyers after deletion
       const { data: remainingBuyers, error: fetchError } = await supabase
@@ -772,7 +784,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       }
     },
     onSuccess: () => {
-      toast.success("Comprador eliminado y porcentajes redistribuidos exitosamente");
+      const deletedNames = buyerToDelete?.conyugeId && buyerToDelete.conyugeName
+        ? `${buyerToDelete.name} y ${buyerToDelete.conyugeName}`
+        : buyerToDelete?.name;
+      toast.success(`Comprador${buyerToDelete?.conyugeId ? 'es' : ''} ${deletedNames} eliminado${buyerToDelete?.conyugeId ? 's' : ''} y porcentajes redistribuidos exitosamente`);
       refetchCompradores();
       setDeleteDialogOpen(false);
       setBuyerToDelete(null);
@@ -784,13 +799,30 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   });
 
   const handleDeleteBuyer = (personaId: number, nombreComprador: string) => {
-    setBuyerToDelete({ id: personaId, name: nombreComprador });
+    // Find the comprador to check for spouse
+    const comprador = compradoresExistentes?.find(c => c.personas?.id === personaId);
+    const conyugeId = comprador?.personas?.id_conyuge;
+    const conyugeName = conyugeId 
+      ? comprador?.personas?.conyuge && typeof comprador.personas.conyuge === 'object' && 'nombre_legal' in comprador.personas.conyuge
+        ? comprador.personas.conyuge.nombre_legal
+        : undefined
+      : undefined;
+    
+    setBuyerToDelete({ 
+      id: personaId, 
+      name: nombreComprador,
+      conyugeId,
+      conyugeName
+    });
     setDeleteDialogOpen(true);
   };
 
   const confirmDeleteBuyer = () => {
     if (buyerToDelete) {
-      deleteBuyerMutation.mutate(buyerToDelete.id);
+      deleteBuyerMutation.mutate({ 
+        personaId: buyerToDelete.id,
+        conyugeId: buyerToDelete.conyugeId
+      });
     }
   };
 
@@ -1924,7 +1956,20 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 <div className="flex items-center gap-2">
                                   <span>{comprador.personas?.nombre_legal}</span>
                                   {esCasadoMancomunados && comprador.personas?.id_conyuge && (
-                                    <HeartHandshake className="h-4 w-4 text-pink-500" />
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <HeartHandshake className="h-4 w-4 text-pink-500 cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="font-medium">
+                                            Cónyuge: {comprador.personas.conyuge && typeof comprador.personas.conyuge === 'object' && 'nombre_legal' in comprador.personas.conyuge 
+                                              ? comprador.personas.conyuge.nombre_legal 
+                                              : 'Sin asignar'}
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   )}
                                 </div>
                               </TableCell>
@@ -2855,6 +2900,14 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
               <AlertDialogTitle>Confirmar eliminación</AlertDialogTitle>
               <AlertDialogDescription>
                 ¿Estás seguro de que deseas eliminar a <strong>"{buyerToDelete?.name}"</strong> de la lista de compradores?
+                {buyerToDelete?.conyugeId && buyerToDelete?.conyugeName && (
+                  <>
+                    <br /><br />
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      ⚠️ También se eliminará al cónyuge <strong>"{buyerToDelete.conyugeName}"</strong>.
+                    </span>
+                  </>
+                )}
                 <br /><br />
                 Los porcentajes de copropiedad se redistribuirán automáticamente entre los compradores restantes.
               </AlertDialogDescription>
