@@ -57,6 +57,7 @@ export function DocumentsTab({
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedTipoDocumento, setSelectedTipoDocumento] = useState<string>("");
+  const [numeroDocumento, setNumeroDocumento] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([]);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -173,6 +174,7 @@ export function DocumentsTab({
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
       setSelectedTipoDocumento("");
+      setNumeroDocumento("");
       onDocumentAdded?.();
       
       toast({
@@ -201,18 +203,26 @@ export function DocumentsTab({
         .from('documentos')
         .getPublicUrl(filePath);
 
-      // Generate next numero for this entity
-      const column = entityType === 'persona' ? 'id_persona' : 'id_propiedad';
-      const { data: existingDocs } = await supabase
-        .from('documentos')
-        .select('numero')
-        .eq(column, entityId)
-        .order('numero', { ascending: false })
-        .limit(1);
+      // Use user-provided numero or generate next numero for this entity
+      let nextNumero: number;
+      
+      if (numeroDocumento && numeroDocumento.trim() !== '') {
+        // Use the numero provided by the user
+        nextNumero = parseInt(numeroDocumento);
+      } else {
+        // Generate next numero automatically
+        const column = entityType === 'persona' ? 'id_persona' : 'id_propiedad';
+        const { data: existingDocs } = await supabase
+          .from('documentos')
+          .select('numero')
+          .eq(column, entityId)
+          .order('numero', { ascending: false })
+          .limit(1);
 
-      const nextNumero = existingDocs && existingDocs.length > 0 
-        ? existingDocs[0].numero + 1 
-        : 1;
+        nextNumero = existingDocs && existingDocs.length > 0 
+          ? existingDocs[0].numero + 1 
+          : 1;
+      }
 
       // Get cuenta_cobranza if entity is propiedad
       let idCuentaCobranza = null;
@@ -263,6 +273,7 @@ export function DocumentsTab({
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
       setSelectedTipoDocumento("");
+      setNumeroDocumento("");
       onDocumentAdded?.();
       
       toast({
@@ -393,6 +404,16 @@ export function DocumentsTab({
                 </Select>
               </div>
               <div>
+                <Label htmlFor="numero-documento-temp">Número de Documento (Opcional)</Label>
+                <Input
+                  id="numero-documento-temp"
+                  type="number"
+                  placeholder="Ej: 12345"
+                  value={numeroDocumento}
+                  onChange={(e) => setNumeroDocumento(e.target.value)}
+                />
+              </div>
+              <div>
                 <Label htmlFor="file">Archivo</Label>
                 <Input
                   id="file"
@@ -410,6 +431,7 @@ export function DocumentsTab({
                   setIsUploadDialogOpen(false);
                   setSelectedFile(null);
                   setSelectedTipoDocumento("");
+                  setNumeroDocumento("");
                 }}
               >
                 Cancelar
@@ -461,10 +483,11 @@ export function DocumentsTab({
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>Tipo de Documento</TableHead>
-                    <TableHead>Verificado</TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                  <TableHead>Tipo de Documento</TableHead>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Verificado</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -606,6 +629,16 @@ export function DocumentsTab({
               </Select>
             </div>
             <div>
+              <Label htmlFor="numero-documento">Número de Documento (Opcional)</Label>
+              <Input
+                id="numero-documento"
+                type="number"
+                placeholder="Ej: 12345"
+                value={numeroDocumento}
+                onChange={(e) => setNumeroDocumento(e.target.value)}
+              />
+            </div>
+            <div>
               <Label htmlFor="file">Archivo</Label>
               <Input
                 id="file"
@@ -619,11 +652,12 @@ export function DocumentsTab({
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setIsUploadDialogOpen(false);
-                setSelectedFile(null);
-                setSelectedTipoDocumento("");
-              }}
+                onClick={() => {
+                  setIsUploadDialogOpen(false);
+                  setSelectedFile(null);
+                  setSelectedTipoDocumento("");
+                  setNumeroDocumento("");
+                }}
             >
               Cancelar
             </Button>
