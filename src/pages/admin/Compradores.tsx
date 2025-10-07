@@ -200,6 +200,21 @@ export default function Compradores() {
           
         if (updateError) throw updateError;
       }
+
+      // Si se creó con id_conyuge, sincronizar cuentas de compradores
+      if (cleanPersonData.id_conyuge && personResult.id) {
+        const { data: syncResult, error: syncError } = await supabase
+          .rpc('sync_conyuge_compradores', {
+            p_id_persona: personResult.id
+          });
+        
+        if (syncError) {
+          console.error('Error al sincronizar cónyuge en compradores:', syncError);
+          throw new Error(`Error al sincronizar compradores: ${syncError.message}`);
+        }
+        
+        console.log('Sincronización de cónyuge completada:', syncResult);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compradores'] });
@@ -236,6 +251,21 @@ export default function Compradores() {
           .eq('id', editingComprador?.id);
           
         if (repError) throw repError;
+      }
+
+      // Si se actualizó el id_conyuge, sincronizar cuentas de compradores
+      if (cleanPersonData.id_conyuge !== undefined && editingComprador?.id) {
+        const { data: syncResult, error: syncError } = await supabase
+          .rpc('sync_conyuge_compradores', {
+            p_id_persona: editingComprador.id
+          });
+        
+        if (syncError) {
+          console.error('Error al sincronizar cónyuge en compradores:', syncError);
+          throw new Error(`Error al sincronizar compradores: ${syncError.message}`);
+        }
+        
+        console.log('Sincronización de cónyuge completada:', syncResult);
       }
     },
     onSuccess: () => {
