@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Building2, Users, Edit2, Save, X } from "lucide-react";
 import {
   Select,
@@ -31,6 +33,8 @@ export const ProjectLegalEntitiesSection = ({
   const [selectedEntityTypeId, setSelectedEntityTypeId] = useState<string>(isProductosOrServicios ? "4" : "");
   const [editingCuentaMadre, setEditingCuentaMadre] = useState<number | null>(null);
   const [tempCuentaMadre, setTempCuentaMadre] = useState<string>("");
+  const [editingApiKey, setEditingApiKey] = useState<number | null>(null);
+  const [tempApiKeyName, setTempApiKeyName] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -151,6 +155,8 @@ export const ProjectLegalEntitiesSection = ({
           id,
           id_tipo_entidad,
           cuenta_madre_stp,
+          facturar,
+          nombre_api_key,
           personas!entidades_relacionadas_id_persona_fkey (
             id,
             nombre_legal,
@@ -428,6 +434,70 @@ export const ProjectLegalEntitiesSection = ({
     },
   });
 
+  // Update facturar mutation
+  const updateFacturarMutation = useMutation({
+    mutationFn: async ({ entityId, facturar }: { entityId: number; facturar: boolean }) => {
+      const { error } = await supabase
+        .from("entidades_relacionadas")
+        .update({ facturar })
+        .eq("id", entityId);
+
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast({
+        title: "Configuración actualizada",
+        description: "La configuración de facturación se actualizó exitosamente.",
+      });
+      
+      // Refetch solo la query de entidades legales sin afectar otras queries
+      await queryClient.refetchQueries({ 
+        queryKey: ["project-legal-entities", projectId],
+        exact: true
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Hubo un error al actualizar la configuración.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update API key name mutation
+  const updateApiKeyMutation = useMutation({
+    mutationFn: async ({ entityId, apiKeyName }: { entityId: number; apiKeyName: string }) => {
+      const { error } = await supabase
+        .from("entidades_relacionadas")
+        .update({ nombre_api_key: apiKeyName || null })
+        .eq("id", entityId);
+
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast({
+        title: "API Key actualizada",
+        description: "El nombre de la API Key se actualizó exitosamente.",
+      });
+      setEditingApiKey(null);
+      setTempApiKeyName("");
+      
+      // Refetch solo la query de entidades legales sin afectar otras queries
+      await queryClient.refetchQueries({ 
+        queryKey: ["project-legal-entities", projectId],
+        exact: true
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Hubo un error al actualizar la API Key.",
+        variant: "destructive",
+      });
+    },
+  });
+
 
   if (isCreating) {
     return (
@@ -580,59 +650,33 @@ export const ProjectLegalEntitiesSection = ({
                         
                         {/* Cuenta Madre STP Field - Only for Dueño Vendedor and Aportante */}
                         {(entity.tipos_entidad?.nombre === "Dueño Vendedor" || entity.tipos_entidad?.nombre === "Aportante") && (
-                          <div className="mt-3 pt-3 border-t">
-                            <label className="text-sm font-medium">Cuenta Madre STP:</label>
-                            {isEditing ? (
-                              <div className="flex items-center gap-2 mt-1">
-                                <Input
-                                  value={tempCuentaMadre}
-                                  onChange={(e) => setTempCuentaMadre(e.target.value)}
-                                  placeholder="14 dígitos"
-                                  maxLength={14}
-                                  className="flex-1"
-                                />
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    updateCuentaMadreMutation.mutate({
-                                      entityId: entity.id,
-                                      cuentaMadre: tempCuentaMadre
-                                    });
-                                  }}
-                                  disabled={updateCuentaMadreMutation.isPending}
-                                >
-                                  <Save className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setEditingCuentaMadre(null);
-                                    setTempCuentaMadre("");
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-sm font-mono flex-1">
-                                  {entity.cuenta_madre_stp ? (
-                                    <>
-                                      <span>{entity.cuenta_madre_stp.substring(0, 10)}</span>
-                                      <span className="font-bold text-base text-primary">{entity.cuenta_madre_stp.substring(10)}</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-muted-foreground italic">No asignada</span>
-                                  )}
-                                </span>
-                                 {!hasAccounts && (
+                          <div className="mt-3 pt-3 border-t space-y-3">
+                            <div>
+                              <label className="text-sm font-medium">Cuenta Madre STP:</label>
+                              {isEditing ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Input
+                                    value={tempCuentaMadre}
+                                    onChange={(e) => setTempCuentaMadre(e.target.value)}
+                                    placeholder="14 dígitos"
+                                    maxLength={14}
+                                    className="flex-1"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      updateCuentaMadreMutation.mutate({
+                                        entityId: entity.id,
+                                        cuentaMadre: tempCuentaMadre
+                                      });
+                                    }}
+                                    disabled={updateCuentaMadreMutation.isPending}
+                                  >
+                                    <Save className="h-4 w-4" />
+                                  </Button>
                                   <Button
                                     type="button"
                                     size="sm"
@@ -640,20 +684,137 @@ export const ProjectLegalEntitiesSection = ({
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      setEditingCuentaMadre(entity.id);
-                                      setTempCuentaMadre(entity.cuenta_madre_stp || "");
+                                      setEditingCuentaMadre(null);
+                                      setTempCuentaMadre("");
                                     }}
                                   >
-                                    <Edit2 className="h-4 w-4" />
+                                    <X className="h-4 w-4" />
                                   </Button>
-                                )}
-                                {hasAccounts && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Con cuentas generadas
-                                  </Badge>
-                                )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-sm font-mono flex-1">
+                                    {entity.cuenta_madre_stp ? (
+                                      <>
+                                        <span>{entity.cuenta_madre_stp.substring(0, 10)}</span>
+                                        <span className="font-bold text-base text-primary">{entity.cuenta_madre_stp.substring(10)}</span>
+                                      </>
+                                    ) : (
+                                      <span className="text-muted-foreground italic">No asignada</span>
+                                    )}
+                                  </span>
+                                   {!hasAccounts && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setEditingCuentaMadre(entity.id);
+                                        setTempCuentaMadre(entity.cuenta_madre_stp || "");
+                                      }}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {hasAccounts && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      Con cuentas generadas
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Facturar checkbox and API Key field */}
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`facturar-${entity.id}`}
+                                  checked={entity.facturar || false}
+                                  onCheckedChange={(checked) => {
+                                    updateFacturarMutation.mutate({
+                                      entityId: entity.id,
+                                      facturar: checked as boolean
+                                    });
+                                  }}
+                                  disabled={updateFacturarMutation.isPending}
+                                />
+                                <Label
+                                  htmlFor={`facturar-${entity.id}`}
+                                  className="text-sm font-medium cursor-pointer"
+                                >
+                                  Facturar
+                                </Label>
                               </div>
-                            )}
+
+                              {/* API Key Name field - shown only when facturar is checked */}
+                              {entity.facturar && (
+                                <div>
+                                  <label className="text-sm font-medium">Nombre de API Key:</label>
+                                  {editingApiKey === entity.id ? (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Input
+                                        value={tempApiKeyName}
+                                        onChange={(e) => setTempApiKeyName(e.target.value)}
+                                        placeholder="Nombre de la API Key"
+                                        className="flex-1"
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          updateApiKeyMutation.mutate({
+                                            entityId: entity.id,
+                                            apiKeyName: tempApiKeyName
+                                          });
+                                        }}
+                                        disabled={updateApiKeyMutation.isPending}
+                                      >
+                                        <Save className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setEditingApiKey(null);
+                                          setTempApiKeyName("");
+                                        }}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-sm flex-1">
+                                        {entity.nombre_api_key || (
+                                          <span className="text-muted-foreground italic">No asignada</span>
+                                        )}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setEditingApiKey(entity.id);
+                                          setTempApiKeyName(entity.nombre_api_key || "");
+                                        }}
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
