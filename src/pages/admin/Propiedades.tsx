@@ -29,6 +29,47 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 
+// Component to show factura document link
+const FacturaCell = ({ propertyId }: { propertyId: number }) => {
+  const { data: facturaDoc } = useQuery({
+    queryKey: ['factura-doc', propertyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('documentos')
+        .select('url, id_tipo_documento, tipos_documento!inner(nombre)')
+        .eq('id_propiedad', propertyId)
+        .eq('activo', true)
+        .eq('tipos_documento.nombre', 'Factura')
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  if (!facturaDoc?.url) {
+    return <span className="text-muted-foreground text-xs">-</span>;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => window.open(facturaDoc.url, '_blank')}
+          >
+            <FileText className="h-4 w-4 text-primary" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Ver factura</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 interface Property {
   id: number;
   numero_propiedad: string;
@@ -1493,13 +1534,14 @@ const Propiedades = () => {
               <TableHead>Pagado</TableHead>
               <TableHead>Restante</TableHead>
               <TableHead>Estado de Pagos</TableHead>
+              <TableHead>Factura</TableHead>
               <TableHead>Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
           {propertiesToRender.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={tabType === "draft" ? 21 : 20} className="text-center py-6">
+                <TableCell colSpan={tabType === "draft" ? 22 : 21} className="text-center py-6">
                   {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter.length > 0 || bodegasFilter || estacionamientosFilter || cuentaCobranzaFilter
                     ? "No se encontraron resultados." 
                     : tabType === "eliminados"
@@ -1796,7 +1838,10 @@ const Propiedades = () => {
                        ) : (
                          <Badge variant="outline" className="text-xs">N/A</Badge>
                        )}
-                     </TableCell>
+                      </TableCell>
+                      <TableCell>
+                        <FacturaCell propertyId={property.id} />
+                      </TableCell>
                    <TableCell>
                     {tabType === "eliminados" ? (
                       <Button
