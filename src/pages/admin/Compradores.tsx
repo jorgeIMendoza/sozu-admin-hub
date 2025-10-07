@@ -25,6 +25,8 @@ type Comprador = {
   tipo_persona: string;
   activo: boolean;
   id_entidad_relacionada_rep_leg?: number;
+  id_estado_civil?: number;
+  id_conyuge?: number;
   representante_legal_nombre?: string;
 };
 
@@ -67,6 +69,8 @@ export default function Compradores() {
           tipo_persona,
           activo,
           id_entidad_relacionada_rep_leg,
+          id_estado_civil,
+          id_conyuge,
           entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
             id,
             id_tipo_entidad
@@ -99,6 +103,8 @@ export default function Compradores() {
         tipo_persona: item.tipo_persona,
         activo: item.activo,
         id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        id_estado_civil: item.id_estado_civil,
+        id_conyuge: item.id_conyuge,
         representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
       })) as (Comprador & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
@@ -119,6 +125,8 @@ export default function Compradores() {
           tipo_persona,
           activo,
           id_entidad_relacionada_rep_leg,
+          id_estado_civil,
+          id_conyuge,
           entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
             id,
             id_tipo_entidad
@@ -151,6 +159,8 @@ export default function Compradores() {
         tipo_persona: item.tipo_persona,
         activo: item.activo,
         id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        id_estado_civil: item.id_estado_civil,
+        id_conyuge: item.id_conyuge,
         representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
       })) as (Comprador & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
