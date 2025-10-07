@@ -250,6 +250,29 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         return;
       }
 
+      // Check if there's a cuenta_cobranza associated with this property
+      let clabeStp = currentProperty.clabe_stp || '';
+      
+      const { data: ofertaData } = await supabase
+        .from('ofertas')
+        .select('id')
+        .eq('id_propiedad', property.id)
+        .eq('activo', true)
+        .maybeSingle();
+      
+      if (ofertaData) {
+        const { data: cuentaCobranza } = await supabase
+          .from('cuentas_cobranza')
+          .select('clabe_stp')
+          .eq('id_oferta', ofertaData.id)
+          .eq('activo', true)
+          .maybeSingle();
+        
+        if (cuentaCobranza?.clabe_stp) {
+          clabeStp = cuentaCobranza.clabe_stp;
+        }
+      }
+
       setFormData({
         numero_propiedad: fullPropertyData.numero_propiedad,
         numero_piso: fullPropertyData.numero_piso || 0,
@@ -257,7 +280,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         m2_escriturables: fullPropertyData.m2_escriturables || 0,
         precio_lista: fullPropertyData.precio_lista || 0,
         monto_apartado: fullPropertyData.monto_apartado || 0,
-        clabe_stp_tmp_apartado: currentProperty.clabe_stp || '', // This comes from the function with COALESCE logic
+        clabe_stp_tmp_apartado: clabeStp,
         descripcion: fullPropertyData.descripcion || '',
         url_imagen_portada: fullPropertyData.url_imagen_portada || '',
         id_vista: fullPropertyData.id_vista?.toString() || '',
