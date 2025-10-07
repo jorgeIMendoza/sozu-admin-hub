@@ -255,7 +255,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
 
       const { data: cuentaCobranza, error: cuentaError } = await supabase
         .from('cuentas_cobranza')
-        .select('clabe_stp, ofertas!inner(id_propiedad, id_producto)')
+        .select('clabe_stp, ofertas!fk_cuentas_cobranza_oferta(id_propiedad, id_producto)')
         .eq('ofertas.id_propiedad', property.id)
         .eq('ofertas.activo', true)
         .is('ofertas.id_producto', null)
