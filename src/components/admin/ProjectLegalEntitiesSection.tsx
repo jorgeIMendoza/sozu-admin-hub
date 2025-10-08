@@ -459,7 +459,10 @@ export const ProjectLegalEntitiesSection = ({
       // Generate API key name if not exists and facturar is being enabled
       if (facturar && !apiKeyName && entity.proyectos && entity.personas) {
         apiKeyName = generateApiKeyName(entity.proyectos.nombre, entity.personas.nombre_legal);
-        // Generate draft API key name with _DRAFT suffix
+      }
+      
+      // Generate draft API key name if not exists (even if apiKeyName already exists)
+      if (facturar && apiKeyName && !apiKeyNameDraft) {
         apiKeyNameDraft = `${apiKeyName}_DRAFT`;
       }
       
@@ -788,32 +791,31 @@ export const ProjectLegalEntitiesSection = ({
                                     </div>
 
                                     {/* API Key Draft */}
-                                    {(entity as any).nombre_api_key_draft && (
-                                      <div>
-                                        <Label className="text-xs text-muted-foreground">Nombre del Secret (Draft)</Label>
-                                        <div className="flex gap-2 mt-1">
-                                          <Input
-                                            value={(entity as any).nombre_api_key_draft}
-                                            readOnly
-                                            className="flex-1 bg-background font-mono text-sm"
-                                          />
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                              navigator.clipboard.writeText((entity as any).nombre_api_key_draft || '');
-                                              toast({
-                                                title: "Copiado",
-                                                description: "Nombre del secret draft copiado al portapapeles",
-                                              });
-                                            }}
-                                          >
-                                            <Copy className="h-4 w-4" />
-                                          </Button>
-                                        </div>
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground">Nombre del Secret (Draft)</Label>
+                                      <div className="flex gap-2 mt-1">
+                                        <Input
+                                          value={(entity as any).nombre_api_key_draft || `${entity.nombre_api_key}_DRAFT`}
+                                          readOnly
+                                          className="flex-1 bg-background font-mono text-sm"
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            const draftKey = (entity as any).nombre_api_key_draft || `${entity.nombre_api_key}_DRAFT`;
+                                            navigator.clipboard.writeText(draftKey);
+                                            toast({
+                                              title: "Copiado",
+                                              description: "Nombre del secret draft copiado al portapapeles",
+                                            });
+                                          }}
+                                        >
+                                          <Copy className="h-4 w-4" />
+                                        </Button>
                                       </div>
-                                    )}
+                                    </div>
                                     
                                     <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
                                       <div className="flex gap-2 mb-2">
