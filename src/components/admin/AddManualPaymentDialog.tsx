@@ -503,7 +503,7 @@ export function AddManualPaymentDialog({
               name="descripcion"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descripción (Opcional)</FormLabel>
+                  <FormLabel>Descripción</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder="Añade una descripción si lo necesitas..."
