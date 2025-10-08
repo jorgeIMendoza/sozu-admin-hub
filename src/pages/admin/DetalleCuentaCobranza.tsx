@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -55,9 +55,11 @@ interface AplicacionPago {
 }
 
 interface Comprador {
+  id_persona?: number;
   nombre_legal: string;
   rfc: string | null;
   porcentaje_copropiedad: number;
+  id_conyuge?: number | null;
 }
 
 interface CuentaDetalle {
@@ -348,6 +350,7 @@ export default function DetalleCuentaCobranza() {
   const { id } = useParams<{ id: string }>();
   const cuentaId = parseInt(id || '0');
   const [openAcuerdos, setOpenAcuerdos] = useState<{ [key: number]: boolean }>({});
+  const [compradoresOpen, setCompradoresOpen] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; aplicacion: AplicacionToDelete | null }>({
     isOpen: false,
     aplicacion: null
@@ -441,12 +444,13 @@ export default function DetalleCuentaCobranza() {
         .eq('id', cuenta.id_oferta)
         .maybeSingle();
 
-      // Get compradores
+      // Get compradores with spouse information
       const { data: compradores } = await supabase
         .from('compradores')
         .select(`
+          id_persona,
           porcentaje_copropiedad,
-          personas!compradores_id_persona_fkey(nombre_legal, rfc)
+          personas!compradores_id_persona_fkey(id, nombre_legal, rfc, id_conyuge)
         `)
         .eq('id_cuenta_cobranza', cuentaId)
         .eq('activo', true);
@@ -505,9 +509,11 @@ export default function DetalleCuentaCobranza() {
         fecha_compra: cuenta.fecha_compra,
         activo: cuenta.activo, // Add activo field to track if account is cancelled
         compradores: compradores?.map(c => ({
+          id_persona: c.personas?.id,
           nombre_legal: c.personas?.nombre_legal || '',
           rfc: c.personas?.rfc || null,
-          porcentaje_copropiedad: c.porcentaje_copropiedad || 0
+          porcentaje_copropiedad: c.porcentaje_copropiedad || 0,
+          id_conyuge: c.personas?.id_conyuge
         })).filter(c => c.nombre_legal) || [],
         proyecto: entidadResult.data?.proyectos?.nombre || 'Sin proyecto',
         edificio: edificioModeloResult.data?.edificios?.nombre || 'Sin edificio',
@@ -1811,37 +1817,85 @@ export default function DetalleCuentaCobranza() {
           
           {cuentaDetalle?.compradores && cuentaDetalle.compradores.length > 0 && (
             <div className="mt-4">
-              <label className="text-sm font-medium">Compradores</label>
-              <div className="mt-3 space-y-3">
-                {cuentaDetalle.compradores.map((comprador, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="space-y-1">
-                      <div className="font-medium">{comprador.nombre_legal}</div>
-                      {comprador.rfc && (
-                        <Badge variant="outline" className="text-xs">{comprador.rfc}</Badge>
-                      )}
+              <Collapsible open={compradoresOpen} onOpenChange={setCompradoresOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full flex items-center justify-between p-3 h-auto">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Compradores ({cuentaDetalle.compradores.length})</span>
+                      {(() => {
+                        // Check if any compradores are spouses
+                        const areSpouses = cuentaDetalle.compradores.length >= 2 && cuentaDetalle.compradores.some((comprador) => {
+                          const spouseId = comprador.id_conyuge;
+                          return spouseId && cuentaDetalle.compradores.some(c => c.id_persona === spouseId);
+                        });
+                        
+                        return areSpouses ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HeartHandshake className="h-5 w-5 text-pink-500" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Hay compradores cónyuges</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : null;
+                      })()}
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold">
-                        {comprador.porcentaje_copropiedad.toFixed(2)}%
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {(cuentaDetalle?.compradores?.length || 0) === 1 ? 'Propiedad' : 'Copropiedad'}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    {compradoresOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
                 
-                {/* Total verification */}
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <span className="text-sm font-medium">
-                    Total {(cuentaDetalle?.compradores?.length || 0) === 1 ? 'Propiedad' : 'Copropiedad'}:
-                  </span>
-                  <span className="font-bold">
-                    {(cuentaDetalle?.compradores || []).reduce((sum, c) => sum + c.porcentaje_copropiedad, 0).toFixed(2)}%
-                  </span>
-                </div>
-              </div>
+                <CollapsibleContent className="mt-2 space-y-3">
+                  {cuentaDetalle.compradores.map((comprador, index) => {
+                    // Check if this comprador has a spouse in the list
+                    const hasSpouse = comprador.id_conyuge != null;
+                    const spouseName = hasSpouse ? cuentaDetalle.compradores.find(c => c.id_persona === comprador.id_conyuge)?.nombre_legal : null;
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{comprador.nombre_legal}</span>
+                            {hasSpouse && spouseName && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <HeartHandshake className="h-4 w-4 text-pink-500 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-medium">Cónyuge: {spouseName}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                          {comprador.rfc && (
+                            <Badge variant="outline" className="text-xs">{comprador.rfc}</Badge>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-semibold">
+                            {comprador.porcentaje_copropiedad.toFixed(2)}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {(cuentaDetalle?.compradores?.length || 0) === 1 ? 'Propiedad' : 'Copropiedad'}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Total verification */}
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-sm font-medium">Total:</span>
+                    <span className="font-bold">
+                      {(cuentaDetalle?.compradores || []).reduce((sum, c) => sum + c.porcentaje_copropiedad, 0).toFixed(2)}%
+                    </span>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           )}
         </CardContent>
