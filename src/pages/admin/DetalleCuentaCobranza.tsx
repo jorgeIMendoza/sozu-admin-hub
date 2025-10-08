@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -121,6 +122,11 @@ import JSZip from 'jszip';
 function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number }) {
   const { toast } = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [viewerDialog, setViewerDialog] = useState<{ isOpen: boolean; url: string; title: string }>({
+    isOpen: false,
+    url: '',
+    title: ''
+  });
 
   const { data: documentos, isLoading } = useQuery({
     queryKey: ["documentos_cuenta_cobranza", cuentaCobranzaId],
@@ -297,9 +303,11 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        if (doc.url) {
-                          window.open(doc.url, '_blank', 'noopener,noreferrer');
-                        }
+                        setViewerDialog({
+                          isOpen: true,
+                          url: doc.url,
+                          title: doc.tipos_documento?.nombre || 'Documento'
+                        });
                       }}
                       title="Ver documento"
                     >
@@ -316,6 +324,22 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
           </div>
         )}
       </CardContent>
+
+      {/* Document Viewer Dialog */}
+      <Dialog open={viewerDialog.isOpen} onOpenChange={(open) => setViewerDialog({ ...viewerDialog, isOpen: open })}>
+        <DialogContent className="max-w-4xl h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>{viewerDialog.title}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 h-full">
+            <iframe
+              src={viewerDialog.url}
+              className="w-full h-full border-0"
+              title={viewerDialog.title}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
