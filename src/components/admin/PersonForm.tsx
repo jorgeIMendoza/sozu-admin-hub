@@ -472,10 +472,13 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     enabled: entityType === 'client' && getDefaultTipoEntidad(entityType) === 7 // Only for prospects
   });
 
-  // Check if this entity type should show STP checkbox (Dueño Vendedor only for now)
+  // Check if this entity type should show STP checkbox
   const shouldShowStpCheckbox = () => {
-    const defaultTipoEntidad = getDefaultTipoEntidad(entityType || '');
-    return defaultTipoEntidad === 4; // Only Vendedor (Dueño Vendedor)
+    // Get the current tipo_entidad value (from state or initial data)
+    const currentTipoEntidad = idTipoEntidad || initialData?.id_tipo_entidad;
+    
+    // Show for: Dueño Vendedor (4), Aportantes (15), Administradora (6)
+    return currentTipoEntidad === 4 || currentTipoEntidad === 15 || currentTipoEntidad === 6;
   };
 
   function getDefaultTipoEntidad(type: string) {
