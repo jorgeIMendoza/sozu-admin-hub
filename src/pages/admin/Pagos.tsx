@@ -923,18 +923,19 @@ export default function Pagos() {
                                     <p>Editar Cuenta</p>
                                   </TooltipContent>
                                 </Tooltip>
-                                <Tooltip>
+                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button 
                                       variant="outline" 
                                       size="icon"
                                       onClick={() => handleAddManualPayment(cuenta)}
+                                      disabled={cuenta.pagado >= cuenta.precio_final}
                                     >
                                       <Plus className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Agregar Pago Manual</p>
+                                    <p>{cuenta.pagado >= cuenta.precio_final ? 'Cuenta totalmente pagada' : 'Agregar Pago Manual'}</p>
                                   </TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
@@ -1343,6 +1344,8 @@ export default function Pagos() {
           cuentaCobranzaLabel={formatCuentaCobranzaId(paymentDialog.cuenta.id, paymentDialog.cuenta.tipo)}
           onClose={() => setPaymentDialog({ isOpen: false, cuenta: null })}
           tipoCuenta={paymentDialog.cuenta.tipo}
+          precioFinal={paymentDialog.cuenta.precio_final}
+          montoPagado={paymentDialog.cuenta.pagado}
         />
       )}
 

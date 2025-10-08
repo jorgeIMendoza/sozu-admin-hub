@@ -1628,7 +1628,7 @@ export default function DetalleCuentaCobranza() {
           </Button>
           <Button 
             onClick={() => setManualPaymentDialog(true)}
-            disabled={esCuentaCancelada}
+            disabled={esCuentaCancelada || totalPagado >= (cuentaDetalle?.precio_final || 0)}
           >
             <CreditCard className="h-4 w-4 mr-2" />
             Agregar pago manual
@@ -2555,6 +2555,8 @@ export default function DetalleCuentaCobranza() {
         cuentaCobranzaId={cuentaId}
         cuentaCobranzaLabel={formatCuentaCobranzaId(cuentaId, cuentaDetalle?.tipo_cuenta)}
         tipoCuenta={cuentaDetalle?.tipo_cuenta}
+        precioFinal={cuentaDetalle?.precio_final || 0}
+        montoPagado={totalPagado}
       />
 
       <TransferirEntreComisionesDialog

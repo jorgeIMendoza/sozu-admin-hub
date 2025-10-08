@@ -1059,7 +1059,7 @@ export type Database = {
           id_producto: number | null
           id_propiedad: number | null
           id_tipo_documento: number
-          numero: number
+          numero: string | null
           url: string
         }
         Insert: {
@@ -1073,7 +1073,7 @@ export type Database = {
           id_producto?: number | null
           id_propiedad?: number | null
           id_tipo_documento: number
-          numero: number
+          numero?: string | null
           url: string
         }
         Update: {
@@ -1087,7 +1087,7 @@ export type Database = {
           id_producto?: number | null
           id_propiedad?: number | null
           id_tipo_documento?: number
-          numero?: number
+          numero?: string | null
           url?: string
         }
         Relationships: [
@@ -1259,6 +1259,7 @@ export type Database = {
           id_proyecto: number | null
           id_tipo_entidad: number
           nombre_api_key: string | null
+          nombre_api_key_draft: string | null
         }
         Insert: {
           activo?: boolean
@@ -1272,6 +1273,7 @@ export type Database = {
           id_proyecto?: number | null
           id_tipo_entidad: number
           nombre_api_key?: string | null
+          nombre_api_key_draft?: string | null
         }
         Update: {
           activo?: boolean
@@ -1285,6 +1287,7 @@ export type Database = {
           id_proyecto?: number | null
           id_tipo_entidad?: number
           nombre_api_key?: string | null
+          nombre_api_key_draft?: string | null
         }
         Relationships: [
           {
@@ -2288,6 +2291,7 @@ export type Database = {
         Row: {
           activo: boolean
           clave_rastreo: string | null
+          descripcion: string | null
           fecha_actualizacion: string
           fecha_creacion: string
           fecha_pago: string
@@ -2301,6 +2305,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           clave_rastreo?: string | null
+          descripcion?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_pago: string
@@ -2314,6 +2319,7 @@ export type Database = {
         Update: {
           activo?: boolean
           clave_rastreo?: string | null
+          descripcion?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_pago?: string
@@ -3464,24 +3470,6 @@ export type Database = {
           fecha_creacion?: string | null
           id?: never
           nombre?: string
-        }
-        Relationships: []
-      }
-      servicios: {
-        Row: {
-          duracion: unknown | null
-          id: number
-          nombre: string | null
-        }
-        Insert: {
-          duracion?: unknown | null
-          id?: number
-          nombre?: string | null
-        }
-        Update: {
-          duracion?: unknown | null
-          id?: number
-          nombre?: string | null
         }
         Relationships: []
       }

@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   monto: z.string({
@@ -40,6 +42,7 @@ const formSchema = z.object({
   clave_rastreo: z.string().optional(),
   evidencia_pago: z.any().refine((file) => file instanceof File, "La evidencia de pago es requerida"),
   archivo_cep: z.any().optional(),
+  descripcion: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -50,6 +53,8 @@ interface AddManualPaymentDialogProps {
   cuentaCobranzaId: number;
   cuentaCobranzaLabel: string;
   tipoCuenta?: 'Propiedad' | 'Producto' | 'Servicio';
+  precioFinal: number;
+  montoPagado: number;
 }
 
 export function AddManualPaymentDialog({ 
@@ -57,7 +62,9 @@ export function AddManualPaymentDialog({
   onClose, 
   cuentaCobranzaId, 
   cuentaCobranzaLabel,
-  tipoCuenta = 'Propiedad'
+  tipoCuenta = 'Propiedad',
+  precioFinal,
+  montoPagado
 }: AddManualPaymentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -127,6 +134,7 @@ export function AddManualPaymentDialog({
       fecha_pago: new Date(),
       id_metodos_pago: "",
       clave_rastreo: "",
+      descripcion: "",
     },
   });
 
@@ -189,6 +197,7 @@ export function AddManualPaymentDialog({
           clave_rastreo: claveRastreo,
           url_recibo: evidenciaUrl,
           url_cep: cepUrl,
+          descripcion: data.descripcion || null,
           activo: true,
         })
         .select()
@@ -276,6 +285,19 @@ export function AddManualPaymentDialog({
     
     // Get form values
     const formValues = form.getValues();
+    
+    // Validate amount doesn't exceed remaining balance
+    const montoNuevoPago = typeof formValues.monto === 'number' ? formValues.monto : parseFloat(formValues.monto as any);
+    const montoRestante = precioFinal - montoPagado;
+    
+    if (montoNuevoPago > montoRestante) {
+      toast({
+        title: "Error",
+        description: `El monto del pago ($${montoNuevoPago.toLocaleString('es-MX', { minimumFractionDigits: 2 })}) más lo ya pagado ($${montoPagado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}) sobrepasa el precio final ($${precioFinal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}). El monto máximo permitido es $${montoRestante.toLocaleString('es-MX', { minimumFractionDigits: 2 })}.`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Manual validation for STP-Manual
     let hasErrors = false;
@@ -476,12 +498,33 @@ export function AddManualPaymentDialog({
               />
             )}
 
+            <FormField
+              control={form.control}
+              name="descripcion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descripción (Opcional)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Añade una descripción si lo necesitas..."
+                      {...field}
+                      rows={3}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleClose}>
+              <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Guardando..." : "Guardar Pago"}
+              <Button type="submit" disabled={isSubmitting || createPaymentMutation.isPending}>
+                {(isSubmitting || createPaymentMutation.isPending) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Guardar Pago
               </Button>
             </div>
           </form>
