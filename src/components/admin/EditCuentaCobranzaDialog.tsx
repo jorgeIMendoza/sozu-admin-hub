@@ -2265,7 +2265,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           </div>
                         </div>
                         <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          ⚠ Campo importante: Se mostrará confirmación antes de guardar
+                          Se mostrará confirmación antes de guardar
                         </p>
                       </div>
                       <div>
