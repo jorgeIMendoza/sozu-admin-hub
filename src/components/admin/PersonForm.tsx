@@ -739,7 +739,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const isUser = entityType === 'user';
 
   // Check if this is one of the specific entity types that need new tab structure
-  const isSpecialEntityType = ['vendedor', 'comprador', 'dueno', 'residente', 'agente', 'administrador', 'representante_legal'].includes(entityType);
+  const isSpecialEntityType = ['vendedor', 'comprador', 'dueno', 'residente', 'agente', 'administrador', 'representante_legal', 'administradora', 'legal'].includes(entityType);
 
   return (
     <Card className="p-6">
