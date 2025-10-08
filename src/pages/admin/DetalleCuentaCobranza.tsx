@@ -139,13 +139,23 @@ function ReadOnlyDocumentsView({ propiedadId }: { propiedadId: number }) {
 
       if (error) throw error;
       
-      // Corregir URLs con path duplicado
+      // Construir URLs correctas para los documentos
       const docsWithCorrectedUrls = (docs || []).map(doc => {
         let correctedUrl = doc.url;
         
-        // Si la URL tiene el patrón /documentos/documentos/, corregirlo
-        if (correctedUrl && correctedUrl.includes('/documentos/documentos/')) {
-          correctedUrl = correctedUrl.replace('/documentos/documentos/', '/documentos/');
+        // Si la URL no es completa (no empieza con https://), construir la URL pública
+        if (correctedUrl && !correctedUrl.startsWith('https://')) {
+          // Extraer solo el nombre del archivo si tiene path
+          const fileName = correctedUrl.includes('/') 
+            ? correctedUrl.split('/').pop() 
+            : correctedUrl;
+          
+          // Construir la URL pública correcta
+          const { data } = supabase.storage
+            .from('documentos')
+            .getPublicUrl(fileName);
+          
+          correctedUrl = data.publicUrl;
         }
         
         return {
