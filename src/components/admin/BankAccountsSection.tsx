@@ -75,7 +75,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
           .from('entidades_relacionadas')
           .select('id_tipo_entidad')
           .eq('id_persona', personId)
-          .in('id_tipo_entidad', [4, 15]) // "Dueño Vendedor" or "Aportante"
+          .in('id_tipo_entidad', [4, 15, 6]) // "Dueño Vendedor", "Aportante" or "Administradora"
           .eq('activo', true)
           .limit(1)
           .single();
@@ -118,7 +118,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
 
   const shouldShowStpCheckbox = showStpCheckbox && 
     entityData && 
-    (entityData.id_tipo_entidad === 4 || entityData.id_tipo_entidad === 15); // "Dueño Vendedor" or "Aportante"
+    (entityData.id_tipo_entidad === 4 || entityData.id_tipo_entidad === 15 || entityData.id_tipo_entidad === 6); // "Dueño Vendedor", "Aportante" or "Administradora"
 
   const addMutation = useMutation({
     mutationFn: async (accountData: typeof newAccount) => {

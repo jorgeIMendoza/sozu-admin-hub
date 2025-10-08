@@ -70,7 +70,7 @@ export default function AdministradoresPersonas() {
         `)
         .eq('activo', true)
         .eq('entidades_relacionadas.activo', true)
-        .eq('entidades_relacionadas.id_tipo_entidad', 6)
+        .eq('entidades_relacionadas.id_tipo_entidad', 20)
         .is('entidades_relacionadas.id_proyecto', null)
         .order('nombre_legal', { ascending: true });
       
@@ -122,7 +122,7 @@ export default function AdministradoresPersonas() {
         `)
         .eq('activo', false)
         .eq('entidades_relacionadas.activo', true)
-        .eq('entidades_relacionadas.id_tipo_entidad', 6)
+        .eq('entidades_relacionadas.id_tipo_entidad', 20)
         .is('entidades_relacionadas.id_proyecto', null)
         .order('nombre_legal', { ascending: true });
       
@@ -172,7 +172,7 @@ export default function AdministradoresPersonas() {
         .from('entidades_relacionadas')
         .insert([{
           id_persona: personResult.id,
-          id_tipo_entidad: 6, // Administrador
+          id_tipo_entidad: 20, // Administrador
           id_proyecto: null,
           activo: true
         }]);

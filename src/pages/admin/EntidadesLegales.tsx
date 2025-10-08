@@ -91,6 +91,7 @@ export default function EntidadesLegales() {
         .eq('tipo_persona', 'pm')
         .eq('entidades_relacionadas.activo', true)
         .neq('entidades_relacionadas.tipos_entidad.padre', 'c')
+        .neq('entidades_relacionadas.id_tipo_entidad', 6)
         .not('entidades_relacionadas.tipos_entidad.nombre', 'in', '("Inmobiliaria","Desarrollador")')
         .order('nombre_legal', { ascending: true });
       
@@ -149,6 +150,7 @@ export default function EntidadesLegales() {
         .eq('tipo_persona', 'pm')
         .eq('entidades_relacionadas.activo', true)
         .neq('entidades_relacionadas.tipos_entidad.padre', 'c')
+        .neq('entidades_relacionadas.id_tipo_entidad', 6)
         .not('entidades_relacionadas.tipos_entidad.nombre', 'in', '("Inmobiliaria","Desarrollador")')
         .order('nombre_legal', { ascending: true });
       

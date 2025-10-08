@@ -434,6 +434,18 @@ export default function Administradoras() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedEntityForBankAccounts(administradora);
+                            setIsBankAccountsDialogOpen(true);
+                          }}
+                          className="hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700"
+                          title="Gestionar cuentas bancarias"
+                        >
+                          Cuentas
+                        </Button>
                       </>
                     ) : (
                       <Button
@@ -628,6 +640,22 @@ export default function Administradoras() {
         isLoading={restoreMutation.isPending}
         actionType="restore"
       />
+
+      <Dialog open={isBankAccountsDialogOpen} onOpenChange={setIsBankAccountsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Cuentas Bancarias - {selectedEntityForBankAccounts?.nombre_comercial || selectedEntityForBankAccounts?.nombre_legal}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedEntityForBankAccounts && (
+            <BankAccountsSection 
+              personId={selectedEntityForBankAccounts.id}
+              showStpCheckbox={true}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
