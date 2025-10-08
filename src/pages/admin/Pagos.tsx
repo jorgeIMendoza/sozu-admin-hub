@@ -267,7 +267,35 @@ export default function Pagos() {
       const edificioModeloIds = ofertas?.map(o => o.propiedades?.id_edificio_modelo).filter(Boolean) || [];
       const productoIds = ofertas?.map(o => o.id_producto).filter(Boolean) || [];
 
-      const [entidadesResult, edificiosModelosResult, productosResult] = await Promise.all([
+      // Get productos_servicios and proyectos data separately
+      let productosData: any[] = [];
+      let proyectosProductosData: any[] = [];
+      
+      if (productoIds.length > 0) {
+        const { data: productos } = await supabase
+          .from('productos_servicios')
+          .select('id, nombre, id_proyecto')
+          .in('id', productoIds);
+        
+        productosData = productos || [];
+        
+        if (productosData.length > 0) {
+          const proyectoIdsProductos = productosData
+            .map(p => p.id_proyecto)
+            .filter(Boolean);
+          
+          if (proyectoIdsProductos.length > 0) {
+            const { data: proyectos } = await supabase
+              .from('proyectos')
+              .select('id, id_tipo_uso')
+              .in('id', proyectoIdsProductos);
+            
+            proyectosProductosData = proyectos || [];
+          }
+        }
+      }
+
+      const [entidadesResult, edificiosModelosResult] = await Promise.all([
         supabase
           .from('entidades_relacionadas')
           .select(`
@@ -286,18 +314,7 @@ export default function Pagos() {
             edificios!edificios_modelos_id_edificio_fkey(nombre),
             modelos!edificios_modelos_id_modelo_fkey(nombre)
           `)
-          .in('id', edificioModeloIds),
-        productoIds.length > 0 ? supabase
-          .from('productos_servicios')
-          .select(`
-            id,
-            nombre,
-            id_proyecto,
-            proyectos!productos_servicios_id_proyecto_fkey(
-              id_tipo_uso
-            )
-          `)
-          .in('id', productoIds) : Promise.resolve({ data: [] })
+          .in('id', edificioModeloIds)
       ]);
 
       // Transform the data
@@ -312,15 +329,20 @@ export default function Pagos() {
         let tipo: 'Propiedad' | 'Producto' | 'Servicio' = 'Propiedad';
         let productoNombre: string | undefined;
         if (oferta?.id_producto) {
-          const producto = productosResult.data?.find(p => p.id === oferta.id_producto);
+          const producto = productosData?.find((p: any) => p.id === oferta.id_producto);
           productoNombre = producto?.nombre;
-          if (producto && producto.proyectos) {
-            // id_tipo_uso: 9 = Productos, 10 = Servicios, 11 = Mantenimientos (also Servicios)
-            const tipoUso = producto.proyectos.id_tipo_uso;
-            if (tipoUso === 9) {
-              tipo = 'Producto';
-            } else if (tipoUso === 10 || tipoUso === 11) {
-              tipo = 'Servicio';
+          if (producto && producto.id_proyecto) {
+            const proyecto = proyectosProductosData?.find((pr: any) => pr.id === producto.id_proyecto);
+            if (proyecto) {
+              // id_tipo_uso: 9 = Productos, 10 = Servicios, 11 = Mantenimientos (also Servicios)
+              const tipoUso = proyecto.id_tipo_uso;
+              if (tipoUso === 9) {
+                tipo = 'Producto';
+              } else if (tipoUso === 10 || tipoUso === 11) {
+                tipo = 'Servicio';
+              }
+            } else {
+              tipo = 'Producto'; // Default if we can't determine
             }
           } else {
             tipo = 'Producto'; // Default if we can't determine
