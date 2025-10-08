@@ -30,6 +30,11 @@ interface Comprador {
   id_persona?: number;
 }
 
+interface CashPayment {
+  fecha_pago: string;
+  monto: number;
+}
+
 interface CuentaCobranza {
   id: number;
   tipo: 'Propiedad' | 'Producto' | 'Servicio';
@@ -54,6 +59,7 @@ interface CuentaCobranza {
   cash_paid?: number;
   cash_remaining?: number;
   cash_percentage?: number;
+  cash_payments?: CashPayment[];
 }
 
 export default function Pagos() {
@@ -136,16 +142,29 @@ export default function Pagos() {
       // Get cash payments (id_metodos_pago = 1) for all accounts
       const { data: pagosCash } = await supabase
         .from('pagos')
-        .select('id_cuenta_cobranza, monto')
+        .select('id_cuenta_cobranza, monto, fecha_pago')
         .in('id_cuenta_cobranza', cuentaIds)
         .eq('id_metodos_pago', 1)
-        .eq('activo', true);
+        .eq('activo', true)
+        .order('fecha_pago', { ascending: false });
 
       const pagadoEfectivoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
         const totalEfectivo = pagosCash
           ?.filter(p => p.id_cuenta_cobranza === cuenta.id)
           ?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
         acc[cuenta.id] = totalEfectivo;
+        return acc;
+      }, {});
+
+      // Create a map of individual cash payments per account
+      const pagosCashPorCuenta = cuentas.reduce((acc: Record<number, CashPayment[]>, cuenta) => {
+        const pagos = pagosCash
+          ?.filter(p => p.id_cuenta_cobranza === cuenta.id)
+          ?.map(p => ({
+            fecha_pago: p.fecha_pago,
+            monto: p.monto
+          })) || [];
+        acc[cuenta.id] = pagos;
         return acc;
       }, {});
 
@@ -402,6 +421,7 @@ export default function Pagos() {
           cash_paid: pagadoEfectivo,
           cash_remaining: restanteEfectivo,
           cash_percentage: porcentajeEfectivo,
+          cash_payments: tipo === 'Propiedad' ? (pagosCashPorCuenta[cuenta.id] || []) : [],
           compradores: cuentaCompradores.map(c => ({
             nombre_legal: c.personas?.nombre_legal || '',
             rfc: c.personas?.rfc || null,
@@ -1334,6 +1354,7 @@ export default function Pagos() {
           cashPaid={cashDialog.cuenta.cash_paid || 0}
           cashRemaining={cashDialog.cuenta.cash_remaining || 0}
           cashPercentage={cashDialog.cuenta.cash_percentage || 0}
+          cashPayments={cashDialog.cuenta.cash_payments || []}
         />
       )}
     </div>

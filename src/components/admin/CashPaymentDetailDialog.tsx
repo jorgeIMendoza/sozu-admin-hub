@@ -1,6 +1,15 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DollarSign } from "lucide-react";
+import { DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useState } from "react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+interface CashPayment {
+  fecha_pago: string;
+  monto: number;
+}
 
 interface CashPaymentDetailDialogProps {
   isOpen: boolean;
@@ -9,6 +18,7 @@ interface CashPaymentDetailDialogProps {
   cashPaid: number;
   cashRemaining: number;
   cashPercentage: number;
+  cashPayments: CashPayment[];
 }
 
 export function CashPaymentDetailDialog({
@@ -17,8 +27,10 @@ export function CashPaymentDetailDialog({
   cashLimit,
   cashPaid,
   cashRemaining,
-  cashPercentage
+  cashPercentage,
+  cashPayments
 }: CashPaymentDetailDialogProps) {
+  const [isPaymentsOpen, setIsPaymentsOpen] = useState(false);
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
@@ -81,6 +93,41 @@ export function CashPaymentDetailDialog({
               </p>
             )}
           </div>
+
+          {cashPayments.length > 0 && (
+            <Collapsible open={isPaymentsOpen} onOpenChange={setIsPaymentsOpen} className="mt-4">
+              <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors">
+                <span className="font-medium text-sm">
+                  Ver todos los pagos en efectivo ({cashPayments.length})
+                </span>
+                {isPaymentsOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-3 py-2 grid grid-cols-2 gap-4 text-sm font-medium">
+                    <span>Fecha</span>
+                    <span className="text-right">Monto</span>
+                  </div>
+                  <div className="divide-y">
+                    {cashPayments.map((payment, index) => (
+                      <div key={index} className="px-3 py-2 grid grid-cols-2 gap-4 text-sm hover:bg-muted/30 transition-colors">
+                        <span className="text-muted-foreground">
+                          {format(new Date(payment.fecha_pago), "dd/MMM/yyyy", { locale: es })}
+                        </span>
+                        <span className="text-right font-semibold text-blue-600">
+                          {formatCurrency(payment.monto)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
       </DialogContent>
     </Dialog>
