@@ -327,11 +327,11 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
 
       {/* Document Viewer Dialog */}
       <Dialog open={viewerDialog.isOpen} onOpenChange={(open) => setViewerDialog({ ...viewerDialog, isOpen: open })}>
-        <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0">
-          <DialogHeader className="px-6 py-4 border-b">
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-3 border-b shrink-0">
             <DialogTitle>{viewerDialog.title}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 w-full h-[calc(100%-60px)]">
+          <div className="flex-1 overflow-hidden">
             <iframe
               src={`${viewerDialog.url}#page=1&view=FitH`}
               className="w-full h-full border-0"
