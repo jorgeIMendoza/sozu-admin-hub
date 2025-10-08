@@ -1046,7 +1046,10 @@ export default function DetalleCuentaCobranza() {
         return null;
       }
 
-      let totalEscrituracion = cuentaDetalle.precio_final || 0;
+      const precioPropiedad = cuentaDetalle.precio_final || 0;
+      let totalEscrituracion = precioPropiedad;
+      let precioBodegas = 0;
+      let precioEstacionamientos = 0;
 
       // Get bodegas (all, not just not included)
       const { data: bodegas } = await supabase
@@ -1083,7 +1086,7 @@ export default function DetalleCuentaCobranza() {
               .eq('activo', true);
 
             if (cuentasBodegas && cuentasBodegas.length > 0) {
-              const precioBodegas = cuentasBodegas.reduce((sum, c) => sum + (c.precio_final || 0), 0);
+              precioBodegas = cuentasBodegas.reduce((sum, c) => sum + (c.precio_final || 0), 0);
               totalEscrituracion += precioBodegas;
             }
           }
@@ -1111,7 +1114,7 @@ export default function DetalleCuentaCobranza() {
               .eq('activo', true);
 
             if (cuentasEstacionamientos && cuentasEstacionamientos.length > 0) {
-              const precioEstacionamientos = cuentasEstacionamientos.reduce((sum, c) => sum + (c.precio_final || 0), 0);
+              precioEstacionamientos = cuentasEstacionamientos.reduce((sum, c) => sum + (c.precio_final || 0), 0);
               totalEscrituracion += precioEstacionamientos;
             }
           }
@@ -1120,6 +1123,9 @@ export default function DetalleCuentaCobranza() {
 
       return {
         totalEscrituracion,
+        precioPropiedad,
+        precioBodegas,
+        precioEstacionamientos,
         tieneBodegas: (bodegas?.length || 0) > 0,
         tieneEstacionamientos: (estacionamientos?.length || 0) > 0
       };
@@ -1634,7 +1640,7 @@ export default function DetalleCuentaCobranza() {
                         <Home className="h-4 w-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Propiedad</p>
+                        <p>Propiedad: {formatCurrency(escrituracionData.precioPropiedad)}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -1645,7 +1651,7 @@ export default function DetalleCuentaCobranza() {
                           <Car className="h-4 w-4 text-muted-foreground" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Incluye estacionamiento</p>
+                          <p>Estacionamiento: {formatCurrency(escrituracionData.precioEstacionamientos)}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -1657,7 +1663,7 @@ export default function DetalleCuentaCobranza() {
                           <Warehouse className="h-4 w-4 text-muted-foreground" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Incluye bodega</p>
+                          <p>Bodega: {formatCurrency(escrituracionData.precioBodegas)}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
