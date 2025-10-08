@@ -634,8 +634,8 @@ export const ProjectLegalEntitiesSection = ({
                           )}
                         </div>
                         
-                        {/* Cuenta Madre STP Field - Only for Dueño Vendedor and Aportante */}
-                        {(entity.tipos_entidad?.nombre === "Dueño Vendedor" || entity.tipos_entidad?.nombre === "Aportante") && (
+                        {/* Cuenta Madre STP Field - Only for Dueño Vendedor, Administradora, and Aportante */}
+                        {([4, 6, 15].includes(entity.tipos_entidad?.id || 0)) && (
                           <div className="mt-3 pt-3 border-t space-y-3">
                             <div>
                               <label className="text-sm font-medium">Cuenta Madre STP:</label>
