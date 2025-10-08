@@ -156,6 +156,7 @@ export const ProjectLegalEntitiesSection = ({
           cuenta_madre_stp,
           facturar,
           nombre_api_key,
+          nombre_api_key_draft,
           personas!entidades_relacionadas_id_persona_fkey (
             id,
             nombre_legal,
@@ -458,10 +459,13 @@ export const ProjectLegalEntitiesSection = ({
   const updateFacturarMutation = useMutation({
     mutationFn: async ({ entityId, facturar, entity }: { entityId: number; facturar: boolean; entity: any }) => {
       let apiKeyName = entity.nombre_api_key;
+      let apiKeyNameDraft = entity.nombre_api_key_draft;
       
       // Generate API key name if not exists and facturar is being enabled
       if (facturar && !apiKeyName && entity.proyectos && entity.personas) {
         apiKeyName = generateApiKeyName(entity.proyectos.nombre, entity.personas.nombre_legal);
+        // Generate draft API key name with _DRAFT suffix
+        apiKeyNameDraft = `${apiKeyName}_DRAFT`;
       }
       
       // If trying to enable facturar, ensure API key name exists
@@ -472,6 +476,7 @@ export const ProjectLegalEntitiesSection = ({
       const updateData: any = { facturar };
       if (facturar && apiKeyName) {
         updateData.nombre_api_key = apiKeyName;
+        updateData.nombre_api_key_draft = apiKeyNameDraft;
       }
 
       const { error } = await supabase
@@ -759,8 +764,9 @@ export const ProjectLegalEntitiesSection = ({
                               {entity.facturar && entity.nombre_api_key && (
                                 <div className="mt-3 p-4 border rounded-lg bg-muted/30">
                                   <div className="space-y-4">
+                                    {/* API Key Principal */}
                                     <div>
-                                      <Label className="text-xs text-muted-foreground">Nombre del Secret (generado automáticamente)</Label>
+                                      <Label className="text-xs text-muted-foreground">Nombre del Secret</Label>
                                       <div className="flex gap-2 mt-1">
                                         <Input
                                           value={entity.nombre_api_key}
@@ -783,18 +789,46 @@ export const ProjectLegalEntitiesSection = ({
                                         </Button>
                                       </div>
                                     </div>
+
+                                    {/* API Key Draft */}
+                                    {entity.nombre_api_key_draft && (
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground">Nombre del Secret (Draft)</Label>
+                                        <div className="flex gap-2 mt-1">
+                                          <Input
+                                            value={entity.nombre_api_key_draft}
+                                            readOnly
+                                            className="flex-1 bg-background font-mono text-sm"
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(entity.nombre_api_key_draft || '');
+                                              toast({
+                                                title: "Copiado",
+                                                description: "Nombre del secret draft copiado al portapapeles",
+                                              });
+                                            }}
+                                          >
+                                            <Copy className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
                                     
                                     <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
                                       <div className="flex gap-2 mb-2">
                                         <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                         <div className="text-sm space-y-2">
-                                          <p className="font-medium text-blue-900 dark:text-blue-100">Instrucciones para configurar el Secret:</p>
+                                          <p className="font-medium text-blue-900 dark:text-blue-100">Instrucciones para configurar los Secrets:</p>
                                           <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200">
-                                            <li>Copia el nombre del secret mostrado arriba</li>
+                                            <li>Copia los nombres de los secrets mostrados arriba</li>
                                             <li><strong>Contacta al administrador del proyecto de Supabase</strong></li>
                                             <li>El administrador debe ir al Dashboard de Supabase → Edge Functions → Secrets</li>
-                                            <li>Crear un nuevo secret con el nombre copiado</li>
-                                            <li>Ingresar el valor de tu API key</li>
+                                            <li>Crear los secrets con los nombres copiados</li>
+                                            <li>Ingresar los valores correspondientes de las API keys</li>
                                           </ol>
                                         </div>
                                       </div>
