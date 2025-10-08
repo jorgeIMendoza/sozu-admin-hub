@@ -35,6 +35,7 @@ interface ConfirmEscrituraDialogProps {
     numero_unidad_privativa?: string;
   };
   shouldGenerateInvoice: boolean;
+  isCuentaFullyPaid: boolean;
 }
 
 export function ConfirmEscrituraDialog({
@@ -44,6 +45,7 @@ export function ConfirmEscrituraDialog({
   vendedorData,
   escrituraData,
   shouldGenerateInvoice,
+  isCuentaFullyPaid,
 }: ConfirmEscrituraDialogProps) {
   const [datosFiscalesCompletos, setDatosFiscalesCompletos] = useState(false);
   const [datosEscrituracionCompletos, setDatosEscrituracionCompletos] = useState(false);
@@ -83,7 +85,7 @@ export function ConfirmEscrituraDialog({
     setDatosEscrituracionCompletos(isComplete);
   }, [escrituraData]);
 
-  const canSave = datosFiscalesCompletos && datosEscrituracionCompletos;
+  const canSave = isCuentaFullyPaid && datosFiscalesCompletos && datosEscrituracionCompletos;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,6 +113,28 @@ export function ConfirmEscrituraDialog({
             <h4 className="font-semibold text-sm text-foreground">
               Requisitos para guardar:
             </h4>
+
+            {/* Cuenta 100% Pagada Check */}
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                checked={isCuentaFullyPaid}
+                disabled
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <Label className={`${isCuentaFullyPaid ? 'text-foreground' : 'text-destructive'} font-medium`}>
+                  Cuenta de cobranza 100% pagada
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  El acuerdo de pago debe estar completamente pagado
+                </p>
+                {!isCuentaFullyPaid && (
+                  <p className="text-xs text-destructive mt-1">
+                    ⚠ La cuenta de cobranza no está completamente pagada. Complete los pagos pendientes.
+                  </p>
+                )}
+              </div>
+            </div>
 
             {/* Datos Fiscales Check */}
             <div className="flex items-start space-x-3">

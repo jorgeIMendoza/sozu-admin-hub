@@ -193,6 +193,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [showConfirmEscrituraDialog, setShowConfirmEscrituraDialog] = useState(false);
   const [pendingNumeroEscritura, setPendingNumeroEscritura] = useState<string>('');
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(false);
+  const [isCuentaFullyPaid, setIsCuentaFullyPaid] = useState(false);
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
@@ -688,6 +689,17 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   useEffect(() => {
     if (acuerdosPago) {
       setAcuerdos(acuerdosPago);
+    }
+  }, [acuerdosPago]);
+
+  // Calculate if cuenta is fully paid
+  useEffect(() => {
+    if (acuerdosPago && acuerdosPago.length > 0) {
+      const totalAcordado = acuerdosPago.reduce((sum: number, a: any) => sum + (a.monto || 0), 0);
+      const totalPagado = acuerdosPago.reduce((sum: number, a: any) => sum + (a.monto_pagado || 0), 0);
+      setIsCuentaFullyPaid(totalPagado >= totalAcordado && totalAcordado > 0);
+    } else {
+      setIsCuentaFullyPaid(false);
     }
   }, [acuerdosPago]);
 
@@ -3091,6 +3103,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
             numero_unidad_privativa: numeroUnidadPrivativa,
           }}
           shouldGenerateInvoice={shouldGenerateInvoice}
+          isCuentaFullyPaid={isCuentaFullyPaid}
         />
 
         {showPersonForm && (
