@@ -31,7 +31,7 @@ interface TempDocument {
 }
 
 interface Documento {
-  numero: number;
+  numero: string | null;
   url: string;
   es_verificado: boolean;
   activo: boolean;

@@ -307,7 +307,7 @@ export default function Prospectos() {
             const { error: dbError } = await supabase
               .from('documentos')
               .insert({
-                numero: i + 1,
+                numero: (i + 1).toString(),
                 url: urlData.publicUrl,
                 es_verificado: false,
                 activo: true,
