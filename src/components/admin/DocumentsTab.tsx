@@ -27,6 +27,7 @@ interface DocumentsTabProps {
     tempId: string;
   }>) => void;
   onDocumentAdded?: () => void;
+  shouldAutoGenerateInvoice?: boolean; // Flag to disable invoice options when auto-generated
 }
 
 interface TipoDocumento {
@@ -52,7 +53,8 @@ export function DocumentsTab({
   tipoPersona = 'pf',
   pendingDocuments = [], 
   onPendingDocumentsChange, 
-  onDocumentAdded 
+  onDocumentAdded,
+  shouldAutoGenerateInvoice = false
 }: DocumentsTabProps) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -414,11 +416,25 @@ export function DocumentsTab({
                         const existsInPending = pendingDocuments.some(doc => doc.tipoDocumento === tipo.id.toString());
                         return !existsInSaved && !existsInPending;
                       })
-                      .map((tipo) => (
-                        <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                          {tipo.nombre}
-                        </SelectItem>
-                      ))}
+                      .map((tipo) => {
+                        const isInvoiceType = tipo.nombre.toLowerCase().includes('factura');
+                        const isDisabled = shouldAutoGenerateInvoice && isInvoiceType;
+                        
+                        return (
+                          <SelectItem 
+                            key={tipo.id} 
+                            value={tipo.id.toString()}
+                            disabled={isDisabled}
+                          >
+                            {tipo.nombre}
+                            {isDisabled && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                (Se genera automáticamente)
+                              </span>
+                            )}
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>
@@ -663,11 +679,25 @@ export function DocumentsTab({
                       const existsInPending = pendingDocuments.some(doc => doc.tipoDocumento === tipo.id.toString());
                       return !existsInSaved && !existsInPending;
                     })
-                    .map((tipo) => (
-                      <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                        {tipo.nombre}
-                      </SelectItem>
-                    ))}
+                    .map((tipo) => {
+                      const isInvoiceType = tipo.nombre.toLowerCase().includes('factura');
+                      const isDisabled = shouldAutoGenerateInvoice && isInvoiceType;
+                      
+                      return (
+                        <SelectItem 
+                          key={tipo.id} 
+                          value={tipo.id.toString()}
+                          disabled={isDisabled}
+                        >
+                          {tipo.nombre}
+                          {isDisabled && (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              (Se genera automáticamente)
+                            </span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>

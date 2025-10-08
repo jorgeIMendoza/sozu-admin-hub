@@ -2462,6 +2462,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     <DocumentsTab
                       entityId={cuenta.id}
                       entityType="cuenta_cobranza"
+                      shouldAutoGenerateInvoice={shouldGenerateInvoice}
                       onDocumentAdded={() => {
                         toast.success("Documento agregado correctamente");
                       }}
