@@ -1111,19 +1111,21 @@ export default function DetalleCuentaCobranza() {
       let precioBodegas = 0;
       let precioEstacionamientos = 0;
 
-      // Get bodegas (all, not just not included)
+      // Get bodegas not included (es_incluido = false)
       const { data: bodegas } = await supabase
         .from('bodegas')
         .select('id, id_producto')
         .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true);
+        .eq('activo', true)
+        .eq('es_incluido', false);
 
-      // Get estacionamientos (all, not just not included)
+      // Get estacionamientos not included (es_incluido = false)
       const { data: estacionamientos } = await supabase
         .from('estacionamientos')
         .select('id, id_producto')
         .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true);
+        .eq('activo', true)
+        .eq('es_incluido', false);
 
       // Get precio_final for bodegas
       if (bodegas && bodegas.length > 0) {
