@@ -42,6 +42,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { PersonForm } from './PersonForm';
 import { DocumentsTab } from './DocumentsTab';
+import { ConfirmEscrituraDialog } from './ConfirmEscrituraDialog';
 
 interface Comprador {
   porcentaje_copropiedad: number;
@@ -187,6 +188,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [hoja, setHoja] = useState<string>('');
   const [fechaEscritura, setFechaEscritura] = useState<Date | undefined>(undefined);
   const [numeroUnidadPrivativa, setNumeroUnidadPrivativa] = useState<string>('');
+  
+  // Estados para modal de confirmación
+  const [showConfirmEscrituraDialog, setShowConfirmEscrituraDialog] = useState(false);
+  const [pendingNumeroEscritura, setPendingNumeroEscritura] = useState<string>('');
+  const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(false);
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
@@ -320,33 +326,41 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       const { data } = await supabase
         .from('entidades_relacionadas')
         .select(`
+          facturar,
           personas!entidades_relacionadas_id_persona_fkey(*)
         `)
         .eq('id', propiedadDetalle.id_entidad_relacionada_dueno)
         .single();
 
-      return data?.personas;
+      return data;
     },
     enabled: !!propiedadDetalle?.id_entidad_relacionada_dueno
   });
 
+  // Check if vendedor should generate invoice
+  useEffect(() => {
+    if (vendedorDetalle) {
+      setShouldGenerateInvoice(vendedorDetalle.facturar === true);
+    }
+  }, [vendedorDetalle]);
+
   // Get legal representative details for persona moral
   const { data: representanteLegal } = useQuery({
-    queryKey: ["representante_legal", vendedorDetalle?.id_entidad_relacionada_rep_leg],
+    queryKey: ["representante_legal", vendedorDetalle?.personas?.id_entidad_relacionada_rep_leg],
     queryFn: async () => {
-      if (!vendedorDetalle?.id_entidad_relacionada_rep_leg) return null;
+      if (!vendedorDetalle?.personas?.id_entidad_relacionada_rep_leg) return null;
       
       const { data } = await supabase
         .from('entidades_relacionadas')
         .select(`
           personas!entidades_relacionadas_id_persona_fkey(*)
         `)
-        .eq('id', vendedorDetalle.id_entidad_relacionada_rep_leg)
+        .eq('id', vendedorDetalle.personas.id_entidad_relacionada_rep_leg)
         .single();
 
       return data?.personas;
     },
-    enabled: !!vendedorDetalle?.id_entidad_relacionada_rep_leg && vendedorDetalle?.tipo_persona === 'pm'
+    enabled: !!vendedorDetalle?.personas?.id_entidad_relacionada_rep_leg && vendedorDetalle?.personas?.tipo_persona === 'pm'
   });
 
   // Get estacionamientos details
@@ -1712,7 +1726,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={`grid w-full ${tipoCuenta === 'Propiedad' ? 'grid-cols-7' : 'grid-cols-7'}`}>
+          <TabsList className={`grid w-full ${tipoCuenta === 'Propiedad' ? 'grid-cols-8' : 'grid-cols-8'}`}>
             <TabsTrigger value="propiedad">Datos de la Propiedad</TabsTrigger>
             {(tipoCuenta === 'Producto' || tipoCuenta === 'Servicio') && (
               <TabsTrigger value="producto">Detalles {tipoCuenta}</TabsTrigger>
@@ -1720,6 +1734,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
             <TabsTrigger value="vendedor">Datos del Vendedor</TabsTrigger>
             <TabsTrigger value="compradores">Datos del Comprador</TabsTrigger>
             <TabsTrigger value="escrituracion">Datos de escrituración</TabsTrigger>
+            <TabsTrigger value="facturacion">Datos de facturación</TabsTrigger>
             {tipoCuenta === 'Propiedad' && (
               <TabsTrigger value="documentos">Documentos</TabsTrigger>
             )}
@@ -1865,36 +1880,36 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 <CardTitle>Información del Vendedor</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                 {vendedorDetalle ? (
+                 {vendedorDetalle?.personas ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Nombre Legal</Label>
-                      <Input value={vendedorDetalle.nombre_legal || ''} readOnly />
+                      <Input value={vendedorDetalle.personas.nombre_legal || ''} readOnly />
                     </div>
                     <div>
                       <Label>RFC</Label>
-                      <Input value={vendedorDetalle.rfc || ''} readOnly />
+                      <Input value={vendedorDetalle.personas.rfc || ''} readOnly />
                     </div>
                     <div>
                       <Label>Email</Label>
-                      <Input value={vendedorDetalle.email || ''} readOnly />
+                      <Input value={vendedorDetalle.personas.email || ''} readOnly />
                     </div>
                     <div>
                       <Label>Teléfono</Label>
-                      <Input value={vendedorDetalle.telefono || ''} readOnly />
+                      <Input value={vendedorDetalle.personas.telefono || ''} readOnly />
                     </div>
                     <div>
                       <Label>Tipo de Persona</Label>
-                      <Input value={getPersonTypeLabel(vendedorDetalle.tipo_persona || '')} readOnly />
+                      <Input value={getPersonTypeLabel(vendedorDetalle.personas.tipo_persona || '')} readOnly />
                     </div>
                     
                     {/* Campos adicionales para Persona Moral */}
-                    {vendedorDetalle.tipo_persona === 'pm' && (
+                    {vendedorDetalle.personas.tipo_persona === 'pm' && (
                       <>
-                        {vendedorDetalle.nombre_comercial && (
+                        {vendedorDetalle.personas.nombre_comercial && (
                           <div>
                             <Label>Nombre Comercial</Label>
-                            <Input value={vendedorDetalle.nombre_comercial} readOnly />
+                            <Input value={vendedorDetalle.personas.nombre_comercial} readOnly />
                           </div>
                         )}
                         {representanteLegal && (
@@ -2209,13 +2224,27 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       </div>
                       <div>
                         <Label>Número de Escritura</Label>
-                        <Input 
-                          value={numeroEscritura} 
-                          onChange={(e) => setNumeroEscritura(e.target.value)}
-                          onBlur={() => updateEscrituraMutation.mutate({ numero_escritura: numeroEscritura })}
-                          placeholder="Ingrese número de escritura"
-                          disabled={tipoCuenta === 'Producto'}
-                        />
+                        <div className="relative">
+                          <Input 
+                            value={numeroEscritura} 
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              if (newValue && newValue !== numeroEscritura) {
+                                setPendingNumeroEscritura(newValue);
+                                setShowConfirmEscrituraDialog(true);
+                              }
+                            }}
+                            placeholder="Ingrese número de escritura"
+                            disabled={tipoCuenta === 'Producto'}
+                            className="border-amber-500 focus:border-amber-600 focus:ring-amber-600"
+                          />
+                          <div className="absolute -top-2 -right-2 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">!</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          ⚠ Campo importante: Se mostrará confirmación antes de guardar
+                        </p>
                       </div>
                       <div>
                         <Label>Libro</Label>
@@ -2280,6 +2309,101 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     </>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Nueva pestaña: Datos de facturación */}
+          <TabsContent value="facturacion" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Datos de facturación (solo lectura)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {vendedorDetalle?.personas ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>RFC</Label>
+                      <Input value={vendedorDetalle.personas.rfc || 'No registrado'} readOnly className="bg-muted" />
+                    </div>
+                    <div>
+                      <Label>Régimen Fiscal</Label>
+                      <Input value={vendedorDetalle.personas.regimen || 'No registrado'} readOnly className="bg-muted" />
+                    </div>
+                    <div>
+                      <Label>Uso del CFDI</Label>
+                      <Input value={vendedorDetalle.personas.uso_cfdi || 'No registrado'} readOnly className="bg-muted" />
+                    </div>
+                    <div>
+                      <Label>Razón Social / Nombre Legal</Label>
+                      <Input value={vendedorDetalle.personas.nombre_legal || 'No registrado'} readOnly className="bg-muted" />
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <h4 className="font-semibold text-sm mb-3 mt-2">Dirección Fiscal</h4>
+                    </div>
+                    
+                    <div>
+                      <Label>Calle y Número</Label>
+                      <Input 
+                        value={vendedorDetalle.personas.direccion_fiscal_calle_numero || 'No registrado'} 
+                        readOnly 
+                        className="bg-muted" 
+                      />
+                    </div>
+                    <div>
+                      <Label>Colonia/Barrio</Label>
+                      <Input 
+                        value={vendedorDetalle.personas.direccion_fiscal_colonia || 'No registrado'} 
+                        readOnly 
+                        className="bg-muted" 
+                      />
+                    </div>
+                    <div>
+                      <Label>Código Postal</Label>
+                      <Input 
+                        value={vendedorDetalle.personas.direccion_fiscal_codigo_postal || 'No registrado'} 
+                        readOnly 
+                        className="bg-muted" 
+                      />
+                    </div>
+                    <div>
+                      <Label>Estado</Label>
+                      <Input 
+                        value={vendedorDetalle.personas.direccion_fiscal_id_estado ? 'Ver en sistema' : 'No registrado'} 
+                        readOnly 
+                        className="bg-muted" 
+                      />
+                    </div>
+                    <div>
+                      <Label>Municipio</Label>
+                      <Input 
+                        value={vendedorDetalle.personas.direccion_fiscal_id_municipio ? 'Ver en sistema' : 'No registrado'} 
+                        readOnly 
+                        className="bg-muted" 
+                      />
+                    </div>
+                    <div>
+                      <Label>País</Label>
+                      <Input 
+                        value={vendedorDetalle.personas.direccion_fiscal_id_pais || 'No registrado'} 
+                        readOnly 
+                        className="bg-muted" 
+                      />
+                    </div>
+
+                    <div className="col-span-2 mt-4 p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Nota:</strong> Estos datos son de solo lectura y se obtienen del perfil del vendedor. 
+                        Para modificarlos, edite el perfil del vendedor en la sección correspondiente.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No se encontraron datos de facturación del vendedor
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -2909,6 +3033,25 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Modal de confirmación para número de escritura */}
+        <ConfirmEscrituraDialog
+          open={showConfirmEscrituraDialog}
+          onOpenChange={setShowConfirmEscrituraDialog}
+          onConfirm={() => {
+            setNumeroEscritura(pendingNumeroEscritura);
+            updateEscrituraMutation.mutate({ numero_escritura: pendingNumeroEscritura });
+          }}
+          vendedorData={vendedorDetalle?.personas || null}
+          escrituraData={{
+            clave_catastral: claveCatastral,
+            libro: libro,
+            hoja: hoja,
+            fecha_escritura: fechaEscritura || null,
+            numero_unidad_privativa: numeroUnidadPrivativa,
+          }}
+          shouldGenerateInvoice={shouldGenerateInvoice}
+        />
 
         {showPersonForm && (
           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
