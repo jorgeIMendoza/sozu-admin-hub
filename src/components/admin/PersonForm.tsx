@@ -740,6 +740,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   // Check if this is one of the specific entity types that need new tab structure
   const isSpecialEntityType = ['vendedor', 'comprador', 'dueno', 'residente', 'agente', 'administrador', 'representante_legal', 'administradora', 'legal'].includes(entityType);
+  
+  // For administradora and legal entities, only show all tabs when editing (has id)
+  const isCreatingLegalOrAdmin = (entityType === 'administradora' || entityType === 'legal') && !initialData?.id;
+  const shouldShowAllTabs = isSpecialEntityType && !isCreatingLegalOrAdmin;
 
   return (
     <Card className="p-6">
@@ -750,7 +754,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
               <TabsList className="grid w-full mb-4 bg-muted grid-cols-1">
                 <TabsTrigger value="basic" className="text-foreground">Información Básica</TabsTrigger>
               </TabsList>
-            ) : isSpecialEntityType ? (
+            ) : shouldShowAllTabs ? (
               <TabsList className="grid w-full mb-4 bg-muted grid-cols-5">
                 <TabsTrigger value="basic" className="text-foreground">Información Básica</TabsTrigger>
                 <TabsTrigger value="address" className="text-foreground">Dirección</TabsTrigger>
@@ -765,7 +769,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
             )}
 
             <TabsContent value="basic" className="space-y-4 mt-6">
-              {isSpecialEntityType ? (
+              {shouldShowAllTabs ? (
                 // New structured form for specific entity types
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1126,7 +1130,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
             </TabsContent>
 
             {/* New tabs only for special entity types */}
-            {isSpecialEntityType && (
+            {shouldShowAllTabs && (
               <>
                 {/* Address Tab */}
                 {!restrictToBasicTab && (
