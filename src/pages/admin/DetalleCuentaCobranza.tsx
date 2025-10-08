@@ -1836,7 +1836,7 @@ export default function DetalleCuentaCobranza() {
                                 <HeartHandshake className="h-5 w-5 text-pink-500" />
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Hay compradores cónyuges</p>
+                                <p>Hay compradores conyuges</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
