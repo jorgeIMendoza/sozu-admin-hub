@@ -1822,26 +1822,24 @@ export default function DetalleCuentaCobranza() {
                   <Button variant="ghost" className="w-full flex items-center justify-between p-3 h-auto">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Compradores ({cuentaDetalle.compradores.length})</span>
-                      {(() => {
-                        // Check if any compradores are spouses
-                        const areSpouses = cuentaDetalle.compradores.length >= 2 && cuentaDetalle.compradores.some((comprador) => {
-                          const spouseId = comprador.id_conyuge;
-                          return spouseId && cuentaDetalle.compradores.some(c => c.id_persona === spouseId);
-                        });
-                        
-                        return areSpouses ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
+                      {cuentaDetalle.compradores.length >= 2 && 
+                       cuentaDetalle.compradores.some((comprador) => {
+                         const spouseId = comprador.id_conyuge;
+                         return spouseId && cuentaDetalle.compradores.some(c => c.id_persona === spouseId);
+                       }) && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
                                 <HeartHandshake className="h-5 w-5 text-pink-500" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Hay compradores conyuges</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : null;
-                      })()}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Hay compradores conyuges</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
                     {compradoresOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
@@ -1862,7 +1860,9 @@ export default function DetalleCuentaCobranza() {
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <HeartHandshake className="h-4 w-4 text-pink-500 cursor-help" />
+                                    <span className="inline-flex">
+                                      <HeartHandshake className="h-4 w-4 text-pink-500 cursor-help" />
+                                    </span>
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p className="font-medium">Cónyuge: {spouseName}</p>
