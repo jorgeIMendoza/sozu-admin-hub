@@ -902,7 +902,8 @@ export default function DetalleCuentaCobranza() {
                  id_metodos_pago: pago?.id_metodos_pago || 0,
                  clave_rastreo: pago?.clave_rastreo,
                  url_cep: pago?.url_cep || null,
-                 url_recibo: pago?.url_recibo || null
+                 url_recibo: pago?.url_recibo || null,
+                 descripcion: pago?.descripcion || null
                }
             };
           }).sort((a, b) => a.pago.id - b.pago.id),
