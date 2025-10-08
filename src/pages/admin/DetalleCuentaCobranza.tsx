@@ -1822,7 +1822,7 @@ export default function DetalleCuentaCobranza() {
       <Tabs defaultValue="acuerdos" className="w-full">
         <TabsList>
           <TabsTrigger value="acuerdos">Acuerdos de Pago</TabsTrigger>
-          {cuentaDetalle?.tipo_cuenta === 'Propiedad' && cuentaDetalle?.id_propiedad && (
+          {cuentaDetalle?.tipo_cuenta === 'Propiedad' && cuentaDetalle?.id && (
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
           )}
         </TabsList>
