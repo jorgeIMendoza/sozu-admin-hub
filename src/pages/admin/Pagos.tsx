@@ -32,6 +32,7 @@ interface Comprador {
 interface CuentaCobranza {
   id: number;
   tipo: 'Propiedad' | 'Producto' | 'Servicio';
+  producto_nombre?: string;
   clabe_stp: string | null;
   precio_final: number;
   precio_lista: number | null;
@@ -290,6 +291,7 @@ export default function Pagos() {
           .from('productos_servicios')
           .select(`
             id,
+            nombre,
             id_proyecto,
             proyectos!productos_servicios_id_proyecto_fkey(
               id_tipo_uso
@@ -308,8 +310,10 @@ export default function Pagos() {
         
         // Determine tipo based on oferta
         let tipo: 'Propiedad' | 'Producto' | 'Servicio' = 'Propiedad';
+        let productoNombre: string | undefined;
         if (oferta?.id_producto) {
           const producto = productosResult.data?.find(p => p.id === oferta.id_producto);
+          productoNombre = producto?.nombre;
           if (producto && producto.proyectos) {
             // id_tipo_uso: 9 = Productos, 10 = Servicios, 11 = Mantenimientos (also Servicios)
             const tipoUso = producto.proyectos.id_tipo_uso;
@@ -337,6 +341,7 @@ export default function Pagos() {
         return {
           id: cuenta.id,
           tipo,
+          producto_nombre: productoNombre,
           clabe_stp: cuenta.clabe_stp,
           precio_final,
           precio_lista: propiedad?.precio_lista || null,
@@ -392,6 +397,7 @@ export default function Pagos() {
       cuenta.edificio.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cuenta.numero_propiedad.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cuenta.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cuenta.producto_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cuenta.precio_final.toString().includes(searchTerm)
     );
   });
@@ -616,6 +622,7 @@ export default function Pagos() {
                     <TableRow>
                       <TableHead>ID Cuenta</TableHead>
                       <TableHead>Tipo</TableHead>
+                      <TableHead>Nombre de producto</TableHead>
                       <TableHead>Compradores</TableHead>
                       <TableHead>Dueño</TableHead>
                       <TableHead>CLABE</TableHead>
@@ -673,6 +680,13 @@ export default function Pagos() {
                           <Badge variant={cuenta.tipo === 'Propiedad' ? 'default' : cuenta.tipo === 'Producto' ? 'secondary' : 'outline'}>
                             {cuenta.tipo}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {cuenta.producto_nombre ? (
+                            <span className="text-sm">{cuenta.producto_nombre}</span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">N/A</span>
+                          )}
                         </TableCell>
                          <TableCell>
                            {cuenta.compradores.length > 0 ? (
@@ -976,6 +990,7 @@ export default function Pagos() {
                     <TableRow>
                       <TableHead>ID Cuenta</TableHead>
                       <TableHead>Tipo</TableHead>
+                      <TableHead>Nombre de producto</TableHead>
                       <TableHead>Compradores</TableHead>
                       <TableHead>Dueño</TableHead>
                       <TableHead>CLABE</TableHead>
@@ -1034,6 +1049,13 @@ export default function Pagos() {
                           <Badge variant={cuenta.tipo === 'Propiedad' ? 'default' : cuenta.tipo === 'Producto' ? 'secondary' : 'outline'}>
                             {cuenta.tipo}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {cuenta.producto_nombre ? (
+                            <span className="text-sm">{cuenta.producto_nombre}</span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">N/A</span>
+                          )}
                         </TableCell>
                          <TableCell>
                            {cuenta.compradores.length > 0 ? (
