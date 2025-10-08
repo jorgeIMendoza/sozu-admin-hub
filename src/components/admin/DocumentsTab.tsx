@@ -35,7 +35,7 @@ interface TipoDocumento {
 }
 
 interface Documento {
-  numero: number;
+  numero: string | null;
   url: string;
   es_verificado: boolean;
   activo: boolean;
@@ -135,9 +135,10 @@ export function DocumentsTab({
         });
       }
       
-      // Combine the data
+      // Combine the data - map numero to string as it's text in database
       const docs = (docsData || []).map((doc) => ({
         ...doc,
+        numero: doc.numero != null ? String(doc.numero) : null,
         tipo_documento_nombre: tiposMap.get(doc.id_tipo_documento) || 'Tipo desconocido'
       }));
       
@@ -208,30 +209,10 @@ export function DocumentsTab({
         .from('documentos')
         .getPublicUrl(filePath);
 
-      // Use user-provided numero or generate next numero for this entity
-      let nextNumero: number;
-      
-      if (numeroDocumento && numeroDocumento.trim() !== '') {
-        // Use the numero provided by the user
-        nextNumero = parseInt(numeroDocumento);
-      } else {
-        // Generate next numero automatically
-        const column = entityType === 'persona' 
-          ? 'id_persona' 
-          : entityType === 'cuenta_cobranza'
-          ? 'id_cuenta_cobranza'
-          : 'id_propiedad';
-        const { data: existingDocs } = await supabase
-          .from('documentos')
-          .select('numero')
-          .eq(column, entityId)
-          .order('numero', { ascending: false })
-          .limit(1);
-
-        nextNumero = existingDocs && existingDocs.length > 0 
-          ? existingDocs[0].numero + 1 
-          : 1;
-      }
+      // Use user-provided numero or leave as null
+      const numeroValue = numeroDocumento && numeroDocumento.trim() !== '' 
+        ? numeroDocumento.trim() 
+        : null;
 
       // Get cuenta_cobranza and propiedad based on entity type
       let idCuentaCobranza = null;
@@ -283,7 +264,7 @@ export function DocumentsTab({
 
       // Save document record
       const documentData = {
-        numero: nextNumero,
+        numero: numeroValue,
         url: urlData.publicUrl,
         es_verificado: false,
         activo: true,
@@ -297,7 +278,7 @@ export function DocumentsTab({
 
       const { error: dbError } = await supabase
         .from('documentos')
-        .insert(documentData);
+        .insert(documentData as any);
 
       if (dbError) throw dbError;
 
@@ -340,7 +321,7 @@ export function DocumentsTab({
       const { error } = await supabase
         .from('documentos')
         .update({ activo: false })
-        .eq('numero', documento.numero)
+        .eq('numero', documento.numero as any)
         .eq(column, entityId);
 
       if (error) throw error;
@@ -366,7 +347,7 @@ export function DocumentsTab({
       const { error } = await supabase
         .from('documentos')
         .update({ es_verificado: !documento.es_verificado })
-        .eq('numero', documento.numero)
+        .eq('numero', documento.numero as any)
         .eq(column, entityId);
 
       if (error) throw error;
