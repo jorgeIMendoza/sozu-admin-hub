@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Edit, Trash2, Plus, HeartHandshake, FileText, ExternalLink } from 'lucide-react';
-import { N8N_WEBHOOK_BASE_URL } from '@/lib/config';
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
 import { isFiscalDataComplete } from '@/utils/fiscalDataValidation';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -3322,7 +3322,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 
                 // Recopilar todos los datos necesarios
                 const payload = {
-                  api_key_draft: apiKeyDraft,
+                  api_key: apiKeyDraft,
+                  environment: ENVIRONMENT,
                   tipo_factura: "propiedad",
                   id_propiedad: propiedadDetalle?.id,
                   id_cuenta_cobranza: cuentaDetalle?.id,
