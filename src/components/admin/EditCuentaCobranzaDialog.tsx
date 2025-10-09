@@ -3180,6 +3180,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     }
 
                     return {
+                      id_persona: c.id_persona,
                       nombre_completo: c.personas?.nombre_legal?.trim() || '',
                       rfc: c.personas?.rfc?.trim() || '',
                       regimen: c.personas?.regimen?.trim() || '',
@@ -3217,6 +3218,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 const payload = {
                   api_key_draft: apiKeyDraft,
                   tipo_factura: "propiedad",
+                  id_propiedad: propiedadDetalle?.id,
+                  id_cuenta_cobranza: cuentaDetalle?.id,
                   propiedad: propiedadDetalle ? {
                     numero_propiedad: propiedadDetalle.numero_propiedad,
                     metraje_escriturable: propiedadDetalle.m2_reales,
