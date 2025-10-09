@@ -3136,6 +3136,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 // Recopilar todos los datos necesarios
                 const payload = {
                   api_key_draft: apiKeyDraft,
+                  tipo_factura: "propiedad",
                   propiedad: propiedadDetalle ? {
                     numero_propiedad: propiedadDetalle.numero_propiedad,
                     metraje_escriturable: propiedadDetalle.m2_reales, // Usando m2_reales
