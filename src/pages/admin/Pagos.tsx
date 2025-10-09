@@ -743,7 +743,7 @@ export default function Pagos() {
                     {filteredCuentas.map((cuenta) => (
                       <TableRow 
                         key={cuenta.id}
-                        className={cuenta.restante === 0 && !cuenta.motivo_cancelacion ? "bg-green-50 dark:bg-green-950/20" : ""}
+                        className={cuenta.restante === 0 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 ? "bg-green-50 dark:bg-green-950/20" : ""}
                       >
                         <TableCell className="font-semibold">
                           <div className="flex items-center gap-2">
@@ -1122,7 +1122,7 @@ export default function Pagos() {
                     {filteredCuentas.map((cuenta) => (
                       <TableRow 
                         key={cuenta.id}
-                        className={cuenta.restante === 0 && !cuenta.motivo_cancelacion ? "bg-green-50 dark:bg-green-950/20" : ""}
+                        className={cuenta.restante === 0 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 ? "bg-green-50 dark:bg-green-950/20" : ""}
                       >
                         <TableCell className="font-semibold">
                           <div className="flex items-center gap-2">
