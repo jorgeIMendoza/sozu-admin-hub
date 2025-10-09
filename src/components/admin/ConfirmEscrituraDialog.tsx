@@ -24,6 +24,7 @@ interface ConfirmEscrituraDialogProps {
     hoja?: string;
     fecha_escritura?: Date | null;
     numero_unidad_privativa?: string;
+    numero_escritura?: string;
   };
   shouldGenerateInvoice: boolean;
   isCuentaFullyPaid: boolean;
@@ -80,7 +81,13 @@ export function ConfirmEscrituraDialog({
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             Confirmación de Número de Escritura
           </DialogTitle>
-          <DialogDescription className="text-base pt-2">
+          <DialogDescription className="text-base pt-2 space-y-2">
+            {escrituraData.numero_escritura && (
+              <div className="bg-primary/10 px-4 py-2 rounded-md">
+                <span className="text-sm text-muted-foreground">Número de Escritura:</span>
+                <p className="text-lg font-bold text-foreground">{escrituraData.numero_escritura}</p>
+              </div>
+            )}
             {shouldGenerateInvoice ? (
               <span className="block text-foreground font-medium">
                 Una vez confirmado, se guardará el número de escritura y se generará la factura automáticamente.

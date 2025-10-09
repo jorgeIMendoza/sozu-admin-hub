@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Edit, Trash2, Plus, HeartHandshake, FileText, ExternalLink } from 'lucide-react';
+import { N8N_WEBHOOK_BASE_URL } from '@/lib/config';
 import { isFiscalDataComplete } from '@/utils/fiscalDataValidation';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -329,6 +330,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         .from('entidades_relacionadas')
         .select(`
           facturar,
+          nombre_api_key_draft,
           personas!entidades_relacionadas_id_persona_fkey(*)
         `)
         .eq('id', propiedadDetalle.id_entidad_relacionada_dueno)
@@ -2343,20 +2345,31 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               onBlur={() => {
                                 const newValue = numeroEscritura;
                                 if (newValue && newValue !== cuentaDetalle?.numero_escritura) {
-                                  setPendingNumeroEscritura(newValue);
-                                  setShowConfirmEscrituraDialog(true);
+                                  // Si el vendedor NO factura, solo guardar sin confirmación
+                                  if (!shouldGenerateInvoice) {
+                                    setNumeroEscritura(newValue);
+                                    updateEscrituraMutation.mutate({ numero_escritura: newValue });
+                                  } else {
+                                    // Si factura, mostrar dialog de confirmación
+                                    setPendingNumeroEscritura(newValue);
+                                    setShowConfirmEscrituraDialog(true);
+                                  }
                                 }
                               }}
                               placeholder="Ingrese número de escritura"
-                              className="border-amber-500 focus:border-amber-600 focus:ring-amber-600"
+                              className={shouldGenerateInvoice ? "border-amber-500 focus:border-amber-600 focus:ring-amber-600" : ""}
                             />
-                            <div className="absolute -top-2 -right-2 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">!</span>
-                            </div>
+                            {shouldGenerateInvoice && (
+                              <div className="absolute -top-2 -right-2 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-bold">!</span>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                            Para guardar click aquí
-                          </p>
+                          {shouldGenerateInvoice && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                              Para guardar click aquí
+                            </p>
+                          )}
                         </div>
                       </>
                     )}
@@ -3110,12 +3123,76 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         <ConfirmEscrituraDialog
           open={showConfirmEscrituraDialog}
           onOpenChange={setShowConfirmEscrituraDialog}
-          onConfirm={() => {
+          onConfirm={async () => {
             setNumeroEscritura(pendingNumeroEscritura);
             updateEscrituraMutation.mutate({ numero_escritura: pendingNumeroEscritura });
+            
+            // Si debe generar factura, llamar al endpoint
+            if (shouldGenerateInvoice && vendedorDetalle) {
+              try {
+                // Obtener api_key_draft del dueño
+                const apiKeyDraft = vendedorDetalle.nombre_api_key_draft;
+                
+                // Recopilar todos los datos necesarios
+                const payload = {
+                  api_key_draft: apiKeyDraft,
+                  propiedad: propiedadDetalle ? {
+                    numero_propiedad: propiedadDetalle.numero_propiedad,
+                    metraje_escriturable: propiedadDetalle.m2_reales, // Usando m2_reales
+                    direccion: propiedadDetalle.descripcion, // Usando descripción como dirección
+                    precio_final: cuentaDetalle?.precio_final
+                  } : null,
+                  estacionamientos: estacionamientosDetalle || [],
+                  bodegas: bodegasDetalle || [],
+                  escrituracion: {
+                    clave_catastral: claveCatastral,
+                    libro,
+                    hoja,
+                    fecha_escritura: fechaEscritura ? format(fechaEscritura, 'yyyy-MM-dd') : null,
+                    numero_unidad_privativa: numeroUnidadPrivativa,
+                    numero_escritura: pendingNumeroEscritura,
+                    notario: notarios?.find(n => n.id.toString() === selectedNotario)
+                  },
+                  compradores: compradoresExistentes?.map(c => ({
+                    nombre_completo: c.personas?.nombre_legal,
+                    rfc: c.personas?.rfc,
+                    regimen: c.personas?.regimen,
+                    uso_cfdi: c.personas?.uso_cfdi,
+                    direccion_fiscal: {
+                      calle_numero: c.personas?.direccion_fiscal_calle_numero,
+                      colonia: c.personas?.direccion_fiscal_colonia,
+                      codigo_postal: c.personas?.direccion_fiscal_codigo_postal,
+                      id_pais: c.personas?.direccion_fiscal_id_pais,
+                      id_estado: c.personas?.direccion_fiscal_id_estado,
+                      id_municipio: c.personas?.direccion_fiscal_id_municipio
+                    },
+                    porcentaje_copropiedad: c.porcentaje_copropiedad
+                  }))
+                };
+                
+                // Llamar al endpoint
+                const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/generaFactura`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                  throw new Error('Error al generar factura');
+                }
+                
+                toast.success('Factura generada exitosamente');
+              } catch (error) {
+                console.error('Error generando factura:', error);
+                toast.error('Error al generar la factura');
+              }
+            }
           }}
           compradoresData={compradoresExistentes?.map(c => c.personas).filter(Boolean) || []}
           escrituraData={{
+            numero_escritura: pendingNumeroEscritura,
             clave_catastral: claveCatastral,
             libro: libro,
             hoja: hoja,

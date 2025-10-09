@@ -29,6 +29,8 @@ interface DocumentsTabProps {
   }>) => void;
   onDocumentAdded?: () => void;
   shouldAutoGenerateInvoice?: boolean; // Flag to disable invoice options when auto-generated
+  compradores?: Array<{ id_persona: number; nombre_legal: string }>; // Lista de compradores
+  propiedadId?: number; // ID de la propiedad asociada
 }
 
 interface TipoDocumento {
@@ -55,7 +57,9 @@ export function DocumentsTab({
   pendingDocuments = [], 
   onPendingDocumentsChange, 
   onDocumentAdded,
-  shouldAutoGenerateInvoice = false
+  shouldAutoGenerateInvoice = false,
+  compradores = [],
+  propiedadId
 }: DocumentsTabProps) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -72,6 +76,7 @@ export function DocumentsTab({
   });
   const [showMantenimientoDialog, setShowMantenimientoDialog] = useState(false);
   const [dialogAlreadyShown, setDialogAlreadyShown] = useState(false);
+  const [selectedComprador, setSelectedComprador] = useState<string>("");
   const { toast } = useToast();
 
   // Load document types based on entity type and person type
@@ -235,6 +240,34 @@ export function DocumentsTab({
       });
       return;
     }
+    
+    // Verificar si es factura y dueño NO factura
+    const tipoDoc = tiposDocumento.find(t => t.id.toString() === selectedTipoDocumento);
+    const isInvoice = tipoDoc?.nombre.toLowerCase().includes('factura');
+    
+    if (isInvoice && !shouldAutoGenerateInvoice && entityType === 'cuenta_cobranza' && compradores.length > 0) {
+      // Si no hay comprador seleccionado y hay más de un comprador, mostrar error
+      if (!selectedComprador && compradores.length > 1) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Debe seleccionar un comprador para la factura",
+        });
+        return;
+      }
+      
+      // Si solo hay un comprador, seleccionarlo automáticamente
+      const compradorId = selectedComprador || compradores[0]?.id_persona.toString();
+      
+      if (!compradorId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudo determinar el comprador",
+        });
+        return;
+      }
+    }
 
     // If no entityId, add to pending documents
     if (!entityId) {
@@ -251,6 +284,7 @@ export function DocumentsTab({
       setSelectedFile(null);
       setSelectedTipoDocumento("");
       setNumeroDocumento("");
+      setSelectedComprador("");
       onDocumentAdded?.();
       
       toast({
@@ -287,6 +321,8 @@ export function DocumentsTab({
       // Get cuenta_cobranza and propiedad based on entity type
       let idCuentaCobranza = null;
       let idPropiedad = null;
+      let idPersona = null;
+      
       if (entityType === 'propiedad') {
         // First get the ofertas for this property
         const { data: ofertasData } = await supabase
@@ -298,72 +334,92 @@ export function DocumentsTab({
         if (ofertasData && ofertasData.length > 0) {
           const ofertaIds = ofertasData.map(o => o.id);
           
-          // Then get the cuenta_cobranza
+          // Get the first cuenta_cobranza
           const { data: cuentaData } = await supabase
             .from('cuentas_cobranza')
             .select('id')
-            .eq('activo', true)
             .in('id_oferta', ofertaIds)
+            .eq('activo', true)
             .limit(1)
             .maybeSingle();
           
-          idCuentaCobranza = cuentaData?.id || null;
+          if (cuentaData) {
+            idCuentaCobranza = cuentaData.id;
+          }
         }
+        idPropiedad = entityId;
       } else if (entityType === 'cuenta_cobranza') {
-        // If entity is cuenta_cobranza, get both cuenta_cobranza and propiedad
         idCuentaCobranza = entityId;
         
-        // Get id_oferta from cuenta_cobranza
+        // Get propiedad from cuenta_cobranza
         const { data: cuentaData } = await supabase
           .from('cuentas_cobranza')
           .select('id_oferta')
           .eq('id', entityId)
-          .maybeSingle();
-        
-        // Then get id_propiedad from oferta
-        if (cuentaData?.id_oferta) {
+          .single();
+          
+        if (cuentaData) {
           const { data: ofertaData } = await supabase
             .from('ofertas')
             .select('id_propiedad')
             .eq('id', cuentaData.id_oferta)
-            .maybeSingle();
-          
-          idPropiedad = ofertaData?.id_propiedad || null;
+            .single();
+            
+          if (ofertaData) {
+            idPropiedad = ofertaData.id_propiedad;
+          }
+        }
+        
+        // Si es factura y dueño NO factura, usar el comprador seleccionado
+        if (isInvoice && !shouldAutoGenerateInvoice && compradores.length > 0) {
+          idPersona = parseInt(selectedComprador || compradores[0]?.id_persona.toString());
         }
       }
 
-      // Save document record
-      const documentData = {
+      // Create documento record
+      const documentoData: any = {
         numero: numeroValue,
         url: urlData.publicUrl,
-        es_verificado: false,
-        activo: true,
         id_tipo_documento: parseInt(selectedTipoDocumento),
-        ...(entityType === 'persona' 
-          ? { id_persona: entityId } 
-          : entityType === 'cuenta_cobranza'
-          ? { id_cuenta_cobranza: idCuentaCobranza, id_propiedad: idPropiedad }
-          : { id_propiedad: entityId, id_cuenta_cobranza: idCuentaCobranza })
+        activo: true,
+        es_verificado: false,
       };
 
-      const { error: dbError } = await supabase
-        .from('documentos')
-        .insert(documentData as any);
+      // Add foreign keys based on entity type
+      if (entityType === 'persona') {
+        documentoData.id_persona = entityId;
+      } else if (entityType === 'propiedad') {
+        documentoData.id_propiedad = idPropiedad;
+        documentoData.id_cuenta_cobranza = idCuentaCobranza;
+      } else if (entityType === 'cuenta_cobranza') {
+        documentoData.id_cuenta_cobranza = idCuentaCobranza;
+        documentoData.id_propiedad = idPropiedad;
+        if (idPersona) {
+          documentoData.id_persona = idPersona;
+        }
+      }
 
-      if (dbError) throw dbError;
+      const { error: insertError } = await supabase.from('documentos').insert(documentoData);
 
-      // Reload documents and close dialog
+      if (insertError) throw insertError;
+
+      // Reload documents
       await loadDocumentos();
+      
+      // Clear form
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
       setSelectedTipoDocumento("");
       setNumeroDocumento("");
-      onDocumentAdded?.();
+      setSelectedComprador("");
       
       toast({
         title: "Éxito",
         description: "Documento subido correctamente",
       });
+
+      // Notify parent
+      onDocumentAdded?.();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -761,6 +817,28 @@ export function DocumentsTab({
                 onChange={(e) => setNumeroDocumento(e.target.value)}
               />
             </div>
+            {/* Selector de comprador para facturas cuando dueño NO factura */}
+            {(() => {
+              const tipoDoc = tiposDocumento.find(t => t.id.toString() === selectedTipoDocumento);
+              const isInvoice = tipoDoc?.nombre.toLowerCase().includes('factura');
+              return isInvoice && !shouldAutoGenerateInvoice && entityType === 'cuenta_cobranza' && compradores.length > 1 && (
+                <div>
+                  <Label htmlFor="comprador">Comprador</Label>
+                  <Select value={selectedComprador} onValueChange={setSelectedComprador}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el comprador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {compradores.map((comprador) => (
+                        <SelectItem key={comprador.id_persona} value={comprador.id_persona.toString()}>
+                          {comprador.nombre_legal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })()}
             <div>
               <Label htmlFor="file">Archivo</Label>
               <Input
@@ -775,22 +853,23 @@ export function DocumentsTab({
             <Button
               type="button"
               variant="outline"
-                onClick={() => {
-                  setIsUploadDialogOpen(false);
-                  setSelectedFile(null);
-                  setSelectedTipoDocumento("");
-                  setNumeroDocumento("");
-                }}
+              onClick={() => {
+                setIsUploadDialogOpen(false);
+                setSelectedFile(null);
+                setSelectedTipoDocumento("");
+                setNumeroDocumento("");
+                setSelectedComprador("");
+              }}
             >
               Cancelar
             </Button>
-              <Button
-                type="button"
-                onClick={handleUpload}
-                disabled={!selectedFile || !selectedTipoDocumento || isUploading}
-              >
-                {isUploading ? "Subiendo..." : entityId ? "Subir" : "Agregar"}
-              </Button>
+            <Button
+              type="button"
+              onClick={handleUpload}
+              disabled={!selectedFile || !selectedTipoDocumento || isUploading}
+            >
+              {isUploading ? "Subiendo..." : entityId ? "Subir" : "Agregar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
