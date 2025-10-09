@@ -55,6 +55,7 @@ interface CuentaCobranza {
   motivo_cancelacion?: string | null;
   apartado_pagado: boolean;
   tiene_acuerdos: boolean;
+  tiene_multas_pendientes?: boolean;
   cash_limit?: number;
   cash_paid?: number;
   cash_remaining?: number;
@@ -250,6 +251,35 @@ export default function Pagos() {
         return acc;
       }, {});
 
+      // Get multas pendientes para cada cuenta
+      const acuerdoIdsForMultas = acuerdosPago?.map(ap => ap.id) || [];
+      let multasPendientesPorCuenta: Record<number, boolean> = {};
+      
+      if (acuerdoIdsForMultas.length > 0) {
+        const { data: multas } = await supabase
+          .from('multas')
+          .select('id, id_acuerdo_pago, es_pagada')
+          .in('id_acuerdo_pago', acuerdoIdsForMultas)
+          .eq('activo', true)
+          .eq('es_pagada', false);
+
+        // Crear un mapa de acuerdo_id a cuenta_id
+        const acuerdoToCuentaMap = acuerdosPago?.reduce((acc: any, ap) => {
+          acc[ap.id] = ap.id_cuenta_cobranza;
+          return acc;
+        }, {});
+
+        // Marcar qué cuentas tienen multas pendientes
+        multas?.forEach(multa => {
+          const cuentaId = acuerdoToCuentaMap[multa.id_acuerdo_pago];
+          if (cuentaId) {
+            multasPendientesPorCuenta[cuentaId] = true;
+          }
+        });
+
+        console.log('🔍 Cuentas con multas pendientes:', multasPendientesPorCuenta);
+      }
+
       // Get offer IDs to fetch related data
       const ofertaIds = cuentas.map(c => c.id_oferta);
 
@@ -437,7 +467,8 @@ export default function Pagos() {
           id_oferta: cuenta.id_oferta,
           motivo_cancelacion: (cuenta as any).tipos_cancelacion?.nombre || null,
           apartado_pagado: apartadoPagadoPorCuenta[cuenta.id],
-          tiene_acuerdos: tieneAcuerdosPorCuenta[cuenta.id]
+          tiene_acuerdos: tieneAcuerdosPorCuenta[cuenta.id],
+          tiene_multas_pendientes: multasPendientesPorCuenta[cuenta.id] || false
         };
       });
 
@@ -867,7 +898,7 @@ export default function Pagos() {
                          <TableCell className="font-semibold text-orange-600">
                            <div className="flex items-center gap-2">
                              {formatCurrency(cuenta.restante)}
-                             {cuenta.restante === 0 && !cuenta.motivo_cancelacion && (
+                             {cuenta.restante === 0 && !cuenta.motivo_cancelacion && !cuenta.tiene_multas_pendientes && (
                                <TooltipProvider>
                                  <Tooltip>
                                    <TooltipTrigger>
@@ -1246,7 +1277,7 @@ export default function Pagos() {
                          <TableCell className="font-semibold text-orange-600">
                            <div className="flex items-center gap-2">
                              {formatCurrency(cuenta.restante)}
-                             {cuenta.restante === 0 && !cuenta.motivo_cancelacion && (
+                             {cuenta.restante === 0 && !cuenta.motivo_cancelacion && !cuenta.tiene_multas_pendientes && (
                                <TooltipProvider>
                                  <Tooltip>
                                    <TooltipTrigger>
