@@ -2419,12 +2419,17 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 console.log('📝 [onBlur numero_escritura] vendedorDetalle?.facturar:', vendedorDetalle?.facturar);
                                 
                                 if (newValue && newValue !== cuentaDetalle?.numero_escritura) {
+                                  // Si ya existe un numero_escritura guardado, guardar directamente sin confirmación
+                                  if (cuentaDetalle?.numero_escritura) {
+                                    setNumeroEscritura(newValue);
+                                    updateEscrituraMutation.mutate({ numero_escritura: newValue });
+                                  }
                                   // Si el vendedor NO factura, solo guardar sin confirmación
-                                  if (!shouldGenerate) {
+                                  else if (!shouldGenerate) {
                                     setNumeroEscritura(newValue);
                                     updateEscrituraMutation.mutate({ numero_escritura: newValue });
                                   } else {
-                                    // Si factura, mostrar dialog de confirmación
+                                    // Si factura y es la primera vez, mostrar dialog de confirmación
                                     setPendingNumeroEscritura(newValue);
                                     setShowConfirmEscrituraDialog(true);
                                   }
