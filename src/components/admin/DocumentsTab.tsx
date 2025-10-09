@@ -48,6 +48,8 @@ interface Documento {
   id_persona?: number;
   id_propiedad?: number;
   tipo_documento_nombre?: string;
+  es_draft?: boolean;
+  comprador_nombre?: string;
 }
 
 export function DocumentsTab({ 
@@ -154,11 +156,29 @@ export function DocumentsTab({
         });
       }
       
+      // Get compradores names if they exist
+      const personaIds = docsData?.filter(doc => doc.id_persona).map(doc => doc.id_persona) || [];
+      let personasMap = new Map<number, string>();
+      
+      if (personaIds.length > 0) {
+        const { data: personasData } = await supabase
+          .from('personas')
+          .select('id, nombre_legal')
+          .in('id', personaIds);
+        
+        if (personasData) {
+          personasData.forEach((persona) => {
+            personasMap.set(persona.id, persona.nombre_legal);
+          });
+        }
+      }
+      
       // Combine the data - map numero to string as it's text in database
       const docs = (docsData || []).map((doc) => ({
         ...doc,
         numero: doc.numero != null ? String(doc.numero) : null,
-        tipo_documento_nombre: tiposMap.get(doc.id_tipo_documento) || 'Tipo desconocido'
+        tipo_documento_nombre: tiposMap.get(doc.id_tipo_documento) || 'Tipo desconocido',
+        comprador_nombre: doc.id_persona ? personasMap.get(doc.id_persona) : undefined
       }));
       
       setDocumentos(docs);
@@ -624,17 +644,24 @@ export function DocumentsTab({
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                  <TableHead>Tipo de Documento</TableHead>
-                  <TableHead>Número</TableHead>
-                  <TableHead>Verificado</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                   <TableHead>Tipo de Documento</TableHead>
+                   <TableHead>Número</TableHead>
+                   <TableHead>Verificado</TableHead>
+                   <TableHead>Fecha</TableHead>
+                   {entityType === 'cuenta_cobranza' && (
+                     <>
+                       <TableHead>Comprador</TableHead>
+                       <TableHead>Estado</TableHead>
+                     </>
+                   )}
+                   <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {/* Pending documents */}
                   {pendingDocuments.map((pendingDoc) => {
                     const tipoDocumentoNombre = tiposDocumento.find(t => t.id.toString() === pendingDoc.tipoDocumento)?.nombre || 'Tipo desconocido';
+                    const isFactura = tipoDocumentoNombre.toLowerCase().includes('factura');
                     return (
                       <TableRow key={pendingDoc.tempId}>
                         <TableCell className="font-medium">-</TableCell>
@@ -646,6 +673,12 @@ export function DocumentsTab({
                         <TableCell>
                           {new Date().toLocaleDateString()}
                         </TableCell>
+                        {entityType === 'cuenta_cobranza' && (
+                          <>
+                            <TableCell>{isFactura ? '-' : ''}</TableCell>
+                            <TableCell>{isFactura ? '-' : ''}</TableCell>
+                          </>
+                        )}
                         <TableCell className="text-right">
                           <Button
                             type="button"
@@ -661,86 +694,103 @@ export function DocumentsTab({
                   })}
                   
                   {/* Saved documents */}
-                  {documentos.map((documento, index) => (
-                    <TableRow key={`${documento.numero}-${index}`}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell>{documento.tipo_documento_nombre}</TableCell>
-                      <TableCell>{documento.numero || ''}</TableCell>
-                      <TableCell>
-                        <Badge variant={documento.es_verificado ? "default" : "secondary"}>
-                          {documento.es_verificado ? "Verificado" : "Pendiente"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(documento.fecha_creacion).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setViewerDialog({
-                                      isOpen: true,
-                                      url: documento.url,
-                                      title: documento.tipo_documento_nombre || 'Documento'
-                                    });
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Ver documento</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleToggleVerification(documento)}
-                                >
-                                  {documento.es_verificado ? (
-                                    <Check className="h-4 w-4 text-green-600" />
-                                  ) : (
-                                    <X className="h-4 w-4 text-muted-foreground" />
-                                  )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{documento.es_verificado ? 'Verificado' : 'No verificado'}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(documento)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Eliminar documento</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {documentos.map((documento, index) => {
+                    const isFactura = documento.tipo_documento_nombre?.toLowerCase().includes('factura');
+                    return (
+                      <TableRow key={`${documento.numero}-${index}`}>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell>{documento.tipo_documento_nombre}</TableCell>
+                        <TableCell>{documento.numero || ''}</TableCell>
+                        <TableCell>
+                          <Badge variant={documento.es_verificado ? "default" : "secondary"}>
+                            {documento.es_verificado ? "Verificado" : "Pendiente"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(documento.fecha_creacion).toLocaleDateString()}
+                        </TableCell>
+                        {entityType === 'cuenta_cobranza' && (
+                          <>
+                            <TableCell>
+                              {isFactura ? (documento.comprador_nombre || '-') : ''}
+                            </TableCell>
+                            <TableCell>
+                              {isFactura && (
+                                <Badge variant={documento.es_draft ? "outline" : "default"}>
+                                  {documento.es_draft ? "Draft" : "Final"}
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </>
+                        )}
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setViewerDialog({
+                                        isOpen: true,
+                                        url: documento.url,
+                                        title: documento.tipo_documento_nombre || 'Documento'
+                                      });
+                                    }}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Ver documento</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleToggleVerification(documento)}
+                                  >
+                                    {documento.es_verificado ? (
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    ) : (
+                                      <X className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{documento.es_verificado ? 'Verificado' : 'No verificado'}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDelete(documento)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Eliminar documento</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
