@@ -253,7 +253,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   // Clear estado/municipio when país changes for direccion
   useEffect(() => {
-    if (idPaisDireccion && idEstadoDireccion) {
+    if (idPaisDireccion && idEstadoDireccion && estados.length > 0) {
       const estadoValido = estados.find(e => e.id.toString() === idEstadoDireccion.toString() && e.id_pais === idPaisDireccion);
       if (!estadoValido) {
         setIdEstadoDireccion('');
@@ -264,7 +264,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   // Clear municipio when estado changes for direccion
   useEffect(() => {
-    if (idEstadoDireccion && idMunicipioDireccion) {
+    if (idEstadoDireccion && idMunicipioDireccion && municipios.length > 0) {
       const municipioValido = municipios.find(m => m.id.toString() === idMunicipioDireccion.toString() && m.id_estado === parseInt(idEstadoDireccion));
       if (!municipioValido) {
         setIdMunicipioDireccion('');
@@ -274,7 +274,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   // Clear estado/municipio when país changes for nacimiento
   useEffect(() => {
-    if (idPaisNacimiento && idEstadoNacimiento) {
+    if (idPaisNacimiento && idEstadoNacimiento && estados.length > 0) {
       const estadoValido = estados.find(e => e.id.toString() === idEstadoNacimiento.toString() && e.id_pais === idPaisNacimiento);
       if (!estadoValido) {
         setIdEstadoNacimiento('');
@@ -285,7 +285,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   // Clear municipio when estado changes for nacimiento
   useEffect(() => {
-    if (idEstadoNacimiento && idMunicipioNacimiento) {
+    if (idEstadoNacimiento && idMunicipioNacimiento && municipios.length > 0) {
       const municipioValido = municipios.find(m => m.id.toString() === idMunicipioNacimiento.toString() && m.id_estado === parseInt(idEstadoNacimiento));
       if (!municipioValido) {
         setIdMunicipioNacimiento('');
@@ -295,7 +295,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   // Clear estado/municipio when país changes for fiscal
   useEffect(() => {
-    if (idPaisFiscal && idEstadoFiscal) {
+    if (idPaisFiscal && idEstadoFiscal && estados.length > 0) {
       const estadoValido = estados.find(e => e.id.toString() === idEstadoFiscal.toString() && e.id_pais === idPaisFiscal);
       if (!estadoValido) {
         setIdEstadoFiscal('');
@@ -306,7 +306,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   // Clear municipio when estado changes for fiscal
   useEffect(() => {
-    if (idEstadoFiscal && idMunicipioFiscal) {
+    if (idEstadoFiscal && idMunicipioFiscal && municipios.length > 0) {
       const municipioValido = municipios.find(m => m.id.toString() === idMunicipioFiscal.toString() && m.id_estado === parseInt(idEstadoFiscal));
       if (!municipioValido) {
         setIdMunicipioFiscal('');
