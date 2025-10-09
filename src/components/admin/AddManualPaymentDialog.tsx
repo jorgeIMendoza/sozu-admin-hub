@@ -131,7 +131,7 @@ export function AddManualPaymentDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       monto: 0,
-      fecha_pago: new Date(),
+      fecha_pago: undefined,
       id_metodos_pago: "",
       clave_rastreo: "",
       descripcion: "",
