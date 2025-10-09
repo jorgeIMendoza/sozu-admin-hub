@@ -2436,15 +2436,15 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 }
                               }}
                               placeholder="Ingrese número de escritura"
-                              className={(shouldGenerateInvoice || vendedorDetalle?.facturar === true) ? "border-amber-500 focus:border-amber-600 focus:ring-amber-600" : ""}
+                              className={((shouldGenerateInvoice || vendedorDetalle?.facturar === true) && !cuentaDetalle?.numero_escritura) ? "border-amber-500 focus:border-amber-600 focus:ring-amber-600" : ""}
                             />
-                            {(shouldGenerateInvoice || vendedorDetalle?.facturar === true) && (
+                            {((shouldGenerateInvoice || vendedorDetalle?.facturar === true) && !cuentaDetalle?.numero_escritura) && (
                               <div className="absolute -top-2 -right-2 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
                                 <span className="text-white text-xs font-bold">!</span>
                               </div>
                             )}
                           </div>
-                          {(shouldGenerateInvoice || vendedorDetalle?.facturar === true) && (
+                          {((shouldGenerateInvoice || vendedorDetalle?.facturar === true) && !cuentaDetalle?.numero_escritura) && (
                             <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                               Para guardar click aquí
                             </p>
