@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Upload, Eye, Trash2, Check, X, FileCheck } from "lucide-react";
+import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ConfirmMantenimientoDialog } from "./ConfirmMantenimientoDialog";
@@ -742,12 +742,12 @@ export function DocumentsTab({
                                     {documento.es_verificado ? (
                                       <Check className="h-4 w-4 text-green-600" />
                                     ) : (
-                                      <X className="h-4 w-4 text-muted-foreground" />
+                                      <CheckCircle className="h-4 w-4 text-muted-foreground" />
                                     )}
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>{documento.es_verificado ? 'Verificado' : 'No verificado'}</p>
+                                  <p>{documento.es_verificado ? 'Verificado' : 'Verificar'}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
