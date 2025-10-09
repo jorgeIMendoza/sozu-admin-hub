@@ -138,14 +138,41 @@ export function FacturasTab({
     // 1. Obtener datos completos del comprador
     const { data: compradorData, error: compradorError } = await supabase
       .from('personas')
-      .select(`
-        *,
-        pais_direccion_fiscal:paises!personas_direccion_fiscal_id_pais_fkey(nombre),
-        estado_direccion_fiscal:estados_mx!personas_direccion_fiscal_id_estado_fkey(nombre),
-        municipio_direccion_fiscal:municipios_mx!personas_direccion_fiscal_id_municipio_fkey(nombre)
-      `)
+      .select('*')
       .eq('id', idPersona)
       .single();
+
+    // Obtener datos de pais, estado y municipio fiscal por separado
+    let paisFiscal = null;
+    let estadoFiscal = null;
+    let municipioFiscal = null;
+
+    if (compradorData?.direccion_fiscal_id_pais) {
+      const { data } = await supabase
+        .from('paises')
+        .select('nombre')
+        .eq('id', compradorData.direccion_fiscal_id_pais)
+        .single();
+      paisFiscal = data;
+    }
+
+    if (compradorData?.direccion_fiscal_id_estado) {
+      const { data } = await supabase
+        .from('estados_mx')
+        .select('nombre')
+        .eq('id', compradorData.direccion_fiscal_id_estado)
+        .single();
+      estadoFiscal = data;
+    }
+
+    if (compradorData?.direccion_fiscal_id_municipio) {
+      const { data } = await supabase
+        .from('municipios_mx')
+        .select('nombre')
+        .eq('id', compradorData.direccion_fiscal_id_municipio)
+        .single();
+      municipioFiscal = data;
+    }
 
     if (compradorError || !compradorData) {
       throw new Error('No se encontraron los datos del comprador');
@@ -169,23 +196,18 @@ export function FacturasTab({
 
     // Obtener datos del proyecto
     const idProyecto = (propiedadData.entidades_relacionadas as any)?.id_proyecto;
-    let proyectoData = null;
+    let direccionProyecto = '';
     
     if (idProyecto) {
       const { data: proyecto } = await supabase
         .from('proyectos')
-        .select(`
-          nombre,
-          direccion_calle,
-          direccion_colonia,
-          direccion_codigo_postal,
-          estados_mx!proyectos_direccion_id_estado_fkey(nombre),
-          municipios_mx!proyectos_direccion_id_municipio_fkey(nombre)
-        `)
+        .select('direccion')
         .eq('id', idProyecto)
         .single();
       
-      proyectoData = proyecto;
+      if (proyecto) {
+        direccionProyecto = proyecto.direccion || '';
+      }
     }
 
     // 3. Obtener estacionamientos
@@ -216,11 +238,6 @@ export function FacturasTab({
       throw new Error('No se encontraron los datos de la cuenta');
     }
 
-    // Construir dirección de la propiedad
-    const direccionPropiedad = proyectoData ? 
-      `${proyectoData.direccion_calle || ''} ${proyectoData.direccion_colonia || ''}, ${(proyectoData.municipios_mx as any)?.nombre || ''}, ${(proyectoData.estados_mx as any)?.nombre || ''}, CP ${proyectoData.direccion_codigo_postal || ''}`.trim() : 
-      '';
-
     // Construir payload
     return {
       api_key: apiKey,
@@ -232,7 +249,7 @@ export function FacturasTab({
       propiedad: {
         numero_propiedad: propiedadData.numero_propiedad,
         metraje_escriturable: propiedadData.m2_escriturables,
-        direccion: direccionPropiedad,
+        direccion: direccionProyecto,
         precio_final: cuentaData.precio_final,
         piso: propiedadData.numero_piso
       },
@@ -273,9 +290,9 @@ export function FacturasTab({
             num_int: compradorData.direccion_fiscal_num_int || '',
             colonia: compradorData.direccion_fiscal_colonia || '',
             codigo_postal: compradorData.direccion_fiscal_codigo_postal || '',
-            municipio: (compradorData.municipio_direccion_fiscal as any)?.nombre || '',
-            estado: (compradorData.estado_direccion_fiscal as any)?.nombre || '',
-            pais: (compradorData.pais_direccion_fiscal as any)?.nombre || ''
+            municipio: municipioFiscal?.nombre || '',
+            estado: estadoFiscal?.nombre || '',
+            pais: paisFiscal?.nombre || ''
           }
         }
       ]
