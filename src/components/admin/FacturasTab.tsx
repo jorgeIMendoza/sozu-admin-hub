@@ -322,8 +322,8 @@ export function FacturasTab({
           uso_cfdi: compradorData.uso_cfdi || '',
           direccion_fiscal: {
             calle: compradorData.direccion_fiscal_calle || '',
-            num_ext: compradorData.direccion_fiscal_num_ext || '',
-            num_int: compradorData.direccion_fiscal_num_int || '',
+            numero_exterior: compradorData.direccion_fiscal_num_ext || '',
+            numero_interior: compradorData.direccion_fiscal_num_int || '',
             colonia: compradorData.direccion_fiscal_colonia || '',
             codigo_postal: compradorData.direccion_fiscal_codigo_postal || '',
             municipio: municipioFiscal?.nombre || '',
