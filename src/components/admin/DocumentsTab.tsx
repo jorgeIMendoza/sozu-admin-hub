@@ -660,8 +660,8 @@ export function DocumentsTab({
             // Contar cuántos NO están verificados (incluyendo el actual)
             const noVerificados = categoria7Docs.filter(d => !d.es_verificado);
             
-            // Si este es el último sin verificar, validar entidad administradora
-            if (noVerificados.length === 1 && noVerificados[0].id === documento.id) {
+            // Validar entidad administradora antes de verificar cualquier documento de categoría 7
+            if (noVerificados.length >= 1) {
               // Obtener proyecto de la cuenta de cobranza
               const cuentaResp = await supabaseClient
                 .from('cuentas_cobranza')
@@ -700,7 +700,7 @@ export function DocumentsTab({
                 toast({
                   variant: "destructive",
                   title: "Entidad Administradora requerida",
-                  description: "Para verificar el último documento de entrega, primero debe configurar una entidad legal Administradora con su cuenta madre STP en el proyecto.",
+                  description: "Para verificar documentos de entrega de propiedad, primero debe configurar una entidad legal Administradora con su cuenta madre STP en el proyecto.",
                   duration: 6000
                 });
                 return;
