@@ -8,9 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck } from "lucide-react";
+import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { N8N_WEBHOOK_BASE_URL } from '@/lib/config';
 
 interface DocumentsTabProps {
   entityId?: number;
@@ -31,6 +32,7 @@ interface DocumentsTabProps {
   compradores?: Array<{ id_persona: number; nombre_legal: string }>; // Lista de compradores
   propiedadId?: number; // ID de la propiedad asociada
   onGenerateFinalInvoice?: (idPersona: number, idDocumento: number) => Promise<void>; // Callback para generar factura final
+  isReadOnly?: boolean; // Modo solo lectura cuando la propiedad está entregada
 }
 
 interface TipoDocumento {
@@ -63,7 +65,8 @@ export function DocumentsTab({
   shouldAutoGenerateInvoice = false,
   compradores = [],
   propiedadId,
-  onGenerateFinalInvoice
+  onGenerateFinalInvoice,
+  isReadOnly = false
 }: DocumentsTabProps) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -759,6 +762,43 @@ export function DocumentsTab({
       if (error) throw error;
       
       await loadDocumentos();
+
+      // 🔹 NUEVO: Verificar si era el último documento de categoría 7
+      if (entityType === 'cuenta_cobranza' && !documento.es_verificado) {
+        // Obtener el tipo de documento actualizado
+        const tipoDocResp = await supabase
+          .from('tipos_documento')
+          .select('id_categoria_documento')
+          .eq('id', documento.id_tipo_documento)
+          .single();
+        
+        if (tipoDocResp.data?.id_categoria_documento === 7) {
+          const tiposCategoria7Resp = await supabase
+            .from('tipos_documento')
+            .select('id')
+            .eq('id_categoria_documento', 7)
+            .eq('activo', true);
+
+          if (tiposCategoria7Resp.data) {
+            const categoria7Ids = tiposCategoria7Resp.data.map((t: any) => t.id);
+            
+            const { data: allDocs } = await supabase
+              .from('documentos')
+              .select('id, es_verificado')
+              .eq('id_cuenta_cobranza', entityId)
+              .in('id_tipo_documento', categoria7Ids)
+              .eq('activo', true);
+            
+            const todosVerificados = allDocs && allDocs.every(d => d.es_verificado);
+            
+            if (todosVerificados) {
+              await procesarUltimoDocumento();
+              return; // Exit early to show special toast
+            }
+          }
+        }
+      }
+      
       toast({ 
         title: "Éxito", 
         description: documento.es_verificado ? "Documento marcado como no verificado" : "Documento verificado correctamente"
@@ -768,6 +808,80 @@ export function DocumentsTab({
         variant: "destructive", 
         title: "Error", 
         description: `Error al actualizar verificación: ${error.message}` 
+      });
+    }
+  };
+
+  const procesarUltimoDocumento = async () => {
+    try {
+      // 1. Obtener id_propiedad desde cuenta_cobranza
+      const { data: cuentaData } = await supabase
+        .from('cuentas_cobranza')
+        .select('id_oferta')
+        .eq('id', entityId)
+        .single();
+      
+      if (!cuentaData?.id_oferta) throw new Error('No se encontró la oferta');
+      
+      const { data: ofertaData } = await supabase
+        .from('ofertas')
+        .select('id_propiedad, id_producto')
+        .eq('id', cuentaData.id_oferta)
+        .single();
+      
+      // Solo proceder si es una propiedad (no producto)
+      if (!ofertaData?.id_propiedad) {
+        toast({
+          title: "Documentos verificados",
+          description: "✓ Todos los documentos han sido verificados correctamente"
+        });
+        return;
+      }
+      
+      const idPropiedad = ofertaData.id_propiedad;
+      
+      // 2. Actualizar estatus de propiedad a "Entregado" (id=8)
+      const { error: updateError } = await supabase
+        .from('propiedades')
+        .update({ 
+          id_estatus_disponibilidad: 8,
+          fecha_actualizacion: new Date().toISOString()
+        })
+        .eq('id', idPropiedad);
+      
+      if (updateError) throw updateError;
+      
+      // 3. Llamar webhook para generar cuenta de mantenimiento
+      const webhookResponse = await fetch(`${N8N_WEBHOOK_BASE_URL}/generaCuentaMantenimiento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_cuenta_cobranza: entityId })
+      });
+      
+      if (!webhookResponse.ok) {
+        throw new Error('Error al generar cuenta de mantenimiento');
+      }
+      
+      const resultado = await webhookResponse.json();
+      const clabeMantenimiento = resultado?.clabe_stp_mantenimiento || 'No disponible';
+      
+      // 4. Mostrar toast de éxito con CLABE
+      toast({
+        title: "🎉 ¡Propiedad entregada!",
+        description: `Cuenta de mantenimiento generada\nCLABE STP: ${clabeMantenimiento}`,
+        duration: 8000
+      });
+      
+      // 5. Recargar datos
+      await loadDocumentos();
+      
+    } catch (error: any) {
+      console.error('Error procesando último documento:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Error al procesar entrega: ${error.message}`,
+        duration: 6000
       });
     }
   };

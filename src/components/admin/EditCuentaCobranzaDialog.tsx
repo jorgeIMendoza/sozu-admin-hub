@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Edit, Trash2, Plus, HeartHandshake, FileText, ExternalLink } from 'lucide-react';
+import { CalendarIcon, Edit, Trash2, Plus, HeartHandshake, FileText, ExternalLink, CheckCircle } from 'lucide-react';
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
 import { isFiscalDataComplete } from '@/utils/fiscalDataValidation';
 import { format } from "date-fns";
@@ -153,6 +153,17 @@ function SortableItem({ id, children, disabled = false }: SortableItemProps) {
     </TableRow>
   );
 }
+
+const ReadOnlyBanner = () => (
+  <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+    <div className="flex items-center gap-2">
+      <CheckCircle className="h-5 w-5 text-green-600" />
+      <span className="font-medium text-green-700 dark:text-green-300">
+        Propiedad entregada - Esta sección es de solo lectura
+      </span>
+    </div>
+  </div>
+);
 
 interface EditCuentaCobranzaDialogProps {
   cuenta: CuentaCobranza;
@@ -349,6 +360,27 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     },
     enabled: !!propiedadDetalle?.id_entidad_relacionada_dueno
   });
+
+  // Query para obtener estatus de la propiedad
+  const { data: estatusPropiedad } = useQuery({
+    queryKey: ["estatus_propiedad", propiedadDetalle?.id],
+    queryFn: async () => {
+      if (!propiedadDetalle?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('propiedades')
+        .select('id_estatus_disponibilidad')
+        .eq('id', propiedadDetalle.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!propiedadDetalle?.id
+  });
+
+  // Determinar si está en modo solo lectura
+  const isReadOnly = estatusPropiedad?.id_estatus_disponibilidad === 8;
 
   // Check if vendedor should generate invoice
   useEffect(() => {
@@ -1855,6 +1887,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           </TabsList>
 
           <TabsContent value="propiedad" className="space-y-4">
+            {isReadOnly && <ReadOnlyBanner />}
             <Card>
               <CardHeader>
                 <CardTitle>Información de la Propiedad</CardTitle>
@@ -2041,6 +2074,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           </TabsContent>
 
           <TabsContent value="compradores" className="space-y-4">
+            {isReadOnly && <ReadOnlyBanner />}
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -2300,7 +2334,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       </div>
                       
                       <div className="mt-4">
-                        <Button onClick={handleAddComprador} disabled={addCompradorMutation.isPending} className="w-full">
+                      <Button
+                        onClick={() => handleAddComprador}
+                        disabled={addCompradorMutation.isPending || isReadOnly}
+                        className="w-full"
+                      >
                           Agregar Comprador
                         </Button>
                       </div>
@@ -2313,6 +2351,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
           {tipoCuenta === 'Propiedad' && (
             <TabsContent value="escrituracion" className="space-y-4">
+              {isReadOnly && <ReadOnlyBanner />}
               <Card>
                 <CardHeader>
                   <CardTitle>Datos de escrituración</CardTitle>
@@ -2321,7 +2360,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <Label>Notario asignado</Label>
-                      <Select value={selectedNotario} onValueChange={handleNotarioChange}>
+                      <Select value={selectedNotario} onValueChange={handleNotarioChange} disabled={isReadOnly}>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar notario" />
                         </SelectTrigger>
@@ -2345,6 +2384,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             onChange={(e) => setClaveCatastral(e.target.value)}
                             onBlur={() => updateEscrituraMutation.mutate({ clave_catastral: claveCatastral })}
                             placeholder="Ingrese clave catastral"
+                            disabled={isReadOnly}
                           />
                         </div>
                         <div>
@@ -2354,6 +2394,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             onChange={(e) => setLibro(e.target.value)}
                             onBlur={() => updateEscrituraMutation.mutate({ libro: libro })}
                             placeholder="Ingrese libro"
+                            disabled={isReadOnly}
                           />
                         </div>
                         <div>
@@ -2363,6 +2404,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             onChange={(e) => setHoja(e.target.value)}
                             onBlur={() => updateEscrituraMutation.mutate({ hoja: hoja })}
                             placeholder="Ingrese hoja"
+                            disabled={isReadOnly}
                           />
                         </div>
                         <div>
@@ -2372,6 +2414,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               <Button
                                 variant="outline"
                                 className="w-full justify-start text-left font-normal"
+                                disabled={isReadOnly}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {fechaEscritura ? format(fechaEscritura, "PPP", { locale: es }) : "Seleccionar fecha"}
@@ -2389,6 +2432,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 }}
                                 initialFocus
                                 className="pointer-events-auto"
+                                disabled={isReadOnly}
                               />
                             </PopoverContent>
                           </Popover>
@@ -2400,6 +2444,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             onChange={(e) => setNumeroUnidadPrivativa(e.target.value)}
                             onBlur={() => updateEscrituraMutation.mutate({ numero_unidad_privativa: numeroUnidadPrivativa })}
                             placeholder="Ingrese número de unidad privativa"
+                            disabled={isReadOnly}
                           />
                         </div>
                         <div>
@@ -2590,6 +2635,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           {/* Documentos Tab - Only for properties */}
           {tipoCuenta === 'Propiedad' && (
             <TabsContent value="documentos" className="space-y-4">
+              {isReadOnly && <ReadOnlyBanner />}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2603,7 +2649,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       entityId={cuenta.id}
                       entityType="cuenta_cobranza"
                       shouldAutoGenerateInvoice={shouldGenerateInvoice}
-                      compradores={compradoresExistentes?.map(c => ({ 
+                      isReadOnly={isReadOnly}
+                      compradores={compradoresExistentes?.map(c => ({
                         id_persona: c.personas?.id || 0, 
                         nombre_legal: c.personas?.nombre_legal || '' 
                       })) || []}
@@ -2804,6 +2851,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           {/* Facturas Tab - Only for properties with facturas */}
           {tipoCuenta === 'Propiedad' && hasFacturas && (
             <TabsContent value="facturas" className="space-y-4">
+              {isReadOnly && <ReadOnlyBanner />}
               <FacturasTab
                 cuentaCobranzaId={cuenta.id}
                 compradores={compradoresExistentes?.map(c => ({ 
@@ -2814,6 +2862,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 propiedadId={propiedadDetalle?.id}
                 apiKeyDraft={vendedorDetalle?.nombre_api_key_draft || undefined}
                 duenoPuedeFacturar={vendedorDetalle?.facturar === true}
+                isReadOnly={isReadOnly}
                 onGenerateFinalInvoice={async (idPersona: number, idDocumento: number) => {
                   try {
                     // Obtener api_key del dueño
@@ -2971,6 +3020,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           )}
 
           <TabsContent value="acuerdo" className="space-y-4">
+            {isReadOnly && <ReadOnlyBanner />}
             <Card>
               <CardContent className="pt-6">
                 {/* Purchase and UMA Information Section */}

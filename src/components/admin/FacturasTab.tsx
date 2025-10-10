@@ -24,6 +24,7 @@ interface FacturasTabProps {
   apiKeyDraft?: string;
   onGenerateFinalInvoice?: (idPersona: number, idDocumento: number) => Promise<void>;
   duenoPuedeFacturar?: boolean; // Indica si la entidad dueña tiene habilitada la opción de facturar
+  isReadOnly?: boolean; // Nueva prop para modo solo lectura
 }
 
 interface FacturaInfo {
@@ -50,7 +51,8 @@ export function FacturasTab({
   propiedadId,
   apiKeyDraft,
   onGenerateFinalInvoice,
-  duenoPuedeFacturar = false
+  duenoPuedeFacturar = false,
+  isReadOnly = false
 }: FacturasTabProps) {
   const [facturas, setFacturas] = useState<FacturaInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
