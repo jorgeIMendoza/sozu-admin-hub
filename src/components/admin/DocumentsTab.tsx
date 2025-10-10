@@ -811,7 +811,7 @@ export function DocumentsTab({
 
     toast({
       title: "Cuenta de mantenimiento generada",
-      description: `CLABE STP: ${result.clabe_stp_mantenimiento || 'N/A'}`,
+      description: `CLABE STP: ${result.clabe_stp || 'N/A'}`,
       duration: 8000
     });
 
