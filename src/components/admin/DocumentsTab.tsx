@@ -236,7 +236,7 @@ export function DocumentsTab({
         const response = await supabaseClient
           .from('tipos_documento')
           .select('id')
-          .eq('id_categoria_tipo_documento', 7)
+          .eq('id_categoria_documento', 7)
           .eq('activo', true);
         
         if (!response.data || response.data.length === 0) return;
@@ -639,16 +639,16 @@ export function DocumentsTab({
         const supabaseClient = supabase as any;
         const tipoDocResp = await supabaseClient
           .from('tipos_documento')
-          .select('id_categoria_tipo_documento')
+          .select('id_categoria_documento')
           .eq('id', documento.id_tipo_documento)
           .single();
         
-        if (tipoDocResp.data?.id_categoria_tipo_documento === 7) {
+        if (tipoDocResp.data?.id_categoria_documento === 7) {
           // Obtener todos los documentos de categoría 7 para esta cuenta
           const tiposCategoria7Resp = await supabaseClient
             .from('tipos_documento')
             .select('id')
-            .eq('id_categoria_tipo_documento', 7)
+            .eq('id_categoria_documento', 7)
             .eq('activo', true);
           
           if (tiposCategoria7Resp.data) {
