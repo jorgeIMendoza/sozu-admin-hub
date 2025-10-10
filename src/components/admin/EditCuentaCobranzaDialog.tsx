@@ -2754,13 +2754,35 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           });
                           
                           if (!response.ok) {
-                            throw new Error('Error al generar factura');
+                            const errorData = await response.json().catch(() => null);
+                            const errorMessage = errorData?.message || errorData?.error || `Error ${response.status}: ${response.statusText}`;
+                            throw new Error(errorMessage);
                           }
                           
+                          const result = await response.json();
+                          console.log('✅ Factura definitiva generada:', result);
                           toast.success('Factura definitiva generada exitosamente');
                         } catch (error) {
-                          console.error('Error generando factura:', error);
-                          toast.error('Error al generar la factura definitiva');
+                          console.error('❌ Error generando factura definitiva:', error);
+                          
+                          let errorMessage = 'Error al generar la factura definitiva';
+                          
+                          if (error instanceof Error) {
+                            if (error.message.includes('404')) {
+                              errorMessage = 'Error: El servicio de facturación no está disponible (404)';
+                            } else if (error.message.includes('500')) {
+                              errorMessage = 'Error interno del servidor de facturación (500)';
+                            } else if (error.message.includes('timeout') || error.message.includes('network')) {
+                              errorMessage = 'Error de conexión con el servicio de facturación';
+                            } else if (error.message !== 'Error al generar factura') {
+                              errorMessage = `Error: ${error.message}`;
+                            }
+                          }
+                          
+                          toast.error(errorMessage, {
+                            description: 'Verifica la consola para más detalles.',
+                            duration: 6000,
+                          });
                         }
                       }}
                     />
@@ -3688,13 +3710,38 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 });
                 
                 if (!response.ok) {
-                  throw new Error('Error al generar factura');
+                  const errorData = await response.json().catch(() => null);
+                  const errorMessage = errorData?.message || errorData?.error || `Error ${response.status}: ${response.statusText}`;
+                  throw new Error(errorMessage);
                 }
                 
+                const result = await response.json();
+                console.log('✅ Factura generada exitosamente:', result);
                 toast.success('Factura generada exitosamente');
               } catch (error) {
-                console.error('Error generando factura:', error);
-                toast.error('Error al generar la factura');
+                console.error('❌ Error generando factura:', error);
+                
+                let errorMessage = 'Error al generar la factura';
+                
+                if (error instanceof Error) {
+                  if (error.message.includes('404')) {
+                    errorMessage = 'Error: El servicio de facturación no está disponible (404)';
+                  } else if (error.message.includes('500')) {
+                    errorMessage = 'Error interno del servidor de facturación (500)';
+                  } else if (error.message.includes('timeout') || error.message.includes('network')) {
+                    errorMessage = 'Error de conexión con el servicio de facturación';
+                  } else if (error.message !== 'Error al generar factura') {
+                    errorMessage = `Error: ${error.message}`;
+                  }
+                }
+                
+                toast.error(errorMessage, {
+                  description: 'El campo permanece marcado para que puedas reintentar la generación.',
+                  duration: 6000,
+                });
+                
+                // NO cerrar el dialog para permitir reintento
+                return;
               }
             }
           }}
