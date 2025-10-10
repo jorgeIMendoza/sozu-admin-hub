@@ -667,18 +667,18 @@ export function DocumentsTab({
                 .from('cuentas_cobranza')
                 .select(`
                   id_oferta,
-                  ofertas!cuentas_cobranza_id_oferta_fkey (
+                  ofertas (
                     id_propiedad,
                     id_producto,
-                    propiedades!ofertas_id_propiedad_fkey (
+                    propiedades (
                       id_entidad_relacionada_dueno,
-                      entidades_relacionadas!propiedades_id_entidad_relacionada_dueno_fkey (
+                      entidades_relacionadas (
                         id_proyecto
                       )
                     ),
-                    productos_servicios!ofertas_id_producto_fkey (
+                    productos_servicios (
                       id_entidad_relacionada_dueno,
-                      entidades_relacionadas!productos_servicios_id_entidad_relacionada_dueno_fkey (
+                      entidades_relacionadas (
                         id_proyecto
                       )
                     )
