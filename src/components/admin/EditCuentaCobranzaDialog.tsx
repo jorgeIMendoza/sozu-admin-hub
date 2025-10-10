@@ -2765,23 +2765,28 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                         } catch (error) {
                           console.error('❌ Error generando factura definitiva:', error);
                           
-                          let errorMessage = 'Error al generar la factura definitiva';
+                          let errorTitle = 'Error al generar la factura definitiva';
+                          let errorDescription = '';
                           
                           if (error instanceof Error) {
                             if (error.message.includes('404')) {
-                              errorMessage = 'Error: El servicio de facturación no está disponible (404)';
+                              errorTitle = 'Servicio no disponible';
+                              errorDescription = 'El servicio de facturación no está disponible (404)';
                             } else if (error.message.includes('500')) {
-                              errorMessage = 'Error interno del servidor de facturación (500)';
+                              errorTitle = 'Error del servidor';
+                              errorDescription = 'Error interno del servidor de facturación (500)';
                             } else if (error.message.includes('timeout') || error.message.includes('network')) {
-                              errorMessage = 'Error de conexión con el servicio de facturación';
+                              errorTitle = 'Error de conexión';
+                              errorDescription = 'No se pudo conectar con el servicio de facturación';
                             } else if (error.message !== 'Error al generar factura') {
-                              errorMessage = `Error: ${error.message}`;
+                              errorTitle = 'Error de validación';
+                              errorDescription = error.message;
                             }
                           }
                           
-                          toast.error(errorMessage, {
-                            description: 'Verifica la consola para más detalles.',
-                            duration: 6000,
+                          toast.error(errorTitle, {
+                            description: errorDescription,
+                            duration: 8000,
                           });
                         }
                       }}
@@ -3721,23 +3726,29 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
               } catch (error) {
                 console.error('❌ Error generando factura:', error);
                 
-                let errorMessage = 'Error al generar la factura';
+                let errorTitle = 'Error al generar la factura';
+                let errorDescription = '';
                 
                 if (error instanceof Error) {
                   if (error.message.includes('404')) {
-                    errorMessage = 'Error: El servicio de facturación no está disponible (404)';
+                    errorTitle = 'Servicio no disponible';
+                    errorDescription = 'El servicio de facturación no está disponible (404)';
                   } else if (error.message.includes('500')) {
-                    errorMessage = 'Error interno del servidor de facturación (500)';
+                    errorTitle = 'Error del servidor';
+                    errorDescription = 'Error interno del servidor de facturación (500)';
                   } else if (error.message.includes('timeout') || error.message.includes('network')) {
-                    errorMessage = 'Error de conexión con el servicio de facturación';
+                    errorTitle = 'Error de conexión';
+                    errorDescription = 'No se pudo conectar con el servicio de facturación';
                   } else if (error.message !== 'Error al generar factura') {
-                    errorMessage = `Error: ${error.message}`;
+                    // Mostrar el mensaje completo del webhook
+                    errorTitle = 'Error de validación';
+                    errorDescription = error.message;
                   }
                 }
                 
-                toast.error(errorMessage, {
-                  description: 'El campo permanece marcado para que puedas reintentar la generación.',
-                  duration: 6000,
+                toast.error(errorTitle, {
+                  description: errorDescription,
+                  duration: 8000,
                 });
                 
                 // NO cerrar el dialog para permitir reintento
