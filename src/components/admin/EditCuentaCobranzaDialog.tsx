@@ -3544,9 +3544,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         <ConfirmEscrituraDialog
           open={showConfirmEscrituraDialog}
           onOpenChange={setShowConfirmEscrituraDialog}
-          onConfirm={async () => {
-            setNumeroEscritura(pendingNumeroEscritura);
-            updateEscrituraMutation.mutate({ numero_escritura: pendingNumeroEscritura });
+          onConfirm={async (numeroEscrituraEditado: string) => {
+            setNumeroEscritura(numeroEscrituraEditado);
+            updateEscrituraMutation.mutate({ numero_escritura: numeroEscrituraEditado });
             
             // Si debe generar factura, llamar al endpoint
             if (shouldGenerateInvoice && vendedorDetalle) {
@@ -3663,7 +3663,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     hoja,
                     fecha_escritura: fechaEscritura ? format(fechaEscritura, 'yyyy-MM-dd') : null,
                     numero_unidad_privativa: numeroUnidadPrivativa,
-                    numero_escritura: pendingNumeroEscritura,
+                    numero_escritura: numeroEscrituraEditado,
                     notario: (() => {
                       const notario = notarios?.find(n => n.id.toString() === selectedNotario);
                       return notario ? {

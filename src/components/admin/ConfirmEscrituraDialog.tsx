@@ -10,13 +10,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { isFiscalDataComplete, type FiscalData } from '@/utils/fiscalDataValidation';
 
 interface ConfirmEscrituraDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onConfirm: (numeroEscritura: string) => void;
   compradoresData?: FiscalData[];
   escrituraData: {
     clave_catastral?: string;
@@ -41,9 +42,17 @@ export function ConfirmEscrituraDialog({
   isCuentaFullyPaid,
   onGoToCompradores,
 }: ConfirmEscrituraDialogProps) {
+  const [numeroEscritura, setNumeroEscritura] = useState('');
   const [datosFiscalesCompradoresCompletos, setDatosFiscalesCompradoresCompletos] = useState(false);
   const [compradoresIncompletos, setCompradoresIncompletos] = useState(0);
   const [datosEscrituracionCompletos, setDatosEscrituracionCompletos] = useState(false);
+
+  // Inicializar el número de escritura cuando se abre el diálogo
+  useEffect(() => {
+    if (open && escrituraData.numero_escritura) {
+      setNumeroEscritura(escrituraData.numero_escritura);
+    }
+  }, [open, escrituraData.numero_escritura]);
 
   // Validar datos fiscales de TODOS los compradores
   useEffect(() => {
@@ -71,7 +80,7 @@ export function ConfirmEscrituraDialog({
     setDatosEscrituracionCompletos(isComplete);
   }, [escrituraData]);
 
-  const canSave = isCuentaFullyPaid && datosFiscalesCompradoresCompletos && datosEscrituracionCompletos;
+  const canSave = isCuentaFullyPaid && datosFiscalesCompradoresCompletos && datosEscrituracionCompletos && numeroEscritura.trim() !== '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,13 +90,19 @@ export function ConfirmEscrituraDialog({
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             Confirmación de Número de Escritura
           </DialogTitle>
-          <DialogDescription className="text-base pt-2 space-y-2">
-            {escrituraData.numero_escritura && (
-              <div className="bg-primary/10 px-4 py-2 rounded-md">
-                <span className="text-sm text-muted-foreground">Número de Escritura:</span>
-                <p className="text-lg font-bold text-foreground">{escrituraData.numero_escritura}</p>
-              </div>
-            )}
+          <DialogDescription className="text-base pt-2 space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="numero-escritura" className="text-sm font-medium text-foreground">
+                Número de Escritura:
+              </Label>
+              <Input
+                id="numero-escritura"
+                value={numeroEscritura}
+                onChange={(e) => setNumeroEscritura(e.target.value)}
+                placeholder="Ingrese el número de escritura"
+                className="text-base font-semibold"
+              />
+            </div>
             {shouldGenerateInvoice ? (
               <span className="block text-foreground font-medium">
                 Una vez confirmado, se guardará el número de escritura y se generará la factura automáticamente.
@@ -206,7 +221,7 @@ export function ConfirmEscrituraDialog({
           </Button>
           <Button
             onClick={() => {
-              onConfirm();
+              onConfirm(numeroEscritura.trim());
               onOpenChange(false);
             }}
             disabled={!canSave}
