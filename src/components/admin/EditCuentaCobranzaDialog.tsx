@@ -2786,6 +2786,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 })) || []}
                 propiedadId={propiedadDetalle?.id}
                 apiKeyDraft={vendedorDetalle?.nombre_api_key_draft || undefined}
+                duenoPuedeFacturar={vendedorDetalle?.facturar === true}
                 onGenerateFinalInvoice={async (idPersona: number, idDocumento: number) => {
                   try {
                     // Obtener api_key del dueño

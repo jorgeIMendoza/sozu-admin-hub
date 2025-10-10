@@ -23,6 +23,7 @@ interface FacturasTabProps {
   propiedadId?: number;
   apiKeyDraft?: string;
   onGenerateFinalInvoice?: (idPersona: number, idDocumento: number) => Promise<void>;
+  duenoPuedeFacturar?: boolean; // Indica si la entidad dueña tiene habilitada la opción de facturar
 }
 
 interface FacturaInfo {
@@ -48,7 +49,8 @@ export function FacturasTab({
   compradores,
   propiedadId,
   apiKeyDraft,
-  onGenerateFinalInvoice
+  onGenerateFinalInvoice,
+  duenoPuedeFacturar = false
 }: FacturasTabProps) {
   const [facturas, setFacturas] = useState<FacturaInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -496,7 +498,7 @@ export function FacturasTab({
               <TableHead>ID de factura</TableHead>
               <TableHead>Factura PDF</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              {duenoPuedeFacturar && <TableHead className="text-right">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -543,88 +545,90 @@ export function FacturasTab({
                           <Badge variant="outline">Sin factura</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* Botón para generar primera factura draft */}
-                          {!tienePdf && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => handleRegenerarDraft(factura.id_persona, null)}
-                                    disabled={generatingForPersona === factura.id_persona}
-                                  >
-                                    {generatingForPersona === factura.id_persona ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <FilePlus2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Generar Draft</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          
-                          {/* Botón para regenerar draft */}
-                          {tienePdf && isDraft && factura.factura_pdf && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleRegenerarDraft(factura.id_persona, factura.factura_pdf!.id)}
-                                    disabled={generatingForPersona === factura.id_persona}
-                                  >
-                                    {generatingForPersona === factura.id_persona ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <FilePlus2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Generar Draft de nuevo</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                          
-                          {/* Botón para generar factura definitiva */}
-                          {tienePdf && isDraft && factura.factura_pdf && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => setConfirmFinalDialog({ 
-                                      isOpen: true, 
-                                      idPersona: factura.id_persona, 
-                                      idDocumento: factura.factura_pdf!.id 
-                                    })}
-                                    disabled={generatingForPersona === factura.id_persona}
-                                  >
-                                    {generatingForPersona === factura.id_persona ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <FileCheck className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Generar Factura definitiva</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                      </TableCell>
+                      {duenoPuedeFacturar && (
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Botón para generar primera factura draft */}
+                            {!tienePdf && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => handleRegenerarDraft(factura.id_persona, null)}
+                                      disabled={generatingForPersona === factura.id_persona}
+                                    >
+                                      {generatingForPersona === factura.id_persona ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <FilePlus2 className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Generar Draft</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            
+                            {/* Botón para regenerar draft */}
+                            {tienePdf && isDraft && factura.factura_pdf && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRegenerarDraft(factura.id_persona, factura.factura_pdf!.id)}
+                                      disabled={generatingForPersona === factura.id_persona}
+                                    >
+                                      {generatingForPersona === factura.id_persona ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <FilePlus2 className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Generar Draft de nuevo</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            
+                            {/* Botón para generar factura definitiva */}
+                            {tienePdf && isDraft && factura.factura_pdf && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => setConfirmFinalDialog({ 
+                                        isOpen: true, 
+                                        idPersona: factura.id_persona, 
+                                        idDocumento: factura.factura_pdf!.id 
+                                      })}
+                                      disabled={generatingForPersona === factura.id_persona}
+                                    >
+                                      {generatingForPersona === factura.id_persona ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <FileCheck className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Generar Factura definitiva</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
