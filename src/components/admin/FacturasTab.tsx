@@ -575,7 +575,7 @@ export function FacturasTab({
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Generar borrador de factura</p>
+                                    <p>Generar draft de factura</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
@@ -600,7 +600,7 @@ export function FacturasTab({
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Regenerar borrador de factura</p>
+                                    <p>Regenerar draft de factura</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
