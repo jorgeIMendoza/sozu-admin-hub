@@ -12,6 +12,16 @@ import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X } from 
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { N8N_WEBHOOK_BASE_URL } from '@/lib/config';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface DocumentsTabProps {
   entityId?: number;
@@ -84,6 +94,7 @@ export function DocumentsTab({
   const [dialogAlreadyShown, setDialogAlreadyShown] = useState(false);
   const [selectedComprador, setSelectedComprador] = useState<string>("");
   const [hasInvoices, setHasInvoices] = useState(false);
+  const [showConfirmEntrega, setShowConfirmEntrega] = useState(false);
   const { toast } = useToast();
 
   // Auto-select comprador if only one exists and invoice type is selected
@@ -792,8 +803,8 @@ export function DocumentsTab({
             const todosVerificados = allDocs && allDocs.every(d => d.es_verificado);
             
             if (todosVerificados) {
-              await procesarUltimoDocumento();
-              return; // Exit early to show special toast
+              setShowConfirmEntrega(true);
+              return; // Exit early to show confirmation dialog
             }
           }
         }
@@ -1286,6 +1297,40 @@ export function DocumentsTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showConfirmEntrega} onOpenChange={setShowConfirmEntrega}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Confirmar entrega de propiedad?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>Todos los documentos de entrega han sido verificados correctamente.</p>
+              <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 p-3 border border-yellow-200 dark:border-yellow-800">
+                <p className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                  ⚠️ Esta acción es IRREVOCABLE
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
+                  <li>La propiedad cambiará a estatus "Entregado"</li>
+                  <li>Se generará automáticamente una cuenta de cobranza de mantenimiento</li>
+                  <li>Todas las secciones quedarán en modo solo lectura</li>
+                </ul>
+              </div>
+              <p className="text-sm font-medium pt-2">¿Desea continuar con la entrega?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setShowConfirmEntrega(false);
+                await procesarUltimoDocumento();
+              }}
+              className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
+            >
+              Confirmar Entrega
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
