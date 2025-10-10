@@ -2107,7 +2107,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       )}
                     </p>
                   </div>
-                  <Button onClick={() => setShowPersonForm(true)}>
+                  <Button 
+                    onClick={() => setShowPersonForm(true)}
+                    disabled={isReadOnly}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Nuevo Comprador
                   </Button>
@@ -2187,7 +2190,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                   value={comprador.porcentaje_copropiedad.toFixed(2)}
                                   onChange={(e) => handlePercentageChange(comprador.personas?.id || 0, e.target.value)}
                                   className="w-20 h-8 text-sm"
-                                  disabled={updateBuyerPercentageMutation.isPending}
+                                  disabled={updateBuyerPercentageMutation.isPending || isReadOnly}
                                 />
                               </TableCell>
                               <TableCell className="text-right">
@@ -2195,7 +2198,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => handleDeleteBuyer(comprador.personas?.id || 0, comprador.personas?.nombre_legal || '')}
-                                  disabled={deleteBuyerMutation.isPending}
+                                  disabled={deleteBuyerMutation.isPending || isReadOnly}
                                   className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -2245,7 +2248,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                                     });
                                                   }
                                                 }}
-                                                disabled={addCompradorMutation.isPending}
+                                                disabled={addCompradorMutation.isPending || isReadOnly}
                                               >
                                                 <Plus className="h-3 w-3 mr-1" />
                                                 Agregar Cónyuge
@@ -2292,9 +2295,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     placeholder="Buscar por nombre, RFC, CURP o email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    disabled={isReadOnly}
                   />
 
-                  {personasBusqueda && personasBusqueda.length > 0 && (
+                  {!isReadOnly && personasBusqueda && personasBusqueda.length > 0 && (
                     <div className="mt-2 border rounded max-h-48 overflow-y-auto">
                       {personasBusqueda.map((persona) => (
                         <div
@@ -2316,7 +2320,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     </div>
                   )}
 
-                  {selectedPersona && (
+                  {!isReadOnly && selectedPersona && (
                     <div className="p-4 border rounded bg-muted">
                       <p className="font-medium mb-2">Persona Seleccionada:</p>
                       <p>{selectedPersona.nombre_legal}</p>
@@ -2482,6 +2486,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               }}
                               placeholder="Ingrese número de escritura"
                               className={((shouldGenerateInvoice || vendedorDetalle?.facturar === true) && !hasFacturas) ? "border-amber-500 focus:border-amber-600 focus:ring-amber-600" : ""}
+                              disabled={isReadOnly}
                             />
                             {((shouldGenerateInvoice || vendedorDetalle?.facturar === true) && !hasFacturas) && (
                               <div className="absolute -top-2 -right-2 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
