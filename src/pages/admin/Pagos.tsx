@@ -494,13 +494,14 @@ export default function Pagos() {
 
         const pagado = pagadoPorCuenta[cuenta.id] || 0;
         const precio_final = cuenta.precio_final || 0;
+        // Apply normalization to both the subtraction and ensure we never get negative zero
         const restante = normalizarSaldo(precio_final - pagado);
 
         // Calculate cash payment data (only for properties)
         const valorUma = cuenta.valor_uma || 0;
         const limiteEfectivo = valorUma * 8025;
         const pagadoEfectivo = tipo === 'Propiedad' ? (pagadoEfectivoPorCuenta[cuenta.id] || 0) : 0;
-        const restanteEfectivo = limiteEfectivo - pagadoEfectivo;
+        const restanteEfectivo = normalizarSaldo(limiteEfectivo - pagadoEfectivo);
         const porcentajeEfectivo = limiteEfectivo > 0 ? (pagadoEfectivo / limiteEfectivo) * 100 : 0;
 
         return {
