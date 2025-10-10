@@ -95,12 +95,15 @@ export default function Pagos() {
 
   // Helper function to normalize balance and avoid floating point precision issues
   const normalizarSaldo = (saldo: number): number => {
-    // If balance is very close to zero (less than 1 cent), treat it as zero
-    if (Math.abs(saldo) < 0.01) {
+    // Round to 2 decimal places first to avoid precision issues
+    const rounded = Math.round(saldo * 100) / 100;
+    
+    // If balance is very close to zero (less than 1 cent), treat it as exactly zero
+    if (Math.abs(rounded) < 0.01) {
       return 0;
     }
-    // Round to 2 decimal places to avoid precision issues
-    return Math.round(saldo * 100) / 100;
+    
+    return rounded;
   };
 
   const { data: cuentasCobranza, isLoading } = useQuery({
