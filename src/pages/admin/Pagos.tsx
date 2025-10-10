@@ -272,10 +272,11 @@ export default function Pagos() {
 
       // Primero necesitamos determinar qué cuentas son de productos
       // Obtenemos las ofertas para saber cuáles tienen id_producto
-      const { data: ofertasTemp } = await supabase
+      const ofertaIdsTemp = cuentas.map(c => c.id_oferta).filter(id => id !== null);
+      const { data: ofertasTemp } = ofertaIdsTemp.length > 0 ? await supabase
         .from('ofertas')
         .select('id, id_producto')
-        .in('id', cuentas.map(c => c.id_oferta));
+        .in('id', ofertaIdsTemp) : { data: [] };
 
       const cuentasProductoSet = new Set(
         ofertasTemp?.filter(o => o.id_producto).map(o => 
@@ -345,10 +346,10 @@ export default function Pagos() {
       }
 
       // Get offer IDs to fetch related data
-      const ofertaIds = cuentas.map(c => c.id_oferta);
+      const ofertaIds = cuentas.map(c => c.id_oferta).filter(id => id !== null);
 
       // Get ofertas with properties and products
-      const { data: ofertas, error: ofertasError } = await supabase
+      const { data: ofertas, error: ofertasError } = ofertaIds.length > 0 ? await supabase
         .from('ofertas')
         .select(`
           id,
@@ -362,7 +363,7 @@ export default function Pagos() {
             id_edificio_modelo
           )
         `)
-        .in('id', ofertaIds);
+        .in('id', ofertaIds) : { data: [], error: null };
 
       if (ofertasError) {
         console.error('Error fetching ofertas:', ofertasError);
