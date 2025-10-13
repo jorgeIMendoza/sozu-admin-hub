@@ -81,8 +81,8 @@ const manualPaymentSchema = z.object({
   numero_pagos_enganche: z.string()
     .refine((val) => {
       const num = parseInt(val);
-      return !isNaN(num) && num >= 1 && num <= 3;
-    }, "Debe ser un número entre 1 y 3")
+      return !isNaN(num) && num >= 1 && num <= 2;
+    }, "Debe ser un número entre 1 y 2")
     .optional(),
   porcentaje_descuento_aumento: z.string().optional(),
 });
@@ -908,15 +908,15 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                                <Input 
                                  type="number" 
                                  min="1"
-                                 max="3"
+                                 max="2"
                                  step="1"
                                  placeholder="1" 
                                  {...field}
                                  onChange={(e) => {
-                                   // Solo permitir números enteros entre 1 y 3
+                                   // Solo permitir números enteros entre 1 y 2
                                    const value = e.target.value.replace(/\D/g, '');
                                    const numValue = parseInt(value) || 1;
-                                   const clampedValue = Math.min(Math.max(numValue, 1), 3);
+                                   const clampedValue = Math.min(Math.max(numValue, 1), 2);
                                    field.onChange(clampedValue.toString());
                                  }}
                                />
