@@ -1187,6 +1187,14 @@ export default function DetalleCuentaCobranza() {
         .eq('activo', true)
         .eq('es_incluido', false);
 
+      // Get bodegas included (es_incluido = true)
+      const { data: bodegasIncluidas } = await supabase
+        .from('bodegas')
+        .select('id')
+        .eq('id_propiedad', cuentaDetalle.id_propiedad)
+        .eq('activo', true)
+        .eq('es_incluido', true);
+
       // Get estacionamientos not included (es_incluido = false)
       const { data: estacionamientos } = await supabase
         .from('estacionamientos')
@@ -1194,6 +1202,14 @@ export default function DetalleCuentaCobranza() {
         .eq('id_propiedad', cuentaDetalle.id_propiedad)
         .eq('activo', true)
         .eq('es_incluido', false);
+
+      // Get estacionamientos included (es_incluido = true)
+      const { data: estacionamientosIncluidos } = await supabase
+        .from('estacionamientos')
+        .select('id')
+        .eq('id_propiedad', cuentaDetalle.id_propiedad)
+        .eq('activo', true)
+        .eq('es_incluido', true);
 
       // Get precio_final for bodegas
       if (bodegas && bodegas.length > 0) {
@@ -1257,7 +1273,9 @@ export default function DetalleCuentaCobranza() {
         precioBodegas,
         precioEstacionamientos,
         tieneBodegas: (bodegas?.length || 0) > 0,
-        tieneEstacionamientos: (estacionamientos?.length || 0) > 0
+        tieneEstacionamientos: (estacionamientos?.length || 0) > 0,
+        tieneBodegasIncluidas: (bodegasIncluidas?.length || 0) > 0,
+        tieneEstacionamientosIncluidos: (estacionamientosIncluidos?.length || 0) > 0
       };
     },
     enabled: !!cuentaDetalle && cuentaDetalle.tipo_cuenta === 'Propiedad' && !!cuentaDetalle.id_propiedad,
@@ -1874,6 +1892,18 @@ export default function DetalleCuentaCobranza() {
                       </Tooltip>
                     </TooltipProvider>
                   )}
+                  {escrituracionData.tieneEstacionamientosIncluidos && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Car className="h-4 w-4 text-green-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Estacionamiento: Incluido</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   {escrituracionData.tieneBodegas && (
                     <TooltipProvider>
                       <Tooltip>
@@ -1882,6 +1912,18 @@ export default function DetalleCuentaCobranza() {
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Bodega: {formatCurrency(escrituracionData.precioBodegas)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {escrituracionData.tieneBodegasIncluidas && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Warehouse className="h-4 w-4 text-green-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Bodega: Incluido</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
