@@ -897,38 +897,40 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                        )}
                      />
 
-                     <FormField
-                       control={form.control}
-                       name="numero_pagos_enganche"
-                       render={({ field }) => (
-                         <FormItem>
-                           <FormLabel>Número de Pagos de Enganche *</FormLabel>
-                           <FormControl>
-                             <Input 
-                               type="number" 
-                               min="1"
-                               max="3"
-                               step="1"
-                               placeholder="1" 
-                               {...field}
-                               onChange={(e) => {
-                                 // Solo permitir números enteros entre 1 y 3
-                                 const value = e.target.value.replace(/\D/g, '');
-                                 const numValue = parseInt(value) || 1;
-                                 const clampedValue = Math.min(Math.max(numValue, 1), 3);
-                                 field.onChange(clampedValue.toString());
-                               }}
-                             />
-                           </FormControl>
-                           <FormMessage />
-                           {parseInt(field.value || "1") > 1 && (
-                             <p className="text-sm text-muted-foreground mt-1">
-                               Cada pago será del {porcentajePorPago}%
-                             </p>
-                           )}
-                         </FormItem>
-                       )}
-                     />
+                     {parseFloat(watchedEnganche || "0") >= 10 && (
+                       <FormField
+                         control={form.control}
+                         name="numero_pagos_enganche"
+                         render={({ field }) => (
+                           <FormItem>
+                             <FormLabel>Número de Pagos de Enganche *</FormLabel>
+                             <FormControl>
+                               <Input 
+                                 type="number" 
+                                 min="1"
+                                 max="3"
+                                 step="1"
+                                 placeholder="1" 
+                                 {...field}
+                                 onChange={(e) => {
+                                   // Solo permitir números enteros entre 1 y 3
+                                   const value = e.target.value.replace(/\D/g, '');
+                                   const numValue = parseInt(value) || 1;
+                                   const clampedValue = Math.min(Math.max(numValue, 1), 3);
+                                   field.onChange(clampedValue.toString());
+                                 }}
+                               />
+                             </FormControl>
+                             <FormMessage />
+                             {parseInt(field.value || "1") > 1 && (
+                               <p className="text-sm text-muted-foreground mt-1">
+                                 Cada pago será del {porcentajePorPago}%
+                               </p>
+                             )}
+                           </FormItem>
+                         )}
+                       />
+                     )}
                    </div>
 
                    <div className="grid grid-cols-2 gap-4">
