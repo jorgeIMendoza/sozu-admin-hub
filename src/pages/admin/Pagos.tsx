@@ -67,6 +67,15 @@ export default function Pagos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("activas");
   const [selectedTipos, setSelectedTipos] = useState<Array<'Propiedad' | 'Producto' | 'Servicio'>>(['Propiedad', 'Producto', 'Servicio']);
+  
+  // Filter states
+  const [idCuentaFilter, setIdCuentaFilter] = useState("");
+  const [productoFilter, setProductoFilter] = useState("");
+  const [compradoresFilter, setCompradoresFilter] = useState("");
+  const [clabeFilter, setClabeFilter] = useState("");
+  const [proyectoFilter, setProyectoFilter] = useState("");
+  const [noPropiedadFilter, setNoPropiedadFilter] = useState("");
+  const [modeloFilter, setModeloFilter] = useState("");
   const [cancelDialog, setCancelDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
     isOpen: false,
     cuenta: null
@@ -567,7 +576,7 @@ export default function Pagos() {
     }
     
     // Filter by search term
-    return (
+    const matchesSearch = searchTerm === "" || (
       cuenta.id.toString().includes(searchTerm) ||
       cuenta.compradores.some(c => c.nombre_legal.toLowerCase().includes(searchTerm.toLowerCase()) || 
         c.rfc?.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -580,6 +589,21 @@ export default function Pagos() {
       cuenta.producto_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cuenta.precio_final.toString().includes(searchTerm)
     );
+    
+    // Apply individual filters
+    const matchesIdCuenta = idCuentaFilter === "" || cuenta.id.toString().includes(idCuentaFilter);
+    const matchesProducto = productoFilter === "" || cuenta.producto_nombre?.toLowerCase().includes(productoFilter.toLowerCase());
+    const matchesCompradores = compradoresFilter === "" || cuenta.compradores.some(c => 
+      c.nombre_legal.toLowerCase().includes(compradoresFilter.toLowerCase()) || 
+      c.rfc?.toLowerCase().includes(compradoresFilter.toLowerCase())
+    );
+    const matchesClabe = clabeFilter === "" || cuenta.clabe_stp?.toLowerCase().includes(clabeFilter.toLowerCase());
+    const matchesProyecto = proyectoFilter === "" || cuenta.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
+    const matchesNoPropiedad = noPropiedadFilter === "" || cuenta.numero_propiedad.toLowerCase().includes(noPropiedadFilter.toLowerCase());
+    const matchesModelo = modeloFilter === "" || cuenta.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
+    
+    return matchesSearch && matchesIdCuenta && matchesProducto && matchesCompradores && 
+           matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo;
   });
 
   const handleTipoToggle = (tipo: 'Propiedad' | 'Producto' | 'Servicio') => {
@@ -742,8 +766,9 @@ export default function Pagos() {
         <TabsContent value="activas" className="mt-6">
           <Card>
             <CardHeader>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="space-y-4">
+                {/* Search bar */}
+                <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Buscar por ID, compradores, dueño, CLABE, proyecto, edificio, propiedad o modelo..."
@@ -752,51 +777,134 @@ export default function Pagos() {
                     className="pl-8"
                   />
                 </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="gap-2">
-                      <Filter className="h-4 w-4" />
-                      Tipo ({selectedTipos.length})
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 bg-background z-50" align="end">
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-sm">Filtrar por Tipo</h4>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="tipo-propiedad"
-                            checked={selectedTipos.includes('Propiedad')}
-                            onCheckedChange={() => handleTipoToggle('Propiedad')}
-                          />
-                          <Label htmlFor="tipo-propiedad" className="cursor-pointer">
-                            Propiedad
-                          </Label>
+                
+                {/* Filters grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">ID Cuenta</label>
+                    <Input
+                      placeholder="Filtrar por ID..."
+                      value={idCuentaFilter}
+                      onChange={(e) => setIdCuentaFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tipo</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span className="truncate">Tipo ({selectedTipos.length})</span>
+                          <Filter className="h-4 w-4 ml-2 flex-shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 bg-background z-50" align="start">
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Filtrar por Tipo</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="tipo-propiedad"
+                                checked={selectedTipos.includes('Propiedad')}
+                                onCheckedChange={() => handleTipoToggle('Propiedad')}
+                              />
+                              <Label htmlFor="tipo-propiedad" className="cursor-pointer">
+                                Propiedad
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="tipo-producto"
+                                checked={selectedTipos.includes('Producto')}
+                                onCheckedChange={() => handleTipoToggle('Producto')}
+                              />
+                              <Label htmlFor="tipo-producto" className="cursor-pointer">
+                                Producto
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="tipo-servicio"
+                                checked={selectedTipos.includes('Servicio')}
+                                onCheckedChange={() => handleTipoToggle('Servicio')}
+                              />
+                              <Label htmlFor="tipo-servicio" className="cursor-pointer">
+                                Servicio
+                              </Label>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="tipo-producto"
-                            checked={selectedTipos.includes('Producto')}
-                            onCheckedChange={() => handleTipoToggle('Producto')}
-                          />
-                          <Label htmlFor="tipo-producto" className="cursor-pointer">
-                            Producto
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="tipo-servicio"
-                            checked={selectedTipos.includes('Servicio')}
-                            onCheckedChange={() => handleTipoToggle('Servicio')}
-                          />
-                          <Label htmlFor="tipo-servicio" className="cursor-pointer">
-                            Servicio
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Nombre de producto</label>
+                    <Input
+                      placeholder="Filtrar por producto..."
+                      value={productoFilter}
+                      onChange={(e) => setProductoFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Compradores</label>
+                    <Input
+                      placeholder="Filtrar por comprador..."
+                      value={compradoresFilter}
+                      onChange={(e) => setCompradoresFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">CLABE</label>
+                    <Input
+                      placeholder="Filtrar por CLABE..."
+                      value={clabeFilter}
+                      onChange={(e) => setClabeFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Proyecto</label>
+                    <Input
+                      placeholder="Filtrar por proyecto..."
+                      value={proyectoFilter}
+                      onChange={(e) => setProyectoFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">No. Propiedad</label>
+                    <Input
+                      placeholder="Filtrar por propiedad..."
+                      value={noPropiedadFilter}
+                      onChange={(e) => setNoPropiedadFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Modelo</label>
+                    <Input
+                      placeholder="Filtrar por modelo..."
+                      value={modeloFilter}
+                      onChange={(e) => setModeloFilter(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                {/* Clear filters button */}
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setIdCuentaFilter("");
+                      setSelectedTipos(['Propiedad', 'Producto', 'Servicio']);
+                      setProductoFilter("");
+                      setCompradoresFilter("");
+                      setClabeFilter("");
+                      setProyectoFilter("");
+                      setNoPropiedadFilter("");
+                      setModeloFilter("");
+                    }}
+                  >
+                    Limpiar Filtros
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -804,7 +912,9 @@ export default function Pagos() {
                 <div className="text-center py-8">Cargando cuentas de cobranza...</div>
               ) : filteredCuentas.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {searchTerm ? "No se encontraron cuentas activas que coincidan con la búsqueda" : "No hay cuentas de cobranza activas"}
+                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3
+                    ? "No se encontraron cuentas que coincidan con los filtros" 
+                    : "No hay cuentas de cobranza activas"}
                 </div>
               ) : (
                 <Table>
@@ -1120,8 +1230,9 @@ export default function Pagos() {
         <TabsContent value="canceladas" className="mt-6">
           <Card>
             <CardHeader>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="space-y-4">
+                {/* Search bar */}
+                <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Buscar por ID, compradores, dueño, CLABE, proyecto, edificio, propiedad o modelo..."
@@ -1130,51 +1241,134 @@ export default function Pagos() {
                     className="pl-8"
                   />
                 </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="gap-2">
-                      <Filter className="h-4 w-4" />
-                      Tipo ({selectedTipos.length})
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 bg-background z-50" align="end">
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-sm">Filtrar por Tipo</h4>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="tipo-propiedad-canceladas"
-                            checked={selectedTipos.includes('Propiedad')}
-                            onCheckedChange={() => handleTipoToggle('Propiedad')}
-                          />
-                          <Label htmlFor="tipo-propiedad-canceladas" className="cursor-pointer">
-                            Propiedad
-                          </Label>
+                
+                {/* Filters grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">ID Cuenta</label>
+                    <Input
+                      placeholder="Filtrar por ID..."
+                      value={idCuentaFilter}
+                      onChange={(e) => setIdCuentaFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tipo</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span className="truncate">Tipo ({selectedTipos.length})</span>
+                          <Filter className="h-4 w-4 ml-2 flex-shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 bg-background z-50" align="start">
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Filtrar por Tipo</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="tipo-propiedad-canceladas"
+                                checked={selectedTipos.includes('Propiedad')}
+                                onCheckedChange={() => handleTipoToggle('Propiedad')}
+                              />
+                              <Label htmlFor="tipo-propiedad-canceladas" className="cursor-pointer">
+                                Propiedad
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="tipo-producto-canceladas"
+                                checked={selectedTipos.includes('Producto')}
+                                onCheckedChange={() => handleTipoToggle('Producto')}
+                              />
+                              <Label htmlFor="tipo-producto-canceladas" className="cursor-pointer">
+                                Producto
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="tipo-servicio-canceladas"
+                                checked={selectedTipos.includes('Servicio')}
+                                onCheckedChange={() => handleTipoToggle('Servicio')}
+                              />
+                              <Label htmlFor="tipo-servicio-canceladas" className="cursor-pointer">
+                                Servicio
+                              </Label>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="tipo-producto-canceladas"
-                            checked={selectedTipos.includes('Producto')}
-                            onCheckedChange={() => handleTipoToggle('Producto')}
-                          />
-                          <Label htmlFor="tipo-producto-canceladas" className="cursor-pointer">
-                            Producto
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="tipo-servicio-canceladas"
-                            checked={selectedTipos.includes('Servicio')}
-                            onCheckedChange={() => handleTipoToggle('Servicio')}
-                          />
-                          <Label htmlFor="tipo-servicio-canceladas" className="cursor-pointer">
-                            Servicio
-                          </Label>
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Nombre de producto</label>
+                    <Input
+                      placeholder="Filtrar por producto..."
+                      value={productoFilter}
+                      onChange={(e) => setProductoFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Compradores</label>
+                    <Input
+                      placeholder="Filtrar por comprador..."
+                      value={compradoresFilter}
+                      onChange={(e) => setCompradoresFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">CLABE</label>
+                    <Input
+                      placeholder="Filtrar por CLABE..."
+                      value={clabeFilter}
+                      onChange={(e) => setClabeFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Proyecto</label>
+                    <Input
+                      placeholder="Filtrar por proyecto..."
+                      value={proyectoFilter}
+                      onChange={(e) => setProyectoFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">No. Propiedad</label>
+                    <Input
+                      placeholder="Filtrar por propiedad..."
+                      value={noPropiedadFilter}
+                      onChange={(e) => setNoPropiedadFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Modelo</label>
+                    <Input
+                      placeholder="Filtrar por modelo..."
+                      value={modeloFilter}
+                      onChange={(e) => setModeloFilter(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                {/* Clear filters button */}
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setIdCuentaFilter("");
+                      setSelectedTipos(['Propiedad', 'Producto', 'Servicio']);
+                      setProductoFilter("");
+                      setCompradoresFilter("");
+                      setClabeFilter("");
+                      setProyectoFilter("");
+                      setNoPropiedadFilter("");
+                      setModeloFilter("");
+                    }}
+                  >
+                    Limpiar Filtros
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -1182,7 +1376,9 @@ export default function Pagos() {
                 <div className="text-center py-8">Cargando cuentas de cobranza...</div>
               ) : filteredCuentas.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {searchTerm ? "No se encontraron cuentas canceladas que coincidan con la búsqueda" : "No hay cuentas de cobranza canceladas"}
+                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3
+                    ? "No se encontraron cuentas que coincidan con los filtros" 
+                    : "No hay cuentas de cobranza canceladas"}
                 </div>
               ) : (
                 <Table>
