@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +19,7 @@ import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationD
 import { NewMultaDialog } from "@/components/admin/NewMultaDialog";
 import { AddCepDialog } from "@/components/admin/AddCepDialog";
 import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
+import { EditPaymentDialog } from "@/components/admin/EditPaymentDialog";
 import { TransferirEntreComisionesDialog } from "@/components/admin/TransferirEntreComisionesDialog";
 import { formatCuentaCobranzaId, formatOfertaId } from "@/utils/cuentaCobranzaUtils";
 
@@ -402,6 +403,13 @@ export default function DetalleCuentaCobranza() {
     paymentId: null
   });
   const [manualPaymentDialog, setManualPaymentDialog] = useState(false);
+  const [editPaymentDialog, setEditPaymentDialog] = useState<{
+    isOpen: boolean;
+    paymentId: number | null;
+  }>({
+    isOpen: false,
+    paymentId: null
+  });
   const [transferDialog, setTransferDialog] = useState<{
     isOpen: boolean;
   }>({
@@ -1523,12 +1531,19 @@ export default function DetalleCuentaCobranza() {
     setDeleteDialog({ isOpen: false, aplicacion: null, warningMessage: "" });
   };
 
-  const handleEditPayment = (aplicacionId: number) => {
-    // TODO: Implementar edición de pago
-    toast({
-      title: "Función pendiente",
-      description: "La edición de pagos será implementada próximamente",
-    });
+  const handleEditPayment = async (aplicacionId: number) => {
+    // Get payment ID from application
+    const acuerdo = acuerdosPago?.find(a => 
+      (a.aplicaciones || []).some(app => app.id === aplicacionId)
+    );
+    const aplicacion = acuerdo?.aplicaciones?.find(app => app.id === aplicacionId);
+    
+    if (aplicacion) {
+      setEditPaymentDialog({
+        isOpen: true,
+        paymentId: aplicacion.pago.id
+      });
+    }
   };
 
   // Multa functions
@@ -2446,6 +2461,26 @@ export default function DetalleCuentaCobranza() {
                                                 </Tooltip>
                                               )}
                                               
+                                              {/* Edit Button - Only for non-STP payments and incomplete agreements */}
+                                              {!isStpPayment && !acuerdo.pago_completado && (
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button
+                                                      variant="outline"
+                                                      size="icon"
+                                                      className="h-6 w-6"
+                                                      onClick={() => handleEditPayment(aplicacion.id)}
+                                                      disabled={esCuentaCancelada || isReadOnly}
+                                                    >
+                                                      <Pencil className="h-3 w-3" />
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p>Editar Pago</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              )}
+                                              
                                               <Tooltip>
                                                 <TooltipTrigger asChild>
                                                   <Button
@@ -2676,6 +2711,13 @@ export default function DetalleCuentaCobranza() {
         tipoCuenta={cuentaDetalle?.tipo_cuenta}
         precioFinal={cuentaDetalle?.precio_final || 0}
         montoPagado={totalPagado}
+      />
+
+      <EditPaymentDialog
+        isOpen={editPaymentDialog.isOpen}
+        onClose={() => setEditPaymentDialog({ isOpen: false, paymentId: null })}
+        paymentId={editPaymentDialog.paymentId}
+        cuentaCobranzaId={cuentaId}
       />
 
       <TransferirEntreComisionesDialog
