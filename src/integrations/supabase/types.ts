@@ -1351,6 +1351,7 @@ export type Database = {
           id_proyecto: number | null
           nombre: string
           numero_mensualidades: number
+          numero_pagos_enganche: number
           porcentaje_descuento_aumento: number
           porcentaje_enganche: number
           porcentaje_entrega: number
@@ -1366,6 +1367,7 @@ export type Database = {
           id_proyecto?: number | null
           nombre: string
           numero_mensualidades: number
+          numero_pagos_enganche?: number
           porcentaje_descuento_aumento?: number
           porcentaje_enganche: number
           porcentaje_entrega: number
@@ -1381,6 +1383,7 @@ export type Database = {
           id_proyecto?: number | null
           nombre?: string
           numero_mensualidades?: number
+          numero_pagos_enganche?: number
           porcentaje_descuento_aumento?: number
           porcentaje_enganche?: number
           porcentaje_entrega?: number
