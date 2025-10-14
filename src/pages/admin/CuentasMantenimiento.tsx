@@ -909,7 +909,7 @@ export default function CuentasMantenimiento() {
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Link to={`/admin/cuentas-cobranza/${cuenta.id}/detalle`}>
+                                    <Link to={`/admin/cuentas-mantenimiento/${cuenta.id}/detalle`}>
                                       <Button variant="ghost" size="icon">
                                         <Eye className="h-4 w-4" />
                                       </Button>
