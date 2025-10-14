@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle } from "lucide-react";
+import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -1183,39 +1183,53 @@ export default function Pagos() {
                                     <p>{cuenta.pagado >= cuenta.precio_final ? 'Cuenta totalmente pagada' : 'Agregar Pago Manual'}</p>
                                   </TooltipContent>
                                 </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="outline" 
-                                      size="icon"
-                                      onClick={() => handleDownloadOffer(cuenta)}
-                                      disabled={loadingDownload === cuenta.id}
-                                    >
-                                      {loadingDownload === cuenta.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <Download className="h-4 w-4" />
-                                      )}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Descargar Oferta</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
                                      <Button 
-                                      variant="destructive" 
-                                      size="icon"
-                                      onClick={() => handleCancelCuenta(cuenta)}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Cancelar Cuenta</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                       variant="outline" 
+                                       size="icon"
+                                       onClick={() => handleDownloadOffer(cuenta)}
+                                       disabled={loadingDownload === cuenta.id}
+                                     >
+                                       {loadingDownload === cuenta.id ? (
+                                         <Loader2 className="h-4 w-4 animate-spin" />
+                                       ) : (
+                                         <Download className="h-4 w-4" />
+                                       )}
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Descargar Oferta</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button 
+                                       variant="outline" 
+                                       size="icon"
+                                       onClick={() => {}}
+                                     >
+                                       <FileText className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Descargar Estado de Cuenta</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                      <Button 
+                                       variant="destructive" 
+                                       size="icon"
+                                       onClick={() => handleCancelCuenta(cuenta)}
+                                     >
+                                       <X className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Cancelar Cuenta</p>
+                                   </TooltipContent>
+                                 </Tooltip>
                               </div>
                             </TooltipProvider>
                           </TableCell>
@@ -1624,26 +1638,40 @@ export default function Pagos() {
                                    <p>Ver Detalle</p>
                                  </TooltipContent>
                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button 
-                                      variant="outline" 
-                                      size="icon"
-                                      onClick={() => handleDownloadOffer(cuenta)}
-                                      disabled={loadingDownload === cuenta.id}
-                                    >
-                                      {loadingDownload === cuenta.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : (
-                                        <Download className="h-4 w-4" />
-                                      )}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Descargar Oferta</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                             </div>
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button 
+                                       variant="outline" 
+                                       size="icon"
+                                       onClick={() => handleDownloadOffer(cuenta)}
+                                       disabled={loadingDownload === cuenta.id}
+                                     >
+                                       {loadingDownload === cuenta.id ? (
+                                         <Loader2 className="h-4 w-4 animate-spin" />
+                                       ) : (
+                                         <Download className="h-4 w-4" />
+                                       )}
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Descargar Oferta</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                                 <Tooltip>
+                                   <TooltipTrigger asChild>
+                                     <Button 
+                                       variant="outline" 
+                                       size="icon"
+                                       onClick={() => {}}
+                                     >
+                                       <FileText className="h-4 w-4" />
+                                     </Button>
+                                   </TooltipTrigger>
+                                   <TooltipContent>
+                                     <p>Descargar Estado de Cuenta</p>
+                                   </TooltipContent>
+                                 </Tooltip>
+                              </div>
                            </TooltipProvider>
                          </TableCell>
                       </TableRow>
