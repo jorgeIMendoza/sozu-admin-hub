@@ -216,12 +216,20 @@ export class ReciboPagoService {
 
     // Get buyer info with gender
     const primerComprador = data.compradores.length > 0 ? data.compradores[0] : null;
-    const clientName = primerComprador?.personas?.nombre_legal || 'N/A';
     const sexoComprador = primerComprador?.personas?.sexo?.toUpperCase();
     
+    // Get all buyer names
+    const nombresCompradores = data.compradores
+      .map((c: any) => c.personas?.nombre_legal)
+      .filter(Boolean)
+      .join('/');
+    
+    const clientName = nombresCompradores || 'N/A';
+    
     // Determine article based on gender (del Señor/de la Señora, el/la)
-    const articulo = sexoComprador === 'M' ? 'del Señor' : 'de la Señora';
-    const articuloElLa = sexoComprador === 'M' ? 'el Señor' : 'la Señora';
+    // When there are multiple buyers, use neutral "de" and "los compradores"
+    const articulo = data.compradores.length > 1 ? 'de' : (sexoComprador === 'M' ? 'del Señor' : 'de la Señora');
+    const articuloElLa = data.compradores.length > 1 ? 'los compradores' : (sexoComprador === 'M' ? 'el Señor' : 'la Señora');
 
     // Payment date formatting
     const paymentDate = data.pago?.fecha_pago
