@@ -255,6 +255,13 @@ export default function DetalleCuentaMantenimiento() {
     return format(localDate, "dd 'de' MMMM 'de' yyyy", { locale: es });
   };
 
+  const addDays = (date: string, days: number) => {
+    const [year, month, day] = date.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+    localDate.setDate(localDate.getDate() + days);
+    return format(localDate, "dd 'de' MMMM 'de' yyyy", { locale: es });
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
@@ -518,14 +525,19 @@ export default function DetalleCuentaMantenimiento() {
                                 <span className="text-sm font-medium">{acuerdo.concepto}</span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-col gap-1">
                               <span className="text-sm text-muted-foreground">
                                 {formatCurrency(acuerdo.monto)}
                               </span>
                               {acuerdo.fecha_pago && (
-                                <span className="text-xs text-muted-foreground">
-                                  Vence: {formatDate(acuerdo.fecha_pago)}
-                                </span>
+                                <div className="flex flex-col text-xs text-muted-foreground">
+                                  <span className="text-green-600 dark:text-green-400">
+                                    Sin recargos hasta: {addDays(acuerdo.fecha_pago, 10)}
+                                  </span>
+                                  <span className="text-amber-600 dark:text-amber-400">
+                                    Con recargos después del {addDays(acuerdo.fecha_pago, 10)}
+                                  </span>
+                                </div>
                               )}
                             </div>
                           </div>
