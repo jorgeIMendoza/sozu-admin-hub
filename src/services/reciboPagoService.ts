@@ -108,14 +108,14 @@ export class ReciboPagoService {
           if (entidadData?.id_proyecto) {
             const { data: proyectoData } = await supabase
               .from('proyectos')
-              .select('nombre, direccion, url_imagen_portada, url_firma_recibos, nombre_firmante_recibos')
+              .select('nombre, direccion, url_logo, url_firma_recibos, nombre_firmante_recibos')
               .eq('id', entidadData.id_proyecto)
               .maybeSingle();
 
             if (proyectoData) {
               unidadInfo.proyecto = proyectoData.nombre;
               unidadInfo.direccion = proyectoData.direccion;
-              unidadInfo.logo = proyectoData.url_imagen_portada;
+              unidadInfo.logo = proyectoData.url_logo;
               unidadInfo.firma = proyectoData.url_firma_recibos;
               unidadInfo.nombreFirmante = proyectoData.nombre_firmante_recibos;
             }
@@ -220,7 +220,8 @@ export class ReciboPagoService {
 
     // Main text
     currentY += 5;
-    const mainText = `Recibimos ${articulo} ${clientName} la cantidad de ${formatMoney(data.aplicacion.monto)} (${montoEnLetra}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${data.unidadInfo.proyecto || 'N/A'}, al efecto de adquirir siguiente la unidad condominal, cuyas características serán:`;
+    const proyectoMayusculas = (data.unidadInfo.proyecto || 'N/A').toUpperCase();
+    const mainText = `Recibimos ${articulo} ${clientName} la cantidad de ${formatMoney(data.aplicacion.monto)} (${montoEnLetra}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoMayusculas}, al efecto de adquirir siguiente la unidad condominal, cuyas características serán:`;
     
     const mainTextLines = doc.splitTextToSize(mainText, pageWidth - 40);
     mainTextLines.forEach((line: string) => {
@@ -264,7 +265,6 @@ export class ReciboPagoService {
 
     currentY += 5;
 
-    const proyectoMayusculas = (data.unidadInfo.proyecto || 'N/A').toUpperCase();
     const legalText2 = `Será obligación de la empresa mantener debidamente informado al aportante de la forma y términos en los que se lleve a cabo la gestión la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoMayusculas}.`;
     const legalLines2 = doc.splitTextToSize(legalText2, pageWidth - 40);
     legalLines2.forEach((line: string) => {
