@@ -19,9 +19,10 @@ interface Comprador {
 interface CompradoresDetailDialogProps {
   compradores: Comprador[];
   trigger?: React.ReactNode;
+  label?: 'compradores' | 'propietarios';
 }
 
-export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDetailDialogProps) {
+export function CompradoresDetailDialog({ compradores, trigger, label = 'compradores' }: CompradoresDetailDialogProps) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -60,7 +61,7 @@ export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDet
   const defaultTrigger = (
     <Button variant="outline" size="sm">
       <Users className="h-4 w-4 mr-1" />
-      Ver {compradores.length} compradores
+      Ver {compradores.length} {label}
     </Button>
   );
 
@@ -75,11 +76,11 @@ export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDet
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Detalle de Compradores</DialogTitle>
+          <DialogTitle>Detalle de {label === 'propietarios' ? 'Propietarios' : 'Compradores'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Total de compradores: {compradores.length}</span>
+            <span>Total de {label}: {compradores.length}</span>
             {areSpouses && (
               <TooltipProvider>
                 <Tooltip>
@@ -87,7 +88,7 @@ export function CompradoresDetailDialog({ compradores, trigger }: CompradoresDet
                     <HeartHandshake className="h-5 w-5 text-pink-500" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Hay compradores cónyuges</p>
+                    <p>Hay {label} cónyuges</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

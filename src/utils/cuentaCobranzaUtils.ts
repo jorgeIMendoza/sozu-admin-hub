@@ -20,6 +20,16 @@ export function formatCuentaCobranzaId(
 }
 
 /**
+ * Formatea el ID de una cuenta de mantenimiento
+ * @param id - ID numérico de la cuenta de mantenimiento
+ * @returns String formateado (ej: "CM-000001")
+ */
+export function formatCuentaMantenimientoId(id: number): string {
+  const paddedId = String(id).padStart(6, '0');
+  return `CM-${paddedId}`;
+}
+
+/**
  * Formatea el ID de una oferta
  * @param id - ID numérico de la oferta
  * @returns String formateado (ej: "OF-000123")

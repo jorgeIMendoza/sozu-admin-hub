@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
+import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { EstadoCuentaService } from "@/services/estadoCuentaService";
 
 interface Comprador {
@@ -65,12 +65,10 @@ interface CuentaCobranza {
 
 export default function CuentasMantenimiento() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTipos, setSelectedTipos] = useState<Array<'Propiedad' | 'Producto' | 'Servicio'>>(['Propiedad', 'Producto', 'Servicio']);
   
   // Filter states
   const [idCuentaFilter, setIdCuentaFilter] = useState("");
-  const [productoFilter, setProductoFilter] = useState("");
-  const [compradoresFilter, setCompradoresFilter] = useState("");
+  const [propietariosFilter, setPropietariosFilter] = useState("");
   const [clabeFilter, setClabeFilter] = useState("");
   const [proyectoFilter, setProyectoFilter] = useState("");
   const [noPropiedadFilter, setNoPropiedadFilter] = useState("");
@@ -564,11 +562,6 @@ export default function CuentasMantenimiento() {
   const cuentasToFilter = cuentasCobranza?.filter(c => c.activo) || [];
   
   const filteredCuentas = cuentasToFilter.filter(cuenta => {
-    // Filter by tipo
-    if (!selectedTipos.includes(cuenta.tipo)) {
-      return false;
-    }
-    
     // Filter by search term
     const matchesSearch = searchTerm === "" || (
       cuenta.id.toString().includes(searchTerm) ||
@@ -580,30 +573,27 @@ export default function CuentasMantenimiento() {
       cuenta.edificio.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cuenta.numero_propiedad.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cuenta.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cuenta.producto_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cuenta.precio_final.toString().includes(searchTerm)
     );
     
     // Apply individual filters
     const matchesIdCuenta = idCuentaFilter === "" || cuenta.id.toString().includes(idCuentaFilter);
-    const matchesProducto = productoFilter === "" || cuenta.producto_nombre?.toLowerCase().includes(productoFilter.toLowerCase());
-    const matchesCompradores = compradoresFilter === "" || cuenta.compradores.some(c => 
-      c.nombre_legal.toLowerCase().includes(compradoresFilter.toLowerCase()) || 
-      c.rfc?.toLowerCase().includes(compradoresFilter.toLowerCase())
+    const matchesPropietarios = propietariosFilter === "" || cuenta.compradores.some(c => 
+      c.nombre_legal.toLowerCase().includes(propietariosFilter.toLowerCase()) || 
+      c.rfc?.toLowerCase().includes(propietariosFilter.toLowerCase())
     );
     const matchesClabe = clabeFilter === "" || cuenta.clabe_stp?.toLowerCase().includes(clabeFilter.toLowerCase());
     const matchesProyecto = proyectoFilter === "" || cuenta.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
     const matchesNoPropiedad = noPropiedadFilter === "" || cuenta.numero_propiedad.toLowerCase().includes(noPropiedadFilter.toLowerCase());
     const matchesModelo = modeloFilter === "" || cuenta.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
     
-    return matchesSearch && matchesIdCuenta && matchesProducto && matchesCompradores && 
+    return matchesSearch && matchesIdCuenta && matchesPropietarios && 
            matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo;
   });
 
   const clearFilters = () => {
     setIdCuentaFilter("");
-    setProductoFilter("");
-    setCompradoresFilter("");
+    setPropietariosFilter("");
     setClabeFilter("");
     setProyectoFilter("");
     setNoPropiedadFilter("");
@@ -611,7 +601,7 @@ export default function CuentasMantenimiento() {
     setSearchTerm("");
   };
 
-  const hasActiveFilters = idCuentaFilter || productoFilter || compradoresFilter || 
+  const hasActiveFilters = idCuentaFilter || propietariosFilter || 
                           clabeFilter || proyectoFilter || noPropiedadFilter || 
                           modeloFilter || searchTerm;
 
@@ -658,47 +648,12 @@ export default function CuentasMantenimiento() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Buscar por ID, comprador, RFC, CLABE, proyecto, propiedad..."
+            placeholder="Buscar por ID, propietario, RFC, CLABE, proyecto, propiedad..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
-        
-        {/* Tipo Filter */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Tipo ({selectedTipos.length})
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56" align="end">
-            <div className="space-y-4">
-              <h4 className="font-medium text-sm">Filtrar por tipo</h4>
-              <div className="space-y-2">
-                {(['Propiedad', 'Producto', 'Servicio'] as const).map((tipo) => (
-                  <div key={tipo} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`tipo-${tipo}`}
-                      checked={selectedTipos.includes(tipo)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedTipos([...selectedTipos, tipo]);
-                        } else {
-                          setSelectedTipos(selectedTipos.filter(t => t !== tipo));
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`tipo-${tipo}`} className="text-sm font-normal cursor-pointer">
-                      {tipo}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
 
         {/* Advanced Filters */}
         <Popover>
@@ -730,22 +685,12 @@ export default function CuentasMantenimiento() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="filter-producto">Producto</Label>
+                  <Label htmlFor="filter-propietarios">Propietarios</Label>
                   <Input
-                    id="filter-producto"
-                    placeholder="Buscar por producto..."
-                    value={productoFilter}
-                    onChange={(e) => setProductoFilter(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="filter-compradores">Compradores</Label>
-                  <Input
-                    id="filter-compradores"
-                    placeholder="Buscar por comprador..."
-                    value={compradoresFilter}
-                    onChange={(e) => setCompradoresFilter(e.target.value)}
+                    id="filter-propietarios"
+                    placeholder="Buscar por propietario..."
+                    value={propietariosFilter}
+                    onChange={(e) => setPropietariosFilter(e.target.value)}
                     className="mt-1"
                   />
                 </div>
@@ -803,8 +748,6 @@ export default function CuentasMantenimiento() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-24">ID</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Producto/Servicio</TableHead>
                       <TableHead>Propietarios</TableHead>
                       <TableHead>CLABE STP</TableHead>
                       <TableHead>Proyecto</TableHead>
@@ -819,7 +762,7 @@ export default function CuentasMantenimiento() {
                   <TableBody>
                     {filteredCuentas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           No se encontraron cuentas de mantenimiento
                         </TableCell>
                       </TableRow>
@@ -827,24 +770,15 @@ export default function CuentasMantenimiento() {
                       filteredCuentas.map((cuenta) => (
                         <TableRow key={cuenta.id}>
                           <TableCell className="font-medium">
-                            {formatCuentaCobranzaId(cuenta.id, cuenta.tipo)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={
-                              cuenta.tipo === 'Propiedad' ? 'default' :
-                              cuenta.tipo === 'Producto' ? 'secondary' :
-                              'outline'
-                            }>
-                              {cuenta.tipo}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {cuenta.producto_nombre || '-'}
+                            {formatCuentaMantenimientoId(cuenta.id)}
                           </TableCell>
                           <TableCell>
                             {cuenta.compradores.length > 0 ? (
                               cuenta.compradores.length > 1 ? (
-                                <CompradoresDetailDialog compradores={cuenta.compradores} />
+                                <CompradoresDetailDialog 
+                                  compradores={cuenta.compradores} 
+                                  label="propietarios"
+                                />
                               ) : (
                                 <div className="space-y-1">
                                   <Badge 
