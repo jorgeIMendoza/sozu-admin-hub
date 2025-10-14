@@ -158,8 +158,12 @@ export class ReciboPagoService {
 
     // Add Sozu logo on the left
     try {
-      const sozuLogo = await this.loadImage('/images/sozu-logo.png');
-      doc.addImage(sozuLogo, 'PNG', 20, currentY, 40, 20);
+      const sozuLogoData = await this.loadImageWithDimensions('/images/sozu-logo.png');
+      const maxHeight = 20;
+      const aspectRatio = sozuLogoData.width / sozuLogoData.height;
+      const logoHeight = maxHeight;
+      const logoWidth = logoHeight * aspectRatio;
+      doc.addImage(sozuLogoData.dataUrl, 'PNG', 20, currentY, logoWidth, logoHeight);
     } catch (error) {
       console.warn('Could not load Sozu logo:', error);
     }
@@ -167,8 +171,12 @@ export class ReciboPagoService {
     // Add project logo on the right
     if (data.unidadInfo.logo) {
       try {
-        const projectLogo = await this.loadImage(data.unidadInfo.logo);
-        doc.addImage(projectLogo, 'PNG', pageWidth - 60, currentY, 40, 20);
+        const projectLogoData = await this.loadImageWithDimensions(data.unidadInfo.logo);
+        const maxHeight = 20;
+        const aspectRatio = projectLogoData.width / projectLogoData.height;
+        const logoHeight = maxHeight;
+        const logoWidth = logoHeight * aspectRatio;
+        doc.addImage(projectLogoData.dataUrl, 'PNG', pageWidth - 20 - logoWidth, currentY, logoWidth, logoHeight);
       } catch (error) {
         console.warn('Could not load project logo:', error);
       }
@@ -347,6 +355,27 @@ export class ReciboPagoService {
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0);
         resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  private async loadImageWithDimensions(url: string): Promise<{ dataUrl: string; width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0);
+        resolve({
+          dataUrl: canvas.toDataURL('image/png'),
+          width: img.width,
+          height: img.height
+        });
       };
       img.onerror = reject;
       img.src = url;
