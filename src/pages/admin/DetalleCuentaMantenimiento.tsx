@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, DollarSign, CalendarDays, ChevronDown, ChevronUp, Home, ArrowRight } from "lucide-react";
+import { ArrowLeft, DollarSign, CalendarDays, ChevronDown, ChevronUp, Home, ArrowRight, CreditCard } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
+import { TransferirEntreComisionesDialog } from "@/components/admin/TransferirEntreComisionesDialog";
 
 interface AcuerdoPago {
   id: number;
@@ -32,6 +34,7 @@ interface AplicacionPago {
     fecha_pago: string;
     monto: number;
     metodo_pago: string;
+    id_metodos_pago: number;
     clave_rastreo: string | null;
   };
 }
@@ -60,6 +63,8 @@ export default function DetalleCuentaMantenimiento() {
   const { id } = useParams<{ id: string }>();
   const cuentaId = parseInt(id || '0');
   const [openAcuerdos, setOpenAcuerdos] = useState<{ [key: number]: boolean }>({});
+  const [manualPaymentDialog, setManualPaymentDialog] = useState(false);
+  const [transferDialog, setTransferDialog] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [propietariosOpen, setPropietariosOpen] = useState(false);
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
@@ -230,6 +235,7 @@ export default function DetalleCuentaMantenimiento() {
                   fecha_pago: pago?.fecha_pago || '',
                   monto: pago?.monto || 0,
                   metodo_pago: metodosMap.get(pago?.id_metodos_pago) || '',
+                  id_metodos_pago: pago?.id_metodos_pago || 0,
                   clave_rastreo: pago?.clave_rastreo || null
                 }
               };
@@ -302,25 +308,60 @@ export default function DetalleCuentaMantenimiento() {
 
   const saldoPendiente = cuentaDetalle.precio_final - totalPagado;
 
+  // Find last payment and check if it's STP
+  const pagosAplicados = acuerdosPago?.flatMap(acuerdo => 
+    (acuerdo.aplicaciones || [])
+  ) || [];
+  
+  // Get the most recent payment (regardless of method)
+  const ultimoPago = pagosAplicados
+    .sort((a, b) => new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime())[0]?.pago || null;
+  
+  // Check if the last payment is STP (method ID = 6)
+  const ultimoPagoEsSTP = ultimoPago && 'id_metodos_pago' in ultimoPago ? ultimoPago.id_metodos_pago === 6 : false;
+  
+  // Only set ultimoPagoSTP if the most recent payment is STP
+  const ultimoPagoSTP = ultimoPagoEsSTP ? ultimoPago : null;
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Link to="/admin/cuentas-mantenimiento">
-            <Button variant="ghost" size="sm" className="mb-2">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Regresar a Cuentas de Mantenimiento
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold">
-              Cuenta de Mantenimiento {formatCuentaMantenimientoId(cuentaDetalle.id)}
-            </h1>
-            <Badge variant="secondary" className="text-sm">
-              Mantenimiento
-            </Badge>
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/admin/cuentas-mantenimiento">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold">
+                Detalle Cuenta de Mantenimiento {formatCuentaMantenimientoId(cuentaDetalle.id)}
+              </h1>
+              <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                Mantenimiento
+              </Badge>
+            </div>
+            <p className="text-muted-foreground">
+              Información detallada de pagos y acuerdos
+            </p>
           </div>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setTransferDialog({ isOpen: true })}
+            variant="outline"
+            disabled={!ultimoPagoSTP}
+          >
+            <ArrowRight className="h-4 w-4 mr-2" />
+            Transferir entre cuentas
+          </Button>
+          <Button 
+            onClick={() => setManualPaymentDialog(true)}
+          >
+            <CreditCard className="h-4 w-4 mr-2" />
+            Agregar pago manual
+          </Button>
         </div>
       </div>
 
@@ -444,34 +485,14 @@ export default function DetalleCuentaMantenimiento() {
       {/* Acuerdos de Pago */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" />
-                Acuerdos de Pago
-              </CardTitle>
-              <Badge variant="secondary">
-                {acuerdosPago?.length || 0} acuerdos
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {/* TODO: implement transfer */}}
-              >
-                <ArrowRight className="h-4 w-4 mr-2" />
-                Transferir
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => {/* TODO: implement manual payment */}}
-              >
-                <DollarSign className="h-4 w-4 mr-2" />
-                Pago Manual
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" />
+              Acuerdos de Pago
+            </CardTitle>
+            <Badge variant="secondary">
+              {acuerdosPago?.length || 0} acuerdos
+            </Badge>
           </div>
         </CardHeader>
         <CardContent>
@@ -566,6 +587,28 @@ export default function DetalleCuentaMantenimiento() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <AddManualPaymentDialog
+        isOpen={manualPaymentDialog}
+        onClose={() => setManualPaymentDialog(false)}
+        cuentaCobranzaId={cuentaId}
+        cuentaCobranzaLabel={formatCuentaMantenimientoId(cuentaId)}
+        tipoCuenta="Propiedad"
+        precioFinal={cuentaDetalle.precio_final}
+        montoPagado={totalPagado}
+      />
+      
+      <TransferirEntreComisionesDialog
+        isOpen={transferDialog.isOpen}
+        onClose={() => setTransferDialog({ isOpen: false })}
+        cuentaOrigenId={cuentaId}
+        ultimoPagoSTP={ultimoPagoSTP && 'id' in ultimoPagoSTP && 'clave_rastreo' in ultimoPagoSTP && 'monto' in ultimoPagoSTP ? {
+          id: ultimoPagoSTP.id,
+          clave_rastreo: ultimoPagoSTP.clave_rastreo || '',
+          monto: ultimoPagoSTP.monto
+        } : null}
+      />
     </div>
   );
 }
