@@ -206,8 +206,13 @@ export class ReciboPagoService {
     // Bueno por
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Bueno por: ${formatMoney(montoPago)} (${montoEnLetra})`, 20, currentY);
-    currentY += 10;
+    const buenoporText = `Bueno por: ${formatMoney(montoPago)} (${montoEnLetra})`;
+    const buenoporLines = doc.splitTextToSize(buenoporText, pageWidth - 40);
+    buenoporLines.forEach((line: string) => {
+      doc.text(line, 20, currentY);
+      currentY += 7;
+    });
+    currentY += 3;
 
     // Get buyer info with gender
     const primerComprador = data.compradores.length > 0 ? data.compradores[0] : null;
