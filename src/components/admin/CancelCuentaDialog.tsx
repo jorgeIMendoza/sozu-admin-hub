@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
+import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 
 interface Comprador {
   id: number;
@@ -387,13 +388,8 @@ export function CancelCuentaDialog({
           });
         }
 
-        // Llamar al webhook con los pagos
-        const webhookBaseUrl = import.meta.env.VITE_N8N_WEBHOOK_BASE_URL;
-        if (!webhookBaseUrl) {
-          throw new Error('VITE_N8N_WEBHOOK_BASE_URL no está configurado');
-        }
-        
-        const webhookUrl = `${webhookBaseUrl}/aplicaPago`;
+        // Llamar al webhook con los pagos (usando constante centralizada)
+        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/aplicaPago`;
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
