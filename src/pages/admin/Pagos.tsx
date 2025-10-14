@@ -119,7 +119,7 @@ export default function Pagos() {
   const { data: cuentasCobranza, isLoading } = useQuery({
     queryKey: ["cuentas_cobranza"],
     queryFn: async () => {
-      // Get basic cuenta cobranza data with payment sums
+      // Get basic cuenta cobranza data with payment sums (excluding maintenance accounts)
       const { data: cuentas, error: cuentasError } = await supabase
         .from('cuentas_cobranza')
         .select(`
@@ -130,7 +130,8 @@ export default function Pagos() {
           activo,
           valor_uma,
           tipos_cancelacion:id_tipo_cancelacion(nombre)
-        `);
+        `)
+        .is('id_cuenta_cobranza_padre', null);
 
       if (cuentasError) {
         console.error('Error fetching cuentas:', cuentasError);
