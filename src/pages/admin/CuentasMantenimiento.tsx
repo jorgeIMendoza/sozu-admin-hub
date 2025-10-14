@@ -869,7 +869,7 @@ export default function CuentasMantenimiento() {
                           <TableCell>{cuenta.proyecto}</TableCell>
                           <TableCell>{cuenta.numero_propiedad}</TableCell>
                           <TableCell>{cuenta.modelo}</TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell>
                             {cuenta.clave_catastral || '-'}
                           </TableCell>
                           <TableCell className="text-right font-medium">
