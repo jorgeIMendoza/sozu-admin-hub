@@ -158,7 +158,9 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
                       .getPublicUrl(filePath);
 
                     console.log('🔧 URL pública generada:', data.publicUrl);
+                    console.log('🔍 [DEBUG ImageUploadField] Llamando onChange con URL:', data.publicUrl);
                     onChange(data.publicUrl);
+                    console.log('🔍 [DEBUG ImageUploadField] onChange ejecutado correctamente');
                     toast({ title: "Imagen subida exitosamente" });
                   } catch (error) {
                     console.error('🔧 Error uploading file:', error);

@@ -270,6 +270,9 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
   }, [project, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    console.log('🔍 [DEBUG] Valores del formulario recibidos en onSubmit:', values);
+    console.log('🔍 [DEBUG] url_logo recibido:', values.url_logo);
+    
     setIsSubmitting(true);
     try {
       const projectData = {
@@ -304,10 +307,15 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         mostrar_edificio_en_oferta: values.mostrar_edificio_en_oferta,
       };
 
+      console.log('🔍 [DEBUG] Objeto projectData preparado para enviar:', projectData);
+      console.log('🔍 [DEBUG] url_logo en projectData:', projectData.url_logo);
+
       const { error: updateError } = await supabase
         .from("proyectos")
         .update(projectData)
         .eq("id", projectId);
+      
+      console.log('🔍 [DEBUG] Resultado del update - Error:', updateError);
 
       if (updateError) throw updateError;
 
