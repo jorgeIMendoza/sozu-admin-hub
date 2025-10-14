@@ -20,7 +20,6 @@ const Estacionamientos = lazy(() => import("./pages/admin/Estacionamientos"));
 const Bodegas = lazy(() => import("./pages/admin/Bodegas"));
 const Pagos = lazy(() => import("./pages/admin/Pagos"));
 const DetalleCuentaCobranza = lazy(() => import("./pages/admin/DetalleCuentaCobranza"));
-const DetalleCuentaMantenimiento = lazy(() => import("./pages/admin/DetalleCuentaMantenimiento"));
 const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
 const NuevoUsuario = lazy(() => import("./pages/admin/NuevoUsuario"));
 const EntidadesLegales = lazy(() => import("./pages/admin/EntidadesLegales"));
@@ -96,7 +95,6 @@ const App = () => (
             <Route path="cuentas-cobranza" element={<Pagos />} />
             <Route path="cuentas-mantenimiento" element={<CuentasMantenimiento />} />
             <Route path="cuentas-cobranza/:id/detalle" element={<DetalleCuentaCobranza />} />
-            <Route path="cuentas-mantenimiento/:id/detalle" element={<DetalleCuentaMantenimiento />} />
             <Route path="pagos" element={<ComingSoon title="Pagos" />} />
             <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
             <Route path="documentos" element={<ComingSoon title="Documentos" />} />
