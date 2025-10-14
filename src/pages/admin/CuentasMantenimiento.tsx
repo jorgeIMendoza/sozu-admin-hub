@@ -805,7 +805,7 @@ export default function CuentasMantenimiento() {
                       <TableHead className="w-24">ID</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Producto/Servicio</TableHead>
-                      <TableHead>Compradores</TableHead>
+                      <TableHead>Propietarios</TableHead>
                       <TableHead>CLABE STP</TableHead>
                       <TableHead>Proyecto</TableHead>
                       <TableHead>Propiedad</TableHead>
@@ -849,8 +849,7 @@ export default function CuentasMantenimiento() {
                                 <div className="space-y-1">
                                   <Badge 
                                     variant="secondary" 
-                                    className="block w-fit cursor-pointer hover:bg-secondary/80" 
-                                    onClick={() => handleCompradorClick(cuenta.compradores[0].rfc || cuenta.compradores[0].nombre_legal)}
+                                    className="block w-fit"
                                   >
                                     {cuenta.compradores[0].nombre_legal}
                                   </Badge>
@@ -862,7 +861,7 @@ export default function CuentasMantenimiento() {
                                 </div>
                               )
                             ) : (
-                              <span className="text-muted-foreground">Sin compradores</span>
+                              <span className="text-muted-foreground">Sin propietarios</span>
                             )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
