@@ -12,23 +12,43 @@ export class ReciboPagoService {
       // Fetch aplicacion details
       const { data: aplicacionData, error: aplicacionError } = await supabase
         .from('aplicaciones_pago')
-        .select(`
-          *,
-          pagos!fk_aplicaciones_pago_pago(
-            fecha_pago,
-            metodos_pago!pagos_id_metodos_pago_fkey(nombre),
-            clave_rastreo,
-            descripcion
-          ),
-          acuerdos_pago!fk_aplicaciones_pago_acuerdo(
-            id_concepto,
-            conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)
-          )
-        `)
+        .select('*')
         .eq('id', data.aplicacionId)
         .single();
 
       if (aplicacionError) throw aplicacionError;
+
+      // Fetch pago details
+      let pagoData = null;
+      if (aplicacionData.id_pago) {
+        const { data: pago } = await supabase
+          .from('pagos')
+          .select(`
+            fecha_pago,
+            clave_rastreo,
+            descripcion,
+            metodos_pago!pagos_id_metodos_pago_fkey(nombre)
+          `)
+          .eq('id', aplicacionData.id_pago)
+          .maybeSingle();
+        
+        pagoData = pago;
+      }
+
+      // Fetch acuerdo details
+      let acuerdoData = null;
+      if (aplicacionData.id_acuerdo_pago) {
+        const { data: acuerdo } = await supabase
+          .from('acuerdos_pago')
+          .select(`
+            id_concepto,
+            conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)
+          `)
+          .eq('id', aplicacionData.id_acuerdo_pago)
+          .maybeSingle();
+        
+        acuerdoData = acuerdo;
+      }
 
       // Fetch cuenta cobranza details
       const { data: cuentaData, error: cuentaError } = await supabase
@@ -114,6 +134,8 @@ export class ReciboPagoService {
       // Generate PDF
       await this.generatePDF({
         aplicacion: aplicacionData,
+        pago: pagoData,
+        acuerdo: acuerdoData,
         cuenta: cuentaData,
         compradores: compradores || [],
         unidadInfo,
@@ -172,8 +194,8 @@ export class ReciboPagoService {
         day: 'numeric' 
       });
 
-    const paymentDate = data.aplicacion.pagos?.fecha_pago
-      ? new Date(data.aplicacion.pagos.fecha_pago)
+    const paymentDate = data.pago?.fecha_pago
+      ? new Date(data.pago.fecha_pago)
       : new Date();
 
     currentY += 5;
@@ -192,8 +214,8 @@ export class ReciboPagoService {
     currentY += 10;
 
     // Payment concept
-    const concepto = data.aplicacion.pagos?.descripcion || 
-      data.aplicacion.acuerdos_pago?.conceptos_pago?.nombre || 
+    const concepto = data.pago?.descripcion || 
+      data.acuerdo?.conceptos_pago?.nombre || 
       'Pago';
 
     const conceptoLines = doc.splitTextToSize(
@@ -244,24 +266,24 @@ export class ReciboPagoService {
     currentY += 10;
 
     // Payment method information
-    if (data.aplicacion.pagos) {
+    if (data.pago) {
       doc.setFont('helvetica', 'bold');
       doc.text('Información del Pago:', 20, currentY);
       currentY += 10;
 
       doc.setFont('helvetica', 'normal');
       
-      if (data.aplicacion.pagos.metodos_pago?.nombre) {
-        doc.text(`Método de pago: ${data.aplicacion.pagos.metodos_pago.nombre}`, 25, currentY);
+      if (data.pago.metodos_pago?.nombre) {
+        doc.text(`Método de pago: ${data.pago.metodos_pago.nombre}`, 25, currentY);
         currentY += 7;
       }
 
-      if (data.aplicacion.pagos.clave_rastreo) {
-        doc.text(`Clave de rastreo: ${data.aplicacion.pagos.clave_rastreo}`, 25, currentY);
+      if (data.pago.clave_rastreo) {
+        doc.text(`Clave de rastreo: ${data.pago.clave_rastreo}`, 25, currentY);
         currentY += 7;
       }
 
-      doc.text(`Fecha de pago: ${formatDate(data.aplicacion.pagos.fecha_pago)}`, 25, currentY);
+      doc.text(`Fecha de pago: ${formatDate(data.pago.fecha_pago)}`, 25, currentY);
       currentY += 10;
     }
 
