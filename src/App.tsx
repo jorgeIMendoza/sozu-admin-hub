@@ -30,6 +30,7 @@ const Notarias = lazy(() => import("./pages/admin/Notarias"));
 const Bancos = lazy(() => import("./pages/admin/Bancos"));
 const Prospectos = lazy(() => import("./pages/admin/Prospectos"));
 const Compradores = lazy(() => import("./pages/admin/Compradores"));
+const DetalleCuentaMantenimiento = lazy(() => import("./pages/admin/DetalleCuentaMantenimiento"));
 const Vendedores = lazy(() => import("./pages/admin/Vendedores"));
 const Duenos = lazy(() => import("./pages/admin/Duenos"));
 const Residentes = lazy(() => import("./pages/admin/Residentes"));
@@ -94,6 +95,7 @@ const App = () => (
             <Route path="bodegas" element={<Bodegas />} />
             <Route path="cuentas-cobranza" element={<Pagos />} />
             <Route path="cuentas-mantenimiento" element={<CuentasMantenimiento />} />
+            <Route path="cuentas-mantenimiento/:id/detalle" element={<DetalleCuentaMantenimiento />} />
             <Route path="cuentas-cobranza/:id/detalle" element={<DetalleCuentaCobranza />} />
             <Route path="pagos" element={<ComingSoon title="Pagos" />} />
             <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
