@@ -55,6 +55,7 @@ interface AddManualPaymentDialogProps {
   tipoCuenta?: 'Propiedad' | 'Producto' | 'Servicio';
   precioFinal: number;
   montoPagado: number;
+  esMantenimiento?: boolean;
 }
 
 export function AddManualPaymentDialog({ 
@@ -64,7 +65,8 @@ export function AddManualPaymentDialog({
   cuentaCobranzaLabel,
   tipoCuenta = 'Propiedad',
   precioFinal,
-  montoPagado
+  montoPagado,
+  esMantenimiento = false
 }: AddManualPaymentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -339,7 +341,7 @@ export function AddManualPaymentDialog({
         <DialogHeader>
           <DialogTitle>Agregar Pago Manual</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Cuenta de cobranza: {cuentaCobranzaLabel}
+            {esMantenimiento ? 'Cuenta de mantenimiento' : 'Cuenta de cobranza'}: {cuentaCobranzaLabel}
           </p>
         </DialogHeader>
 

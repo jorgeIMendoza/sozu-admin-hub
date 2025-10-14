@@ -597,6 +597,7 @@ export default function DetalleCuentaMantenimiento() {
         tipoCuenta="Propiedad"
         precioFinal={cuentaDetalle.precio_final}
         montoPagado={totalPagado}
+        esMantenimiento={true}
       />
       
       <TransferirEntreComisionesDialog
