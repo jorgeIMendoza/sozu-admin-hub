@@ -98,7 +98,7 @@ export default function Pagos() {
     isOpen: false,
     cuenta: null
   });
-  const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState(false);
+  const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState<number | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -643,7 +643,7 @@ export default function Pagos() {
 
   const handleDownloadEstadoCuenta = async (idCuenta: number) => {
     try {
-      setIsGeneratingEstadoCuenta(true);
+      setIsGeneratingEstadoCuenta(idCuenta);
       const service = new EstadoCuentaService();
       await service.generateEstadoCuenta({ id_cuenta: idCuenta });
       toast({
@@ -658,7 +658,7 @@ export default function Pagos() {
         variant: "destructive",
       });
     } finally {
-      setIsGeneratingEstadoCuenta(false);
+      setIsGeneratingEstadoCuenta(null);
     }
   };
 
@@ -1183,9 +1183,9 @@ export default function Pagos() {
                                         variant="outline" 
                                         size="icon"
                                         onClick={() => handleDownloadEstadoCuenta(cuenta.id)}
-                                        disabled={isGeneratingEstadoCuenta}
+                                        disabled={isGeneratingEstadoCuenta !== null}
                                       >
-                                        {isGeneratingEstadoCuenta ? (
+                                        {isGeneratingEstadoCuenta === cuenta.id ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
                                           <FileText className="h-4 w-4" />
@@ -1672,9 +1672,9 @@ export default function Pagos() {
                                         variant="outline" 
                                         size="icon"
                                         onClick={() => handleDownloadEstadoCuenta(cuenta.id)}
-                                        disabled={isGeneratingEstadoCuenta}
+                                        disabled={isGeneratingEstadoCuenta !== null}
                                       >
-                                        {isGeneratingEstadoCuenta ? (
+                                        {isGeneratingEstadoCuenta === cuenta.id ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
                                           <FileText className="h-4 w-4" />

@@ -40,7 +40,7 @@ export class EstadoCuentaService {
       // Fetch acuerdos de pago
       const { data: acuerdos, error: acuerdosError } = await supabase
         .from("acuerdos_pago")
-        .select("*, conceptos_pago(nombre)")
+        .select("*, conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)")
         .eq("id_cuenta_cobranza", data.id_cuenta)
         .eq("activo", true)
         .order("orden", { ascending: true });
