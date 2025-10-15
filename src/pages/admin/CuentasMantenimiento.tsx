@@ -192,8 +192,18 @@ export default function CuentasMantenimiento() {
         console.log(`Cuenta ${cuenta.id}: pagado = ${totalPagado}`);
         return acc;
       }, {});
+
+      // Calculate total mensual per account (sum of acuerdos monto)
+      const totalMensualPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
+        const acuerdosCuenta = acuerdosPago?.filter(ap => ap.id_cuenta_cobranza === cuenta.id) || [];
+        const totalMensual = acuerdosCuenta.reduce((sum, acuerdo) => sum + (acuerdo.monto || 0), 0);
+        acc[cuenta.id] = totalMensual;
+        console.log(`Cuenta ${cuenta.id}: total mensual = ${totalMensual}`);
+        return acc;
+      }, {});
       
       console.log('Pagado por cuenta:', pagadoPorCuenta);
+      console.log('Total mensual por cuenta:', totalMensualPorCuenta);
 
       // Get cash payments (id_metodos_pago = 1) for all accounts using aplicaciones_pago
       const { data: pagosCash } = await supabase
@@ -253,10 +263,10 @@ export default function CuentasMantenimiento() {
         return acc;
       }, {});
 
-      // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid
+      // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid and to calculate total mensual
       const { data: acuerdosPago } = await supabase
         .from('acuerdos_pago')
-        .select('id, id_cuenta_cobranza, id_concepto, pago_completado')
+        .select('id, id_cuenta_cobranza, id_concepto, pago_completado, monto')
         .in('id_cuenta_cobranza', cuentaIds)
         .eq('activo', true);
 
@@ -556,8 +566,9 @@ export default function CuentasMantenimiento() {
         }
 
         const pagado = pagadoPorCuenta[cuenta.id] || 0;
+        const totalMensual = totalMensualPorCuenta[cuenta.id] || 0;
         const multasMonto = montosMultasPorCuenta[cuenta.id] || 0;
-        const precio_final = (cuenta.precio_final || 0) + multasMonto; // Total mensual incluye multas
+        const precio_final = totalMensual + multasMonto; // Total mensual incluye acuerdos + multas
         // Calculate difference and normalize to avoid -0
         let restante = precio_final - pagado;
         restante = Math.round(restante * 100) / 100;
