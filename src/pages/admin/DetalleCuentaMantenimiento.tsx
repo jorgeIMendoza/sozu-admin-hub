@@ -220,7 +220,7 @@ export default function DetalleCuentaMantenimiento() {
         .select('id, orden, monto, fecha_pago, pago_completado, id_concepto')
         .eq('id_cuenta_cobranza', cuentaId)
         .eq('activo', true)
-        .order('orden', { ascending: true });
+        .order('orden', { ascending: false });
 
       if (error) throw error;
 
