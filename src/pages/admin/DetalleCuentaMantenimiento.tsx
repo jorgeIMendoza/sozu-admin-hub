@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, DollarSign, CalendarDays, ChevronDown, ChevronUp, Home, ArrowRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
@@ -213,6 +214,80 @@ export default function DetalleCuentaMantenimiento() {
       return detalle;
     },
     enabled: !!cuentaId,
+  });
+
+  // Fetch all pagos for this cuenta
+  const { data: pagosData } = useQuery({
+    queryKey: ["pagos_mantenimiento", cuentaId],
+    queryFn: async () => {
+      const { data: pagos, error } = await supabase
+        .from('pagos')
+        .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago, descripcion')
+        .eq('id_cuenta_cobranza', cuentaId)
+        .eq('activo', true)
+        .order('fecha_pago', { ascending: false });
+
+      if (error) throw error;
+
+      // Get metodos_pago
+      const metodoIds = [...new Set(pagos?.map(p => p.id_metodos_pago).filter((id): id is number => id !== null) || [])];
+      const { data: metodos } = metodoIds.length > 0 ? await supabase
+        .from('metodos_pago')
+        .select('id, nombre')
+        .in('id', metodoIds) : { data: [] };
+
+      const metodosMap = new Map<number, string>();
+      metodos?.forEach(m => metodosMap.set(m.id, m.nombre));
+
+      return (pagos || []).map(p => ({
+        ...p,
+        metodo_pago_nombre: metodosMap.get(p.id_metodos_pago) || 'N/A'
+      }));
+    },
+    enabled: !!cuentaId,
+  });
+
+  // Fetch aplicaciones for pagos (for the new tab)
+  const { data: aplicacionesPorPago } = useQuery({
+    queryKey: ["aplicaciones_por_pago", cuentaId],
+    queryFn: async () => {
+      if (!pagosData || pagosData.length === 0) return [];
+
+      const pagoIds = pagosData.map(p => p.id);
+      const { data: aplicaciones, error } = await supabase
+        .from('aplicaciones_pago')
+        .select('id, monto, id_pago, id_acuerdo_pago')
+        .in('id_pago', pagoIds)
+        .eq('activo', true);
+
+      if (error) throw error;
+
+      // Get acuerdos info
+      const acuerdoIds = [...new Set(aplicaciones?.map(a => a.id_acuerdo_pago).filter((id): id is number => id !== null) || [])];
+      const { data: acuerdos } = acuerdoIds.length > 0 ? await supabase
+        .from('acuerdos_pago')
+        .select('id, fecha_pago, monto, id_concepto')
+        .in('id', acuerdoIds) : { data: [] };
+
+      // Get conceptos
+      const conceptoIds = [...new Set(acuerdos?.map(a => a.id_concepto).filter((id): id is number => id !== null) || [])];
+      const { data: conceptos } = conceptoIds.length > 0 ? await supabase
+        .from('conceptos_pago')
+        .select('id, nombre')
+        .in('id', conceptoIds) : { data: [] };
+
+      const acuerdosMap = new Map<number, any>();
+      acuerdos?.forEach(a => acuerdosMap.set(a.id, a));
+      const conceptosMap = new Map<number, string>();
+      conceptos?.forEach(c => conceptosMap.set(c.id, c.nombre));
+
+      return (aplicaciones || []).map(ap => ({
+        ...ap,
+        acuerdo: acuerdosMap.get(ap.id_acuerdo_pago),
+        concepto_nombre: conceptosMap.get(acuerdosMap.get(ap.id_acuerdo_pago)?.id_concepto) || 'N/A'
+      }));
+    },
+    enabled: !!cuentaId && !!pagosData && pagosData.length > 0,
   });
 
   // Fetch acuerdos de pago (using regular acuerdos_pago table)
@@ -509,229 +584,327 @@ export default function DetalleCuentaMantenimiento() {
         </Card>
       </div>
 
-      {/* Información de la propiedad */}
+      {/* Tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Información de la Propiedad</CardTitle>
+          <CardTitle>Detalle de Cuenta</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className="text-sm font-medium">Proyecto</label>
-              <p className="text-sm text-muted-foreground">{cuentaDetalle.proyecto}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Modelo</label>
-              <p className="text-sm text-muted-foreground">{cuentaDetalle.modelo}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Edificio</label>
-              <p className="text-sm text-muted-foreground">{cuentaDetalle.edificio}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">No. Propiedad</label>
-              <p className="text-sm text-muted-foreground">{cuentaDetalle.numero_propiedad}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Metraje</label>
-              <p className="text-sm text-muted-foreground">
-                {cuentaDetalle.m2_escriturables ? `${cuentaDetalle.m2_escriturables} m²` : 'N/A'}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">CLABE STP</label>
-              <p className="text-sm text-muted-foreground">{cuentaDetalle.clabe_stp || 'No asignada'}</p>
-            </div>
-          </div>
-          
-          {cuentaDetalle?.propietarios && cuentaDetalle.propietarios.length > 0 && (
-            <div className="mt-4">
-              <Collapsible open={propietariosOpen} onOpenChange={setPropietariosOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full flex items-center justify-between p-3 h-auto">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Propietarios ({cuentaDetalle.propietarios.length})</span>
-                    </div>
-                    {propietariosOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>RFC</TableHead>
-                        <TableHead className="text-right">% Copropiedad</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {cuentaDetalle.propietarios.map((propietario, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{propietario.nombre_legal}</TableCell>
-                          <TableCell>
-                            {propietario.rfc ? (
-                              <Badge variant="secondary">{propietario.rfc}</Badge>
-                            ) : (
-                              'Sin RFC'
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">{propietario.porcentaje_copropiedad.toFixed(2)}%</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <div className="mt-2 text-right pr-4">
-                    <span className="text-sm font-medium">
-                      Total: {cuentaDetalle.propietarios.reduce((sum, p) => sum + p.porcentaje_copropiedad, 0).toFixed(2)}%
-                    </span>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Tabs defaultValue="info" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="info">Información General</TabsTrigger>
+              <TabsTrigger value="acuerdos">Acuerdos de Pago y Aplicaciones</TabsTrigger>
+              <TabsTrigger value="pagos">Pagos Aplicados</TabsTrigger>
+            </TabsList>
 
-      {/* Acuerdos de Pago */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5" />
-              Acuerdos de Pago y Aplicaciones
-            </CardTitle>
-            <Badge variant="secondary">
-              {acuerdosPago?.length || 0} acuerdos
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {acuerdosPago && acuerdosPago.length > 0 ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                {acuerdosPago.slice(0, visibleAcuerdos).map((acuerdo) => {
-                const totalAplicado = (acuerdo.aplicaciones || []).reduce((sum, app) => sum + app.monto, 0);
-                const isOpen = openAcuerdos[acuerdo.id];
-                
-                return (
-                  <Collapsible key={acuerdo.id} open={isOpen} onOpenChange={() => toggleAcuerdo(acuerdo.id)}>
-                    <div className="border rounded-lg">
-                      <CollapsibleTrigger asChild>
-                        <div className="w-full p-3 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
-                          <div className="flex items-center gap-4">
-                            <div className="flex flex-col gap-1">
-                              <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
-                              {conRecargos() && cuentaDetalle?.monto_mensual_cuota_extraordinaria ? (
-                                <>
-                                  <span className="text-sm text-muted-foreground line-through">
-                                    {formatCurrency(calcularMontos(acuerdo.monto).montoOriginal)}
-                                  </span>
-                                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                                    {formatCurrency(acuerdo.monto)}
-                                    <span className="ml-1 text-xs">(recargos incluidos)</span>
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    Recargo: {formatCurrency(calcularMontos(acuerdo.monto).montoRecargos)}
-                                  </span>
-                                </>
+            {/* Tab: Información General */}
+            <TabsContent value="info" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
+                <div>
+                  <label className="text-sm font-medium">Proyecto</label>
+                  <p className="text-sm text-muted-foreground">{cuentaDetalle.proyecto}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Modelo</label>
+                  <p className="text-sm text-muted-foreground">{cuentaDetalle.modelo}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Edificio</label>
+                  <p className="text-sm text-muted-foreground">{cuentaDetalle.edificio}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">No. Propiedad</label>
+                  <p className="text-sm text-muted-foreground">{cuentaDetalle.numero_propiedad}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Metraje</label>
+                  <p className="text-sm text-muted-foreground">
+                    {cuentaDetalle.m2_escriturables ? `${cuentaDetalle.m2_escriturables} m²` : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">CLABE STP</label>
+                  <p className="text-sm text-muted-foreground">{cuentaDetalle.clabe_stp || 'No asignada'}</p>
+                </div>
+              </div>
+              
+              {cuentaDetalle?.propietarios && cuentaDetalle.propietarios.length > 0 && (
+                <div className="mt-4">
+                  <Collapsible open={propietariosOpen} onOpenChange={setPropietariosOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="w-full flex items-center justify-between p-3 h-auto">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Propietarios ({cuentaDetalle.propietarios.length})</span>
+                        </div>
+                        {propietariosOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nombre</TableHead>
+                            <TableHead>RFC</TableHead>
+                            <TableHead className="text-right">% Copropiedad</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {cuentaDetalle.propietarios.map((propietario, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{propietario.nombre_legal}</TableCell>
+                              <TableCell>
+                                {propietario.rfc ? (
+                                  <Badge variant="secondary">{propietario.rfc}</Badge>
+                                ) : (
+                                  'Sin RFC'
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">{propietario.porcentaje_copropiedad.toFixed(2)}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <div className="mt-2 text-right pr-4">
+                        <span className="text-sm font-medium">
+                          Total: {cuentaDetalle.propietarios.reduce((sum, p) => sum + p.porcentaje_copropiedad, 0).toFixed(2)}%
+                        </span>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Tab: Acuerdos de Pago */}
+            <TabsContent value="acuerdos" className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarDays className="h-5 w-5" />
+                <span className="font-semibold">Acuerdos de Pago</span>
+                <Badge variant="secondary">
+                  {acuerdosPago?.length || 0} acuerdos
+                </Badge>
+              </div>
+              
+              {acuerdosPago && acuerdosPago.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    {acuerdosPago.slice(0, visibleAcuerdos).map((acuerdo) => {
+                    const totalAplicado = (acuerdo.aplicaciones || []).reduce((sum, app) => sum + app.monto, 0);
+                    const isOpen = openAcuerdos[acuerdo.id];
+                    
+                    return (
+                      <Collapsible key={acuerdo.id} open={isOpen} onOpenChange={() => toggleAcuerdo(acuerdo.id)}>
+                        <div className="border rounded-lg">
+                          <CollapsibleTrigger asChild>
+                            <div className="w-full p-3 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
+                              <div className="flex items-center gap-4">
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
+                                  {conRecargos() && cuentaDetalle?.monto_mensual_cuota_extraordinaria ? (
+                                    <>
+                                      <span className="text-sm text-muted-foreground line-through">
+                                        {formatCurrency(calcularMontos(acuerdo.monto).montoOriginal)}
+                                      </span>
+                                      <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                                        {formatCurrency(acuerdo.monto)}
+                                        <span className="ml-1 text-xs">(recargos incluidos)</span>
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        Recargo: {formatCurrency(calcularMontos(acuerdo.monto).montoRecargos)}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">
+                                      {formatCurrency(acuerdo.monto)}
+                                    </span>
+                                  )}
+                                  {acuerdo.fecha_pago && (
+                                    <div className="flex flex-col text-xs text-muted-foreground">
+                                      <span className="text-green-600 dark:text-green-400">
+                                        Sin recargos: {formatDate(acuerdo.fecha_pago)} al {addDays(acuerdo.fecha_pago, 9)}
+                                      </span>
+                                      <span className="text-amber-600 dark:text-amber-400">
+                                        Con recargos desde: {addDays(acuerdo.fecha_pago, 10)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Badge variant={acuerdo.pago_completado ? "default" : totalAplicado > 0 ? "secondary" : "outline"}>
+                                  {acuerdo.pago_completado ? "Pagado" : totalAplicado > 0 ? "Parcial" : "Pendiente"}
+                                </Badge>
+                                {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="p-4 border-t">
+                              {acuerdo.aplicaciones.length > 0 ? (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Fecha</TableHead>
+                                      <TableHead>Monto</TableHead>
+                                      <TableHead>Método</TableHead>
+                                      <TableHead>Clave Rastreo</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {acuerdo.aplicaciones.map((app) => (
+                                      <TableRow key={app.id}>
+                                        <TableCell>{formatDate(app.pago.fecha_pago)}</TableCell>
+                                        <TableCell>{formatCurrency(app.monto)}</TableCell>
+                                        <TableCell>{app.pago.metodo_pago}</TableCell>
+                                        <TableCell>{app.pago.clave_rastreo || '-'}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
                               ) : (
-                                <span className="text-sm text-muted-foreground">
-                                  {formatCurrency(acuerdo.monto)}
-                                </span>
+                                <div className="text-center py-4 text-muted-foreground">
+                                  No hay pagos aplicados
+                                </div>
                               )}
-                              {acuerdo.fecha_pago && (
-                                <div className="flex flex-col text-xs text-muted-foreground">
-                                  <span className="text-green-600 dark:text-green-400">
-                                    Sin recargos: {formatDate(acuerdo.fecha_pago)} al {addDays(acuerdo.fecha_pago, 9)}
-                                  </span>
-                                  <span className="text-amber-600 dark:text-amber-400">
-                                    Con recargos desde: {addDays(acuerdo.fecha_pago, 10)}
-                                  </span>
+                              <div className="mt-2 pt-2 border-t flex justify-between text-sm">
+                                <span>Total aplicado:</span>
+                                <span className="font-semibold">{formatCurrency(totalAplicado)}</span>
+                              </div>
+                              {totalAplicado < acuerdo.monto && (
+                                <div className="mt-1 flex justify-between text-sm text-muted-foreground">
+                                  <span>Saldo pendiente:</span>
+                                  <span>{formatCurrency(acuerdo.monto - totalAplicado)}</span>
                                 </div>
                               )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Badge variant={acuerdo.pago_completado ? "default" : totalAplicado > 0 ? "secondary" : "outline"}>
-                              {acuerdo.pago_completado ? "Pagado" : totalAplicado > 0 ? "Parcial" : "Pendiente"}
-                            </Badge>
-                            {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          </div>
+                          </CollapsibleContent>
                         </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="p-4 border-t">
-                          {acuerdo.aplicaciones.length > 0 ? (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Fecha</TableHead>
-                                  <TableHead>Monto</TableHead>
-                                  <TableHead>Método</TableHead>
-                                  <TableHead>Clave Rastreo</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {acuerdo.aplicaciones.map((app) => (
-                                  <TableRow key={app.id}>
-                                    <TableCell>{formatDate(app.pago.fecha_pago)}</TableCell>
-                                    <TableCell>{formatCurrency(app.monto)}</TableCell>
-                                    <TableCell>{app.pago.metodo_pago}</TableCell>
-                                    <TableCell>{app.pago.clave_rastreo || '-'}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          ) : (
-                            <div className="text-center py-4 text-muted-foreground">
-                              No hay pagos aplicados
-                            </div>
-                          )}
-                          <div className="mt-2 pt-2 border-t flex justify-between text-sm">
-                            <span>Total aplicado:</span>
-                            <span className="font-semibold">{formatCurrency(totalAplicado)}</span>
-                          </div>
-                          {totalAplicado < acuerdo.monto && (
-                            <div className="mt-1 flex justify-between text-sm text-muted-foreground">
-                              <span>Saldo pendiente:</span>
-                              <span>{formatCurrency(acuerdo.monto - totalAplicado)}</span>
-                            </div>
-                          )}
-                        </div>
-                      </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  })}
+                  </div>
+                  {(visibleAcuerdos < acuerdosPago.length || visibleAcuerdos > 5) && (
+                    <div className="flex justify-center gap-2 pt-2">
+                      {visibleAcuerdos > 5 && (
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setVisibleAcuerdos(5)}
+                        >
+                          <ChevronUp className="h-4 w-4 mr-1" />
+                          Ver menos
+                        </Button>
+                      )}
+                      {visibleAcuerdos < acuerdosPago.length && (
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setVisibleAcuerdos(prev => prev + 5)}
+                        >
+                          Ver más
+                          <ChevronDown className="h-4 w-4 ml-1" />
+                        </Button>
+                      )}
                     </div>
-                  </Collapsible>
-                );
-              })}
-              </div>
-              {(visibleAcuerdos < acuerdosPago.length || visibleAcuerdos > 5) && (
-                <div className="flex justify-center gap-2 pt-2">
-                  {visibleAcuerdos > 5 && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setVisibleAcuerdos(5)}
-                    >
-                      <ChevronUp className="h-4 w-4 mr-1" />
-                      Ver menos
-                    </Button>
-                  )}
-                  {visibleAcuerdos < acuerdosPago.length && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setVisibleAcuerdos(prev => prev + 5)}
-                    >
-                      Ver más
-                      <ChevronDown className="h-4 w-4 ml-1" />
-                    </Button>
                   )}
                 </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No hay acuerdos de pago registrados
+                </div>
               )}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              No hay acuerdos de pago registrados
-            </div>
-          )}
+            </TabsContent>
+
+            {/* Tab: Pagos Aplicados */}
+            <TabsContent value="pagos" className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <DollarSign className="h-5 w-5" />
+                <span className="font-semibold">Pagos Aplicados</span>
+                <Badge variant="secondary">
+                  {pagosData?.length || 0} pagos
+                </Badge>
+              </div>
+
+              {pagosData && pagosData.length > 0 ? (
+                <div className="space-y-3">
+                  {pagosData.map((pago) => {
+                    const aplicaciones = aplicacionesPorPago?.filter(ap => ap.id_pago === pago.id) || [];
+                    
+                    return (
+                      <Collapsible key={pago.id}>
+                        <div className="border rounded-lg">
+                          <CollapsibleTrigger asChild>
+                            <div className="w-full p-3 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold">{formatCurrency(pago.monto)}</span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {pago.metodo_pago_nombre}
+                                  </Badge>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  Fecha: {formatDate(pago.fecha_pago)}
+                                </span>
+                                {pago.clave_rastreo && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Clave: {pago.clave_rastreo}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  {aplicaciones.length} {aplicaciones.length === 1 ? 'aplicación' : 'aplicaciones'}
+                                </Badge>
+                                <ChevronDown className="h-4 w-4" />
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="p-4 border-t">
+                              {aplicaciones.length > 0 ? (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Concepto</TableHead>
+                                      <TableHead>Fecha Acuerdo</TableHead>
+                                      <TableHead className="text-right">Monto Aplicado</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {aplicaciones.map((ap) => (
+                                      <TableRow key={ap.id}>
+                                        <TableCell>
+                                          {formatConcepto(ap.concepto_nombre, ap.acuerdo?.fecha_pago || null)}
+                                        </TableCell>
+                                        <TableCell>
+                                          {ap.acuerdo?.fecha_pago 
+                                            ? formatDate(ap.acuerdo.fecha_pago)
+                                            : 'N/A'}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">
+                                          {formatCurrency(ap.monto)}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              ) : (
+                                <div className="text-center py-4 text-muted-foreground">
+                                  No hay aplicaciones para este pago
+                                </div>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No hay pagos registrados
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
