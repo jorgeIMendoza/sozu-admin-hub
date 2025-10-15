@@ -927,6 +927,20 @@ export default function CuentasMantenimiento() {
                                     <p>Ver detalle</p>
                                   </TooltipContent>
                                 </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => setPaymentDialog({ isOpen: true, cuenta })}
+                                    >
+                                      <CreditCard className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Agregar pago manual</p>
+                                  </TooltipContent>
+                                </Tooltip>
                               </TooltipProvider>
                             </div>
                           </TableCell>
@@ -939,6 +953,23 @@ export default function CuentasMantenimiento() {
             </CardContent>
           </Card>
       </div>
+
+      {/* Dialog de pago manual */}
+      {paymentDialog.cuenta && (
+        <AddManualPaymentDialog
+          isOpen={paymentDialog.isOpen}
+          onClose={() => {
+            setPaymentDialog({ isOpen: false, cuenta: null });
+            queryClient.invalidateQueries({ queryKey: ["cuentas_mantenimiento"] });
+          }}
+          cuentaCobranzaId={paymentDialog.cuenta.id}
+          cuentaCobranzaLabel={`CM-${paymentDialog.cuenta.id.toString().padStart(6, '0')}`}
+          tipoCuenta={paymentDialog.cuenta.tipo}
+          precioFinal={paymentDialog.cuenta.precio_final}
+          montoPagado={paymentDialog.cuenta.pagado}
+          esMantenimiento={true}
+        />
+      )}
     </div>
   );
 }
