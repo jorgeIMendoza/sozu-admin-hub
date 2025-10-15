@@ -807,7 +807,9 @@ export default function CuentasMantenimiento() {
                       <TableHead>Propiedad</TableHead>
                       <TableHead>Modelo</TableHead>
                       <TableHead>Clave Catastral</TableHead>
-                      <TableHead className="text-center" colSpan={3}>Información Financiera</TableHead>
+                      <TableHead className="text-right">Total Mensual</TableHead>
+                      <TableHead className="text-right">Total Pagado</TableHead>
+                      <TableHead className="text-right">Saldo Pendiente</TableHead>
                       <TableHead className="text-center">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -870,60 +872,39 @@ export default function CuentasMantenimiento() {
                           <TableCell>
                             {cuenta.clave_catastral || '-'}
                           </TableCell>
-                          <TableCell colSpan={3} className="p-2">
-                            <div className="grid grid-cols-3 gap-3">
-                              {/* Pago Mensual */}
-                              <Card className="border-border">
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <span className="text-sm text-muted-foreground">Pago Mensual</span>
-                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                  <div className="text-2xl font-bold mb-1">
-                                    ${cuenta.precio_final.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    Incluye recargos y multas pendientes
-                                  </p>
-                                </CardContent>
-                              </Card>
-
-                              {/* Total Pagado */}
-                              <Card className="border-border">
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <span className="text-sm text-muted-foreground">Total Pagado</span>
-                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                  <div className="text-2xl font-bold text-green-600 mb-1">
-                                    ${cuenta.pagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    Pagado en esta cuenta
-                                  </p>
-                                </CardContent>
-                              </Card>
-
-                              {/* Saldo Pendiente */}
-                              <Card className="border-border">
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between mb-2">
-                                    <span className="text-sm text-muted-foreground">Saldo Pendiente</span>
-                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                  <div className="text-2xl font-bold text-orange-600 mb-1">
-                                    ${normalizarSaldo(cuenta.restante) > 0 
-                                      ? normalizarSaldo(cuenta.restante).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                      : normalizarSaldo(cuenta.restante) < 0
-                                        ? Math.abs(normalizarSaldo(cuenta.restante)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                        : '0.00'
-                                    }
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    Por pagar
-                                  </p>
-                                </CardContent>
-                              </Card>
+                          <TableCell className="text-right">
+                            <div className="space-y-1">
+                              <div className="font-medium">
+                                ${cuenta.precio_final.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Incluye recargos y multas pendientes
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="space-y-1">
+                              <div className="font-medium text-green-600">
+                                ${cuenta.pagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Pagado en esta cuenta
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="space-y-1">
+                              <div className="font-medium text-orange-600">
+                                ${normalizarSaldo(cuenta.restante) > 0 
+                                  ? normalizarSaldo(cuenta.restante).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                  : normalizarSaldo(cuenta.restante) < 0
+                                    ? Math.abs(normalizarSaldo(cuenta.restante)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                    : '0.00'
+                                }
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Por pagar
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell>
