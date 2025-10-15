@@ -193,18 +193,6 @@ export default function CuentasMantenimiento() {
         return acc;
       }, {});
 
-      // Calculate total mensual per account (sum of acuerdos monto)
-      const totalMensualPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
-        const acuerdosCuenta = acuerdosPago?.filter(ap => ap.id_cuenta_cobranza === cuenta.id) || [];
-        const totalMensual = acuerdosCuenta.reduce((sum, acuerdo) => sum + (acuerdo.monto || 0), 0);
-        acc[cuenta.id] = totalMensual;
-        console.log(`Cuenta ${cuenta.id}: total mensual = ${totalMensual}`);
-        return acc;
-      }, {});
-      
-      console.log('Pagado por cuenta:', pagadoPorCuenta);
-      console.log('Total mensual por cuenta:', totalMensualPorCuenta);
-
       // Get cash payments (id_metodos_pago = 1) for all accounts using aplicaciones_pago
       const { data: pagosCash } = await supabase
         .from('pagos')
@@ -271,6 +259,18 @@ export default function CuentasMantenimiento() {
         .eq('activo', true);
 
       console.log('🔍 Acuerdos de pago:', acuerdosPago);
+
+      // Calculate total mensual per account (sum of acuerdos monto)
+      const totalMensualPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
+        const acuerdosCuenta = acuerdosPago?.filter(ap => ap.id_cuenta_cobranza === cuenta.id) || [];
+        const totalMensual = acuerdosCuenta.reduce((sum, acuerdo) => sum + (acuerdo.monto || 0), 0);
+        acc[cuenta.id] = totalMensual;
+        console.log(`Cuenta ${cuenta.id}: total mensual (acuerdos) = ${totalMensual}`);
+        return acc;
+      }, {});
+      
+      console.log('Pagado por cuenta:', pagadoPorCuenta);
+      console.log('Total mensual por cuenta:', totalMensualPorCuenta);
 
       // Get aplicaciones_pago para verificar si hay pagos de cesión de derechos
       const acuerdoIds = acuerdosPago?.map(a => a.id) || [];
