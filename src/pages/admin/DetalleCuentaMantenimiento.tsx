@@ -352,8 +352,9 @@ export default function DetalleCuentaMantenimiento() {
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
-    const date = new Date(fecha);
-    return meses[date.getMonth()];
+    // Parseamos la fecha correctamente desde el string YYYY-MM-DD
+    const [year, month, day] = fecha.split('-').map(Number);
+    return meses[month - 1]; // month es 1-indexed, el array es 0-indexed
   };
 
   const formatConcepto = (concepto: string, fechaPago: string | null): string => {
