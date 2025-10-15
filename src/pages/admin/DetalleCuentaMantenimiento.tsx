@@ -66,6 +66,7 @@ export default function DetalleCuentaMantenimiento() {
   const [openAcuerdos, setOpenAcuerdos] = useState<{ [key: number]: boolean }>({});
   const [transferDialog, setTransferDialog] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [propietariosOpen, setPropietariosOpen] = useState(false);
+  const [visibleAcuerdos, setVisibleAcuerdos] = useState(5);
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
     queryKey: ["cuenta_mantenimiento_detalle", cuentaId],
@@ -580,8 +581,9 @@ export default function DetalleCuentaMantenimiento() {
         </CardHeader>
         <CardContent>
           {acuerdosPago && acuerdosPago.length > 0 ? (
-            <div className="space-y-2">
-              {acuerdosPago.map((acuerdo) => {
+            <div className="space-y-4">
+              <div className="space-y-2">
+                {acuerdosPago.slice(0, visibleAcuerdos).map((acuerdo) => {
                 const totalAplicado = (acuerdo.aplicaciones || []).reduce((sum, app) => sum + app.monto, 0);
                 const isOpen = openAcuerdos[acuerdo.id];
                 
@@ -678,6 +680,17 @@ export default function DetalleCuentaMantenimiento() {
                   </Collapsible>
                 );
               })}
+              </div>
+              {visibleAcuerdos < acuerdosPago.length && (
+                <div className="flex justify-center pt-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setVisibleAcuerdos(prev => prev + 5)}
+                  >
+                    Ver más
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
