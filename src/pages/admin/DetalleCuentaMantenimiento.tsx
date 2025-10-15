@@ -58,6 +58,7 @@ interface CuentaDetalle {
   clabe_stp: string | null;
   monto_mensual_cuota_extraordinaria: number | null;
   proyecto_nombre: string;
+  m2_escriturables: number | null;
 }
 
 export default function DetalleCuentaMantenimiento() {
@@ -100,6 +101,7 @@ export default function DetalleCuentaMantenimiento() {
               propiedades!ofertas_id_propiedad_fkey(
                 id,
                 numero_propiedad,
+                m2_escriturables,
                 id_entidad_relacionada_dueno,
                 id_edificio_modelo
               )
@@ -204,7 +206,8 @@ export default function DetalleCuentaMantenimiento() {
         id_cuenta_cobranza_padre: cuenta.id_cuenta_cobranza_padre,
         clabe_stp: cuenta.clabe_stp,
         monto_mensual_cuota_extraordinaria: porcentajeAnual,
-        proyecto_nombre: proyectoNombre
+        proyecto_nombre: proyectoNombre,
+        m2_escriturables: oferta?.propiedades?.m2_escriturables || null
       };
 
       return detalle;
@@ -511,6 +514,12 @@ export default function DetalleCuentaMantenimiento() {
             <div>
               <label className="text-sm font-medium">No. Propiedad</label>
               <p className="text-sm text-muted-foreground">{cuentaDetalle.numero_propiedad}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Metraje</label>
+              <p className="text-sm text-muted-foreground">
+                {cuentaDetalle.m2_escriturables ? `${cuentaDetalle.m2_escriturables} m²` : 'N/A'}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">CLABE STP</label>
