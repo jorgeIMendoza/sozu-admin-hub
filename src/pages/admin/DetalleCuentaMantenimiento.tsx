@@ -347,6 +347,22 @@ export default function DetalleCuentaMantenimiento() {
     return { montoOriginal, montoRecargos };
   };
 
+  const getNombreMes = (fecha: string): string => {
+    const meses = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const date = new Date(fecha);
+    return meses[date.getMonth()];
+  };
+
+  const formatConcepto = (concepto: string, fechaPago: string | null): string => {
+    if (concepto === 'Pago de Mantenimiento' && fechaPago) {
+      return `Pago Mantenimiento ${getNombreMes(fechaPago)}`;
+    }
+    return concepto;
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
@@ -602,11 +618,8 @@ export default function DetalleCuentaMantenimiento() {
                       <CollapsibleTrigger asChild>
                         <div className="w-full p-3 flex items-center justify-between hover:bg-muted/50 cursor-pointer">
                           <div className="flex items-center gap-4">
-                            <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-semibold">
-                              {acuerdo.orden}
-                            </div>
                             <div className="flex flex-col gap-1">
-                              <span className="text-sm font-medium">{acuerdo.concepto}</span>
+                              <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
                               {conRecargos() && cuentaDetalle?.monto_mensual_cuota_extraordinaria ? (
                                 <>
                                   <span className="text-sm text-muted-foreground line-through">
