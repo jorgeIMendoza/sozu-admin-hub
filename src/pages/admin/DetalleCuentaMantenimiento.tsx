@@ -170,7 +170,7 @@ export default function DetalleCuentaMantenimiento() {
                   .from('proyectos')
                   .select('nombre, monto_mensual_cuota_extraordinaria')
                   .eq('id', entidadResult.id_proyecto)
-                  .maybeSingle();
+                  .maybeSingle() as { data: { nombre: string; monto_mensual_cuota_extraordinaria: number } | null };
 
                 if (proyectoData) {
                   proyectoNombre = proyectoData.nombre || 'Sin proyecto';
