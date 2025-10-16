@@ -75,6 +75,8 @@ interface Property {
   numero_propiedad: string;
   numero_piso: number;
   m2_reales: number;
+  m2_interiores: number;
+  m2_exteriores: number;
   precio_lista: number;
   monto_apartado: number | null;
   monto_apartado_pagando: number | null;
@@ -253,6 +255,8 @@ const Propiedades = () => {
             numero_propiedad,
             numero_piso,
             m2_reales,
+            m2_interiores,
+            m2_exteriores,
             precio_lista,
             monto_apartado,
             monto_apartado_pagando,
@@ -567,6 +571,8 @@ const Propiedades = () => {
           numero_propiedad: property.numero_propiedad,
           numero_piso: property.numero_piso,
           m2_reales: property.m2_reales,
+          m2_interiores: property.m2_interiores || 0,
+          m2_exteriores: property.m2_exteriores || 0,
           precio_lista: property.precio_lista,
           monto_apartado: property.monto_apartado,
           monto_apartado_pagando: property.monto_apartado_pagando,
@@ -1459,9 +1465,10 @@ const Propiedades = () => {
     );
   };
 
-  const formatPrecioPorM2 = (precioLista: number, m2Reales: number) => {
-    if (m2Reales === 0) return 'N/A';
-    return formatCurrency(precioLista / m2Reales);
+  const formatPrecioPorM2 = (precio: number, m2Interiores: number, m2Exteriores: number) => {
+    const totalM2 = m2Interiores + m2Exteriores;
+    if (totalM2 === 0) return 'N/A';
+    return formatCurrency(precio / totalM2);
   };
 
   const handlePropertyAdded = () => {
@@ -1527,9 +1534,9 @@ const Propiedades = () => {
               <TableHead>No. Departamento</TableHead>
               <TableHead>Piso</TableHead>
               <TableHead>Vista</TableHead>
-              <TableHead>M2</TableHead>
+              <TableHead>Área</TableHead>
               <TableHead>Configuración</TableHead>
-              <TableHead>Precio de Lista</TableHead>
+              <TableHead>Precio</TableHead>
               <TableHead>Precio por M2</TableHead>
               <TableHead>Estacionamientos</TableHead>
               <TableHead>Bodegas</TableHead>
@@ -1582,10 +1589,51 @@ const Propiedades = () => {
                   <TableCell>{property.numero_propiedad}</TableCell>
                   <TableCell>{property.numero_piso}</TableCell>
                   <TableCell>{property.vista}</TableCell>
-                  <TableCell>{property.m2_reales} m²</TableCell>
+                  <TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <span>{(property.m2_interiores + property.m2_exteriores).toFixed(2)} m²</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Home className="h-3 w-3" />
+                              <span>M2 interiores: {property.m2_interiores.toFixed(2)} m²</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Home className="h-3 w-3" />
+                              <span>M2 exteriores: {property.m2_exteriores.toFixed(2)} m²</span>
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
                   <TableCell className="text-sm">{formatConfiguracion(property.configuracion_modelo)}</TableCell>
-                   <TableCell>{formatCurrency(property.precio_lista)}</TableCell>
-                   <TableCell>{formatPrecioPorM2(property.precio_lista, property.m2_reales)}</TableCell>
+                  <TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          {property.precio_final ? (
+                            <span>{formatCurrency(property.precio_final)}</span>
+                          ) : (
+                            <span>{formatCurrency(property.precio_lista)}</span>
+                          )}
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{property.precio_final ? 'Precio final' : 'Precio de lista'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                  <TableCell>
+                    {formatPrecioPorM2(
+                      property.precio_final || property.precio_lista,
+                      property.m2_interiores,
+                      property.m2_exteriores
+                    )}
+                  </TableCell>
                    <TableCell>
                      <Button
                        variant="ghost"
