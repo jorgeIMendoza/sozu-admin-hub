@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Combobox } from "@/components/ui/combobox";
 
 interface ProjectModelSelectionSectionProps {
   form: any;
@@ -124,32 +124,28 @@ export const ProjectModelSelectionSection = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Proyecto *</FormLabel>
-                <Select 
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    setSelectedProjectId(value);
-                    // Reset all subsequent fields when project changes
-                    setSelectedBuildingId("");
-                    setSelectedOwnerId("");
-                    form.setValue("id_edificio", "");
-                    form.setValue("id_modelo", "");
-                    form.setValue("id_entidad_relacionada_dueno", "");
-                  }}
-                  value={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un proyecto" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {proyectos?.map((proyecto) => (
-                      <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                        {proyecto.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Combobox
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      setSelectedProjectId(value);
+                      // Reset all subsequent fields when project changes
+                      setSelectedBuildingId("");
+                      setSelectedOwnerId("");
+                      form.setValue("id_edificio", "");
+                      form.setValue("id_modelo", "");
+                      form.setValue("id_entidad_relacionada_dueno", "");
+                    }}
+                    options={proyectos?.map((proyecto) => ({
+                      value: proyecto.id.toString(),
+                      label: proyecto.nombre,
+                    })) || []}
+                    placeholder="Selecciona un proyecto"
+                    searchPlaceholder="Buscar proyecto..."
+                    emptyText="No se encontró el proyecto."
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -161,31 +157,27 @@ export const ProjectModelSelectionSection = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Edificio *</FormLabel>
-                <Select 
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    setSelectedBuildingId(value);
-                    // Reset subsequent fields when building changes
-                    setSelectedOwnerId("");
-                    form.setValue("id_modelo", "");
-                    form.setValue("id_entidad_relacionada_dueno", "");
-                  }}
-                  value={field.value}
-                  disabled={!selectedProjectId}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={!selectedProjectId ? "Selecciona un proyecto primero" : "Selecciona un edificio"} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {edificios?.map((edificio) => (
-                      <SelectItem key={edificio.id} value={edificio.id.toString()}>
-                        {edificio.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Combobox
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      setSelectedBuildingId(value);
+                      // Reset subsequent fields when building changes
+                      setSelectedOwnerId("");
+                      form.setValue("id_modelo", "");
+                      form.setValue("id_entidad_relacionada_dueno", "");
+                    }}
+                    options={edificios?.map((edificio) => ({
+                      value: edificio.id.toString(),
+                      label: edificio.nombre,
+                    })) || []}
+                    placeholder={!selectedProjectId ? "Selecciona un proyecto primero" : "Selecciona un edificio"}
+                    searchPlaceholder="Buscar edificio..."
+                    emptyText="No se encontró el edificio."
+                    disabled={!selectedProjectId}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -197,29 +189,25 @@ export const ProjectModelSelectionSection = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Modelo *</FormLabel>
-                <Select 
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    // Reset subsequent fields when model changes
-                    setSelectedOwnerId("");
-                    form.setValue("id_entidad_relacionada_dueno", "");
-                  }} 
-                  value={field.value}
-                  disabled={!selectedBuildingId}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={!selectedBuildingId ? "Selecciona un edificio primero" : "Selecciona un modelo"} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {modelos?.map((em) => (
-                      <SelectItem key={em.modelos?.id} value={em.modelos?.id.toString()}>
-                        {em.modelos?.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Combobox
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Reset subsequent fields when model changes
+                      setSelectedOwnerId("");
+                      form.setValue("id_entidad_relacionada_dueno", "");
+                    }}
+                    options={modelos?.map((em) => ({
+                      value: em.modelos?.id.toString(),
+                      label: em.modelos?.nombre,
+                    })) || []}
+                    placeholder={!selectedBuildingId ? "Selecciona un edificio primero" : "Selecciona un modelo"}
+                    searchPlaceholder="Buscar modelo..."
+                    emptyText="No se encontró el modelo."
+                    disabled={!selectedBuildingId}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -231,33 +219,26 @@ export const ProjectModelSelectionSection = ({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Propietario *</FormLabel>
-                <Select 
-                  onValueChange={(value) => {
-                    field.onChange(value);
-                    setSelectedOwnerId(value);
-                  }}
-                  value={field.value}
-                  disabled={!selectedProjectId}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={!selectedProjectId ? "Selecciona un proyecto primero" : propietarios?.length === 0 ? "No hay propietarios disponibles" : "Selecciona el propietario"} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {propietarios?.length === 0 ? (
-                      <SelectItem value="no-owners" disabled>
-                        No hay propietarios disponibles
-                      </SelectItem>
-                    ) : (
-                      propietarios?.map((propietario) => (
-                        <SelectItem key={propietario.id} value={propietario.id.toString()}>
-                          {propietario.personas?.nombre_legal}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Combobox
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      setSelectedOwnerId(value);
+                    }}
+                    options={propietarios?.length === 0 
+                      ? [{ value: "no-owners", label: "No hay propietarios disponibles" }]
+                      : propietarios?.map((propietario) => ({
+                          value: propietario.id.toString(),
+                          label: propietario.personas?.nombre_legal || "",
+                        })) || []
+                    }
+                    placeholder={!selectedProjectId ? "Selecciona un proyecto primero" : "Selecciona el propietario"}
+                    searchPlaceholder="Buscar propietario..."
+                    emptyText="No se encontró el propietario."
+                    disabled={!selectedProjectId}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

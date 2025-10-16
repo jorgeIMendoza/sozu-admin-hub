@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { PropertyCharacteristicsSection } from "./PropertyCharacteristicsSection";
 import { PropertyYouTubeVideosSection } from "./PropertyYouTubeVideosSection";
+import { Combobox } from "@/components/ui/combobox";
 
 interface Property {
   id: number;
@@ -378,24 +378,23 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                 <CardContent className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edificio_modelo">Edificio-Modelo *</Label>
-                    <Select value={formData.id_edificio_modelo} onValueChange={(value) => setFormData(prev => ({ ...prev, id_edificio_modelo: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona modelo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {edificiosModelos?.map((em) => (
-                          <SelectItem key={em.id} value={em.id.toString()}>
-                            {em.edificios?.nombre} - {em.modelos?.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      value={formData.id_edificio_modelo}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, id_edificio_modelo: value }))}
+                      options={edificiosModelos?.map((em) => ({
+                        value: em.id.toString(),
+                        label: `${em.edificios?.nombre} - ${em.modelos?.nombre}`,
+                      })) || []}
+                      placeholder="Selecciona modelo"
+                      searchPlaceholder="Buscar modelo..."
+                      emptyText="No se encontró el modelo."
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="propietario">Propietario *</Label>
-                    <Select 
-                      value={formData.id_entidad_relacionada_dueno} 
+                    <Combobox
+                      value={formData.id_entidad_relacionada_dueno}
                       onValueChange={async (value) => {
                         setFormData(prev => ({ ...prev, id_entidad_relacionada_dueno: value }));
                         
@@ -432,19 +431,15 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                           }
                         }
                       }}
+                      options={entidadesRelacionadas?.map((entidad) => ({
+                        value: entidad.id.toString(),
+                        label: entidad.personas?.nombre_legal || "",
+                      })) || []}
+                      placeholder="Selecciona propietario"
+                      searchPlaceholder="Buscar propietario..."
+                      emptyText="No se encontró el propietario."
                       disabled={parseInt(formData.id_estatus_disponibilidad) > 2}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona propietario" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {entidadesRelacionadas?.map((entidad) => (
-                          <SelectItem key={entidad.id} value={entidad.id.toString()}>
-                            {entidad.personas?.nombre_legal}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
 
                   <div className="space-y-2 col-span-2">
@@ -551,50 +546,47 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                 <CardContent className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="tipo_transaccion">Tipo de Transacción *</Label>
-                    <Select value={formData.id_tipo_transaccion} onValueChange={(value) => setFormData(prev => ({ ...prev, id_tipo_transaccion: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona tipo de transacción" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tiposTransaccion?.map((tipo) => (
-                          <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                            {tipo.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      value={formData.id_tipo_transaccion}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, id_tipo_transaccion: value }))}
+                      options={tiposTransaccion?.map((tipo) => ({
+                        value: tipo.id.toString(),
+                        label: tipo.nombre,
+                      })) || []}
+                      placeholder="Selecciona tipo de transacción"
+                      searchPlaceholder="Buscar tipo..."
+                      emptyText="No se encontró el tipo."
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="tipo_propiedad">Tipo de Propiedad *</Label>
-                    <Select value={formData.id_tipo_propiedad} onValueChange={(value) => setFormData(prev => ({ ...prev, id_tipo_propiedad: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona tipo de propiedad" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tiposPropiedad?.map((tipo) => (
-                          <SelectItem key={tipo.id} value={tipo.id.toString()}>
-                            {tipo.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      value={formData.id_tipo_propiedad}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, id_tipo_propiedad: value }))}
+                      options={tiposPropiedad?.map((tipo) => ({
+                        value: tipo.id.toString(),
+                        label: tipo.nombre,
+                      })) || []}
+                      placeholder="Selecciona tipo de propiedad"
+                      searchPlaceholder="Buscar tipo..."
+                      emptyText="No se encontró el tipo."
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="estatus_disponibilidad">Estatus de Disponibilidad *</Label>
-                    <Select value={formData.id_estatus_disponibilidad} onValueChange={(value) => setFormData(prev => ({ ...prev, id_estatus_disponibilidad: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona estatus" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {estatusDisponibilidad?.map((estatus) => (
-                          <SelectItem key={estatus.id} value={estatus.id.toString()}>
-                            {estatus.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      value={formData.id_estatus_disponibilidad}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, id_estatus_disponibilidad: value }))}
+                      options={estatusDisponibilidad?.map((estatus) => ({
+                        value: estatus.id.toString(),
+                        label: estatus.nombre,
+                      })) || []}
+                      placeholder="Selecciona estatus"
+                      searchPlaceholder="Buscar estatus..."
+                      emptyText="No se encontró el estatus."
+                    />
                   </div>
 
                 </CardContent>
@@ -672,18 +664,18 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                   <CardContent className="space-y-4">
                     <div>
                       <Label htmlFor="vista">Vista *</Label>
-                      <Select value={formData.id_vista} onValueChange={(value) => setFormData(prev => ({ ...prev, id_vista: value }))}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Selecciona una vista" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vistas?.map((vista) => (
-                            <SelectItem key={vista.id} value={vista.id.toString()}>
-                              {vista.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        value={formData.id_vista}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, id_vista: value }))}
+                        options={vistas?.map((vista) => ({
+                          value: vista.id.toString(),
+                          label: vista.nombre,
+                        })) || []}
+                        placeholder="Selecciona una vista"
+                        searchPlaceholder="Buscar vista..."
+                        emptyText="No se encontró la vista."
+                        className="mt-1"
+                      />
                     </div>
                     
                     {/* Mostrar imagen de la vista seleccionada */}
