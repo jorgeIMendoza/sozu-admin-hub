@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Edit, Trash2, Eye, Image, Video } from "lucide-react";
+import { Search, Edit, Trash2, Eye, Image, Video, MapPin } from "lucide-react";
 import { useState } from "react";
 import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
 import { ProjectMultimediaModal } from "@/components/admin/ProjectMultimediaModal";
@@ -469,12 +469,15 @@ const Proyectos = () => {
                           href={`https://www.google.com/maps?q=${project.latitud},${project.longitud}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary hover:underline"
+                          className="text-primary hover:text-primary/80 inline-flex items-center"
+                          title={project.direccion || "Ver en mapa"}
                         >
-                          {project.direccion || "Ver en mapa"}
+                          <MapPin className="h-5 w-5" />
                         </a>
                       ) : (
-                        project.direccion || "No especificada"
+                        <span className="inline-flex items-center" title="Sin coordenadas">
+                          <MapPin className="h-5 w-5 text-muted-foreground/50" />
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
