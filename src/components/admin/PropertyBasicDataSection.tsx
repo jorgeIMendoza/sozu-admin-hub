@@ -43,10 +43,10 @@ export const PropertyBasicDataSection = ({ form }: PropertyBasicDataSectionProps
 
         <FormField
           control={form.control}
-          name="m2_reales"
+          name="m2_interiores"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>M² Reales *</FormLabel>
+              <FormLabel>M2 interiores *</FormLabel>
               <FormControl>
                 <Input type="number" step="0.01" placeholder="Ej: 85.50" {...field} />
               </FormControl>
@@ -57,12 +57,26 @@ export const PropertyBasicDataSection = ({ form }: PropertyBasicDataSectionProps
 
         <FormField
           control={form.control}
-          name="m2_escriturables"
+          name="m2_exteriores"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>M² Escriturables *</FormLabel>
+              <FormLabel>M2 exteriores *</FormLabel>
               <FormControl>
                 <Input type="number" step="0.01" placeholder="Ej: 80.00" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="m2_loft"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>M2 Loft</FormLabel>
+              <FormControl>
+                <Input type="number" step="0.01" placeholder="Ej: 20.00" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

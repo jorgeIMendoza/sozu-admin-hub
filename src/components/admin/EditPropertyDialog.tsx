@@ -52,8 +52,9 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
   const [formData, setFormData] = useState({
     numero_propiedad: property.numero_propiedad,
     numero_piso: property.numero_piso,
-    m2_reales: property.m2_reales,
-    m2_escriturables: 0,
+    m2_interiores: property.m2_reales,
+    m2_exteriores: 0,
+    m2_loft: 0,
     precio_lista: property.precio_lista,
     monto_apartado: 0,
     clabe_stp_tmp_apartado: property.clabe_stp_tmp_apartado || '',
@@ -285,8 +286,9 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
       setFormData({
         numero_propiedad: fullPropertyData.numero_propiedad,
         numero_piso: fullPropertyData.numero_piso || 0,
-        m2_reales: fullPropertyData.m2_reales || 0,
-        m2_escriturables: fullPropertyData.m2_escriturables || 0,
+        m2_interiores: (fullPropertyData as any).m2_interiores || 0,
+        m2_exteriores: (fullPropertyData as any).m2_exteriores || 0,
+        m2_loft: (fullPropertyData as any).m2_loft || 0,
         precio_lista: fullPropertyData.precio_lista || 0,
         monto_apartado: fullPropertyData.monto_apartado || 0,
         clabe_stp_tmp_apartado: clabeStp,
@@ -314,8 +316,9 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         .update({
           numero_propiedad: formData.numero_propiedad,
           numero_piso: formData.numero_piso,
-          m2_reales: formData.m2_reales,
-          m2_escriturables: formData.m2_escriturables,
+          m2_interiores: formData.m2_interiores,
+          m2_exteriores: formData.m2_exteriores,
+          m2_loft: formData.m2_loft,
           precio_lista: formData.precio_lista,
           monto_apartado: formData.monto_apartado,
           clabe_stp_tmp_apartado: formData.clabe_stp_tmp_apartado,
@@ -486,26 +489,38 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="m2_reales">M² Reales *</Label>
+                    <Label htmlFor="m2_interiores">M2 interiores *</Label>
                     <Input
-                      id="m2_reales"
+                      id="m2_interiores"
                       type="number"
                       step="0.01"
-                      value={formData.m2_reales}
-                      onChange={(e) => setFormData(prev => ({ ...prev, m2_reales: parseFloat(e.target.value) || 0 }))}
+                      value={formData.m2_interiores}
+                      onChange={(e) => setFormData(prev => ({ ...prev, m2_interiores: parseFloat(e.target.value) || 0 }))}
                       placeholder="Ej: 85.50"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="m2_escriturables">M² Escriturables *</Label>
+                    <Label htmlFor="m2_exteriores">M2 exteriores *</Label>
                     <Input
-                      id="m2_escriturables"
+                      id="m2_exteriores"
                       type="number"
                       step="0.01"
-                      value={formData.m2_escriturables}
-                      onChange={(e) => setFormData(prev => ({ ...prev, m2_escriturables: parseFloat(e.target.value) || 0 }))}
+                      value={formData.m2_exteriores}
+                      onChange={(e) => setFormData(prev => ({ ...prev, m2_exteriores: parseFloat(e.target.value) || 0 }))}
                       placeholder="Ej: 80.00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="m2_loft">M2 Loft</Label>
+                    <Input
+                      id="m2_loft"
+                      type="number"
+                      step="0.01"
+                      value={formData.m2_loft}
+                      onChange={(e) => setFormData(prev => ({ ...prev, m2_loft: parseFloat(e.target.value) || 0 }))}
+                      placeholder="Ej: 20.00"
                     />
                   </div>
 
