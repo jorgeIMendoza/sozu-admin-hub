@@ -13,6 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Table,
   TableBody,
@@ -37,6 +41,12 @@ interface Proyecto {
   nombre: string;
 }
 
+const vistaFormSchema = z.object({
+  nombre: z.string().min(1, "El nombre es requerido"),
+  id_proyecto: z.string().min(1, "El proyecto es requerido"),
+  url: z.string().optional(),
+});
+
 export default function Vistas() {
   const [vistas, setVistas] = useState<Vista[]>([]);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
@@ -51,13 +61,26 @@ export default function Vistas() {
   const [selectedVista, setSelectedVista] = useState<Vista | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
-  const [formData, setFormData] = useState({
-    nombre: "",
-    url: "",
-    id_proyecto: ""
-  });
 
   const { toast } = useToast();
+
+  const createForm = useForm<z.infer<typeof vistaFormSchema>>({
+    resolver: zodResolver(vistaFormSchema),
+    defaultValues: {
+      nombre: "",
+      url: "",
+      id_proyecto: ""
+    },
+  });
+
+  const editForm = useForm<z.infer<typeof vistaFormSchema>>({
+    resolver: zodResolver(vistaFormSchema),
+    defaultValues: {
+      nombre: "",
+      url: "",
+      id_proyecto: ""
+    },
+  });
 
   useEffect(() => {
     fetchVistas();
@@ -107,34 +130,16 @@ export default function Vistas() {
     }
   };
 
-  const handleCreateVista = async () => {
-    if (!formData.nombre.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "El nombre es requerido",
-      });
-      return;
-    }
-
-    if (!formData.id_proyecto) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "El proyecto es requerido",
-      });
-      return;
-    }
-
+  const handleCreateVista = async (values: z.infer<typeof vistaFormSchema>) => {
     try {
       setIsSubmitting(true);
 
       const { data, error } = await supabase
         .from('vistas')
         .insert([{
-          nombre: formData.nombre.trim(),
-          url: formData.url || null,
-          id_proyecto: parseInt(formData.id_proyecto),
+          nombre: values.nombre.trim(),
+          url: values.url || null,
+          id_proyecto: parseInt(values.id_proyecto),
           activo: true
         }])
         .select()
@@ -144,7 +149,7 @@ export default function Vistas() {
 
       setVistas(prev => [...prev, data]);
       setIsCreateDialogOpen(false);
-      setFormData({ nombre: "", url: "", id_proyecto: "" });
+      createForm.reset();
       toast({
         title: "Éxito",
         description: "Vista creada correctamente",
@@ -161,36 +166,20 @@ export default function Vistas() {
     }
   };
 
-  const handleEditVista = async () => {
-    if (!selectedVista || !formData.nombre.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "El nombre es requerido",
-      });
-      return;
-    }
-
-    if (!formData.id_proyecto) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "El proyecto es requerido",
-      });
-      return;
-    }
+  const handleEditVista = async (values: z.infer<typeof vistaFormSchema>) => {
+    if (!selectedVista) return;
 
     try {
       setIsSubmitting(true);
 
       const updateData: any = {
-        nombre: formData.nombre.trim(),
-        id_proyecto: parseInt(formData.id_proyecto),
+        nombre: values.nombre.trim(),
+        id_proyecto: parseInt(values.id_proyecto),
       };
 
       // Only update URL if there's a change
-      if (formData.url !== selectedVista.url) {
-        updateData.url = formData.url || null;
+      if (values.url !== selectedVista.url) {
+        updateData.url = values.url || null;
       }
 
       const { data, error } = await supabase
@@ -207,7 +196,7 @@ export default function Vistas() {
       ));
       setIsEditDialogOpen(false);
       setSelectedVista(null);
-      setFormData({ nombre: "", url: "", id_proyecto: "" });
+      editForm.reset();
       toast({
         title: "Éxito",
         description: "Vista actualizada correctamente",
@@ -292,7 +281,7 @@ export default function Vistas() {
 
   const openEditDialog = (vista: Vista) => {
     setSelectedVista(vista);
-    setFormData({ 
+    editForm.reset({
       nombre: vista.nombre,
       url: vista.url || "",
       id_proyecto: vista.id_proyecto?.toString() || ""
@@ -381,60 +370,80 @@ export default function Vistas() {
                 Ingresa los datos de la nueva vista
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="nombre">Nombre</Label>
-                <Input
-                  id="nombre"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-                  placeholder="Ej: Vista al mar, Vista a la montaña"
+            <Form {...createForm}>
+              <form onSubmit={createForm.handleSubmit(handleCreateVista)} className="space-y-4">
+                <FormField
+                  control={createForm.control}
+                  name="nombre"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: Vista al mar, Vista a la montaña" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div>
-                <Label htmlFor="id_proyecto">Proyecto</Label>
-                <Select
-                  value={formData.id_proyecto}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, id_proyecto: value }))}
-                >
-                  <SelectTrigger id="id_proyecto">
-                    <SelectValue placeholder="Selecciona un proyecto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {proyectos.map((proyecto) => (
-                      <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                        {proyecto.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <ImageUploadField
-                  label="Imagen de la Vista"
-                  value={formData.url}
-                  onChange={(url) => setFormData(prev => ({ ...prev, url }))}
-                  accept="image/*"
+                <FormField
+                  control={createForm.control}
+                  name="id_proyecto"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Proyecto</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un proyecto" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {proyectos.map((proyecto) => (
+                            <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
+                              {proyecto.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-            </div>
-            <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsCreateDialogOpen(false);
-                    setFormData({ nombre: "", url: "", id_proyecto: "" });
-                  }}
-                  disabled={isSubmitting}
-                >
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateVista} disabled={isSubmitting}>
-                {isSubmitting ? "Creando..." : "Crear Vista"}
-              </Button>
-            </DialogFooter>
+
+                <FormField
+                  control={createForm.control}
+                  name="url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <ImageUploadField
+                        label="Imagen de la Vista"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        accept="image/*"
+                      />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreateDialogOpen(false);
+                      createForm.reset();
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Creando..." : "Crear Vista"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>
@@ -626,61 +635,81 @@ export default function Vistas() {
               Modifica los datos de la vista
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-nombre">Nombre</Label>
-              <Input
-                id="edit-nombre"
-                value={formData.nombre}
-                onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-                placeholder="Ej: Vista al mar, Vista a la montaña"
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditVista)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="nombre"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: Vista al mar, Vista a la montaña" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <div>
-              <Label htmlFor="edit-id_proyecto">Proyecto</Label>
-              <Select
-                value={formData.id_proyecto}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, id_proyecto: value }))}
-              >
-                <SelectTrigger id="edit-id_proyecto">
-                  <SelectValue placeholder="Selecciona un proyecto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {proyectos.map((proyecto) => (
-                    <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                      {proyecto.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <ImageUploadField
-                label="Imagen de la Vista"
-                value={formData.url}
-                onChange={(url) => setFormData(prev => ({ ...prev, url }))}
-                accept="image/*"
+              <FormField
+                control={editForm.control}
+                name="id_proyecto"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Proyecto</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un proyecto" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {proyectos.map((proyecto) => (
+                          <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
+                            {proyecto.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsEditDialogOpen(false);
-                setSelectedVista(null);
-                setFormData({ nombre: "", url: "", id_proyecto: "" });
-              }}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleEditVista} disabled={isSubmitting}>
-              {isSubmitting ? "Guardando..." : "Guardar Cambios"}
-            </Button>
-          </DialogFooter>
+
+              <FormField
+                control={editForm.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <ImageUploadField
+                      label="Imagen de la Vista"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      accept="image/*"
+                    />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setSelectedVista(null);
+                    editForm.reset();
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Guardando..." : "Guardar Cambios"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
