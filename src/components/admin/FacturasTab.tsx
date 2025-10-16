@@ -396,7 +396,7 @@ export function FacturasTab({
       es_verificado: !esDraft,
       propiedad: {
         numero_propiedad: propiedadData.numero_propiedad,
-        metraje_escriturable: propiedadData.m2_escriturables,
+        metraje_escriturable: ((propiedadData.m2_interiores || 0) + (propiedadData.m2_exteriores || 0)),
         direccion: direccionProyecto,
         precio_final: cuentaData.precio_final,
         piso: propiedadData.numero_piso

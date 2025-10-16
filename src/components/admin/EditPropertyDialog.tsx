@@ -19,7 +19,8 @@ interface Property {
   id: number;
   numero_propiedad: string;
   numero_piso: number;
-  m2_reales: number;
+  m2_interiores: number;
+  m2_exteriores: number;
   precio_lista: number;
   clabe_stp_tmp_apartado: string | null;
   activo: boolean;
@@ -52,8 +53,8 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
   const [formData, setFormData] = useState({
     numero_propiedad: property.numero_propiedad,
     numero_piso: property.numero_piso,
-    m2_interiores: property.m2_reales,
-    m2_exteriores: 0,
+    m2_interiores: property.m2_interiores || 0,
+    m2_exteriores: property.m2_exteriores || 0,
     m2_loft: 0,
     precio_lista: property.precio_lista,
     monto_apartado: 0,

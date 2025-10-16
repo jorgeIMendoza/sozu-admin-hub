@@ -89,7 +89,8 @@ export class ReciboPagoService {
           .from('propiedades')
           .select(`
             numero_propiedad,
-            m2_escriturables,
+            m2_interiores,
+            m2_exteriores,
             id_entidad_relacionada_dueno
           `)
           .eq('id', ofertaData.id_propiedad)
@@ -97,7 +98,7 @@ export class ReciboPagoService {
 
         if (propiedadData) {
           unidadInfo.numero = propiedadData.numero_propiedad;
-          unidadInfo.m2 = propiedadData.m2_escriturables;
+          unidadInfo.m2 = (propiedadData.m2_interiores || 0) + (propiedadData.m2_exteriores || 0);
           
           // Get project info
           const { data: entidadData } = await supabase

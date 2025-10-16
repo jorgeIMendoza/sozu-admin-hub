@@ -708,10 +708,10 @@ export function DocumentsTab({
       throw new Error('No se pudo obtener la propiedad de la oferta');
     }
 
-    // 3. Obtener la entidad relacionada dueño y m2_escriturables desde la propiedad
+    // 3. Obtener la entidad relacionada dueño y metros cuadrados desde la propiedad
     const { data: propiedadData, error: propiedadError } = await supabase
       .from('propiedades')
-      .select('id_entidad_relacionada_dueno, m2_escriturables, numero_propiedad')
+      .select('id_entidad_relacionada_dueno, m2_interiores, m2_exteriores, numero_propiedad')
       .eq('id', ofertaData.id_propiedad)
       .single();
 
@@ -797,7 +797,7 @@ export function DocumentsTab({
         id_entidad_administrador: entidadAdmin.id,
         compradores: compradoresPayload,
         costo_mantenimiento_m2: proyectoData?.costo_mantenimiento_m2 || 0,
-        m2_escriturables: propiedadData?.m2_escriturables || 0,
+        m2_escriturables: ((propiedadData?.m2_interiores || 0) + (propiedadData?.m2_exteriores || 0)),
         id_propiedad: ofertaData.id_propiedad,
         numero_propiedad: propiedadData?.numero_propiedad || ''
       }),

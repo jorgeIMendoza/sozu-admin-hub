@@ -102,7 +102,8 @@ export default function DetalleCuentaMantenimiento() {
               propiedades!ofertas_id_propiedad_fkey(
                 id,
                 numero_propiedad,
-                m2_escriturables,
+                m2_interiores,
+                m2_exteriores,
                 id_entidad_relacionada_dueno,
                 id_edificio_modelo
               )
@@ -208,7 +209,7 @@ export default function DetalleCuentaMantenimiento() {
         clabe_stp: cuenta.clabe_stp,
         monto_mensual_cuota_extraordinaria: porcentajeAnual,
         proyecto_nombre: proyectoNombre,
-        m2_escriturables: oferta?.propiedades?.m2_escriturables || null
+        m2_escriturables: ((oferta?.propiedades?.m2_interiores || 0) + (oferta?.propiedades?.m2_exteriores || 0)) || null
       };
 
       return detalle;

@@ -278,7 +278,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           id,
           numero_propiedad,
           numero_piso,
-          m2_reales,
+          m2_interiores,
+          m2_exteriores,
           precio_lista,
           descripcion,
           id_entidad_relacionada_dueno,
@@ -1906,7 +1907,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       </div>
                       <div>
                         <Label>Metros Cuadrados</Label>
-                        <Input value={`${propiedadDetalle.m2_reales || 0} m²`} readOnly />
+                        <Input value={`${((propiedadDetalle.m2_interiores || 0) + (propiedadDetalle.m2_exteriores || 0)).toFixed(2)} m²`} readOnly />
                       </div>
                       <div>
                         <Label>Precio de Lista</Label>
@@ -2757,7 +2758,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             id_documento: idDocumento,
                             propiedad: propiedadDetalle ? {
                               numero_propiedad: propiedadDetalle.numero_propiedad,
-                              metraje_escriturable: propiedadDetalle.m2_reales,
+                              metraje_escriturable: (propiedadDetalle.m2_interiores || 0) + (propiedadDetalle.m2_exteriores || 0),
                               direccion: direccionProyecto,
                               precio_final: cuentaDetalle?.precio_final,
                               piso: propiedadDetalle.numero_piso
@@ -2962,7 +2963,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       id_documento: idDocumento,
                       propiedad: propiedadDetalle ? {
                         numero_propiedad: propiedadDetalle.numero_propiedad,
-                        metraje_escriturable: propiedadDetalle.m2_reales,
+                        metraje_escriturable: (propiedadDetalle.m2_interiores || 0) + (propiedadDetalle.m2_exteriores || 0),
                         direccion: direccionProyecto,
                         precio_final: cuentaDetalle?.precio_final,
                         piso: propiedadDetalle.numero_piso
@@ -3723,7 +3724,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   id_cuenta_cobranza: cuentaDetalle?.id,
                   propiedad: propiedadDetalle ? {
                     numero_propiedad: propiedadDetalle.numero_propiedad,
-                    metraje_escriturable: propiedadDetalle.m2_reales,
+                    metraje_escriturable: (propiedadDetalle.m2_interiores || 0) + (propiedadDetalle.m2_exteriores || 0),
                     direccion: direccionProyecto,
                     precio_final: cuentaDetalle?.precio_final,
                     piso: propiedadDetalle.numero_piso
