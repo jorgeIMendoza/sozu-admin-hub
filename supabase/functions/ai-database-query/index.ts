@@ -72,6 +72,7 @@ Ejemplo vendidas: SELECT numero_propiedad FROM propiedades WHERE id_estatus_disp
 
 4️⃣ VENTAS Y COBRANZA (TABLAS CRÍTICAS)
 📌 ofertas: id, id_propiedad, id_producto, id_persona_lead, id_esquema_pago_seleccionado, email_creador, fecha_generacion, activo
+   ⚠️ RELACIÓN CLAVE: Conecta propiedades con cuentas de cobranza mediante id_propiedad
 
 📌 cuentas_cobranza: id, id_oferta, precio_final, fecha_compra, clabe_stp, id_notario, es_aprobado, activo
    ⚠️ IMPORTANTE: NO tiene id_estatus_disponibilidad (eso es de propiedades)
@@ -84,6 +85,9 @@ Ejemplo vendidas: SELECT numero_propiedad FROM propiedades WHERE id_estatus_disp
 
 📌 aplicaciones_pago: id, id_pago, id_acuerdo_pago, monto, es_multa, activo
    ⚠️ Para calcular total pagado: SUM(monto) WHERE es_multa = false
+
+🔗 RELACIÓN COMPLETA PROPIEDADES → PAGOS:
+propiedades → ofertas (id_propiedad) → cuentas_cobranza (id_oferta) → acuerdos_pago (id_cuenta_cobranza) → aplicaciones_pago (id_acuerdo_pago)
 
 5️⃣ PERSONAS
 - personas: id, nombre_legal, email, telefono, tipo_persona, rfc, curp, id_conyuge, id_estado_civil, activo
@@ -125,10 +129,28 @@ JOIN propiedades p ON em.id = p.id_edificio_modelo
 WHERE p.id_estatus_disponibilidad = 5 AND p.activo = true
 GROUP BY pr.nombre
 
+✅ Propiedades VENDIDAS con montos pagados:
+SELECT 
+  p.numero_propiedad,
+  p.precio_lista,
+  cc.precio_final,
+  COALESCE(SUM(ap.monto), 0) as monto_pagado,
+  cc.precio_final - COALESCE(SUM(ap.monto), 0) as monto_pendiente
+FROM propiedades p
+INNER JOIN ofertas o ON p.id = o.id_propiedad AND o.activo = true
+INNER JOIN cuentas_cobranza cc ON o.id = cc.id_oferta AND cc.activo = true
+LEFT JOIN acuerdos_pago acp ON cc.id = acp.id_cuenta_cobranza AND acp.activo = true
+LEFT JOIN aplicaciones_pago ap ON acp.id = ap.id_acuerdo_pago AND ap.activo = true AND ap.es_multa = false
+WHERE p.id_estatus_disponibilidad = 5 AND p.activo = true
+GROUP BY p.id, p.numero_propiedad, p.precio_lista, cc.precio_final
+ORDER BY monto_pagado DESC
+LIMIT 5
+
 ⚠️ ERRORES COMUNES A EVITAR:
 ❌ NO uses id_estatus_disponibilidad en cuentas_cobranza (no existe)
 ❌ NO uses pago_completado en cuentas_cobranza (está en acuerdos_pago)
 ❌ Para saber si está pagado, compara precio_final con SUM(aplicaciones_pago.monto)
+❌ Para relacionar propiedades con pagos, SIEMPRE usa: propiedades → ofertas → cuentas_cobranza → acuerdos_pago → aplicaciones_pago
 
 INSTRUCCIONES:
 1. Analiza la pregunta del usuario
