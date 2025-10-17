@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { question } = await req.json();
+    const { question, preferredChartType } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -44,7 +44,7 @@ FORMATO DE RESPUESTA:
 Responde SOLO con un objeto JSON válido (sin markdown, sin backticks):
 {
   "explanation": "Explicación clara y concisa en español, SIN incluir números técnicos ni JSON. Usa lenguaje natural y amigable.",
-  "chartType": "pie" (para comparaciones de 2-4 items) | "bar" (para series de datos) | "line" (para tendencias temporales) | null,
+  "chartType": "${preferredChartType || '"pie" (para comparaciones de 2-4 items) | "bar" (para series de datos) | "line" (para tendencias temporales) | "area" (para áreas de tendencia)'}" ${preferredChartType ? '(USAR ESTE TIPO OBLIGATORIAMENTE si hay datos para graficar)' : '| null'},
   "chartData": [{ "name": "Etiqueta descriptiva", "value": 123.45 }] o null,
   "summary": {
     "totalPagado": número o null,
@@ -378,7 +378,8 @@ Sé claro, preciso y útil. Si necesitas más de una función, llámalas todas.`
             if (summary.totalPendiente !== undefined && summary.totalPendiente > 0) {
               autoChartData.push({ name: "Pendiente", value: summary.totalPendiente });
             }
-            autoChartType = autoChartData.length > 0 ? "bar" : null;
+            // Use preferred chart type if specified, otherwise default to bar
+            autoChartType = autoChartData.length > 0 ? (preferredChartType || "bar") : null;
           }
         }
 

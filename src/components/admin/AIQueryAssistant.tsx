@@ -37,6 +37,7 @@ export function AIQueryAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<AIQueryResponse | null>(null);
   const [showRawData, setShowRawData] = useState(false);
+  const [chartType, setChartType] = useState<"auto" | "pie" | "bar" | "line" | "area">("auto");
   const { toast } = useToast();
 
   const handleSubmit = async () => {
@@ -54,7 +55,10 @@ export function AIQueryAssistant() {
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-database-query', {
-        body: { question: question.trim() }
+        body: { 
+          question: question.trim(),
+          preferredChartType: chartType === "auto" ? null : chartType
+        }
       });
 
       if (error) throw error;
@@ -268,6 +272,29 @@ export function AIQueryAssistant() {
                   className="text-xs"
                 >
                   {q}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Tipo de gráfico</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "auto", label: "Automático" },
+                { value: "pie", label: "Pastel" },
+                { value: "bar", label: "Barras" },
+                { value: "line", label: "Línea" },
+                { value: "area", label: "Área" },
+              ].map((option) => (
+                <Button
+                  key={option.value}
+                  variant={chartType === option.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setChartType(option.value as any)}
+                  className="text-xs"
+                >
+                  {option.label}
                 </Button>
               ))}
             </div>
