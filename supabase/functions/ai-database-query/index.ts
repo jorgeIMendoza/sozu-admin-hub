@@ -89,7 +89,7 @@ Sé claro, preciso y útil. Si necesitas más de una función, llámalas todas.`
           // Get all payments applied
           const { data: aplicaciones, error: aplicacionesError } = await supabase
             .from('aplicaciones_pago')
-            .select('monto, id_acuerdo_pago, acuerdos_pago!inner(id_cuenta_cobranza)')
+            .select('monto, id_acuerdo_pago, acuerdos_pago!fk_apppago_acuerdo!inner(id_cuenta_cobranza)')
             .eq('activo', true)
             .eq('es_multa', false);
           
@@ -161,7 +161,7 @@ Sé claro, preciso y útil. Si necesitas más de una función, llámalas todas.`
 
           const { data: aplicaciones, error: aplicacionesError } = await supabase
             .from('aplicaciones_pago')
-            .select('monto, id_acuerdo_pago, acuerdos_pago!inner(id_cuenta_cobranza)')
+            .select('monto, id_acuerdo_pago, acuerdos_pago!fk_apppago_acuerdo!inner(id_cuenta_cobranza)')
             .eq('activo', true)
             .eq('es_multa', false);
           
