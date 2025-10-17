@@ -634,6 +634,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
                         </Badge>
                       </div>
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => toggleStatusMutation.mutate({ 
