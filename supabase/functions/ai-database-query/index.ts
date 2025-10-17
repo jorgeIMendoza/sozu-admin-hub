@@ -180,7 +180,7 @@ Sé claro, preciso y útil. Si necesitas más de una función, llámalas todas.`
               precio_final,
               ofertas!fk_ccob_oferta!inner(
                 id,
-                propiedades(numero_propiedad)
+                propiedades!fk_ofertas_propiedad(numero_propiedad)
               )
             `)
             .eq('activo', true)
