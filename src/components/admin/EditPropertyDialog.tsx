@@ -130,7 +130,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         .from('propiedades')
         .select(`
           id,
-          edificios_modelos!id_edificio_modelo (
+          edificios_modelos!fk_propiedades_edificio_modelo (
             edificios!edificios_modelos_id_edificio_fkey (
               proyectos!fk_edificios_proyecto (
                 id,
@@ -220,27 +220,10 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     enabled: !!propertyProject?.nombre
   });
 
-  // Fetch current property details using the same function as the listing
+  // Fetch current property details
   useEffect(() => {
     const fetchPropertyDetails = async () => {
-      // Use the same function as the properties listing to get CLABE STP
-      const { data: propertiesData, error: propertiesError } = await supabase
-        .rpc('get_properties_with_details');
-      
-      if (propertiesError) {
-        console.error('Error fetching properties with details:', propertiesError);
-        return;
-      }
-
-      // Find the current property in the results
-      const currentProperty = propertiesData?.find((p: any) => p.id === property.id);
-      
-      if (!currentProperty) {
-        console.error('Property not found in get_properties_with_details');
-        return;
-      }
-
-      // Also get the full property data for form fields not in the function
+      // Get the full property data
       const { data: fullPropertyData, error: fullPropertyError } = await supabase
         .from('propiedades')
         .select('*')
@@ -252,44 +235,44 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         return;
       }
 
-      // Check if there's a cuenta_cobranza de PROPIEDAD associated
-      let clabeStp = currentProperty.clabe_stp || '';
+      // Check CLABE STP - first check if there's clabe_stp_tmp_apartado
+      let clabeStp = fullPropertyData?.clabe_stp_tmp_apartado || '';
 
-      // Get all active cuentas_cobranza with CLABE for this property
-      const { data: cuentasCobranza } = await supabase
-        .from('cuentas_cobranza')
-        .select(`
-          clabe_stp,
-          id_oferta,
-          ofertas!fk_cuentas_cobranza_oferta (
-            id,
-            id_propiedad,
-            id_producto,
-            activo
-          )
-        `)
-        .eq('activo', true)
-        .not('clabe_stp', 'is', null);
+      // If not, check if there's a cuenta_cobranza with CLABE
+      if (!clabeStp) {
+        const { data: cuentasCobranza } = await supabase
+          .from('cuentas_cobranza')
+          .select(`
+            clabe_stp,
+            ofertas!fk_cuentas_cobranza_oferta (
+              id_propiedad,
+              id_producto,
+              activo
+            )
+          `)
+          .eq('activo', true)
+          .not('clabe_stp', 'is', null);
 
-      // Filter for this property's offers (client-side filtering to avoid JOIN issues)
-      if (cuentasCobranza && cuentasCobranza.length > 0) {
-        const cuentaPropiedad = cuentasCobranza.find(cc => 
-          cc.ofertas?.id_propiedad === property.id && 
-          cc.ofertas?.activo === true &&
-          cc.ofertas?.id_producto === null
-        );
-        
-        if (cuentaPropiedad?.clabe_stp) {
-          clabeStp = cuentaPropiedad.clabe_stp;
+        // Filter for this property's offers
+        if (cuentasCobranza && cuentasCobranza.length > 0) {
+          const cuentaPropiedad = cuentasCobranza.find(cc => 
+            cc.ofertas?.id_propiedad === property.id && 
+            cc.ofertas?.activo === true &&
+            cc.ofertas?.id_producto === null
+          );
+          
+          if (cuentaPropiedad?.clabe_stp) {
+            clabeStp = cuentaPropiedad.clabe_stp;
+          }
         }
       }
 
       setFormData({
         numero_propiedad: fullPropertyData.numero_propiedad,
         numero_piso: fullPropertyData.numero_piso || 0,
-        m2_interiores: (fullPropertyData as any).m2_interiores || 0,
-        m2_exteriores: (fullPropertyData as any).m2_exteriores || 0,
-        m2_loft: (fullPropertyData as any).m2_loft || 0,
+        m2_interiores: fullPropertyData.m2_interiores || 0,
+        m2_exteriores: fullPropertyData.m2_exteriores || 0,
+        m2_loft: fullPropertyData.m2_loft || 0,
         precio_lista: fullPropertyData.precio_lista || 0,
         monto_apartado: fullPropertyData.monto_apartado || 0,
         clabe_stp_tmp_apartado: clabeStp,
