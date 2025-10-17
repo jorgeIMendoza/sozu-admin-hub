@@ -134,8 +134,7 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     
     if (selectedFiles.length === 0 && !newMultimedia.url) {
       toast({ title: "Por favor selecciona archivos o proporciona una URL", variant: "destructive" });
@@ -227,7 +226,7 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
             <CardTitle>Nuevo Multimedia</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="tipo">Tipo de Multimedia</Label>
                 <Select
@@ -380,8 +379,12 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
               )}
 
               <div className="flex gap-2">
-                <Button type="submit" disabled={addMutation.isPending || uploading}>
-                  {addMutation.isPending ? "Guardando..." : "Guardar"}
+                <Button 
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={addMutation.isPending || uploading}
+                >
+                  {addMutation.isPending || uploading ? "Guardando..." : "Guardar"}
                 </Button>
                 <Button 
                   type="button" 
@@ -395,7 +398,7 @@ export function ModelMultimediaSection({ modelId }: ModelMultimediaSectionProps)
                   Cancelar
                 </Button>
               </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
       )}

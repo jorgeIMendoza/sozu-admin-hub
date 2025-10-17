@@ -173,8 +173,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     
     if (selectedFiles.length === 0 && !newMultimedia.url) {
       toast({ title: "Por favor selecciona archivos o proporciona una URL", variant: "destructive" });
@@ -237,8 +236,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
     }
   };
 
-  const handleYoutubeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleYoutubeSubmit = () => {
     if (!youtubeForm.nombre.trim() || !youtubeForm.link.trim()) {
       toast({ title: "Debes completar todos los campos", variant: "destructive" });
       return;
@@ -286,7 +284,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
                 <CardTitle>Multimedia del Proyecto</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <Label htmlFor="tipo">Tipo de Multimedia</Label>
                     <Select
@@ -407,8 +405,12 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
                   )}
 
                   <div className="flex gap-2">
-                    <Button type="submit" disabled={addMutation.isPending || uploading}>
-                      {addMutation.isPending ? "Guardando..." : "Guardar"}
+                    <Button 
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={addMutation.isPending || uploading}
+                    >
+                      {addMutation.isPending || uploading ? "Guardando..." : "Guardar"}
                     </Button>
                     <Button 
                       type="button" 
@@ -421,7 +423,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
                       Cancelar
                     </Button>
                   </div>
-                </form>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -524,7 +526,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
                 <CardTitle>Agregar Video de YouTube</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleYoutubeSubmit} className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <Label htmlFor="titulo">Título</Label>
                     <Input
@@ -548,7 +550,11 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" disabled={addYoutubeMutation.isPending}>
+                    <Button 
+                      type="button"
+                      onClick={handleYoutubeSubmit}
+                      disabled={addYoutubeMutation.isPending}
+                    >
                       {addYoutubeMutation.isPending ? 'Agregando...' : 'Agregar Video'}
                     </Button>
                     <Button 
@@ -559,7 +565,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
                       Cancelar
                     </Button>
                   </div>
-                </form>
+                </div>
               </CardContent>
             </Card>
           )}

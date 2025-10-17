@@ -246,8 +246,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
     }
   };
 
-  const handleYoutubeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleYoutubeSubmit = () => {
     if (!youtubeForm.nombre.trim() || !youtubeForm.link.trim()) {
       toast({ title: "Debes completar todos los campos", variant: "destructive" });
       return;
@@ -467,7 +466,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
           {isAddingYoutube && (
             <Card>
               <CardContent className="pt-4">
-                <form onSubmit={handleYoutubeSubmit} className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <Label htmlFor="youtube-name">Nombre del Video</Label>
                     <Input
@@ -489,7 +488,11 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
                   </div>
                   
                   <div className="flex gap-2">
-                    <Button type="submit" disabled={addYoutubeMutation.isPending}>
+                    <Button 
+                      type="button"
+                      onClick={handleYoutubeSubmit}
+                      disabled={addYoutubeMutation.isPending}
+                    >
                       {addYoutubeMutation.isPending ? "Guardando..." : "Guardar"}
                     </Button>
                     <Button 
@@ -500,7 +503,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
                       Cancelar
                     </Button>
                   </div>
-                </form>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -560,7 +563,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
                 <CardTitle>Nuevo Multimedia</CardTitle>
               </CardHeader>
               <CardContent>
-                <form className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <Label htmlFor="tipo">Tipo de Multimedia</Label>
                     <Select
@@ -700,7 +703,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
                   
                   <div className="flex gap-2">
                     <Button 
-                      type="button" 
+                      type="button"
                       onClick={handleVistaSubmit}
                       disabled={addVistaMutation.isPending || uploading}
                     >
@@ -718,7 +721,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
                       Cancelar
                     </Button>
                   </div>
-                </form>
+                </div>
               </CardContent>
             </Card>
           )}
