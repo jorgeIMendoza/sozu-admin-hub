@@ -52,7 +52,7 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Pregunta a CasIA",
+    title: "Pregunta a Aloris-IA",
     href: "/admin/consultas-ia",
     icon: Bot,
   },
