@@ -36,7 +36,6 @@ const formSchema = z.object({
   numero_recamaras: z.number().optional(),
   numero_completo_banos: z.number().optional(),
   numero_medio_bano: z.number().optional(),
-  habilitar_asignar: z.boolean().default(false),
   id_proyecto: z.string().min(1, "El proyecto es requerido"),
 });
 
@@ -52,7 +51,6 @@ interface Modelo {
   numero_recamaras?: number;
   numero_completo_banos?: number;
   numero_medio_bano?: number;
-  habilitar_asignar?: boolean;
   id_proyecto?: number | null;
 }
 
@@ -75,7 +73,6 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
       numero_recamaras: modelo.numero_recamaras || undefined,
       numero_completo_banos: modelo.numero_completo_banos || undefined,
       numero_medio_bano: modelo.numero_medio_bano || undefined,
-      habilitar_asignar: modelo.habilitar_asignar || false,
       id_proyecto: modelo.id_proyecto?.toString() || "",
     },
   });
@@ -94,7 +91,6 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
         numero_recamaras: values.numero_recamaras || null,
         numero_completo_banos: values.numero_completo_banos || null,
         numero_medio_bano: values.numero_medio_bano || null,
-        habilitar_asignar: values.habilitar_asignar,
         id_proyecto: parseInt(values.id_proyecto),
       };
 
@@ -284,29 +280,6 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
             <ModelCharacteristicsSection
               modelId={modelo.id}
               onCharacteristicsChange={setSelectedCharacteristicIds}
-            />
-
-            <FormField
-              control={form.control}
-              name="habilitar_asignar"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      Habilitar para asignar
-                    </FormLabel>
-                    <p className="text-[0.8rem] text-muted-foreground">
-                      Permitir que este modelo se pueda asignar a edificios
-                    </p>
-                  </div>
-                </FormItem>
-              )}
             />
 
             <DialogFooter>

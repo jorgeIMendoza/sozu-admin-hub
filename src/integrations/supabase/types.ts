@@ -1859,7 +1859,6 @@ export type Database = {
           descripcion: string | null
           fecha_actualizacion: string | null
           fecha_creacion: string | null
-          habilitar_asignar: boolean | null
           id: number
           id_proyecto: number | null
           nombre: string
@@ -1872,7 +1871,6 @@ export type Database = {
           descripcion?: string | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
-          habilitar_asignar?: boolean | null
           id?: number
           id_proyecto?: number | null
           nombre: string
@@ -1885,7 +1883,6 @@ export type Database = {
           descripcion?: string | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
-          habilitar_asignar?: boolean | null
           id?: number
           id_proyecto?: number | null
           nombre?: string

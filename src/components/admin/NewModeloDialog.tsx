@@ -21,7 +21,6 @@ const formSchema = z.object({
   numero_recamaras: z.string().optional(),
   numero_completo_banos: z.string().optional(),
   numero_medio_bano: z.string().optional(),
-  habilitar_asignar: z.boolean().default(false),
 });
 
 interface Proyecto {
@@ -48,7 +47,6 @@ export const NewModeloDialog = ({ onModeloAdded, proyectos }: NewModeloDialogPro
       numero_recamaras: "",
       numero_completo_banos: "",
       numero_medio_bano: "",
-      habilitar_asignar: false,
     },
   });
 
@@ -72,7 +70,6 @@ export const NewModeloDialog = ({ onModeloAdded, proyectos }: NewModeloDialogPro
         numero_recamaras: values.numero_recamaras ? parseInt(values.numero_recamaras) : null,
         numero_completo_banos: values.numero_completo_banos ? parseInt(values.numero_completo_banos) : null,
         numero_medio_bano: values.numero_medio_bano ? parseInt(values.numero_medio_bano) : null,
-        habilitar_asignar: values.habilitar_asignar,
       };
 
       const { data: newModelo, error } = await supabase
@@ -236,29 +233,6 @@ export const NewModeloDialog = ({ onModeloAdded, proyectos }: NewModeloDialogPro
             <ModelCharacteristicsSection
               selectedCharacteristicIds={selectedCharacteristicIds}
               onCharacteristicsChange={setSelectedCharacteristicIds}
-            />
-
-            <FormField
-              control={form.control}
-              name="habilitar_asignar"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      Habilitar para asignar
-                    </FormLabel>
-                    <p className="text-[0.8rem] text-muted-foreground">
-                      Permitir que este modelo se pueda asignar a edificios
-                    </p>
-                  </div>
-                </FormItem>
-              )}
             />
 
             <div className="flex justify-end space-x-2">

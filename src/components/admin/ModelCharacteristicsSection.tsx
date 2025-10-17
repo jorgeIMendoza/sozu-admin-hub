@@ -71,8 +71,7 @@ export function ModelCharacteristicsSection({
       const { data, error } = await supabase
         .from('caracteristicas')
         .insert([{
-          nombre: name,
-          habilitar_asignar: false
+          nombre: name
         }])
         .select()
         .single();
