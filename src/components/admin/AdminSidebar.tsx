@@ -35,7 +35,8 @@ import {
   Shield,
   Wrench,
   KeyRound,
-  ScrollText
+  ScrollText,
+  Bot
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -117,6 +118,11 @@ const navigationItems = [
     children: [
       { title: "Revision de documentacion", href: "/admin/notarios/revision-documentacion", icon: FileText },
     ]
+  },
+  {
+    title: "Consultas IA",
+    href: "/admin/consultas-ia",
+    icon: Bot,
   },
 ];
 

@@ -1,1 +1,4 @@
 project_id = "tzmhgfjmddkfyffkkmto"
+
+[functions.ai-database-query]
+verify_jwt = false

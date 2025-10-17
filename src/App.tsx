@@ -43,6 +43,7 @@ const CategoriasProductos = lazy(() => import("./pages/admin/CategoriasProductos
 const CuentasMantenimiento = lazy(() => import("./pages/admin/CuentasMantenimiento"));
 const ComingSoon = lazy(() => import("./pages/admin/ComingSoon"));
 const RevisionDocumentacion = lazy(() => import("./pages/admin/RevisionDocumentacion"));
+const ConsultasIA = lazy(() => import("./pages/admin/ConsultasIA"));
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,7 @@ const App = () => (
             <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
             <Route path="documentos" element={<ComingSoon title="Documentos" />} />
             <Route path="notarios/revision-documentacion" element={<RevisionDocumentacion />} />
+            <Route path="consultas-ia" element={<ConsultasIA />} />
           </Route>
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
