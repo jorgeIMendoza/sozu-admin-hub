@@ -134,6 +134,25 @@ export default function Vistas() {
     try {
       setIsSubmitting(true);
 
+      // Validar que no exista una vista con el mismo nombre en el mismo proyecto
+      const { data: existingVista } = await supabase
+        .from('vistas')
+        .select('id')
+        .eq('nombre', values.nombre.trim())
+        .eq('id_proyecto', parseInt(values.id_proyecto))
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (existingVista) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Ya existe una vista con este nombre en el proyecto seleccionado",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('vistas')
         .insert([{
@@ -171,6 +190,26 @@ export default function Vistas() {
 
     try {
       setIsSubmitting(true);
+
+      // Validar que no exista otra vista con el mismo nombre en el mismo proyecto
+      const { data: existingVista } = await supabase
+        .from('vistas')
+        .select('id')
+        .eq('nombre', values.nombre.trim())
+        .eq('id_proyecto', parseInt(values.id_proyecto))
+        .eq('activo', true)
+        .neq('id', selectedVista.id) // Excluir la vista actual
+        .maybeSingle();
+
+      if (existingVista) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Ya existe una vista con este nombre en el proyecto seleccionado",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       const updateData: any = {
         nombre: values.nombre.trim(),
@@ -547,8 +586,6 @@ export default function Vistas() {
                                      <TableRow>
                                        <TableHead>Nombre</TableHead>
                                        <TableHead>Imagen</TableHead>
-                                       <TableHead>Estado</TableHead>
-                                       <TableHead>Fecha Creación</TableHead>
                                        <TableHead className="text-right">Acciones</TableHead>
                                      </TableRow>
                                    </TableHeader>
@@ -569,14 +606,6 @@ export default function Vistas() {
                                           ) : (
                                             <span className="text-muted-foreground text-sm">Sin imagen</span>
                                           )}
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge variant={vista.activo ? "default" : "secondary"}>
-                                            {vista.activo ? "Activo" : "Inactivo"}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                          {new Date(vista.fecha_creacion).toLocaleDateString()}
                                         </TableCell>
                                         <TableCell className="text-right">
                                           <div className="flex items-center justify-end space-x-2">
