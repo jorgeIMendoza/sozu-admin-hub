@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface PropertyCharacteristicsSectionProps {
@@ -20,6 +20,9 @@ export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacter
   const [isAddingCharacteristic, setIsAddingCharacteristic] = useState(false);
   const [newCharacteristicName, setNewCharacteristicName] = useState("");
   const [newCharacteristicVerEnOferta, setNewCharacteristicVerEnOferta] = useState(true);
+  const [editingCharacteristicId, setEditingCharacteristicId] = useState<number | null>(null);
+  const [editCharacteristicName, setEditCharacteristicName] = useState("");
+  const [editCharacteristicVerEnOferta, setEditCharacteristicVerEnOferta] = useState(true);
   const [selectedCharacteristics, setSelectedCharacteristics] = useState<string[]>([]);
 
   // Fetch available characteristics (only enabled ones)
@@ -83,6 +86,34 @@ export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacter
     },
     onError: () => {
       toast({ title: "Error al agregar característica", variant: "destructive" });
+    }
+  });
+
+  // Mutation to update characteristic
+  const updateCharacteristicMutation = useMutation({
+    mutationFn: async (data: { id: number; nombre: string; ver_en_oferta: boolean }) => {
+      const { data: result, error } = await supabase
+        .from('caracteristicas')
+        .update({
+          nombre: data.nombre,
+          ver_en_oferta: data.ver_en_oferta,
+        })
+        .eq('id', data.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['availableCharacteristics'] });
+      setEditingCharacteristicId(null);
+      setEditCharacteristicName("");
+      setEditCharacteristicVerEnOferta(true);
+      toast({ title: "Característica actualizada exitosamente" });
+    },
+    onError: () => {
+      toast({ title: "Error al actualizar característica", variant: "destructive" });
     }
   });
 
@@ -168,6 +199,33 @@ export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacter
     });
   };
 
+  const handleEditCharacteristic = (characteristic: any) => {
+    setEditingCharacteristicId(characteristic.id);
+    setEditCharacteristicName(characteristic.nombre);
+    setEditCharacteristicVerEnOferta(characteristic.ver_en_oferta ?? true);
+  };
+
+  const handleUpdateCharacteristic = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editCharacteristicName.trim()) {
+      toast({ title: "Por favor ingresa un nombre para la característica", variant: "destructive" });
+      return;
+    }
+    if (editingCharacteristicId) {
+      updateCharacteristicMutation.mutate({
+        id: editingCharacteristicId,
+        nombre: editCharacteristicName.trim(),
+        ver_en_oferta: editCharacteristicVerEnOferta
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCharacteristicId(null);
+    setEditCharacteristicName("");
+    setEditCharacteristicVerEnOferta(true);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -245,22 +303,75 @@ export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacter
         ) : (
           <div className="grid grid-cols-2 gap-4">
             {availableCharacteristics.map((characteristic) => (
-              <div key={characteristic.id} className="flex items-center space-x-2 p-3 border rounded-md hover:bg-muted/50 transition-colors">
-                <Checkbox
-                  id={`characteristic-${characteristic.id}`}
-                  checked={selectedCharacteristics.includes(characteristic.id.toString())}
-                  onCheckedChange={(checked) => 
-                    handleCharacteristicToggle(characteristic.id.toString(), checked as boolean)
-                  }
-                  disabled={updateCharacteristicsMutation.isPending}
-                />
-                <Label 
-                  htmlFor={`characteristic-${characteristic.id}`}
-                  className="text-sm font-normal cursor-pointer flex-1"
-                >
-                  {characteristic.nombre}
-                </Label>
-              </div>
+              editingCharacteristicId === characteristic.id ? (
+                <Card key={characteristic.id} className="col-span-2 border-2 border-primary/20">
+                  <CardContent className="pt-4">
+                    <form onSubmit={handleUpdateCharacteristic} className="space-y-3">
+                      <div>
+                        <Label htmlFor="edit-characteristic-name">Nombre de la Característica</Label>
+                        <Input
+                          id="edit-characteristic-name"
+                          type="text"
+                          value={editCharacteristicName}
+                          onChange={(e) => setEditCharacteristicName(e.target.value)}
+                          placeholder="Ej. Balcón, Terraza, etc."
+                        />
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="edit-ver-en-oferta-prop"
+                          checked={editCharacteristicVerEnOferta}
+                          onCheckedChange={(checked) => setEditCharacteristicVerEnOferta(checked as boolean)}
+                        />
+                        <Label htmlFor="edit-ver-en-oferta-prop" className="text-sm font-normal cursor-pointer">
+                          Ver en oferta
+                        </Label>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Button type="submit" size="sm" disabled={updateCharacteristicMutation.isPending}>
+                          {updateCharacteristicMutation.isPending ? "Guardando..." : "Guardar"}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleCancelEdit}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div key={characteristic.id} className="flex items-center space-x-2 p-3 border rounded-md hover:bg-muted/50 transition-colors group">
+                  <Checkbox
+                    id={`characteristic-${characteristic.id}`}
+                    checked={selectedCharacteristics.includes(characteristic.id.toString())}
+                    onCheckedChange={(checked) => 
+                      handleCharacteristicToggle(characteristic.id.toString(), checked as boolean)
+                    }
+                    disabled={updateCharacteristicsMutation.isPending}
+                  />
+                  <Label 
+                    htmlFor={`characteristic-${characteristic.id}`}
+                    className="text-sm font-normal cursor-pointer flex-1"
+                  >
+                    {characteristic.nombre}
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleEditCharacteristic(characteristic)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )
             ))}
           </div>
         )}
