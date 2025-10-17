@@ -178,7 +178,7 @@ Sé claro, preciso y útil. Si necesitas más de una función, llámalas todas.`
             .select(`
               id, 
               precio_final,
-              ofertas!inner(
+              ofertas!fk_ccob_oferta!inner(
                 id,
                 propiedades(numero_propiedad)
               )
