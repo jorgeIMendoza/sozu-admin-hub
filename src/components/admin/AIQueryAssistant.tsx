@@ -23,7 +23,16 @@ interface AIQueryResponse {
   };
 }
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
+const COLORS = [
+  'hsl(142, 76%, 36%)',  // Verde
+  'hsl(221, 83%, 53%)',  // Azul
+  'hsl(262, 83%, 58%)',  // Morado
+  'hsl(346, 77%, 50%)',  // Rosa/Rojo
+  'hsl(48, 96%, 53%)',   // Amarillo
+  'hsl(24, 95%, 53%)',   // Naranja
+  'hsl(199, 89%, 48%)',  // Cyan
+  'hsl(339, 82%, 52%)',  // Magenta
+];
 
 const EXAMPLE_QUESTIONS = [
   "¿Cuánto me pagaron este mes y cuánto me deben?",
