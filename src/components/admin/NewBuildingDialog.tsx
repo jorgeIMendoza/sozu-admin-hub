@@ -45,7 +45,6 @@ export const NewBuildingDialog = ({ projectId, onBuildingAdded }: NewBuildingDia
         .from("modelos")
         .select("*")
         .eq("activo", true)
-        .eq("habilitar_asignar", true)
         .order("nombre");
       
       if (error) throw error;
