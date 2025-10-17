@@ -195,8 +195,9 @@ Sé claro, preciso y útil. Si necesitas más de una función, llámalas todas.`
         }
       }
       
-      // No semicolons (prevents multiple statements)
-      if (sql.includes(';')) {
+      // Allow trailing semicolon but not multiple statements
+      const withoutTrailingSemicolon = cleanSQL.replace(/;\s*$/, '');
+      if (withoutTrailingSemicolon.includes(';')) {
         return { valid: false, error: 'No se permiten múltiples consultas' };
       }
       
