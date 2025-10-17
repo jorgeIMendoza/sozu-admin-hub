@@ -134,6 +134,56 @@ export function AIQueryAssistant() {
     return `$${value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const translateLabel = (key: string): string => {
+    const translations: Record<string, string> = {
+      'mes': 'Mes',
+      'total': 'Total',
+      'count': 'Conteo',
+      'name': 'Nombre',
+      'value': 'Valor',
+      'monto': 'Monto',
+      'fecha_pago': 'Fecha de Pago',
+      'id_cuenta_cobranza': 'ID Cuenta Cobranza'
+    };
+    
+    const lowerKey = key.toLowerCase();
+    return translations[lowerKey] || key.replace(/_/g, ' ');
+  };
+
+  const formatDateString = (value: string): string => {
+    // Check if value is in format YYYY-MM
+    if (/^\d{4}-\d{2}$/.test(value)) {
+      const [year, month] = value.split('-');
+      const monthNames = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      ];
+      const monthIndex = parseInt(month) - 1;
+      return `${monthNames[monthIndex]} ${year}`;
+    }
+    return value;
+  };
+
+  const formatCellValue = (value: any, key: string): string => {
+    if (value === null || value === undefined) return '-';
+    
+    // Format numbers
+    if (typeof value === 'number') {
+      // If it looks like a monetary amount (has decimals or is large)
+      if (value % 1 !== 0 || value > 1000) {
+        return value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      return value.toLocaleString('es-MX');
+    }
+    
+    // Format date strings
+    if (typeof value === 'string' && key.toLowerCase() === 'mes') {
+      return formatDateString(value);
+    }
+    
+    return String(value);
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -469,7 +519,7 @@ export function AIQueryAssistant() {
                                 <TableRow>
                                   {Object.keys(response.rawData[0]).map((key) => (
                                     <TableHead key={key} className="capitalize">
-                                      {key.replace(/_/g, ' ')}
+                                      {translateLabel(key)}
                                     </TableHead>
                                   ))}
                                 </TableRow>
@@ -477,13 +527,9 @@ export function AIQueryAssistant() {
                               <TableBody>
                                 {response.rawData.slice(0, 50).map((row, i) => (
                                   <TableRow key={i}>
-                                    {Object.values(row).map((value: any, j) => (
+                                    {Object.entries(row).map(([key, value]: [string, any], j) => (
                                       <TableCell key={j}>
-                                        {value === null 
-                                          ? '-' 
-                                          : typeof value === 'number'
-                                            ? value.toLocaleString('es-MX')
-                                            : String(value)}
+                                        {formatCellValue(value, key)}
                                       </TableCell>
                                     ))}
                                   </TableRow>
@@ -512,7 +558,7 @@ export function AIQueryAssistant() {
                             <TableRow>
                               {Object.keys(response.rawData[0]).map((key) => (
                                 <TableHead key={key} className="capitalize">
-                                  {key.replace(/_/g, ' ')}
+                                  {translateLabel(key)}
                                 </TableHead>
                               ))}
                             </TableRow>
@@ -520,9 +566,9 @@ export function AIQueryAssistant() {
                           <TableBody>
                             {response.rawData.map((row, i) => (
                               <TableRow key={i}>
-                                {Object.values(row).map((value: any, j) => (
+                                {Object.entries(row).map(([key, value]: [string, any], j) => (
                                   <TableCell key={j}>
-                                    {value === null ? '-' : String(value)}
+                                    {formatCellValue(value, key)}
                                   </TableCell>
                                 ))}
                               </TableRow>
