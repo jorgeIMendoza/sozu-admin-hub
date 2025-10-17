@@ -52,6 +52,11 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "Pregunta a CasIA",
+    href: "/admin/consultas-ia",
+    icon: Bot,
+  },
+  {
     title: "Inventarios",
     icon: Building2,
     children: [
@@ -118,11 +123,6 @@ const navigationItems = [
     children: [
       { title: "Revision de documentacion", href: "/admin/notarios/revision-documentacion", icon: FileText },
     ]
-  },
-  {
-    title: "Pregunta a CasIA",
-    href: "/admin/consultas-ia",
-    icon: Bot,
   },
 ];
 
