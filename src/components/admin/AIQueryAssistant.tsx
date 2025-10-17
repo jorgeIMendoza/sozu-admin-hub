@@ -120,13 +120,34 @@ export function AIQueryAssistant() {
     }
   };
 
+  const formatCurrency = (value: number) => {
+    return `$${value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border border-border rounded-lg shadow-lg p-3">
+          <p className="font-semibold text-sm mb-1">{label}</p>
+          <p className="text-primary text-sm">
+            Monto: {formatCurrency(payload[0].value)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const renderChart = () => {
     if (!response?.chartData || !response.chartType) return null;
 
-    const commonProps = {
-      width: 500,
-      height: 300,
-      data: response.chartData,
+    const formatYAxis = (value: number) => {
+      if (value >= 1000000) {
+        return `$${(value / 1000000).toFixed(1)}M`;
+      } else if (value >= 1000) {
+        return `$${(value / 1000).toFixed(0)}K`;
+      }
+      return `$${value}`;
     };
 
     switch (response.chartType) {
@@ -136,10 +157,13 @@ export function AIQueryAssistant() {
             <BarChart data={response.chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="value" fill="hsl(var(--primary))" />
+              <YAxis tickFormatter={formatYAxis} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                formatter={() => "Monto"} 
+                wrapperStyle={{ paddingTop: '10px' }}
+              />
+              <Bar dataKey="value" fill="hsl(var(--primary))" name="Monto" />
             </BarChart>
           </ResponsiveContainer>
         );
@@ -149,24 +173,27 @@ export function AIQueryAssistant() {
             <LineChart data={response.chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" />
+              <YAxis tickFormatter={formatYAxis} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                formatter={() => "Monto"} 
+                wrapperStyle={{ paddingTop: '10px' }}
+              />
+              <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" name="Monto" />
             </LineChart>
           </ResponsiveContainer>
         );
       case "pie":
         return (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
                 data={response.chartData}
                 cx="50%"
                 cy="50%"
-                labelLine={false}
-                label={(entry) => `${entry.name}: ${entry.value}`}
-                outerRadius={80}
+                labelLine={true}
+                label={(entry) => `${entry.name}: ${formatCurrency(entry.value)}`}
+                outerRadius={100}
                 fill="hsl(var(--primary))"
                 dataKey="value"
               >
@@ -174,7 +201,11 @@ export function AIQueryAssistant() {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                formatter={(value, entry: any) => entry.payload.name}
+                wrapperStyle={{ paddingTop: '20px' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         );
@@ -184,10 +215,13 @@ export function AIQueryAssistant() {
             <AreaChart data={response.chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" />
+              <YAxis tickFormatter={formatYAxis} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                formatter={() => "Monto"} 
+                wrapperStyle={{ paddingTop: '10px' }}
+              />
+              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" name="Monto" />
             </AreaChart>
           </ResponsiveContainer>
         );
