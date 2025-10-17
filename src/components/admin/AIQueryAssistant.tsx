@@ -68,7 +68,46 @@ export function AIQueryAssistant() {
         return;
       }
 
-      setResponse(data as AIQueryResponse);
+      let processedData = data as AIQueryResponse;
+
+      // Try to parse explanation if it contains JSON
+      if (processedData.explanation && processedData.explanation.includes('"explanation"')) {
+        try {
+          const jsonMatch = processedData.explanation.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            processedData = {
+              ...processedData,
+              explanation: parsed.explanation || processedData.explanation,
+              chartType: parsed.chartType || processedData.chartType,
+              chartData: parsed.chartData || processedData.chartData,
+              summary: parsed.summary || processedData.summary,
+            };
+          }
+        } catch (e) {
+          console.log("Could not parse embedded JSON, using as is");
+        }
+      }
+
+      // Auto-generate chart data if we have summary but no chart
+      if (!processedData.chartData && processedData.summary) {
+        const { totalPagado, totalPendiente } = processedData.summary;
+        if (totalPagado !== undefined || totalPendiente !== undefined) {
+          const chartData = [];
+          if (totalPagado !== undefined && totalPagado > 0) {
+            chartData.push({ name: "Total Recibido", value: totalPagado });
+          }
+          if (totalPendiente !== undefined && totalPendiente > 0) {
+            chartData.push({ name: "Deuda Pendiente", value: totalPendiente });
+          }
+          if (chartData.length > 0) {
+            processedData.chartData = chartData;
+            processedData.chartType = "pie";
+          }
+        }
+      }
+
+      setResponse(processedData);
     } catch (error: any) {
       console.error("Error querying AI:", error);
       toast({
@@ -229,7 +268,12 @@ export function AIQueryAssistant() {
             <Tabs defaultValue="explanation" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="explanation">Explicación</TabsTrigger>
-                <TabsTrigger value="chart" disabled={!response.chartData}>Gráfico</TabsTrigger>
+                <TabsTrigger 
+                  value="chart" 
+                  disabled={!response.chartData || response.chartData.length === 0}
+                >
+                  Gráfico
+                </TabsTrigger>
                 <TabsTrigger value="data">Datos</TabsTrigger>
               </TabsList>
 
@@ -298,13 +342,24 @@ export function AIQueryAssistant() {
               </TabsContent>
 
               <TabsContent value="chart">
-                {response.chartData ? (
-                  <div className="py-4">
-                    {renderChart()}
-                  </div>
+                {response.chartData && response.chartData.length > 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Visualización</CardTitle>
+                      <CardDescription>
+                        Representación gráfica de los datos
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="py-4">
+                        {renderChart()}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    No hay datos para graficar
+                    <p>No hay datos para graficar</p>
+                    <p className="text-xs mt-2">Intenta preguntas como "¿Cuánto me pagaron y cuánto me deben?"</p>
                   </div>
                 )}
               </TabsContent>
