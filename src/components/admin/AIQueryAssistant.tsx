@@ -48,6 +48,7 @@ export function AIQueryAssistant() {
   const [showRawData, setShowRawData] = useState(false);
   const [selectedChartType, setSelectedChartType] = useState<"pie" | "bar" | "line" | "area">("bar");
   const [isPercentageQuery, setIsPercentageQuery] = useState(false);
+  const [isCountQuery, setIsCountQuery] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async () => {
@@ -66,6 +67,10 @@ export function AIQueryAssistant() {
     // Detectar si la pregunta es sobre porcentajes
     const isPercentage = /porcentaje|%|porciento|proporción|fracción|ratio/i.test(question);
     setIsPercentageQuery(isPercentage);
+    
+    // Detectar si la pregunta es sobre conteos/cantidades
+    const isCount = /cuántas|cuantas|cuántos|cuantos|número de|cantidad de|total de propiedades|total de clientes|total de edificios|contar|disponibles de cada/i.test(question);
+    setIsCountQuery(isCount);
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-database-query', {
@@ -194,13 +199,15 @@ export function AIQueryAssistant() {
       const value = payload[0].value;
       const formattedValue = isPercentageQuery 
         ? `${value.toFixed(2)}%` 
-        : formatCurrency(value);
+        : isCountQuery 
+          ? value.toLocaleString('es-MX')
+          : formatCurrency(value);
       
       return (
         <div className="bg-background border border-border rounded-lg shadow-lg p-3">
           <p className="font-semibold text-sm mb-1">{label}</p>
           <p className="text-primary text-sm">
-            {isPercentageQuery ? 'Porcentaje' : 'Monto'}: {formattedValue}
+            {isPercentageQuery ? 'Porcentaje' : isCountQuery ? 'Cantidad' : 'Monto'}: {formattedValue}
           </p>
         </div>
       );
@@ -214,6 +221,9 @@ export function AIQueryAssistant() {
     const formatYAxis = (value: number) => {
       if (isPercentageQuery) {
         return `${value.toFixed(0)}%`;
+      }
+      if (isCountQuery) {
+        return value.toLocaleString('es-MX');
       }
       if (value >= 1000000) {
         return `$${(value / 1000000).toFixed(1)}M`;
@@ -233,10 +243,10 @@ export function AIQueryAssistant() {
               <YAxis tickFormatter={formatYAxis} />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                formatter={() => isPercentageQuery ? "Porcentaje" : "Monto"} 
+                formatter={() => isPercentageQuery ? "Porcentaje" : isCountQuery ? "Cantidad" : "Monto"} 
                 wrapperStyle={{ paddingTop: '10px' }}
               />
-              <Bar dataKey="value" fill="hsl(var(--primary))" name={isPercentageQuery ? "Porcentaje" : "Monto"} />
+              <Bar dataKey="value" fill="hsl(var(--primary))" name={isPercentageQuery ? "Porcentaje" : isCountQuery ? "Cantidad" : "Monto"} />
             </BarChart>
           </ResponsiveContainer>
         );
@@ -249,10 +259,10 @@ export function AIQueryAssistant() {
               <YAxis tickFormatter={formatYAxis} />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                formatter={() => isPercentageQuery ? "Porcentaje" : "Monto"} 
+                formatter={() => isPercentageQuery ? "Porcentaje" : isCountQuery ? "Cantidad" : "Monto"} 
                 wrapperStyle={{ paddingTop: '10px' }}
               />
-              <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" name={isPercentageQuery ? "Porcentaje" : "Monto"} />
+              <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" name={isPercentageQuery ? "Porcentaje" : isCountQuery ? "Cantidad" : "Monto"} />
             </LineChart>
           </ResponsiveContainer>
         );
@@ -267,7 +277,9 @@ export function AIQueryAssistant() {
                 labelLine={true}
                 label={(entry) => isPercentageQuery 
                   ? `${entry.name}: ${entry.value.toFixed(2)}%` 
-                  : `${entry.name}: ${formatCurrency(entry.value)}`}
+                  : isCountQuery
+                    ? `${entry.name}: ${entry.value.toLocaleString('es-MX')}`
+                    : `${entry.name}: ${formatCurrency(entry.value)}`}
                 outerRadius={100}
                 fill="hsl(var(--primary))"
                 dataKey="value"
@@ -293,10 +305,10 @@ export function AIQueryAssistant() {
               <YAxis tickFormatter={formatYAxis} />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
-                formatter={() => isPercentageQuery ? "Porcentaje" : "Monto"} 
+                formatter={() => isPercentageQuery ? "Porcentaje" : isCountQuery ? "Cantidad" : "Monto"} 
                 wrapperStyle={{ paddingTop: '10px' }}
               />
-              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" name={isPercentageQuery ? "Porcentaje" : "Monto"} />
+              <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" name={isPercentageQuery ? "Porcentaje" : isCountQuery ? "Cantidad" : "Monto"} />
             </AreaChart>
           </ResponsiveContainer>
         );
