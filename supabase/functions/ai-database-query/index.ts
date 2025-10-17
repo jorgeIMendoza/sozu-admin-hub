@@ -50,43 +50,73 @@ CUÁNDO USAR SQL DINÁMICO:
 - Agregaciones específicas (AVG, COUNT, SUM por grupos)
 - Filtros personalizados
 
-SCHEMA DE LA BASE DE DATOS:
+SCHEMA DE LA BASE DE DATOS (CON EJEMPLOS):
 
-PROPIEDADES Y PROYECTOS:
-- propiedades (id, numero_propiedad, numero_piso, m2_reales, m2_interiores, m2_exteriores, precio_lista, id_estatus_disponibilidad, id_tipo_propiedad, id_vista, id_edificio_modelo, id_entidad_relacionada_dueno, activo)
-- proyectos (id, nombre, direccion, ciudad, id_estatus_proyecto, precio_m2_actual, activo)
-- edificios (id, nombre, numero_pisos, id_proyecto, activo)
-- modelos (id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo)
-- edificios_modelos (id, id_edificio, id_modelo, activo)
+1️⃣ PROPIEDADES (tabla: propiedades)
+Columnas: id, numero_propiedad, numero_piso, m2_reales, m2_interiores, m2_exteriores, precio_lista, id_estatus_disponibilidad, id_tipo_propiedad, id_vista, id_edificio_modelo, id_entidad_relacionada_dueno, activo
+⚠️ IMPORTANTE: id_estatus_disponibilidad SOLO existe en propiedades
+Ejemplo: SELECT numero_propiedad FROM propiedades WHERE id_estatus_disponibilidad = 5 AND activo = true
 
-TIPOS Y CATÁLOGOS:
-- tipos_propiedad (id, nombre, activo)
-- estatus_disponibilidad (id, nombre, activo) -- 1=Disponible, 2=Ofertado, 3=Pre-apartado, 4=Apartado, 5=Vendido, 7=Escrituración, 9=Pagada completamente
-- vistas (id, nombre, activo)
-- tipos_transaccion (id, nombre, activo)
+2️⃣ PROYECTOS Y EDIFICIOS
+- proyectos: id, nombre, direccion, ciudad, id_estatus_proyecto, precio_m2_actual, activo
+- edificios: id, nombre, numero_pisos, id_proyecto, activo
+- modelos: id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo
+- edificios_modelos: id, id_edificio, id_modelo, activo
 
-VENTAS Y COBRANZA:
-- ofertas (id, id_propiedad, id_producto, id_persona_lead, id_esquema_pago_seleccionado, email_creador, fecha_generacion, activo)
-- cuentas_cobranza (id, id_oferta, precio_final, fecha_compra, clabe_stp, id_notario, es_aprobado, activo)
-- acuerdos_pago (id, id_cuenta_cobranza, id_concepto, monto, fecha_pago, orden, pago_completado, activo)
-- pagos (id, id_cuenta_cobranza, id_metodos_pago, monto, fecha_pago, clave_rastreo, activo)
-- aplicaciones_pago (id, id_pago, id_acuerdo_pago, monto, es_multa, activo)
+3️⃣ CATÁLOGOS
+- estatus_disponibilidad: 1=Disponible, 2=Ofertado, 3=Pre-apartado, 4=Apartado, 5=Vendido, 7=Escrituración, 9=Pagada completamente
+- tipos_propiedad, vistas, tipos_transaccion
 
-PERSONAS Y COMPRADORES:
-- personas (id, nombre_legal, email, telefono, tipo_persona, rfc, curp, id_conyuge, id_estado_civil, activo)
-- compradores (id_persona, id_cuenta_cobranza, porcentaje_copropiedad, activo)
-- entidades_relacionadas (id, id_proyecto, id_persona, id_tipo_entidad, id_estatus_persona, activo)
+4️⃣ VENTAS Y COBRANZA (TABLAS CRÍTICAS)
+📌 ofertas: id, id_propiedad, id_producto, id_persona_lead, id_esquema_pago_seleccionado, email_creador, fecha_generacion, activo
 
-PRODUCTOS Y AMENIDADES:
-- productos_servicios (id, nombre, descripcion, precio_referencia, id_categoria, activo)
-- estacionamientos (id, nombre, ubicacion, m2, id_tipo, id_propiedad, id_producto, es_incluido, activo)
-- bodegas (id, nombre, ubicacion, m2, id_propiedad, id_producto, es_incluido, activo)
+📌 cuentas_cobranza: id, id_oferta, precio_final, fecha_compra, clabe_stp, id_notario, es_aprobado, activo
+   ⚠️ IMPORTANTE: NO tiene id_estatus_disponibilidad (eso es de propiedades)
+   Para saber si está pagada: Comparar precio_final con SUM(aplicaciones_pago.monto)
 
-RELACIONES CLAVE:
-- propiedades → edificios_modelos → edificios → proyectos
-- propiedades → ofertas → cuentas_cobranza → acuerdos_pago
-- cuentas_cobranza → compradores → personas
-- pagos → aplicaciones_pago → acuerdos_pago
+📌 acuerdos_pago: id, id_cuenta_cobranza, id_concepto, monto, fecha_pago, orden, pago_completado, activo
+   Para saber si todos los acuerdos están pagados: WHERE pago_completado = true
+
+📌 pagos: id, id_cuenta_cobranza, id_metodos_pago, monto, fecha_pago, clave_rastreo, activo
+
+📌 aplicaciones_pago: id, id_pago, id_acuerdo_pago, monto, es_multa, activo
+   ⚠️ Para calcular total pagado: SUM(monto) WHERE es_multa = false
+
+5️⃣ PERSONAS
+- personas: id, nombre_legal, email, telefono, tipo_persona, rfc, curp, id_conyuge, id_estado_civil, activo
+- compradores: id_persona, id_cuenta_cobranza, porcentaje_copropiedad, activo
+- entidades_relacionadas: id, id_proyecto, id_persona, id_tipo_entidad, id_estatus_persona, activo
+
+6️⃣ PRODUCTOS
+- productos_servicios: id, nombre, descripcion, precio_referencia, id_categoria, activo
+- estacionamientos: id, nombre, ubicacion, m2, id_tipo, id_propiedad, id_producto, es_incluido, activo
+- bodegas: id, nombre, ubicacion, m2, id_propiedad, id_producto, es_incluido, activo
+
+EJEMPLOS DE QUERIES CORRECTOS:
+
+✅ Cuentas completamente pagadas:
+SELECT cc.id, cc.precio_final, 
+       COALESCE(SUM(ap.monto), 0) as total_pagado
+FROM cuentas_cobranza cc
+LEFT JOIN acuerdos_pago acp ON cc.id = acp.id_cuenta_cobranza AND acp.activo = true
+LEFT JOIN aplicaciones_pago ap ON acp.id = ap.id_acuerdo_pago AND ap.activo = true AND ap.es_multa = false
+WHERE cc.activo = true
+GROUP BY cc.id, cc.precio_final
+HAVING cc.precio_final <= COALESCE(SUM(ap.monto), 0)
+
+✅ Propiedades vendidas por proyecto:
+SELECT pr.nombre, COUNT(p.id) as total
+FROM proyectos pr
+JOIN edificios e ON pr.id = e.id_proyecto
+JOIN edificios_modelos em ON e.id = em.id_edificio
+JOIN propiedades p ON em.id = p.id_edificio_modelo
+WHERE p.id_estatus_disponibilidad = 5 AND p.activo = true
+GROUP BY pr.nombre
+
+⚠️ ERRORES COMUNES A EVITAR:
+❌ NO uses id_estatus_disponibilidad en cuentas_cobranza (no existe)
+❌ NO uses pago_completado en cuentas_cobranza (está en acuerdos_pago)
+❌ Para saber si está pagado, compara precio_final con SUM(aplicaciones_pago.monto)
 
 INSTRUCCIONES:
 1. Analiza la pregunta del usuario
