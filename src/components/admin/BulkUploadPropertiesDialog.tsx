@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 
 interface BulkUploadPropertiesDialogProps {
   open: boolean;
@@ -66,6 +66,7 @@ export const BulkUploadPropertiesDialog = ({
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('environment', ENVIRONMENT);
 
       // Simulate progress
       const progressInterval = setInterval(() => {

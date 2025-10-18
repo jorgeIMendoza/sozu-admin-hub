@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 import { NewPropertyDialog } from "@/components/admin/NewPropertyDialog";
 import { EditPropertyDialog } from "@/components/admin/EditPropertyDialog";
 import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropertiesDialog";
@@ -1004,7 +1004,8 @@ const Propiedades = () => {
               id_propiedad: selectedPropertyId,
               id: currentOffer.cuenta_cobranza_id,
               clabe_stp: currentOffer.cuenta_clabe_stp || '',
-              rfc_curp_ordenante: currentOffer?.lead_rfc || ''
+              rfc_curp_ordenante: currentOffer?.lead_rfc || '',
+              environment: ENVIRONMENT
             }),
           });
 
@@ -1165,7 +1166,10 @@ const Propiedades = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          ...requestBody,
+          environment: ENVIRONMENT
+        }),
       });
 
       if (!response.ok) {

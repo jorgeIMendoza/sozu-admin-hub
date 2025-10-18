@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -717,7 +717,8 @@ export default function DetalleCuentaCobranza() {
             id_propiedad: offerData.id_propiedad,
             id: cuentaDetalle.id,
             clabe_stp: cuentaDetalle.clabe_stp || '',
-            rfc_curp_ordenante: offerData.lead_rfc || ''
+            rfc_curp_ordenante: offerData.lead_rfc || '',
+            environment: ENVIRONMENT
           }),
         });
 

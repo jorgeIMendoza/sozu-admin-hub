@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { N8N_WEBHOOK_BASE_URL } from '@/lib/config';
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -799,7 +799,8 @@ export function DocumentsTab({
         costo_mantenimiento_m2: proyectoData?.costo_mantenimiento_m2 || 0,
         m2_escriturables: ((propiedadData?.m2_interiores || 0) + (propiedadData?.m2_exteriores || 0)),
         id_propiedad: ofertaData.id_propiedad,
-        numero_propiedad: propiedadData?.numero_propiedad || ''
+        numero_propiedad: propiedadData?.numero_propiedad || '',
+        environment: ENVIRONMENT
       }),
     });
 

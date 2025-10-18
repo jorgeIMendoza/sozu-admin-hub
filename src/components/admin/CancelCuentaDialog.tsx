@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
-import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 
 interface Comprador {
   id: number;
@@ -403,6 +403,7 @@ export function CancelCuentaDialog({
             precio_final: precioFinal,
             id_er_dueno: idErDueno,
             id_persona_lead: parseInt(nuevoCompradorId),
+            environment: ENVIRONMENT,
             datos_propiedad: {
               porcentaje_enganche: esquema?.porcentaje_enganche || 0,
               monto_apartado: montoApartado,

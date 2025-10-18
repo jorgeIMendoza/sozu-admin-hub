@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { N8N_WEBHOOK_BASE_URL } from '@/lib/config';
+import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
 
 interface ConfirmMantenimientoDialogProps {
   isOpen: boolean;
@@ -158,7 +158,8 @@ export function ConfirmMantenimientoDialog({
         },
         body: JSON.stringify({
           id_cuenta_cobranza: cuentaCobranzaId,
-          clabe_stp_mantenimiento: clabeData
+          clabe_stp_mantenimiento: clabeData,
+          environment: ENVIRONMENT
         })
       });
 
