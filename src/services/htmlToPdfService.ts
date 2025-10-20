@@ -480,24 +480,43 @@ class HTMLToPDFService {
 
   private async convertImageToBase64(imageUrl: string): Promise<string> {
     try {
-      const response = await fetch(imageUrl);
+      console.log('Converting image to base64:', imageUrl);
+      
+      const response = await fetch(imageUrl, {
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Accept': 'image/*'
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        return imageUrl; // Return original URL as fallback
+      }
+      
       const blob = await response.blob();
       
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           if (typeof reader.result === 'string') {
+            console.log('Image converted to base64 successfully, length:', reader.result.length);
             resolve(reader.result);
           } else {
-            reject(new Error('Failed to convert image to base64'));
+            console.error('Failed to convert image to base64 - result is not a string');
+            resolve(imageUrl); // Return original URL as fallback
           }
         };
-        reader.onerror = reject;
+        reader.onerror = () => {
+          console.error('Error reading blob as base64');
+          resolve(imageUrl); // Return original URL as fallback
+        };
         reader.readAsDataURL(blob);
       });
     } catch (error) {
-      console.error('Error fetching and converting image:', error);
-      throw error;
+      console.error('Error converting image to base64:', error);
+      return imageUrl; // Return original URL as fallback
     }
   }
 
@@ -629,8 +648,8 @@ class HTMLToPDFService {
                       bancos:id_banco(nombre)
                     `)
                     .eq('id_persona', ownerEntity.id_persona)
-                    .eq('es_cuenta_fisica_para_stp', true)
                     .eq('activo', true)
+                    .not('cuenta_clabe', 'is', null)
                     .limit(1)
                     .maybeSingle();
 
