@@ -586,8 +586,6 @@ class HTMLToPDFService {
                 mostrar_precio_m2_en_oferta,
                 mostrar_piso_en_oferta,
                 mostrar_seccion_efectivo_en_oferta,
-                mostrar_modelo_en_oferta,
-                mostrar_edificio_en_oferta,
                 precio_m2_actual
               `)
               .eq('id', edificioData.id_proyecto)
