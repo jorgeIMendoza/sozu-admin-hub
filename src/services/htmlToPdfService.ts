@@ -474,6 +474,29 @@ class HTMLToPDFService {
     pdf.addImage(imgData, 'PNG', xMargin, yMargin, contentWidth, contentHeight);
   }
 
+  private async convertImageToBase64(imageUrl: string): Promise<string> {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert image to base64'));
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error fetching and converting image:', error);
+      throw error;
+    }
+  }
+
   private async fetchPropertyDetails(propertyId: number): Promise<PropertyDetails> {
     console.log('Fetching property details for ID:', propertyId);
 
@@ -554,6 +577,26 @@ class HTMLToPDFService {
             if (proyecto) {
               console.log('Project data fetched:', proyecto);
               console.log('Logo URL:', proyecto.url_logo);
+              
+              // Convert logo and cover image to base64 for better PDF rendering
+              if (proyecto.url_logo) {
+                try {
+                  proyecto.url_logo = await this.convertImageToBase64(proyecto.url_logo);
+                  console.log('Logo converted to base64 successfully');
+                } catch (error) {
+                  console.error('Error converting logo to base64:', error);
+                }
+              }
+              
+              if (proyecto.url_imagen_portada) {
+                try {
+                  proyecto.url_imagen_portada = await this.convertImageToBase64(proyecto.url_imagen_portada);
+                  console.log('Cover image converted to base64 successfully');
+                } catch (error) {
+                  console.error('Error converting cover image to base64:', error);
+                }
+              }
+              
               projectData = proyecto;
               
               // If cash section should be shown, get the STP bank account
