@@ -550,12 +550,12 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                 }}>
                   Pago por transferencia
                 </h3>
-                <div style={{ fontSize: '32px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
-                  <p style={{ color: '#000000', marginBottom: '12px' }}>
+                <div style={{ fontSize: '32px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
+                  <p style={{ color: '#000000', marginBottom: '4px' }}>
                     <span style={{ fontWeight: '400' }}>Banco: </span>
                     <span style={{ fontWeight: '400' }}>Sistema de Transferencias y Pagos (STP)</span>
                   </p>
-                  <p style={{ color: '#000000', marginBottom: '12px' }}>
+                  <p style={{ color: '#000000', marginBottom: '4px' }}>
                     <span style={{ fontWeight: '400' }}>Titular: </span>
                     <span style={{ fontWeight: '400' }}>
                       {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
@@ -587,20 +587,20 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                 }}>
                   Pago en efectivo
                 </h3>
-                <div style={{ fontSize: '32px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
-                  <p style={{ color: '#000000', marginBottom: '12px' }}>
+                <div style={{ fontSize: '32px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
+                  <p style={{ color: '#000000', marginBottom: '4px' }}>
                     <span style={{ fontWeight: '400' }}>Banco: </span>
                     <span style={{ fontWeight: '400' }}>
                       {propertyDetails.ownerStpBankAccount.banco_nombre}
                     </span>
                   </p>
-                  <p style={{ color: '#000000', marginBottom: '12px' }}>
+                  <p style={{ color: '#000000', marginBottom: '4px' }}>
                     <span style={{ fontWeight: '400' }}>Titular: </span>
                     <span style={{ fontWeight: '400' }}>
                       {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
                     </span>
                   </p>
-                  <p style={{ color: '#000000', marginBottom: '12px' }}>
+                  <p style={{ color: '#000000', marginBottom: '4px' }}>
                     <span style={{ fontWeight: '400' }}>Número de Cuenta: </span>
                     <span style={{ fontWeight: '400' }}>
                       {propertyDetails.ownerStpBankAccount.numero_cuenta}
@@ -655,12 +655,12 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
               }}>
                 Agente
               </h3>
-              <div style={{ fontSize: '30px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
-                <p style={{ color: '#000000', marginBottom: '8px' }}>
+              <div style={{ fontSize: '30px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
+                <p style={{ color: '#000000', marginBottom: '4px' }}>
                   <span style={{ fontWeight: '600' }}>Nombre: </span>
                   <span style={{ fontWeight: '400' }}>{creatorInfo?.nombre || creatorInfo?.nombre_legal || offerData.email_creador}</span>
                 </p>
-                <p style={{ color: '#000000', marginBottom: '8px' }}>
+                <p style={{ color: '#000000', marginBottom: '4px' }}>
                   <span style={{ fontWeight: '600' }}>Email: </span>
                   <span style={{ fontWeight: '400' }}>{creatorInfo?.email || offerData.email_creador}</span>
                 </p>
@@ -682,12 +682,12 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
               }}>
                 Comprador
               </h3>
-              <div style={{ fontSize: '30px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
-                <p style={{ color: '#000000', marginBottom: '8px' }}>
+              <div style={{ fontSize: '30px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
+                <p style={{ color: '#000000', marginBottom: '4px' }}>
                   <span style={{ fontWeight: '600' }}>Nombre: </span>
                   <span style={{ fontWeight: '400' }}>{leadInfo?.nombre_legal || offerData.leadName}</span>
                 </p>
-                <p style={{ color: '#000000', marginBottom: '8px' }}>
+                <p style={{ color: '#000000', marginBottom: '4px' }}>
                   <span style={{ fontWeight: '600' }}>Email: </span>
                   <span style={{ fontWeight: '400' }}>{leadInfo?.email || offerData.leadEmail}</span>
                 </p>
