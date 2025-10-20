@@ -252,7 +252,7 @@ export default function Prospectos() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, pendingDocuments, ...cleanPersonData } = personData;
+      const { entityType, representativeId, pendingDocuments, id_proyecto, ...cleanPersonData } = personData;
       
       const { data: personResult, error: personError } = await supabase
         .from('personas')
@@ -267,7 +267,7 @@ export default function Prospectos() {
         .insert([{
           id_persona: personResult.id,
           id_tipo_entidad: 7, // Prospecto
-          id_proyecto: null,
+          id_proyecto: id_proyecto !== "null" && id_proyecto ? parseInt(id_proyecto) : null,
           activo: true
         }]);
       
