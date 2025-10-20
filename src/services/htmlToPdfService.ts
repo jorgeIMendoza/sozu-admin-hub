@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { OfferPDFTemplate } from '@/components/admin/OfferPDFTemplate';
 import { OfferPDFTemplateSozu } from '@/components/admin/OfferPDFTemplateSozu';
 import { OfferPDFTemplateProducto } from '@/components/admin/OfferPDFTemplateProducto';
+import { isValidRFC } from '@/utils/fiscalDataValidation';
 
 interface OfferData {
   propertyId: number;
@@ -1054,7 +1055,13 @@ class HTMLToPDFService {
       return null;
     }
 
-    return persona;
+    // Add RFC validation
+    const hasValidRFC = isValidRFC(persona?.rfc);
+    
+    return {
+      ...persona,
+      hasValidRFC
+    };
   }
 
   private async fetchLegalNotices(propertyId: number): Promise<string[]> {

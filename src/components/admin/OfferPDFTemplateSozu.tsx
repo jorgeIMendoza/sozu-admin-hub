@@ -102,7 +102,13 @@ interface OfferPDFTemplateSozuProps {
   paymentSchemes: PaymentScheme[];
   amenities: ProjectAmenity[];
   creatorInfo: any;
-  leadInfo: any;
+  leadInfo?: {
+    nombre_legal: string;
+    email: string;
+    telefono: string;
+    rfc?: string | null;
+    hasValidRFC?: boolean;
+  };
   legalNotices: string[];
   estacionamientos: any[];
   bodegas: any[];
@@ -528,111 +534,113 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
           marginTop: '40px'
         }} />
 
-        {/* Banking Data Section */}
-        <div style={{ 
-          marginBottom: '40px'
-        }}>
-          <h2 style={{ 
-            fontSize: '48px', 
-            fontWeight: 'bold', 
-            color: '#000000', 
+        {/* Banking Data Section - Only show if lead has valid RFC */}
+        {leadInfo?.hasValidRFC && (propertyDetails.clabe_stp_tmp_apartado || (propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount)) && (
+          <div style={{ 
             marginBottom: '40px'
           }}>
-            Datos Bancarios
-          </h2>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: (propertyDetails.clabe_stp_tmp_apartado && propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount) 
-              ? '1fr 1fr' 
-              : '1fr', 
-            gap: '40px',
-            backgroundColor: '#D3D3D3',
-            padding: '0',
-            borderRadius: '20px'
-          }}>
-            {/* Transfer Banking Data - Only shown if CLABE exists */}
-            {propertyDetails.clabe_stp_tmp_apartado && (
-              <div style={{ 
-                backgroundColor: '#D3D3D3',
-                padding: '32px',
-                borderRadius: '20px'
-              }}>
-                <h3 style={{ 
-                  fontSize: '36px', 
-                  fontWeight: 'bold', 
-                  color: '#000000', 
-                  marginBottom: '24px',
-                  fontFamily: 'Arial, sans-serif'
+            <h2 style={{ 
+              fontSize: '48px', 
+              fontWeight: 'bold', 
+              color: '#000000', 
+              marginBottom: '40px'
+            }}>
+              Datos Bancarios
+            </h2>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: (propertyDetails.clabe_stp_tmp_apartado && propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount) 
+                ? '1fr 1fr' 
+                : '1fr', 
+              gap: '40px',
+              backgroundColor: '#D3D3D3',
+              padding: '0',
+              borderRadius: '20px'
+            }}>
+              {/* Transfer Banking Data - Only shown if CLABE exists */}
+              {propertyDetails.clabe_stp_tmp_apartado && (
+                <div style={{ 
+                  backgroundColor: '#D3D3D3',
+                  padding: '32px',
+                  borderRadius: '20px'
                 }}>
-                  Pago por transferencia
-                </h3>
-                <div style={{ fontSize: '32px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
-                  <p style={{ color: '#000000', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '400' }}>Banco: </span>
-                    <span style={{ fontWeight: '400' }}>Sistema de Transferencias y Pagos (STP)</span>
-                  </p>
-                  <p style={{ color: '#000000', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '400' }}>Titular: </span>
-                    <span style={{ fontWeight: '400' }}>
-                      {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
-                    </span>
-                  </p>
-                  <p style={{ color: '#000000' }}>
-                    <span style={{ fontWeight: '400' }}>Cuenta CLABE: </span>
-                    <span style={{ fontWeight: '400' }}>
-                      {propertyDetails.clabe_stp_tmp_apartado}
-                    </span>
-                  </p>
+                  <h3 style={{ 
+                    fontSize: '36px', 
+                    fontWeight: 'bold', 
+                    color: '#000000', 
+                    marginBottom: '24px',
+                    fontFamily: 'Arial, sans-serif'
+                  }}>
+                    Pago por transferencia
+                  </h3>
+                  <div style={{ fontSize: '32px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
+                    <p style={{ color: '#000000', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '400' }}>Banco: </span>
+                      <span style={{ fontWeight: '400' }}>Sistema de Transferencias y Pagos (STP)</span>
+                    </p>
+                    <p style={{ color: '#000000', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '400' }}>Titular: </span>
+                      <span style={{ fontWeight: '400' }}>
+                        {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
+                      </span>
+                    </p>
+                    <p style={{ color: '#000000' }}>
+                      <span style={{ fontWeight: '400' }}>Cuenta CLABE: </span>
+                      <span style={{ fontWeight: '400' }}>
+                        {propertyDetails.clabe_stp_tmp_apartado}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {/* Cash Banking Data - Only shown if enabled in project settings */}
-            {propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta === true && propertyDetails.ownerStpBankAccount && (
-              <div style={{ 
-                backgroundColor: '#D3D3D3',
-                padding: '32px',
-                borderRadius: '20px'
-              }}>
-                <h3 style={{ 
-                  fontSize: '36px', 
-                  fontWeight: 'bold', 
-                  color: '#000000', 
-                  marginBottom: '24px',
-                  fontFamily: 'Arial, sans-serif'
+              )}
+              
+              {/* Cash Banking Data - Only shown if enabled in project settings */}
+              {propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta === true && propertyDetails.ownerStpBankAccount && (
+                <div style={{ 
+                  backgroundColor: '#D3D3D3',
+                  padding: '32px',
+                  borderRadius: '20px'
                 }}>
-                  Pago en efectivo
-                </h3>
-                <div style={{ fontSize: '32px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
-                  <p style={{ color: '#000000', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '400' }}>Banco: </span>
-                    <span style={{ fontWeight: '400' }}>
-                      {propertyDetails.ownerStpBankAccount.banco_nombre}
-                    </span>
-                  </p>
-                  <p style={{ color: '#000000', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '400' }}>Titular: </span>
-                    <span style={{ fontWeight: '400' }}>
-                      {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
-                    </span>
-                  </p>
-                  <p style={{ color: '#000000', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '400' }}>Número de Cuenta: </span>
-                    <span style={{ fontWeight: '400' }}>
-                      {propertyDetails.ownerStpBankAccount.numero_cuenta}
-                    </span>
-                  </p>
-                  <p style={{ color: '#000000' }}>
-                    <span style={{ fontWeight: '400' }}>Cuenta CLABE: </span>
-                    <span style={{ fontWeight: '400' }}>
-                      {propertyDetails.ownerStpBankAccount.cuenta_clabe}
-                    </span>
-                  </p>
+                  <h3 style={{ 
+                    fontSize: '36px', 
+                    fontWeight: 'bold', 
+                    color: '#000000', 
+                    marginBottom: '24px',
+                    fontFamily: 'Arial, sans-serif'
+                  }}>
+                    Pago en efectivo
+                  </h3>
+                  <div style={{ fontSize: '32px', lineHeight: '1.2', fontFamily: 'Arial, sans-serif' }}>
+                    <p style={{ color: '#000000', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '400' }}>Banco: </span>
+                      <span style={{ fontWeight: '400' }}>
+                        {propertyDetails.ownerStpBankAccount.banco_nombre}
+                      </span>
+                    </p>
+                    <p style={{ color: '#000000', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '400' }}>Titular: </span>
+                      <span style={{ fontWeight: '400' }}>
+                        {propertyDetails.ownerData?.nombre_legal || 'Vive DAIKU'}
+                      </span>
+                    </p>
+                    <p style={{ color: '#000000', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '400' }}>Número de Cuenta: </span>
+                      <span style={{ fontWeight: '400' }}>
+                        {propertyDetails.ownerStpBankAccount.numero_cuenta}
+                      </span>
+                    </p>
+                    <p style={{ color: '#000000' }}>
+                      <span style={{ fontWeight: '400' }}>Cuenta CLABE: </span>
+                      <span style={{ fontWeight: '400' }}>
+                        {propertyDetails.ownerStpBankAccount.cuenta_clabe}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Divider Line before Contact Info */}
         <div style={{ 
