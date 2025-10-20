@@ -716,9 +716,15 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                   <span style={{ fontWeight: '400' }}>{leadInfo?.email || offerData.leadEmail}</span>
                 </p>
                 {leadInfo?.telefono && (
-                  <p style={{ color: '#000000' }}>
+                  <p style={{ color: '#000000', marginBottom: '4px' }}>
                     <span style={{ fontWeight: '600' }}>Teléfono: </span>
                     <span style={{ fontWeight: '400' }}>{leadInfo.telefono}</span>
+                  </p>
+                )}
+                {leadInfo?.rfc && (
+                  <p style={{ color: '#000000' }}>
+                    <span style={{ fontWeight: '600' }}>RFC: </span>
+                    <span style={{ fontWeight: '400' }}>{leadInfo.rfc}</span>
                   </p>
                 )}
               </div>

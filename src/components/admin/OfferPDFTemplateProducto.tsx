@@ -568,6 +568,12 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                     <span style={{ fontWeight: 'bold' }}>{leadInfo.telefono}</span>
                   </div>
                 )}
+                {leadInfo?.rfc && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <span style={{ fontWeight: 'normal' }}>RFC: </span>
+                    <span style={{ fontWeight: 'bold' }}>{leadInfo.rfc}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
