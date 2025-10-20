@@ -269,10 +269,10 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                   <span style={{ fontWeight: 'normal' }}>Número de propiedad: </span>
                   <span style={{ fontWeight: '900' }}>{propertyDetails.numero_propiedad}</span>
                 </div>
-                {propertyDetails.projectData?.mostrar_piso_en_oferta !== false && (
+                {propertyDetails.projectData?.mostrar_piso_en_oferta === true && propertyDetails.numero_piso && (
                   <div style={{ marginBottom: '12px' }}>
                     <span style={{ fontWeight: 'normal' }}>Piso: </span>
-                    <span style={{ fontWeight: '900' }}>{propertyDetails.numero_piso || 'N/A'}</span>
+                    <span style={{ fontWeight: '900' }}>{propertyDetails.numero_piso}</span>
                   </div>
                 )}
                 {propertyDetails.vista && (
@@ -291,7 +291,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                   <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
                   <span style={{ fontWeight: '900' }}>{formatCurrency(propertyDetails.precio_lista)}</span>
                 </div>
-                {propertyDetails.projectData?.mostrar_precio_m2_en_oferta !== false && (propertyDetails.m2_interiores || propertyDetails.m2_exteriores) && (
+                {propertyDetails.projectData?.mostrar_precio_m2_en_oferta === true && (propertyDetails.m2_interiores || propertyDetails.m2_exteriores) && (
                   <div style={{ marginBottom: '12px' }}>
                     <span style={{ fontWeight: 'normal' }}>Precio por m²: </span>
                     <span style={{ fontWeight: '900' }}>
@@ -572,7 +572,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
             )}
             
             {/* Cash Banking Data - Only shown if enabled in project settings */}
-            {propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount && (
+            {propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta === true && propertyDetails.ownerStpBankAccount && (
               <div style={{ 
                 backgroundColor: '#D3D3D3',
                 padding: '32px',
