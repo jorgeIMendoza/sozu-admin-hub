@@ -55,10 +55,6 @@ const formSchema = z.object({
   mostrar_precio_m2_en_oferta: z.boolean().default(true),
   mostrar_piso_en_oferta: z.boolean().default(true),
   mostrar_seccion_efectivo_en_oferta: z.boolean().default(true),
-  mostrar_estacionamientos_en_oferta: z.boolean().default(true),
-  mostrar_bodega_en_oferta: z.boolean().default(true),
-  mostrar_modelo_en_oferta: z.boolean().default(true),
-  mostrar_edificio_en_oferta: z.boolean().default(true),
 });
 
 interface EditProjectDialogProps {
@@ -103,10 +99,6 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
       mostrar_precio_m2_en_oferta: true,
       mostrar_piso_en_oferta: true,
       mostrar_seccion_efectivo_en_oferta: true,
-      mostrar_estacionamientos_en_oferta: true,
-      mostrar_bodega_en_oferta: true,
-      mostrar_modelo_en_oferta: true,
-      mostrar_edificio_en_oferta: true,
     },
   });
 
@@ -260,10 +252,6 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         mostrar_precio_m2_en_oferta: project.mostrar_precio_m2_en_oferta ?? true,
         mostrar_piso_en_oferta: project.mostrar_piso_en_oferta ?? true,
         mostrar_seccion_efectivo_en_oferta: project.mostrar_seccion_efectivo_en_oferta ?? true,
-        mostrar_estacionamientos_en_oferta: project.mostrar_estacionamientos_en_oferta ?? true,
-        mostrar_bodega_en_oferta: project.mostrar_bodega_en_oferta ?? true,
-        mostrar_modelo_en_oferta: project.mostrar_modelo_en_oferta ?? true,
-        mostrar_edificio_en_oferta: project.mostrar_edificio_en_oferta ?? true,
       });
       
       setSelectedCountry(project.direccion_id_pais || "");
@@ -301,10 +289,6 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
         mostrar_precio_m2_en_oferta: values.mostrar_precio_m2_en_oferta,
         mostrar_piso_en_oferta: values.mostrar_piso_en_oferta,
         mostrar_seccion_efectivo_en_oferta: values.mostrar_seccion_efectivo_en_oferta,
-        mostrar_estacionamientos_en_oferta: values.mostrar_estacionamientos_en_oferta,
-        mostrar_bodega_en_oferta: values.mostrar_bodega_en_oferta,
-        mostrar_modelo_en_oferta: values.mostrar_modelo_en_oferta,
-        mostrar_edificio_en_oferta: values.mostrar_edificio_en_oferta,
       };
 
       console.log('🔍 [DEBUG] Objeto projectData preparado para enviar:', projectData);

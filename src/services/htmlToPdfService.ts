@@ -53,10 +53,6 @@ interface PropertyDetails {
     mostrar_precio_m2_en_oferta?: boolean;
     mostrar_piso_en_oferta?: boolean;
     mostrar_seccion_efectivo_en_oferta?: boolean;
-    mostrar_estacionamientos_en_oferta?: boolean;
-    mostrar_bodega_en_oferta?: boolean;
-    mostrar_modelo_en_oferta?: boolean;
-    mostrar_edificio_en_oferta?: boolean;
     precio_m2_actual?: number;
   };
   ownerStpBankAccount?: {
@@ -1475,8 +1471,8 @@ class HTMLToPDFService {
                 className: 'font-semibold'
               }, propertyDetails.numero_piso)
             ]),
-            // Modelo - if configured
-            propertyDetails.projectData?.mostrar_modelo_en_oferta !== false && propertyDetails.model?.nombre && React.createElement('div', {
+            // Modelo - always show if available
+            propertyDetails.model?.nombre && React.createElement('div', {
               key: 'model',
               className: 'flex justify-between'
             }, [
@@ -1489,8 +1485,8 @@ class HTMLToPDFService {
                 className: 'font-semibold'
               }, propertyDetails.model.nombre)
             ]),
-            // Edificio - if configured
-            propertyDetails.projectData?.mostrar_edificio_en_oferta !== false && propertyDetails.building?.nombre && React.createElement('div', {
+            // Edificio - always show if available
+            propertyDetails.building?.nombre && React.createElement('div', {
               key: 'building',
               className: 'flex justify-between'
             }, [
@@ -1503,8 +1499,8 @@ class HTMLToPDFService {
                 className: 'font-semibold'
               }, propertyDetails.building.nombre)
             ]),
-            // Estacionamientos - if configured
-            propertyDetails.projectData?.mostrar_estacionamientos_en_oferta !== false && estacionamientos && estacionamientos.length > 0 && React.createElement('div', {
+            // Estacionamientos - always show if available
+            estacionamientos && estacionamientos.length > 0 && React.createElement('div', {
               key: 'parking',
               className: 'flex justify-between'
             }, [
@@ -1517,8 +1513,8 @@ class HTMLToPDFService {
                 className: 'font-semibold'
               }, estacionamientos.map(e => e.nombre).join(', '))
             ]),
-            // Bodegas - if configured
-            propertyDetails.projectData?.mostrar_bodega_en_oferta !== false && bodegas && bodegas.length > 0 && React.createElement('div', {
+            // Bodegas - always show if available
+            bodegas && bodegas.length > 0 && React.createElement('div', {
               key: 'storage',
               className: 'flex justify-between'
             }, [
