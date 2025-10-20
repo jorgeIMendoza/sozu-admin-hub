@@ -296,7 +296,7 @@ class HTMLToPDFService {
       root.render(templateElement);
       
       // Wait longer for all images (including logo) to load
-      await new Promise<void>(resolve => setTimeout(resolve, 8000));
+      await new Promise<void>(resolve => setTimeout(resolve, 12000));
       
       // Capture as canvas with better settings for images
       const canvas = await html2canvas(container, {
@@ -318,7 +318,7 @@ class HTMLToPDFService {
         format: [2550, 3300]
       });
       
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
       pdf.addImage(imgData, 'JPEG', 0, 0, 2550, 3300);
       
       // Generate filename
@@ -576,7 +576,8 @@ class HTMLToPDFService {
                     .eq('id_persona', ownerEntity.id_persona)
                     .eq('es_cuenta_fisica_para_stp', true)
                     .eq('activo', true)
-                    .single();
+                    .limit(1)
+                    .maybeSingle();
 
                   if (stpAccount) {
                     ownerStpBankAccount = {
