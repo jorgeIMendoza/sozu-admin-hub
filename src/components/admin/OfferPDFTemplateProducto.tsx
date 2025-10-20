@@ -178,21 +178,21 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                 }}
               />
             ) : (
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1a1a1a' }}>
+              <div style={{ fontSize: '40px', fontWeight: 'bold', color: '#1a1a1a' }}>
                 {propertyDetails.projectData?.nombre || 'Proyecto'}
               </div>
             )}
           </div>
           <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ fontSize: '28px', color: '#000' }}>
+            <div style={{ fontSize: '36px', color: '#000' }}>
               <span style={{ fontWeight: '600' }}>ID Oferta:</span>{' '}
               <span style={{ fontWeight: '400' }}>{formatOfferNumber(offerData.id)}</span>
             </div>
-            <div style={{ fontSize: '28px', color: '#000' }}>
+            <div style={{ fontSize: '36px', color: '#000' }}>
               <span style={{ fontWeight: '600' }}>Expedición:</span>{' '}
               <span style={{ fontWeight: '400' }}>{formatDate(offerData.fecha_generacion)}</span>
             </div>
-            <div style={{ fontSize: '28px', color: '#000' }}>
+            <div style={{ fontSize: '36px', color: '#000' }}>
               <span style={{ fontWeight: '600' }}>Vigencia:</span>{' '}
               <span style={{ fontWeight: '400' }}>{calculateVigencia(offerData.fecha_generacion)}</span>
             </div>
@@ -218,7 +218,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
             {/* Column 1: Property Data */}
             <div>
               <h2 style={{ 
-                fontSize: '40px', 
+                fontSize: '48px', 
                 fontWeight: 'bold', 
                 color: '#000000',
                 marginBottom: '40px'
@@ -231,7 +231,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                 borderRadius: '8px',
                 border: '2px solid #D0D0D0'
               }}>
-                <div style={{ fontSize: '28px', lineHeight: '1.8' }}>
+                <div style={{ fontSize: '47px', lineHeight: '1.8' }}>
                   <div style={{ marginBottom: '12px' }}>
                     <span style={{ fontWeight: 'normal' }}>Proyecto: </span>
                     <span style={{ fontWeight: 'bold' }}>{propertyDetails.projectData?.nombre || 'N/A'}</span>
@@ -259,7 +259,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
             {/* Column 2: Product Information */}
             <div>
               <h3 style={{ 
-                fontSize: '40px', 
+                fontSize: '48px', 
                 fontWeight: 'bold', 
                 color: '#000000',
                 marginBottom: '40px'
@@ -272,7 +272,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                 borderRadius: '8px',
                 border: '2px solid #D0D0D0'
               }}>
-                <div style={{ fontSize: '28px', lineHeight: '1.8' }}>
+                <div style={{ fontSize: '47px', lineHeight: '1.8' }}>
                   <div style={{ marginBottom: '20px' }}>
                     <span style={{ fontWeight: 'normal' }}>Categoría: </span>
                     <span style={{ fontWeight: 'bold', color: '#000' }}>
@@ -281,13 +281,13 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                   </div>
                   <div style={{ marginBottom: '20px' }}>
                     <span style={{ fontWeight: 'normal' }}>Producto: </span>
-                    <span style={{ fontWeight: 'bold', color: '#000', fontSize: '32px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#000', fontSize: '47px' }}>
                       {productDetails.nombre}
                     </span>
                   </div>
                   <div style={{ marginBottom: '0' }}>
                     <span style={{ fontWeight: 'normal' }}>Precio de lista: </span>
-                    <span style={{ fontWeight: 'bold', color: '#000', fontSize: '36px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#000', fontSize: '47px' }}>
                       {formatCurrency(productDetails.precio_lista)}
                     </span>
                   </div>
@@ -311,7 +311,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
         {paymentScheme && amounts && (
           <div style={{ marginBottom: '60px' }}>
             <h2 style={{ 
-              fontSize: '40px', 
+              fontSize: '51px', 
               fontWeight: 'bold', 
               color: '#000000',
               marginBottom: '40px'
@@ -327,7 +327,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
               maxWidth: '600px'
             }}>
               <h3 style={{ 
-                fontSize: '32px', 
+                fontSize: '43px', 
                 fontWeight: 'bold', 
                 color: '#000000',
                 marginBottom: '24px'
@@ -339,7 +339,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '16px',
-                fontSize: '22px',
+                fontSize: '33px',
                 lineHeight: '1.4'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -396,41 +396,40 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
         {/* Banking Data Section */}
         <div style={{ marginBottom: '60px' }}>
           <h2 style={{ 
-            fontSize: '40px', 
+            fontSize: '51px', 
             fontWeight: 'bold', 
             color: '#000000',
             marginBottom: '40px'
-          }}>
-            Datos Bancarios
-          </h2>
-          
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: ((offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && productDetails.ownerStpBankAccount) 
-              ? '1fr 1fr' 
-              : '1fr', 
-            gap: '40px',
-            backgroundColor: '#D3D3D3',
-            padding: '0',
-            borderRadius: '20px'
-          }}>
-            {/* Pago por transferencia - Only shown if CLABE exists */}
-            {(offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && (
-              <div style={{ 
-                backgroundColor: '#D3D3D3',
-                padding: '32px',
-                borderRadius: '20px'
-              }}>
-                <h3 style={{ 
-                  fontSize: '28px', 
-                  fontWeight: 'bold', 
-                  color: '#000000', 
-                  marginBottom: '24px',
-                  fontFamily: 'Arial, sans-serif'
+            }}>
+              Datos Bancarios
+            </h2>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: ((offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && productDetails.ownerStpBankAccount) 
+                ? '1fr 1fr' 
+                : '1fr', 
+              gap: '40px',
+              backgroundColor: '#D3D3D3',
+              padding: '0',
+              borderRadius: '20px'
+            }}>
+              {/* Pago por transferencia - Only shown if CLABE exists */}
+              {(offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && (
+                <div style={{ 
+                  backgroundColor: '#D3D3D3',
+                  padding: '32px',
+                  borderRadius: '20px'
                 }}>
-                  Pago por transferencia
-                </h3>
-                <div style={{ fontSize: '24px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
+                  <h3 style={{ 
+                    fontSize: '39px', 
+                    fontWeight: 'bold', 
+                    color: '#000000', 
+                    marginBottom: '24px',
+                    fontFamily: 'Arial, sans-serif'
+                  }}>
+                    Pago por transferencia
+                  </h3>
+                  <div style={{ fontSize: '35px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
                   <p style={{ color: '#000000', marginBottom: '12px' }}>
                     <span style={{ fontWeight: '400' }}>Banco: </span>
                     <span style={{ fontWeight: '400' }}>Sistema de Transferencias y Pagos (STP)</span>
@@ -459,7 +458,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                 borderRadius: '20px'
               }}>
                 <h3 style={{ 
-                  fontSize: '28px', 
+                  fontSize: '39px', 
                   fontWeight: 'bold', 
                   color: '#000000', 
                   marginBottom: '24px',
@@ -467,7 +466,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
                 }}>
                   Pago en efectivo
                 </h3>
-                <div style={{ fontSize: '24px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
+                <div style={{ fontSize: '35px', lineHeight: '1.8', fontFamily: 'Arial, sans-serif' }}>
                   <p style={{ color: '#000000', marginBottom: '12px' }}>
                     <span style={{ fontWeight: '400' }}>Banco: </span>
                     <span style={{ fontWeight: '400' }}>
@@ -509,7 +508,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
         {/* Contact Data Section */}
         <div>
           <h2 style={{ 
-            fontSize: '40px', 
+            fontSize: '51px', 
             fontWeight: 'bold', 
             color: '#000000',
             marginBottom: '40px'
@@ -521,11 +520,11 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
             display: 'grid', 
             gridTemplateColumns: '1fr 1fr', 
             gap: '40px',
-            fontSize: '24px'
+            fontSize: '33px'
           }}>
             {/* Agent/Creator Info */}
             <div>
-              <h3 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '20px', color: '#000' }}>
+              <h3 style={{ fontSize: '39px', fontWeight: 'bold', marginBottom: '20px', color: '#000' }}>
                 Agente:
               </h3>
               <div style={{ lineHeight: '1.6' }}>
@@ -550,7 +549,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
 
             {/* Lead/Buyer Info */}
             <div>
-              <h3 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '20px', color: '#000' }}>
+              <h3 style={{ fontSize: '39px', fontWeight: 'bold', marginBottom: '20px', color: '#000' }}>
                 Comprador:
               </h3>
               <div style={{ lineHeight: '1.6' }}>
