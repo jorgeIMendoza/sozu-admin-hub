@@ -111,7 +111,34 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
       const { data, error } = await supabase
         .from("proyectos")
         .select(`
-          *,
+          id,
+          nombre,
+          descripcion,
+          direccion,
+          id_tipo_uso,
+          id_estatus_proyecto,
+          precio_m2_actual,
+          fecha_lanzamiento,
+          fecha_inicio_construccion,
+          fecha_entrega,
+          direccion_id_pais,
+          direccion_id_estado,
+          direccion_id_municipio,
+          latitud,
+          longitud,
+          url_logo,
+          url_firma_recibos,
+          nombre_firmante_recibos,
+          url_imagen_portada,
+          costo_mantenimiento_m2,
+          monto_mensual_cuota_extraordinaria,
+          monto_garantia_renta,
+          mostrar_precio_m2_en_oferta,
+          mostrar_piso_en_oferta,
+          mostrar_seccion_efectivo_en_oferta,
+          activo,
+          fecha_creacion,
+          fecha_actualizacion,
           amenidades_proyectos (
             id_amenidad
           )
