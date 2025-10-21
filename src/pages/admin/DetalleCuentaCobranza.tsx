@@ -1213,6 +1213,9 @@ export default function DetalleCuentaCobranza() {
         limiteEfectivo,
         pagadoEfectivo,
         restanteEfectivo,
+        pagosPropiedadEfectivo,
+        pagosBodegasEfectivo,
+        pagosEstacionamientosEfectivo,
         tieneEstacionamientos: estacionamientos && estacionamientos.length > 0,
         tieneBodegas: bodegas && bodegas.length > 0,
         bodegaProductIds: bodegas?.map(b => b.id_producto).filter(Boolean) || [],
@@ -1952,7 +1955,7 @@ export default function DetalleCuentaCobranza() {
                         <Home className="h-4 w-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Propiedad</p>
+                        <p>Propiedad: {formatCurrency(cashPaymentsData.pagosPropiedadEfectivo)}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -1963,7 +1966,7 @@ export default function DetalleCuentaCobranza() {
                           <Car className="h-4 w-4 text-muted-foreground" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Estacionamiento no incluido</p>
+                          <p>Estacionamiento: {formatCurrency(cashPaymentsData.pagosEstacionamientosEfectivo)}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -1975,7 +1978,7 @@ export default function DetalleCuentaCobranza() {
                           <Warehouse className="h-4 w-4 text-muted-foreground" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Bodega no incluida</p>
+                          <p>Bodega: {formatCurrency(cashPaymentsData.pagosBodegasEfectivo)}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
