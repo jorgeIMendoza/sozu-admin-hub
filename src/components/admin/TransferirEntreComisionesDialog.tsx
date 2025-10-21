@@ -41,11 +41,8 @@ export function TransferirEntreComisionesDialog({
   const [pagadorInfo, setPagadorInfo] = useState<PagadorInfo | null>(null);
   const [cuentasDestino, setCuentasDestino] = useState<CuentaDestino[]>([]);
   const [cuentaDestinoSeleccionada, setCuentaDestinoSeleccionada] = useState<string>("");
-  const [montoTransferir, setMontoTransferir] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
-  const montoRestante = (ultimoPagoSTP?.monto || 0) - montoTransferir;
 
   useEffect(() => {
     if (isOpen && ultimoPagoSTP?.clave_rastreo) {
@@ -55,7 +52,6 @@ export function TransferirEntreComisionesDialog({
       setPagadorInfo(null);
       setCuentasDestino([]);
       setCuentaDestinoSeleccionada("");
-      setMontoTransferir(0);
       setLoading(false);
     }
   }, [isOpen, ultimoPagoSTP?.clave_rastreo]);
@@ -237,19 +233,10 @@ export function TransferirEntreComisionesDialog({
   };
 
   const handleTransferir = async () => {
-    if (!cuentaDestinoSeleccionada || montoTransferir <= 0) {
+    if (!cuentaDestinoSeleccionada) {
       toast({
         title: "Error",
-        description: "Seleccione una cuenta destino y un monto válido",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (montoTransferir > (ultimoPagoSTP?.monto || 0)) {
-      toast({
-        title: "Error",
-        description: "El monto no puede ser mayor al pago original",
+        description: "Seleccione una cuenta destino",
         variant: "destructive",
       });
       return;
@@ -268,9 +255,22 @@ export function TransferirEntreComisionesDialog({
       setLoading(true);
       
       const cuentaDestinoId = parseInt(cuentaDestinoSeleccionada);
-      const montoRestanteParaOrigen = (ultimoPagoSTP?.monto || 0) - montoTransferir;
+      const montoTotalTransferir = ultimoPagoSTP.monto;
 
-      // 1. Desactivar todas las aplicaciones de pago existentes para este pago
+      // 1. Obtener IDs de acuerdos afectados en la cuenta origen ANTES de desactivar
+      const { data: aplicacionesOrigen, error: aplicacionesOrigenError } = await supabase
+        .from('aplicaciones_pago')
+        .select('id_acuerdo_pago')
+        .eq('id_pago', ultimoPagoSTP.id)
+        .eq('activo', true);
+
+      if (aplicacionesOrigenError) {
+        throw new Error('Error al obtener aplicaciones de pago de origen');
+      }
+
+      const acuerdosAfectadosIds = aplicacionesOrigen?.map(a => a.id_acuerdo_pago) || [];
+
+      // 2. Desactivar todas las aplicaciones de pago existentes para este pago
       const { error: deactivateError } = await supabase
         .from('aplicaciones_pago')
         .update({ activo: false })
@@ -280,7 +280,19 @@ export function TransferirEntreComisionesDialog({
         throw new Error('Error al desactivar aplicaciones de pago existentes');
       }
 
-      // 2. Obtener acuerdos de pago NO completados de la cuenta destino
+      // 3. Marcar los acuerdos de origen como NO completados
+      if (acuerdosAfectadosIds.length > 0) {
+        const { error: updateOrigenError } = await supabase
+          .from('acuerdos_pago')
+          .update({ pago_completado: false })
+          .in('id', acuerdosAfectadosIds);
+
+        if (updateOrigenError) {
+          console.error('Error al actualizar acuerdos de origen:', updateOrigenError);
+        }
+      }
+
+      // 4. Obtener acuerdos de pago NO completados de la cuenta destino
       const { data: acuerdosDestino, error: acuerdosDestinoError } = await supabase
         .from('acuerdos_pago')
         .select('id, monto, orden')
@@ -293,28 +305,15 @@ export function TransferirEntreComisionesDialog({
         throw new Error('Error al obtener acuerdos de pago de cuenta destino');
       }
 
-      // 3. Obtener acuerdos de pago NO completados de la cuenta origen
-      const { data: acuerdosOrigen, error: acuerdosOrigenError } = await supabase
-        .from('acuerdos_pago')
-        .select('id, monto, orden')
-        .eq('id_cuenta_cobranza', cuentaOrigenId)
-        .eq('pago_completado', false)
-        .eq('activo', true)
-        .order('orden');
-
-      if (acuerdosOrigenError) {
-        throw new Error('Error al obtener acuerdos de pago de cuenta origen');
-      }
-
       const aplicacionesPago = [];
       const acuerdosCompletados = [];
 
-      // 4. Aplicar monto de transferencia a cuenta destino
-      let montoRestanteDestino = montoTransferir;
+      // 5. Aplicar el monto COMPLETO a la cuenta destino
+      let montoRestante = montoTotalTransferir;
       for (const acuerdo of acuerdosDestino || []) {
-        if (montoRestanteDestino <= 0) break;
+        if (montoRestante <= 0) break;
 
-        const montoAplicar = Math.min(montoRestanteDestino, acuerdo.monto);
+        const montoAplicar = Math.min(montoRestante, acuerdo.monto);
         
         aplicacionesPago.push({
           id_pago: ultimoPagoSTP.id,
@@ -332,33 +331,7 @@ export function TransferirEntreComisionesDialog({
           });
         }
 
-        montoRestanteDestino -= montoAplicar;
-      }
-
-      // 5. Aplicar monto restante a cuenta origen
-      let montoRestanteOrigen = montoRestanteParaOrigen;
-      for (const acuerdo of acuerdosOrigen || []) {
-        if (montoRestanteOrigen <= 0) break;
-
-        const montoAplicar = Math.min(montoRestanteOrigen, acuerdo.monto);
-        
-        aplicacionesPago.push({
-          id_pago: ultimoPagoSTP.id,
-          id_acuerdo_pago: acuerdo.id,
-          monto: montoAplicar,
-          es_multa: false,
-          activo: true
-        });
-
-        // Si el acuerdo se completa totalmente, marcarlo como completado
-        if (montoAplicar >= acuerdo.monto) {
-          acuerdosCompletados.push({
-            id: acuerdo.id,
-            pago_completado: true
-          });
-        }
-
-        montoRestanteOrigen -= montoAplicar;
+        montoRestante -= montoAplicar;
       }
 
       // 6. Insertar nuevas aplicaciones de pago
@@ -372,7 +345,7 @@ export function TransferirEntreComisionesDialog({
         }
       }
 
-      // 7. Actualizar acuerdos completados
+      // 7. Actualizar acuerdos completados en la cuenta destino
       for (const acuerdo of acuerdosCompletados) {
         const { error: updateError } = await supabase
           .from('acuerdos_pago')
@@ -386,7 +359,7 @@ export function TransferirEntreComisionesDialog({
 
       toast({
         title: "Transferencia realizada",
-        description: `Se transfirió $${montoTransferir.toLocaleString()} a la cuenta seleccionada`,
+        description: `Se transfirió el monto completo de $${montoTotalTransferir.toLocaleString()} a la cuenta seleccionada`,
       });
 
       onClose();
@@ -416,7 +389,7 @@ export function TransferirEntreComisionesDialog({
             Transferir entre cuentas
           </DialogTitle>
           <DialogDescription>
-            Transfiere parte del último pago STP a otra cuenta de cobranza del mismo comprador.
+            Transfiere el monto COMPLETO del último pago STP a otra cuenta de cobranza del mismo comprador.
           </DialogDescription>
         </DialogHeader>
 
@@ -458,23 +431,41 @@ export function TransferirEntreComisionesDialog({
             <div className="space-y-3">
               <Label htmlFor="cuenta-destino">Cuenta destino</Label>
               {cuentasDestino.length > 0 ? (
-                <Select value={cuentaDestinoSeleccionada} onValueChange={setCuentaDestinoSeleccionada}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar cuenta destino" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cuentasDestino.map((cuenta) => (
-                      <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">Cuenta #{cuenta.id} - {cuenta.numero_propiedad}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {cuenta.proyecto} - {cuenta.edificio}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select value={cuentaDestinoSeleccionada} onValueChange={setCuentaDestinoSeleccionada}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar cuenta destino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cuentasDestino.map((cuenta) => (
+                        <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">Cuenta #{cuenta.id} - {cuenta.numero_propiedad}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {cuenta.proyecto} - {cuenta.edificio}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* Advertencia de transferencia completa */}
+                  <div className="flex items-start gap-3 p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-950/20">
+                    <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm space-y-1">
+                      <p className="font-medium text-yellow-900 dark:text-yellow-100">
+                        Se transferirá el monto COMPLETO
+                      </p>
+                      <p className="text-yellow-800 dark:text-yellow-200">
+                        Monto: ${ultimoPagoSTP?.monto.toLocaleString()}
+                      </p>
+                      <p className="text-yellow-700 dark:text-yellow-300 text-xs">
+                        Los acuerdos de la cuenta origen se marcarán como incompletos y el pago completo se aplicará a la cuenta destino.
+                      </p>
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="flex items-center gap-2 p-4 border rounded-lg bg-orange-50 dark:bg-orange-950/20">
                   <AlertTriangle className="w-5 h-5 text-orange-600" />
@@ -484,32 +475,6 @@ export function TransferirEntreComisionesDialog({
                 </div>
               )}
             </div>
-
-            {/* Monto a transferir */}
-            {cuentasDestino.length > 0 && (
-              <div className="space-y-3">
-                <Label htmlFor="monto">Monto a transferir</Label>
-                <Input
-                  id="monto"
-                  type="number"
-                  min="0"
-                  max={ultimoPagoSTP?.monto || 0}
-                  step="0.01"
-                  value={montoTransferir}
-                  onChange={(e) => setMontoTransferir(parseFloat(e.target.value) || 0)}
-                  placeholder="0.00"
-                />
-                
-                {montoTransferir > 0 && (
-                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg text-sm">
-                    <span>Monto que permanecerá en cuenta original:</span>
-                    <Badge variant={montoRestante >= 0 ? "default" : "destructive"}>
-                      ${montoRestante.toLocaleString()}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -519,9 +484,9 @@ export function TransferirEntreComisionesDialog({
           </Button>
           <Button 
             onClick={handleTransferir} 
-            disabled={loading || !cuentaDestinoSeleccionada || montoTransferir <= 0 || montoTransferir > (ultimoPagoSTP?.monto || 0) || cuentasDestino.length === 0}
+            disabled={loading || !cuentaDestinoSeleccionada || cuentasDestino.length === 0}
           >
-            Transferir
+            Transferir monto completo
           </Button>
         </DialogFooter>
       </DialogContent>

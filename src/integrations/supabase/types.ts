@@ -3990,6 +3990,18 @@ export type Database = {
           },
         ]
       }
+      v_id_tipo_pago: {
+        Row: {
+          case: number | null
+        }
+        Insert: {
+          case?: number | null
+        }
+        Update: {
+          case?: number | null
+        }
+        Relationships: []
+      }
       videos_youtube: {
         Row: {
           activo: boolean | null
