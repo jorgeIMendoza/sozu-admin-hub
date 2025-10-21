@@ -1058,11 +1058,16 @@ export default function CuentasMantenimiento() {
                           <TableCell>
                             {cuenta.proxima_fecha_pago ? (
                               <Badge variant="outline">
-                                {new Date(cuenta.proxima_fecha_pago).toLocaleDateString('es-MX', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric'
-                                })}
+                                {(() => {
+                                  // Parse fecha como local, no UTC
+                                  const [year, month, day] = cuenta.proxima_fecha_pago.split('-').map(Number);
+                                  const fecha = new Date(year, month - 1, day);
+                                  return fecha.toLocaleDateString('es-MX', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  });
+                                })()}
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground text-sm">-</span>
