@@ -60,6 +60,7 @@ interface CuentaDetalle {
   monto_mensual_cuota_extraordinaria: number | null;
   proyecto_nombre: string;
   m2_exteriores: number | null;
+  costo_mantenimiento_m2: number | null;
 }
 
 export default function DetalleCuentaMantenimiento() {
@@ -158,6 +159,7 @@ export default function DetalleCuentaMantenimiento() {
       // Fetch proyecto info from cuenta padre
       let proyectoNombre = 'Sin proyecto';
       let porcentajeAnual = null;
+      let costoMantenimientoM2 = null;
       
       if (cuenta.id_cuenta_cobranza_padre) {
         // Get oferta from cuenta padre
@@ -194,13 +196,14 @@ export default function DetalleCuentaMantenimiento() {
               if (entidadResult?.id_proyecto) {
                 const { data: proyectoData } = await supabase
                   .from('proyectos')
-                  .select('nombre, monto_mensual_cuota_extraordinaria')
+                  .select('nombre, monto_mensual_cuota_extraordinaria, costo_mantenimiento_m2')
                   .eq('id', entidadResult.id_proyecto)
-                  .maybeSingle() as { data: { nombre: string; monto_mensual_cuota_extraordinaria: number } | null };
+                  .maybeSingle() as { data: { nombre: string; monto_mensual_cuota_extraordinaria: number; costo_mantenimiento_m2: number | null } | null };
 
                 if (proyectoData) {
                   proyectoNombre = proyectoData.nombre || 'Sin proyecto';
                   porcentajeAnual = proyectoData.monto_mensual_cuota_extraordinaria;
+                  costoMantenimientoM2 = proyectoData.costo_mantenimiento_m2;
                 }
               }
             }
@@ -236,7 +239,8 @@ export default function DetalleCuentaMantenimiento() {
           (oferta?.propiedades?.m2_exteriores || 0) +
           totalM2Bodegas +
           totalM2Estacionamientos
-        ) || null
+        ) || null,
+        costo_mantenimiento_m2: costoMantenimientoM2
       };
 
       return detalle;
@@ -639,9 +643,18 @@ export default function DetalleCuentaMantenimiento() {
               <p className="text-sm text-muted-foreground">{cuentaDetalle.numero_propiedad}</p>
             </div>
             <div>
-              <label className="text-sm font-medium">Metraje</label>
+              <label className="text-sm font-medium">Metraje Total</label>
               <p className="text-sm text-muted-foreground">
                 {cuentaDetalle.m2_exteriores ? `${cuentaDetalle.m2_exteriores} m²` : 'N/A'}
+              </p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                Incluye departamento (interior + exterior) + bodegas + estacionamientos
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Costo por m²</label>
+              <p className="text-sm text-muted-foreground">
+                {cuentaDetalle.costo_mantenimiento_m2 ? formatCurrency(cuentaDetalle.costo_mantenimiento_m2) : 'N/A'}
               </p>
             </div>
             <div>
