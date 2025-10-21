@@ -1473,6 +1473,35 @@ export default function DetalleCuentaCobranza() {
   const montoSobrepago = haySobrepago ? Math.abs(diferenciaReal) : 0;
   const totalPendiente = Math.max(0, diferenciaReal);
 
+  // Calculate pending balance breakdown (only for properties)
+  const pendingBalanceBreakdown = cuentaDetalle?.tipo_cuenta === 'Propiedad' && acuerdosPago ? (() => {
+    // Find contraentrega (pago a contra entrega) acuerdos
+    const contraentregaAcuerdos = acuerdosPago.filter(a => 
+      a.concepto?.toLowerCase() === 'pago a contra entrega'
+    );
+    
+    // Calculate total contraentrega amount and paid amount
+    const totalContraentrega = contraentregaAcuerdos.reduce((sum, a) => sum + a.monto, 0);
+    const pagadoContraentrega = contraentregaAcuerdos.reduce((sum, acuerdo) => 
+      sum + (acuerdo.aplicaciones || []).reduce((appSum, app) => appSum + (app?.monto || 0), 0), 0
+    );
+    const pendienteContraentrega = totalContraentrega - pagadoContraentrega;
+
+    // Calculate pending "durante obra" (without contraentrega)
+    const pendienteDuranteObra = Math.max(0, totalPendiente - pendienteContraentrega);
+
+    // Count remaining partial payments (parcialidades not completed)
+    const parcialidadesRestantes = acuerdosPago.filter(a => 
+      a.concepto?.toLowerCase() === 'parcialidad' && !a.pago_completado
+    ).length;
+
+    return {
+      duranteObra: pendienteDuranteObra,
+      aLaEntrega: Math.max(0, pendienteContraentrega),
+      parcialidadesRestantes
+    };
+  })() : null;
+
   // Find last payment and check if it's STP
   const pagosAplicados = acuerdosPago?.flatMap(acuerdo => 
     (acuerdo.aplicaciones || []).filter(app => !app.es_multa)
@@ -1868,23 +1897,43 @@ export default function DetalleCuentaCobranza() {
                   </Button>
                 </>
               ) : (
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    {((totalPendiente / (cuentaDetalle.precio_final || 1)) * 100).toFixed(1)}% restante
-                  </p>
-                  {totalPendiente === 0 && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Cuenta completamente pagada</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                <>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {((totalPendiente / (cuentaDetalle.precio_final || 1)) * 100).toFixed(1)}% restante
+                    </p>
+                    {totalPendiente === 0 && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Cuenta completamente pagada</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                  
+                  {/* Breakdown for property accounts only */}
+                  {pendingBalanceBreakdown && (
+                    <div className="mt-3 pt-3 border-t space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground">Durante obra:</span>
+                        <span className="font-medium">{formatCurrency(pendingBalanceBreakdown.duranteObra)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground">A la entrega:</span>
+                        <span className="font-medium">{formatCurrency(pendingBalanceBreakdown.aLaEntrega)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground">Parcialidades restantes:</span>
+                        <span className="font-medium">{pendingBalanceBreakdown.parcialidadesRestantes}</span>
+                      </div>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </CardContent>
           </Card>
