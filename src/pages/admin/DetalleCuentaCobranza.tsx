@@ -2494,9 +2494,7 @@ export default function DetalleCuentaCobranza() {
                 );
                 
                 // Check if has any fines (multas)
-                const tieneMultas = (acuerdo.aplicaciones || []).some(
-                  app => app.es_multa
-                );
+                const tieneMultas = acuerdo.multas && acuerdo.multas.length > 0;
                 
                 return (
                   <Collapsible key={acuerdo.id} open={isOpen} onOpenChange={() => toggleAcuerdo(acuerdo.id)}>
@@ -2820,7 +2818,9 @@ export default function DetalleCuentaCobranza() {
                                           </Badge>
                                         ) : null}
                                         <Badge variant="outline" className="text-xs text-muted-foreground">
-                                          {formatDate(multa.fecha_creacion)}
+                                          {multa.detallesPagos && multa.detallesPagos.length > 0
+                                            ? formatDate(multa.detallesPagos[multa.detallesPagos.length - 1].fecha_pago)
+                                            : formatDate(multa.fecha_creacion)}
                                         </Badge>
                                       </div>
                                       <p className="text-sm text-muted-foreground">
