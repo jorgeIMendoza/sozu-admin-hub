@@ -2470,7 +2470,9 @@ export default function DetalleCuentaCobranza() {
           {acuerdosPago && acuerdosPago.length > 0 ? (
             <div className="space-y-2">
               {acuerdosPago.map((acuerdo, index) => {
-                const totalAplicado = (acuerdo.aplicaciones || []).reduce((sum, app) => sum + app.monto, 0);
+                const totalAplicado = (acuerdo.aplicaciones || [])
+                  .filter(app => !app.es_multa)
+                  .reduce((sum, app) => sum + app.monto, 0);
                 const isOpen = openAcuerdos[acuerdo.id];
                 
                 const parcialidadNumber = acuerdosPago
@@ -2486,9 +2488,9 @@ export default function DetalleCuentaCobranza() {
                   ? ((acuerdo.monto / cuentaDetalle.precio_final) * 100).toFixed(2)
                   : '0.00';
                 
-                // Check if has cash payments (id_metodos_pago = 1)
+                // Check if has cash payments (id_metodos_pago = 1), excluding fines
                 const tienePagosEfectivo = (acuerdo.aplicaciones || []).some(
-                  app => app.pago.id_metodos_pago === 1
+                  app => !app.es_multa && app.pago.id_metodos_pago === 1
                 );
                 
                 return (
@@ -2524,7 +2526,7 @@ export default function DetalleCuentaCobranza() {
                               {porcentaje}% - {acuerdo.fecha_pago ? formatDate(acuerdo.fecha_pago) : 'Sin fecha'}
                             </span>
                             <Badge variant={acuerdo.pago_completado ? "default" : "secondary"} className="text-xs">
-                              {acuerdo.pago_completado ? "Pagado" : "Pendiente"}
+                              {acuerdo.pago_completado ? "Pagado" : totalAplicado > 0 ? "Parcial" : "Pendiente"}
                             </Badge>
                           </div>
                            <div className="flex items-center gap-2">
