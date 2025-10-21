@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, X, Edit, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Receipt, Wrench } from "lucide-react";
+import { Search, Eye, X, Edit, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Receipt, Wrench, Package } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -15,6 +15,7 @@ import { CompradoresDetailDialog } from "@/components/admin/CompradoresDetailDia
 import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
 import { TransferMoneyDialog } from "@/components/admin/TransferMoneyDialog";
 import { CashPaymentDetailDialog } from "@/components/admin/CashPaymentDetailDialog";
+import { ComplementosDetailDialog } from "@/components/admin/ComplementosDetailDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,6 +33,27 @@ interface Comprador {
 interface CashPayment {
   fecha_pago: string;
   monto: number;
+}
+
+interface BodegaDetalle {
+  nombre: string;
+  m2: number;
+  ubicacion?: string;
+  es_incluido: boolean;
+}
+
+interface EstacionamientoDetalle {
+  nombre: string;
+  tipo: string;
+  m2: number;
+  ubicacion?: string;
+  es_incluido: boolean;
+}
+
+interface ProductoDetalle {
+  nombre: string;
+  categoria: string;
+  precio: number;
 }
 
 interface CuentaCobranza {
@@ -61,6 +83,10 @@ interface CuentaCobranza {
   cash_remaining?: number;
   cash_percentage?: number;
   cash_payments?: CashPayment[];
+  id_propiedad?: number;
+  bodegas?: BodegaDetalle[];
+  estacionamientos?: EstacionamientoDetalle[];
+  productos?: ProductoDetalle[];
 }
 
 export default function CuentasMantenimiento() {
@@ -83,6 +109,10 @@ export default function CuentasMantenimiento() {
     cuenta: null
   });
   const [cashDialog, setCashDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
+    isOpen: false,
+    cuenta: null
+  });
+  const [complementosDialog, setComplementosDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
     isOpen: false,
     cuenta: null
   });
@@ -518,6 +548,73 @@ export default function CuentasMantenimiento() {
           .in('id', edificioModeloIds)
       ]);
 
+      // Get complementos (bodegas, estacionamientos, productos) for each property
+      const propiedadIds = parentOfertas?.map(po => po.propiedades?.id).filter(Boolean) || [];
+      
+      // Get bodegas
+      const { data: bodegasData } = propiedadIds.length > 0 ? await supabase
+        .from('bodegas')
+        .select('id_propiedad, nombre, m2, ubicacion, es_incluido')
+        .in('id_propiedad', propiedadIds)
+        .eq('activo', true) : { data: [] };
+
+      // Get estacionamientos with tipo
+      const { data: estacionamientosData } = propiedadIds.length > 0 ? await supabase
+        .from('estacionamientos')
+        .select(`
+          id_propiedad, 
+          nombre, 
+          m2, 
+          ubicacion, 
+          es_incluido,
+          tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre)
+        `)
+        .in('id_propiedad', propiedadIds)
+        .eq('activo', true) : { data: [] };
+
+      // Get productos (condensadoras, etc.) - productos adicionales comprados via ofertas
+      const ofertasProductosIds = parentOfertaIds;
+      const { data: ofertasProductos } = ofertasProductosIds.length > 0 ? await supabase
+        .from('ofertas')
+        .select(`
+          id,
+          id_propiedad,
+          id_producto,
+          productos_servicios!ofertas_id_producto_fkey(
+            id,
+            nombre,
+            precio_lista,
+            categorias_producto!productos_servicios_id_categoria_fkey(nombre)
+          )
+        `)
+        .in('id', ofertasProductosIds)
+        .not('id_producto', 'is', null) : { data: [] };
+
+      // Create maps for complementos by propiedad
+      const bodegasPorPropiedad = (bodegasData || []).reduce((acc: Record<number, any[]>, b) => {
+        if (!acc[b.id_propiedad]) acc[b.id_propiedad] = [];
+        acc[b.id_propiedad].push(b);
+        return acc;
+      }, {});
+
+      const estacionamientosPorPropiedad = (estacionamientosData || []).reduce((acc: Record<number, any[]>, e) => {
+        if (!acc[e.id_propiedad]) acc[e.id_propiedad] = [];
+        acc[e.id_propiedad].push(e);
+        return acc;
+      }, {});
+
+      const productosPorPropiedad = (ofertasProductos || []).reduce((acc: Record<number, any[]>, o) => {
+        if (o.id_propiedad && o.productos_servicios) {
+          if (!acc[o.id_propiedad]) acc[o.id_propiedad] = [];
+          // Solo incluir bodegas, estacionamientos y otros productos (no mostrar productos que ya están en las tablas específicas)
+          const categoria = o.productos_servicios.categorias_producto?.nombre;
+          if (categoria && !['Bodega', 'Estacionamiento'].includes(categoria)) {
+            acc[o.id_propiedad].push(o.productos_servicios);
+          }
+        }
+        return acc;
+      }, {});
+
       // Transform the data
       const transformedData: CuentaCobranza[] = cuentas.map(cuenta => {
         // Get parent cuenta and its oferta (for proyecto, propiedad, modelo, clave_catastral)
@@ -624,7 +721,26 @@ export default function CuentasMantenimiento() {
           motivo_cancelacion: (cuenta as any).tipos_cancelacion?.nombre || null,
           apartado_pagado: apartadoPagadoPorCuenta[cuenta.id],
           tiene_acuerdos: tieneAcuerdosPorCuenta[cuenta.id],
-          tiene_multas_pendientes: multasPendientesPorCuenta[cuenta.id] || false
+          tiene_multas_pendientes: multasPendientesPorCuenta[cuenta.id] || false,
+          id_propiedad: parentPropiedad?.id,
+          bodegas: parentPropiedad?.id ? (bodegasPorPropiedad[parentPropiedad.id] || []).map((b: any) => ({
+            nombre: b.nombre,
+            m2: b.m2,
+            ubicacion: b.ubicacion,
+            es_incluido: b.es_incluido
+          })) : [],
+          estacionamientos: parentPropiedad?.id ? (estacionamientosPorPropiedad[parentPropiedad.id] || []).map((e: any) => ({
+            nombre: e.nombre,
+            tipo: e.tipos_estacionamiento?.nombre || 'Sin tipo',
+            m2: e.m2,
+            ubicacion: e.ubicacion,
+            es_incluido: e.es_incluido
+          })) : [],
+          productos: parentPropiedad?.id ? (productosPorPropiedad[parentPropiedad.id] || []).map((p: any) => ({
+            nombre: p.nombre,
+            categoria: p.categorias_producto?.nombre || 'Sin categoría',
+            precio: p.precio_lista || 0
+          })) : []
         };
       });
 
@@ -831,13 +947,14 @@ export default function CuentasMantenimiento() {
                       <TableHead className="text-right">Total Mensual</TableHead>
                       <TableHead className="text-right">Total Pagado</TableHead>
                       <TableHead className="text-right">Saldo Pendiente</TableHead>
+                      <TableHead className="text-center">Complementos</TableHead>
                       <TableHead className="text-center">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredCuentas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                           No se encontraron cuentas de mantenimiento
                         </TableCell>
                       </TableRow>
@@ -907,6 +1024,26 @@ export default function CuentasMantenimiento() {
                                 : '0.00'
                             }
                           </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => setComplementosDialog({ isOpen: true, cuenta })}
+                                    >
+                                      <Package className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Ver complementos</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </TableCell>
                            <TableCell>
                             <div className="flex items-center justify-center gap-2">
                               <TooltipProvider>
@@ -934,6 +1071,18 @@ export default function CuentasMantenimiento() {
             </CardContent>
           </Card>
       </div>
+
+      {/* Dialogs */}
+      {complementosDialog.isOpen && complementosDialog.cuenta && (
+        <ComplementosDetailDialog
+          open={complementosDialog.isOpen}
+          onClose={() => setComplementosDialog({ isOpen: false, cuenta: null })}
+          bodegas={complementosDialog.cuenta.bodegas || []}
+          estacionamientos={complementosDialog.cuenta.estacionamientos || []}
+          productos={complementosDialog.cuenta.productos || []}
+          propertyNumber={complementosDialog.cuenta.numero_propiedad}
+        />
+      )}
 
       {/* Dialog de pago manual */}
     </div>
