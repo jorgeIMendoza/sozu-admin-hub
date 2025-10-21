@@ -14,7 +14,6 @@ import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationD
 import { CompradoresDetailDialog } from "@/components/admin/CompradoresDetailDialog";
 import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
 import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
-import { TransferMoneyDialog } from "@/components/admin/TransferMoneyDialog";
 import { CancelCuentaDialog } from "@/components/admin/CancelCuentaDialog";
 import { CashPaymentDetailDialog } from "@/components/admin/CashPaymentDetailDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -88,10 +87,6 @@ export default function Pagos() {
   });
   const [loadingDownload, setLoadingDownload] = useState<number | null>(null);
   const [paymentDialog, setPaymentDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
-    isOpen: false,
-    cuenta: null
-  });
-  const [transferDialog, setTransferDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
     isOpen: false,
     cuenta: null
   });

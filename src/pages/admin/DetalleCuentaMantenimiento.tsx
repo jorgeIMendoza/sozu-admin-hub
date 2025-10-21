@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { TransferirEntreComisionesDialog } from "@/components/admin/TransferirEntreComisionesDialog";
+import { TransferPaymentDialog } from "@/components/admin/TransferPaymentDialog";
 
 interface AcuerdoPago {
   id: number;
@@ -934,7 +934,7 @@ export default function DetalleCuentaMantenimiento() {
       </Card>
 
       {/* Dialogs */}
-      <TransferirEntreComisionesDialog
+      <TransferPaymentDialog
         isOpen={transferDialog.isOpen}
         onClose={() => setTransferDialog({ isOpen: false })}
         cuentaOrigenId={cuentaId}

@@ -20,7 +20,7 @@ import { NewMultaDialog } from "@/components/admin/NewMultaDialog";
 import { AddCepDialog } from "@/components/admin/AddCepDialog";
 import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
 import { EditPaymentDialog } from "@/components/admin/EditPaymentDialog";
-import { TransferirEntreComisionesDialog } from "@/components/admin/TransferirEntreComisionesDialog";
+import { TransferPaymentDialog } from "@/components/admin/TransferPaymentDialog";
 import { formatCuentaCobranzaId, formatOfertaId } from "@/utils/cuentaCobranzaUtils";
 import { ReciboPagoService } from "@/services/reciboPagoService";
 
@@ -3174,7 +3174,7 @@ export default function DetalleCuentaCobranza() {
         cuentaCobranzaId={cuentaId}
       />
 
-      <TransferirEntreComisionesDialog
+      <TransferPaymentDialog
         isOpen={transferDialog.isOpen}
         onClose={() => setTransferDialog({ isOpen: false })}
         cuentaOrigenId={cuentaId}

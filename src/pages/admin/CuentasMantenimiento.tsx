@@ -13,7 +13,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { CompradoresDetailDialog } from "@/components/admin/CompradoresDetailDialog";
 import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
-import { TransferMoneyDialog } from "@/components/admin/TransferMoneyDialog";
 import { CashPaymentDetailDialog } from "@/components/admin/CashPaymentDetailDialog";
 import { ComplementosDetailDialog } from "@/components/admin/ComplementosDetailDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -105,10 +104,6 @@ export default function CuentasMantenimiento() {
     cuenta: null
   });
   const [loadingDownload, setLoadingDownload] = useState<number | null>(null);
-  const [transferDialog, setTransferDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
-    isOpen: false,
-    cuenta: null
-  });
   const [cashDialog, setCashDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
     isOpen: false,
     cuenta: null
