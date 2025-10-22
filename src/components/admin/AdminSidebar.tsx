@@ -128,9 +128,21 @@ const navigationItems = [
 ];
 
 export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps) => {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set([]) // All groups collapsed by default, Dashboard selected
-  );
+  // Auto-expand the group that contains the current path
+  const getInitialExpandedGroups = () => {
+    const expanded = new Set<string>();
+    navigationItems.forEach(item => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child => currentPath === child.href);
+        if (hasActiveChild) {
+          expanded.add(item.title);
+        }
+      }
+    });
+    return expanded;
+  };
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(getInitialExpandedGroups());
 
   const toggleGroup = (groupTitle: string) => {
     const newExpanded = new Set(expandedGroups);
