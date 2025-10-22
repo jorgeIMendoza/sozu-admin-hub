@@ -3,25 +3,29 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
   numero_pisos: z.string().optional(),
   fecha_lanzamiento: z.string().optional(),
+  modelos: z.array(z.string()).default([]),
 });
 
 interface EditBuildingDialogProps {
   building: any;
+  projectId: number;
   onBuildingUpdated: () => void;
 }
 
-export const EditBuildingDialog = ({ building, onBuildingUpdated }: EditBuildingDialogProps) => {
+export const EditBuildingDialog = ({ building, projectId, onBuildingUpdated }: EditBuildingDialogProps) => {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
@@ -31,18 +35,53 @@ export const EditBuildingDialog = ({ building, onBuildingUpdated }: EditBuilding
       nombre: "",
       numero_pisos: "",
       fecha_lanzamiento: "",
+      modelos: [],
     },
   });
 
+  // Fetch modelos del proyecto
+  const { data: modelos } = useQuery({
+    queryKey: ["modelos", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("modelos")
+        .select("*")
+        .eq("activo", true)
+        .eq("id_proyecto", projectId)
+        .order("nombre");
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!projectId,
+  });
+
+  // Fetch modelos actuales del edificio
+  const { data: buildingModelos } = useQuery({
+    queryKey: ["building-modelos", building.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("edificios_modelos")
+        .select("id_modelo")
+        .eq("id_edificio", building.id)
+        .eq("activo", true);
+      
+      if (error) throw error;
+      return data?.map(em => em.id_modelo.toString()) || [];
+    },
+    enabled: open && !!building.id,
+  });
+
   useEffect(() => {
-    if (building && open) {
+    if (building && open && buildingModelos) {
       form.reset({
         nombre: building.nombre || "",
         numero_pisos: building.numero_pisos?.toString() || "",
         fecha_lanzamiento: building.fecha_lanzamiento ? new Date(building.fecha_lanzamiento).toISOString().split('T')[0] : "",
+        modelos: buildingModelos,
       });
     }
-  }, [building, open, form]);
+  }, [building, open, form, buildingModelos]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>, event?: any) => {
     if (event) {
@@ -69,6 +108,29 @@ export const EditBuildingDialog = ({ building, onBuildingUpdated }: EditBuilding
         .eq("id", building.id);
 
       if (error) throw error;
+
+      // Update model relationships
+      // First, delete existing relationships
+      const { error: deleteError } = await supabase
+        .from("edificios_modelos")
+        .delete()
+        .eq("id_edificio", building.id);
+
+      if (deleteError) throw deleteError;
+
+      // Then, insert new relationships if any selected
+      if (values.modelos && values.modelos.length > 0) {
+        const modelRelations = values.modelos.map(modeloId => ({
+          id_edificio: building.id,
+          id_modelo: parseInt(modeloId),
+        }));
+
+        const { error: modelError } = await supabase
+          .from("edificios_modelos")
+          .insert(modelRelations);
+
+        if (modelError) throw modelError;
+      }
 
       toast({
         title: "Edificio actualizado",
@@ -149,6 +211,52 @@ export const EditBuildingDialog = ({ building, onBuildingUpdated }: EditBuilding
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="modelos"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Modelos</FormLabel>
+                  <div className="grid grid-cols-2 gap-2">
+                    {modelos?.map((modelo) => (
+                      <FormField
+                        key={modelo.id}
+                        control={form.control}
+                        name="modelos"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={modelo.id}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(modelo.id.toString())}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...field.value, modelo.id.toString()])
+                                      : field.onChange(
+                                          field.value?.filter(
+                                            (value) => value !== modelo.id.toString()
+                                          )
+                                        )
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal">
+                                {modelo.nombre}
+                              </FormLabel>
+                            </FormItem>
+                          )
+                        }}
+                      />
+                    ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

@@ -19,9 +19,10 @@ export interface Building {
 interface BuildingFormSectionProps {
   buildings: Building[];
   onBuildingsChange: (buildings: Building[]) => void;
+  isNewProject?: boolean;
 }
 
-export const BuildingFormSection = ({ buildings, onBuildingsChange }: BuildingFormSectionProps) => {
+export const BuildingFormSection = ({ buildings, onBuildingsChange, isNewProject = false }: BuildingFormSectionProps) => {
   const { data: modelos } = useQuery({
     queryKey: ["modelos"],
     queryFn: async () => {
@@ -77,11 +78,22 @@ export const BuildingFormSection = ({ buildings, onBuildingsChange }: BuildingFo
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label className="text-base font-medium">Edificios</Label>
-        <Button type="button" variant="outline" size="sm" onClick={addBuilding}>
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="sm" 
+          onClick={addBuilding}
+          disabled={isNewProject}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Agregar Edificio
         </Button>
       </div>
+      {isNewProject && (
+        <p className="text-sm text-muted-foreground">
+          Solo se podrán dar de alta edificios cuando ya se haya guardado el Proyecto.
+        </p>
+      )}
 
       {safeBuildingsArray.length === 0 ? (
         <Card>

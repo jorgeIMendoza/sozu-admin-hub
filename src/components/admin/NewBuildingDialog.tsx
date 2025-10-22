@@ -39,12 +39,13 @@ export const NewBuildingDialog = ({ projectId, onBuildingAdded }: NewBuildingDia
   });
 
   const { data: modelos } = useQuery({
-    queryKey: ["modelos"],
+    queryKey: ["modelos", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("modelos")
         .select("*")
         .eq("activo", true)
+        .eq("id_proyecto", projectId)
         .order("nombre");
       
       if (error) throw error;

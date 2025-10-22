@@ -740,7 +740,8 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                 {/* Buildings Section */}
                 <BuildingFormSection 
                   buildings={buildings} 
-                  onBuildingsChange={setBuildings} 
+                  onBuildingsChange={setBuildings}
+                  isNewProject={true}
                 />
 
                 {/* Payment Schemes Section */}

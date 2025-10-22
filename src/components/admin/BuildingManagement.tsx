@@ -243,7 +243,8 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                       buildingName={building.nombre} 
                     />
                     <EditBuildingDialog 
-                      building={building} 
+                      building={building}
+                      projectId={projectId}
                       onBuildingUpdated={handleBuildingAdded} 
                     />
                     <DeleteBuildingDialog building={building} />
