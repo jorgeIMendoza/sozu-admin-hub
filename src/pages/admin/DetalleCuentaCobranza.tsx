@@ -2926,11 +2926,6 @@ export default function DetalleCuentaCobranza() {
                                             Pendiente: {formatCurrency(multa.monto)}
                                           </Badge>
                                         ) : null}
-                                        <Badge variant="outline" className="text-xs text-muted-foreground">
-                                          {multa.detallesPagos && multa.detallesPagos.length > 0
-                                            ? formatDate(multa.detallesPagos[multa.detallesPagos.length - 1].fecha_pago)
-                                            : formatDate(multa.fecha_creacion)}
-                                        </Badge>
                                       </div>
                                       <p className="text-sm text-muted-foreground">
                                         {multa.descripcion}
