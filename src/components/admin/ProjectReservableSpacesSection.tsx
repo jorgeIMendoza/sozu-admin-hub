@@ -280,7 +280,7 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
               Gestiona los espacios reservables de cada edificio del proyecto
             </CardDescription>
           </div>
-          <Dialog open={open} onOpenChange={handleDialogClose}>
+          <Dialog open={open} onOpenChange={handleDialogClose} modal={true}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="w-4 h-4 mr-2" />
