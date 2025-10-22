@@ -776,10 +776,10 @@ export default function DetalleCuentaMantenimiento() {
                                 <div className="relative">
                                   <Progress 
                                     value={(totalAplicado / acuerdo.monto) * 100} 
-                                    className="h-2"
+                                    className="h-6"
                                   />
                                   <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-[10px] font-semibold text-foreground drop-shadow-sm">
+                                    <span className="text-xs font-bold bg-background/80 px-2 py-0.5 rounded">
                                       {((totalAplicado / acuerdo.monto) * 100).toFixed(1)}%
                                     </span>
                                   </div>
