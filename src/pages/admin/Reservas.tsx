@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Plus, Calendar as CalendarIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,11 +15,10 @@ const Reservas = () => {
   const queryClient = useQueryClient();
 
   // @ts-ignore - Tablas no están en types aún
-
   const { data: reservas, isLoading } = useQuery({
     queryKey: ["reservas"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("reservas")
         .select(`
           *,
@@ -59,9 +57,9 @@ const Reservas = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("reservas")
-        .update({ activo: false } as any)
+        .update({ activo: false })
         .eq("id", id);
 
       if (error) throw error;
@@ -79,10 +77,8 @@ const Reservas = () => {
   const reservasEliminadas = reservas?.filter((r: any) => !r.activo) || [];
 
   return (
-    <AdminLayout>
-      {/* ... keep existing code */}
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <CalendarIcon className="h-5 w-5 text-primary-foreground" />
@@ -133,10 +129,9 @@ const Reservas = () => {
             />
           </TabsContent>
         </Tabs>
-      </div>
 
-      <NewReservaDialog open={newDialogOpen} onOpenChange={setNewDialogOpen} />
-    </AdminLayout>
+        <NewReservaDialog open={newDialogOpen} onOpenChange={setNewDialogOpen} />
+      </div>
   );
 };
 

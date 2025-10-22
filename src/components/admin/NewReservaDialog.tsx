@@ -65,7 +65,7 @@ export const NewReservaDialog = ({ open, onOpenChange }: NewReservaDialogProps) 
   const { data: espacios } = useQuery({
     queryKey: ["espacios_reservables"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("espacios_reservables_edificio")
         .select(`
           *,
@@ -78,10 +78,11 @@ export const NewReservaDialog = ({ open, onOpenChange }: NewReservaDialogProps) 
     },
   });
 
+  // @ts-ignore - Tablas no están en types aún
   const { data: acuerdos } = useQuery({
     queryKey: ["acuerdos_pago_activos"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("acuerdos_pago")
         .select(`
           *,
@@ -100,10 +101,11 @@ export const NewReservaDialog = ({ open, onOpenChange }: NewReservaDialogProps) 
     },
   });
 
+  // @ts-ignore - Tablas no están en types aún
   const { data: estatusReserva } = useQuery({
     queryKey: ["estatus_reserva"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("estatus_reserva")
         .select("*")
         .eq("activo", true);
@@ -124,7 +126,7 @@ export const NewReservaDialog = ({ open, onOpenChange }: NewReservaDialogProps) 
         costoFinal = costoPorHr * horas;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("reservas")
         .insert([{
           id_acuerdo_pago: parseInt(values.id_acuerdo_pago),
