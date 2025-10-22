@@ -406,8 +406,6 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
                               <SelectItem value="5 hours">5 horas</SelectItem>
                               <SelectItem value="6 hours">6 horas</SelectItem>
                               <SelectItem value="8 hours">8 horas</SelectItem>
-                              <SelectItem value="12 hours">12 horas</SelectItem>
-                              <SelectItem value="1 day">1 día</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
