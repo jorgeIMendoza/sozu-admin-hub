@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, DollarSign, CalendarDays, ChevronDown, ChevronUp, Home, ArrowRight } from "lucide-react";
+import { ArrowLeft, DollarSign, CalendarDays, ChevronDown, ChevronUp, Home, ArrowRight, Plus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { TransferPaymentDialog } from "@/components/admin/TransferPaymentDialog";
+import { NewMultaMantenimientoDialog } from "@/components/admin/NewMultaMantenimientoDialog";
 import { Progress } from "@/components/ui/progress";
 
 interface AcuerdoPago {
@@ -71,6 +72,7 @@ export default function DetalleCuentaMantenimiento() {
   const [transferDialog, setTransferDialog] = useState<{ isOpen: boolean }>({ isOpen: false });
   const [propietariosOpen, setPropietariosOpen] = useState(false);
   const [visibleAcuerdos, setVisibleAcuerdos] = useState(5);
+  const [multaDialog, setMultaDialog] = useState(false);
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
     queryKey: ["cuenta_mantenimiento_detalle", cuentaId],
@@ -397,7 +399,44 @@ export default function DetalleCuentaMantenimiento() {
         .eq('activo', true);
 
       if (error) throw error;
-      return data || [];
+      
+      // Get tipos de multa and descripcion via RPC for complete data
+      const multaIds = data?.map(m => m.id) || [];
+      let multasCompletas: any[] = [];
+      
+      if (multaIds.length > 0) {
+        const { data: multasData } = await supabase
+          .rpc('execute_safe_query', {
+            query_text: `SELECT id, monto, es_pagada, id_acuerdo_pago, descripcion, id_tipo_multa FROM multas WHERE id IN (${multaIds.join(',')})`,
+            max_rows: 1000
+          });
+        
+        multasCompletas = multasData as any[] || [];
+      }
+      
+      // Get tipos de multa names
+      const tipoIds = [...new Set(multasCompletas.map((m: any) => m.id_tipo_multa).filter(id => id))];
+      let tiposMap = new Map<number, string>();
+      
+      if (tipoIds.length > 0) {
+        const { data: tipos } = await supabase
+          .rpc('execute_safe_query', {
+            query_text: `SELECT id, nombre FROM tipos_multa WHERE id IN (${tipoIds.join(',')})`,
+            max_rows: 100
+          });
+        
+        (tipos as any)?.forEach((t: any) => tiposMap.set(t.id, t.nombre));
+      }
+      
+      return multasCompletas.map((m: any) => ({
+        id: m.id,
+        monto: m.monto,
+        es_pagada: m.es_pagada,
+        id_acuerdo_pago: m.id_acuerdo_pago,
+        descripcion: m.descripcion || '',
+        id_tipo_multa: m.id_tipo_multa,
+        tipo_nombre: tiposMap.get(m.id_tipo_multa) || 'N/A'
+      }));
     },
     enabled: !!cuentaId && !!acuerdosPago && acuerdosPago.length > 0,
   });
@@ -495,10 +534,16 @@ export default function DetalleCuentaMantenimiento() {
     return sum + totalAcuerdo;
   }, 0) || 0;
 
-  // Calculate total mensual: suma de todos los acuerdos + todas las multas
-  const totalAcuerdos = acuerdosPago?.reduce((sum, acuerdo) => sum + (acuerdo.monto || 0), 0) || 0;
-  const totalMultas = multas?.reduce((sum, multa) => sum + (multa.monto || 0), 0) || 0;
-  const pagoMensual = totalAcuerdos + totalMultas;
+  // Calculate total mensual: suma de todos los acuerdos (incluyendo multas)
+  // Para acuerdos de multa, usamos el monto de la multa asociada
+  const pagoMensual = acuerdosPago?.reduce((sum, acuerdo) => {
+    const esAcuerdoMulta = acuerdo.concepto === 'Pago de multa';
+    if (esAcuerdoMulta) {
+      const multaAsociada = multas?.find(m => m.id_acuerdo_pago === acuerdo.id);
+      return sum + (multaAsociada?.monto || 0);
+    }
+    return sum + (acuerdo.monto || 0);
+  }, 0) || 0;
 
   // Saldo pendiente = pago mensual - total pagado
   const saldoPendiente = pagoMensual - totalPagado;
@@ -550,6 +595,13 @@ export default function DetalleCuentaMantenimiento() {
           >
             <ArrowRight className="h-4 w-4 mr-2" />
             Transferir entre cuentas
+          </Button>
+          <Button 
+            onClick={() => setMultaDialog(true)}
+            variant="outline"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Agregar Multa
           </Button>
         </div>
       </div>
@@ -714,9 +766,13 @@ export default function DetalleCuentaMantenimiento() {
               {acuerdosPago && acuerdosPago.length > 0 ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    {acuerdosPago.slice(0, visibleAcuerdos).map((acuerdo) => {
+                  {acuerdosPago.slice(0, visibleAcuerdos).map((acuerdo) => {
                     const totalAplicado = (acuerdo.aplicaciones || []).reduce((sum, app) => sum + app.monto, 0);
                     const isOpen = openAcuerdos[acuerdo.id];
+                    
+                    // Check if this is a multa acuerdo
+                    const multaAsociada = multas?.find(m => m.id_acuerdo_pago === acuerdo.id);
+                    const esAcuerdoMulta = acuerdo.concepto === 'Pago de multa';
                     
                     return (
                       <Collapsible key={acuerdo.id} open={isOpen} onOpenChange={() => toggleAcuerdo(acuerdo.id)}>
@@ -725,34 +781,50 @@ export default function DetalleCuentaMantenimiento() {
                             <div className="w-full p-3 hover:bg-muted/50 cursor-pointer">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex flex-col gap-1 flex-1">
-                                  <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
-                                  {conRecargos() && cuentaDetalle?.monto_mensual_cuota_extraordinaria ? (
+                                  {esAcuerdoMulta && multaAsociada ? (
                                     <>
-                                      <span className="text-sm text-muted-foreground line-through">
-                                        {formatCurrency(calcularMontos(acuerdo.monto).montoOriginal)}
+                                      <span className="text-sm font-medium">
+                                        Multa: {(multaAsociada as any).tipo_nombre || 'N/A'}
                                       </span>
-                                      <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                                        {formatCurrency(acuerdo.monto)}
-                                        <span className="ml-1 text-xs">(recargos incluidos)</span>
+                                      <span className="text-sm text-muted-foreground">
+                                        {(multaAsociada as any).descripcion || 'Sin descripción'}
                                       </span>
-                                      <span className="text-xs text-muted-foreground">
-                                        Recargo: {formatCurrency(calcularMontos(acuerdo.monto).montoRecargos)}
+                                      <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                                        {formatCurrency(multaAsociada.monto)}
                                       </span>
                                     </>
                                   ) : (
-                                    <span className="text-sm text-muted-foreground">
-                                      {formatCurrency(acuerdo.monto)}
-                                    </span>
-                                  )}
-                                  {acuerdo.fecha_pago && (
-                                    <div className="flex flex-col text-xs text-muted-foreground">
-                                      <span className="text-green-600 dark:text-green-400">
-                                        Sin recargos: {formatDate(acuerdo.fecha_pago)} al {addDays(acuerdo.fecha_pago, 9)}
-                                      </span>
-                                      <span className="text-amber-600 dark:text-amber-400">
-                                        Con recargos desde: {addDays(acuerdo.fecha_pago, 10)}
-                                      </span>
-                                    </div>
+                                    <>
+                                      <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
+                                      {conRecargos() && cuentaDetalle?.monto_mensual_cuota_extraordinaria ? (
+                                        <>
+                                          <span className="text-sm text-muted-foreground line-through">
+                                            {formatCurrency(calcularMontos(acuerdo.monto).montoOriginal)}
+                                          </span>
+                                          <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                                            {formatCurrency(acuerdo.monto)}
+                                            <span className="ml-1 text-xs">(recargos incluidos)</span>
+                                          </span>
+                                          <span className="text-xs text-muted-foreground">
+                                            Recargo: {formatCurrency(calcularMontos(acuerdo.monto).montoRecargos)}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="text-sm text-muted-foreground">
+                                          {formatCurrency(acuerdo.monto)}
+                                        </span>
+                                      )}
+                                      {acuerdo.fecha_pago && (
+                                        <div className="flex flex-col text-xs text-muted-foreground">
+                                          <span className="text-green-600 dark:text-green-400">
+                                            Sin recargos: {formatDate(acuerdo.fecha_pago)} al {addDays(acuerdo.fecha_pago, 9)}
+                                          </span>
+                                          <span className="text-amber-600 dark:text-amber-400">
+                                            Con recargos desde: {addDays(acuerdo.fecha_pago, 10)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -770,17 +842,17 @@ export default function DetalleCuentaMantenimiento() {
                                     Pagado: <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(totalAplicado)}</span>
                                   </span>
                                   <span className="text-muted-foreground">
-                                    Pendiente: <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(acuerdo.monto - totalAplicado)}</span>
+                                    Pendiente: <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency((esAcuerdoMulta && multaAsociada ? multaAsociada.monto : acuerdo.monto) - totalAplicado)}</span>
                                   </span>
                                 </div>
                                 <div className="relative">
                                   <Progress 
-                                    value={(totalAplicado / acuerdo.monto) * 100} 
+                                    value={(totalAplicado / (esAcuerdoMulta && multaAsociada ? multaAsociada.monto : acuerdo.monto)) * 100} 
                                     className="h-6"
                                   />
                                   <div className="absolute inset-0 flex items-center justify-center">
                                     <span className="text-xs font-bold bg-background/80 px-2 py-0.5 rounded">
-                                      {((totalAplicado / acuerdo.monto) * 100).toFixed(1)}%
+                                      {((totalAplicado / (esAcuerdoMulta && multaAsociada ? multaAsociada.monto : acuerdo.monto)) * 100).toFixed(1)}%
                                     </span>
                                   </div>
                                 </div>
@@ -967,6 +1039,12 @@ export default function DetalleCuentaMantenimiento() {
           clave_rastreo: ultimoPagoSTP.clave_rastreo || '',
           monto: ultimoPagoSTP.monto
         } : null}
+      />
+
+      <NewMultaMantenimientoDialog
+        open={multaDialog}
+        onOpenChange={setMultaDialog}
+        cuentaId={cuentaId}
       />
     </div>
   );
