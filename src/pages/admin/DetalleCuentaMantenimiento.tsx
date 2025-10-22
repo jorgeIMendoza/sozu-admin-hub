@@ -360,6 +360,7 @@ export default function DetalleCuentaMantenimiento() {
             fecha_pago: acuerdo.fecha_pago,
             pago_completado: acuerdo.pago_completado,
             concepto: conceptosMap.get(acuerdo.id_concepto) || 'Sin concepto',
+            id_concepto: acuerdo.id_concepto,
             aplicaciones: (apps || []).map(app => {
               const pago = pagosMap.get(app.id_pago);
               return {
@@ -772,7 +773,10 @@ export default function DetalleCuentaMantenimiento() {
                     
                     // Check if this is a multa acuerdo
                     const multaAsociada = multas?.find(m => m.id_acuerdo_pago === acuerdo.id);
-                    const esAcuerdoMulta = acuerdo.concepto === 'Pago de multa';
+                    const esAcuerdoMulta = acuerdo.concepto === 'Pago de multa' || acuerdo.id_concepto === 13;
+                    
+                    // Only show surcharges for Fondo de reserva (11) and Pago Mantenimiento (12)
+                    const mostrarRecargos = acuerdo.id_concepto === 11 || acuerdo.id_concepto === 12;
                     
                     return (
                       <Collapsible key={acuerdo.id} open={isOpen} onOpenChange={() => toggleAcuerdo(acuerdo.id)}>
@@ -792,8 +796,13 @@ export default function DetalleCuentaMantenimiento() {
                                       <span className="text-sm font-medium text-red-600 dark:text-red-400">
                                         {formatCurrency(multaAsociada.monto)}
                                       </span>
+                                      {acuerdo.fecha_pago && (
+                                        <span className="text-xs text-muted-foreground">
+                                          Fecha de pago: {formatDate(acuerdo.fecha_pago)}
+                                        </span>
+                                      )}
                                     </>
-                                  ) : (
+                                  ) : mostrarRecargos ? (
                                     <>
                                       <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
                                       {conRecargos() && cuentaDetalle?.monto_mensual_cuota_extraordinaria ? (
@@ -825,6 +834,18 @@ export default function DetalleCuentaMantenimiento() {
                                         </div>
                                       )}
                                     </>
+                                  ) : (
+                                    <>
+                                      <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
+                                      <span className="text-sm text-muted-foreground">
+                                        {formatCurrency(acuerdo.monto)}
+                                      </span>
+                                      {acuerdo.fecha_pago && (
+                                        <span className="text-xs text-muted-foreground">
+                                          Fecha de pago: {formatDate(acuerdo.fecha_pago)}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -846,15 +867,23 @@ export default function DetalleCuentaMantenimiento() {
                                   </span>
                                 </div>
                                 <div className="relative">
-                                  <Progress 
-                                    value={(totalAplicado / (esAcuerdoMulta && multaAsociada ? multaAsociada.monto : acuerdo.monto)) * 100} 
-                                    className="h-6"
-                                  />
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-xs font-bold bg-background/80 px-2 py-0.5 rounded">
-                                      {((totalAplicado / (esAcuerdoMulta && multaAsociada ? multaAsociada.monto : acuerdo.monto)) * 100).toFixed(1)}%
-                                    </span>
-                                  </div>
+                                  {(() => {
+                                    const montoTotal = esAcuerdoMulta && multaAsociada ? multaAsociada.monto : acuerdo.monto;
+                                    const porcentaje = montoTotal > 0 ? (totalAplicado / montoTotal) * 100 : 0;
+                                    return (
+                                      <>
+                                        <Progress 
+                                          value={porcentaje} 
+                                          className="h-6"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                          <span className="text-xs font-bold bg-background/80 px-2 py-0.5 rounded">
+                                            {porcentaje.toFixed(1)}%
+                                          </span>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </div>
