@@ -21,7 +21,7 @@ const formSchema = z.object({
   id_edificio: z.string().min(1, "El edificio es requerido"),
   id_tipo_espacio_rentable: z.string().min(1, "El tipo de espacio es requerido"),
   descripcion: z.string().optional(),
-  costo_por_hr: z.string().min(1, "El costo por hora es requerido"),
+  costo_por_hr: z.string().default("0"),
   permitir_reservas_recurrentes: z.boolean().default(false),
   duracion_reserva: z.string().optional(),
   url_imagen: z.string().optional(),
@@ -43,7 +43,7 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
       id_edificio: "",
       id_tipo_espacio_rentable: "",
       descripcion: "",
-      costo_por_hr: "",
+      costo_por_hr: "0",
       permitir_reservas_recurrentes: false,
       duracion_reserva: "",
       url_imagen: "",
@@ -225,7 +225,7 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
       id_edificio: space.id_edificio?.toString() || "",
       id_tipo_espacio_rentable: space.id_tipo_espacio_rentable?.toString() || "",
       descripcion: space.descripcion || "",
-      costo_por_hr: space.costo_por_hr?.toString() || "",
+      costo_por_hr: space.costo_por_hr?.toString() || "0",
       permitir_reservas_recurrentes: space.permitir_reservas_recurrentes || false,
       duracion_reserva: space.duracion_reserva || "",
       url_imagen: space.url_imagen || "",
@@ -389,12 +389,27 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Duración de Reserva</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Ej: 2 hours, 30 minutes"
-                              {...field}
-                            />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona duración" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="30 minutes">30 minutos</SelectItem>
+                              <SelectItem value="1 hour">1 hora</SelectItem>
+                              <SelectItem value="1 hour 30 minutes">1 hora 30 minutos</SelectItem>
+                              <SelectItem value="2 hours">2 horas</SelectItem>
+                              <SelectItem value="2 hours 30 minutes">2 horas 30 minutos</SelectItem>
+                              <SelectItem value="3 hours">3 horas</SelectItem>
+                              <SelectItem value="4 hours">4 horas</SelectItem>
+                              <SelectItem value="5 hours">5 horas</SelectItem>
+                              <SelectItem value="6 hours">6 horas</SelectItem>
+                              <SelectItem value="8 hours">8 horas</SelectItem>
+                              <SelectItem value="12 hours">12 horas</SelectItem>
+                              <SelectItem value="1 day">1 día</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
