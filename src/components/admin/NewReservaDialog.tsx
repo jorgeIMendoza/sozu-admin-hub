@@ -134,20 +134,101 @@ export const NewReservaDialog = ({
     },
   });
 
-  const { data: espacios } = useQuery({
-    queryKey: ["espacios_reservables"],
+  // Get proyecto from selected cuenta de mantenimiento
+  const { data: proyectoData } = useQuery({
+    queryKey: ["proyecto_from_cuenta", form.watch("id_cuenta_mantenimiento")],
     queryFn: async () => {
+      const cuentaId = form.watch("id_cuenta_mantenimiento");
+      if (!cuentaId) return null;
+
+      // Get cuenta padre
+      const { data: cuentaMantenimiento, error: errorCuenta } = await (supabase as any)
+        .from("cuentas_cobranza")
+        .select("id_cuenta_cobranza_padre")
+        .eq("id", parseInt(cuentaId))
+        .maybeSingle();
+
+      if (errorCuenta || !cuentaMantenimiento?.id_cuenta_cobranza_padre) return null;
+
+      // Get oferta from cuenta padre
+      const { data: cuentaPadre, error: errorPadre } = await (supabase as any)
+        .from("cuentas_cobranza")
+        .select("id_oferta")
+        .eq("id", cuentaMantenimiento.id_cuenta_cobranza_padre)
+        .maybeSingle();
+
+      if (errorPadre || !cuentaPadre?.id_oferta) return null;
+
+      // Get propiedad from oferta
+      const { data: oferta, error: errorOferta } = await (supabase as any)
+        .from("ofertas")
+        .select("id_propiedad")
+        .eq("id", cuentaPadre.id_oferta)
+        .maybeSingle();
+
+      if (errorOferta || !oferta?.id_propiedad) return null;
+
+      // Get edificio_modelo from propiedad
+      const { data: propiedad, error: errorPropiedad } = await (supabase as any)
+        .from("propiedades")
+        .select("id_edificio_modelo")
+        .eq("id", oferta.id_propiedad)
+        .maybeSingle();
+
+      if (errorPropiedad || !propiedad?.id_edificio_modelo) return null;
+
+      // Get edificio from edificio_modelo
+      const { data: edificioModelo, error: errorEdificioModelo } = await (supabase as any)
+        .from("edificios_modelos")
+        .select("id_edificio")
+        .eq("id", propiedad.id_edificio_modelo)
+        .maybeSingle();
+
+      if (errorEdificioModelo || !edificioModelo?.id_edificio) return null;
+
+      // Get proyecto from edificio
+      const { data: edificio, error: errorEdificio } = await (supabase as any)
+        .from("edificios")
+        .select("id_proyecto")
+        .eq("id", edificioModelo.id_edificio)
+        .maybeSingle();
+
+      if (errorEdificio) return null;
+
+      return edificio?.id_proyecto;
+    },
+    enabled: !!form.watch("id_cuenta_mantenimiento"),
+  });
+
+  const { data: espacios } = useQuery({
+    queryKey: ["espacios_reservables", proyectoData],
+    queryFn: async () => {
+      if (!proyectoData) return [];
+
       const { data, error } = await (supabase as any)
         .from("espacios_reservables_edificio")
         .select(`
           *,
-          edificios!espacios_reservables_edificio_id_edificio_fkey(id, nombre, proyectos!edificios_id_proyecto_fkey(id, nombre)),
+          edificios!espacios_reservables_edificio_id_edificio_fkey(
+            id, 
+            nombre, 
+            id_proyecto,
+            proyectos!edificios_id_proyecto_fkey(id, nombre)
+          ),
           tipos_espacio_reservables!espacios_reservables_edificio_id_tipo_espacio_reservable_fkey(id, nombre)
         `)
         .eq("activo", true);
+
       if (error) throw error;
-      return data as any[];
+
+      // Filter by proyecto
+      const filtered = (data || []).filter((espacio: any) => 
+        espacio.edificios?.id_proyecto === proyectoData
+      );
+
+      return filtered as any[];
     },
+    enabled: !!proyectoData,
   });
 
 
