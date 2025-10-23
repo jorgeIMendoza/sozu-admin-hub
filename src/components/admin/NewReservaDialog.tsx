@@ -219,7 +219,7 @@ export const NewReservaDialog = ({
             id_proyecto,
             proyectos!fk_edificios_proyecto(id, nombre)
           ),
-          tipos_espacio_reservables!espacios_reservables_edificio_id_tipo_espacio_rentable_fkey(id, nombre)
+          tipos_espacio_reservables(id, nombre)
         `)
         .eq("activo", true);
 
