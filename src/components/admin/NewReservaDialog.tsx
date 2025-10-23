@@ -306,6 +306,8 @@ export const NewReservaDialog = ({
 
   // Fetch espacios reservables filtrados por edificio
   const edificioIdSelected = form.watch("id_edificio");
+  const fechaReserva = form.watch("fecha_reserva");
+  const horaReserva = form.watch("hora_reserva");
 
   const { data: espacios } = useQuery({
     queryKey: ["espacios_reservables", edificioIdSelected],
@@ -331,6 +333,73 @@ export const NewReservaDialog = ({
     },
     enabled: !!edificioIdSelected,
   });
+
+  // Fetch reservas existentes para el horario seleccionado
+  const { data: reservasExistentes } = useQuery({
+    queryKey: ["reservas_existentes", edificioIdSelected, fechaReserva, horaReserva],
+    queryFn: async () => {
+      if (!edificioIdSelected || !fechaReserva || !horaReserva) return [];
+
+      const { data, error } = await (supabase as any)
+        .from("reservas")
+        .select(`
+          id,
+          id_espacio_reservable_edificio,
+          hora_reserva,
+          espacios_reservables_edificio(
+            duracion_reserva
+          )
+        `)
+        .eq("fecha_reserva", fechaReserva)
+        .eq("activo", true)
+        .neq("id_estatus_reserva", 3); // Excluir canceladas
+
+      if (error) throw error;
+
+      return data;
+    },
+    enabled: !!edificioIdSelected && !!fechaReserva && !!horaReserva,
+  });
+
+  // Filtrar espacios disponibles según las reservas existentes
+  const espaciosDisponibles = espacios?.filter((espacio) => {
+    if (!reservasExistentes || reservasExistentes.length === 0) return true;
+
+    // Verificar si este espacio ya está reservado en un horario que se solapa
+    const espacioReservado = reservasExistentes.some((reserva: any) => {
+      if (reserva.id_espacio_reservable_edificio !== espacio.id) return false;
+
+      // Parsear hora de la reserva existente
+      const [horaExistenteHr, horaExistenteMin] = reserva.hora_reserva.split(":").map(Number);
+      const horaExistenteEnMinutos = horaExistenteHr * 60 + horaExistenteMin;
+
+      // Parsear duración de la reserva existente
+      const duracion = reserva.espacios_reservables_edificio?.duracion_reserva || "01:00:00";
+      const duracionHoras = parseInt(duracion.split(":")[0]);
+      const duracionEnMinutos = duracionHoras * 60;
+
+      // Parsear hora seleccionada
+      const [horaNuevaHr, horaNuevaMin] = horaReserva.split(":").map(Number);
+      const horaNuevaEnMinutos = horaNuevaHr * 60 + horaNuevaMin;
+
+      // Parsear duración del espacio actual
+      const duracionEspacio = espacio.duracion_reserva || "01:00:00";
+      const duracionEspacioHoras = parseInt(duracionEspacio.split(":")[0]);
+      const duracionEspacioEnMinutos = duracionEspacioHoras * 60;
+
+      // Verificar si hay solapamiento
+      const finExistente = horaExistenteEnMinutos + duracionEnMinutos;
+      const finNueva = horaNuevaEnMinutos + duracionEspacioEnMinutos;
+
+      return (
+        (horaNuevaEnMinutos >= horaExistenteEnMinutos && horaNuevaEnMinutos < finExistente) ||
+        (finNueva > horaExistenteEnMinutos && finNueva <= finExistente) ||
+        (horaNuevaEnMinutos <= horaExistenteEnMinutos && finNueva >= finExistente)
+      );
+    });
+
+    return !espacioReservado;
+  }) || [];
 
 
   const createMutation = useMutation({
@@ -429,6 +498,36 @@ export const NewReservaDialog = ({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="fecha_reserva"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="hora_reserva"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Hora</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="id_proyecto"
@@ -557,14 +656,14 @@ export const NewReservaDialog = ({
                     <Combobox
                       value={field.value}
                       onValueChange={handleEspacioChange}
-                      options={(espacios || []).map((espacio: any) => ({
+                      options={(espaciosDisponibles || []).map((espacio: any) => ({
                         value: espacio.id.toString(),
                         label: espacio.descripcion || espacio.tipos_espacio_reservables?.nombre || "Sin descripción",
                       }))}
                       placeholder="Seleccionar espacio"
                       searchPlaceholder="Buscar espacio..."
-                      emptyText="No se encontraron espacios"
-                      disabled={!form.watch("id_edificio")}
+                      emptyText={!fechaReserva || !horaReserva ? "Seleccione fecha y hora primero" : "No hay espacios disponibles para este horario"}
+                      disabled={!form.watch("id_edificio") || !fechaReserva || !horaReserva}
                     />
                   </FormControl>
                   <FormMessage />
@@ -584,36 +683,6 @@ export const NewReservaDialog = ({
                 })()}</p>
               </div>
             )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="fecha_reserva"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="hora_reserva"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Hora</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

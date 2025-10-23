@@ -80,6 +80,21 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
     }).length;
   };
 
+  const getReservasByEstatusForDay = (day: Date) => {
+    const reservasDelDia = reservas.filter((reserva) => {
+      const reservaDate = parseISO(reserva.fecha_reserva);
+      return isSameDay(reservaDate, day);
+    });
+    
+    const countByEstatus: Record<number, number> = {};
+    reservasDelDia.forEach((reserva) => {
+      const estatus = reserva.id_estatus_reserva;
+      countByEstatus[estatus] = (countByEstatus[estatus] || 0) + 1;
+    });
+    
+    return countByEstatus;
+  };
+
   if (isLoading) {
     return <Card className="p-8 text-center">Cargando calendario...</Card>;
   }
@@ -136,21 +151,33 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
           <div className="grid grid-cols-8 min-w-[800px]">
             {/* Header con días */}
             <div className="border-b p-2 bg-muted/50"></div>
-            {weekDays.map((day, i) => (
-              <div key={i} className="border-b border-l p-2 text-center bg-muted/50">
-                <div className="font-semibold text-sm">
-                  {format(day, "EEE", { locale: es }).toUpperCase()}
-                </div>
-                <div className="text-2xl font-bold">{format(day, "d")}</div>
-                {countReservasByDay(day) > 0 && (
-                  <div className="flex gap-1 justify-center mt-1">
-                    <Badge variant="secondary" className="text-xs">
-                      {countReservasByDay(day)}
-                    </Badge>
+            {weekDays.map((day, i) => {
+              const reservasPorEstatus = getReservasByEstatusForDay(day);
+              const tieneReservas = Object.keys(reservasPorEstatus).length > 0;
+              
+              return (
+                <div key={i} className="border-b border-l p-2 text-center bg-muted/50">
+                  <div className="font-semibold text-sm">
+                    {format(day, "EEE", { locale: es }).toUpperCase()}
                   </div>
-                )}
-              </div>
-            ))}
+                  <div className="text-2xl font-bold">{format(day, "d")}</div>
+                  {tieneReservas && (
+                    <div className="flex gap-1.5 justify-center mt-1 flex-wrap">
+                      {Object.entries(reservasPorEstatus).map(([estatusId, count]) => {
+                        const estatusInfo = estatusConfig[parseInt(estatusId) as keyof typeof estatusConfig];
+                        const IconComponent = estatusInfo?.icon;
+                        return (
+                          <div key={estatusId} className="flex items-center gap-0.5">
+                            {IconComponent && <IconComponent className={`h-3 w-3 ${estatusInfo.iconColor}`} />}
+                            <span className="text-xs font-semibold">{count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Filas de horarios */}
             {timeSlots.map((hour) => (
