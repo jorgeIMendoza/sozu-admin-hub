@@ -4,7 +4,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle } from "lucide-react";
 
 interface Residente {
@@ -37,14 +36,9 @@ export const ResidentesDetailDialog = ({
           {residenteActivo && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground">Residente Activo</h4>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-sm font-medium">{residenteActivo.nombre_legal}</span>
-                </div>
-                <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-                  Activo
-                </Badge>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="text-sm font-medium">{residenteActivo.nombre_legal}</span>
               </div>
             </div>
           )}
@@ -56,15 +50,10 @@ export const ResidentesDetailDialog = ({
                 {residentesInactivos.map((residente) => (
                   <div 
                     key={residente.id_persona}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border opacity-60"
+                    className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border opacity-60"
                   >
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{residente.nombre_legal}</span>
-                    </div>
-                    <Badge variant="outline" className="text-muted-foreground">
-                      Inactivo
-                    </Badge>
+                    <XCircle className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{residente.nombre_legal}</span>
                   </div>
                 ))}
               </div>
