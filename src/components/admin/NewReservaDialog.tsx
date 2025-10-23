@@ -349,15 +349,28 @@ export const NewReservaDialog = ({
         costoFinal = costoPorHr * horas;
       }
 
+      // Obtener el máximo orden existente para esta cuenta de cobranza
+      const { data: maxOrdenData, error: maxOrdenError } = await supabase
+        .from("acuerdos_pago")
+        .select("orden")
+        .eq("id_cuenta_cobranza", selectedCuentaMantenimiento.id)
+        .order("orden", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (maxOrdenError) throw maxOrdenError;
+
+      const nuevoOrden = (maxOrdenData?.orden || 0) + 1;
+
       // First, create an acuerdo_pago for this reserva
       const { data: acuerdo, error: acuerdoError } = await supabase
         .from("acuerdos_pago")
         .insert({
           id_cuenta_cobranza: selectedCuentaMantenimiento.id,
-          id_concepto: 1, // Default concept for reservations
+          id_concepto: 14, // Concepto para reservas
           monto: costoFinal,
           fecha_pago: values.fecha_reserva,
-          orden: 1,
+          orden: nuevoOrden,
         })
         .select()
         .single();
