@@ -1148,6 +1148,21 @@ export default function CuentasMantenimiento() {
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
+                                    <Link to={`/admin/cuentas-mantenimiento/${cuenta.id}/detalle`}>
+                                      <Button variant="ghost" size="icon">
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                    </Link>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Ver detalle</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
                                     <Button 
                                       variant="ghost" 
                                       size="icon"
@@ -1158,21 +1173,6 @@ export default function CuentasMantenimiento() {
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p>Asignar residente</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Link to={`/admin/cuentas-mantenimiento/${cuenta.id}/detalle`}>
-                                      <Button variant="ghost" size="icon">
-                                        <Eye className="h-4 w-4" />
-                                      </Button>
-                                    </Link>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Ver detalle</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
