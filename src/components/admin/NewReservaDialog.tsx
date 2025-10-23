@@ -677,7 +677,21 @@ export const NewReservaDialog = ({
                   <FormItem>
                     <FormLabel>Hora</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar hora" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 13 }, (_, i) => i + 8).map((hour) => {
+                            const hourStr = hour.toString().padStart(2, '0');
+                            return (
+                              <SelectItem key={hourStr} value={`${hourStr}:00`}>
+                                {hourStr}:00
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

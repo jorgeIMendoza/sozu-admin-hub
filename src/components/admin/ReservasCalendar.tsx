@@ -266,14 +266,23 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                     >
                       {/* Línea de hora actual */}
                       {isToday && currentTimePosition !== null && hour === currentHour && (
-                        <div 
-                          className="absolute left-0 right-0 z-20 flex items-center"
-                          style={{ top: `${currentMinutes}px` }}
-                        >
-                          <div className="w-full h-0.5 bg-primary shadow-lg" />
-                          <div className="absolute -left-1 w-2 h-2 bg-primary rounded-full" />
-                          <div className="absolute -right-1 w-2 h-2 bg-primary rounded-full" />
-                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div 
+                                className="absolute left-0 right-0 z-20 flex items-center cursor-help"
+                                style={{ top: `${currentMinutes}px` }}
+                              >
+                                <div className="w-full h-0.5 bg-primary shadow-lg" />
+                                <div className="absolute -left-1 w-2 h-2 bg-primary rounded-full" />
+                                <div className="absolute -right-1 w-2 h-2 bg-primary rounded-full" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="font-semibold">Hora actual: {currentHour}:{currentMinutes.toString().padStart(2, '0')}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
                       
                       {!isOccupied && dayReservas.map((reserva, idx) => {
