@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, X, Filter } from "lucide-react";
+import { Search, Pencil, X, Filter } from "lucide-react";
 import { EditReservaDialog } from "./EditReservaDialog";
 import { format, parseISO, isToday, isFuture } from "date-fns";
 import { es } from "date-fns/locale";
@@ -242,7 +242,7 @@ export const ReservasList = ({ reservas, isLoading, estatusReserva = [] }: Reser
                         size="sm"
                         onClick={() => setEditReservaId(reserva.id)}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
