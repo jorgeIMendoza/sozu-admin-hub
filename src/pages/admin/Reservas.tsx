@@ -11,7 +11,7 @@ import { NewReservaDialog } from "@/components/admin/NewReservaDialog";
 
 const Reservas = () => {
   const [newDialogOpen, setNewDialogOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"calendario" | "activos" | "eliminados">("calendario");
+  const [activeView, setActiveView] = useState<"calendario" | "activos" | "eliminados" | "espacios">("calendario");
   const queryClient = useQueryClient();
 
   // @ts-ignore - Tablas no están en types aún
@@ -74,8 +74,46 @@ const Reservas = () => {
     },
   });
 
+  // Query para espacios reservables
+  const { data: espaciosReservables, isLoading: espaciosLoading } = useQuery({
+    queryKey: ["espacios_reservables_todos"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("espacios_reservables_edificio")
+        .select(`
+          *,
+          edificios(
+            id,
+            nombre,
+            proyectos!fk_edificios_proyecto(id, nombre)
+          ),
+          tipos_espacio_reservables(id, nombre)
+        `)
+        .eq("activo", true)
+        .order("id_edificio");
+
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const reservasActivas = reservas?.filter((r: any) => r.activo) || [];
   const reservasEliminadas = reservas?.filter((r: any) => !r.activo) || [];
+
+  // Agrupar espacios por edificio
+  const espaciosPorEdificio = espaciosReservables?.reduce((acc: any, espacio: any) => {
+    const edificioId = espacio.edificios?.id;
+    if (!edificioId) return acc;
+    
+    if (!acc[edificioId]) {
+      acc[edificioId] = {
+        edificio: espacio.edificios,
+        espacios: [],
+      };
+    }
+    acc[edificioId].espacios.push(espacio);
+    return acc;
+  }, {}) || {};
 
   return (
     <div className="space-y-6">
@@ -96,10 +134,13 @@ const Reservas = () => {
         </div>
 
         <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="calendario" className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4" />
               Calendario
+            </TabsTrigger>
+            <TabsTrigger value="espacios">
+              Espacios Reservables
             </TabsTrigger>
             <TabsTrigger value="activos">
               Activos ({reservasActivas.length})
@@ -111,6 +152,75 @@ const Reservas = () => {
 
           <TabsContent value="calendario" className="mt-6">
             <ReservasCalendar reservas={reservasActivas} isLoading={isLoading} />
+          </TabsContent>
+
+          <TabsContent value="espacios" className="mt-6">
+            {espaciosLoading ? (
+              <div className="text-center py-8">Cargando espacios...</div>
+            ) : (
+              <div className="space-y-4">
+                {Object.values(espaciosPorEdificio).map((grupo: any) => (
+                  <div key={grupo.edificio.id} className="border rounded-lg overflow-hidden">
+                    <details className="group">
+                      <summary className="flex items-center justify-between p-4 cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <div>
+                          <h3 className="text-lg font-semibold">{grupo.edificio.nombre}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {grupo.edificio.proyectos?.nombre} • {grupo.espacios.length} espacio(s)
+                          </p>
+                        </div>
+                        <div className="text-muted-foreground group-open:rotate-180 transition-transform">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </div>
+                      </summary>
+                      <div className="p-4 space-y-3 bg-card">
+                        {grupo.espacios.map((espacio: any) => (
+                          <div key={espacio.id} className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
+                            <div className="flex items-start gap-4">
+                              {espacio.url_imagen && (
+                                <img 
+                                  src={espacio.url_imagen} 
+                                  alt={espacio.tipos_espacio_reservables?.nombre}
+                                  className="w-24 h-24 object-cover rounded-lg"
+                                />
+                              )}
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-lg">
+                                  {espacio.tipos_espacio_reservables?.nombre || "Sin tipo"}
+                                </h4>
+                                {espacio.descripcion && (
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {espacio.descripcion}
+                                  </p>
+                                )}
+                                <div className="flex gap-4 mt-2 text-sm">
+                                  <div>
+                                    <span className="font-medium">Costo/hr:</span>{" "}
+                                    ${Number(espacio.costo_por_hr || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                                  </div>
+                                  {espacio.duracion_reserva && (
+                                    <div>
+                                      <span className="font-medium">Duración:</span>{" "}
+                                      {espacio.duracion_reserva}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="font-medium">Recurrente:</span>{" "}
+                                    {espacio.permitir_reservas_recurrentes ? "Sí" : "No"}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="activos" className="mt-6">
