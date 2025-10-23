@@ -35,7 +35,7 @@ export const ResidentesDetailDialog = ({
         <div className="space-y-4">
           {residenteActivo && (
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Residente Activo</h4>
+              <h4 className="text-sm font-medium text-muted-foreground">Residente Actual</h4>
               <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
                 <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                 <span className="text-sm font-medium">{residenteActivo.nombre_legal}</span>
