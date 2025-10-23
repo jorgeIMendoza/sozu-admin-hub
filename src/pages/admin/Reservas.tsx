@@ -40,7 +40,7 @@ const Reservas = () => {
             id,
             cuentas_cobranza!fk_acuerdos_pago_cuenta_cobranza(
               id,
-              ofertas(
+              ofertas!fk_cuentas_cobranza_oferta(
                 id,
                 propiedades(numero_propiedad),
                 personas(id, nombre_legal)
