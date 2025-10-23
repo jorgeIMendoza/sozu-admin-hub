@@ -87,15 +87,17 @@ Deno.serve(async (req) => {
     if (reserva.id_estatus_reserva === 2) {
       console.log('Reagendando reserva pagada');
       
-      // Verificar que existe el acuerdo de pago
-      if (!reserva.acuerdos_pago || !reserva.acuerdos_pago[0]) {
+      // Verificar que existe el acuerdo de pago (es un objeto, no array)
+      if (!reserva.acuerdos_pago || typeof reserva.acuerdos_pago !== 'object') {
+        console.error('No se encontró acuerdo de pago:', reserva.acuerdos_pago);
         return new Response(
           JSON.stringify({ error: 'No se encontró el acuerdo de pago asociado' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const acuerdoPagoOriginal = reserva.acuerdos_pago[0];
+      const acuerdoPagoOriginal = reserva.acuerdos_pago;
+      console.log('Acuerdo de pago original:', acuerdoPagoOriginal);
       
       // TRANSACCIÓN: 3 operaciones atómicas
       // 1. Desasociar el acuerdo de pago de la reserva original y cambiar estatus
