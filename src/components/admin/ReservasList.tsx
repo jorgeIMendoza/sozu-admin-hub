@@ -33,7 +33,7 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted }: Res
     // Filtrar por búsqueda
     if (searchTerm) {
       filtered = filtered.filter((r: any) => {
-        const nombreCliente = `${r.acuerdos_pago?.cuentas_cobranza_mantenimiento?.ofertas?.personas?.nombre || ""} ${r.acuerdos_pago?.cuentas_cobranza_mantenimiento?.ofertas?.personas?.apellido_paterno || ""}`.toLowerCase();
+        const nombreCliente = `${r.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.nombre || ""} ${r.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.apellido_paterno || ""}`.toLowerCase();
         const espacio = r.espacios_reservables_edificio?.tipos_espacio_reservables?.nombre?.toLowerCase() || "";
         const estatus = r.estatus_reserva?.nombre?.toLowerCase() || "";
         return nombreCliente.includes(searchTerm.toLowerCase()) || 
@@ -130,8 +130,8 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted }: Res
                 filteredReservas.map((reserva) => (
                   <TableRow key={reserva.id}>
                   <TableCell className="font-medium">
-                      {reserva.acuerdos_pago?.cuentas_cobranza_mantenimiento?.ofertas?.personas?.nombre || "N/A"}{" "}
-                      {reserva.acuerdos_pago?.cuentas_cobranza_mantenimiento?.ofertas?.personas?.apellido_paterno || ""}
+                      {reserva.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.nombre || "N/A"}{" "}
+                      {reserva.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.apellido_paterno || ""}
                     </TableCell>
                     <TableCell>{reserva.espacios_reservables_edificio?.tipos_espacio_reservables?.nombre || "N/A"}</TableCell>
                     <TableCell>

@@ -122,7 +122,7 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                           className={`rounded border p-1 mb-1 text-xs ${getReservaColor(reserva.id_estatus_reserva)}`}
                         >
                           <div className="font-medium truncate">
-                            {reserva.acuerdos_pago?.cuentas_cobranza_mantenimiento?.ofertas?.personas?.nombre || "N/A"}
+                            {reserva.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.nombre || "N/A"}
                           </div>
                           <div className="text-muted-foreground truncate">
                             {reserva.espacios_reservables_edificio?.tipos_espacio_reservables?.nombre || "Espacio"}
