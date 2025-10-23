@@ -58,13 +58,16 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
       const duration = reserva.espacios_reservables_edificio.duracion_reserva;
       // La duración viene en formato interval (ej: "05:00:00" para 5 horas)
       const hours = parseInt(duration.split(":")[0]);
-      return hours || 1;
+      const minutes = parseInt(duration.split(":")[1] || "0");
+      return hours + minutes / 60;
     }
     // Fallback a hora_fin si existe
     if (reserva.hora_fin) {
-      const horaInicio = parseInt(reserva.hora_reserva.split(":")[0]);
-      const horaFin = parseInt(reserva.hora_fin.split(":")[0]);
-      return horaFin - horaInicio || 1;
+      const [horaInicio, minutosInicio] = reserva.hora_reserva.split(":").map(Number);
+      const [horaFin, minutosFin] = reserva.hora_fin.split(":").map(Number);
+      const inicio = horaInicio + minutosInicio / 60;
+      const fin = horaFin + minutosFin / 60;
+      return fin - inicio || 1;
     }
     return 1; // Por defecto 1 hora
   };
@@ -223,7 +226,13 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                         const duration = calculateReservaDuration(reserva);
                         const estatusInfo = estatusConfig[reserva.id_estatus_reserva as keyof typeof estatusConfig];
                         const IconComponent = estatusInfo?.icon;
-                        const heightInPixels = duration * 60 - 8; // Cada hora = 60px, menos padding
+                        
+                        // Calcular offset vertical basado en minutos de inicio
+                        const minutosInicio = parseInt(reserva.hora_reserva.split(":")[1] || "0");
+                        const topOffsetPixels = (minutosInicio / 60) * 60; // 60px por hora
+                        
+                        // Calcular altura exacta considerando minutos
+                        const heightInPixels = duration * 60 - 4; // Cada hora = 60px
                         
                         // Calcular posición horizontal
                         const totalReservas = reserva.totalInSlot || 1;
@@ -237,6 +246,7 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                                 className={`rounded border p-2 cursor-pointer hover:opacity-80 transition-opacity absolute ${estatusInfo?.color}`}
                                 style={{ 
                                   height: `${heightInPixels}px`,
+                                  top: `${topOffsetPixels}px`,
                                   zIndex: 10,
                                   left: `${leftPercent}%`,
                                   width: `calc(${widthPercent}% - 4px)`,
