@@ -152,18 +152,15 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                         const duration = calculateReservaDuration(reserva);
                         const estatusInfo = estatusConfig[reserva.id_estatus_reserva as keyof typeof estatusConfig];
                         const IconComponent = estatusInfo?.icon;
+                        const heightInPixels = duration * 60 - 8; // Cada hora = 60px, menos padding
                         
                         return (
                           <HoverCard key={idx}>
                             <HoverCardTrigger asChild>
                               <div
-                                className={`rounded border p-2 cursor-pointer hover:opacity-80 transition-opacity ${estatusInfo?.color}`}
+                                className={`rounded border p-2 cursor-pointer hover:opacity-80 transition-opacity absolute left-1 right-1 ${estatusInfo?.color}`}
                                 style={{ 
-                                  minHeight: `${duration * 60 - 8}px`,
-                                  position: duration > 1 ? 'absolute' : 'relative',
-                                  top: duration > 1 ? '4px' : 'auto',
-                                  left: duration > 1 ? '4px' : 'auto',
-                                  right: duration > 1 ? '4px' : 'auto',
+                                  height: `${heightInPixels}px`,
                                   zIndex: 10
                                 }}
                               >
@@ -189,7 +186,7 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                                   <div>
                                     <span className="font-medium">Horario reservado:</span>
                                     <p className="text-muted-foreground">
-                                      {reserva.hora_reserva} {reserva.hora_fin ? `- ${reserva.hora_fin}` : ""}
+                                      Desde {reserva.hora_reserva} hasta {reserva.hora_fin || "N/A"}
                                     </p>
                                   </div>
                                   <div>
