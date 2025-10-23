@@ -106,13 +106,15 @@ export const NewReservaDialog = ({
   });
 
   // Fetch propiedades filtradas por edificio con cuenta de mantenimiento (solo entregadas)
-  const { data: propiedades } = useQuery({
-    queryKey: ["propiedades_por_edificio", form.watch("id_edificio")],
+  const { data: propiedades, isLoading: propiedadesLoading } = useQuery({
+    queryKey: ["propiedades_por_edificio_mantenimiento", form.watch("id_edificio")],
     queryFn: async () => {
       const edificioId = form.watch("id_edificio");
       if (!edificioId) return [];
 
-      // Get propiedades through edificios_modelos, filtered by estatus Entregado (id=8)
+      console.log("Buscando propiedades para edificio:", edificioId);
+
+      // Strategy: Get all propiedades for this edificio first
       const { data: propiedadesData, error: propError } = await supabase
         .from("propiedades")
         .select(`
@@ -121,51 +123,96 @@ export const NewReservaDialog = ({
           id_edificio_modelo,
           id_estatus_disponibilidad,
           edificios_modelos!propiedades_id_edificio_modelo_fkey(
+            id,
             id_edificio
           )
         `)
         .eq("activo", true)
         .eq("id_estatus_disponibilidad", 8);
 
-      if (propError) throw propError;
+      if (propError) {
+        console.error("Error fetching propiedades:", propError);
+        throw propError;
+      }
+
+      console.log("Propiedades encontradas (todas):", propiedadesData?.length);
 
       // Filter by edificio
       const propiedadesEdificio = (propiedadesData || []).filter(
         (p: any) => p.edificios_modelos?.id_edificio === parseInt(edificioId)
       );
 
-      // For each propiedad, get cuenta de mantenimiento
-      const propiedadesConCuenta = await Promise.all(
-        propiedadesEdificio.map(async (prop: any) => {
-          // Get oferta for this propiedad
-          const { data: oferta } = await supabase
-            .from("ofertas")
-            .select("id")
-            .eq("id_propiedad", prop.id)
-            .eq("activo", true)
-            .maybeSingle();
+      console.log("Propiedades filtradas por edificio:", propiedadesEdificio.length);
 
+      if (propiedadesEdificio.length === 0) return [];
+
+      // Get all ofertas for these propiedades in one query
+      const propiedadIds = propiedadesEdificio.map((p: any) => p.id);
+      const { data: ofertas, error: ofertasError } = await supabase
+        .from("ofertas")
+        .select("id, id_propiedad")
+        .in("id_propiedad", propiedadIds)
+        .eq("activo", true);
+
+      if (ofertasError) {
+        console.error("Error fetching ofertas:", ofertasError);
+        throw ofertasError;
+      }
+
+      console.log("Ofertas encontradas:", ofertas?.length);
+
+      if (!ofertas || ofertas.length === 0) return [];
+
+      // Get all cuentas_cobranza (parent) for these ofertas
+      const ofertaIds = ofertas.map((o: any) => o.id);
+      const { data: cuentasPadre, error: cuentasPadreError } = await supabase
+        .from("cuentas_cobranza")
+        .select("id, id_oferta")
+        .in("id_oferta", ofertaIds)
+        .eq("activo", true)
+        .is("id_cuenta_cobranza_padre", null);
+
+      if (cuentasPadreError) {
+        console.error("Error fetching cuentas padre:", cuentasPadreError);
+        throw cuentasPadreError;
+      }
+
+      console.log("Cuentas padre encontradas:", cuentasPadre?.length);
+
+      if (!cuentasPadre || cuentasPadre.length === 0) return [];
+
+      // Get all cuentas de mantenimiento (children) for these parent cuentas
+      const cuentaPadreIds = cuentasPadre.map((c: any) => c.id);
+      const { data: cuentasMantenimiento, error: cuentasMantenimientoError } = await supabase
+        .from("cuentas_cobranza")
+        .select("id, id_cuenta_cobranza_padre")
+        .in("id_cuenta_cobranza_padre", cuentaPadreIds)
+        .eq("activo", true);
+
+      if (cuentasMantenimientoError) {
+        console.error("Error fetching cuentas mantenimiento:", cuentasMantenimientoError);
+        throw cuentasMantenimientoError;
+      }
+
+      console.log("Cuentas mantenimiento encontradas:", cuentasMantenimiento?.length);
+
+      if (!cuentasMantenimiento || cuentasMantenimiento.length === 0) return [];
+
+      // Map everything together
+      const propiedadesConCuenta = propiedadesEdificio
+        .map((prop: any) => {
+          // Find oferta for this propiedad
+          const oferta = ofertas.find((o: any) => o.id_propiedad === prop.id);
           if (!oferta) return null;
 
-          // Get cuenta de cobranza (parent)
-          const { data: cuentaPadre } = await supabase
-            .from("cuentas_cobranza")
-            .select("id")
-            .eq("id_oferta", oferta.id)
-            .eq("activo", true)
-            .is("id_cuenta_cobranza_padre", null)
-            .maybeSingle();
-
+          // Find cuenta padre for this oferta
+          const cuentaPadre = cuentasPadre.find((c: any) => c.id_oferta === oferta.id);
           if (!cuentaPadre) return null;
 
-          // Get cuenta de mantenimiento (child with id_cuenta_cobranza_padre)
-          const { data: cuentaMantenimiento } = await supabase
-            .from("cuentas_cobranza")
-            .select("id")
-            .eq("id_cuenta_cobranza_padre", cuentaPadre.id)
-            .eq("activo", true)
-            .maybeSingle();
-
+          // Find cuenta mantenimiento for this cuenta padre
+          const cuentaMantenimiento = cuentasMantenimiento.find(
+            (c: any) => c.id_cuenta_cobranza_padre === cuentaPadre.id
+          );
           if (!cuentaMantenimiento) return null;
 
           return {
@@ -174,9 +221,11 @@ export const NewReservaDialog = ({
             id_cuenta_mantenimiento: cuentaMantenimiento.id,
           };
         })
-      );
+        .filter(Boolean);
 
-      return propiedadesConCuenta.filter(Boolean);
+      console.log("Propiedades finales con cuenta de mantenimiento:", propiedadesConCuenta.length);
+
+      return propiedadesConCuenta;
     },
     enabled: !!form.watch("id_edificio"),
   });
@@ -408,12 +457,12 @@ export const NewReservaDialog = ({
                       onValueChange={handlePropiedadChange}
                       options={(propiedades || []).map((propiedad: any) => ({
                         value: propiedad.id.toString(),
-                        label: `${propiedad.numero_propiedad} - ${formatCuentaMantenimientoId(propiedad.id_cuenta_mantenimiento)}`,
+                        label: `${propiedad.numero_propiedad} - Cuenta: ${formatCuentaMantenimientoId(propiedad.id_cuenta_mantenimiento)}`,
                       }))}
                       placeholder="Seleccionar propiedad"
                       searchPlaceholder="Buscar por número o cuenta..."
-                      emptyText="No se encontraron propiedades"
-                      disabled={!form.watch("id_edificio")}
+                      emptyText={propiedadesLoading ? "Cargando propiedades..." : "No se encontraron propiedades entregadas con cuenta de mantenimiento"}
+                      disabled={!form.watch("id_edificio") || propiedadesLoading}
                     />
                   </FormControl>
                   <FormMessage />
