@@ -37,10 +37,29 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
   };
 
   const calculateReservaDuration = (reserva: any) => {
-    if (!reserva.hora_fin) return 1; // Por defecto 1 hora si no hay hora_fin
+    // Usar la duración del espacio reservable si existe
+    if (reserva.espacios_reservables_edificio?.duracion_reserva) {
+      const duration = reserva.espacios_reservables_edificio.duracion_reserva;
+      // La duración viene en formato interval (ej: "05:00:00" para 5 horas)
+      const hours = parseInt(duration.split(":")[0]);
+      return hours || 1;
+    }
+    // Fallback a hora_fin si existe
+    if (reserva.hora_fin) {
+      const horaInicio = parseInt(reserva.hora_reserva.split(":")[0]);
+      const horaFin = parseInt(reserva.hora_fin.split(":")[0]);
+      return horaFin - horaInicio || 1;
+    }
+    return 1; // Por defecto 1 hora
+  };
+
+  const calculateEndTime = (reserva: any) => {
     const horaInicio = parseInt(reserva.hora_reserva.split(":")[0]);
-    const horaFin = parseInt(reserva.hora_fin.split(":")[0]);
-    return horaFin - horaInicio || 1;
+    const minutosInicio = parseInt(reserva.hora_reserva.split(":")[1] || "0");
+    const duracion = calculateReservaDuration(reserva);
+    
+    const horaFin = horaInicio + duracion;
+    return `${horaFin.toString().padStart(2, '0')}:${minutosInicio.toString().padStart(2, '0')}`;
   };
 
   const isSlotOccupied = (day: Date, hour: number) => {
@@ -186,7 +205,7 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                                   <div>
                                     <span className="font-medium">Horario reservado:</span>
                                     <p className="text-muted-foreground">
-                                      Desde {reserva.hora_reserva} hasta {reserva.hora_fin || "N/A"}
+                                      Desde {reserva.hora_reserva} hasta {calculateEndTime(reserva)}
                                     </p>
                                   </div>
                                   <div>
