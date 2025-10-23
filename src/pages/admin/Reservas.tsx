@@ -56,6 +56,7 @@ const Reservas = () => {
           persona_que_reserva:personas!reservas_id_persona_que_reserva_fkey(id, nombre_legal),
           acuerdos_pago(
             id,
+            monto,
             cuentas_cobranza!fk_acuerdos_pago_cuenta_cobranza(
               id,
               ofertas!fk_cuentas_cobranza_oferta(
