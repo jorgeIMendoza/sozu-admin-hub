@@ -201,7 +201,7 @@ export function EditAmenityDialog({
 
   const defaultTrigger = (
     <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-      <Edit className="h-3 w-3" />
+      <Edit className="h-4 w-4" />
     </Button>
   );
 

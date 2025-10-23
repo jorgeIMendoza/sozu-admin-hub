@@ -3509,7 +3509,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             }}
                            disabled={acuerdo.pago_completado || isReadOnly}
                          >
-                                          <Edit className="h-3 w-3" />
+                                          <Edit className="h-4 w-4" />
                                         </Button>
                                       </div>
                                     )}
@@ -3569,7 +3569,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                         }}
                                         disabled={acuerdo.pago_completado || isReadOnly}
                                       >
-                                        <Edit className="h-3 w-3" />
+                                        <Edit className="h-4 w-4" />
                                       </Button>
                                     </div>
                                   )}

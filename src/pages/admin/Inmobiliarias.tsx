@@ -593,7 +593,7 @@ export default function Inmobiliarias() {
                           onClick={() => handleEdit(inmobiliaria)}
                           className="hover:bg-primary/10 hover:border-primary transition-colors"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="outline" 

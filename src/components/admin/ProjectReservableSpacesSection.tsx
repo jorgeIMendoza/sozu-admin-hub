@@ -569,7 +569,7 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
                                   variant="ghost"
                                   onClick={(e) => handleEdit(space, e)}
                                 >
-                                  <Edit className="w-4 h-4" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>

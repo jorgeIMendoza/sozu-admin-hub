@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ModelCharacteristicsSectionProps {
@@ -406,7 +406,7 @@ export function ModelCharacteristicsSection({
                     className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => handleEditCharacteristic(characteristic)}
                   >
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Edit className="h-4 w-4" />
                   </Button>
                 </div>
               )
