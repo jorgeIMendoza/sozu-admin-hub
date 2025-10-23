@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Edit, Trash2, Building2 } from "lucide-react";
+import { Plus, Edit, Trash2, Building2, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +35,7 @@ interface ProjectReservableSpacesSectionProps {
 export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableSpacesSectionProps) => {
   const [open, setOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState<any>(null);
+  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -262,6 +264,18 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
     return acc;
   }, {});
 
+  const toggleBuilding = (buildingName: string) => {
+    setExpandedBuildings(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(buildingName)) {
+        newSet.delete(buildingName);
+      } else {
+        newSet.add(buildingName);
+      }
+      return newSet;
+    });
+  };
+
   if (!edificios || edificios.length === 0) {
     return (
       <Card>
@@ -483,84 +497,102 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
             No hay espacios reservables registrados. Agrega uno nuevo.
           </p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {Object.entries(spacesGroupedByBuilding || {}).map(([buildingName, spaces]: [string, any]) => (
-              <div key={buildingName} className="space-y-2">
-                <h4 className="font-semibold text-sm flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  {buildingName}
-                </h4>
-                <div className="grid gap-3">
-                  {spaces.map((space: any) => (
-                    <Card key={space.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          {space.url_imagen && (
-                            <img 
-                              src={space.url_imagen} 
-                              alt={space.tipos_espacio_reservables?.nombre}
-                              className="w-20 h-20 object-cover rounded-md flex-shrink-0"
-                            />
-                          )}
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <h5 className="font-medium">
-                                {space.tipos_espacio_reservables?.nombre}
-                              </h5>
-                              <span className="text-sm text-muted-foreground">
-                                ${parseFloat(space.costo_por_hr || 0).toFixed(2)}/hr
-                              </span>
-                            </div>
-                            {space.descripcion && (
-                              <p className="text-sm text-muted-foreground">{space.descripcion}</p>
-                            )}
-                            <div className="flex gap-4 text-xs text-muted-foreground">
-                              {space.duracion_reserva && (
-                                <span>Duración: {space.duracion_reserva}</span>
+              <Collapsible
+                key={buildingName}
+                open={expandedBuildings.has(buildingName)}
+                onOpenChange={() => toggleBuilding(buildingName)}
+              >
+                <div className="border rounded-lg">
+                  <CollapsibleTrigger className="w-full p-4 flex items-center justify-between hover:bg-accent/50 transition-colors">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      {buildingName}
+                      <span className="text-muted-foreground font-normal">
+                        ({spaces.length} {spaces.length === 1 ? 'espacio' : 'espacios'})
+                      </span>
+                    </h4>
+                    <ChevronDown 
+                      className={`w-4 h-4 transition-transform ${
+                        expandedBuildings.has(buildingName) ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-4 pt-0 space-y-3">
+                      {spaces.map((space: any) => (
+                        <Card key={space.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              {space.url_imagen && (
+                                <img 
+                                  src={space.url_imagen} 
+                                  alt={space.tipos_espacio_reservables?.nombre}
+                                  className="w-20 h-20 object-cover rounded-md flex-shrink-0"
+                                />
                               )}
-                              {space.permitir_reservas_recurrentes && (
-                                <span className="text-primary">✓ Reservas recurrentes</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEdit(space)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="ghost">
-                                  <Trash2 className="w-4 h-4" />
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h5 className="font-medium">
+                                    {space.tipos_espacio_reservables?.nombre}
+                                  </h5>
+                                  <span className="text-sm text-muted-foreground">
+                                    ${parseFloat(space.costo_por_hr || 0).toFixed(2)}/hr
+                                  </span>
+                                </div>
+                                {space.descripcion && (
+                                  <p className="text-sm text-muted-foreground">{space.descripcion}</p>
+                                )}
+                                <div className="flex gap-4 text-xs text-muted-foreground">
+                                  {space.duracion_reserva && (
+                                    <span>Duración: {space.duracion_reserva}</span>
+                                  )}
+                                  {space.permitir_reservas_recurrentes && (
+                                    <span className="text-primary">✓ Reservas recurrentes</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEdit(space)}
+                                >
+                                  <Edit className="w-4 h-4" />
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>¿Eliminar espacio?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta acción eliminará el espacio reservable. ¿Deseas continuar?
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteMutation.mutate(space.id)}
-                                  >
-                                    Eliminar
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="ghost">
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>¿Eliminar espacio?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta acción eliminará el espacio reservable. ¿Deseas continuar?
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => deleteMutation.mutate(space.id)}
+                                      >
+                                        Eliminar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
                 </div>
-              </div>
+              </Collapsible>
             ))}
           </div>
         )}
