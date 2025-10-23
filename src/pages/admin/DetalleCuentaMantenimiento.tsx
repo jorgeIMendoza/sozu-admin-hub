@@ -645,13 +645,27 @@ export default function DetalleCuentaMantenimiento() {
             <Plus className="h-4 w-4 mr-2" />
             Agregar Multa
           </Button>
-          <Button 
-            onClick={() => setReservaDialog(true)}
-            variant="outline"
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Agregar Reserva
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block">
+                  <Button 
+                    onClick={() => setReservaDialog(true)}
+                    variant="outline"
+                    disabled={saldoPendiente > 0.01}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Agregar Reserva
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {saldoPendiente > 0.01 && (
+                <TooltipContent>
+                  <p>No se pueden crear reservas con saldo pendiente de {formatCurrency(saldoPendiente)}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 

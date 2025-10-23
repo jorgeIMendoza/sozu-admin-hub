@@ -520,6 +520,11 @@ export const NewReservaDialog = ({
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    // Verificar si hay saldo pendiente antes de crear la reserva
+    if (saldoPendiente && saldoPendiente > 0.01) {
+      toast.error(`No se puede crear la reserva. La cuenta de mantenimiento tiene un saldo pendiente de $${saldoPendiente.toFixed(2)}`);
+      return;
+    }
     createMutation.mutate(values);
   };
 
@@ -528,6 +533,58 @@ export const NewReservaDialog = ({
     setSelectedEspacio(espacio);
     form.setValue("id_espacio_reservable_edificio", espacioId);
   };
+
+  // Query para verificar saldo pendiente de la cuenta de mantenimiento
+  const { data: saldoPendiente, isLoading: loadingSaldo } = useQuery({
+    queryKey: ["saldo_pendiente_cuenta", selectedCuentaMantenimiento?.id],
+    queryFn: async () => {
+      if (!selectedCuentaMantenimiento?.id) return 0;
+
+      // Obtener todos los acuerdos_pago de esta cuenta
+      const { data: acuerdos, error: acuerdosError } = await supabase
+        .from('acuerdos_pago')
+        .select('id, monto')
+        .eq('id_cuenta_cobranza', selectedCuentaMantenimiento.id)
+        .eq('activo', true);
+
+      if (acuerdosError) throw acuerdosError;
+
+      // Calcular total a pagar (incluyendo multas)
+      const totalAPagar = acuerdos?.reduce((sum, acuerdo) => sum + (acuerdo.monto || 0), 0) || 0;
+
+      // Obtener multas asociadas a estos acuerdos
+      const acuerdoIds = acuerdos?.map(a => a.id) || [];
+      let totalMultas = 0;
+      
+      if (acuerdoIds.length > 0) {
+        const { data: multas } = await supabase
+          .from('multas')
+          .select('monto')
+          .in('id_acuerdo_pago', acuerdoIds)
+          .eq('activo', true)
+          .eq('es_pagada', false);
+        
+        totalMultas = multas?.reduce((sum, multa) => sum + (multa.monto || 0), 0) || 0;
+      }
+
+      // Obtener todas las aplicaciones de pago
+      if (acuerdoIds.length === 0) return 0;
+
+      const { data: aplicaciones, error: aplicacionesError } = await supabase
+        .from('aplicaciones_pago')
+        .select('monto')
+        .in('id_acuerdo_pago', acuerdoIds)
+        .eq('activo', true);
+
+      if (aplicacionesError) throw aplicacionesError;
+
+      const totalPagado = aplicaciones?.reduce((sum, app) => sum + (app.monto || 0), 0) || 0;
+
+      const saldo = (totalAPagar + totalMultas) - totalPagado;
+      return saldo;
+    },
+    enabled: !!selectedCuentaMantenimiento?.id,
+  });
 
   const handlePropiedadChange = (propiedadId: string) => {
     const propiedad = propiedades?.find((p: any) => p.id.toString() === propiedadId);
