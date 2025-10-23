@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, X, Edit, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Receipt, Wrench, Package } from "lucide-react";
+import { Search, Eye, X, Edit, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Receipt, Wrench, Package, UserPlus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -20,13 +20,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
-import { EstadoCuentaService } from "@/services/estadoCuentaService";
+import { AddResidenteDialog } from "@/components/admin/AddResidenteDialog";
 
 interface Comprador {
   nombre_legal: string;
   rfc: string | null;
   porcentaje_copropiedad: number;
   id_persona?: number;
+}
+
+interface Residente {
+  id_persona: number;
+  nombre_legal: string;
 }
 
 interface CashPayment {
@@ -65,6 +70,7 @@ interface CuentaCobranza {
   pagado: number;
   restante: number;
   compradores: Comprador[];
+  residente: Residente | null;
   dueno: string;
   proyecto: string;
   edificio: string;
@@ -109,6 +115,10 @@ export default function CuentasMantenimiento() {
     cuenta: null
   });
   const [complementosDialog, setComplementosDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
+    isOpen: false,
+    cuenta: null
+  });
+  const [addResidenteDialog, setAddResidenteDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
     isOpen: false,
     cuenta: null
   });
@@ -493,6 +503,17 @@ export default function CuentasMantenimiento() {
         `)
         .in('id_cuenta_cobranza', cuentas.map(c => c.id));
 
+      // Get residentes activos
+      const { data: residentes } = await (supabase as any)
+        .from('residentes')
+        .select(`
+          id_cuenta_cobranza,
+          id_persona,
+          personas!residentes_id_persona_fkey(id, nombre_legal)
+        `)
+        .in('id_cuenta_cobranza', cuentas.map(c => c.id))
+        .eq('activo', true);
+
       // Get entidades relacionadas, proyectos, edificios, modelos, productos
       // Include both maintenance account ofertas AND parent ofertas
       const entidadIds = [
@@ -650,6 +671,7 @@ export default function CuentasMantenimiento() {
         const entidad = entidadesResult.data?.find(e => e.id === parentPropiedad?.id_entidad_relacionada_dueno);
         const edificioModelo = edificiosModelosResult.data?.find(em => em.id === parentPropiedad?.id_edificio_modelo);
         const cuentaCompradores = compradores?.filter(c => c.id_cuenta_cobranza === cuenta.id) || [];
+        const cuentaResidente = residentes?.find(r => r.id_cuenta_cobranza === cuenta.id) || null;
         
         // Get clave_catastral from parent cuenta
         const claveCatastral = parentCuenta?.clave_catastral || null;
@@ -734,6 +756,10 @@ export default function CuentasMantenimiento() {
             porcentaje_copropiedad: c.porcentaje_copropiedad || 0,
             id_persona: c.id_persona
           })).filter(c => c.nombre_legal),
+          residente: cuentaResidente ? {
+            id_persona: cuentaResidente.id_persona,
+            nombre_legal: cuentaResidente.personas?.nombre_legal || 'Sin nombre'
+          } : null,
           dueno: entidad?.personas?.nombre_legal || 'Sin dueño',
           proyecto: entidad?.proyectos?.nombre || 'Sin proyecto',
           edificio: edificioModelo?.edificios?.nombre || 'Sin edificio',
@@ -964,6 +990,7 @@ export default function CuentasMantenimiento() {
                     <TableRow>
                       <TableHead className="w-24">ID</TableHead>
                       <TableHead>Propietarios</TableHead>
+                      <TableHead>Residente</TableHead>
                       <TableHead>CLABE STP</TableHead>
                       <TableHead>Proyecto</TableHead>
                       <TableHead>Propiedad</TableHead>
@@ -980,7 +1007,7 @@ export default function CuentasMantenimiento() {
                   <TableBody>
                     {filteredCuentas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                           No se encontraron cuentas de mantenimiento
                         </TableCell>
                       </TableRow>
@@ -1014,6 +1041,15 @@ export default function CuentasMantenimiento() {
                               )
                             ) : (
                               <span className="text-muted-foreground">Sin propietarios</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {cuenta.residente ? (
+                              <Badge variant="outline">
+                                {cuenta.residente.nombre_legal}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">sin asignar</span>
                             )}
                           </TableCell>
                           <TableCell 
@@ -1093,6 +1129,23 @@ export default function CuentasMantenimiento() {
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => setAddResidenteDialog({ isOpen: true, cuenta })}
+                                    >
+                                      <UserPlus className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Asignar residente</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
                                     <Link to={`/admin/cuentas-mantenimiento/${cuenta.id}/detalle`}>
                                       <Button variant="ghost" size="icon">
                                         <Eye className="h-4 w-4" />
@@ -1125,6 +1178,19 @@ export default function CuentasMantenimiento() {
           estacionamientos={complementosDialog.cuenta.estacionamientos || []}
           productos={complementosDialog.cuenta.productos || []}
           propertyNumber={complementosDialog.cuenta.numero_propiedad}
+        />
+      )}
+
+      {addResidenteDialog.isOpen && addResidenteDialog.cuenta && (
+        <AddResidenteDialog
+          open={addResidenteDialog.isOpen}
+          onOpenChange={(open) => setAddResidenteDialog({ isOpen: open, cuenta: null })}
+          cuentaMantenimientoId={addResidenteDialog.cuenta.id}
+          compradores={addResidenteDialog.cuenta.compradores.filter(c => c.id_persona !== undefined).map(c => ({
+            id_persona: c.id_persona!,
+            nombre_legal: c.nombre_legal,
+            porcentaje_copropiedad: c.porcentaje_copropiedad
+          }))}
         />
       )}
 
