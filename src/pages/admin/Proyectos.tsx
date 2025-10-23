@@ -543,7 +543,7 @@ const Proyectos = () => {
                             projectId={project.id}
                             onProjectUpdated={handleProjectUpdated}
                             trigger={
-                              <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50">
+                              <Button variant="ghost" size="sm">
                                 <Edit className="h-4 w-4" />
                               </Button>
                             }
