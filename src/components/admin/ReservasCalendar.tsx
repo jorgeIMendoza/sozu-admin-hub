@@ -284,6 +284,12 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                                       {reserva.espacios_reservables_edificio?.descripcion || "N/A"}
                                     </p>
                                   </div>
+                                  <div>
+                                    <span className="font-medium">Costo:</span>
+                                    <p className="text-muted-foreground">
+                                      ${reserva.acuerdos_pago?.monto?.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             </HoverCardContent>
