@@ -369,6 +369,23 @@ export const NewReservaDialog = ({
     form.setValue("id_comprador", ""); // Reset comprador selection
   };
 
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        id_proyecto: "",
+        id_edificio: "",
+        id_propiedad: "",
+        id_comprador: "",
+        id_espacio_reservable_edificio: "",
+        fecha_reserva: format(new Date(), "yyyy-MM-dd"),
+        hora_reserva: "09:00",
+      });
+      setSelectedEspacio(null);
+      setSelectedCuentaMantenimiento(null);
+    }
+  }, [open, form]);
+
   // Auto-select comprador if only one exists
   useEffect(() => {
     if (compradores && compradores.length === 1) {
