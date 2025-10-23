@@ -36,6 +36,7 @@ const Reservas = () => {
             tipos_espacio_reservables(id, nombre)
           ),
           estatus_reserva(id, nombre),
+          persona_que_reserva:personas!reservas_id_persona_que_reserva_fkey(id, nombre_legal),
           acuerdos_pago(
             id,
             cuentas_cobranza!fk_acuerdos_pago_cuenta_cobranza(
@@ -50,6 +51,21 @@ const Reservas = () => {
         `)
         .order("fecha_reserva", { ascending: false })
         .order("hora_reserva", { ascending: false });
+
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Obtener estatus de reserva para el filtro
+  const { data: estatusReserva } = useQuery({
+    queryKey: ["estatus_reserva"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("estatus_reserva")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
 
       if (error) throw error;
       return data as any[];
@@ -118,6 +134,7 @@ const Reservas = () => {
               reservas={reservasActivas} 
               isLoading={isLoading}
               onDelete={(id) => deleteMutation.mutate(id)}
+              estatusReserva={estatusReserva || []}
             />
           </TabsContent>
 

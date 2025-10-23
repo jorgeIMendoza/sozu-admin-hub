@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, Pencil, Trash2 } from "lucide-react";
+import { Search, Pencil, Trash2, X } from "lucide-react";
 import { format, parseISO, isToday, isFuture } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -15,17 +15,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ReservasListProps {
   reservas: any[];
   isLoading: boolean;
   onDelete: (id: number) => void;
   showDeleted?: boolean;
+  estatusReserva?: any[];
 }
 
-export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted }: ReservasListProps) => {
+export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted, estatusReserva = [] }: ReservasListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeSubTab, setActiveSubTab] = useState<"todas" | "hoy" | "proximas">("todas");
+  const [selectedEstatus, setSelectedEstatus] = useState<string>("");
 
   const getFilteredReservas = () => {
     let filtered = reservas;
@@ -33,13 +42,16 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted }: Res
     // Filtrar por búsqueda
     if (searchTerm) {
       filtered = filtered.filter((r: any) => {
-        const nombreCliente = `${r.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.nombre || ""} ${r.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.apellido_paterno || ""}`.toLowerCase();
-        const espacio = r.espacios_reservables_edificio?.tipos_espacio_reservables?.nombre?.toLowerCase() || "";
-        const estatus = r.estatus_reserva?.nombre?.toLowerCase() || "";
-        return nombreCliente.includes(searchTerm.toLowerCase()) || 
-               espacio.includes(searchTerm.toLowerCase()) ||
-               estatus.includes(searchTerm.toLowerCase());
+        const nombrePersonaReserva = r.persona_que_reserva?.nombre_legal?.toLowerCase() || "";
+        const espacioReservado = r.espacios_reservables_edificio?.descripcion?.toLowerCase() || "";
+        return nombrePersonaReserva.includes(searchTerm.toLowerCase()) || 
+               espacioReservado.includes(searchTerm.toLowerCase());
       });
+    }
+
+    // Filtrar por estatus
+    if (selectedEstatus) {
+      filtered = filtered.filter((r: any) => r.id_estatus_reserva?.toString() === selectedEstatus);
     }
 
     // Filtrar por sub-tab
@@ -94,23 +106,44 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted }: Res
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por cliente, servicio, estatus..."
+              placeholder="Buscar por persona que reservó o espacio reservado..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Filtrar por estatus
-          </Button>
+          {!showDeleted && (
+            <div className="flex gap-2">
+              <Select value={selectedEstatus} onValueChange={setSelectedEstatus}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filtrar por estatus" />
+                </SelectTrigger>
+                <SelectContent>
+                  {estatusReserva.map((estatus: any) => (
+                    <SelectItem key={estatus.id} value={estatus.id.toString()}>
+                      {estatus.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedEstatus && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setSelectedEstatus("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Persona que reserva</TableHead>
+                <TableHead>Persona que reservó</TableHead>
                 <TableHead>Espacio reservado</TableHead>
                 <TableHead>Fecha y Hora</TableHead>
                 <TableHead>Costo</TableHead>
@@ -129,8 +162,7 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted }: Res
                 filteredReservas.map((reserva) => (
                   <TableRow key={reserva.id}>
                     <TableCell className="font-medium">
-                      {reserva.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.nombre || "N/A"}{" "}
-                      {reserva.acuerdos_pago?.cuentas_cobranza?.ofertas?.personas?.apellido_paterno || ""}
+                      {reserva.persona_que_reserva?.nombre_legal || "N/A"}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {reserva.espacios_reservables_edificio?.descripcion || "-"}
