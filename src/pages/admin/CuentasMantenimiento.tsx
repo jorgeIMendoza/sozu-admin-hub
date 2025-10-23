@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { AddResidenteDialog } from "@/components/admin/AddResidenteDialog";
+import { ResidentesDetailDialog } from "@/components/admin/ResidentesDetailDialog";
 
 interface Comprador {
   nombre_legal: string;
@@ -32,6 +33,7 @@ interface Comprador {
 interface Residente {
   id_persona: number;
   nombre_legal: string;
+  activo: boolean;
 }
 
 interface CashPayment {
@@ -70,7 +72,7 @@ interface CuentaCobranza {
   pagado: number;
   restante: number;
   compradores: Comprador[];
-  residente: Residente | null;
+  residentes: Residente[];
   dueno: string;
   proyecto: string;
   edificio: string;
@@ -121,6 +123,10 @@ export default function CuentasMantenimiento() {
   const [addResidenteDialog, setAddResidenteDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
     isOpen: false,
     cuenta: null
+  });
+  const [residentesDialog, setResidentesDialog] = useState<{ isOpen: boolean; residentes: Residente[] }>({
+    isOpen: false,
+    residentes: []
   });
   const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState<number | null>(null);
 
@@ -503,16 +509,16 @@ export default function CuentasMantenimiento() {
         `)
         .in('id_cuenta_cobranza', cuentas.map(c => c.id));
 
-      // Get residentes activos
+      // Get todos los residentes (activos e inactivos)
       const { data: residentes } = await (supabase as any)
         .from('residentes')
         .select(`
           id_cuenta_cobranza,
           id_persona,
+          activo,
           personas!residentes_id_persona_fkey(id, nombre_legal)
         `)
-        .in('id_cuenta_cobranza', cuentas.map(c => c.id))
-        .eq('activo', true);
+        .in('id_cuenta_cobranza', cuentas.map(c => c.id));
 
       // Get entidades relacionadas, proyectos, edificios, modelos, productos
       // Include both maintenance account ofertas AND parent ofertas
@@ -671,7 +677,7 @@ export default function CuentasMantenimiento() {
         const entidad = entidadesResult.data?.find(e => e.id === parentPropiedad?.id_entidad_relacionada_dueno);
         const edificioModelo = edificiosModelosResult.data?.find(em => em.id === parentPropiedad?.id_edificio_modelo);
         const cuentaCompradores = compradores?.filter(c => c.id_cuenta_cobranza === cuenta.id) || [];
-        const cuentaResidente = residentes?.find(r => r.id_cuenta_cobranza === cuenta.id) || null;
+        const cuentaResidentes = residentes?.filter(r => r.id_cuenta_cobranza === cuenta.id) || [];
         
         // Get clave_catastral from parent cuenta
         const claveCatastral = parentCuenta?.clave_catastral || null;
@@ -756,10 +762,11 @@ export default function CuentasMantenimiento() {
             porcentaje_copropiedad: c.porcentaje_copropiedad || 0,
             id_persona: c.id_persona
           })).filter(c => c.nombre_legal),
-          residente: cuentaResidente ? {
-            id_persona: cuentaResidente.id_persona,
-            nombre_legal: cuentaResidente.personas?.nombre_legal || 'Sin nombre'
-          } : null,
+          residentes: cuentaResidentes.map(r => ({
+            id_persona: r.id_persona,
+            nombre_legal: r.personas?.nombre_legal || 'Sin nombre',
+            activo: r.activo
+          })),
           dueno: entidad?.personas?.nombre_legal || 'Sin dueño',
           proyecto: entidad?.proyectos?.nombre || 'Sin proyecto',
           edificio: edificioModelo?.edificios?.nombre || 'Sin edificio',
@@ -1044,10 +1051,33 @@ export default function CuentasMantenimiento() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {cuenta.residente ? (
-                              <Badge variant="outline">
-                                {cuenta.residente.nombre_legal}
-                              </Badge>
+                            {cuenta.residentes.length > 0 ? (
+                              <div className="flex items-center gap-2">
+                                {cuenta.residentes.find(r => r.activo) ? (
+                                  <Badge variant="outline">
+                                    {cuenta.residentes.find(r => r.activo)?.nombre_legal}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">sin asignar</span>
+                                )}
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => setResidentesDialog({ isOpen: true, residentes: cuenta.residentes })}
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Ver historial de residentes</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground text-sm">sin asignar</span>
                             )}
@@ -1193,6 +1223,12 @@ export default function CuentasMantenimiento() {
           }))}
         />
       )}
+
+      <ResidentesDetailDialog
+        residentes={residentesDialog.residentes}
+        open={residentesDialog.isOpen}
+        onOpenChange={(open) => setResidentesDialog({ isOpen: open, residentes: [] })}
+      />
 
       {/* Dialog de pago manual */}
     </div>
