@@ -36,6 +36,7 @@ const formSchema = z.object({
   id_proyecto: z.string().min(1, "Seleccione un proyecto"),
   id_edificio: z.string().min(1, "Seleccione un edificio"),
   id_propiedad: z.string().min(1, "Seleccione una propiedad"),
+  id_comprador: z.string().min(1, "Seleccione un propietario"),
   id_espacio_reservable_edificio: z.string().min(1, "Seleccione un espacio"),
   fecha_reserva: z.string().min(1, "Seleccione una fecha"),
   hora_reserva: z.string().min(1, "Seleccione una hora"),
@@ -62,6 +63,7 @@ export const NewReservaDialog = ({
       id_proyecto: "",
       id_edificio: "",
       id_propiedad: "",
+      id_comprador: "",
       id_espacio_reservable_edificio: "",
       fecha_reserva: format(new Date(), "yyyy-MM-dd"),
       hora_reserva: "09:00",
@@ -103,25 +105,27 @@ export const NewReservaDialog = ({
     enabled: !!form.watch("id_proyecto"),
   });
 
-  // Fetch propiedades filtradas por edificio con cuenta de mantenimiento
+  // Fetch propiedades filtradas por edificio con cuenta de mantenimiento (solo entregadas)
   const { data: propiedades } = useQuery({
     queryKey: ["propiedades_por_edificio", form.watch("id_edificio")],
     queryFn: async () => {
       const edificioId = form.watch("id_edificio");
       if (!edificioId) return [];
 
-      // Get propiedades through edificios_modelos
+      // Get propiedades through edificios_modelos, filtered by estatus Entregado (id=8)
       const { data: propiedadesData, error: propError } = await supabase
         .from("propiedades")
         .select(`
           id,
           numero_propiedad,
           id_edificio_modelo,
+          id_estatus_disponibilidad,
           edificios_modelos!propiedades_id_edificio_modelo_fkey(
             id_edificio
           )
         `)
-        .eq("activo", true);
+        .eq("activo", true)
+        .eq("id_estatus_disponibilidad", 8);
 
       if (propError) throw propError;
 
@@ -186,7 +190,8 @@ export const NewReservaDialog = ({
       const { data, error } = await supabase
         .from("compradores")
         .select(`
-          id,
+          id_persona,
+          id_cuenta_cobranza,
           porcentaje_copropiedad,
           personas!compradores_id_persona_fkey(
             nombre_legal
@@ -312,7 +317,15 @@ export const NewReservaDialog = ({
       setSelectedCuentaMantenimiento({ id: propiedad.id_cuenta_mantenimiento });
     }
     form.setValue("id_propiedad", propiedadId);
+    form.setValue("id_comprador", ""); // Reset comprador selection
   };
+
+  // Auto-select comprador if only one exists
+  useEffect(() => {
+    if (compradores && compradores.length === 1) {
+      form.setValue("id_comprador", compradores[0].id_persona.toString());
+    }
+  }, [compradores, form]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -335,6 +348,7 @@ export const NewReservaDialog = ({
                         field.onChange(value);
                         form.setValue("id_edificio", "");
                         form.setValue("id_propiedad", "");
+                        form.setValue("id_comprador", "");
                         form.setValue("id_espacio_reservable_edificio", "");
                         setSelectedCuentaMantenimiento(null);
                       }}
@@ -364,6 +378,7 @@ export const NewReservaDialog = ({
                       onValueChange={(value) => {
                         field.onChange(value);
                         form.setValue("id_propiedad", "");
+                        form.setValue("id_comprador", "");
                         setSelectedCuentaMantenimiento(null);
                       }}
                       options={(edificios || []).map((edificio: any) => ({
@@ -407,14 +422,30 @@ export const NewReservaDialog = ({
             />
 
             {compradores && compradores.length > 0 && (
-              <div className="bg-muted p-4 rounded-lg space-y-2">
-                <p className="text-sm font-semibold">Compradores:</p>
-                {compradores.map((comprador: any) => (
-                  <p key={comprador.id} className="text-sm">
-                    • {comprador.personas?.nombre_legal} ({comprador.porcentaje_copropiedad}%)
-                  </p>
-                ))}
-              </div>
+              <FormField
+                control={form.control}
+                name="id_comprador"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Propietario</FormLabel>
+                    <FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar propietario" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {compradores.map((comprador: any) => (
+                            <SelectItem key={comprador.id_persona} value={comprador.id_persona.toString()}>
+                              {comprador.personas?.nombre_legal} ({comprador.porcentaje_copropiedad}%)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
 
             <FormField
