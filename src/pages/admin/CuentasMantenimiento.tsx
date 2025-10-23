@@ -1051,36 +1051,28 @@ export default function CuentasMantenimiento() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {cuenta.residentes.length > 0 ? (
-                              <div className="flex items-center gap-2">
-                                {cuenta.residentes.find(r => r.activo) ? (
-                                  <Badge variant="outline">
-                                    {cuenta.residentes.find(r => r.activo)?.nombre_legal}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-sm">sin asignar</span>
-                                )}
+                            <div className="flex items-center justify-center">
+                              {cuenta.residentes.length > 0 ? (
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button 
                                         variant="ghost" 
                                         size="icon"
-                                        className="h-6 w-6"
                                         onClick={() => setResidentesDialog({ isOpen: true, residentes: cuenta.residentes })}
                                       >
-                                        <Eye className="h-3 w-3" />
+                                        <Eye className="h-4 w-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Ver historial de residentes</p>
+                                      <p>Ver detalle de residentes</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">sin asignar</span>
-                            )}
+                              ) : (
+                                <span className="text-muted-foreground text-sm">sin asignar</span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell 
                             className="font-mono text-xs cursor-pointer hover:bg-secondary/50 transition-colors"
