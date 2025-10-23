@@ -896,108 +896,6 @@ export type Database = {
           },
         ]
       }
-      cuentas_cobranza_mantenimiento: {
-        Row: {
-          activo: boolean
-          clabe_stp_mantenimiento: string | null
-          clave_rastreo_comision_venta: string | null
-          es_aprobado: boolean
-          es_comision_venta_efectivo: boolean
-          es_pagada_comision_venta: boolean
-          fecha_actualizacion: string
-          fecha_compra: string | null
-          fecha_creacion: string
-          id: number
-          id_notario: number | null
-          id_oferta: number
-          id_tipo_cancelacion: number | null
-          moneda: string | null
-          monto_cobro_cancelacion: number | null
-          porcentaje_comision_venta: number
-          precio_final: number
-          url_evidencia_cancelacion: string | null
-          valor_uma: number | null
-        }
-        Insert: {
-          activo?: boolean
-          clabe_stp_mantenimiento?: string | null
-          clave_rastreo_comision_venta?: string | null
-          es_aprobado?: boolean
-          es_comision_venta_efectivo?: boolean
-          es_pagada_comision_venta?: boolean
-          fecha_actualizacion?: string
-          fecha_compra?: string | null
-          fecha_creacion?: string
-          id?: number
-          id_notario?: number | null
-          id_oferta: number
-          id_tipo_cancelacion?: number | null
-          moneda?: string | null
-          monto_cobro_cancelacion?: number | null
-          porcentaje_comision_venta?: number
-          precio_final?: number
-          url_evidencia_cancelacion?: string | null
-          valor_uma?: number | null
-        }
-        Update: {
-          activo?: boolean
-          clabe_stp_mantenimiento?: string | null
-          clave_rastreo_comision_venta?: string | null
-          es_aprobado?: boolean
-          es_comision_venta_efectivo?: boolean
-          es_pagada_comision_venta?: boolean
-          fecha_actualizacion?: string
-          fecha_compra?: string | null
-          fecha_creacion?: string
-          id?: number
-          id_notario?: number | null
-          id_oferta?: number
-          id_tipo_cancelacion?: number | null
-          moneda?: string | null
-          monto_cobro_cancelacion?: number | null
-          porcentaje_comision_venta?: number
-          precio_final?: number
-          url_evidencia_cancelacion?: string | null
-          valor_uma?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cuentas_cobranza_mantenimient_clave_rastreo_comision_venta_fkey"
-            columns: ["clave_rastreo_comision_venta"]
-            isOneToOne: true
-            referencedRelation: "pagos_stp_raw"
-            referencedColumns: ["claverastreo"]
-          },
-          {
-            foreignKeyName: "cuentas_cobranza_mantenimiento_id_notario_fkey"
-            columns: ["id_notario"]
-            isOneToOne: false
-            referencedRelation: "notarios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cuentas_cobranza_mantenimiento_id_oferta_fkey"
-            columns: ["id_oferta"]
-            isOneToOne: false
-            referencedRelation: "ofertas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cuentas_cobranza_mantenimiento_id_oferta_fkey1"
-            columns: ["id_oferta"]
-            isOneToOne: false
-            referencedRelation: "ofertas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cuentas_cobranza_mantenimiento_id_tipo_cancelacion_fkey"
-            columns: ["id_tipo_cancelacion"]
-            isOneToOne: false
-            referencedRelation: "tipos_cancelacion"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       cuentas_stp_pago_comision: {
         Row: {
           activo: boolean
@@ -3595,7 +3493,7 @@ export type Database = {
           fecha_reserva: string
           hora_reserva: string
           id: number
-          "id_acuerdo_pago: int": number
+          id_acuerdo_pago: number
           id_espacio_reservable_edificio: number
           id_estatus_reserva: number
           id_persona_que_reserva: number
@@ -3608,7 +3506,7 @@ export type Database = {
           fecha_reserva: string
           hora_reserva: string
           id?: number
-          "id_acuerdo_pago: int": number
+          id_acuerdo_pago: number
           id_espacio_reservable_edificio: number
           id_estatus_reserva?: number
           id_persona_que_reserva: number
@@ -3621,7 +3519,7 @@ export type Database = {
           fecha_reserva?: string
           hora_reserva?: string
           id?: number
-          "id_acuerdo_pago: int"?: number
+          id_acuerdo_pago?: number
           id_espacio_reservable_edificio?: number
           id_estatus_reserva?: number
           id_persona_que_reserva?: number
@@ -3629,7 +3527,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "reservas_id_acuerdo_pago: int_fkey"
-            columns: ["id_acuerdo_pago: int"]
+            columns: ["id_acuerdo_pago"]
             isOneToOne: false
             referencedRelation: "acuerdos_pago"
             referencedColumns: ["id"]
@@ -3651,6 +3549,48 @@ export type Database = {
           {
             foreignKeyName: "reservas_id_persona_que_reserva_fkey"
             columns: ["id_persona_que_reserva"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      residentes: {
+        Row: {
+          activo: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_cuenta_cobranza: number | null
+          id_persona: number | null
+        }
+        Insert: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_cuenta_cobranza?: number | null
+          id_persona?: number | null
+        }
+        Update: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_cuenta_cobranza?: number | null
+          id_persona?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "residentes_id_cuenta_cobranza_fkey"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "cuentas_cobranza"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "residentes_id_persona_fkey"
+            columns: ["id_persona"]
             isOneToOne: false
             referencedRelation: "personas"
             referencedColumns: ["id"]
@@ -4303,6 +4243,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      actualizar_estatus_reservas: { Args: never; Returns: undefined }
       crear_referencia_bancaria: {
         Args: { id_er_dueno: number }
         Returns: string

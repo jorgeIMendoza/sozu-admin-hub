@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Pencil, Trash2, X, Filter } from "lucide-react";
+import { Search, Eye, X, Filter } from "lucide-react";
+import { EditReservaDialog } from "./EditReservaDialog";
 import { format, parseISO, isToday, isFuture } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -25,15 +26,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 interface ReservasListProps {
   reservas: any[];
   isLoading: boolean;
-  onDelete: (id: number) => void;
-  showDeleted?: boolean;
   estatusReserva?: any[];
 }
 
-export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted, estatusReserva = [] }: ReservasListProps) => {
+export const ReservasList = ({ reservas, isLoading, estatusReserva = [] }: ReservasListProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeSubTab, setActiveSubTab] = useState<"todas" | "hoy" | "proximas">("todas");
   const [selectedEstatus, setSelectedEstatus] = useState<string[]>([]);
+  const [editReservaId, setEditReservaId] = useState<number | null>(null);
 
   const getFilteredReservas = () => {
     let filtered = reservas;
@@ -103,9 +103,9 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted, estat
   }
 
   return (
-    <Card className="p-6">
-      <div className="space-y-4">
-        {!showDeleted && (
+    <>
+      <Card className="p-6">
+        <div className="space-y-4">
           <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as any)}>
             <TabsList>
               <TabsTrigger value="todas">Todas</TabsTrigger>
@@ -113,20 +113,18 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted, estat
               <TabsTrigger value="proximas">Próximas ({futureCount})</TabsTrigger>
             </TabsList>
           </Tabs>
-        )}
 
-        <div className="space-y-3">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por persona que reservó o espacio reservado..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            {!showDeleted && (
+          <div className="space-y-3">
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por persona que reservó o espacio reservado..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline">
@@ -174,10 +172,9 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted, estat
                   </div>
                 </PopoverContent>
               </Popover>
-            )}
-          </div>
+            </div>
           
-          {selectedEstatus.length > 0 && !showDeleted && (
+          {selectedEstatus.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {selectedEstatus.map((estatusId) => {
                 const estatus = estatusReserva.find((e: any) => e.id.toString() === estatusId);
@@ -240,26 +237,28 @@ export const ReservasList = ({ reservas, isLoading, onDelete, showDeleted, estat
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => onDelete(reserva.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setEditReservaId(reserva.id)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+      
+      <EditReservaDialog
+        open={editReservaId !== null}
+        onOpenChange={(open) => !open && setEditReservaId(null)}
+        reservaId={editReservaId}
+      />
+    </>
   );
 };

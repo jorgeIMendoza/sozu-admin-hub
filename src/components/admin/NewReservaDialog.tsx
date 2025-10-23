@@ -46,6 +46,13 @@ const formSchema = z.object({
   id_espacio_reservable_edificio: z.string().min(1, "Seleccione un espacio"),
   fecha_reserva: z.string().min(1, "Seleccione una fecha"),
   hora_reserva: z.string().min(1, "Seleccione una hora"),
+}).refine((data) => {
+  const now = new Date();
+  const selectedDateTime = new Date(`${data.fecha_reserva}T${data.hora_reserva}`);
+  return selectedDateTime >= now;
+}, {
+  message: "No se puede crear una reserva en el pasado",
+  path: ["hora_reserva"],
 });
 
 interface NewReservaDialogProps {

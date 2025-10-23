@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, CheckCircle2, XCircle, CheckCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, CheckCircle2, XCircle, CheckCheck, Loader2, Ban } from "lucide-react";
 import { format, startOfWeek, addDays, isSameDay, parseISO, addWeeks, subWeeks } from "date-fns";
 import { es } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { EditReservaDialog } from "./EditReservaDialog";
 
 interface ReservasCalendarProps {
   reservas: any[];
@@ -14,6 +20,7 @@ interface ReservasCalendarProps {
 
 export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps) => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [editReservaId, setEditReservaId] = useState<number | null>(null);
   
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Lunes
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -23,9 +30,11 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
 
   const estatusConfig = {
     1: { nombre: "Agendada", icon: Clock, color: "bg-blue-500/20 border-blue-500 text-blue-700", iconColor: "text-blue-600" },
-    2: { nombre: "Confirmada", icon: CheckCircle2, color: "bg-green-500/20 border-green-500 text-green-700", iconColor: "text-green-600" },
-    3: { nombre: "Cancelada", icon: XCircle, color: "bg-red-500/20 border-red-500 text-red-700", iconColor: "text-red-600" },
-    4: { nombre: "Completada", icon: CheckCheck, color: "bg-purple-500/20 border-purple-500 text-purple-700", iconColor: "text-purple-600" },
+    2: { nombre: "Pagada", icon: CheckCircle2, color: "bg-green-500/20 border-green-500 text-green-700", iconColor: "text-green-600" },
+    3: { nombre: "En progreso", icon: Loader2, color: "bg-yellow-500/20 border-yellow-500 text-yellow-700", iconColor: "text-yellow-600" },
+    4: { nombre: "Terminada", icon: CheckCheck, color: "bg-purple-500/20 border-purple-500 text-purple-700", iconColor: "text-purple-600" },
+    5: { nombre: "Cancelada", icon: XCircle, color: "bg-red-500/20 border-red-500 text-red-700", iconColor: "text-red-600" },
+    6: { nombre: "Reagendada", icon: Ban, color: "bg-orange-500/20 border-orange-500 text-orange-700", iconColor: "text-orange-600" },
   };
 
   const getReservasForDayAndTime = (day: Date, hour: number) => {
@@ -174,10 +183,19 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                         const estatusInfo = estatusConfig[parseInt(estatusId) as keyof typeof estatusConfig];
                         const IconComponent = estatusInfo?.icon;
                         return (
-                          <div key={estatusId} className="flex items-center gap-0.5">
-                            {IconComponent && <IconComponent className={`h-3 w-3 ${estatusInfo.iconColor}`} />}
-                            <span className="text-xs font-semibold">{count}</span>
-                          </div>
+                          <TooltipProvider key={estatusId}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex flex-col items-center gap-0">
+                                  {IconComponent && <IconComponent className={`h-3 w-3 ${estatusInfo.iconColor}`} />}
+                                  <span className="text-xs font-semibold">{count}</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{estatusInfo?.nombre}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         );
                       })}
                     </div>
@@ -213,7 +231,7 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                         const leftPercent = (reserva.horizontalIndex || 0) * widthPercent;
                         
                         return (
-                          <HoverCard key={idx}>
+                          <HoverCard key={idx} openDelay={200}>
                             <HoverCardTrigger asChild>
                               <div
                                 className={`rounded border p-2 cursor-pointer hover:opacity-80 transition-opacity absolute ${estatusInfo?.color}`}
@@ -224,16 +242,14 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
                                   width: `calc(${widthPercent}% - 4px)`,
                                   marginLeft: '2px'
                                 }}
+                                onClick={() => setEditReservaId(reserva.id)}
                               >
-                                <div className="flex items-center gap-1.5">
-                                  {IconComponent && <IconComponent className={`h-3.5 w-3.5 flex-shrink-0 ${estatusInfo.iconColor}`} />}
-                                  <span className="text-xs font-medium truncate">
-                                    {reserva.persona_que_reserva?.nombre_legal || "Sin nombre"}
-                                  </span>
+                                <div className="flex items-center justify-center">
+                                  {IconComponent && <IconComponent className={`h-3.5 w-3.5 ${estatusInfo.iconColor}`} />}
                                 </div>
                               </div>
                             </HoverCardTrigger>
-                            <HoverCardContent className="w-80">
+                            <HoverCardContent className="w-80" side="right">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                   {IconComponent && <IconComponent className={`h-4 w-4 ${estatusInfo.iconColor}`} />}
@@ -272,6 +288,12 @@ export const ReservasCalendar = ({ reservas, isLoading }: ReservasCalendarProps)
           </div>
         </div>
       </div>
+      
+      <EditReservaDialog
+        open={editReservaId !== null}
+        onOpenChange={(open) => !open && setEditReservaId(null)}
+        reservaId={editReservaId}
+      />
     </Card>
   );
 };

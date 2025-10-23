@@ -1,18 +1,35 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus, Calendar as CalendarIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
 import { ReservasCalendar } from "@/components/admin/ReservasCalendar";
 import { ReservasList } from "@/components/admin/ReservasList";
 import { NewReservaDialog } from "@/components/admin/NewReservaDialog";
 
 const Reservas = () => {
   const [newDialogOpen, setNewDialogOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"calendario" | "activos" | "eliminados">("calendario");
+  const [activeView, setActiveView] = useState<"calendario" | "activos">("calendario");
   const queryClient = useQueryClient();
+
+  // Actualizar estatus automáticamente cada minuto
+  useEffect(() => {
+    const updateEstatus = async () => {
+      try {
+        await (supabase as any).rpc('actualizar_estatus_reservas');
+        queryClient.invalidateQueries({ queryKey: ["reservas"] });
+      } catch (error) {
+        console.error('Error actualizando estatus:', error);
+      }
+    };
+
+    // Ejecutar al montar y cada minuto
+    updateEstatus();
+    const interval = setInterval(updateEstatus, 60000);
+
+    return () => clearInterval(interval);
+  }, [queryClient]);
 
   // @ts-ignore - Tablas no están en types aún
   const { data: reservas, isLoading } = useQuery({
@@ -72,26 +89,7 @@ const Reservas = () => {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const { error } = await (supabase as any)
-        .from("reservas")
-        .update({ activo: false })
-        .eq("id", id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reservas"] });
-      toast.success("Reserva eliminada exitosamente");
-    },
-    onError: (error: any) => {
-      toast.error(`Error al eliminar: ${error.message}`);
-    },
-  });
-
   const reservasActivas = reservas?.filter((r: any) => r.activo) || [];
-  const reservasEliminadas = reservas?.filter((r: any) => !r.activo) || [];
 
   return (
     <div className="space-y-6">
@@ -112,16 +110,13 @@ const Reservas = () => {
         </div>
 
         <Tabs value={activeView} onValueChange={(v) => setActiveView(v as any)} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="calendario" className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4" />
               Calendario
             </TabsTrigger>
             <TabsTrigger value="activos">
               Activos ({reservasActivas.length})
-            </TabsTrigger>
-            <TabsTrigger value="eliminados">
-              Eliminados ({reservasEliminadas.length})
             </TabsTrigger>
           </TabsList>
 
@@ -133,17 +128,7 @@ const Reservas = () => {
             <ReservasList 
               reservas={reservasActivas} 
               isLoading={isLoading}
-              onDelete={(id) => deleteMutation.mutate(id)}
               estatusReserva={estatusReserva || []}
-            />
-          </TabsContent>
-
-          <TabsContent value="eliminados" className="mt-6">
-            <ReservasList 
-              reservas={reservasEliminadas} 
-              isLoading={isLoading}
-              onDelete={(id) => deleteMutation.mutate(id)}
-              showDeleted
             />
           </TabsContent>
         </Tabs>
