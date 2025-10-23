@@ -25,6 +25,8 @@ interface AcuerdoPago {
   fecha_pago: string | null;
   pago_completado: boolean;
   concepto: string;
+  id_concepto?: number;
+  espacio_reserva?: string;
   aplicaciones: AplicacionPago[];
 }
 
@@ -327,6 +329,53 @@ export default function DetalleCuentaMantenimiento() {
       const conceptosMap = new Map<number, string>();
       conceptos?.forEach(c => conceptosMap.set(c.id, c.nombre));
 
+      // Get reserva info for "Pago de reserva" (id_concepto = 14)
+      const acuerdosReserva = data?.filter(a => a.id_concepto === 14) || [];
+      const reservasMap = new Map<number, any>();
+      
+      if (acuerdosReserva.length > 0) {
+        const { data: reservas } = await supabase
+          .from('reservas' as any)
+          .select('id_acuerdo_pago, id_espacio_reservable_edificio')
+          .in('id_acuerdo_pago', acuerdosReserva.map(a => a.id))
+          .eq('activo', true) as any;
+
+        if (reservas && reservas.length > 0) {
+          const espacioIds = reservas.map((r: any) => r.id_espacio_reservable_edificio).filter(Boolean);
+          
+          if (espacioIds.length > 0) {
+            const { data: espacios } = await supabase
+              .from('espacios_reservables_edificio' as any)
+              .select('id, id_tipo_espacio_reservable')
+              .in('id', espacioIds) as any;
+
+            const tipoIds = espacios?.map((e: any) => e.id_tipo_espacio_reservable).filter(Boolean) || [];
+            
+            if (tipoIds.length > 0) {
+              const { data: tipos } = await supabase
+                .from('tipos_espacios_reservables' as any)
+                .select('id, nombre')
+                .in('id', tipoIds) as any;
+
+              const tiposMap = new Map<number, string>();
+              tipos?.forEach((t: any) => tiposMap.set(t.id, t.nombre));
+
+              const espaciosMap = new Map<number, number>();
+              espacios?.forEach((e: any) => espaciosMap.set(e.id, e.id_tipo_espacio_reservable));
+
+              reservas?.forEach((r: any) => {
+                const tipoEspacioId = espaciosMap.get(r.id_espacio_reservable_edificio);
+                const nombreEspacio = tipoEspacioId ? tiposMap.get(tipoEspacioId) : null;
+                
+                reservasMap.set(r.id_acuerdo_pago, {
+                  espacio_nombre: nombreEspacio || 'N/A'
+                });
+              });
+            }
+          }
+        }
+      }
+
       // Get aplicaciones for each acuerdo
       const acuerdosWithApps = await Promise.all(
         (data || []).map(async (acuerdo) => {
@@ -355,6 +404,8 @@ export default function DetalleCuentaMantenimiento() {
           const metodosMap = new Map<number, string>();
           metodos?.forEach(m => metodosMap.set(m.id, m.nombre));
 
+          const reservaInfo = reservasMap.get(acuerdo.id);
+
           return {
             id: acuerdo.id,
             orden: acuerdo.orden,
@@ -363,6 +414,7 @@ export default function DetalleCuentaMantenimiento() {
             pago_completado: acuerdo.pago_completado,
             concepto: conceptosMap.get(acuerdo.id_concepto) || 'Sin concepto',
             id_concepto: acuerdo.id_concepto,
+            espacio_reserva: reservaInfo?.espacio_nombre,
             aplicaciones: (apps || []).map(app => {
               const pago = pagosMap.get(app.id_pago);
               return {
@@ -846,6 +898,11 @@ export default function DetalleCuentaMantenimiento() {
                                   ) : (
                                     <>
                                       <span className="text-sm font-medium">{formatConcepto(acuerdo.concepto, acuerdo.fecha_pago)}</span>
+                                      {acuerdo.id_concepto === 14 && acuerdo.espacio_reserva && (
+                                        <span className="text-xs text-muted-foreground">
+                                          Espacio: {acuerdo.espacio_reserva}
+                                        </span>
+                                      )}
                                       <span className="text-sm text-muted-foreground">
                                         {formatCurrency(acuerdo.monto)}
                                       </span>
