@@ -31,6 +31,12 @@ import { toast } from "sonner";
 import { Combobox } from "@/components/ui/combobox";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { format } from "date-fns";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const formSchema = z.object({
   id_proyecto: z.string().min(1, "Seleccione un proyecto"),
@@ -854,9 +860,25 @@ export const NewReservaDialog = ({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Guardando..." : "Guardar Reserva"}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-block">
+                      <Button 
+                        type="submit" 
+                        disabled={createMutation.isPending || (saldoPendiente !== undefined && saldoPendiente > 0.01)}
+                      >
+                        {createMutation.isPending ? "Guardando..." : "Guardar Reserva"}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {saldoPendiente !== undefined && saldoPendiente > 0.01 && (
+                    <TooltipContent>
+                      <p>Hay saldo pendiente, no se pueden agregar reservas</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </form>
         </Form>
