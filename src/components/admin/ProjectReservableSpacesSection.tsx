@@ -314,14 +314,14 @@ export const ProjectReservableSpacesSection = ({ projectId }: ProjectReservableS
               Gestiona los espacios reservables de cada edificio del proyecto
             </CardDescription>
           </div>
-          <Dialog open={open} onOpenChange={handleDialogClose} modal={true}>
+          <Dialog open={open} onOpenChange={handleDialogClose} modal={false}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="w-4 h-4 mr-2" />
                 Agregar Espacio
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>
                   {editingSpace ? "Editar Espacio Reservable" : "Agregar Espacio Reservable"}
