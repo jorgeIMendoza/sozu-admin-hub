@@ -1389,7 +1389,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "espacios_rentables_edificio_id_edificio_fkey"
+            foreignKeyName: "espacios_reservables_edificio_id_edificio_fkey"
             columns: ["id_edificio"]
             isOneToOne: false
             referencedRelation: "edificios"
