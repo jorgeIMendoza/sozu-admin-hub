@@ -54,7 +54,8 @@ serve(async (req) => {
         id_estatus_disponibilidad,
         activo,
         entidades_relacionadas!propiedades_id_entidad_relacionada_dueno_fkey(
-          proyectos(id, nombre)
+          id_proyecto,
+          proyectos!entidades_relacionadas_id_proyecto_fkey(id, nombre)
         )
       `)
       .eq('id', id_propiedad)
