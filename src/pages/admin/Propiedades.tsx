@@ -1758,7 +1758,7 @@ const Propiedades = () => {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          ) : !property.apartado_pagado ? (
+                          ) : !property.apartado_pagado && property.id_estatus_disponibilidad !== 10 ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
