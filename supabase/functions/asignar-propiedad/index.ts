@@ -21,7 +21,7 @@ serve(async (req) => {
     
     // Obtener el usuario del token de autorización
     const authHeader = req.headers.get('Authorization');
-    let email_usuario = 'sistema@sozu.mx'; // Email por defecto
+    let email_usuario: string | null = null;
     
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '');
@@ -211,16 +211,22 @@ serve(async (req) => {
     console.log('✅ Esquema de pago creado:', esquemaPago.id);
 
     // 6. Crear oferta
+    const ofertaData: any = {
+      id_propiedad: id_propiedad,
+      id_persona_lead: id_persona,
+      id_esquema_pago_seleccionado: esquemaPago.id,
+      // No especificar fecha_generacion para usar el default de la base de datos (CURRENT_TIMESTAMP)
+      activo: true
+    };
+    
+    // Solo agregar email_creador si existe
+    if (email_usuario) {
+      ofertaData.email_creador = email_usuario;
+    }
+    
     const { data: oferta, error: ofertaError } = await supabase
       .from('ofertas')
-      .insert({
-        id_propiedad: id_propiedad,
-        id_persona_lead: id_persona,
-        id_esquema_pago_seleccionado: esquemaPago.id,
-        email_creador: email_usuario,
-        // No especificar fecha_generacion para usar el default de la base de datos (CURRENT_TIMESTAMP)
-        activo: true
-      })
+      .insert(ofertaData)
       .select('id')
       .single();
 
