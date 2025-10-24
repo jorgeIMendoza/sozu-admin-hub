@@ -34,8 +34,6 @@ export const ProjectLegalEntitiesSection = ({
   const [selectedEntityTypeId, setSelectedEntityTypeId] = useState<string>(isProductosOrServicios ? "4" : "");
   const [editingCuentaMadre, setEditingCuentaMadre] = useState<number | null>(null);
   const [tempCuentaMadre, setTempCuentaMadre] = useState<string>("");
-  const [editingCuentaComisiones, setEditingCuentaComisiones] = useState<number | null>(null);
-  const [tempCuentaComisiones, setTempCuentaComisiones] = useState<string>("");
   const [generatingComisiones, setGeneratingComisiones] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -406,50 +404,22 @@ export const ProjectLegalEntitiesSection = ({
     },
   });
 
-  // Update cuenta de comisiones mutation
-  const updateCuentaComisionesMutation = useMutation({
-    mutationFn: async ({ entityId, cuentaComisiones }: { entityId: number; cuentaComisiones: string }) => {
-      // Validate format (18 digits)
-      if (cuentaComisiones && !/^\d{18}$/.test(cuentaComisiones)) {
-        throw new Error("La cuenta de comisiones debe tener exactamente 18 dígitos");
-      }
-
-      const { error } = await supabase
-        .from("entidades_relacionadas")
-        .update({ cuenta_stp_comisiones: cuentaComisiones || null } as any)
-        .eq("id", entityId);
-
-      if (error) throw error;
-    },
-    onSuccess: async () => {
-      toast({
-        title: "Cuenta actualizada",
-        description: "La cuenta de comisiones se actualizó exitosamente.",
-      });
-      setEditingCuentaComisiones(null);
-      setTempCuentaComisiones("");
-      
-      await queryClient.refetchQueries({ 
-        queryKey: ["project-legal-entities", projectId],
-        exact: true
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Hubo un error al actualizar la cuenta de comisiones.",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Generate cuenta de comisiones mutation
   const generateCuentaComisionesMutation = useMutation({
     mutationFn: async (entityId: number) => {
       setGeneratingComisiones(entityId);
       
+      // Find the Inmobiliaria entity for this project
+      const inmobiliariaEntity = projectLegalEntities.find(
+        (e: any) => e.tipos_entidad?.id === 5
+      );
+      
+      if (!inmobiliariaEntity) {
+        throw new Error("No se encontró una entidad tipo Inmobiliaria en este proyecto");
+      }
+      
       const { data, error } = await supabase
-        .rpc('crear_referencia_bancaria', { id_er_dueno: entityId });
+        .rpc('crear_referencia_bancaria', { id_er_dueno: inmobiliariaEntity.id });
 
       if (error) throw error;
       if (!data) throw new Error("No se pudo generar la cuenta de comisiones");
@@ -738,69 +708,13 @@ export const ProjectLegalEntitiesSection = ({
                                     {generatingComisiones === entity.id ? "Generando..." : "Generar Cuenta de Comisiones"}
                                   </Button>
                                 </div>
-                              ) : editingCuentaComisiones === entity.id ? (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Input
-                                    value={tempCuentaComisiones}
-                                    onChange={(e) => setTempCuentaComisiones(e.target.value)}
-                                    placeholder="18 dígitos"
-                                    maxLength={18}
-                                    className="flex-1"
-                                  />
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      updateCuentaComisionesMutation.mutate({
-                                        entityId: entity.id,
-                                        cuentaComisiones: tempCuentaComisiones
-                                      });
-                                    }}
-                                    disabled={updateCuentaComisionesMutation.isPending}
-                                  >
-                                    <Save className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setEditingCuentaComisiones(null);
-                                      setTempCuentaComisiones("");
-                                    }}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
                               ) : (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-sm font-mono flex-1">
-                                    {(entity as any).cuenta_stp_comisiones ? (
-                                      <>
-                                        <span>{(entity as any).cuenta_stp_comisiones.substring(0, 14)}</span>
-                                        <span className="font-bold text-base text-primary">{(entity as any).cuenta_stp_comisiones.substring(14)}</span>
-                                      </>
-                                    ) : (
+                                <div className="mt-1">
+                                  <span className="text-sm font-mono">
+                                    {(entity as any).cuenta_stp_comisiones || (
                                       <span className="text-muted-foreground italic">No asignada</span>
                                     )}
                                   </span>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setEditingCuentaComisiones(entity.id);
-                                      setTempCuentaComisiones((entity as any).cuenta_stp_comisiones || "");
-                                    }}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
                                 </div>
                               )}
                             </div>
