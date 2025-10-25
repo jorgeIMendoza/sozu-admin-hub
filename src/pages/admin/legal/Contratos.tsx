@@ -198,18 +198,42 @@ export default function Contratos() {
     },
     onSuccess: (data) => {
       const warnings = [];
+      
       if (data.warnings?.missing_placeholders?.length > 0) {
-        warnings.push(`⚠️ Placeholders no encontrados (amarillo): ${data.warnings.missing_placeholders.join(', ')}`);
+        warnings.push(`⚠️ Placeholders no encontrados en template (resaltados en amarillo): ${data.warnings.missing_placeholders.join(', ')}`);
       }
       if (data.warnings?.empty_placeholders?.length > 0) {
-        warnings.push(`⚠️ Datos vacíos (naranja): ${data.warnings.empty_placeholders.join(', ')}`);
+        warnings.push(`⚠️ Placeholders con datos vacíos (resaltados en naranja): ${data.warnings.empty_placeholders.join(', ')}`);
+      }
+
+      const hasWarnings = warnings.length > 0;
+      const title = hasWarnings ? "⚠️ Contrato generado con advertencias" : "✅ Contrato generado exitosamente";
+      
+      let description = data.message || "El contrato se generó correctamente.";
+      
+      if (data.warnings?.total_compradores) {
+        description += `\n\n👥 Se procesaron ${data.warnings.total_compradores} comprador(es).`;
+      }
+      
+      if (hasWarnings) {
+        description += `\n\n${warnings.join('\n\n')}`;
+        description += `\n\n📄 Revisa el documento en Google Docs para ver los placeholders resaltados.`;
       }
 
       toast({
-        title: "✅ Contrato generado",
-        description: warnings.length > 0 
-          ? warnings.join('\n') 
-          : "El contrato se generó exitosamente.",
+        title,
+        description,
+        duration: hasWarnings ? 8000 : 4000,
+        action: data.document_url ? (
+          <a 
+            href={data.document_url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            Abrir Documento
+          </a>
+        ) : undefined,
       });
 
       queryClient.invalidateQueries({ queryKey: ['contratos-pendientes'] });

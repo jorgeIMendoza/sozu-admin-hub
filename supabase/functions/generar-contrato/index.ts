@@ -109,7 +109,7 @@ serve(async (req) => {
     const edificio = edificioData;
     const modelo = modeloData;
 
-    // 6. Obtener compradores
+    // 6. Obtener compradores con todos sus datos relacionados
     const { data: compradores, error: compradoresError } = await supabase
       .from("compradores")
       .select(`
@@ -121,7 +121,27 @@ serve(async (req) => {
           curp,
           tipo_persona,
           email,
-          telefono
+          telefono,
+          sexo,
+          fecha_nacimiento,
+          direccion_calle,
+          direccion_colonia,
+          direccion_codigo_postal,
+          direccion_id_pais,
+          direccion_id_estado,
+          direccion_id_municipio,
+          direccion_fiscal_calle,
+          direccion_fiscal_colonia,
+          direccion_fiscal_codigo_postal,
+          id_estado_civil,
+          id_estado_nacimiento,
+          id_municipio_nacimiento,
+          paises!personas_direccion_id_pais_fkey(nombre, nacionalidad),
+          estados_mx!personas_direccion_id_estado_fkey(nombre),
+          municipios_mx!personas_direccion_id_municipio_fkey(nombre),
+          estados_civil!personas_id_estado_civil_fkey(nombre),
+          estado_nacimiento:estados_mx!personas_id_estado_nacimiento_fkey(nombre),
+          municipio_nacimiento:municipios_mx!personas_id_municipio_nacimiento_fkey(nombre)
         )
       `)
       .eq("id_cuenta_cobranza", id_cuenta_cobranza)
@@ -155,6 +175,64 @@ serve(async (req) => {
     }
 
     const siglas = compradores.map((c: any) => generarSiglas(c.personas.nombre_legal)).join("-");
+
+    // 8.5. Formatear datos de compradores
+    function formatearComprador(comprador: any, index: number) {
+      const p = comprador.personas;
+      
+      return {
+        // Identificación
+        nombre: p.nombre_legal || "",
+        rfc: p.rfc || "",
+        curp: p.curp || "",
+        email: p.email || "",
+        telefono: p.telefono || "",
+        
+        // Datos personales
+        tipo_persona: p.tipo_persona || "",
+        sexo: p.sexo || "",
+        fecha_nacimiento: p.fecha_nacimiento 
+          ? new Date(p.fecha_nacimiento).toLocaleDateString("es-MX") 
+          : "",
+        estado_civil: p.estados_civil?.nombre || "",
+        nacionalidad: p.paises?.nacionalidad || "",
+        
+        // Lugar de nacimiento
+        estado_nacimiento: p.estado_nacimiento?.nombre || "",
+        municipio_nacimiento: p.municipio_nacimiento?.nombre || "",
+        
+        // Dirección actual
+        direccion_calle: p.direccion_calle?.trim() || "",
+        direccion_colonia: p.direccion_colonia || "",
+        direccion_codigo_postal: p.direccion_codigo_postal?.trim() || "",
+        direccion_municipio: p.municipios_mx?.nombre || "",
+        direccion_estado: p.estados_mx?.nombre || "",
+        direccion_pais: p.paises?.nombre || "",
+        
+        // Dirección completa formateada
+        direccion_completa: [
+          p.direccion_calle?.trim(),
+          p.direccion_colonia,
+          p.direccion_codigo_postal?.trim() ? `CP ${p.direccion_codigo_postal.trim()}` : null,
+          p.municipios_mx?.nombre,
+          p.estados_mx?.nombre,
+          p.paises?.nombre
+        ].filter(Boolean).join(", "),
+        
+        // Dirección fiscal
+        direccion_fiscal_calle: p.direccion_fiscal_calle?.trim() || "",
+        direccion_fiscal_colonia: p.direccion_fiscal_colonia || "",
+        direccion_fiscal_codigo_postal: p.direccion_fiscal_codigo_postal?.trim() || "",
+        
+        // Co-propiedad
+        porcentaje_copropiedad: comprador.porcentaje_copropiedad?.toString() || "0",
+        
+        // Índice para uso en template
+        numero: (index + 1).toString()
+      };
+    }
+
+    const compradoresFormateados = compradores.map((c, i) => formatearComprador(c, i));
 
     // 9. Autenticación con Google Drive
     const serviceAccountEmail = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
@@ -319,8 +397,9 @@ serve(async (req) => {
       }
     });
 
-    // 14. Preparar datos para merge
+    // 14. Preparar datos para merge con array completo de compradores
     const mergeData: Record<string, string> = {
+      // Datos generales de la propiedad
       numero_propiedad: propiedad.numero_propiedad,
       proyecto: proyecto.nombre,
       edificio: edificio.nombre,
@@ -335,18 +414,62 @@ serve(async (req) => {
       m2_loft: (propiedad.m2_loft || 0).toString(),
       cuenta_cobranza: `CC-${id_cuenta_cobranza.toString().padStart(6, "0")}`,
       fecha_actual: new Date().toLocaleDateString("es-MX"),
-      compradores_nombres: compradores.map((c: any) => c.personas.nombre_legal).join(", "),
+      
+      // Datos agregados de compradores
+      compradores_nombres: compradoresFormateados.map(c => c.nombre).join(", "),
       compradores_siglas: siglas,
+      numero_compradores: compradoresFormateados.length.toString()
     };
 
-    // Agregar datos individuales por comprador
-    compradores.forEach((c: any, i: number) => {
-      mergeData[`comprador_${i + 1}_nombre`] = c.personas.nombre_legal;
-      mergeData[`comprador_${i + 1}_rfc`] = c.personas.rfc || "";
-      mergeData[`comprador_${i + 1}_curp`] = c.personas.curp || "";
-      mergeData[`comprador_${i + 1}_email`] = c.personas.email || "";
-      mergeData[`comprador_${i + 1}_telefono`] = c.personas.telefono || "";
-      mergeData[`comprador_${i + 1}_porcentaje`] = c.porcentaje_copropiedad.toString();
+    // Agregar datos individuales por cada comprador
+    compradoresFormateados.forEach((comprador, index) => {
+      const num = index + 1;
+      
+      // Placeholders con número (comprador_1_nombre, comprador_2_nombre, etc.)
+      mergeData[`comprador_${num}_nombre`] = comprador.nombre;
+      mergeData[`comprador_${num}_rfc`] = comprador.rfc;
+      mergeData[`comprador_${num}_curp`] = comprador.curp;
+      mergeData[`comprador_${num}_email`] = comprador.email;
+      mergeData[`comprador_${num}_telefono`] = comprador.telefono;
+      mergeData[`comprador_${num}_tipo_persona`] = comprador.tipo_persona;
+      mergeData[`comprador_${num}_sexo`] = comprador.sexo;
+      mergeData[`comprador_${num}_fecha_nacimiento`] = comprador.fecha_nacimiento;
+      mergeData[`comprador_${num}_estado_civil`] = comprador.estado_civil;
+      mergeData[`comprador_${num}_nacionalidad`] = comprador.nacionalidad;
+      mergeData[`comprador_${num}_estado_nacimiento`] = comprador.estado_nacimiento;
+      mergeData[`comprador_${num}_municipio_nacimiento`] = comprador.municipio_nacimiento;
+      mergeData[`comprador_${num}_direccion_calle`] = comprador.direccion_calle;
+      mergeData[`comprador_${num}_direccion_colonia`] = comprador.direccion_colonia;
+      mergeData[`comprador_${num}_direccion_codigo_postal`] = comprador.direccion_codigo_postal;
+      mergeData[`comprador_${num}_direccion_municipio`] = comprador.direccion_municipio;
+      mergeData[`comprador_${num}_direccion_estado`] = comprador.direccion_estado;
+      mergeData[`comprador_${num}_direccion_pais`] = comprador.direccion_pais;
+      mergeData[`comprador_${num}_direccion_completa`] = comprador.direccion_completa;
+      mergeData[`comprador_${num}_direccion_fiscal_calle`] = comprador.direccion_fiscal_calle;
+      mergeData[`comprador_${num}_direccion_fiscal_colonia`] = comprador.direccion_fiscal_colonia;
+      mergeData[`comprador_${num}_direccion_fiscal_codigo_postal`] = comprador.direccion_fiscal_codigo_postal;
+      mergeData[`comprador_${num}_porcentaje_copropiedad`] = comprador.porcentaje_copropiedad;
+      
+      // También agregar placeholders sin número para el primer comprador
+      if (index === 0) {
+        mergeData[`comprador_nombre`] = comprador.nombre;
+        mergeData[`comprador_rfc`] = comprador.rfc;
+        mergeData[`comprador_curp`] = comprador.curp;
+        mergeData[`comprador_email`] = comprador.email;
+        mergeData[`comprador_telefono`] = comprador.telefono;
+        mergeData[`comprador_tipo_persona`] = comprador.tipo_persona;
+        mergeData[`comprador_sexo`] = comprador.sexo;
+        mergeData[`comprador_fecha_nacimiento`] = comprador.fecha_nacimiento;
+        mergeData[`comprador_estado_civil`] = comprador.estado_civil;
+        mergeData[`comprador_nacionalidad`] = comprador.nacionalidad;
+        mergeData[`comprador_direccion_completa`] = comprador.direccion_completa;
+        mergeData[`comprador_direccion_calle`] = comprador.direccion_calle;
+        mergeData[`comprador_direccion_colonia`] = comprador.direccion_colonia;
+        mergeData[`comprador_direccion_codigo_postal`] = comprador.direccion_codigo_postal;
+        mergeData[`comprador_direccion_municipio`] = comprador.direccion_municipio;
+        mergeData[`comprador_direccion_estado`] = comprador.direccion_estado;
+        mergeData[`comprador_porcentaje_copropiedad`] = comprador.porcentaje_copropiedad;
+      }
     });
 
     // 15. Validar placeholders
@@ -444,6 +567,111 @@ serve(async (req) => {
     const copiedDoc = await copyResponse.json();
     const newDocId = copiedDoc.id;
 
+    // 18.5. Resaltar placeholders problemáticos en el documento ANTES del merge
+    if (missingPlaceholders.length > 0 || emptyPlaceholders.length > 0) {
+      // Obtener el contenido del documento para encontrar posiciones de placeholders
+      const docContentResponse = await fetch(
+        `https://docs.googleapis.com/v1/documents/${newDocId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      const docContent = await docContentResponse.json();
+
+      // Función para encontrar todas las ocurrencias de un texto en el documento
+      function findTextRanges(content: any, searchText: string): Array<{start: number, end: number}> {
+        const ranges: Array<{start: number, end: number}> = [];
+        const bodyContent = content.body?.content || [];
+        
+        for (const element of bodyContent) {
+          if (element.paragraph) {
+            for (const textElement of element.paragraph.elements || []) {
+              if (textElement.textRun?.content) {
+                const text = textElement.textRun.content;
+                const startIndex = textElement.startIndex;
+                let searchIndex = 0;
+                
+                while ((searchIndex = text.indexOf(searchText, searchIndex)) !== -1) {
+                  ranges.push({
+                    start: startIndex + searchIndex,
+                    end: startIndex + searchIndex + searchText.length
+                  });
+                  searchIndex += searchText.length;
+                }
+              }
+            }
+          }
+        }
+        
+        return ranges;
+      }
+
+      // Crear requests para resaltar placeholders problemáticos
+      const highlightRequests = [];
+
+      // Resaltar en amarillo los placeholders que no tienen datos
+      for (const placeholder of missingPlaceholders) {
+        const ranges = findTextRanges(docContent, `{{${placeholder}}}`);
+        for (const range of ranges) {
+          highlightRequests.push({
+            updateTextStyle: {
+              range: {
+                startIndex: range.start,
+                endIndex: range.end
+              },
+              textStyle: {
+                backgroundColor: {
+                  color: {
+                    rgbColor: { red: 1, green: 1, blue: 0 } // Amarillo
+                  }
+                }
+              },
+              fields: 'backgroundColor'
+            }
+          });
+        }
+      }
+
+      // Resaltar en naranja los placeholders con datos vacíos
+      for (const placeholder of emptyPlaceholders) {
+        const ranges = findTextRanges(docContent, `{{${placeholder}}}`);
+        for (const range of ranges) {
+          highlightRequests.push({
+            updateTextStyle: {
+              range: {
+                startIndex: range.start,
+                endIndex: range.end
+              },
+              textStyle: {
+                backgroundColor: {
+                  color: {
+                    rgbColor: { red: 1, green: 0.65, blue: 0 } // Naranja
+                  }
+                }
+              },
+              fields: 'backgroundColor'
+            }
+          });
+        }
+      }
+
+      // Aplicar resaltados si hay alguno
+      if (highlightRequests.length > 0) {
+        await fetch(
+          `https://docs.googleapis.com/v1/documents/${newDocId}:batchUpdate`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ requests: highlightRequests }),
+          }
+        );
+        
+        console.log(`${highlightRequests.length} placeholders resaltados en el documento (amarillo=faltante, naranja=vacío)`);
+      }
+    }
+
     // 19. Hacer merge
     const requests = [];
     for (const [key, value] of Object.entries(mergeData)) {
@@ -490,9 +718,13 @@ serve(async (req) => {
         document_url: docUrl,
         document_id: newDocId,
         warnings: {
-          missing_placeholders: missingPlaceholders,
-          empty_placeholders: emptyPlaceholders,
+          missing_placeholders: missingPlaceholders.length > 0 ? missingPlaceholders : null,
+          empty_placeholders: emptyPlaceholders.length > 0 ? emptyPlaceholders : null,
+          total_compradores: compradoresFormateados.length
         },
+        message: missingPlaceholders.length || emptyPlaceholders.length
+          ? "Contrato generado con advertencias. Los placeholders problemáticos están resaltados en amarillo (faltantes) y naranja (vacíos)."
+          : "Contrato generado exitosamente"
       }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
