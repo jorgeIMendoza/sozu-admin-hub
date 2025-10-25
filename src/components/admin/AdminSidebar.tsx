@@ -125,6 +125,13 @@ const navigationItems = [
       { title: "Revision de documentacion", href: "/admin/notarios/revision-documentacion", icon: FileText },
     ]
   },
+  {
+    title: "Legal",
+    icon: Scale,
+    children: [
+      { title: "Contratos", href: "/admin/legal/contratos", icon: FileText },
+    ]
+  },
 ];
 
 export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps) => {

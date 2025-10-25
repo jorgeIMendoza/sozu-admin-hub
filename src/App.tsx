@@ -45,6 +45,7 @@ const ComingSoon = lazy(() => import("./pages/admin/ComingSoon"));
 const RevisionDocumentacion = lazy(() => import("./pages/admin/RevisionDocumentacion"));
 const ConsultasIA = lazy(() => import("./pages/admin/ConsultasIA"));
 const Reservas = lazy(() => import("./pages/admin/Reservas"));
+const Contratos = lazy(() => import("./pages/admin/legal/Contratos"));
 
 const queryClient = new QueryClient();
 
@@ -106,6 +107,7 @@ const App = () => (
             <Route path="notarios/revision-documentacion" element={<RevisionDocumentacion />} />
             <Route path="consultas-ia" element={<ConsultasIA />} />
             <Route path="reservas" element={<Reservas />} />
+            <Route path="legal/contratos" element={<Contratos />} />
           </Route>
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
