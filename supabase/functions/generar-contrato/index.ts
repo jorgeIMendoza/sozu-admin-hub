@@ -60,7 +60,7 @@ serve(async (req) => {
       .single();
 
     if (emError || !edificioModeloData) {
-      throw new Error(`Error obteniendo edificio-modelo: ${emError?.message}`);
+      throw new Error(`Error obteniendo edificio-modelo: ${emError?.message || 'No se encontró el edificio_modelo'}`);
     }
 
     const { data: edificioData, error: edificioError } = await supabase
@@ -69,14 +69,18 @@ serve(async (req) => {
       .eq("id", edificioModeloData.id_edificio)
       .single();
 
+    if (edificioError || !edificioData) {
+      throw new Error(`Error obteniendo edificio: ${edificioError?.message || 'No se encontró el edificio'}`);
+    }
+
     const { data: modeloData, error: modeloError } = await supabase
       .from("modelos")
       .select("nombre")
       .eq("id", edificioModeloData.id_modelo)
       .single();
 
-    if (edificioError || modeloError || !edificioData || !modeloData) {
-      throw new Error("Error obteniendo datos de edificio/modelo");
+    if (modeloError || !modeloData) {
+      throw new Error(`Error obteniendo modelo: ${modeloError?.message || 'No se encontró el modelo'}`);
     }
 
     // 5. Obtener proyecto
