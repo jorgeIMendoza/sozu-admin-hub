@@ -57,6 +57,8 @@ export default function Contratos() {
     cuenta_cobranza: "",
   });
 
+  const [validandoCuentaId, setValidandoCuentaId] = useState<number | null>(null);
+
   const [validacionDialogData, setValidacionDialogData] = useState<{
     validation: any;
     compradores: any[];
@@ -287,6 +289,7 @@ export default function Contratos() {
   // Validar placeholders mutation
   const validarPlaceholdersMutation = useMutation({
     mutationFn: async (cuentaId: number) => {
+      setValidandoCuentaId(cuentaId);
       const { data, error } = await supabase.functions.invoke('validar-placeholders-contrato', {
         body: { id_cuenta_cobranza: cuentaId },
       });
@@ -297,6 +300,7 @@ export default function Contratos() {
       return { ...data, cuenta_id: cuentaId };
     },
     onSuccess: (data) => {
+      setValidandoCuentaId(null);
       setValidacionDialogData(data);
       
       // Toast simple y corto
@@ -311,6 +315,7 @@ export default function Contratos() {
       });
     },
     onError: (error: any) => {
+      setValidandoCuentaId(null);
       toast({
         title: "❌ Error",
         description: error.message || "No se pudo validar los placeholders.",
@@ -438,43 +443,24 @@ export default function Contratos() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => validarPlaceholdersMutation.mutate(contrato.cuenta_id)}
-                            disabled={validarPlaceholdersMutation.isPending}
-                          >
-                            {validarPlaceholdersMutation.isPending ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                Validando...
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="h-4 w-4 mr-1" />
-                                Validar
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => generarContratoMutation.mutate(contrato.cuenta_id)}
-                            disabled={generarContratoMutation.isPending}
-                          >
-                            {generarContratoMutation.isPending ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                Generando...
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="h-4 w-4 mr-1" />
-                                Generar
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => validarPlaceholdersMutation.mutate(contrato.cuenta_id)}
+                          disabled={validandoCuentaId === contrato.cuenta_id}
+                        >
+                          {validandoCuentaId === contrato.cuenta_id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              Validando...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="h-4 w-4 mr-1" />
+                              Validar
+                            </>
+                          )}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
