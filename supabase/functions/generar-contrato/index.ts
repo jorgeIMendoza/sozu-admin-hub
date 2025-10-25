@@ -65,7 +65,7 @@ serve(async (req) => {
 
     const { data: edificioData, error: edificioError } = await supabase
       .from("edificios")
-      .select("nombre, numero_edificio")
+      .select("nombre")
       .eq("id", edificioModeloData.id_edificio)
       .single();
 
