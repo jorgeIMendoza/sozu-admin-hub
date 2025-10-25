@@ -676,6 +676,40 @@ export function DocumentsTab({
         title: "Éxito", 
         description: documento.es_verificado ? "Documento marcado como no verificado" : "Documento verificado correctamente"
       });
+
+      // 🔹 NUEVO: Si se está verificando un contrato firmado (tipo 18) en cuenta_cobranza
+      if (!documento.es_verificado && documento.id_tipo_documento === 18 && entityType === 'cuenta_cobranza' && entityId) {
+        console.log('[DocumentsTab] Contrato firmado verificado. Llamando a check-property-sold-status...');
+        
+        try {
+          const { data, error: functionError } = await supabase.functions.invoke('check-property-sold-status', {
+            body: { id_cuenta_cobranza: entityId }
+          });
+          
+          if (functionError) {
+            console.error('[DocumentsTab] Error al llamar edge function:', functionError);
+          } else {
+            console.log('[DocumentsTab] Respuesta del edge function:', data);
+            
+            if (data?.status_changed) {
+              toast({
+                title: "Propiedad actualizada",
+                description: "La propiedad ha sido marcada como Vendida automáticamente",
+              });
+              
+              // Invalidar queries relevantes
+              if (onDocumentAdded) {
+                onDocumentAdded();
+              }
+            } else if (data?.conditions_met) {
+              const { enganche_completado, contrato_verificado } = data.conditions_met;
+              console.log(`[DocumentsTab] Estado actual - Enganche: ${enganche_completado}, Contrato: ${contrato_verificado}`);
+            }
+          }
+        } catch (functionCallError) {
+          console.error('[DocumentsTab] Error ejecutando edge function:', functionCallError);
+        }
+      }
     } catch (error: any) {
       toast({ 
         variant: "destructive", 
