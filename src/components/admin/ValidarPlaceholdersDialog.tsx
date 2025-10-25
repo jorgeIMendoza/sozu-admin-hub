@@ -172,9 +172,9 @@ export function ValidarPlaceholdersDialog({
                 <div className="text-xs text-muted-foreground mb-2">
                   Estos placeholders se reemplazarán correctamente en el contrato
                 </div>
-                <ScrollArea className="h-[400px] border rounded-md">
+                <div className="h-[400px] border rounded-md overflow-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 bg-background z-10">
                       <TableRow>
                         <TableHead className="w-[300px]">Placeholder</TableHead>
                         <TableHead>Valor que se usará</TableHead>
@@ -191,7 +191,7 @@ export function ValidarPlaceholdersDialog({
                         ))}
                     </TableBody>
                   </Table>
-                </ScrollArea>
+                </div>
               </div>
             )}
 
