@@ -772,6 +772,7 @@ export type Database = {
           clabe_stp: string | null
           clave_catastral: string | null
           clave_rastreo_comision_venta: string | null
+          contrato_draft: string | null
           es_aprobado: boolean
           es_comision_venta_efectivo: boolean
           es_pagada_comision_venta: boolean
@@ -779,6 +780,7 @@ export type Database = {
           fecha_compra: string | null
           fecha_creacion: string
           fecha_escritura: string | null
+          fecha_pago_comision: string | null
           hoja: string | null
           id: number
           id_cuenta_cobranza_padre: number | null
@@ -788,6 +790,7 @@ export type Database = {
           libro: string | null
           moneda: string | null
           monto_cobro_cancelacion: number | null
+          monto_comision_pagado: number
           numero_escritura: string | null
           numero_unidad_privativa: string | null
           porcentaje_comision_venta: number
@@ -800,6 +803,7 @@ export type Database = {
           clabe_stp?: string | null
           clave_catastral?: string | null
           clave_rastreo_comision_venta?: string | null
+          contrato_draft?: string | null
           es_aprobado?: boolean
           es_comision_venta_efectivo?: boolean
           es_pagada_comision_venta?: boolean
@@ -807,6 +811,7 @@ export type Database = {
           fecha_compra?: string | null
           fecha_creacion?: string
           fecha_escritura?: string | null
+          fecha_pago_comision?: string | null
           hoja?: string | null
           id?: number
           id_cuenta_cobranza_padre?: number | null
@@ -816,6 +821,7 @@ export type Database = {
           libro?: string | null
           moneda?: string | null
           monto_cobro_cancelacion?: number | null
+          monto_comision_pagado?: number
           numero_escritura?: string | null
           numero_unidad_privativa?: string | null
           porcentaje_comision_venta?: number
@@ -828,6 +834,7 @@ export type Database = {
           clabe_stp?: string | null
           clave_catastral?: string | null
           clave_rastreo_comision_venta?: string | null
+          contrato_draft?: string | null
           es_aprobado?: boolean
           es_comision_venta_efectivo?: boolean
           es_pagada_comision_venta?: boolean
@@ -835,6 +842,7 @@ export type Database = {
           fecha_compra?: string | null
           fecha_creacion?: string
           fecha_escritura?: string | null
+          fecha_pago_comision?: string | null
           hoja?: string | null
           id?: number
           id_cuenta_cobranza_padre?: number | null
@@ -844,6 +852,7 @@ export type Database = {
           libro?: string | null
           moneda?: string | null
           monto_cobro_cancelacion?: number | null
+          monto_comision_pagado?: number
           numero_escritura?: string | null
           numero_unidad_privativa?: string | null
           porcentaje_comision_venta?: number
@@ -892,65 +901,6 @@ export type Database = {
             columns: ["id_oferta"]
             isOneToOne: false
             referencedRelation: "ofertas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cuentas_stp_pago_comision: {
-        Row: {
-          activo: boolean
-          clabe_stp: string
-          fecha_actualizacion: string
-          fecha_creacion: string
-          id: number
-          id_persona: number
-          id_proyecto: number | null
-        }
-        Insert: {
-          activo?: boolean
-          clabe_stp: string
-          fecha_actualizacion?: string
-          fecha_creacion?: string
-          id?: never
-          id_persona: number
-          id_proyecto?: number | null
-        }
-        Update: {
-          activo?: boolean
-          clabe_stp?: string
-          fecha_actualizacion?: string
-          fecha_creacion?: string
-          id?: never
-          id_persona?: number
-          id_proyecto?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cuentas_stp_pago_comision_id_persona_fkey"
-            columns: ["id_persona"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cuentas_stp_pago_comision_id_proyecto_fkey"
-            columns: ["id_proyecto"]
-            isOneToOne: false
-            referencedRelation: "proyectos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_cta_stpcom_persona"
-            columns: ["id_persona"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_cta_stpcom_proyecto"
-            columns: ["id_proyecto"]
-            isOneToOne: false
-            referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
         ]
@@ -1161,6 +1111,7 @@ export type Database = {
         Row: {
           activo: boolean
           cuenta_madre_stp: string | null
+          cuenta_stp_comisiones: string | null
           facturar: boolean
           fecha_actualizacion: string
           fecha_creacion: string
@@ -1175,6 +1126,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           cuenta_madre_stp?: string | null
+          cuenta_stp_comisiones?: string | null
           facturar?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
@@ -1189,6 +1141,7 @@ export type Database = {
         Update: {
           activo?: boolean
           cuenta_madre_stp?: string | null
+          cuenta_stp_comisiones?: string | null
           facturar?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
