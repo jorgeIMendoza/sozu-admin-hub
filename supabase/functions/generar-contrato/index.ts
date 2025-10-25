@@ -41,13 +41,16 @@ serve(async (req) => {
     // 3. Obtener propiedad
     const { data: propiedadData, error: propiedadError } = await supabase
       .from("propiedades")
-      .select("id, numero_propiedad, m2_reales, precio_lista, id_edificio_modelo, id_entidad_relacionada_dueno")
+      .select("id, numero_propiedad, m2_interiores, m2_exteriores, m2_loft, precio_lista, id_edificio_modelo, id_entidad_relacionada_dueno")
       .eq("id", ofertaData.id_propiedad)
       .single();
 
     if (propiedadError || !propiedadData) {
       throw new Error(`Error obteniendo propiedad: ${propiedadError?.message}`);
     }
+
+    // Calcular m2 totales
+    const m2Totales = (propiedadData.m2_interiores || 0) + (propiedadData.m2_exteriores || 0) + (propiedadData.m2_loft || 0);
 
     // 4. Obtener edificio y modelo
     const { data: edificioModeloData, error: emError } = await supabase
@@ -270,7 +273,10 @@ serve(async (req) => {
         style: "currency",
         currency: "MXN",
       }),
-      m2_reales: propiedad.m2_reales?.toString() || "",
+      m2_totales: m2Totales.toString(),
+      m2_interiores: (propiedad.m2_interiores || 0).toString(),
+      m2_exteriores: (propiedad.m2_exteriores || 0).toString(),
+      m2_loft: (propiedad.m2_loft || 0).toString(),
       cuenta_cobranza: `CC-${id_cuenta_cobranza.toString().padStart(6, "0")}`,
       fecha_actual: new Date().toLocaleDateString("es-MX"),
       compradores_nombres: compradores.map((c: any) => c.personas.nombre_legal).join(", "),
