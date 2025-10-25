@@ -133,7 +133,7 @@ export default function Contratos() {
       .select(`
         id_persona,
         porcentaje_copropiedad,
-        personas!inner(
+        personas!compradores_id_persona_fkey(
           nombre_legal,
           rfc,
           curp,
@@ -239,7 +239,7 @@ export default function Contratos() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Contratos Pendientes
+            Contratos
           </CardTitle>
         </CardHeader>
         <CardContent>
