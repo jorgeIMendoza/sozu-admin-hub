@@ -118,21 +118,6 @@ export function ValidarPlaceholdersDialog({
               💡 Haz clic en las tarjetas para filtrar la información
             </div>
 
-            {/* Información de compradores */}
-            <Card className="p-4 bg-muted/50">
-              <div className="text-sm font-medium mb-2">👥 Compradores ({compradores.length})</div>
-              <div className="space-y-1">
-                {compradores.map((c, i) => (
-                  <div key={i} className="text-sm">
-                    <span className="font-medium">{c.nombre}</span> - {c.porcentaje_copropiedad}% copropiedad
-                  </div>
-                ))}
-              </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                Tipo: {tipoPersona === 'pf' ? 'Persona Física' : 'Persona Moral'}
-              </div>
-            </Card>
-
             {/* Placeholders Faltantes - PRIORIDAD */}
             {(seccionActiva === 'todas' || seccionActiva === 'faltantes') && validacion.placeholders_faltantes.length > 0 && (
               <Card className="p-4 border-red-500 bg-red-50 dark:bg-red-950">
@@ -187,25 +172,27 @@ export function ValidarPlaceholdersDialog({
                 <div className="text-xs text-muted-foreground mb-2">
                   Estos placeholders se reemplazarán correctamente en el contrato
                 </div>
-                <div className="border rounded-md max-h-[500px] overflow-auto">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-background z-10">
-                      <TableRow>
-                        <TableHead className="w-[300px]">Placeholder</TableHead>
-                        <TableHead>Valor que se usará</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {validacion.placeholders_disponibles
-                        .filter(item => item.estado === 'ok')
-                        .map((item, i) => (
-                          <TableRow key={i}>
-                            <TableCell className="font-mono text-sm">{`{{${item.placeholder}}}`}</TableCell>
-                            <TableCell className="text-sm">{item.valor}</TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
+                <div className="border rounded-md">
+                  <div className="max-h-[600px] overflow-y-auto">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background z-10">
+                        <TableRow>
+                          <TableHead className="w-[300px]">Placeholder</TableHead>
+                          <TableHead>Valor que se usará</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {validacion.placeholders_disponibles
+                          .filter(item => item.estado === 'ok')
+                          .map((item, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-mono text-sm">{`{{${item.placeholder}}}`}</TableCell>
+                              <TableCell className="text-sm">{item.valor}</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
             )}
