@@ -146,6 +146,37 @@ Deno.serve(async (req) => {
     if (engancheCompletado && contratoVerificado) {
       console.log(`[check-property-sold-status] ✅ Todas las condiciones cumplidas. Actualizando propiedad ${propiedad.id} a estatus Vendido (5)`);
 
+      // 5.1. PRIMERO: Desverificar todos los documentos de los compradores
+      const { data: compradores, error: compradoresError } = await supabase
+        .from('compradores')
+        .select('id_persona')
+        .eq('id_cuenta_cobranza', id_cuenta_cobranza)
+        .eq('activo', true);
+
+      if (compradoresError) {
+        console.error('[check-property-sold-status] Error obteniendo compradores:', compradoresError);
+        throw new Error('Error al obtener compradores');
+      }
+
+      if (compradores && compradores.length > 0) {
+        const idsPersonas = compradores.map(c => c.id_persona);
+        console.log(`[check-property-sold-status] Desverificando documentos de ${idsPersonas.length} comprador(es): ${idsPersonas.join(', ')}`);
+
+        const { error: docsError } = await supabase
+          .from('documentos')
+          .update({ es_verificado: false })
+          .in('id_persona', idsPersonas)
+          .eq('activo', true);
+
+        if (docsError) {
+          console.error('[check-property-sold-status] Error desverificando documentos:', docsError);
+          throw new Error('Error al desverificar documentos de compradores');
+        }
+
+        console.log(`[check-property-sold-status] ✅ Documentos de compradores desverificados exitosamente`);
+      }
+
+      // 5.2. LUEGO: Actualizar el estatus de la propiedad
       const { error: updateError } = await supabase
         .from('propiedades')
         .update({
