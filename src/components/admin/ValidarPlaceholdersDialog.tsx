@@ -25,6 +25,7 @@ interface ValidacionData {
   placeholders_disponibles: Array<{placeholder: string, valor: string, estado: string}>;
   placeholders_faltantes: string[];
   placeholders_vacios: string[];
+  variables_disponibles_sistema: string[];
   total_template: number;
   total_disponibles: number;
   total_faltantes: number;
@@ -55,7 +56,7 @@ export function ValidarPlaceholdersDialog({
 }: ValidarPlaceholdersDialogProps) {
   if (!validacion) return null;
 
-  const [seccionActiva, setSeccionActiva] = React.useState<'todas' | 'disponibles' | 'vacios' | 'faltantes'>('disponibles');
+  const [seccionActiva, setSeccionActiva] = React.useState<'todas' | 'disponibles' | 'vacios' | 'faltantes' | 'variables'>('disponibles');
 
   const estadoBadge = (estado: string) => {
     switch (estado) {
@@ -84,7 +85,7 @@ export function ValidarPlaceholdersDialog({
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
             {/* Resumen */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <Card 
                 className={`p-4 border-green-500 cursor-pointer transition-all ${
                   seccionActiva === 'disponibles' 
@@ -118,11 +119,51 @@ export function ValidarPlaceholdersDialog({
                 <div className="text-sm text-muted-foreground">Faltantes</div>
                 <div className="text-2xl font-bold text-red-500">{validacion.total_faltantes}</div>
               </Card>
+              <Card 
+                className={`p-4 border-blue-500 cursor-pointer transition-all ${
+                  seccionActiva === 'variables' 
+                    ? 'bg-blue-100 dark:bg-blue-950 ring-2 ring-blue-500' 
+                    : 'hover:bg-blue-50 dark:hover:bg-blue-950'
+                }`}
+                onClick={() => setSeccionActiva(seccionActiva === 'variables' ? 'todas' : 'variables')}
+              >
+                <div className="text-sm text-muted-foreground">Variables Sistema</div>
+                <div className="text-2xl font-bold text-blue-500">{validacion.variables_disponibles_sistema?.length || 0}</div>
+              </Card>
             </div>
 
             <div className="text-xs text-muted-foreground text-center">
               💡 Haz clic en las tarjetas para filtrar la información
             </div>
+
+            {/* Variables disponibles en el sistema */}
+            {(seccionActiva === 'todas' || seccionActiva === 'variables') && validacion.variables_disponibles_sistema && (
+              <Card className="p-4 border-blue-500 bg-blue-50 dark:bg-blue-950">
+                <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  📋 {validacion.variables_disponibles_sistema.length} Variables Disponibles en el Sistema
+                </div>
+                <div className="text-xs text-muted-foreground mb-2">
+                  Estas son TODAS las variables que puedes usar en tu template. Copia y pega en Google Docs con formato {`{{nombre_variable}}`}
+                </div>
+                <ScrollArea className="h-[300px] w-full border rounded bg-white dark:bg-background p-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {validacion.variables_disponibles_sistema.map((variable, i) => (
+                      <div 
+                        key={i} 
+                        className="text-xs font-mono bg-blue-50 dark:bg-blue-900 p-2 rounded border border-blue-300 dark:border-blue-700 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`{{${variable}}}`);
+                        }}
+                        title="Click para copiar"
+                      >
+                        {`{{${variable}}}`}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </Card>
+            )}
 
             {/* Placeholders Faltantes - PRIORIDAD */}
             {(seccionActiva === 'todas' || seccionActiva === 'faltantes') && validacion.placeholders_faltantes.length > 0 && (

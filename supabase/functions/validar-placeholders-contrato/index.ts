@@ -467,6 +467,7 @@ serve(async (req) => {
           placeholders_disponibles: placeholdersDisponibles,
           placeholders_faltantes: placeholdersFaltantes,
           placeholders_vacios: placeholdersVacios,
+          variables_disponibles_sistema: Object.keys(mergeData).sort(),
           total_template: placeholdersEnTemplate.size,
           total_disponibles: placeholdersDisponibles.length,
           total_faltantes: placeholdersFaltantes.length,
