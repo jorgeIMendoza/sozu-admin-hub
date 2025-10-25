@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle, AlertCircle, XCircle, FileText, Play, AlertTriangle } from "lucide-react";
+import { CheckCircle, AlertCircle, XCircle, FileText, Play, AlertTriangle, Copy, Check } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -18,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import React from "react";
 
 interface ValidacionData {
@@ -56,7 +57,21 @@ export function ValidarPlaceholdersDialog({
 }: ValidarPlaceholdersDialogProps) {
   if (!validacion) return null;
 
+  const { toast } = useToast();
   const [seccionActiva, setSeccionActiva] = React.useState<'todas' | 'disponibles' | 'vacios' | 'faltantes' | 'variables'>('disponibles');
+  const [copiedVariable, setCopiedVariable] = React.useState<string | null>(null);
+
+  const handleCopyVariable = (variable: string) => {
+    const textoACopiar = `{{${variable}}}`;
+    navigator.clipboard.writeText(textoACopiar);
+    setCopiedVariable(variable);
+    toast({
+      title: "✅ Variable copiada",
+      description: `${textoACopiar} copiado al portapapeles`,
+      duration: 2000,
+    });
+    setTimeout(() => setCopiedVariable(null), 2000);
+  };
 
   const estadoBadge = (estado: string) => {
     switch (estado) {
@@ -148,18 +163,24 @@ export function ValidarPlaceholdersDialog({
                 </div>
                 <ScrollArea className="h-[300px] w-full border rounded bg-white dark:bg-background p-2">
                   <div className="grid grid-cols-2 gap-2">
-                    {validacion.variables_disponibles_sistema.map((variable, i) => (
-                      <div 
-                        key={i} 
-                        className="text-xs font-mono bg-blue-50 dark:bg-blue-900 p-2 rounded border border-blue-300 dark:border-blue-700 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800"
-                        onClick={() => {
-                          navigator.clipboard.writeText(`{{${variable}}}`);
-                        }}
-                        title="Click para copiar"
-                      >
-                        {`{{${variable}}}`}
-                      </div>
-                    ))}
+                    {validacion.variables_disponibles_sistema.map((variable, i) => {
+                      const isCopied = copiedVariable === variable;
+                      return (
+                        <div 
+                          key={i} 
+                          className="text-xs font-mono bg-blue-50 dark:bg-blue-900 p-2 rounded border border-blue-300 dark:border-blue-700 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800 transition-all flex items-center justify-between gap-2 group"
+                          onClick={() => handleCopyVariable(variable)}
+                          title="Click para copiar al portapapeles"
+                        >
+                          <span className="flex-1">{`{{${variable}}}`}</span>
+                          {isCopied ? (
+                            <Check className="w-3 h-3 text-green-600 dark:text-green-400 animate-in zoom-in" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               </Card>
