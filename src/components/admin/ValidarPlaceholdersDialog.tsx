@@ -197,9 +197,14 @@ export function ValidarPlaceholdersDialog({
               </div>
             )}
 
+          </div>
+        </ScrollArea>
+
+        {onGenerarContrato && (
+          <DialogFooter className="flex-col gap-3">
             {/* Advertencia final */}
             {validacion.tiene_problemas && (
-              <Card className="p-4 bg-yellow-50 dark:bg-yellow-950 border-yellow-500">
+              <Card className="p-4 bg-yellow-50 dark:bg-yellow-950 border-yellow-500 w-full">
                 <div className="text-sm font-medium mb-2">⚠️ Advertencia</div>
                 <div className="text-sm text-muted-foreground">
                   Si generas el contrato ahora, los placeholders faltantes aparecerán en ROJO y los vacíos en AMARILLO.
@@ -209,44 +214,42 @@ export function ValidarPlaceholdersDialog({
             )}
 
             {!validacion.tiene_problemas && (
-              <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-500">
+              <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-500 w-full">
                 <div className="text-sm font-medium mb-2">✅ Todo listo</div>
                 <div className="text-sm text-muted-foreground">
                   Todos los placeholders están correctamente mapeados. El contrato se generará sin problemas.
                 </div>
               </Card>
             )}
-          </div>
-        </ScrollArea>
 
-        {onGenerarContrato && (
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isGenerating}
-            >
-              Cerrar
-            </Button>
-            <Button
-              onClick={() => {
-                onGenerarContrato();
-                onOpenChange(false);
-              }}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <AlertCircle className="w-4 h-4 mr-2 animate-spin" />
-                  Generando...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Generar Contrato Ahora
-                </>
-              )}
-            </Button>
+            <div className="flex justify-end gap-2 w-full">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isGenerating}
+              >
+                Cerrar
+              </Button>
+              <Button
+                onClick={() => {
+                  onGenerarContrato();
+                  onOpenChange(false);
+                }}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <AlertCircle className="w-4 h-4 mr-2 animate-spin" />
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Generar Contrato Ahora
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         )}
       </DialogContent>
