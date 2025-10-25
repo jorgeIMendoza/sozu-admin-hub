@@ -22,19 +22,19 @@ serve(async (req) => {
       .select(`
         id,
         precio_final,
-        ofertas!inner(
+        ofertas!cuentas_cobranza_id_oferta_fkey!inner(
           id,
-          propiedades!inner(
+          propiedades!ofertas_id_propiedad_fkey!inner(
             id,
             numero_propiedad,
             m2_reales,
             precio_lista,
-            edificios_modelos!inner(
-              edificios!inner(nombre, numero_edificio),
-              modelos!inner(nombre)
+            edificios_modelos!propiedades_id_edificio_modelo_fkey!inner(
+              edificios!edificios_modelos_id_edificio_fkey!inner(nombre, numero_edificio),
+              modelos!edificios_modelos_id_modelo_fkey!inner(nombre)
             ),
-            entidades_relacionadas!inner(
-              proyectos!inner(id, nombre)
+            entidades_relacionadas!propiedades_id_entidad_relacionada_dueno_fkey!inner(
+              proyectos!entidades_relacionadas_id_proyecto_fkey!inner(id, nombre)
             )
           )
         )
@@ -57,7 +57,7 @@ serve(async (req) => {
       .select(`
         id_persona,
         porcentaje_copropiedad,
-        personas!inner(
+        personas!compradores_id_persona_fkey!inner(
           nombre_legal,
           rfc,
           curp,
