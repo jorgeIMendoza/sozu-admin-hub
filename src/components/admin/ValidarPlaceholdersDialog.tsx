@@ -78,38 +78,39 @@ export function ValidarPlaceholdersDialog({
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
             {/* Resumen */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Card 
-                className="p-4 cursor-pointer hover:bg-accent transition-colors"
-                onClick={() => setSeccionActiva('todas')}
-              >
-                <div className="text-sm text-muted-foreground">Total en Template</div>
-                <div className="text-2xl font-bold">{validacion.total_template}</div>
-                {seccionActiva === 'todas' && <div className="text-xs text-primary font-medium mt-1">← Viendo todo</div>}
-              </Card>
-              <Card 
-                className="p-4 border-green-500 cursor-pointer hover:bg-green-50 dark:hover:bg-green-950 transition-colors"
-                onClick={() => setSeccionActiva('disponibles')}
+                className={`p-4 border-green-500 cursor-pointer transition-all ${
+                  seccionActiva === 'disponibles' 
+                    ? 'bg-green-100 dark:bg-green-950 ring-2 ring-green-500' 
+                    : 'hover:bg-green-50 dark:hover:bg-green-950'
+                }`}
+                onClick={() => setSeccionActiva(seccionActiva === 'disponibles' ? 'todas' : 'disponibles')}
               >
                 <div className="text-sm text-muted-foreground">Disponibles</div>
                 <div className="text-2xl font-bold text-green-500">{validacion.total_disponibles}</div>
-                {seccionActiva === 'disponibles' && <div className="text-xs text-green-600 mt-1">← Filtrando</div>}
               </Card>
               <Card 
-                className="p-4 border-yellow-500 cursor-pointer hover:bg-yellow-50 dark:hover:bg-yellow-950 transition-colors"
-                onClick={() => setSeccionActiva('vacios')}
+                className={`p-4 border-yellow-500 cursor-pointer transition-all ${
+                  seccionActiva === 'vacios' 
+                    ? 'bg-yellow-100 dark:bg-yellow-950 ring-2 ring-yellow-500' 
+                    : 'hover:bg-yellow-50 dark:hover:bg-yellow-950'
+                }`}
+                onClick={() => setSeccionActiva(seccionActiva === 'vacios' ? 'todas' : 'vacios')}
               >
                 <div className="text-sm text-muted-foreground">Vacíos</div>
                 <div className="text-2xl font-bold text-yellow-500">{validacion.total_vacios}</div>
-                {seccionActiva === 'vacios' && <div className="text-xs text-yellow-600 mt-1">← Filtrando</div>}
               </Card>
               <Card 
-                className="p-4 border-red-500 cursor-pointer hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-                onClick={() => setSeccionActiva('faltantes')}
+                className={`p-4 border-red-500 cursor-pointer transition-all ${
+                  seccionActiva === 'faltantes' 
+                    ? 'bg-red-100 dark:bg-red-950 ring-2 ring-red-500' 
+                    : 'hover:bg-red-50 dark:hover:bg-red-950'
+                }`}
+                onClick={() => setSeccionActiva(seccionActiva === 'faltantes' ? 'todas' : 'faltantes')}
               >
                 <div className="text-sm text-muted-foreground">Faltantes</div>
                 <div className="text-2xl font-bold text-red-500">{validacion.total_faltantes}</div>
-                {seccionActiva === 'faltantes' && <div className="text-xs text-red-600 mt-1">← Filtrando</div>}
               </Card>
             </div>
 
@@ -186,27 +187,25 @@ export function ValidarPlaceholdersDialog({
                 <div className="text-xs text-muted-foreground mb-2">
                   Estos placeholders se reemplazarán correctamente en el contrato
                 </div>
-                <div className="border rounded-md">
-                  <ScrollArea className="h-[400px] w-full">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[300px]">Placeholder</TableHead>
-                          <TableHead>Valor que se usará</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {validacion.placeholders_disponibles
-                          .filter(item => item.estado === 'ok')
-                          .map((item, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-mono text-sm">{`{{${item.placeholder}}}`}</TableCell>
-                              <TableCell className="text-sm">{item.valor}</TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
+                <div className="border rounded-md max-h-[500px] overflow-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background z-10">
+                      <TableRow>
+                        <TableHead className="w-[300px]">Placeholder</TableHead>
+                        <TableHead>Valor que se usará</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {validacion.placeholders_disponibles
+                        .filter(item => item.estado === 'ok')
+                        .map((item, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-mono text-sm">{`{{${item.placeholder}}}`}</TableCell>
+                            <TableCell className="text-sm">{item.valor}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             )}
