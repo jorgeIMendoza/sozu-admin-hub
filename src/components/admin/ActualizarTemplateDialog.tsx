@@ -42,16 +42,15 @@ export default function ActualizarTemplateDialog({
     // Validar tipo de archivo
     const validTypes = [
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword',
-      'application/rtf'
+      'application/msword'
     ];
     
     if (!validTypes.includes(selectedFile.type) && 
-        !selectedFile.name.match(/\.(docx|doc|rtf)$/i)) {
+        !selectedFile.name.match(/\.(docx|doc)$/i)) {
       toast({
         variant: "destructive",
         title: "Archivo inválido",
-        description: "Solo se permiten archivos .docx, .doc o .rtf",
+        description: "Solo se permiten archivos .docx y .doc",
       });
       return;
     }
@@ -160,7 +159,7 @@ export default function ActualizarTemplateDialog({
             <Input
               id="file"
               type="file"
-              accept=".docx,.doc,.rtf"
+              accept=".docx,.doc"
               onChange={handleFileChange}
               disabled={uploading}
             />
@@ -177,9 +176,9 @@ export default function ActualizarTemplateDialog({
               <div className="text-sm text-muted-foreground space-y-1">
                 <p><strong>Requisitos del template:</strong></p>
                 <ul className="list-disc list-inside space-y-1 ml-2">
-                  <li>Formato: .docx, .doc o .rtf</li>
+                  <li>Formato: .docx y .doc</li>
                   <li>Tamaño máximo: 10MB</li>
-                  <li>Los placeholders deben estar en formato: <code className="bg-background px-1 rounded">{'{{nombre_campo}}'}</code></li>
+                  <li>Los placeholders deben estar en formato: <code className="bg-background px-1 rounded">{'{nombre_campo}'}</code></li>
                   <li>Escribir placeholders sin formato (sin negrita, cursiva, etc.)</li>
                 </ul>
               </div>
