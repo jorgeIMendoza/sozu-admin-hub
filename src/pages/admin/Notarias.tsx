@@ -421,7 +421,7 @@ export default function Notarias() {
 
         {generaProyectoEscritura && (
           <div className="space-y-2 border border-border rounded-lg p-4 bg-muted/30">
-            <Label htmlFor="template">Template Proyecto de Contrato (.docx)</Label>
+            <Label htmlFor="template">Template Proyecto de Contrato (.docx, .doc)</Label>
             <div className="flex gap-2">
               <Input
                 id="template"
