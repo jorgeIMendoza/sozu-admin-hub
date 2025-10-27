@@ -97,7 +97,7 @@ export function SubirContratoFirmadoDialog({
           id_tipo_documento: 18, // Tipo "Contrato"
           url: publicUrl,
           numero: numeroContrato || null,
-          es_verificado: false,
+          es_verificado: true,
           es_draft: false,
           activo: true,
         });
@@ -174,9 +174,9 @@ export function SubirContratoFirmadoDialog({
             )}
           </div>
 
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3">
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              ℹ️ El contrato será marcado como "No verificado" hasta que se revise y apruebe.
+          <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md p-3">
+            <p className="text-sm text-green-700 dark:text-green-300">
+              ✅ El contrato será marcado como "Verificado" automáticamente al subirse.
             </p>
           </div>
         </div>
