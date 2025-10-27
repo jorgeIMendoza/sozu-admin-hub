@@ -79,6 +79,7 @@ export default function SubirProyectoEscrituraDialog({
       const cuentaFormateada = formatCuentaCobranzaId(cuentaCobranzaId);
       const fileName = `${cuentaFormateada}_proyecto_escritura_${timestamp}.pdf`;
       const filePath = `${cuentaCobranzaId}/${fileName}`;
+      const urlPath = `/proyectos_escritura/${filePath}`;
 
       // 2. Subir archivo a Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -98,7 +99,7 @@ export default function SubirProyectoEscrituraDialog({
         .insert({
           id_cuenta_cobranza: cuentaCobranzaId,
           id_tipo_documento: 29, // Proyecto de escritura
-          url: filePath,
+          url: urlPath,
           activo: true,
           es_verificado: false,
           es_draft: false,
