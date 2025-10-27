@@ -136,13 +136,12 @@ serve(async (req) => {
     const encoder = new TextEncoder();
     const uint8Array = encoder.encode(documentContent);
     
-    // Convertir a base64 en chunks para evitar "Maximum call stack size exceeded"
-    let base64Content = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      base64Content += btoa(String.fromCharCode(...chunk));
-    }
+    // Convertir a base64 usando método seguro para archivos grandes
+    const base64Content = btoa(
+      Array.from(uint8Array)
+        .map(byte => String.fromCharCode(byte))
+        .join('')
+    );
 
     return new Response(
       JSON.stringify({
