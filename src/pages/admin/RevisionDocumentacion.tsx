@@ -110,6 +110,8 @@ export default function RevisionDocumentacion() {
   const { data: cuentas, isLoading, refetch } = useQuery({
     queryKey: ['cuentas-escrituracion', filtroProyecto, filtroEdificio, filtroModelo, filtroPropiedad, filtroDueno, filtroCuenta],
     queryFn: async () => {
+      console.log('Ejecutando query de cuentas en escrituración...');
+      
       let query = supabase
         .from('cuentas_cobranza')
         .select(`
@@ -122,12 +124,12 @@ export default function RevisionDocumentacion() {
               numero_propiedad,
               id_estatus_disponibilidad,
               edificios_modelos!fk_propiedades_edificio_modelo!inner (
-                modelos!fk_edificios_modelos_modelo!inner (
+                modelos!edificios_modelos_id_modelo_fkey!inner (
                   nombre
                 ),
-                edificios!fk_edificios_modelos_edificio!inner (
+                edificios!edificios_modelos_id_edificio_fkey!inner (
                   nombre,
-                  proyectos!fk_edificios_proyecto!inner (
+                  proyectos!edificios_id_proyecto_fkey!inner (
                     id,
                     nombre
                   )
