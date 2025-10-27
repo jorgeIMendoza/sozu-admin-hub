@@ -74,14 +74,27 @@ export default function SubirProyectoEscrituraDialog({
     setUploading(true);
 
     try {
-      // 1. Generar nombre del archivo con formato único
+      // 1. Verificar si ya existe un proyecto de escritura para esta cuenta
+      const { data: existingDoc, error: checkError } = await supabase
+        .from('documentos')
+        .select('id, url')
+        .eq('id_cuenta_cobranza', cuentaCobranzaId)
+        .eq('id_tipo_documento', 29)
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error al verificar documento existente:', checkError);
+      }
+
+      // 2. Generar nombre del archivo con formato único
       const timestamp = new Date().getTime();
       const cuentaFormateada = formatCuentaCobranzaId(cuentaCobranzaId);
       const fileName = `${cuentaFormateada}_proyecto_escritura_${timestamp}.pdf`;
       const filePath = `${cuentaCobranzaId}/${fileName}`;
       const urlPath = `/proyectos_escritura/${filePath}`;
 
-      // 2. Subir archivo a Supabase Storage
+      // 3. Subir archivo a Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('proyectos_escritura')
         .upload(filePath, file, {
@@ -93,35 +106,74 @@ export default function SubirProyectoEscrituraDialog({
         throw new Error(`Error al subir archivo: ${uploadError.message}`);
       }
 
-      // 3. Guardar registro en la tabla documentos
-      const { data: insertedDoc, error: dbError } = await supabase
-        .from('documentos')
-        .insert({
-          id_cuenta_cobranza: cuentaCobranzaId,
-          id_tipo_documento: 29, // Proyecto de escritura
-          url: urlPath,
-          activo: true,
-          es_verificado: false,
-          es_draft: false,
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        console.error('Error al insertar en documentos:', dbError);
-        // Si falla el guardado en DB, intentar eliminar el archivo subido
-        await supabase.storage
+      // 4. Si existe un documento anterior, eliminarlo del storage y actualizar el registro
+      if (existingDoc) {
+        // Eliminar archivo anterior del storage si existe
+        const oldFilePath = existingDoc.url.replace('/proyectos_escritura/', '');
+        const { error: deleteError } = await supabase.storage
           .from('proyectos_escritura')
-          .remove([filePath]);
+          .remove([oldFilePath]);
         
-        throw new Error(`Error al guardar documento: ${dbError.message}`);
-      }
+        if (deleteError) {
+          console.error('Error al eliminar archivo anterior:', deleteError);
+        }
 
-      console.log('Documento guardado exitosamente:', insertedDoc);
+        // Actualizar el registro existente con la nueva URL
+        const { data: updatedDoc, error: updateError } = await supabase
+          .from('documentos')
+          .update({
+            url: urlPath,
+            es_verificado: false,
+            fecha_actualizacion: new Date().toISOString(),
+          })
+          .eq('id', existingDoc.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Error al actualizar documento:', updateError);
+          // Si falla la actualización, intentar eliminar el archivo nuevo
+          await supabase.storage
+            .from('proyectos_escritura')
+            .remove([filePath]);
+          
+          throw new Error(`Error al actualizar documento: ${updateError.message}`);
+        }
+
+        console.log('Documento actualizado exitosamente:', updatedDoc);
+      } else {
+        // 5. Si no existe, crear un nuevo registro
+        const { data: insertedDoc, error: dbError } = await supabase
+          .from('documentos')
+          .insert({
+            id_cuenta_cobranza: cuentaCobranzaId,
+            id_tipo_documento: 29, // Proyecto de escritura
+            url: urlPath,
+            activo: true,
+            es_verificado: false,
+            es_draft: false,
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          console.error('Error al insertar en documentos:', dbError);
+          // Si falla el guardado en DB, intentar eliminar el archivo subido
+          await supabase.storage
+            .from('proyectos_escritura')
+            .remove([filePath]);
+          
+          throw new Error(`Error al guardar documento: ${dbError.message}`);
+        }
+
+        console.log('Documento guardado exitosamente:', insertedDoc);
+      }
 
       toast({
         title: "✅ Proyecto de escritura guardado",
-        description: "El documento ha sido subido exitosamente",
+        description: existingDoc 
+          ? "El documento ha sido actualizado exitosamente" 
+          : "El documento ha sido subido exitosamente",
       });
 
       setFile(null);
