@@ -248,37 +248,6 @@ export function AddManualPaymentDialog({
 
         if (!response.ok) {
           console.error('Webhook call failed:', response.statusText);
-        } else {
-          // Call check-property-sold-status after successful payment application
-          // Only for property accounts (not maintenance, products, or services)
-          if (!esMantenimiento && tipoCuenta === 'Propiedad') {
-            try {
-              console.log(`[AddManualPaymentDialog] Llamando a check-property-sold-status para cuenta ${cuentaCobranzaId}`);
-              
-              const { data: statusData, error: statusError } = await supabase.functions.invoke(
-                'check-property-sold-status',
-                {
-                  body: { id_cuenta_cobranza: cuentaCobranzaId }
-                }
-              );
-
-              if (statusError) {
-                console.error('[AddManualPaymentDialog] Error en check-property-sold-status:', statusError);
-              } else {
-                console.log('[AddManualPaymentDialog] Resultado check-property-sold-status:', statusData);
-                
-                // If documents were de-verified or status changed, show additional message
-                if (statusData?.status_changed || statusData?.message?.includes('desverificados')) {
-                  toast({
-                    title: "Actualización automática",
-                    description: statusData.message,
-                  });
-                }
-              }
-            } catch (error) {
-              console.error('[AddManualPaymentDialog] Error llamando a check-property-sold-status:', error);
-            }
-          }
         }
       } catch (error) {
         console.error('Error calling webhook:', error);
