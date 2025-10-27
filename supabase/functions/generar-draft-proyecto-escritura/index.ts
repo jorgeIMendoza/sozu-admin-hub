@@ -121,11 +121,26 @@ serve(async (req) => {
     // Crear instancia de PizZip con el template
     const zip = new PizZip(arrayBuffer);
 
-    // Crear instancia de Docxtemplater
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
+    let doc;
+    try {
+      // Crear instancia de Docxtemplater
+      doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+    } catch (error: any) {
+      // Si hay error de template malformado, dar mensaje claro
+      if (error.properties?.errors) {
+        const errorMessages = error.properties.errors.map((e: any) => e.message).join(', ');
+        throw new Error(
+          `El template tiene placeholders mal formados: ${errorMessages}. ` +
+          `Esto ocurre cuando Word divide los placeholders debido a formato. ` +
+          `Solución: Abra el template en Word, elimine todos los placeholders y vuelva a escribirlos ` +
+          `en texto plano sin formato (sin negrita, cursiva, etc.) de una sola vez sin interrupciones.`
+        );
+      }
+      throw error;
+    }
 
     // Renderizar el documento con los datos
     doc.render(mergeData);
