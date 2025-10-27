@@ -32,11 +32,13 @@ interface Comprador {
 interface CompradoresConDocumentosDialogProps {
   cuentaCobranzaId: number;
   fetchCompradores: (cuentaId: number) => Promise<Comprador[]>;
+  triggerButtonText?: string;
 }
 
 export function CompradoresConDocumentosDialog({ 
   cuentaCobranzaId, 
-  fetchCompradores 
+  fetchCompradores,
+  triggerButtonText = "Ver compradores"
 }: CompradoresConDocumentosDialogProps) {
   const [open, setOpen] = useState(false);
 
@@ -51,7 +53,7 @@ export function CompradoresConDocumentosDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Users className="h-4 w-4 mr-1" />
-          Ver compradores
+          {triggerButtonText}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">

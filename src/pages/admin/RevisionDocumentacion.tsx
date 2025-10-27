@@ -502,6 +502,7 @@ export default function RevisionDocumentacion() {
                     <TableHead>Propiedad</TableHead>
                     <TableHead>Dueño</TableHead>
                     <TableHead className="text-right">Precio Final</TableHead>
+                    <TableHead className="text-center">Compradores</TableHead>
                     <TableHead className="text-center">Proyecto Escritura</TableHead>
                     <TableHead className="text-center">Acciones</TableHead>
                   </TableRow>
@@ -517,6 +518,13 @@ export default function RevisionDocumentacion() {
                       <TableCell>{cuenta.dueno}</TableCell>
                       <TableCell className="text-right">
                         ${cuenta.precio_final.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <CompradoresConDocumentosDialog
+                          cuentaCobranzaId={cuenta.cuenta_id}
+                          fetchCompradores={fetchCompradores}
+                          triggerButtonText="Ver"
+                        />
                       </TableCell>
                       <TableCell className="text-center">
                         <Button
@@ -572,10 +580,6 @@ export default function RevisionDocumentacion() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
-                          <CompradoresConDocumentosDialog
-                            cuentaCobranzaId={cuenta.cuenta_id}
-                            fetchCompradores={fetchCompradores}
-                          />
                           {notarioSeleccionado?.genera_proyecto_escritura && (
                             <Button
                               size="sm"
