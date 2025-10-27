@@ -519,11 +519,61 @@ export default function RevisionDocumentacion() {
                         ${cuenta.precio_final.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
-                        {cuenta.tiene_proyecto_escritura ? (
-                          <CheckCircle className="h-5 w-5 text-green-600 mx-auto" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-gray-400 mx-auto" />
-                        )}
+                        <div className="flex items-center justify-center gap-2">
+                          {cuenta.tiene_proyecto_escritura ? (
+                            <>
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={async () => {
+                                  try {
+                                    const { data } = await supabase
+                                      .from('documentos')
+                                      .select('url')
+                                      .eq('id_cuenta_cobranza', cuenta.cuenta_id)
+                                      .eq('id_tipo_documento', 29)
+                                      .eq('activo', true)
+                                      .maybeSingle();
+                                    
+                                    if (data?.url) {
+                                      const filePath = data.url.replace('/proyectos_escritura/', '');
+                                      const { data: signedUrlData, error } = await supabase.storage
+                                        .from('proyectos_escritura')
+                                        .createSignedUrl(filePath, 3600); // URL válida por 1 hora
+                                      
+                                      if (error) {
+                                        toast({
+                                          title: "Error",
+                                          description: "Error al obtener el documento",
+                                          variant: "destructive"
+                                        });
+                                        console.error(error);
+                                        return;
+                                      }
+                                      
+                                      if (signedUrlData?.signedUrl) {
+                                        window.open(signedUrlData.signedUrl, '_blank');
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error('Error:', error);
+                                    toast({
+                                      title: "Error",
+                                      description: "Error al abrir el documento",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                                Ver
+                              </Button>
+                            </>
+                          ) : (
+                            <XCircle className="h-5 w-5 text-gray-400" />
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 justify-center">
@@ -549,10 +599,9 @@ export default function RevisionDocumentacion() {
                           <Button
                             size="sm"
                             onClick={() => handleSubirProyecto(cuenta.cuenta_id)}
-                            disabled={cuenta.tiene_proyecto_escritura}
                           >
                             <Upload className="h-4 w-4" />
-                            {cuenta.tiene_proyecto_escritura ? 'Ya subido' : 'Subir Proyecto'}
+                            {cuenta.tiene_proyecto_escritura ? 'Actualizar' : 'Subir Proyecto'}
                           </Button>
                         </div>
                       </TableCell>
