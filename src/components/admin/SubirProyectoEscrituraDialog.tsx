@@ -74,6 +74,13 @@ export default function SubirProyectoEscrituraDialog({
     setUploading(true);
 
     try {
+      // Verificar sesión del usuario
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('Debe estar autenticado para subir documentos');
+      }
+
       // 1. Generar nombre del archivo con formato único
       const timestamp = new Date().getTime();
       const cuentaFormateada = formatCuentaCobranzaId(cuentaCobranzaId);
@@ -93,7 +100,7 @@ export default function SubirProyectoEscrituraDialog({
       }
 
       // 3. Guardar registro en la tabla documentos
-      const { error: dbError } = await supabase
+      const { data: insertedDoc, error: dbError } = await supabase
         .from('documentos')
         .insert({
           id_cuenta_cobranza: cuentaCobranzaId,
@@ -101,9 +108,13 @@ export default function SubirProyectoEscrituraDialog({
           url: filePath,
           activo: true,
           es_verificado: false,
-        });
+          es_draft: false,
+        })
+        .select()
+        .single();
 
       if (dbError) {
+        console.error('Error al insertar en documentos:', dbError);
         // Si falla el guardado en DB, intentar eliminar el archivo subido
         await supabase.storage
           .from('proyectos_escritura')
@@ -111,6 +122,8 @@ export default function SubirProyectoEscrituraDialog({
         
         throw new Error(`Error al guardar documento: ${dbError.message}`);
       }
+
+      console.log('Documento guardado exitosamente:', insertedDoc);
 
       toast({
         title: "✅ Proyecto de escritura guardado",
