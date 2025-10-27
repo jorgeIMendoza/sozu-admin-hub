@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
-import createReport from "https://esm.sh/docx-templates@4.11.3";
+import Docxtemplater from "npm:docxtemplater@^3.62.0";
+import PizZip from "npm:pizzip@^3.1.7";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -117,11 +118,22 @@ serve(async (req) => {
 
     console.log('Generando documento con datos:', mergeData);
 
-    // Generar el documento usando docx-templates
-    const report = await createReport({
-      template: arrayBuffer,
-      data: mergeData,
-      cmdDelimiter: ['{{', '}}'],
+    // Crear instancia de PizZip con el template
+    const zip = new PizZip(arrayBuffer);
+
+    // Crear instancia de Docxtemplater
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
+
+    // Renderizar el documento con los datos
+    doc.render(mergeData);
+
+    // Obtener el documento generado como buffer
+    const report = doc.getZip().generate({
+      type: 'nodebuffer',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     });
 
     // Obtener la extensión del template original
