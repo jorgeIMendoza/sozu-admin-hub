@@ -74,13 +74,6 @@ export default function SubirProyectoEscrituraDialog({
     setUploading(true);
 
     try {
-      // Verificar sesión del usuario
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        throw new Error('Debe estar autenticado para subir documentos');
-      }
-
       // 1. Generar nombre del archivo con formato único
       const timestamp = new Date().getTime();
       const cuentaFormateada = formatCuentaCobranzaId(cuentaCobranzaId);
