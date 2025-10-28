@@ -3846,7 +3846,17 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                         max="100"
                         step="0.0001"
                         value={porcentajeComision}
-                        onChange={(e) => handlePorcentajeComisionChange(e.target.value)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Validar máximo 4 decimales
+                          if (value.includes('.')) {
+                            const [, decimals] = value.split('.');
+                            if (decimals && decimals.length > 4) {
+                              return;
+                            }
+                          }
+                          handlePorcentajeComisionChange(value);
+                        }}
                         onBlur={handleComisionBlur}
                         disabled={isReadOnly}
                       />
@@ -3960,12 +3970,22 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             placeholder="0.0000"
                             value={porcentajeComisionista}
                             onChange={(e) => {
-                              const value = parseFloat(e.target.value);
+                              const inputValue = e.target.value;
+                              
+                              // Validar máximo 4 decimales
+                              if (inputValue.includes('.')) {
+                                const [, decimals] = inputValue.split('.');
+                                if (decimals && decimals.length > 4) {
+                                  return;
+                                }
+                              }
+                              
+                              const value = parseFloat(inputValue);
                               if (value > porcentajeComision) {
                                 toast.error(`El porcentaje no puede ser mayor al ${porcentajeComision}% de comisión por venta`);
                                 return;
                               }
-                              setPorcentajeComisionista(e.target.value);
+                              setPorcentajeComisionista(inputValue);
                             }}
                           />
                           <p className="text-xs text-muted-foreground">Máximo: {porcentajeComision}% (hasta 4 decimales)</p>
