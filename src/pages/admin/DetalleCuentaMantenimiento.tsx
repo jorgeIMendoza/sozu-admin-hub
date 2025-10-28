@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, DollarSign, CalendarDays, ChevronDown, ChevronUp, Home, ArrowRight, Plus, Calendar } from "lucide-react";
+import { ArrowLeft, DollarSign, CalendarDays, ChevronDown, ChevronUp, Home, ArrowRight, Plus, Calendar, Upload, Loader2, Eye } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { format } from "date-fns";
@@ -17,6 +17,7 @@ import { TransferPaymentDialog } from "@/components/admin/TransferPaymentDialog"
 import { NewMultaMantenimientoDialog } from "@/components/admin/NewMultaMantenimientoDialog";
 import { NewReservaDialog } from "@/components/admin/NewReservaDialog";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 
 interface AcuerdoPago {
   id: number;
@@ -77,6 +78,9 @@ export default function DetalleCuentaMantenimiento() {
   const [visibleAcuerdos, setVisibleAcuerdos] = useState(5);
   const [multaDialog, setMultaDialog] = useState(false);
   const [reservaDialog, setReservaDialog] = useState(false);
+  const [uploadingEvidence, setUploadingEvidence] = useState<number | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
     queryKey: ["cuenta_mantenimiento_detalle", cuentaId],
@@ -238,7 +242,7 @@ export default function DetalleCuentaMantenimiento() {
     queryFn: async () => {
       const { data: pagos, error } = await supabase
         .from('pagos')
-        .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago, descripcion')
+        .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago, descripcion, url_recibo')
         .eq('id_cuenta_cobranza', cuentaId)
         .eq('activo', true)
         .order('fecha_pago', { ascending: false });
@@ -487,6 +491,49 @@ export default function DetalleCuentaMantenimiento() {
     const [year, month, day] = date.split('-').map(Number);
     const localDate = new Date(year, month - 1, day);
     return format(localDate, "dd 'de' MMMM 'de' yyyy", { locale: es });
+  };
+
+  const handleUploadEvidence = async (pagoId: number, file: File) => {
+    try {
+      setUploadingEvidence(pagoId);
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${pagoId}_${Date.now()}.${fileExt}`;
+      const filePath = `evidencias_pago/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documentos')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('pagos')
+        .update({ url_recibo: publicUrl })
+        .eq('id', pagoId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Evidencia subida",
+        description: "La evidencia de pago se ha guardado correctamente",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["pagos_mantenimiento", cuentaId] });
+    } catch (error) {
+      console.error("Error uploading evidence:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo subir la evidencia de pago",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingEvidence(null);
+    }
   };
 
   const addDays = (date: string, days: number) => {
@@ -1085,6 +1132,52 @@ export default function DetalleCuentaMantenimiento() {
                                 <Badge variant="secondary" className="text-xs">
                                   {aplicaciones.length} {aplicaciones.length === 1 ? 'aplicación' : 'aplicaciones'}
                                 </Badge>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <label htmlFor={`evidence-upload-mant-${pago.id}`}>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          asChild
+                                          disabled={uploadingEvidence === pago.id}
+                                        >
+                                          <span>
+                                            {uploadingEvidence === pago.id ? (
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : pago.url_recibo ? (
+                                              <Eye className="h-4 w-4" onClick={(e) => {
+                                                e.stopPropagation();
+                                                window.open(pago.url_recibo, '_blank');
+                                              }} />
+                                            ) : (
+                                              <Upload className="h-4 w-4" />
+                                            )}
+                                          </span>
+                                        </Button>
+                                        <input
+                                          id={`evidence-upload-mant-${pago.id}`}
+                                          type="file"
+                                          className="hidden"
+                                          accept=".pdf,.jpg,.jpeg,.png"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                              e.stopPropagation();
+                                              handleUploadEvidence(pago.id, file);
+                                            }
+                                            e.target.value = '';
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </label>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>{pago.url_recibo ? "Ver evidencia" : "Subir evidencia de pago"}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                                 <ChevronDown className="h-4 w-4" />
                               </div>
                             </div>

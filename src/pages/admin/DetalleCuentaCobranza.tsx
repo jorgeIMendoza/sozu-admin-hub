@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -418,6 +418,7 @@ export default function DetalleCuentaCobranza() {
     isOpen: false
   });
   const [downloadingRecibo, setDownloadingRecibo] = useState<number | null>(null);
+  const [uploadingEvidence, setUploadingEvidence] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1029,6 +1030,7 @@ export default function DetalleCuentaCobranza() {
           clave_rastreo,
           id_metodos_pago,
           descripcion,
+          url_recibo,
           metodos_pago!pagos_id_metodos_pago_fkey(nombre)
         `)
         .eq('id_cuenta_cobranza', cuentaId)
@@ -1795,6 +1797,53 @@ export default function DetalleCuentaCobranza() {
       });
     } finally {
       setDownloadingRecibo(null);
+    }
+  };
+
+  const handleUploadEvidence = async (pagoId: number, file: File) => {
+    try {
+      setUploadingEvidence(pagoId);
+
+      // Upload to supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${pagoId}_${Date.now()}.${fileExt}`;
+      const filePath = `evidencias_pago/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('documentos')
+        .getPublicUrl(filePath);
+
+      // Update pago with url_recibo
+      const { error: updateError } = await supabase
+        .from('pagos')
+        .update({ url_recibo: publicUrl })
+        .eq('id', pagoId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Evidencia subida",
+        description: "La evidencia de pago se ha guardado correctamente",
+      });
+
+      // Refresh queries
+      queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
+    } catch (error) {
+      console.error("Error uploading evidence:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo subir la evidencia de pago",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingEvidence(null);
     }
   };
 
@@ -3053,6 +3102,54 @@ export default function DetalleCuentaCobranza() {
                                     <Badge variant="secondary" className="text-xs">
                                       {aplicacionesDelPago.length} aplicación(es)
                                     </Badge>
+                                    {!esCuentaCancelada && !isReadOnly && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <label htmlFor={`evidence-upload-${pago.id}`}>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0"
+                                                asChild
+                                                disabled={uploadingEvidence === pago.id}
+                                              >
+                                                <span>
+                                                  {uploadingEvidence === pago.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                  ) : pago.url_recibo ? (
+                                                    <Eye className="h-4 w-4" onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      window.open(pago.url_recibo, '_blank');
+                                                    }} />
+                                                  ) : (
+                                                    <Upload className="h-4 w-4" />
+                                                  )}
+                                                </span>
+                                              </Button>
+                                              <input
+                                                id={`evidence-upload-${pago.id}`}
+                                                type="file"
+                                                className="hidden"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                                onChange={(e) => {
+                                                  const file = e.target.files?.[0];
+                                                  if (file) {
+                                                    e.stopPropagation();
+                                                    handleUploadEvidence(pago.id, file);
+                                                  }
+                                                  e.target.value = '';
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                              />
+                                            </label>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>{pago.url_recibo ? "Ver evidencia" : "Subir evidencia de pago"}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {isPagoOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
