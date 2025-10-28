@@ -242,7 +242,7 @@ export default function DetalleCuentaMantenimiento() {
     queryFn: async () => {
       const { data: pagos, error } = await supabase
         .from('pagos')
-        .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago, descripcion, url_recibo')
+        .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago, descripcion, url_recibo, url_cep')
         .eq('id_cuenta_cobranza', cuentaId)
         .eq('activo', true)
         .order('fecha_pago', { ascending: false });
@@ -1132,6 +1132,28 @@ export default function DetalleCuentaMantenimiento() {
                                 <Badge variant="secondary" className="text-xs">
                                   {aplicaciones.length} {aplicaciones.length === 1 ? 'aplicación' : 'aplicaciones'}
                                 </Badge>
+                                {(pago.url_cep || pago.url_recibo) && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(pago.url_cep || pago.url_recibo || '', '_blank');
+                                          }}
+                                        >
+                                          <Eye className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Ver evidencia de pago</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -1146,11 +1168,6 @@ export default function DetalleCuentaMantenimiento() {
                                           <span>
                                             {uploadingEvidence === pago.id ? (
                                               <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : pago.url_recibo ? (
-                                              <Eye className="h-4 w-4" onClick={(e) => {
-                                                e.stopPropagation();
-                                                window.open(pago.url_recibo, '_blank');
-                                              }} />
                                             ) : (
                                               <Upload className="h-4 w-4" />
                                             )}
@@ -1174,7 +1191,7 @@ export default function DetalleCuentaMantenimiento() {
                                       </label>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>{pago.url_recibo ? "Ver evidencia" : "Subir evidencia de pago"}</p>
+                                      <p>{pago.url_recibo ? "Actualizar evidencia" : "Subir evidencia de pago"}</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>

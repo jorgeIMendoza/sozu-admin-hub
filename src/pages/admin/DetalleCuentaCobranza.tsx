@@ -1031,6 +1031,7 @@ export default function DetalleCuentaCobranza() {
           id_metodos_pago,
           descripcion,
           url_recibo,
+          url_cep,
           metodos_pago!pagos_id_metodos_pago_fkey(nombre)
         `)
         .eq('id_cuenta_cobranza', cuentaId)
@@ -3103,52 +3104,71 @@ export default function DetalleCuentaCobranza() {
                                       {aplicacionesDelPago.length} aplicación(es)
                                     </Badge>
                                     {!esCuentaCancelada && !isReadOnly && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <label htmlFor={`evidence-upload-${pago.id}`}>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 w-8 p-0"
-                                                asChild
-                                                disabled={uploadingEvidence === pago.id}
-                                              >
-                                                <span>
-                                                  {uploadingEvidence === pago.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                  ) : pago.url_recibo ? (
-                                                    <Eye className="h-4 w-4" onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      window.open(pago.url_recibo, '_blank');
-                                                    }} />
-                                                  ) : (
-                                                    <Upload className="h-4 w-4" />
-                                                  )}
-                                                </span>
-                                              </Button>
-                                              <input
-                                                id={`evidence-upload-${pago.id}`}
-                                                type="file"
-                                                className="hidden"
-                                                accept=".pdf,.jpg,.jpeg,.png"
-                                                onChange={(e) => {
-                                                  const file = e.target.files?.[0];
-                                                  if (file) {
+                                      <>
+                                        {(pago.url_cep || pago.url_recibo) && (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-8 w-8 p-0"
+                                                  onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleUploadEvidence(pago.id, file);
-                                                  }
-                                                  e.target.value = '';
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                              />
-                                            </label>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>{pago.url_recibo ? "Ver evidencia" : "Subir evidencia de pago"}</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                                    window.open(pago.url_cep || pago.url_recibo || '', '_blank');
+                                                  }}
+                                                >
+                                                  <Eye className="h-4 w-4" />
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p>Ver evidencia de pago</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        )}
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <label htmlFor={`evidence-upload-${pago.id}`}>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-8 w-8 p-0"
+                                                  asChild
+                                                  disabled={uploadingEvidence === pago.id}
+                                                >
+                                                  <span>
+                                                    {uploadingEvidence === pago.id ? (
+                                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                      <Upload className="h-4 w-4" />
+                                                    )}
+                                                  </span>
+                                                </Button>
+                                                <input
+                                                  id={`evidence-upload-${pago.id}`}
+                                                  type="file"
+                                                  className="hidden"
+                                                  accept=".pdf,.jpg,.jpeg,.png"
+                                                  onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                      e.stopPropagation();
+                                                      handleUploadEvidence(pago.id, file);
+                                                    }
+                                                    e.target.value = '';
+                                                  }}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                />
+                                              </label>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>{pago.url_recibo ? "Actualizar evidencia" : "Subir evidencia de pago"}</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </>
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2">
