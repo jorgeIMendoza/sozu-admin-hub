@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -12,10 +13,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 export default function Comisiones() {
+  const [filtroGeneral, setFiltroGeneral] = useState("");
+  const [filtroId, setFiltroId] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  const [filtroProyecto, setFiltroProyecto] = useState<string>("todos");
+  const [filtroEdificio, setFiltroEdificio] = useState<string>("todos");
+  const [filtroModelo, setFiltroModelo] = useState<string>("todos");
+  const [filtroNumero, setFiltroNumero] = useState("");
+  const [filtroEstatus, setFiltroEstatus] = useState<string>("todos");
+
   const { data: comisiones, isLoading } = useQuery({
     queryKey: ["comisiones"],
     queryFn: async () => {
@@ -94,7 +105,7 @@ export default function Comisiones() {
 
       if (ofertasError) throw ofertasError;
 
-      // Paso 3: Obtener propiedades relacionadas
+      // Paso 3: Obtener propiedades y modelos relacionados
       const propiedadIds = ofertas?.filter((o) => o.id_propiedad).map((o) => o.id_propiedad) || [];
       
       const { data: propiedades, error: propiedadesError } = propiedadIds.length > 0
@@ -110,22 +121,22 @@ export default function Comisiones() {
 
       if (propiedadesError) throw propiedadesError;
 
-      // Paso 4: Obtener edificios
-      const edificioIds = propiedades?.map((p) => p.id_edificio_modelo).filter(Boolean) || [];
+      // Paso 4: Obtener edificios y modelos
+      const edificioModeloIds = propiedades?.map((p) => p.id_edificio_modelo).filter(Boolean) || [];
       
-      const { data: edificios, error: edificiosError } = edificioIds.length > 0
+      const { data: edificiosModelos, error: edificiosModelosError } = edificioModeloIds.length > 0
         ? await supabase
             .from("edificios_modelos")
             .select(`
               id,
-              id_edificio
+              id_edificio,
+              modelos!edificios_modelos_id_modelo_fkey(nombre)
             `)
-            .in("id", edificioIds)
+            .in("id", edificioModeloIds)
         : { data: [], error: null };
 
-      if (edificiosError) throw edificiosError;
-
-      const edificioIdsReal = edificios?.map((em) => em.id_edificio).filter(Boolean) || [];
+      if (edificiosModelosError) throw edificiosModelosError;
+      const edificioIdsReal = edificiosModelos?.map((em) => em.id_edificio).filter(Boolean) || [];
       
       const { data: edificiosData, error: edificiosDataError } = edificioIdsReal.length > 0
         ? await supabase
@@ -155,7 +166,7 @@ export default function Comisiones() {
 
       if (proyectosError) throw proyectosError;
 
-      // Paso 6: Obtener productos
+      // Paso 6: Obtener productos con categorías
       const productoIds = ofertas?.filter((o) => o.id_producto).map((o) => o.id_producto) || [];
       
       const { data: productos, error: productosError } = productoIds.length > 0
@@ -163,7 +174,9 @@ export default function Comisiones() {
             .from("productos_servicios")
             .select(`
               id,
-              nombre
+              nombre,
+              id_categoria,
+              categorias_producto!productos_servicios_id_categoria_fkey(nombre)
             `)
             .in("id", productoIds)
         : { data: [], error: null };
@@ -174,18 +187,26 @@ export default function Comisiones() {
       return cuentasFiltradas.map((cuenta) => {
         const oferta = ofertas?.find((o) => o.id === cuenta.id_oferta);
         const propiedad = propiedades?.find((p) => p.id === oferta?.id_propiedad);
-        const edificioModelo = edificios?.find((em) => em.id === propiedad?.id_edificio_modelo);
+        const edificioModelo = edificiosModelos?.find((em) => em.id === propiedad?.id_edificio_modelo);
         const edificio = edificiosData?.find((e) => e.id === edificioModelo?.id_edificio);
         const proyecto = proyectos?.find((pr) => pr.id === edificio?.id_proyecto);
         const producto = productos?.find((prod) => prod.id === oferta?.id_producto);
+
+        // Determinar tipo de cuenta
+        let tipo: 'Propiedad' | 'Producto' | 'Servicio' = 'Propiedad';
+        if (oferta?.id_producto && producto) {
+          const categoriaNombre = producto.categorias_producto?.nombre?.toLowerCase();
+          tipo = categoriaNombre === 'servicios' ? 'Servicio' : 'Producto';
+        }
 
         return {
           ...cuenta,
           proyecto_nombre: proyecto?.nombre,
           edificio_nombre: edificio?.nombre,
+          modelo_nombre: edificioModelo?.modelos?.nombre,
           numero_departamento: propiedad?.numero_propiedad,
           producto_nombre: producto?.nombre,
-          tipo: oferta?.id_propiedad ? "Propiedad" : "Producto",
+          tipo: tipo,
         };
       });
     },
@@ -197,6 +218,73 @@ export default function Comisiones() {
       currency: "MXN",
     }).format(monto);
   };
+
+  // Aplicar filtros
+  const comisionesFiltradas = comisiones?.filter((comision: any) => {
+    // Filtro general
+    if (filtroGeneral) {
+      const searchTerm = filtroGeneral.toLowerCase();
+      const matchId = formatCuentaCobranzaId(comision.id, comision.tipo).toLowerCase().includes(searchTerm);
+      const matchProyecto = comision.proyecto_nombre?.toLowerCase().includes(searchTerm);
+      const matchNumero = (comision.numero_departamento || comision.producto_nombre || "").toLowerCase().includes(searchTerm);
+      const matchModelo = comision.modelo_nombre?.toLowerCase().includes(searchTerm);
+      
+      if (!matchId && !matchProyecto && !matchNumero && !matchModelo) {
+        return false;
+      }
+    }
+
+    // Filtro por ID
+    if (filtroId && !formatCuentaCobranzaId(comision.id, comision.tipo).includes(filtroId)) {
+      return false;
+    }
+
+    // Filtro por tipo
+    if (filtroTipo !== "todos" && comision.tipo !== filtroTipo) {
+      return false;
+    }
+
+    // Filtro por proyecto
+    if (filtroProyecto !== "todos" && comision.proyecto_nombre !== filtroProyecto) {
+      return false;
+    }
+
+    // Filtro por edificio
+    if (filtroEdificio !== "todos" && comision.edificio_nombre !== filtroEdificio) {
+      return false;
+    }
+
+    // Filtro por modelo
+    if (filtroModelo !== "todos" && comision.modelo_nombre !== filtroModelo) {
+      return false;
+    }
+
+    // Filtro por número
+    if (filtroNumero) {
+      const numero = (comision.numero_departamento || comision.producto_nombre || "").toLowerCase();
+      if (!numero.includes(filtroNumero.toLowerCase())) {
+        return false;
+      }
+    }
+
+    // Filtro por estatus
+    if (filtroEstatus !== "todos") {
+      const esPagado = comision.es_pagada_comision_venta;
+      if (filtroEstatus === "pagado" && !esPagado) {
+        return false;
+      }
+      if (filtroEstatus === "pendiente" && esPagado) {
+        return false;
+      }
+    }
+
+    return true;
+  }) || [];
+
+  // Obtener valores únicos para los filtros
+  const proyectosUnicos = [...new Set(comisiones?.map((c: any) => c.proyecto_nombre).filter(Boolean))] as string[];
+  const edificiosUnicos = [...new Set(comisiones?.map((c: any) => c.edificio_nombre).filter(Boolean))] as string[];
+  const modelosUnicos = [...new Set(comisiones?.map((c: any) => c.modelo_nombre).filter(Boolean))] as string[];
 
   if (isLoading) {
     return (
@@ -221,9 +309,103 @@ export default function Comisiones() {
     <div className="container mx-auto py-6">
       <Card>
         <CardHeader>
-          <CardTitle>Comisiones</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Comisiones</CardTitle>
+            <Badge variant="outline" className="text-lg px-4 py-1">
+              {comisionesFiltradas.length} cuenta{comisionesFiltradas.length !== 1 ? 's' : ''}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Filtros */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="md:col-span-4">
+              <input
+                type="text"
+                placeholder="Buscar por ID, proyecto, número o modelo..."
+                value={filtroGeneral}
+                onChange={(e) => setFiltroGeneral(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md"
+              />
+            </div>
+            
+            <input
+              type="text"
+              placeholder="Filtrar por ID..."
+              value={filtroId}
+              onChange={(e) => setFiltroId(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            />
+
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="todos">Todos los tipos</option>
+              <option value="Propiedad">Propiedad</option>
+              <option value="Producto">Producto</option>
+              <option value="Servicio">Servicio</option>
+            </select>
+
+            <select
+              value={filtroProyecto}
+              onChange={(e) => setFiltroProyecto(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="todos">Todos los proyectos</option>
+              {proyectosUnicos.map((proyecto) => (
+                <option key={proyecto} value={proyecto}>
+                  {proyecto}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filtroEdificio}
+              onChange={(e) => setFiltroEdificio(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="todos">Todos los edificios</option>
+              {edificiosUnicos.map((edificio) => (
+                <option key={edificio} value={edificio}>
+                  {edificio}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filtroModelo}
+              onChange={(e) => setFiltroModelo(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="todos">Todos los modelos</option>
+              {modelosUnicos.map((modelo) => (
+                <option key={modelo} value={modelo}>
+                  {modelo}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="text"
+              placeholder="Filtrar por número..."
+              value={filtroNumero}
+              onChange={(e) => setFiltroNumero(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            />
+
+            <select
+              value={filtroEstatus}
+              onChange={(e) => setFiltroEstatus(e.target.value)}
+              className="px-3 py-2 border rounded-md"
+            >
+              <option value="todos">Todos los estatus</option>
+              <option value="pagado">Pagado</option>
+              <option value="pendiente">Pendiente</option>
+            </select>
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -231,6 +413,7 @@ export default function Comisiones() {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Proyecto</TableHead>
                 <TableHead>Edificio</TableHead>
+                <TableHead>Modelo</TableHead>
                 <TableHead>No. Departamento</TableHead>
                 <TableHead>Monto</TableHead>
                 <TableHead>% Comisión</TableHead>
@@ -241,17 +424,18 @@ export default function Comisiones() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {comisiones?.map((comision: any) => {
+              {comisionesFiltradas?.map((comision: any) => {
                 return (
                   <TableRow key={comision.id}>
                     <TableCell className="font-medium">
-                      {formatCuentaCobranzaId(comision.id)}
+                      {formatCuentaCobranzaId(comision.id, comision.tipo)}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{comision.tipo}</Badge>
                     </TableCell>
                     <TableCell>{comision.proyecto_nombre || "-"}</TableCell>
                     <TableCell>{comision.edificio_nombre || "-"}</TableCell>
+                    <TableCell>{comision.modelo_nombre || "-"}</TableCell>
                     <TableCell>
                       {comision.numero_departamento || comision.producto_nombre || "-"}
                     </TableCell>
