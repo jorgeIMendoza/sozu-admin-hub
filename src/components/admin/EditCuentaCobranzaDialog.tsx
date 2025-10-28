@@ -3920,7 +3920,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     <div className="p-4 border rounded-lg space-y-4 bg-muted/30">
                       <h4 className="font-medium">Agregar Comisionista</h4>
                       <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-1">
+                        <div className="col-span-1 space-y-2">
                           <Label>Buscar Usuario</Label>
                           <div className="relative">
                             <Input
@@ -3928,12 +3928,12 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               value={searchUsuario}
                               onChange={(e) => setSearchUsuario(e.target.value)}
                             />
-                            {usuarios && usuarios.length > 0 && (
-                              <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                            {usuarios && usuarios.length > 0 && searchUsuario && !selectedUsuario && (
+                              <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
                                 {usuarios.map((usuario) => (
                                   <div
                                     key={usuario.email}
-                                    className="px-3 py-2 hover:bg-muted cursor-pointer"
+                                    className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
                                     onClick={() => {
                                       setSelectedUsuario(usuario);
                                       setSearchUsuario(usuario.email);
@@ -3946,33 +3946,46 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               </div>
                             )}
                           </div>
+                          {selectedUsuario && (
+                            <p className="text-xs text-muted-foreground">Usuario seleccionado ✓</p>
+                          )}
                         </div>
-                        <div>
+                        <div className="space-y-2">
                           <Label>Porcentaje de Comisión (%)</Label>
                           <Input
                             type="number"
                             min="0.01"
+                            max={porcentajeComision}
                             step="0.01"
                             placeholder="0.00"
                             value={porcentajeComisionista}
-                            onChange={(e) => setPorcentajeComisionista(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex items-end">
-                          <div className="space-y-2 w-full">
-                            <Label>Monto</Label>
-                            <Input
-                              value={cuentaDetalle?.precio_final && porcentajeComisionista ? 
-                                new Intl.NumberFormat('es-MX', { 
-                                  style: 'currency', 
-                                  currency: 'MXN' 
-                                }).format(((cuentaDetalle.precio_final * parseFloat(porcentajeComisionista)) / 100) * (ivaIncluido ? 1.16 : 1))
-                                : '$0.00'
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (value > porcentajeComision) {
+                                toast.error(`El porcentaje no puede ser mayor al ${porcentajeComision}% de comisión por venta`);
+                                return;
                               }
-                              readOnly
-                              className="bg-muted"
-                            />
-                          </div>
+                              setPorcentajeComisionista(e.target.value);
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">Máximo: {porcentajeComision}%</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Monto</Label>
+                          <Input
+                            value={cuentaDetalle?.precio_final && porcentajeComisionista ? 
+                              new Intl.NumberFormat('es-MX', { 
+                                style: 'currency', 
+                                currency: 'MXN' 
+                              }).format(((cuentaDetalle.precio_final * parseFloat(porcentajeComisionista)) / 100) * (ivaIncluido ? 1.16 : 1))
+                              : '$0.00'
+                            }
+                            readOnly
+                            className="bg-muted"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {ivaIncluido ? 'Incluye IVA (16%)' : 'Sin IVA'}
+                          </p>
                         </div>
                       </div>
                       <Button 
