@@ -31,7 +31,9 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['acuerdos-pago', cuentaCobranzaId] });
+      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuentaCobranzaId] });
+      queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaCobranzaId] });
+      queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaCobranzaId] });
       toast({
         title: "CEP actualizado",
         description: "El comprobante electrónico de pago ha sido agregado exitosamente.",
