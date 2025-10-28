@@ -30,22 +30,22 @@ export default function Comisiones() {
           es_comision_venta_efectivo,
           es_pagada_comision_venta,
           id_oferta,
-          ofertas (
+          ofertas!fk_ccob_oferta (
             id_propiedad,
             id_producto,
-            propiedades (
+            propiedades!ofertas_id_propiedad_fkey (
               id,
               numero_departamento,
-              edificios (
+              edificios!propiedades_id_edificio_modelo_fkey (
                 id,
                 nombre,
-                proyectos (
+                proyectos!edificios_id_proyecto_fkey (
                   id,
                   nombre
                 )
               )
             ),
-            productos (
+            productos!ofertas_id_producto_fkey (
               id,
               nombre
             )
