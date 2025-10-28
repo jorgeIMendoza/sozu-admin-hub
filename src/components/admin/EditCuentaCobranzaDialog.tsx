@@ -3844,13 +3844,13 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                         type="number"
                         min="5"
                         max="100"
-                        step="0.01"
+                        step="0.0001"
                         value={porcentajeComision}
                         onChange={(e) => handlePorcentajeComisionChange(e.target.value)}
                         onBlur={handleComisionBlur}
                         disabled={isReadOnly}
                       />
-                      <p className="text-xs text-muted-foreground">Mínimo 5%, máximo 100%</p>
+                      <p className="text-xs text-muted-foreground">Mínimo 5%, máximo 100% (hasta 4 decimales)</p>
                     </div>
 
                     <div className="space-y-2">
@@ -3954,10 +3954,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           <Label>Porcentaje de Comisión (%)</Label>
                           <Input
                             type="number"
-                            min="0.01"
+                            min="0.0001"
                             max={porcentajeComision}
-                            step="0.01"
-                            placeholder="0.00"
+                            step="0.0001"
+                            placeholder="0.0000"
                             value={porcentajeComisionista}
                             onChange={(e) => {
                               const value = parseFloat(e.target.value);
@@ -3968,7 +3968,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               setPorcentajeComisionista(e.target.value);
                             }}
                           />
-                          <p className="text-xs text-muted-foreground">Máximo: {porcentajeComision}%</p>
+                          <p className="text-xs text-muted-foreground">Máximo: {porcentajeComision}% (hasta 4 decimales)</p>
                         </div>
                         <div className="space-y-2">
                           <Label>Monto</Label>
