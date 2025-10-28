@@ -62,7 +62,7 @@ export default function Comisiones() {
             .from("propiedades")
             .select(`
               id,
-              numero_departamento,
+              numero_propiedad,
               id_edificio_modelo
             `)
             .in("id", propiedadIds)
@@ -143,7 +143,7 @@ export default function Comisiones() {
           ...cuenta,
           proyecto_nombre: proyecto?.nombre,
           edificio_nombre: edificio?.nombre,
-          numero_departamento: propiedad?.numero_departamento,
+          numero_departamento: propiedad?.numero_propiedad,
           producto_nombre: producto?.nombre,
         };
       });
