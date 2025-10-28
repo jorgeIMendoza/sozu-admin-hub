@@ -382,7 +382,7 @@ export default function Comisiones() {
                 <TableHead>Modelo</TableHead>
                 <TableHead>No. Departamento</TableHead>
                 <TableHead>Monto</TableHead>
-                <TableHead>% Comisión</TableHead>
+                <TableHead>Comisión</TableHead>
                 <TableHead>Monto Comisión Pagado</TableHead>
                 <TableHead>Fecha Pago</TableHead>
                 <TableHead>En Efectivo</TableHead>
@@ -406,7 +406,9 @@ export default function Comisiones() {
                       {comision.numero_departamento || comision.producto_nombre || "-"}
                     </TableCell>
                     <TableCell>{formatMonto(comision.precio_final)}</TableCell>
-                    <TableCell>{comision.porcentaje_comision_venta}%</TableCell>
+                    <TableCell>
+                      {formatMonto((comision.porcentaje_comision_venta / 100) * comision.precio_final)} ({comision.porcentaje_comision_venta}%)
+                    </TableCell>
                     <TableCell>
                       {formatMonto(comision.monto_comision_pagado)}
                     </TableCell>
