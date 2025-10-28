@@ -62,7 +62,7 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
           id_cuenta_cobranza: cuentaId,
           id_concepto: 13, // Pago de multa
           fecha_pago: new Date().toISOString().split('T')[0],
-          monto: 0,
+          monto: monto,
           orden: nextOrden,
           activo: true,
           pago_completado: false
