@@ -3100,8 +3100,10 @@ export default function DetalleCuentaCobranza() {
                                         {pago.clave_rastreo}
                                       </Badge>
                                     )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
                                     <Badge variant="secondary" className="text-xs">
-                                      {aplicacionesDelPago.length} aplicación(es)
+                                      {aplicacionesDelPago.length} {aplicacionesDelPago.length === 1 ? 'aplicación' : 'aplicaciones'}
                                     </Badge>
                                     {!esCuentaCancelada && !isReadOnly && (
                                       <>
@@ -3170,8 +3172,6 @@ export default function DetalleCuentaCobranza() {
                                         </TooltipProvider>
                                       </>
                                     )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
                                     {isPagoOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                   </div>
                                 </div>
