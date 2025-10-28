@@ -178,24 +178,9 @@ export function CompradoresConDocumentosDialog({
       </TooltipProvider>
       <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>
-              Compradores - CC-{cuentaCobranzaId.toString().padStart(6, '0')}
-            </DialogTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadZip}
-              disabled={downloadingZip || compradores.length === 0}
-            >
-              {downloadingZip ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
-              Descargar ZIP
-            </Button>
-          </div>
+          <DialogTitle>
+            Compradores - CC-{cuentaCobranzaId.toString().padStart(6, '0')}
+          </DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
@@ -207,19 +192,9 @@ export function CompradoresConDocumentosDialog({
             No hay compradores registrados
           </div>
         ) : (
-          <Tabs defaultValue="documentos" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="documentos">
-                <FileCheck className="h-4 w-4 mr-2" />
-                Documentos Verificados
-              </TabsTrigger>
-              <TabsTrigger value="pagos">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Pagos Realizados
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="documentos" className="space-y-4 mt-4">
+          <div className="space-y-6">
+            {/* Datos de los compradores */}
+            <div className="space-y-4">
               {compradores.map((comprador) => (
                 <Card key={comprador.id_persona}>
                   <CardHeader>
@@ -230,7 +205,7 @@ export function CompradoresConDocumentosDialog({
                       </Badge>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">RFC:</span>
@@ -257,115 +232,156 @@ export function CompradoresConDocumentosDialog({
                         </div>
                       )}
                     </div>
-
-                    <Separator />
-
-                    {comprador.documentos?.length > 0 ? (
-                      <div className="border rounded-lg">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Tipo</TableHead>
-                              <TableHead>Fecha</TableHead>
-                              <TableHead className="text-right">Acción</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {comprador.documentos.map((doc) => (
-                              <TableRow key={doc.id}>
-                                <TableCell>{doc.tipo}</TableCell>
-                                <TableCell>
-                                  {format(new Date(doc.fecha), 'dd/MM/yyyy', { locale: es })}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => window.open(doc.url, '_blank')}
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No hay documentos verificados
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
               ))}
-            </TabsContent>
+            </div>
 
-            <TabsContent value="pagos" className="space-y-4 mt-4">
-              {pagos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No hay pagos realizados</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Total de pagos: <strong>{pagos.length}</strong>
-                    </p>
-                    <p className="text-sm font-semibold">
-                      Total: ${pagos.reduce((sum, p) => sum + Number(p.monto), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                    </p>
+            {/* Botón de descargar ZIP */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={handleDownloadZip}
+                disabled={downloadingZip}
+              >
+                {downloadingZip ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Descargar ZIP
+              </Button>
+            </div>
+
+            {/* Pestañas */}
+            <Tabs defaultValue="documentos" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="documentos">
+                  <FileCheck className="h-4 w-4 mr-2" />
+                  Documentos Verificados
+                </TabsTrigger>
+                <TabsTrigger value="pagos">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Pagos Realizados
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="documentos" className="space-y-4 mt-4">
+                {compradores.map((comprador) => (
+                  <Card key={comprador.id_persona}>
+                    <CardHeader>
+                      <CardTitle className="text-sm">
+                        Documentos de {comprador.nombre_legal}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {comprador.documentos?.length > 0 ? (
+                        <div className="border rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Tipo</TableHead>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead className="text-right">Acción</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {comprador.documentos.map((doc) => (
+                                <TableRow key={doc.id}>
+                                  <TableCell>{doc.tipo}</TableCell>
+                                  <TableCell>
+                                    {format(new Date(doc.fecha), 'dd/MM/yyyy', { locale: es })}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => window.open(doc.url, '_blank')}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No hay documentos verificados
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="pagos" className="space-y-4 mt-4">
+                {pagos.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay pagos realizados</p>
                   </div>
-                  
-                  <div className="space-y-3">
-                    {pagos.map((pago) => (
-                      <Card key={pago.id}>
-                        <CardContent className="pt-4">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="h-4 w-4 text-green-600" />
-                                <span className="font-semibold text-lg">
-                                  ${Number(pago.monto).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                </span>
-                                <Badge variant="outline">{pago.metodos_pago?.nombre || 'N/A'}</Badge>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Total de pagos: <strong>{pagos.length}</strong>
+                      </p>
+                      <p className="text-sm font-semibold">
+                        Total: ${pagos.reduce((sum, p) => sum + Number(p.monto), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {pagos.map((pago) => (
+                        <Card key={pago.id}>
+                          <CardContent className="pt-4">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <DollarSign className="h-4 w-4 text-green-600" />
+                                  <span className="font-semibold text-lg">
+                                    ${Number(pago.monto).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                  </span>
+                                  <Badge variant="outline">{pago.metodos_pago?.nombre || 'N/A'}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {format(new Date(pago.fecha_pago), 'dd/MM/yyyy', { locale: es })}
+                                </p>
+                                {pago.clave_rastreo && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Clave: {pago.clave_rastreo}
+                                  </p>
+                                )}
+                                {pago.descripcion && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {pago.descripcion}
+                                  </p>
+                                )}
                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                {format(new Date(pago.fecha_pago), 'dd/MM/yyyy', { locale: es })}
-                              </p>
-                              {pago.clave_rastreo && (
-                                <p className="text-xs text-muted-foreground">
-                                  Clave: {pago.clave_rastreo}
-                                </p>
-                              )}
-                              {pago.descripcion && (
-                                <p className="text-xs text-muted-foreground">
-                                  {pago.descripcion}
-                                </p>
-                              )}
+                              <div className="flex gap-2">
+                                {(pago.url_cep || pago.url_recibo) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => window.open(pago.url_cep || pago.url_recibo || '', '_blank')}
+                                  >
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    Ver Evidencia
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex gap-2">
-                              {(pago.url_cep || pago.url_recibo) && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => window.open(pago.url_cep || pago.url_recibo || '', '_blank')}
-                                >
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  Ver Evidencia
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
       </DialogContent>
     </Dialog>
