@@ -1823,14 +1823,19 @@ const Propiedades = () => {
                          <span>{formatCurrency(property.precio_final)}</span>
                          {(() => {
                            // Ajustar precio_final si hay comisión en efectivo
+                           // La comisión se calcula como: precio_lista * porcentaje
                            let precioFinalAjustado = property.precio_final;
                            if (property.es_comision_venta_efectivo && property.porcentaje_comision_venta) {
-                             precioFinalAjustado = property.precio_final / (1 - property.porcentaje_comision_venta / 100);
+                             const montoComision = property.precio_lista * (property.porcentaje_comision_venta / 100);
+                             precioFinalAjustado = property.precio_final + montoComision;
                            }
+                           
+                           const difference = precioFinalAjustado - property.precio_lista;
+                           const tolerance = 10.0; // Tolerancia para redondeo
                            
                            return (
                              <>
-                               {precioFinalAjustado > property.precio_lista ? (
+                               {difference > tolerance ? (
                                  <TooltipProvider>
                                    <Tooltip>
                                      <TooltipTrigger>
@@ -1841,7 +1846,7 @@ const Propiedades = () => {
                                      </TooltipContent>
                                    </Tooltip>
                                  </TooltipProvider>
-                               ) : precioFinalAjustado < property.precio_lista ? (
+                               ) : difference < -tolerance ? (
                                  <TooltipProvider>
                                    <Tooltip>
                                      <TooltipTrigger>

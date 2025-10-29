@@ -3340,11 +3340,15 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 <div className="mb-4">
                   <div className="flex items-center gap-3">
                     <h3 className="text-lg font-semibold text-foreground">Acuerdo de Pago</h3>
-                    {esComisionEfectivo && cuentaDetalle && porcentajeComision > 0 && (
-                      <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200">
-                        💰 Comisión en efectivo: -{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format((cuentaDetalle.precio_final / (1 - porcentajeComision / 100)) - cuentaDetalle.precio_final)}
-                      </Badge>
-                    )}
+                    {esComisionEfectivo && cuentaDetalle && porcentajeComision > 0 && (() => {
+                      const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
+                      const montoComision = precioLista ? precioLista * (porcentajeComision / 100) : 0;
+                      return (
+                        <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200">
+                          💰 Comisión en efectivo: -{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(montoComision)}
+                        </Badge>
+                      );
+                    })()}
                   </div>
                   {esComisionEfectivo && (
                     <p className="text-xs text-muted-foreground mt-1">
@@ -3406,19 +3410,21 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               {(() => {
                                 const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
                                 
-                                // Ajustar precio_final si hay comisión en efectivo
-                                // Para comparar correctamente, debemos usar el precio ANTES de descontar la comisión
-                                let precioFinalAjustado = cuentaDetalle?.precio_final || 0;
-                                if (esComisionEfectivo && porcentajeComision > 0) {
-                                  // Recuperar el precio_final antes de descontar la comisión
-                                  precioFinalAjustado = precioFinalAjustado / (1 - porcentajeComision / 100);
-                                }
-                                
                                 if (!precioLista || !cuentaDetalle?.precio_final) return null;
                                 
+                                // Ajustar precio_final si hay comisión en efectivo
+                                // La comisión se calcula como: precio_lista * porcentaje
+                                // Entonces: precio_final = precio_lista - comisión
+                                // Para recuperar el precio antes de comisión: precio_final + comisión = precio_lista
+                                let precioFinalAjustado = cuentaDetalle.precio_final;
+                                if (esComisionEfectivo && porcentajeComision > 0) {
+                                  const montoComision = precioLista * (porcentajeComision / 100);
+                                  precioFinalAjustado = cuentaDetalle.precio_final + montoComision;
+                                }
+                                
                                 const difference = precioFinalAjustado - precioLista;
-                                // Usar tolerancia de $1 para evitar problemas de redondeo
-                                const tolerance = 1.0;
+                                // Usar tolerancia para evitar problemas de redondeo
+                                const tolerance = 10.0;
                                 
                                 // Si la diferencia es menor a la tolerancia, no mostrar ahorro/interés
                                 if (Math.abs(difference) < tolerance) {

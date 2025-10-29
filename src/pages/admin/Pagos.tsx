@@ -1325,14 +1325,19 @@ export default function Pagos() {
                              <span>{formatCurrency(Number(cuenta.precio_final))}</span>
                              {(() => {
                                // Ajustar precio_final si hay comisión en efectivo
+                               // La comisión se calcula como: precio_lista * porcentaje
                                let precioFinalAjustado = cuenta.precio_final;
-                               if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta) {
-                                 precioFinalAjustado = cuenta.precio_final / (1 - cuenta.porcentaje_comision_venta / 100);
+                               if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && cuenta.precio_lista) {
+                                 const montoComision = cuenta.precio_lista * (cuenta.porcentaje_comision_venta / 100);
+                                 precioFinalAjustado = cuenta.precio_final + montoComision;
                                }
+                               
+                               const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
+                               const tolerance = 10.0; // Tolerancia para redondeo
                                
                                return (
                                  <>
-                                   {cuenta.precio_lista && precioFinalAjustado > cuenta.precio_lista ? (
+                                   {cuenta.precio_lista && difference > tolerance ? (
                                      <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
@@ -1343,7 +1348,7 @@ export default function Pagos() {
                                          </TooltipContent>
                                        </Tooltip>
                                      </TooltipProvider>
-                                   ) : cuenta.precio_lista && precioFinalAjustado < cuenta.precio_lista ? (
+                                   ) : cuenta.precio_lista && difference < -tolerance ? (
                                      <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
@@ -1354,7 +1359,7 @@ export default function Pagos() {
                                          </TooltipContent>
                                        </Tooltip>
                                      </TooltipProvider>
-                                   ) : cuenta.precio_lista && precioFinalAjustado === cuenta.precio_lista ? (
+                                   ) : cuenta.precio_lista && Math.abs(difference) <= tolerance ? (
                                      <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
@@ -1834,14 +1839,19 @@ export default function Pagos() {
                              <span>{formatCurrency(Number(cuenta.precio_final))}</span>
                              {(() => {
                                // Ajustar precio_final si hay comisión en efectivo
+                               // La comisión se calcula como: precio_lista * porcentaje
                                let precioFinalAjustado = cuenta.precio_final;
-                               if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta) {
-                                 precioFinalAjustado = cuenta.precio_final / (1 - cuenta.porcentaje_comision_venta / 100);
+                               if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && cuenta.precio_lista) {
+                                 const montoComision = cuenta.precio_lista * (cuenta.porcentaje_comision_venta / 100);
+                                 precioFinalAjustado = cuenta.precio_final + montoComision;
                                }
+                               
+                               const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
+                               const tolerance = 10.0; // Tolerancia para redondeo
                                
                                return (
                                  <>
-                                   {cuenta.precio_lista && precioFinalAjustado > cuenta.precio_lista ? (
+                                   {cuenta.precio_lista && difference > tolerance ? (
                                      <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
@@ -1852,7 +1862,7 @@ export default function Pagos() {
                                          </TooltipContent>
                                        </Tooltip>
                                      </TooltipProvider>
-                                   ) : cuenta.precio_lista && precioFinalAjustado < cuenta.precio_lista ? (
+                                   ) : cuenta.precio_lista && difference < -tolerance ? (
                                      <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
@@ -1863,7 +1873,7 @@ export default function Pagos() {
                                          </TooltipContent>
                                        </Tooltip>
                                      </TooltipProvider>
-                                   ) : cuenta.precio_lista && precioFinalAjustado === cuenta.precio_lista ? (
+                                   ) : cuenta.precio_lista && Math.abs(difference) <= tolerance ? (
                                      <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
