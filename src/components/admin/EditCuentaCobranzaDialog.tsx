@@ -1182,15 +1182,15 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          siguiente_accion: "genera_acuerdo_para_cuenta_cobranza",
-          id_oferta: ofertaData.id,
-          id_propiedad: ofertaData.id_propiedad || null,
-          id: cuentaDetalle.id,
-          clabe_stp: cuentaDetalle.clabe_stp || '',
-          rfc_curp_ordenante: rfc_curp_ordenante,
-          environment: ENVIRONMENT
-        }),
+      body: JSON.stringify({
+        siguiente_accion: "genera_acuerdo_para_cuenta_cobranza",
+        id_oferta: ofertaData.id,
+        id_propiedad: ofertaData.id_propiedad || null,
+        id_cuenta_cobranza: cuentaDetalle.id,
+        clabe_stp: cuentaDetalle.clabe_stp || '',
+        rfc_curp_ordenante: rfc_curp_ordenante,
+        environment: ENVIRONMENT
+      }),
       });
       
       if (!webhookResponse.ok) {
