@@ -489,7 +489,6 @@ export default function PagarComisiones() {
                       <TableHead>Depto</TableHead>
                       <TableHead className="text-right">Precio Final</TableHead>
                       <TableHead className="text-right">Monto Comisión</TableHead>
-                      <TableHead className="text-right">% Comisión</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -518,14 +517,14 @@ export default function PagarComisiones() {
                           </TableCell>
                           <TableCell className="text-right font-bold">
                             {formatCurrency(cuenta.montoTotalComision)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {cuenta.porcentajeTotalComision.toFixed(2)}%
+                            <span className="text-muted-foreground text-xs ml-1">
+                              ({cuenta.porcentajeTotalComision.toFixed(2)}%)
+                            </span>
                           </TableCell>
                         </TableRow>
                         {expandedItems.has(`cuenta-${cuenta.idCuenta}`) && (
                           <TableRow>
-                            <TableCell colSpan={10} className="bg-muted/30 p-0">
+                            <TableCell colSpan={9} className="bg-muted/30 p-0">
                               <div className="p-4">
                                 <Table>
                                   <TableHeader>
