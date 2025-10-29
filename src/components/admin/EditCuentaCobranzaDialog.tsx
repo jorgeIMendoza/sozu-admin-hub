@@ -1243,12 +1243,33 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const { data: comisionistas, refetch: refetchComisionistas } = useQuery({
     queryKey: ["comisionistas", cuenta.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: comisionistasData } = await supabase
         .from('comisionistas')
         .select('*')
         .eq('id_cuenta_cobranza', cuenta.id)
         .eq('activo', true);
-      return data || [];
+      
+      if (!comisionistasData || comisionistasData.length === 0) return [];
+      
+      // Get unique emails from comisionistas
+      const emails = comisionistasData.map(c => c.email_usuario);
+      
+      // Fetch usuarios data
+      const { data: usuariosData } = await supabase
+        .from('usuarios')
+        .select('email, nombre')
+        .in('email', emails);
+      
+      // Create a map for quick lookup
+      const usuariosMap = new Map(usuariosData?.map(u => [u.email, u]) || []);
+      
+      // Merge data
+      const mergedData = comisionistasData.map(c => ({
+        ...c,
+        usuarios: usuariosMap.get(c.email_usuario)
+      }));
+      
+      return mergedData;
     }
   });
 
@@ -4207,6 +4228,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Nombre</TableHead>
                           <TableHead>Usuario</TableHead>
                           <TableHead className="text-right">% Comisión</TableHead>
                           <TableHead className="text-right">Monto</TableHead>
@@ -4217,7 +4239,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       <TableBody>
                         {comisionistas.map((comisionista) => (
                           <TableRow key={comisionista.email_usuario}>
-                            <TableCell className="font-medium">{comisionista.email_usuario}</TableCell>
+                            <TableCell className="font-medium">{comisionista.usuarios?.nombre || 'N/A'}</TableCell>
+                            <TableCell>{comisionista.email_usuario}</TableCell>
                             <TableCell className="text-right">
                               {comisionista.porcentaje_comision.toFixed(2)}%
                             </TableCell>
