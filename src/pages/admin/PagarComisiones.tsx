@@ -96,7 +96,7 @@ export default function PagarComisiones() {
           url_evidencia_pago,
           aprobada,
           id_cuenta_cobranza,
-          cuentas_cobranza!inner(
+          cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
             id,
             precio_final,
             ofertas!inner(
@@ -174,7 +174,7 @@ export default function PagarComisiones() {
           url_evidencia_pago,
           aprobada,
           id_cuenta_cobranza,
-          cuentas_cobranza!inner(
+          cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
             id,
             precio_final,
             ofertas!inner(
