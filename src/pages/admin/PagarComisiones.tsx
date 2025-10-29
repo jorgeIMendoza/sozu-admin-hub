@@ -125,11 +125,21 @@ export default function PagarComisiones() {
 
       if (error) throw error;
 
+      // Obtener nombres de usuarios
+      const emails = [...new Set(comisionistas.map((c: any) => c.email_usuario))];
+      const { data: usuarios } = await supabase
+        .from("usuarios")
+        .select("email, nombre")
+        .in("email", emails);
+
+      const usuariosMap = new Map(usuarios?.map(u => [u.email, u.nombre]) || []);
+
       // Agrupar por comisionista
       const grouped = comisionistas.reduce((acc: any, com: any) => {
         if (!acc[com.email_usuario]) {
           acc[com.email_usuario] = {
             email: com.email_usuario,
+            nombre: usuariosMap.get(com.email_usuario) || 'N/A',
             montoTotal: 0,
             cuentas: []
           };
@@ -205,6 +215,15 @@ export default function PagarComisiones() {
 
       if (error) throw error;
 
+      // Obtener nombres de usuarios
+      const emails = [...new Set(comisionistas.map((c: any) => c.email_usuario))];
+      const { data: usuarios } = await supabase
+        .from("usuarios")
+        .select("email, nombre")
+        .in("email", emails);
+
+      const usuariosMap = new Map(usuarios?.map(u => [u.email, u.nombre]) || []);
+
       // Agrupar por cuenta
       const grouped = comisionistas.reduce((acc: any, com: any) => {
         const cuentaId = com.id_cuenta_cobranza;
@@ -223,14 +242,20 @@ export default function PagarComisiones() {
             modelo: propiedad?.edificios_modelos?.modelos?.nombre || 'N/A',
             numeroDepartamento: propiedad?.numero_propiedad || 'N/A',
             precioFinal: cuenta.precio_final,
+            montoTotalComision: 0,
+            porcentajeTotalComision: 0,
             comisionistas: []
           };
         }
 
         const montoComision = (com.cuentas_cobranza.precio_final * com.porcentaje_comision) / 100;
 
+        acc[cuentaId].montoTotalComision += montoComision;
+        acc[cuentaId].porcentajeTotalComision += com.porcentaje_comision;
+
         acc[cuentaId].comisionistas.push({
           email: com.email_usuario,
+          nombre: usuariosMap.get(com.email_usuario) || 'N/A',
           porcentajeComision: com.porcentaje_comision,
           montoComision,
           pagada: com.pagada,
@@ -280,7 +305,8 @@ export default function PagarComisiones() {
   };
 
   const comisionistasFiltrados = comisionistasAgrupados?.filter((com: any) =>
-    com.email.toLowerCase().includes(filtroGeneral.toLowerCase())
+    com.email.toLowerCase().includes(filtroGeneral.toLowerCase()) ||
+    com.nombre.toLowerCase().includes(filtroGeneral.toLowerCase())
   );
 
   const cuentasFiltradas = cuentasAgrupadas?.filter((cuenta: any) =>
@@ -329,7 +355,8 @@ export default function PagarComisiones() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
-                      <TableHead>Comisionista</TableHead>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Usuario</TableHead>
                       <TableHead className="text-right">Monto Total</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -348,14 +375,15 @@ export default function PagarComisiones() {
                               <ChevronRight className="h-4 w-4" />
                             )}
                           </TableCell>
-                          <TableCell className="font-medium">{com.email}</TableCell>
+                          <TableCell className="font-medium">{com.nombre}</TableCell>
+                          <TableCell>{com.email}</TableCell>
                           <TableCell className="text-right font-bold">
                             {formatCurrency(com.montoTotal)}
                           </TableCell>
                         </TableRow>
                         {expandedItems.has(com.email) && (
                           <TableRow>
-                            <TableCell colSpan={3} className="bg-muted/30 p-0">
+                            <TableCell colSpan={4} className="bg-muted/30 p-0">
                               <div className="p-4">
                                 <Table>
                                   <TableHeader>
@@ -460,6 +488,8 @@ export default function PagarComisiones() {
                       <TableHead>Modelo</TableHead>
                       <TableHead>Depto</TableHead>
                       <TableHead className="text-right">Precio Final</TableHead>
+                      <TableHead className="text-right">Monto Comisión</TableHead>
+                      <TableHead className="text-right">% Comisión</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -486,15 +516,22 @@ export default function PagarComisiones() {
                           <TableCell className="text-right">
                             {formatCurrency(cuenta.precioFinal)}
                           </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {formatCurrency(cuenta.montoTotalComision)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {cuenta.porcentajeTotalComision.toFixed(2)}%
+                          </TableCell>
                         </TableRow>
                         {expandedItems.has(`cuenta-${cuenta.idCuenta}`) && (
                           <TableRow>
-                            <TableCell colSpan={8} className="bg-muted/30 p-0">
+                            <TableCell colSpan={10} className="bg-muted/30 p-0">
                               <div className="p-4">
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
-                                      <TableHead>Comisionista</TableHead>
+                                      <TableHead>Nombre</TableHead>
+                                      <TableHead>Usuario</TableHead>
                                       <TableHead className="text-right">Comisión</TableHead>
                                       <TableHead>Estatus</TableHead>
                                       <TableHead>Acciones</TableHead>
@@ -503,6 +540,7 @@ export default function PagarComisiones() {
                                   <TableBody>
                                     {cuenta.comisionistas.map((com: any) => (
                                       <TableRow key={`${cuenta.idCuenta}-${com.email}`}>
+                                        <TableCell className="font-medium">{com.nombre}</TableCell>
                                         <TableCell>{com.email}</TableCell>
                                         <TableCell className="text-right">
                                           {formatCurrency(com.montoComision)}
