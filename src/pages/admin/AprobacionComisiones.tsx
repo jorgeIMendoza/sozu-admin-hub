@@ -242,13 +242,13 @@ export default function AprobacionComisiones() {
   }) || [];
 
   // Separar en pendientes y completas
-  const cuentasPendientes = cuentasFiltradas.filter((cuenta: any) => 
-    cuenta.comisionistas.some((c: any) => !c.aprobada)
-  );
-  
-  const cuentasCompletas = cuentasFiltradas.filter((cuenta: any) => 
-    cuenta.comisionistas.length > 0 && cuenta.comisionistas.every((c: any) => c.aprobada)
-  );
+    const cuentasPendientes = cuentasFiltradas.filter((cuenta: any) => 
+      cuenta.comisionistas.length === 0 || cuenta.comisionistas.some((c: any) => !c.aprobada)
+    );
+
+    const cuentasCompletas = cuentasFiltradas.filter((cuenta: any) => 
+      cuenta.comisionistas.length > 0 && cuenta.comisionistas.every((c: any) => c.aprobada)
+    );
 
   // Calcular totales
   const calcularPorcentajeTotalComisiones = (cuenta: any) => {
