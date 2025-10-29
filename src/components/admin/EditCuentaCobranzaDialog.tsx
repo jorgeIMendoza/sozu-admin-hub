@@ -1428,17 +1428,15 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   // Handle comision efectivo confirmation
   const handleComisionEfectivoConfirm = async () => {
     try {
-      // Obtener precio_lista según el tipo de cuenta
-      const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
-      
-      if (!precioLista) {
-        toast.error("No se puede calcular la comisión: precio de lista no disponible");
+      // Obtener precio_final actual (que ya incluye el ajuste del esquema de pago)
+      if (!cuentaDetalle?.precio_final) {
+        toast.error("No se puede calcular la comisión: precio final no disponible");
         return;
       }
 
-      // ✅ CORRECTO: Calcular el monto de comisión sobre precio_lista (sin IVA)
-      const montoComision = (precioLista * porcentajeComision) / 100;
-      const nuevoPrecioFinal = precioLista - montoComision;
+      // ✅ CORRECTO: Calcular el monto de comisión sobre precio_final (que ya tiene el ajuste del esquema)
+      const montoComision = (cuentaDetalle.precio_final * porcentajeComision) / 100;
+      const nuevoPrecioFinal = cuentaDetalle.precio_final - montoComision;
 
       // 1. Actualizar precio_final en cuentas_cobranza
       const { error: errorPrecio } = await supabase
@@ -3416,9 +3414,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                     }
                                   </p>
                                   {esComisionEfectivo && porcentajeComision > 0 && (() => {
-                                    const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
-                                    const montoComision = precioLista ? precioLista * (porcentajeComision / 100) : 0;
-                                    const precioAntesComision = cuentaDetalle?.precio_final ? cuentaDetalle.precio_final + montoComision : 0;
+                                    // Calcular precio antes de comisión usando fórmula inversa
+                                    const precioAntesComision = cuentaDetalle?.precio_final 
+                                      ? cuentaDetalle.precio_final / (1 - porcentajeComision / 100) 
+                                      : 0;
+                                    const montoComision = precioAntesComision - (cuentaDetalle?.precio_final || 0);
                                     return (
                                       <TooltipProvider>
                                         <Tooltip>
@@ -3440,11 +3440,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 
                                 if (!precioLista || !cuentaDetalle?.precio_final) return null;
                                 
-                                // Ajustar precio_final si hay comisión en efectivo
+                                // Ajustar precio_final si hay comisión en efectivo usando fórmula inversa
                                 let precioFinalAjustado = cuentaDetalle.precio_final;
                                 if (esComisionEfectivo && porcentajeComision > 0) {
-                                  const montoComision = precioLista * (porcentajeComision / 100);
-                                  precioFinalAjustado = cuentaDetalle.precio_final + montoComision;
+                                  // Recalcular precio antes de aplicar la comisión
+                                  precioFinalAjustado = cuentaDetalle.precio_final / (1 - porcentajeComision / 100);
                                 }
                                 
                                 const difference = precioFinalAjustado - precioLista;
@@ -3558,11 +3558,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 
                                 if (!precioLista || !cuentaDetalle?.precio_final) return null;
                                 
-                                // Ajustar precio_final si hay comisión en efectivo
+                                // Ajustar precio_final si hay comisión en efectivo usando fórmula inversa
                                 let precioFinalAjustado = cuentaDetalle.precio_final;
                                 if (esComisionEfectivo && porcentajeComision > 0) {
-                                  const montoComision = precioLista * (porcentajeComision / 100);
-                                  precioFinalAjustado = cuentaDetalle.precio_final + montoComision;
+                                  // Recalcular precio antes de aplicar la comisión
+                                  precioFinalAjustado = cuentaDetalle.precio_final / (1 - porcentajeComision / 100);
                                 }
                                 
                                 const difference = precioFinalAjustado - precioLista;

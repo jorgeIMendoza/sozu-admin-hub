@@ -1821,16 +1821,15 @@ const Propiedades = () => {
                      {property.precio_final ? (
                        <div className="flex items-center justify-end gap-2">
                          <span>{formatCurrency(property.precio_final)}</span>
-                         {(() => {
-                           // Ajustar precio_final si hay comisión en efectivo
-                           // La comisión se calcula como: precio_lista * porcentaje
-                           let precioFinalAjustado = property.precio_final;
-                           if (property.es_comision_venta_efectivo && property.porcentaje_comision_venta) {
-                             const montoComision = property.precio_lista * (property.porcentaje_comision_venta / 100);
-                             precioFinalAjustado = property.precio_final + montoComision;
-                           }
-                           
-                           const difference = precioFinalAjustado - property.precio_lista;
+                          {(() => {
+                            // Ajustar precio_final si hay comisión en efectivo usando fórmula inversa
+                            let precioFinalAjustado = property.precio_final;
+                            if (property.es_comision_venta_efectivo && property.porcentaje_comision_venta) {
+                              // Recalcular precio antes de aplicar la comisión
+                              precioFinalAjustado = property.precio_final / (1 - property.porcentaje_comision_venta / 100);
+                            }
+                            
+                            const difference = precioFinalAjustado - property.precio_lista;
                            const tolerance = 10.0; // Tolerancia para redondeo
                            
                            return (

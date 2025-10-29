@@ -1323,16 +1323,15 @@ export default function Pagos() {
                          <TableCell className="font-semibold text-green-600">
                            <div className="flex items-center justify-end gap-2">
                              <span>{formatCurrency(Number(cuenta.precio_final))}</span>
-                             {(() => {
-                               // Ajustar precio_final si hay comisión en efectivo
-                               // La comisión se calcula como: precio_lista * porcentaje
-                               let precioFinalAjustado = cuenta.precio_final;
-                               if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && cuenta.precio_lista) {
-                                 const montoComision = cuenta.precio_lista * (cuenta.porcentaje_comision_venta / 100);
-                                 precioFinalAjustado = cuenta.precio_final + montoComision;
-                               }
-                               
-                               const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
+                              {(() => {
+                                // Ajustar precio_final si hay comisión en efectivo usando fórmula inversa
+                                let precioFinalAjustado = cuenta.precio_final;
+                                if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta) {
+                                  // Recalcular precio antes de aplicar la comisión
+                                  precioFinalAjustado = cuenta.precio_final / (1 - cuenta.porcentaje_comision_venta / 100);
+                                }
+                                
+                                const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
                                const tolerance = 10.0; // Tolerancia para redondeo
                                
                                return (
