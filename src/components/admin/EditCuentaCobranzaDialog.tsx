@@ -3554,6 +3554,12 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               </div>
                               {(() => {
                                 const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
+                                
+                                // NO mostrar ahorro/interés si hay comisión en efectivo
+                                if (esComisionEfectivo && porcentajeComision > 0) {
+                                  return null;
+                                }
+                                
                                 return precioLista && cuentaDetalle?.precio_final && 
                                   cuentaDetalle.precio_final !== precioLista && (
                                   <div>
