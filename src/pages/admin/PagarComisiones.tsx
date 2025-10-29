@@ -22,6 +22,7 @@ export default function PagarComisiones() {
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
   const [selectedComisionista, setSelectedComisionista] = useState<{ email: string; idCuenta: number } | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [pagarTodas, setPagarTodas] = useState<{ type: 'comisionista' | 'cuenta', data: any } | null>(null);
 
   const toggleItem = (itemId: string) => {
     const newExpanded = new Set(expandedItems);
@@ -81,6 +82,59 @@ export default function PagarComisiones() {
         variant: "destructive"
       });
       console.error("Error al pagar comisión:", error);
+    }
+  });
+
+  const pagarTodasMutation = useMutation({
+    mutationFn: async ({ cuentas, file }: { cuentas: Array<{ email: string; idCuenta: number }>, file: File }) => {
+      // Subir archivo a storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `pago_multiple_${Date.now()}.${fileExt}`;
+      const filePath = `evidencias-pago-comision/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Obtener URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('documentos')
+        .getPublicUrl(filePath);
+
+      // Actualizar todas las comisiones
+      for (const cuenta of cuentas) {
+        const { error: updateError } = await supabase
+          .from("comisionistas")
+          .update({ 
+            pagada: true,
+            url_evidencia_pago: publicUrl
+          })
+          .eq("email_usuario", cuenta.email)
+          .eq("id_cuenta_cobranza", cuenta.idCuenta)
+          .eq("activo", true);
+        
+        if (updateError) throw updateError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pagar-comisiones"] });
+      toast({
+        title: "Comisiones pagadas",
+        description: "Todas las comisiones han sido marcadas como pagadas exitosamente"
+      });
+      setUploadDialogOpen(false);
+      setEvidenciaFile(null);
+      setPagarTodas(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Hubo un error al procesar los pagos",
+        variant: "destructive"
+      });
+      console.error("Error al pagar comisiones:", error);
     }
   });
 
@@ -276,7 +330,7 @@ export default function PagarComisiones() {
   };
 
   const handlePagar = () => {
-    if (!selectedComisionista || !evidenciaFile) {
+    if (!evidenciaFile) {
       toast({
         title: "Error",
         description: "Debe seleccionar un archivo de evidencia",
@@ -285,15 +339,36 @@ export default function PagarComisiones() {
       return;
     }
 
-    pagarComisionMutation.mutate({
-      email: selectedComisionista.email,
-      idCuenta: selectedComisionista.idCuenta,
-      file: evidenciaFile
-    });
+    if (pagarTodas) {
+      // Pagar todas las comisiones
+      const cuentas = pagarTodas.type === 'comisionista'
+        ? pagarTodas.data.cuentas
+            .filter((c: any) => !c.pagada)
+            .map((c: any) => ({ email: pagarTodas.data.email, idCuenta: c.idCuenta }))
+        : pagarTodas.data.comisionistas
+            .filter((c: any) => !c.pagada)
+            .map((c: any) => ({ email: c.email, idCuenta: pagarTodas.data.idCuenta }));
+
+      pagarTodasMutation.mutate({ cuentas, file: evidenciaFile });
+    } else if (selectedComisionista) {
+      // Pagar una sola comisión
+      pagarComisionMutation.mutate({
+        email: selectedComisionista.email,
+        idCuenta: selectedComisionista.idCuenta,
+        file: evidenciaFile
+      });
+    }
   };
 
   const openPagarDialog = (email: string, idCuenta: number) => {
     setSelectedComisionista({ email, idCuenta });
+    setPagarTodas(null);
+    setUploadDialogOpen(true);
+  };
+
+  const openPagarTodasDialog = (type: 'comisionista' | 'cuenta', data: any) => {
+    setPagarTodas({ type, data });
+    setSelectedComisionista(null);
     setUploadDialogOpen(true);
   };
 
@@ -358,6 +433,7 @@ export default function PagarComisiones() {
                       <TableHead>Nombre</TableHead>
                       <TableHead>Usuario</TableHead>
                       <TableHead className="text-right">Monto Total</TableHead>
+                      <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -380,10 +456,25 @@ export default function PagarComisiones() {
                           <TableCell className="text-right font-bold">
                             {formatCurrency(com.montoTotal)}
                           </TableCell>
+                          <TableCell>
+                            {com.cuentas.some((c: any) => !c.pagada) && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPagarTodasDialog('comisionista', com);
+                                }}
+                              >
+                                <Upload className="h-4 w-4 mr-1" />
+                                Pagar Todas
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                         {expandedItems.has(com.email) && (
                           <TableRow>
-                            <TableCell colSpan={4} className="bg-muted/30 p-0">
+                            <TableCell colSpan={5} className="bg-muted/30 p-0">
                               <div className="p-4">
                                 <Table>
                                   <TableHeader>
@@ -489,6 +580,7 @@ export default function PagarComisiones() {
                       <TableHead>Depto</TableHead>
                       <TableHead className="text-right">Precio Final</TableHead>
                       <TableHead className="text-right">Monto Comisión</TableHead>
+                      <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -521,10 +613,25 @@ export default function PagarComisiones() {
                               ({cuenta.porcentajeTotalComision.toFixed(2)}%)
                             </span>
                           </TableCell>
+                          <TableCell>
+                            {cuenta.comisionistas.some((c: any) => !c.pagada) && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPagarTodasDialog('cuenta', cuenta);
+                                }}
+                              >
+                                <Upload className="h-4 w-4 mr-1" />
+                                Pagar Todas
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                         {expandedItems.has(`cuenta-${cuenta.idCuenta}`) && (
                           <TableRow>
-                            <TableCell colSpan={9} className="bg-muted/30 p-0">
+                            <TableCell colSpan={10} className="bg-muted/30 p-0">
                               <div className="p-4">
                                 <Table>
                                   <TableHeader>
@@ -597,9 +704,21 @@ export default function PagarComisiones() {
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Subir Evidencia de Pago</DialogTitle>
+            <DialogTitle>
+              {pagarTodas ? 'Pagar Todas las Comisiones' : 'Subir Evidencia de Pago'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {pagarTodas && (
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">
+                  Se pagarán {pagarTodas.type === 'comisionista' 
+                    ? `${pagarTodas.data.cuentas.filter((c: any) => !c.pagada).length} comisiones pendientes del comisionista ${pagarTodas.data.nombre}`
+                    : `${pagarTodas.data.comisionistas.filter((c: any) => !c.pagada).length} comisiones pendientes de la cuenta ${pagarTodas.data.numeroCuenta}`
+                  }
+                </p>
+              </div>
+            )}
             <div>
               <Label>Archivo de evidencia</Label>
               <Input
@@ -621,15 +740,16 @@ export default function PagarComisiones() {
                   setUploadDialogOpen(false);
                   setEvidenciaFile(null);
                   setSelectedComisionista(null);
+                  setPagarTodas(null);
                 }}
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handlePagar}
-                disabled={!evidenciaFile || pagarComisionMutation.isPending}
+                disabled={!evidenciaFile || pagarComisionMutation.isPending || pagarTodasMutation.isPending}
               >
-                {pagarComisionMutation.isPending ? "Procesando..." : "Confirmar Pago"}
+                {(pagarComisionMutation.isPending || pagarTodasMutation.isPending) ? "Procesando..." : "Confirmar Pago"}
               </Button>
             </div>
           </div>
