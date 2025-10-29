@@ -1305,16 +1305,40 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   // Mutation to add comisionista
   const addComisionistaMutation = useMutation({
     mutationFn: async ({ email, porcentaje }: { email: string; porcentaje: number }) => {
-      const { error } = await supabase
+      // First, check if there's an inactive comisionista for this cuenta and email
+      const { data: existingComisionista } = await supabase
         .from('comisionistas')
-        .insert({
-          id_cuenta_cobranza: cuenta.id,
-          email_usuario: email,
-          porcentaje_comision: porcentaje,
-          activo: true
-        });
-      
-      if (error) throw error;
+        .select('*')
+        .eq('id_cuenta_cobranza', cuenta.id)
+        .eq('email_usuario', email)
+        .eq('activo', false)
+        .maybeSingle();
+
+      if (existingComisionista) {
+        // Reactivate existing comisionista
+        const { error } = await supabase
+          .from('comisionistas')
+          .update({
+            activo: true,
+            porcentaje_comision: porcentaje
+          })
+          .eq('id_cuenta_cobranza', cuenta.id)
+          .eq('email_usuario', email);
+        
+        if (error) throw error;
+      } else {
+        // Insert new comisionista
+        const { error } = await supabase
+          .from('comisionistas')
+          .insert({
+            id_cuenta_cobranza: cuenta.id,
+            email_usuario: email,
+            porcentaje_comision: porcentaje,
+            activo: true
+          });
+        
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Comisionista agregado exitosamente");
@@ -4089,25 +4113,37 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             {usuarios && usuarios.length > 0 && searchUsuario && !selectedUsuario && (
                               <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
                                 {usuarios.map((usuario) => (
-                                  <div
-                                    key={usuario.email}
-                                    className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                    onClick={() => {
-                                      setSelectedUsuario(usuario);
-                                      setSearchUsuario(usuario.email);
-                                    }}
-                                  >
-                                    <p className="font-medium">{usuario.nombre || usuario.email}</p>
-                                    <p className="text-sm text-muted-foreground">{usuario.email}</p>
-                                  </div>
+                                   <div
+                                     key={usuario.email}
+                                     className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                     onClick={() => {
+                                       setSelectedUsuario(usuario);
+                                       setSearchUsuario('');
+                                     }}
+                                   >
+                                     <p className="font-medium">{usuario.nombre || usuario.email}</p>
+                                     <p className="text-sm text-muted-foreground">{usuario.email}</p>
+                                   </div>
                                 ))}
                               </div>
                             )}
-                          </div>
-                          {selectedUsuario && (
-                            <p className="text-xs text-muted-foreground">Usuario seleccionado ✓</p>
-                          )}
-                        </div>
+                           </div>
+                           {selectedUsuario && (
+                             <div className="flex items-center justify-between p-2 bg-accent/50 rounded-md">
+                               <p className="text-sm font-medium">{selectedUsuario.nombre || selectedUsuario.email}</p>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={() => {
+                                   setSelectedUsuario(null);
+                                   setSearchUsuario('');
+                                 }}
+                               >
+                                 Cambiar
+                               </Button>
+                             </div>
+                           )}
+                         </div>
                         <div className="space-y-2">
                           <Label>Porcentaje de Comisión (%)</Label>
                           <Input
