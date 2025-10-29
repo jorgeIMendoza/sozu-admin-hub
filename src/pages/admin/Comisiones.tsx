@@ -407,22 +407,25 @@ export default function Comisiones() {
                       {comision.numero_departamento || comision.producto_nombre || "-"}
                     </TableCell>
                     <TableCell>{formatMonto(comision.precio_final)}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div>
+                    <TableCell className="min-w-[200px]">
+                      <div className="relative">
+                        <div className="pr-16">
                           {(() => {
                             const montoBase = (comision.porcentaje_comision_venta / 100) * comision.precio_final;
                             const montoFinal = comision.iva_incluido ? montoBase * 1.16 : montoBase;
                             return (
-                              <>
-                                {formatMonto(montoFinal)} ({comision.porcentaje_comision_venta}%)
-                              </>
+                              <div className="font-medium">
+                                {formatMonto(montoFinal)}
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  ({comision.porcentaje_comision_venta}%)
+                                </div>
+                              </div>
                             );
                           })()}
                         </div>
                         {comision.iva_incluido && (
-                          <Badge variant="secondary" className="text-xs">
-                            IVA Incluido
+                          <Badge variant="default" className="absolute top-0 right-0 text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-700">
+                            IVA
                           </Badge>
                         )}
                       </div>
