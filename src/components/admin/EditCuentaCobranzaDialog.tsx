@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Edit, Trash2, Plus, HeartHandshake, FileText, ExternalLink, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Edit, Trash2, Plus, HeartHandshake, FileText, ExternalLink, CheckCircle, Banknote } from 'lucide-react';
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
 import { isFiscalDataComplete } from '@/utils/fiscalDataValidation';
 import { format } from "date-fns";
@@ -3408,12 +3408,32 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               </div>
                               <div>
                                 <h4 className="font-medium text-foreground mb-1">Precio Final</h4>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {cuentaDetalle?.precio_final ? 
-                                    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.precio_final) : 
-                                    'No definido'
-                                  }
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-semibold text-foreground">
+                                    {cuentaDetalle?.precio_final ? 
+                                      new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.precio_final) : 
+                                      'No definido'
+                                    }
+                                  </p>
+                                  {esComisionEfectivo && porcentajeComision > 0 && (() => {
+                                    const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
+                                    const montoComision = precioLista ? precioLista * (porcentajeComision / 100) : 0;
+                                    const precioAntesComision = cuentaDetalle?.precio_final ? cuentaDetalle.precio_final + montoComision : 0;
+                                    return (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger>
+                                            <Banknote className="h-4 w-4 text-yellow-600" />
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Comisión pagada en efectivo ({porcentajeComision.toFixed(2)}%)</p>
+                                            <p className="text-xs mt-1">Precio antes de comisión: {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(precioAntesComision)}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                               {(() => {
                                 const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
