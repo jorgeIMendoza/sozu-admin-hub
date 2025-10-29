@@ -287,7 +287,7 @@ export default function AprobacionComisiones() {
           <TableHead>Modelo</TableHead>
           <TableHead>No. Departamento</TableHead>
           <TableHead>Precio final</TableHead>
-          <TableHead>% Comisión Total</TableHead>
+          <TableHead>Comisión Total</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -336,9 +336,12 @@ export default function AprobacionComisiones() {
                     {formatMonto(cuenta.precio_final)}
                   </TableCell>
                   <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                    <Badge variant={porcentajeTotalPendiente > 0 ? "default" : "secondary"}>
-                      {cuenta.porcentaje_comision_venta.toFixed(2)}%
-                    </Badge>
+                    <div className="space-y-1">
+                      <div className="font-medium">{formatMonto((cuenta.precio_final * porcentajeTotalPendiente) / 100)}</div>
+                      <Badge variant={porcentajeTotalPendiente > 0 ? "default" : "secondary"}>
+                        {porcentajeTotalPendiente.toFixed(2)}%
+                      </Badge>
+                    </div>
                   </TableCell>
                 </TableRow>
                 
@@ -353,14 +356,7 @@ export default function AprobacionComisiones() {
                         ) : (
                           <>
                             {isPendientes && comisionistasPendientes.length > 0 && (
-                              <div className="flex justify-between items-center mb-4">
-                                <Alert className="flex-1 mr-4">
-                                  <AlertDescription>
-                                    <strong>Resumen de aprobación pendiente:</strong> Se pagará un total de{" "}
-                                    <strong>{porcentajeTotalPendiente.toFixed(2)}%</strong> del precio de la propiedad 
-                                    ({formatMonto((cuenta.precio_final * porcentajeTotalPendiente) / 100)}) en comisiones.
-                                  </AlertDescription>
-                                </Alert>
+                              <div className="flex justify-end mb-4">
                                 <Button
                                   onClick={() => aprobarTodosComisionistasMutation.mutate(cuenta.id)}
                                   disabled={aprobarTodosComisionistasMutation.isPending}
@@ -369,25 +365,12 @@ export default function AprobacionComisiones() {
                                 </Button>
                               </div>
                             )}
-                            
-                            {!isPendientes && cuenta.comisionistas.length > 0 && (
-                              <div className="mb-4">
-                                <Alert>
-                                  <AlertDescription>
-                                    <strong>Resumen de comisiones:</strong> Se pagará un total de{" "}
-                                    <strong>{porcentajeTotalPendiente.toFixed(2)}%</strong> del precio de la propiedad 
-                                    ({formatMonto((cuenta.precio_final * porcentajeTotalPendiente) / 100)}) en comisiones.
-                                  </AlertDescription>
-                                </Alert>
-                              </div>
-                            )}
 
                             <Table>
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>Email Comisionista</TableHead>
-                                  <TableHead>% Comisión</TableHead>
-                                  <TableHead>Monto Comisión</TableHead>
+                                  <TableHead>Comisión</TableHead>
                                   <TableHead>Estado</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -400,11 +383,13 @@ export default function AprobacionComisiones() {
                                     <TableRow key={comisionista.email_usuario}>
                                       <TableCell>{comisionista.email_usuario}</TableCell>
                                       <TableCell>
-                                        <Badge variant="outline">
-                                          {comisionista.porcentaje_comision.toFixed(2)}%
-                                        </Badge>
+                                        <div className="space-y-1">
+                                          <div className="font-medium">{formatMonto(montoFinal)}</div>
+                                          <Badge variant="outline">
+                                            {comisionista.porcentaje_comision.toFixed(2)}%
+                                          </Badge>
+                                        </div>
                                       </TableCell>
-                                      <TableCell>{formatMonto(montoFinal)}</TableCell>
                                       <TableCell>
                                         {comisionista.aprobada ? (
                                           <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
@@ -428,6 +413,20 @@ export default function AprobacionComisiones() {
                                     </TableRow>
                                   );
                                 })}
+                                {cuenta.comisionistas.length > 0 && (
+                                  <TableRow className="font-semibold bg-muted/50">
+                                    <TableCell>Total a dispersar</TableCell>
+                                    <TableCell>
+                                      <div className="space-y-1">
+                                        <div className="font-bold">{formatMonto((cuenta.precio_final * porcentajeTotalPendiente) / 100)}</div>
+                                        <Badge variant="default">
+                                          {porcentajeTotalPendiente.toFixed(2)}%
+                                        </Badge>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                  </TableRow>
+                                )}
                               </TableBody>
                             </Table>
                           </>
