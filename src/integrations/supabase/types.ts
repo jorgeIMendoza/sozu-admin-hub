@@ -787,6 +787,7 @@ export type Database = {
           id_notario: number | null
           id_oferta: number | null
           id_tipo_cancelacion: number | null
+          iva_incluido: boolean | null
           libro: string | null
           moneda: string | null
           monto_cobro_cancelacion: number | null
@@ -818,6 +819,7 @@ export type Database = {
           id_notario?: number | null
           id_oferta?: number | null
           id_tipo_cancelacion?: number | null
+          iva_incluido?: boolean | null
           libro?: string | null
           moneda?: string | null
           monto_cobro_cancelacion?: number | null
@@ -849,6 +851,7 @@ export type Database = {
           id_notario?: number | null
           id_oferta?: number | null
           id_tipo_cancelacion?: number | null
+          iva_incluido?: boolean | null
           libro?: string | null
           moneda?: string | null
           monto_cobro_cancelacion?: number | null
