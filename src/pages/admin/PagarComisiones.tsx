@@ -99,7 +99,7 @@ export default function PagarComisiones() {
           cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
             id,
             precio_final,
-            ofertas!inner(
+            ofertas!fk_cuentas_cobranza_oferta!inner(
               id_propiedad,
               id_producto,
               propiedades(
@@ -177,7 +177,7 @@ export default function PagarComisiones() {
           cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
             id,
             precio_final,
-            ofertas!inner(
+            ofertas!fk_cuentas_cobranza_oferta!inner(
               id_propiedad,
               id_producto,
               propiedades(
