@@ -1148,131 +1148,72 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   // Mutation to create payment agreement
   const createAcuerdoMutation = useMutation({
     mutationFn: async (esquemaId: number) => {
-      // Simulate API call - in real implementation this would call an endpoint
-      const { data: esquema } = await supabase
-        .from('esquemas_pago')
-        .select('*')
-        .eq('id', esquemaId)
+      if (!cuentaDetalle) throw new Error('Cuenta no encontrada');
+      
+      // 1. Actualizar el esquema de pago seleccionado en la oferta
+      const { error: updateError } = await supabase
+        .from('ofertas')
+        .update({ id_esquema_pago_seleccionado: esquemaId })
+        .eq('id', cuentaDetalle.id_oferta);
+      
+      if (updateError) throw updateError;
+      
+      // 2. Obtener datos necesarios para el webhook
+      const { data: ofertaData, error: ofertaError } = await supabase
+        .from('ofertas')
+        .select(`
+          id,
+          id_propiedad,
+          id_producto,
+          id_persona_lead,
+          personas!ofertas_id_persona_lead_fkey(rfc, curp)
+        `)
+        .eq('id', cuentaDetalle.id_oferta)
         .single();
       
-      if (!esquema || !cuentaDetalle) throw new Error('Esquema o cuenta no encontrada');
+      if (ofertaError || !ofertaData) throw new Error('No se pudo obtener la oferta');
       
-      // ✅ VALIDACIÓN: Si precio_final es 0 o null, calcularlo y actualizarlo
-      let precioFinal = cuentaDetalle.precio_final;
+      // 3. Determinar RFC/CURP del ordenante
+      const rfc_curp_ordenante = ofertaData.personas?.rfc || ofertaData.personas?.curp || '';
       
-      if (!precioFinal || precioFinal === 0) {
-        console.warn('⚠️ precio_final es 0, calculando automáticamente...');
-        
-        // Obtener oferta y datos relacionados
-        const { data: oferta, error: ofertaError } = await supabase
-          .from('ofertas')
-          .select(`
-            id_propiedad,
-            id_producto,
-            id_esquema_pago_seleccionado,
-            propiedades!ofertas_id_propiedad_fkey(precio_lista),
-            productos_servicios!ofertas_id_producto_fkey(precio_lista),
-            esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey(porcentaje_descuento_aumento)
-          `)
-          .eq('id', cuentaDetalle.id_oferta)
-          .single();
-        
-        if (ofertaError) throw ofertaError;
-        if (!oferta) throw new Error('Oferta no encontrada');
-        
-        // Determinar precio_lista
-        const precioLista = Number(
-          oferta.propiedades?.precio_lista || 
-          oferta.productos_servicios?.precio_lista || 
-          0
-        );
-        
-        if (precioLista <= 0) {
-          throw new Error('No se pudo calcular precio_final. Verifica que la propiedad/producto tenga precio_lista.');
-        }
-        
-        // Calcular precio_final
-        const porcentaje = Number(oferta.esquemas_pago?.porcentaje_descuento_aumento || 0);
-        const precioFinalCalculado = precioLista * (1 + porcentaje / 100);
-        
-        // Actualizar precio_final en la base de datos
-        const { error: updateError } = await supabase
-          .from('cuentas_cobranza')
-          .update({ 
-            precio_final: precioFinalCalculado,
-            fecha_actualizacion: new Date().toISOString()
-          })
-          .eq('id', cuenta.id);
-        
-        if (updateError) {
-          console.error('Error updating precio_final:', updateError);
-          throw updateError;
-        }
-        
-        // Usar el precio_final recién calculado
-        precioFinal = precioFinalCalculado;
-        
-        console.log('✅ precio_final actualizado a:', precioFinal);
-      }
-      
-      // Calculate payment amounts
-      const montoApartado = 20000; // Fixed amount
-      const montoEnganche = (precioFinal * esquema.porcentaje_enganche / 100) - montoApartado;
-      const montoMensualidad = (precioFinal * esquema.porcentaje_mensualidades / 100) / esquema.numero_mensualidades;
-      const montoEntrega = precioFinal * esquema.porcentaje_entrega / 100;
-      
-      // Create payment agreements
-      const acuerdos = [];
-      
-      // Apartado
-      acuerdos.push({
-        id_cuenta_cobranza: cuenta.id,
-        orden: 1,
-        monto: montoApartado,
-        id_concepto: 1, // Apartado
-        activo: true
+      // 4. Llamar al webhook
+      const webhookResponse = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          siguiente_accion: "genera_acuerdo_para_cuenta_cobranza",
+          id_oferta: ofertaData.id,
+          id_propiedad: ofertaData.id_propiedad || null,
+          id: cuentaDetalle.id,
+          clabe_stp: cuentaDetalle.clabe_stp || '',
+          rfc_curp_ordenante: rfc_curp_ordenante,
+          environment: ENVIRONMENT
+        }),
       });
       
-      // Enganche
-      if (montoEnganche > 0) {
-        acuerdos.push({
-          id_cuenta_cobranza: cuenta.id,
-          orden: 2,
-          monto: montoEnganche,
-          id_concepto: 2, // Enganche
-          activo: true
-        });
+      if (!webhookResponse.ok) {
+        throw new Error(`Error en webhook: ${webhookResponse.statusText}`);
       }
       
-      // Mensualidades
-      for (let i = 0; i < esquema.numero_mensualidades; i++) {
-        acuerdos.push({
-          id_cuenta_cobranza: cuenta.id,
-          orden: (montoEnganche > 0 ? 3 : 2) + i,
-          monto: montoMensualidad,
-          id_concepto: 5, // Parcialidad
-          activo: true
-        });
-      }
-      
-      // Entrega
-      acuerdos.push({
-        id_cuenta_cobranza: cuenta.id,
-        orden: acuerdos.length + 1,
-        monto: montoEntrega,
-        id_concepto: 3, // Entrega
-        activo: true
-      });
-
-      const { error } = await supabase
-        .from('acuerdos_pago')
-        .insert(acuerdos);
-      
-      if (error) throw error;
+      const result = await webhookResponse.json();
+      return result;
     },
     onSuccess: () => {
-      toast.success("Acuerdo de pago creado exitosamente");
+      toast.success("Acuerdo de pago creado y pagos aplicados exitosamente");
+      setSelectedEsquema('');
+      
+      // Invalidar queries para refrescar datos
+      queryClient.invalidateQueries({ queryKey: ['acuerdos_pago', cuenta.id] });
+      queryClient.invalidateQueries({ queryKey: ['cuenta_detalle', cuenta.id] });
+      queryClient.invalidateQueries({ queryKey: ['selected_payment_scheme'] });
+      
       onUpdate();
+    },
+    onError: (error: Error) => {
+      console.error('Error creating acuerdo:', error);
+      toast.error(error.message || "Error al crear acuerdo de pago");
     }
   });
 
