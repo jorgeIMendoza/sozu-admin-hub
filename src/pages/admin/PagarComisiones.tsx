@@ -431,6 +431,42 @@ export default function PagarComisiones() {
     }
   });
 
+  const { data: totalesComisionesSozu } = useQuery({
+    queryKey: ["totales-comisiones-sozu"],
+    queryFn: async () => {
+      // Obtener todas las cuentas de cobranza con comisión
+      const { data: cuentas, error } = await supabase
+        .from("cuentas_cobranza")
+        .select(`
+          precio_final,
+          porcentaje_comision_venta,
+          es_pagada_comision_venta
+        `)
+        .eq("activo", true)
+        .gt("porcentaje_comision_venta", 0);
+
+      if (error) throw error;
+
+      let montoTotalSozu = 0;
+      let montoYaCobrado = 0;
+
+      cuentas.forEach((cuenta: any) => {
+        const montoComision = (cuenta.precio_final * cuenta.porcentaje_comision_venta) / 100;
+        montoTotalSozu += montoComision;
+        
+        if (cuenta.es_pagada_comision_venta) {
+          montoYaCobrado += montoComision;
+        }
+      });
+
+      return {
+        montoTotalSozu,
+        montoYaCobrado,
+        montoPorCobrar: montoTotalSozu - montoYaCobrado
+      };
+    }
+  });
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -441,7 +477,39 @@ export default function PagarComisiones() {
       </div>
 
       {/* Cards de resumen */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Comisiones a Cobrar por Sozu
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {totalesComisionesSozu ? formatCurrency(totalesComisionesSozu.montoPorCobrar) : <Skeleton className="h-8 w-32" />}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Comisión general pendiente
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Comisiones Ya Cobradas por Sozu
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {totalesComisionesSozu ? formatCurrency(totalesComisionesSozu.montoYaCobrado) : <Skeleton className="h-8 w-32" />}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Comisión general cobrada
+            </p>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
