@@ -11,12 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, ChevronRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AprobacionComisiones() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filtroGeneral, setFiltroGeneral] = useState("");
   const [expandedCuentas, setExpandedCuentas] = useState<Set<number>>(new Set());
+  const [activeTab, setActiveTab] = useState("pendientes");
 
   const toggleCuenta = (cuentaId: number) => {
     const newExpanded = new Set(expandedCuentas);
@@ -239,6 +241,15 @@ export default function AprobacionComisiones() {
     return true;
   }) || [];
 
+  // Separar en pendientes y completas
+  const cuentasPendientes = cuentasFiltradas.filter((cuenta: any) => 
+    cuenta.comisionistas.some((c: any) => !c.aprobada)
+  );
+  
+  const cuentasCompletas = cuentasFiltradas.filter((cuenta: any) => 
+    cuenta.comisionistas.length > 0 && cuenta.comisionistas.every((c: any) => c.aprobada)
+  );
+
   // Calcular totales
   const calcularPorcentajeTotalComisiones = (cuenta: any) => {
     const comisionistasPendientes = cuenta.comisionistas.filter((c: any) => !c.aprobada);
@@ -265,16 +276,168 @@ export default function AprobacionComisiones() {
     );
   }
 
+  const renderCuentasTable = (cuentas: any[], isPendientes: boolean) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-12"></TableHead>
+          <TableHead>No. Cuenta</TableHead>
+          <TableHead>Tipo</TableHead>
+          <TableHead>Proyecto</TableHead>
+          <TableHead>Edificio</TableHead>
+          <TableHead>Modelo</TableHead>
+          <TableHead>No. Departamento</TableHead>
+          <TableHead>Precio final</TableHead>
+          <TableHead>% Comisión Total</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {cuentas.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+              No hay cuentas {isPendientes ? 'pendientes' : 'completas'}
+            </TableCell>
+          </TableRow>
+        ) : (
+          cuentas.map((cuenta: any) => {
+            const isExpanded = expandedCuentas.has(cuenta.id);
+            const comisionistasPendientes = cuenta.comisionistas.filter((c: any) => !c.aprobada);
+            const porcentajeTotalPendiente = calcularPorcentajeTotalComisiones(cuenta);
+            const tieneComisionistas = cuenta.comisionistas.length > 0;
+            
+            return (
+              <>
+                <TableRow key={cuenta.id} className="cursor-pointer hover:bg-accent/50">
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)} className="font-medium">
+                    {formatCuentaCobranzaId(cuenta.id, cuenta.tipo)}
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    <Badge variant="outline">{cuenta.tipo}</Badge>
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    {cuenta.proyecto_nombre || "-"}
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    {cuenta.edificio_nombre || "-"}
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    {cuenta.modelo_nombre || "-"}
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    {cuenta.numero_departamento || cuenta.producto_nombre || "-"}
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    {formatMonto(cuenta.precio_final)}
+                  </TableCell>
+                  <TableCell onClick={() => toggleCuenta(cuenta.id)}>
+                    <Badge variant={porcentajeTotalPendiente > 0 ? "default" : "secondary"}>
+                      {cuenta.porcentaje_comision_venta.toFixed(2)}%
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+                
+                {isExpanded && (
+                  <TableRow>
+                    <TableCell colSpan={9} className="bg-muted/30 p-6">
+                      <div className="space-y-4">
+                        {!tieneComisionistas ? (
+                          <div className="text-center py-4 text-muted-foreground">
+                            No se han configurado comisionistas para esta cuenta
+                          </div>
+                        ) : (
+                          <>
+                            {isPendientes && comisionistasPendientes.length > 0 && (
+                              <div className="flex justify-between items-center mb-4">
+                                <Alert className="flex-1 mr-4">
+                                  <AlertDescription>
+                                    <strong>Resumen de aprobación pendiente:</strong> Se pagará un total de{" "}
+                                    <strong>{porcentajeTotalPendiente.toFixed(2)}%</strong> del precio de la propiedad 
+                                    ({formatMonto((cuenta.precio_final * porcentajeTotalPendiente) / 100)}) en comisiones.
+                                  </AlertDescription>
+                                </Alert>
+                                <Button
+                                  onClick={() => aprobarTodosComisionistasMutation.mutate(cuenta.id)}
+                                  disabled={aprobarTodosComisionistasMutation.isPending}
+                                >
+                                  Aprobar Todos
+                                </Button>
+                              </div>
+                            )}
+
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Email Comisionista</TableHead>
+                                  <TableHead>% Comisión</TableHead>
+                                  <TableHead>Monto Comisión</TableHead>
+                                  <TableHead>Estado</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {cuenta.comisionistas.map((comisionista: any) => {
+                                  const montoBase = (cuenta.precio_final * comisionista.porcentaje_comision) / 100;
+                                  const montoFinal = cuenta.iva_incluido ? montoBase * 1.16 : montoBase;
+                                  
+                                  return (
+                                    <TableRow key={comisionista.email_usuario}>
+                                      <TableCell>{comisionista.email_usuario}</TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline">
+                                          {comisionista.porcentaje_comision.toFixed(2)}%
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>{formatMonto(montoFinal)}</TableCell>
+                                      <TableCell>
+                                        {comisionista.aprobada ? (
+                                          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                                            <Check className="h-3 w-3 mr-1" />
+                                            Aprobado
+                                          </Badge>
+                                        ) : isPendientes ? (
+                                          <Button
+                                            size="sm"
+                                            onClick={() => aprobarComisionistaMutation.mutate({
+                                              email: comisionista.email_usuario,
+                                              idCuenta: cuenta.id
+                                            })}
+                                            disabled={aprobarComisionistaMutation.isPending}
+                                          >
+                                            <Check className="h-4 w-4 mr-2" />
+                                            Aprobar
+                                          </Button>
+                                        ) : null}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
+            );
+          })
+        )}
+      </TableBody>
+    </Table>
+  );
+
   return (
     <div className="container mx-auto py-6">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Aprobación de Comisiones</CardTitle>
-            <Badge variant="outline" className="text-lg px-4 py-1">
-              {cuentasFiltradas.length} cuenta{cuentasFiltradas.length !== 1 ? 's' : ''}
-            </Badge>
-          </div>
+          <CardTitle>Aprobación de Comisiones</CardTitle>
         </CardHeader>
         <CardContent>
           {/* Filtro General */}
@@ -287,142 +450,30 @@ export default function AprobacionComisiones() {
             />
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12"></TableHead>
-                <TableHead>No. Cuenta</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Proyecto</TableHead>
-                <TableHead>Edificio</TableHead>
-                <TableHead>Modelo</TableHead>
-                <TableHead>No. Departamento</TableHead>
-                <TableHead>Precio final</TableHead>
-                <TableHead>% Comisión Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {cuentasFiltradas.map((cuenta: any) => {
-                const isExpanded = expandedCuentas.has(cuenta.id);
-                const comisionistasPendientes = cuenta.comisionistas.filter((c: any) => !c.aprobada);
-                const porcentajeTotalPendiente = calcularPorcentajeTotalComisiones(cuenta);
-                
-                return (
-                  <>
-                    <TableRow key={cuenta.id} className="cursor-pointer hover:bg-accent/50">
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)} className="font-medium">
-                        {formatCuentaCobranzaId(cuenta.id, cuenta.tipo)}
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        <Badge variant="outline">{cuenta.tipo}</Badge>
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        {cuenta.proyecto_nombre || "-"}
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        {cuenta.edificio_nombre || "-"}
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        {cuenta.modelo_nombre || "-"}
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        {cuenta.numero_departamento || cuenta.producto_nombre || "-"}
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        {formatMonto(cuenta.precio_final)}
-                      </TableCell>
-                      <TableCell onClick={() => toggleCuenta(cuenta.id)}>
-                        <Badge variant={porcentajeTotalPendiente > 0 ? "default" : "secondary"}>
-                          {cuenta.porcentaje_comision_venta.toFixed(2)}%
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                    
-                    {isExpanded && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="bg-muted/30 p-6">
-                          <div className="space-y-4">
-                            {comisionistasPendientes.length > 0 ? (
-                              <>
-                                <div className="flex justify-between items-center mb-4">
-                                  <Alert className="flex-1 mr-4">
-                                    <AlertDescription>
-                                      <strong>Resumen de aprobación pendiente:</strong> Se pagará un total de{" "}
-                                      <strong>{porcentajeTotalPendiente.toFixed(2)}%</strong> del precio de la propiedad 
-                                      ({formatMonto((cuenta.precio_final * porcentajeTotalPendiente) / 100)}) en comisiones.
-                                    </AlertDescription>
-                                  </Alert>
-                                  <Button
-                                    onClick={() => aprobarTodosComisionistasMutation.mutate(cuenta.id)}
-                                    disabled={aprobarTodosComisionistasMutation.isPending}
-                                  >
-                                    Aprobar Todos
-                                  </Button>
-                                </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="pendientes">
+                Aprobaciones Pendientes
+                <Badge variant="outline" className="ml-2">
+                  {cuentasPendientes.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="completas">
+                Aprobaciones Completas
+                <Badge variant="outline" className="ml-2">
+                  {cuentasCompletas.length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
 
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Email Comisionista</TableHead>
-                                      <TableHead>% Comisión</TableHead>
-                                      <TableHead>Monto Comisión</TableHead>
-                                      <TableHead>Acciones</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {comisionistasPendientes.map((comisionista: any) => {
-                                      const montoBase = (cuenta.precio_final * comisionista.porcentaje_comision) / 100;
-                                      const montoFinal = cuenta.iva_incluido ? montoBase * 1.16 : montoBase;
-                                      
-                                      return (
-                                        <TableRow key={comisionista.email_usuario}>
-                                          <TableCell>{comisionista.email_usuario}</TableCell>
-                                          <TableCell>
-                                            <Badge variant="outline">
-                                              {comisionista.porcentaje_comision.toFixed(2)}%
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell>{formatMonto(montoFinal)}</TableCell>
-                                          <TableCell>
-                                            <Button
-                                              size="sm"
-                                              onClick={() => aprobarComisionistaMutation.mutate({
-                                                email: comisionista.email_usuario,
-                                                idCuenta: cuenta.id
-                                              })}
-                                              disabled={aprobarComisionistaMutation.isPending}
-                                            >
-                                              <Check className="h-4 w-4 mr-2" />
-                                              Aprobar
-                                            </Button>
-                                          </TableCell>
-                                        </TableRow>
-                                      );
-                                    })}
-                                  </TableBody>
-                                </Table>
-                              </>
-                            ) : (
-                              <div className="text-center py-4 text-muted-foreground">
-                                Todas las comisiones han sido aprobadas
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
-                );
-              })}
-            </TableBody>
-          </Table>
+            <TabsContent value="pendientes">
+              {renderCuentasTable(cuentasPendientes, true)}
+            </TabsContent>
+
+            <TabsContent value="completas">
+              {renderCuentasTable(cuentasCompletas, false)}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
