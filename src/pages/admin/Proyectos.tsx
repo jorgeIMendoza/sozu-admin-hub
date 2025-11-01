@@ -58,13 +58,13 @@ const Proyectos = () => {
             id,
             nombre
           ),
-          paises!fk_proyectos_direccion_id_pais (
+          paises:direccion_id_pais (
             nombre
           ),
-          estados_mx!fk_proyectos_direccion_id_estado (
+          estados_mx:direccion_id_estado (
             nombre
           ),
-          municipios_mx!fk_proyectos_direccion_id_municipio (
+          municipios_mx:direccion_id_municipio (
             nombre
           ),
           edificios!fk_edificios_proyecto (
@@ -141,13 +141,13 @@ const Proyectos = () => {
             id,
             nombre
           ),
-          paises!fk_proyectos_direccion_id_pais (
+          paises:direccion_id_pais (
             nombre
           ),
-          estados_mx!fk_proyectos_direccion_id_estado (
+          estados_mx:direccion_id_estado (
             nombre
           ),
-          municipios_mx!fk_proyectos_direccion_id_municipio (
+          municipios_mx:direccion_id_municipio (
             nombre
           ),
           edificios!fk_edificios_proyecto (
