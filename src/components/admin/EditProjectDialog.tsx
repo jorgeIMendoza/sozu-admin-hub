@@ -507,21 +507,31 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                           <FormField
                             control={form.control}
                             name="precio_m2_actual"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Precio por m² actual (calculado automáticamente)</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number" 
-                                    placeholder="0.00" 
-                                    {...field}
-                                    disabled
-                                    className="bg-muted"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                            render={({ field }) => {
+                              const formattedValue = field.value 
+                                ? parseFloat(field.value).toLocaleString('es-MX', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                  })
+                                : '';
+                              
+                              return (
+                                <FormItem>
+                                  <FormLabel>Precio por m² actual (calculado automáticamente)</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="text" 
+                                      placeholder="0.00" 
+                                      value={formattedValue}
+                                      disabled
+                                      className="bg-muted"
+                                      readOnly
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
                           />
 
                          <FormField
