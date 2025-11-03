@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Search, Edit, Trash2, Eye, Image, Video, MapPin } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
 import { ProjectMultimediaModal } from "@/components/admin/ProjectMultimediaModal";
 
@@ -32,10 +32,13 @@ const Proyectos = () => {
   const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
   const itemsPerPage = 25;
 
-  const { data: activeProjects = [], refetch: refetchActive } = useQuery({
-    queryKey: ["projects", "active"],
+  const { data: activeProjectsData, refetch: refetchActive } = useQuery({
+    queryKey: ["projects", "active", currentPageActive, searchTerm, nombreFilter, ciudadFilter, estatusFilter],
     queryFn: async () => {
-      const queryResult = await supabase
+      const from = (currentPageActive - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      
+      let query = supabase
         .from("proyectos")
         .select(`
           id,
@@ -96,29 +99,49 @@ const Proyectos = () => {
               nombre
             )
           )
-        `)
-        .eq("activo", true)
-        .order("nombre", { ascending: true });
+        `, { count: 'exact' })
+        .eq("activo", true);
       
-      const { data, error } = queryResult;
+      // Aplicar filtros
+      if (searchTerm) {
+        query = query.ilike("nombre", `%${searchTerm}%`);
+      }
+      if (nombreFilter) {
+        query = query.ilike("nombre", `%${nombreFilter}%`);
+      }
+      if (estatusFilter !== "all") {
+        query = query.eq("id_estatus_proyecto", parseInt(estatusFilter));
+      }
+      
+      const { data, error, count } = await query
+        .order("nombre", { ascending: true })
+        .range(from, to);
       
       if (error) {
         console.error("Error fetching active projects:", error);
-        return [];
+        return { projects: [], count: 0 };
       }
       
       // Add precio_m2_actual from raw query if available
-      return ((data || []) as any[]).map((project: any) => ({
+      const projects = ((data || []) as any[]).map((project: any) => ({
         ...project,
         precio_m2_actual: project.precio_m2_actual || null
       }));
+      
+      return { projects, count: count || 0 };
     },
   });
 
-  const { data: deletedProjects = [], refetch: refetchDeleted } = useQuery({
-    queryKey: ["projects", "deleted"],
+  const activeProjects = activeProjectsData?.projects || [];
+  const totalActiveCount = activeProjectsData?.count || 0;
+
+  const { data: deletedProjectsData, refetch: refetchDeleted } = useQuery({
+    queryKey: ["projects", "deleted", currentPageDeleted, searchTerm, nombreFilter, ciudadFilter, estatusFilter],
     queryFn: async () => {
-      const queryResult = await supabase
+      const from = (currentPageDeleted - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      
+      let query = supabase
         .from("proyectos")
         .select(`
           id,
@@ -179,24 +202,50 @@ const Proyectos = () => {
               nombre
             )
           )
-        `)
-        .eq("activo", false)
-        .order("nombre", { ascending: true });
+        `, { count: 'exact' })
+        .eq("activo", false);
       
-      const { data, error } = queryResult;
+      // Aplicar filtros
+      if (searchTerm) {
+        query = query.ilike("nombre", `%${searchTerm}%`);
+      }
+      if (nombreFilter) {
+        query = query.ilike("nombre", `%${nombreFilter}%`);
+      }
+      if (estatusFilter !== "all") {
+        query = query.eq("id_estatus_proyecto", parseInt(estatusFilter));
+      }
+      
+      const { data, error, count } = await query
+        .order("nombre", { ascending: true })
+        .range(from, to);
       
       if (error) {
         console.error("Error fetching deleted projects:", error);
-        return [];
+        return { projects: [], count: 0 };
       }
       
       // Add precio_m2_actual from raw query if available
-      return ((data || []) as any[]).map((project: any) => ({
+      const projects = ((data || []) as any[]).map((project: any) => ({
         ...project,
         precio_m2_actual: project.precio_m2_actual || null
       }));
+      
+      return { projects, count: count || 0 };
     },
   });
+
+  const deletedProjects = deletedProjectsData?.projects || [];
+  const totalDeletedCount = deletedProjectsData?.count || 0;
+
+  // Reset pages when filters change
+  useEffect(() => {
+    setCurrentPageActive(1);
+  }, [searchTerm, nombreFilter, ciudadFilter, estatusFilter]);
+
+  useEffect(() => {
+    setCurrentPageDeleted(1);
+  }, [searchTerm, nombreFilter, ciudadFilter, estatusFilter]);
 
   // Query para obtener estatus de proyecto para el filtro
   const { data: estatusProyecto = [] } = useQuery({
@@ -363,48 +412,11 @@ const Proyectos = () => {
     return averagePerM2;
   };
 
-  // Filter active projects based on search term and specific filters
-  const filteredActiveProjects = activeProjects.filter(project => {
-    const matchesSearch = searchTerm === "" || project.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesNombre = project.nombre.toLowerCase().includes(nombreFilter.toLowerCase());
-    const matchesDesarrollador = "Por definir".toLowerCase().includes(desarrolladorFilter.toLowerCase()); // Simplificado por ahora
-    
-    const city = getCityName(project);
-    const matchesCiudad = city.toLowerCase().includes(ciudadFilter.toLowerCase());
-    
-    
-    const matchesEstatus = estatusFilter === "all" || (project.estatus_proyecto && 'id' in project.estatus_proyecto && project.estatus_proyecto.id?.toString() === estatusFilter);
-    
-    return matchesSearch && matchesNombre && matchesDesarrollador && matchesCiudad && matchesEstatus;
-  });
+  // Pagination logic para proyectos activos (ahora del lado del servidor)
+  const totalActivePages = Math.ceil(totalActiveCount / itemsPerPage);
 
-  // Filter deleted projects based on search term and specific filters
-  const filteredDeletedProjects = deletedProjects.filter(project => {
-    const matchesSearch = searchTerm === "" || project.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesNombre = project.nombre.toLowerCase().includes(nombreFilter.toLowerCase());
-    const matchesDesarrollador = "Por definir".toLowerCase().includes(desarrolladorFilter.toLowerCase()); // Simplificado por ahora
-    
-    const city = getCityName(project);
-    const matchesCiudad = city.toLowerCase().includes(ciudadFilter.toLowerCase());
-    
-    const matchesEstatus = estatusFilter === "all" || (project.estatus_proyecto && 'id' in project.estatus_proyecto && project.estatus_proyecto.id?.toString() === estatusFilter);
-    
-    return matchesSearch && matchesNombre && matchesDesarrollador && matchesCiudad && matchesEstatus;
-  });
-
-  // Pagination logic for active projects
-  const totalActivePages = Math.ceil(filteredActiveProjects.length / itemsPerPage);
-  const startIndexActive = (currentPageActive - 1) * itemsPerPage;
-  const endIndexActive = startIndexActive + itemsPerPage;
-  const paginatedActiveProjects = filteredActiveProjects.slice(startIndexActive, endIndexActive);
-
-  // Pagination logic for deleted projects  
-  const totalDeletedPages = Math.ceil(filteredDeletedProjects.length / itemsPerPage);
-  const startIndexDeleted = (currentPageDeleted - 1) * itemsPerPage;
-  const endIndexDeleted = startIndexDeleted + itemsPerPage;
-  const paginatedDeletedProjects = filteredDeletedProjects.slice(startIndexDeleted, endIndexDeleted);
+  // Pagination logic para proyectos eliminados (ahora del lado del servidor)
+  const totalDeletedPages = Math.ceil(totalDeletedCount / itemsPerPage);
 
   const handleProjectRestored = async (projectId: number) => {
     try {
@@ -723,15 +735,15 @@ const Proyectos = () => {
       <Tabs defaultValue="active" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active">
-            Proyectos Activos ({filteredActiveProjects.length})
+            Proyectos Activos ({totalActiveCount})
           </TabsTrigger>
           <TabsTrigger value="deleted">
-            Proyectos Eliminados ({filteredDeletedProjects.length})
+            Proyectos Eliminados ({totalDeletedCount})
           </TabsTrigger>
         </TabsList>
         
         <TabsContent value="active" className="mt-6">
-          {filteredActiveProjects.length === 0 && activeProjects.length > 0 ? (
+          {activeProjects.length === 0 && totalActiveCount > 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
                 No se encontraron proyectos activos que coincidan con la búsqueda.
@@ -740,7 +752,7 @@ const Proyectos = () => {
           ) : (
             <>
               {renderProjectsTable(
-                paginatedActiveProjects, 
+                activeProjects, 
                 "No hay proyectos activos disponibles.",
                 false
               )}
@@ -786,7 +798,7 @@ const Proyectos = () => {
         </TabsContent>
         
         <TabsContent value="deleted" className="mt-6">
-          {filteredDeletedProjects.length === 0 && deletedProjects.length > 0 ? (
+          {deletedProjects.length === 0 && totalDeletedCount > 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
                 No se encontraron proyectos eliminados que coincidan con la búsqueda.
@@ -795,7 +807,7 @@ const Proyectos = () => {
           ) : (
             <>
               {renderProjectsTable(
-                paginatedDeletedProjects, 
+                deletedProjects, 
                 "No hay proyectos eliminados.",
                 true
               )}
