@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, MapPin, Copy, Search } from "lucide-react";
+import { Plus, MapPin, Copy, Search, CheckCircle, Grid3x3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -791,12 +791,22 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                           </div>
                           <Button
                             type="button"
-                            variant={showOnlySelected ? "default" : "outline"}
+                            variant={showOnlySelected ? "secondary" : "outline"}
                             size="sm"
                             onClick={() => setShowOnlySelected(!showOnlySelected)}
                             className="whitespace-nowrap"
                           >
-                            {showOnlySelected ? `Seleccionadas (${selectedAmenidades.length})` : 'Ver seleccionadas'}
+                            {showOnlySelected ? (
+                              <>
+                                <Grid3x3 className="h-4 w-4 mr-1" />
+                                Ver Todas
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Ver Seleccionadas ({selectedAmenidades.length})
+                              </>
+                            )}
                           </Button>
                         </div>
                         
