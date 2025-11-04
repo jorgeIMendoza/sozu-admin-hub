@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +65,7 @@ export default function Modelos() {
   const itemsPerPage = 50;
   
   const { toast } = useToast();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchProyectos();
@@ -81,6 +82,18 @@ export default function Modelos() {
 
     return () => clearTimeout(timer);
   }, [inputValue]);
+
+  // Maintain focus on search input after re-render
+  useEffect(() => {
+    if (document.activeElement === searchInputRef.current) {
+      return; // Already focused, do nothing
+    }
+    
+    // Only refocus if user was typing (inputValue has content)
+    if (inputValue && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchTerm]); // Re-run when searchTerm changes (after debounce)
 
   const fetchProyectos = async () => {
     try {
@@ -310,6 +323,7 @@ export default function Modelos() {
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                ref={searchInputRef}
                 placeholder="Buscar modelos..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
