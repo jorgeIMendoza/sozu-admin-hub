@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit, Trash2, Eye, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, RotateCcw, ChevronDown, ChevronRight, X, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
@@ -13,6 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,7 +56,8 @@ export default function Vistas() {
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProyectoFilter, setSelectedProyectoFilter] = useState<string>("all");
+  const [selectedProyectoFilter, setSelectedProyectoFilter] = useState<number[]>([]);
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("activos");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -356,10 +361,23 @@ export default function Vistas() {
     });
   };
 
+  const toggleProjectSelection = (projectId: number) => {
+    setSelectedProyectoFilter(prev => 
+      prev.includes(projectId) 
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    );
+  };
+
+  const clearProjectFilters = () => {
+    setSelectedProyectoFilter([]);
+  };
+
   const filteredVistas = vistas.filter(vista => {
     const matchesSearch = vista.nombre.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTab = activeTab === "activos" ? vista.activo : !vista.activo;
-    const matchesProyecto = selectedProyectoFilter === "all" || (vista.id_proyecto?.toString() === selectedProyectoFilter);
+    const matchesProyecto = selectedProyectoFilter.length === 0 || 
+      (vista.id_proyecto && selectedProyectoFilter.includes(vista.id_proyecto));
     return matchesSearch && matchesTab && matchesProyecto;
   });
 
@@ -533,22 +551,66 @@ export default function Vistas() {
                     className="pl-8"
                   />
                 </div>
-                <Select
-                  value={selectedProyectoFilter}
-                  onValueChange={setSelectedProyectoFilter}
-                >
-                  <SelectTrigger className="w-[250px]">
-                    <SelectValue placeholder="Filtrar por proyecto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los proyectos</SelectItem>
-                    {proyectos.map((proyecto) => (
-                      <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                        {proyecto.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={isProjectFilterOpen} onOpenChange={setIsProjectFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isProjectFilterOpen}
+                      className="w-[300px] justify-between"
+                    >
+                      {selectedProyectoFilter.length === 0 ? (
+                        "Seleccionar proyectos..."
+                      ) : selectedProyectoFilter.length === 1 ? (
+                        proyectos.find(p => p.id === selectedProyectoFilter[0])?.nombre
+                      ) : (
+                        `${selectedProyectoFilter.length} proyectos seleccionados`
+                      )}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar proyecto..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron proyectos.</CommandEmpty>
+                        <CommandGroup>
+                          {proyectos.map((proyecto) => (
+                            <CommandItem
+                              key={proyecto.id}
+                              onSelect={() => toggleProjectSelection(proyecto.id)}
+                            >
+                              <Checkbox
+                                checked={selectedProyectoFilter.includes(proyecto.id)}
+                                className="mr-2"
+                              />
+                              <span>{proyecto.nombre}</span>
+                              <Check
+                                className={cn(
+                                  "ml-auto h-4 w-4",
+                                  selectedProyectoFilter.includes(proyecto.id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                    {selectedProyectoFilter.length > 0 && (
+                      <div className="border-t p-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          onClick={clearProjectFilters}
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Limpiar filtros
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-4">
