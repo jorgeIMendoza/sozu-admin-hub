@@ -47,6 +47,7 @@ interface Proyecto {
 }
 
 export default function Modelos() {
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"active" | "deleted">("active");
   const [modeloToDelete, setModeloToDelete] = useState<Modelo | null>(null);
@@ -68,6 +69,18 @@ export default function Modelos() {
   useEffect(() => {
     fetchProyectos();
   }, []);
+
+  // Debounce search input to prevent focus loss
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+      // Reset to page 1 when search changes
+      setCurrentPageActive(1);
+      setCurrentPageDeleted(1);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputValue]);
 
   const fetchProyectos = async () => {
     try {
@@ -298,8 +311,8 @@ export default function Modelos() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar modelos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
                 className="pl-10"
               />
             </div>
