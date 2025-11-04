@@ -99,7 +99,7 @@ const Proyectos = () => {
               nombre
             )
           ),
-          entidades_relacionadas!inner (
+          entidades_relacionadas!fk_entrel_proyecto (
             id,
             id_persona,
             id_tipo_entidad,
@@ -215,7 +215,7 @@ const Proyectos = () => {
               nombre
             )
           ),
-          entidades_relacionadas!inner (
+          entidades_relacionadas!fk_entrel_proyecto (
             id,
             id_persona,
             id_tipo_entidad,
