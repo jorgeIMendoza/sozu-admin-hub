@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +57,12 @@ export default function Modelos() {
   const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
+  
+  // Pagination states
+  const [currentPageActive, setCurrentPageActive] = useState(1);
+  const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
+  const itemsPerPage = 50;
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -78,49 +85,79 @@ export default function Modelos() {
     }
   };
 
-  const { data: modelosActivos, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
-    queryKey: ["modelos", "active"],
+  const { data: modelosActivosData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
+    queryKey: ["modelos", "active", currentPageActive, searchTerm, selectedProyectoFilter],
     queryFn: async () => {
-      const { data, error, count } = await supabase
+      const from = (currentPageActive - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from("modelos")
         .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo", { count: 'exact' })
-        .eq("activo", true)
+        .eq("activo", true);
+
+      // Apply filters
+      if (searchTerm) {
+        query = query.or(`nombre.ilike.%${searchTerm}%,descripcion.ilike.%${searchTerm}%`);
+      }
+      if (selectedProyectoFilter.length > 0) {
+        query = query.in("id_proyecto", selectedProyectoFilter);
+      }
+
+      const { data, error, count } = await query
         .order("nombre")
-        .limit(10000);
+        .range(from, to);
 
       if (error) {
         console.error("Error fetching modelos activos:", error);
-        throw error;
+        return { modelos: [], count: 0 };
       }
 
-      console.log(`Modelos activos obtenidos: ${data?.length} de ${count}`);
-      return (data || []) as Modelo[];
+      return { modelos: (data || []) as Modelo[], count: count || 0 };
     },
   });
 
-  const { data: modelosEliminados, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
-    queryKey: ["modelos", "deleted"],
+  const { data: modelosEliminadosData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
+    queryKey: ["modelos", "deleted", currentPageDeleted, searchTerm, selectedProyectoFilter],
     queryFn: async () => {
-      const { data, error, count } = await supabase
+      const from = (currentPageDeleted - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from("modelos")
         .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo", { count: 'exact' })
-        .eq("activo", false)
+        .eq("activo", false);
+
+      // Apply filters
+      if (searchTerm) {
+        query = query.or(`nombre.ilike.%${searchTerm}%,descripcion.ilike.%${searchTerm}%`);
+      }
+      if (selectedProyectoFilter.length > 0) {
+        query = query.in("id_proyecto", selectedProyectoFilter);
+      }
+
+      const { data, error, count } = await query
         .order("nombre")
-        .limit(10000);
+        .range(from, to);
 
       if (error) {
         console.error("Error fetching modelos eliminados:", error);
-        throw error;
+        return { modelos: [], count: 0 };
       }
 
-      console.log(`Modelos eliminados obtenidos: ${data?.length} de ${count}`);
-      return (data || []) as Modelo[];
+      return { modelos: (data || []) as Modelo[], count: count || 0 };
     },
     enabled: activeTab === "deleted",
   });
 
+  const modelosActivos = modelosActivosData?.modelos || [];
+  const totalActivosCount = modelosActivosData?.count || 0;
+  const modelosEliminados = modelosEliminadosData?.modelos || [];
+  const totalEliminadosCount = modelosEliminadosData?.count || 0;
+
   const handleModeloAdded = () => {
     refetchActivos();
+    setCurrentPageActive(1);
   };
 
   const handleModeloUpdated = () => {
@@ -182,24 +219,20 @@ export default function Modelos() {
 
   const currentModelos = activeTab === "active" ? modelosActivos : modelosEliminados;
   const isLoading = activeTab === "active" ? loadingActivos : loadingEliminados;
+  const currentPage = activeTab === "active" ? currentPageActive : currentPageDeleted;
+  const totalCount = activeTab === "active" ? totalActivosCount : totalEliminadosCount;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-  // Filter function for modelos
-  const filterModelos = (modelos: Modelo[] | undefined) => {
-    return modelos?.filter((modelo) => {
-      const matchesSearch = modelo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (modelo.descripcion && modelo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesProyecto = selectedProyectoFilter.length === 0 || 
-        (modelo.id_proyecto != null && selectedProyectoFilter.includes(modelo.id_proyecto));
-      return matchesSearch && matchesProyecto;
-    }) || [];
+  const setCurrentPage = (page: number) => {
+    if (activeTab === "active") {
+      setCurrentPageActive(page);
+    } else {
+      setCurrentPageDeleted(page);
+    }
   };
 
-  // Filter both active and deleted modelos for counts
-  const filteredModelosActivos = filterModelos(modelosActivos);
-  const filteredModelosEliminados = filterModelos(modelosEliminados);
-
-  // Current filtered modelos based on active tab
-  const filteredModelos = activeTab === "active" ? filteredModelosActivos : filteredModelosEliminados;
+  // Group modelos by project (no additional filtering needed, already filtered by query)
+  const filteredModelos = currentModelos;
 
   const toggleProjectSelection = (projectId: number) => {
     setSelectedProyectoFilter(prev => 
@@ -207,10 +240,15 @@ export default function Modelos() {
         ? prev.filter(id => id !== projectId)
         : [...prev, projectId]
     );
+    // Reset to first page when filter changes
+    setCurrentPageActive(1);
+    setCurrentPageDeleted(1);
   };
 
   const clearProjectFilters = () => {
     setSelectedProyectoFilter([]);
+    setCurrentPageActive(1);
+    setCurrentPageDeleted(1);
   };
 
   // Group modelos by project
@@ -332,8 +370,8 @@ export default function Modelos() {
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "active" | "deleted")}>
         <TabsList>
-          <TabsTrigger value="active">Modelos Activos ({filteredModelosActivos.length})</TabsTrigger>
-          <TabsTrigger value="deleted">Modelos Eliminados ({filteredModelosEliminados.length})</TabsTrigger>
+          <TabsTrigger value="active">Modelos Activos ({totalActivosCount})</TabsTrigger>
+          <TabsTrigger value="deleted">Modelos Eliminados ({totalEliminadosCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active">
@@ -459,6 +497,63 @@ export default function Modelos() {
               })}
             </div>
           )}
+          
+          {/* Pagination for active models */}
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {[...Array(Math.min(totalPages, 5))].map((_, idx) => {
+                    let pageNumber;
+                    if (totalPages <= 5) {
+                      pageNumber = idx + 1;
+                    } else if (currentPage <= 3) {
+                      pageNumber = idx + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNumber = totalPages - 4 + idx;
+                    } else {
+                      pageNumber = currentPage - 2 + idx;
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(pageNumber)}
+                          isActive={currentPage === pageNumber}
+                          className="cursor-pointer"
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+              <div className="text-center text-sm text-muted-foreground mt-2">
+                Página {currentPage} de {totalPages} ({totalCount} modelos en total)
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="deleted">
@@ -564,6 +659,63 @@ export default function Modelos() {
                   </Collapsible>
                 );
               })}
+            </div>
+          )}
+          
+          {/* Pagination for deleted models */}
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {[...Array(Math.min(totalPages, 5))].map((_, idx) => {
+                    let pageNumber;
+                    if (totalPages <= 5) {
+                      pageNumber = idx + 1;
+                    } else if (currentPage <= 3) {
+                      pageNumber = idx + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNumber = totalPages - 4 + idx;
+                    } else {
+                      pageNumber = currentPage - 2 + idx;
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(pageNumber)}
+                          isActive={currentPage === pageNumber}
+                          className="cursor-pointer"
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+              <div className="text-center text-sm text-muted-foreground mt-2">
+                Página {currentPage} de {totalPages} ({totalCount} modelos en total)
+              </div>
             </div>
           )}
         </TabsContent>
