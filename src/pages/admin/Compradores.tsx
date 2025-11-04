@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit, Trash2, RotateCcw, CreditCard, UserX, HeartHandshake, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,16 +34,29 @@ type Comprador = {
 
 export default function Compradores() {
   const [searchParams] = useSearchParams();
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Initialize search term from URL parameters
   useEffect(() => {
     const urlSearchTerm = searchParams.get('search');
     if (urlSearchTerm) {
+      setInputValue(urlSearchTerm);
       setSearchTerm(urlSearchTerm);
     }
   }, [searchParams]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputValue]);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingComprador, setEditingComprador] = useState<Comprador | null>(null);

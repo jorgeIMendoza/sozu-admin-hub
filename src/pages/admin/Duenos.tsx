@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit, Trash2, UserX, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ type Dueno = {
 };
 
 export default function Duenos() {
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
@@ -38,8 +39,18 @@ export default function Duenos() {
   const [duenoToDelete, setDuenoToDelete] = useState<Dueno | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [duenoToRestore, setDuenoToRestore] = useState<Dueno | null>(null);
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputValue]);
 
   const { data: activeDuenos = [], isLoading: loadingActive } = useQuery({
     queryKey: ['duenos', 'active'],
@@ -479,8 +490,9 @@ export default function Duenos() {
                 <Input
                   type="text"
                   placeholder="Buscar por nombre, email, CURP, RFC..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  ref={searchInputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
                   className="pl-10 border-border focus:ring-primary/20"
                 />
               </div>

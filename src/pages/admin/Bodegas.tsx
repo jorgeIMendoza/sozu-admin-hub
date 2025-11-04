@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit, Trash2, Upload, Plus, Undo2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -26,11 +26,14 @@ interface Bodega {
 }
 
 const Bodegas = () => {
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("activos");
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [proyectoFilter, setProyectoFilter] = useState("");
   const [editingBodega, setEditingBodega] = useState<Bodega | null>(null);
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Pagination states
   const [currentPageActive, setCurrentPageActive] = useState(1);
@@ -105,6 +108,22 @@ const Bodegas = () => {
     },
     staleTime: 10 * 60 * 1000, // 10 minutos
   });
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputValue]);
+
+  // Maintain focus on search input after re-render
+  useEffect(() => {
+    if (inputValue && searchInputRef.current && !isLoading) {
+      searchInputRef.current.focus();
+    }
+  }, [isLoading, inputValue]);
 
   const handleDelete = async (bodegaId: number) => {
     try {
@@ -235,8 +254,9 @@ const Bodegas = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder="Buscar por nombre de bodega o número de departamento..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  ref={searchInputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
                   className="pl-10"
                 />
               </div>

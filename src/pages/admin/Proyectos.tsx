@@ -10,16 +10,19 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Search, Edit, Trash2, Eye, Image, Video, MapPin } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
 import { ProjectMultimediaModal } from "@/components/admin/ProjectMultimediaModal";
 
 const Proyectos = () => {
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProjectMultimedia, setSelectedProjectMultimedia] = useState<{
     multimedia: any[];
     projectName: string;
   } | null>(null);
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Filtros específicos
   const [nombreFilter, setNombreFilter] = useState("");
@@ -263,6 +266,22 @@ const Proyectos = () => {
 
   const deletedProjects = deletedProjectsData?.projects || [];
   const totalDeletedCount = deletedProjectsData?.count || 0;
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputValue]);
+
+  // Maintain focus on search input after re-render
+  useEffect(() => {
+    if (inputValue && searchInputRef.current && !activeProjectsData && !deletedProjectsData) {
+      searchInputRef.current.focus();
+    }
+  }, [activeProjectsData, deletedProjectsData, inputValue]);
 
   // Reset pages when filters change
   useEffect(() => {
@@ -710,8 +729,9 @@ const Proyectos = () => {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
           placeholder="Buscar proyectos..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          ref={searchInputRef}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
           className="pl-10"
         />
       </div>

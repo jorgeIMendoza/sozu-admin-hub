@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,56 +98,20 @@ interface CuentaCobranza {
 }
 
 export default function CuentasMantenimiento() {
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Filter states
-  const [idCuentaFilter, setIdCuentaFilter] = useState("");
-  const [propietariosFilter, setPropietariosFilter] = useState("");
-  const [clabeFilter, setClabeFilter] = useState("");
-  const [proyectoFilter, setProyectoFilter] = useState("");
-  const [noPropiedadFilter, setNoPropiedadFilter] = useState("");
-  const [modeloFilter, setModeloFilter] = useState("");
-  const [editDialog, setEditDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
-    isOpen: false,
-    cuenta: null
-  });
-  const [loadingDownload, setLoadingDownload] = useState<number | null>(null);
-  const [cashDialog, setCashDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
-    isOpen: false,
-    cuenta: null
-  });
-  const [complementosDialog, setComplementosDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
-    isOpen: false,
-    cuenta: null
-  });
-  const [addResidenteDialog, setAddResidenteDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
-    isOpen: false,
-    cuenta: null
-  });
-  const [residentesDialog, setResidentesDialog] = useState<{ isOpen: boolean; residentes: Residente[] }>({
-    isOpen: false,
-    residentes: []
-  });
-  const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState<number | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
 
-  // Helper function to normalize balance and avoid floating point precision issues
-  const normalizarSaldo = (saldo: number): number => {
-    // Round to 2 decimal places first to avoid precision issues
-    const rounded = Math.round(saldo * 100) / 100;
-    
-    // If balance is very close to zero (less than 1 cent), treat it as exactly zero
-    // This also handles -0 (negative zero) by explicitly returning positive 0
-    if (Math.abs(rounded) < 0.01 || Object.is(rounded, -0)) {
-      return 0; // Explicitly return positive 0
-    }
-    
-    return rounded;
-  };
-
+    return () => clearTimeout(timer);
+  }, [inputValue]);
+  
   const { data: cuentasCobranza, isLoading } = useQuery({
     queryKey: ["cuentas_mantenimiento"],
     queryFn: async () => {

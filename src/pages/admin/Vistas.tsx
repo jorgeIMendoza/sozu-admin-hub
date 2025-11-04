@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,7 @@ export default function Vistas() {
   const [vistas, setVistas] = useState<Vista[]>([]);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProyectoFilter, setSelectedProyectoFilter] = useState<number[]>([]);
   const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
@@ -68,6 +69,7 @@ export default function Vistas() {
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
 
   const { toast } = useToast();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const createForm = useForm<z.infer<typeof vistaFormSchema>>({
     resolver: zodResolver(vistaFormSchema),
@@ -91,6 +93,22 @@ export default function Vistas() {
     fetchVistas();
     fetchProyectos();
   }, []);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputValue]);
+
+  // Maintain focus on search input after re-render
+  useEffect(() => {
+    if (inputValue && searchInputRef.current && !loading) {
+      searchInputRef.current.focus();
+    }
+  }, [loading, inputValue]);
 
   const fetchProyectos = async () => {
     try {
@@ -546,8 +564,9 @@ export default function Vistas() {
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Buscar vistas..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    ref={searchInputRef}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
                     className="pl-8"
                   />
                 </div>

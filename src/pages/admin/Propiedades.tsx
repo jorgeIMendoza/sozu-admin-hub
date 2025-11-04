@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home, FileText, ArrowRightLeft, Zap, TrendingUp, TrendingDown, Equal, Check, X, ShoppingCart, AlertCircle, Banknote } from "lucide-react";
@@ -127,16 +127,30 @@ interface Property {
 
 const Propiedades = () => {
   const [searchParams] = useSearchParams();
+  const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("activos");
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Initialize search term from URL parameters
   useEffect(() => {
     const urlSearchTerm = searchParams.get('search');
     if (urlSearchTerm) {
+      setInputValue(urlSearchTerm);
       setSearchTerm(urlSearchTerm);
     }
   }, [searchParams]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputValue]);
+  
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [selectedPropertyOffers, setSelectedPropertyOffers] = useState<any[] | null>(null);
