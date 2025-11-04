@@ -83,18 +83,6 @@ export default function Modelos() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // Maintain focus on search input after re-render
-  useEffect(() => {
-    if (document.activeElement === searchInputRef.current) {
-      return; // Already focused, do nothing
-    }
-    
-    // Only refocus if user was typing (inputValue has content)
-    if (inputValue && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [searchTerm]); // Re-run when searchTerm changes (after debounce)
-
   const fetchProyectos = async () => {
     try {
       const { data, error } = await supabase
@@ -180,6 +168,14 @@ export default function Modelos() {
   const totalActivosCount = modelosActivosData?.count || 0;
   const modelosEliminados = modelosEliminadosData?.modelos || [];
   const totalEliminadosCount = modelosEliminadosData?.count || 0;
+
+  // Maintain focus on search input after re-render
+  useEffect(() => {
+    // Restore focus after query completes if user was typing
+    if (inputValue && searchInputRef.current && !loadingActivos && !loadingEliminados) {
+      searchInputRef.current.focus();
+    }
+  }, [loadingActivos, loadingEliminados, inputValue]); // Re-run when loading state changes
 
   const handleModeloAdded = () => {
     refetchActivos();
