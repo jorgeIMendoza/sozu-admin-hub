@@ -104,7 +104,7 @@ const Proyectos = () => {
             id_persona,
             id_tipo_entidad,
             activo,
-            personas (
+            personas!fk_entrel_persona (
               id,
               nombre_comercial,
               nombre_legal
@@ -220,7 +220,7 @@ const Proyectos = () => {
             id_persona,
             id_tipo_entidad,
             activo,
-            personas (
+            personas!fk_entrel_persona (
               id,
               nombre_comercial,
               nombre_legal
