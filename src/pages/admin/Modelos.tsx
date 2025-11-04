@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Edit, Home, Trash2, Eye, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, Edit, Home, Trash2, Eye, ChevronDown, ChevronRight, X, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { NewModeloDialog } from "@/components/admin/NewModeloDialog";
 import { EditModeloDialog } from "@/components/admin/EditModeloDialog";
@@ -25,6 +25,10 @@ import { ModelMultimediaSection } from "@/components/admin/ModelMultimediaSectio
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 interface Modelo {
   id: number;
@@ -48,7 +52,8 @@ export default function Modelos() {
   const [selectedModelForMultimedia, setSelectedModelForMultimedia] = useState<Modelo | null>(null);
   const [isMultimediaDialogOpen, setIsMultimediaDialogOpen] = useState(false);
   const [selectedDescripcion, setSelectedDescripcion] = useState<{ nombre: string; descripcion: string } | null>(null);
-  const [selectedProyectoFilter, setSelectedProyectoFilter] = useState<string>("all");
+  const [selectedProyectoFilter, setSelectedProyectoFilter] = useState<number[]>([]);
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
   const { toast } = useToast();
@@ -178,9 +183,22 @@ export default function Modelos() {
   const filteredModelos = currentModelos?.filter((modelo) => {
     const matchesSearch = modelo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (modelo.descripcion && modelo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesProyecto = selectedProyectoFilter === "all" || (modelo.id_proyecto?.toString() === selectedProyectoFilter);
+    const matchesProyecto = selectedProyectoFilter.length === 0 || 
+      (modelo.id_proyecto && selectedProyectoFilter.includes(modelo.id_proyecto));
     return matchesSearch && matchesProyecto;
   }) || [];
+
+  const toggleProjectSelection = (projectId: number) => {
+    setSelectedProyectoFilter(prev => 
+      prev.includes(projectId) 
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    );
+  };
+
+  const clearProjectFilters = () => {
+    setSelectedProyectoFilter([]);
+  };
 
   // Group modelos by project
   const modelosByProject = filteredModelos.reduce((acc, modelo) => {
@@ -234,22 +252,66 @@ export default function Modelos() {
                 className="pl-10"
               />
             </div>
-            <Select
-              value={selectedProyectoFilter}
-              onValueChange={setSelectedProyectoFilter}
-            >
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="Filtrar por proyecto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los proyectos</SelectItem>
-                {proyectos.map((proyecto) => (
-                  <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                    {proyecto.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={isProjectFilterOpen} onOpenChange={setIsProjectFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={isProjectFilterOpen}
+                  className="w-[300px] justify-between"
+                >
+                  {selectedProyectoFilter.length === 0 ? (
+                    "Seleccionar proyectos..."
+                  ) : selectedProyectoFilter.length === 1 ? (
+                    proyectos.find(p => p.id === selectedProyectoFilter[0])?.nombre
+                  ) : (
+                    `${selectedProyectoFilter.length} proyectos seleccionados`
+                  )}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar proyecto..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron proyectos.</CommandEmpty>
+                    <CommandGroup>
+                      {proyectos.map((proyecto) => (
+                        <CommandItem
+                          key={proyecto.id}
+                          onSelect={() => toggleProjectSelection(proyecto.id)}
+                        >
+                          <Checkbox
+                            checked={selectedProyectoFilter.includes(proyecto.id)}
+                            className="mr-2"
+                          />
+                          <span>{proyecto.nombre}</span>
+                          <Check
+                            className={cn(
+                              "ml-auto h-4 w-4",
+                              selectedProyectoFilter.includes(proyecto.id) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+                {selectedProyectoFilter.length > 0 && (
+                  <div className="border-t p-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={clearProjectFilters}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Limpiar filtros
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
           <NewModeloDialog onModeloAdded={handleModeloAdded} proyectos={proyectos} />
         </div>
