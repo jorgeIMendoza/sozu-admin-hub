@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,20 +44,33 @@ export const PropertyDescriptionSection = ({ form, selectedModelId, propertyId, 
         .from("modelos_caracteristicas")
         .select(`
           id,
-          caracteristicas:id_caracteristica (
+          id_caracteristica,
+          caracteristicas!inner (
             id,
             nombre,
             activo
           )
         `)
         .eq("id_modelo", parseInt(selectedModelId))
-        .eq("activo", true);
+        .eq("activo", true)
+        .eq("caracteristicas.activo", true);
       
-      if (error) throw error;
-      return data?.filter(mc => mc.caracteristicas && (mc.caracteristicas as any).activo) || [];
+      if (error) {
+        console.error("Error fetching model characteristics:", error);
+        throw error;
+      }
+      return data || [];
     },
     enabled: !!selectedModelId,
   });
+
+  // Memoize the excluded characteristic IDs to prevent infinite loops
+  const excludedCharacteristicIds = useMemo(() => {
+    if (!modelCharacteristics || modelCharacteristics.length === 0) return [];
+    return modelCharacteristics
+      .map((mc: any) => mc.caracteristicas?.id)
+      .filter((id): id is number => id !== undefined);
+  }, [modelCharacteristics]);
 
   return (
     <div className="space-y-6">
@@ -152,14 +166,14 @@ export const PropertyDescriptionSection = ({ form, selectedModelId, propertyId, 
           <CardContent>
             <PropertyCharacteristicsSection 
               propertyId={propertyId}
-              excludeCharacteristicIds={modelCharacteristics?.map((mc: any) => mc.caracteristicas.id) || []}
+              excludeCharacteristicIds={excludedCharacteristicIds}
             />
           </CardContent>
         </Card>
       ) : (
         <PropertyCharacteristicsSelectionSection 
           onCharacteristicsChange={onCharacteristicsChange}
-          excludeCharacteristicIds={modelCharacteristics?.map((mc: any) => mc.caracteristicas.id) || []}
+          excludeCharacteristicIds={excludedCharacteristicIds}
         />
       )}
     </div>
