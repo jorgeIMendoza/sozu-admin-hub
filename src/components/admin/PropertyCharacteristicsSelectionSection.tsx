@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Grid3x3, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PropertyCharacteristicsSelectionSectionProps {
@@ -16,6 +18,7 @@ export const PropertyCharacteristicsSelectionSection = ({
   excludeCharacteristicIds = []
 }: PropertyCharacteristicsSelectionSectionProps) => {
   const [selectedCharacteristics, setSelectedCharacteristics] = useState<number[]>(initialSelectedIds);
+  const [showOnlySelected, setShowOnlySelected] = useState(false);
 
   // Query para obtener las características disponibles (excluyendo las del modelo)
   const { data: caracteristicas, isLoading } = useQuery({
@@ -42,6 +45,11 @@ export const PropertyCharacteristicsSelectionSection = ({
     onCharacteristicsChange?.(newSelected);
   };
 
+  // Filter characteristics based on showOnlySelected
+  const filteredCharacteristics = showOnlySelected
+    ? caracteristicas?.filter(c => selectedCharacteristics.includes(c.id)) || []
+    : caracteristicas || [];
+
   if (isLoading) {
     return (
       <Card>
@@ -58,19 +66,43 @@ export const PropertyCharacteristicsSelectionSection = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Características extra de la Propiedad</CardTitle>
-        <p className="text-sm text-muted-foreground mt-1">
-          Selecciona características adicionales a las del modelo
-        </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Características extra de la Propiedad</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Selecciona características adicionales a las del modelo
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant={showOnlySelected ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowOnlySelected(!showOnlySelected)}
+          >
+            {showOnlySelected ? (
+              <>
+                <Grid3x3 className="w-4 h-4 mr-2" />
+                Ver Todas
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Ver Seleccionadas ({selectedCharacteristics.length})
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
-        {!caracteristicas || caracteristicas.length === 0 ? (
+        {filteredCharacteristics.length === 0 ? (
           <p className="text-muted-foreground">
-            No hay características disponibles para asignar.
+            {showOnlySelected 
+              ? "No hay características seleccionadas" 
+              : "No hay características disponibles para asignar."}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-4">
-            {caracteristicas.map((caracteristica) => (
+            {filteredCharacteristics.map((caracteristica) => (
               <div key={caracteristica.id} className="flex items-center space-x-2">
                 <Checkbox
                   id={`caracteristica-${caracteristica.id}`}

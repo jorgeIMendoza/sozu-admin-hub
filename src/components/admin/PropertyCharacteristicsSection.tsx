@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Grid3x3, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface PropertyCharacteristicsSectionProps {
@@ -25,6 +25,7 @@ export function PropertyCharacteristicsSection({ propertyId, excludeCharacterist
   const [editCharacteristicName, setEditCharacteristicName] = useState("");
   const [editCharacteristicVerEnOferta, setEditCharacteristicVerEnOferta] = useState(true);
   const [selectedCharacteristics, setSelectedCharacteristics] = useState<string[]>([]);
+  const [showOnlySelected, setShowOnlySelected] = useState(false);
 
   // Fetch available characteristics (only enabled ones, excluding model characteristics)
   const { data: availableCharacteristics = [] } = useQuery({
@@ -227,6 +228,11 @@ export function PropertyCharacteristicsSection({ propertyId, excludeCharacterist
     setEditCharacteristicVerEnOferta(true);
   };
 
+  // Filter characteristics based on showOnlySelected
+  const filteredCharacteristics = showOnlySelected
+    ? availableCharacteristics.filter(c => selectedCharacteristics.includes(c.id.toString()))
+    : availableCharacteristics;
+
   return (
     <Card>
       <CardHeader>
@@ -237,15 +243,35 @@ export function PropertyCharacteristicsSection({ propertyId, excludeCharacterist
               Selecciona características adicionales a las del modelo
             </p>
           </div>
-          <Button
-            onClick={() => setIsAddingCharacteristic(true)}
-            disabled={isAddingCharacteristic}
-            variant="outline"
-            size="sm"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Característica
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => setIsAddingCharacteristic(true)}
+              disabled={isAddingCharacteristic}
+              variant="outline"
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Característica
+            </Button>
+            <Button
+              type="button"
+              variant={showOnlySelected ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowOnlySelected(!showOnlySelected)}
+            >
+              {showOnlySelected ? (
+                <>
+                  <Grid3x3 className="w-4 h-4 mr-2" />
+                  Ver Todas
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Ver Seleccionadas ({selectedCharacteristics.length})
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -303,11 +329,15 @@ export function PropertyCharacteristicsSection({ propertyId, excludeCharacterist
           </Card>
         )}
 
-        {availableCharacteristics.length === 0 ? (
-          <p className="text-muted-foreground">No hay características disponibles</p>
+        {filteredCharacteristics.length === 0 ? (
+          <p className="text-muted-foreground">
+            {showOnlySelected 
+              ? "No hay características seleccionadas" 
+              : "No hay características disponibles"}
+          </p>
         ) : (
           <div className="grid grid-cols-2 gap-4">
-            {availableCharacteristics.map((characteristic) => (
+            {filteredCharacteristics.map((characteristic) => (
               editingCharacteristicId === characteristic.id ? (
                 <Card key={characteristic.id} className="col-span-2 border-2 border-primary/20">
                   <CardContent className="pt-4">
