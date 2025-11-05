@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -473,20 +474,19 @@ export default function Vistas() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Proyecto</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un proyecto" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {proyectos.map((proyecto) => (
-                            <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                              {proyecto.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <Combobox
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          options={proyectos.map((proyecto) => ({
+                            value: proyecto.id.toString(),
+                            label: proyecto.nombre,
+                          }))}
+                          placeholder="Selecciona un proyecto"
+                          searchPlaceholder="Buscar proyecto..."
+                          emptyText="No se encontró el proyecto"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -773,20 +773,19 @@ export default function Vistas() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Proyecto</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un proyecto" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {proyectos.map((proyecto) => (
-                          <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                            {proyecto.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <Combobox
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={proyectos.map((proyecto) => ({
+                          value: proyecto.id.toString(),
+                          label: proyecto.nombre,
+                        }))}
+                        placeholder="Selecciona un proyecto"
+                        searchPlaceholder="Buscar proyecto..."
+                        emptyText="No se encontró el proyecto"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
