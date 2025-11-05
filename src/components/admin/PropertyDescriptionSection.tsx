@@ -140,15 +140,18 @@ export const PropertyDescriptionSection = ({ form, selectedModelId, propertyId, 
 
             {/* Características del Modelo */}
             {modelCharacteristics && modelCharacteristics.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 pt-4 border-t">
                 <FormLabel>Características del Modelo</FormLabel>
                 <div className="p-3 border rounded-md bg-muted/50">
                   <div className="flex flex-wrap gap-2">
-                    {modelCharacteristics.map((mc: any) => (
-                      <Badge key={mc.id} variant="secondary">
-                        {mc.caracteristicas.nombre}
-                      </Badge>
-                    ))}
+                    {modelCharacteristics.map((mc: any) => {
+                      const caracteristica = mc.caracteristicas;
+                      return (
+                        <Badge key={mc.id} variant="secondary">
+                          {caracteristica?.nombre || 'Sin nombre'}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
