@@ -12,9 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface PropertyCharacteristicsSectionProps {
   propertyId: number;
+  excludeCharacteristicIds?: number[];
 }
 
-export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacteristicsSectionProps) {
+export function PropertyCharacteristicsSection({ propertyId, excludeCharacteristicIds = [] }: PropertyCharacteristicsSectionProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddingCharacteristic, setIsAddingCharacteristic] = useState(false);
@@ -25,9 +26,9 @@ export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacter
   const [editCharacteristicVerEnOferta, setEditCharacteristicVerEnOferta] = useState(true);
   const [selectedCharacteristics, setSelectedCharacteristics] = useState<string[]>([]);
 
-  // Fetch available characteristics (only enabled ones)
+  // Fetch available characteristics (only enabled ones, excluding model characteristics)
   const { data: availableCharacteristics = [] } = useQuery({
-    queryKey: ['availableCharacteristics'],
+    queryKey: ['availableCharacteristics', excludeCharacteristicIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('caracteristicas')
@@ -36,7 +37,8 @@ export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacter
         .order('nombre');
       
       if (error) throw error;
-      return data || [];
+      // Filter out excluded characteristics (from model)
+      return (data || []).filter(c => !excludeCharacteristicIds.includes(c.id));
     }
   });
 
@@ -230,9 +232,9 @@ export function PropertyCharacteristicsSection({ propertyId }: PropertyCharacter
       <CardHeader>
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle>Características de la Propiedad</CardTitle>
+            <CardTitle>Características extra de la Propiedad</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Selecciona las características que incluye esta propiedad
+              Selecciona características adicionales a las del modelo
             </p>
           </div>
           <Button

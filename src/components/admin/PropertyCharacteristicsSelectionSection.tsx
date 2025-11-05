@@ -7,17 +7,19 @@ import { supabase } from "@/integrations/supabase/client";
 interface PropertyCharacteristicsSelectionSectionProps {
   onCharacteristicsChange?: (selectedIds: number[]) => void;
   initialSelectedIds?: number[];
+  excludeCharacteristicIds?: number[];
 }
 
 export const PropertyCharacteristicsSelectionSection = ({ 
   onCharacteristicsChange,
-  initialSelectedIds = []
+  initialSelectedIds = [],
+  excludeCharacteristicIds = []
 }: PropertyCharacteristicsSelectionSectionProps) => {
   const [selectedCharacteristics, setSelectedCharacteristics] = useState<number[]>(initialSelectedIds);
 
-  // Query para obtener las características disponibles
+  // Query para obtener las características disponibles (excluyendo las del modelo)
   const { data: caracteristicas, isLoading } = useQuery({
-    queryKey: ["caracteristicas-available"],
+    queryKey: ["caracteristicas-available", excludeCharacteristicIds],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("caracteristicas")
@@ -26,7 +28,8 @@ export const PropertyCharacteristicsSelectionSection = ({
         .order("nombre");
 
       if (error) throw error;
-      return data;
+      // Filter out excluded characteristics (from model)
+      return (data || []).filter(c => !excludeCharacteristicIds.includes(c.id));
     },
   });
 
@@ -43,7 +46,7 @@ export const PropertyCharacteristicsSelectionSection = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Características</CardTitle>
+          <CardTitle>Características extra de la Propiedad</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">Cargando características...</p>
@@ -55,7 +58,10 @@ export const PropertyCharacteristicsSelectionSection = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Características</CardTitle>
+        <CardTitle>Características extra de la Propiedad</CardTitle>
+        <p className="text-sm text-muted-foreground mt-1">
+          Selecciona características adicionales a las del modelo
+        </p>
       </CardHeader>
       <CardContent>
         {!caracteristicas || caracteristicas.length === 0 ? (

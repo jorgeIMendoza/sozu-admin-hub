@@ -33,6 +33,31 @@ export const PropertyDescriptionSection = ({ form, selectedModelId, propertyId, 
     enabled: !!selectedModelId,
   });
 
+  // Fetch model characteristics when model is selected
+  const { data: modelCharacteristics } = useQuery({
+    queryKey: ["model-characteristics", selectedModelId],
+    queryFn: async () => {
+      if (!selectedModelId) return [];
+      
+      const { data, error } = await supabase
+        .from("modelos_caracteristicas")
+        .select(`
+          id,
+          caracteristicas:id_caracteristica (
+            id,
+            nombre,
+            activo
+          )
+        `)
+        .eq("id_modelo", parseInt(selectedModelId))
+        .eq("activo", true);
+      
+      if (error) throw error;
+      return data?.filter(mc => mc.caracteristicas && (mc.caracteristicas as any).activo) || [];
+    },
+    enabled: !!selectedModelId,
+  });
+
   return (
     <div className="space-y-6">
       {/* Descripción */}
@@ -69,7 +94,7 @@ export const PropertyDescriptionSection = ({ form, selectedModelId, propertyId, 
               Configuración del Modelo {modelDetails.nombre ? modelDetails.nombre : ""}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <FormLabel>Número de Recámaras</FormLabel>
@@ -98,23 +123,43 @@ export const PropertyDescriptionSection = ({ form, selectedModelId, propertyId, 
                 </div>
               </div>
             </div>
+
+            {/* Características del Modelo */}
+            {modelCharacteristics && modelCharacteristics.length > 0 && (
+              <div className="space-y-2">
+                <FormLabel>Características del Modelo</FormLabel>
+                <div className="p-3 border rounded-md bg-muted/50">
+                  <div className="flex flex-wrap gap-2">
+                    {modelCharacteristics.map((mc: any) => (
+                      <Badge key={mc.id} variant="secondary">
+                        {mc.caracteristicas.nombre}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Características */}
+      {/* Características extra de la Propiedad */}
       {propertyId ? (
         <Card>
           <CardHeader>
-            <CardTitle>Características</CardTitle>
+            <CardTitle>Características extra de la Propiedad</CardTitle>
           </CardHeader>
           <CardContent>
-            <PropertyCharacteristicsSection propertyId={propertyId} />
+            <PropertyCharacteristicsSection 
+              propertyId={propertyId}
+              excludeCharacteristicIds={modelCharacteristics?.map((mc: any) => mc.caracteristicas.id) || []}
+            />
           </CardContent>
         </Card>
       ) : (
         <PropertyCharacteristicsSelectionSection 
           onCharacteristicsChange={onCharacteristicsChange}
+          excludeCharacteristicIds={modelCharacteristics?.map((mc: any) => mc.caracteristicas.id) || []}
         />
       )}
     </div>
