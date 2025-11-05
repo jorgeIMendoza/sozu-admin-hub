@@ -339,7 +339,7 @@ export const PropertyMultimediaSection = ({ form, propertyId, projectId, onMulti
             name="id_vista"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Vista *</FormLabel>
+                <FormLabel>Vista</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
                   defaultValue={field.value}

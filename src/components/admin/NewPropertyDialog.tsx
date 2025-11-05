@@ -31,7 +31,7 @@ const formSchema = z.object({
   id_tipo_transaccion: z.string().min(1, "El tipo de transacción es requerido"),
   id_tipo_propiedad: z.string().min(1, "El tipo de propiedad es requerido"),
   id_estatus_disponibilidad: z.string().min(1, "El estatus de disponibilidad es requerido"),
-  id_vista: z.string().min(1, "La vista es requerida"),
+  id_vista: z.string().optional(),
   id_entidad_relacionada_dueno: z.string().min(1, "El propietario es requerido").refine((val) => val !== "no-owners", {
     message: "Se deben asignar Entidades Legales (Dueños vendedor o Aportante) al proyecto"
   }),

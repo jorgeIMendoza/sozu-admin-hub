@@ -790,7 +790,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <Label htmlFor="vista">Vista *</Label>
+                      <Label htmlFor="vista">Vista</Label>
                       <Combobox
                         value={formData.id_vista}
                         onValueChange={(value) => setFormData(prev => ({ ...prev, id_vista: value }))}
