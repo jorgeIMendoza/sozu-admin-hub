@@ -96,6 +96,7 @@ interface Property {
   cuenta_sin_esquema: boolean; // Nueva propiedad para saber si la cuenta existe pero sin esquema de pago
   // Relaciones
   propietario: string;
+  es_desarrollador: boolean; // Indica si el propietario mostrado es el desarrollador del proyecto
   proyecto: string;
   proyecto_id: number;
   edificio: string;
@@ -289,7 +290,14 @@ const Propiedades = () => {
             edificios_modelos!propiedades_id_edificio_modelo_fkey!inner(
               edificios!edificios_modelos_id_edificio_fkey!inner(
                 nombre,
-                proyectos!edificios_id_proyecto_fkey!inner(id, nombre)
+                proyectos!edificios_id_proyecto_fkey!inner(
+                  id, 
+                  nombre,
+                  entidades_relacionadas!entidades_relacionadas_id_proyecto_fkey(
+                    id_tipo_entidad,
+                    personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
+                  )
+                )
               ),
               modelos!edificios_modelos_id_modelo_fkey!inner(
                 nombre,
@@ -592,6 +600,23 @@ const Propiedades = () => {
            paymentStatus.especial?.total === 0 && 
            paymentStatus.cesion_derechos?.total === 0));
 
+        // Obtener el desarrollador del proyecto
+        const desarrolladorProyecto = property.edificios_modelos?.edificios?.proyectos?.entidades_relacionadas
+          ?.find((er: any) => er.id_tipo_entidad === 3)?.personas?.nombre_legal || null;
+
+        // Determinar qué mostrar en propietario
+        const propietarioNombre = property.entidades_relacionadas?.personas?.nombre_legal;
+        let propietarioDisplay = 'Sin propietario';
+        let esDarrollador = false;
+
+        if (propietarioNombre) {
+          propietarioDisplay = propietarioNombre;
+          esDarrollador = false;
+        } else if (desarrolladorProyecto) {
+          propietarioDisplay = desarrolladorProyecto;
+          esDarrollador = true;
+        }
+
         return {
           id: property.id,
           numero_propiedad: property.numero_propiedad,
@@ -615,7 +640,8 @@ const Propiedades = () => {
           es_aprobado: property.es_aprobado,
           apartado_pagado: (paymentStatus?.apartado?.status === 'pagado') || (paymentStatus?.cesion_derechos?.monto_pagado > 0),
           cuenta_sin_esquema: cuentaSinEsquema,
-          propietario: property.entidades_relacionadas?.personas?.nombre_legal || 'Sin propietario',
+          propietario: propietarioDisplay,
+          es_desarrollador: esDarrollador,
           proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
           proyecto_id: property.edificios_modelos?.edificios?.proyectos?.id || 0,
           edificio: property.edificios_modelos?.edificios?.nombre || 'Sin edificio',
@@ -1631,7 +1657,16 @@ const Propiedades = () => {
                     </TableCell>
                   )}
                   <TableCell className="font-medium">{property.proyecto}</TableCell>
-                  <TableCell>{property.propietario}</TableCell>
+                  <TableCell>
+                    {property.es_desarrollador ? (
+                      <div className="flex items-center gap-1.5">
+                        <span>{property.propietario}</span>
+                        <span className="text-muted-foreground text-xs">(Desarrollador)</span>
+                      </div>
+                    ) : (
+                      property.propietario
+                    )}
+                  </TableCell>
                   <TableCell>{property.edificio}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{property.modelo}</Badge>
