@@ -16,7 +16,7 @@ interface PropertyDetails {
   m2_interiores: number | null;
   m2_exteriores: number | null;
   descripcion: string | null;
-  numero_piso?: number | null;
+  numero_piso?: string | null;
   clabe_stp_tmp_apartado?: string | null;
   building?: {
     id: number;

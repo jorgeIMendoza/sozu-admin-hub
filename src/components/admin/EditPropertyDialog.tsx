@@ -147,7 +147,7 @@ import { Combobox } from "@/components/ui/combobox";
 interface Property {
   id: number;
   numero_propiedad: string;
-  numero_piso: number;
+  numero_piso: string | null;
   m2_interiores: number;
   m2_exteriores: number;
   precio_lista: number;
@@ -183,7 +183,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
   const [excludedCharacteristicIds, setExcludedCharacteristicIds] = useState<number[]>([]);
   const [formData, setFormData] = useState({
     numero_propiedad: property.numero_propiedad,
-    numero_piso: property.numero_piso,
+    numero_piso: property.numero_piso || '',
     m2_interiores: property.m2_interiores || 0,
     m2_exteriores: property.m2_exteriores || 0,
     m2_loft: 0,
@@ -419,7 +419,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
 
       setFormData({
         numero_propiedad: fullPropertyData.numero_propiedad,
-        numero_piso: fullPropertyData.numero_piso || 0,
+        numero_piso: fullPropertyData.numero_piso?.toString() || '',
         m2_interiores: fullPropertyData.m2_interiores || 0,
         m2_exteriores: fullPropertyData.m2_exteriores || 0,
         m2_loft: fullPropertyData.m2_loft || 0,
@@ -449,7 +449,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         .from('propiedades')
         .update({
           numero_propiedad: formData.numero_propiedad,
-          numero_piso: formData.numero_piso,
+          numero_piso: formData.numero_piso as any,
           m2_interiores: formData.m2_interiores,
           m2_exteriores: formData.m2_exteriores,
           m2_loft: formData.m2_loft,
@@ -615,10 +615,10 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Label htmlFor="numero_piso">Número de Piso *</Label>
                     <Input
                       id="numero_piso"
-                      type="number"
+                      type="text"
                       value={formData.numero_piso}
-                      onChange={(e) => setFormData(prev => ({ ...prev, numero_piso: parseInt(e.target.value) || 0 }))}
-                      placeholder="Ej: 1"
+                      onChange={(e) => setFormData(prev => ({ ...prev, numero_piso: e.target.value }))}
+                      placeholder="Ej: 1, PB, Mezzanine"
                     />
                   </div>
 

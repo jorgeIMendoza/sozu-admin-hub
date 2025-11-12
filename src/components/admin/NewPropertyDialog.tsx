@@ -108,7 +108,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
       // Paso 1: Crear la propiedad
       const propertyData = {
         numero_propiedad: values.numero_propiedad,
-        numero_piso: parseInt(values.numero_piso),
+        numero_piso: values.numero_piso as any,
         m2_interiores: parseFloat(values.m2_interiores),
         m2_exteriores: parseFloat(values.m2_exteriores),
         m2_loft: values.m2_loft ? parseFloat(values.m2_loft) : null,

@@ -32,7 +32,7 @@ interface PropertyDetails {
   m2_interiores: number | null;
   m2_exteriores: number | null;
   descripcion: string | null;
-  numero_piso?: number | null;
+  numero_piso?: string | null;
   clabe_stp_tmp_apartado?: string | null;
   tieneBalcon?: boolean;
   building?: {
@@ -855,7 +855,7 @@ class HTMLToPDFService {
       m2_interiores: propiedad.m2_interiores,
       m2_exteriores: propiedad.m2_exteriores,
       descripcion: propiedad.descripcion,
-      numero_piso: propiedad.numero_piso,
+      numero_piso: propiedad.numero_piso?.toString() || null,
       clabe_stp_tmp_apartado: clabeStp,
       tieneBalcon,
       building,

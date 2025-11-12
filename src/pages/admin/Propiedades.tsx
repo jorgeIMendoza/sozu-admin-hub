@@ -74,7 +74,7 @@ const FacturaCell = ({ propertyId }: { propertyId: number }) => {
 interface Property {
   id: number;
   numero_propiedad: string;
-  numero_piso: number;
+  numero_piso: string | null;
   m2_reales: number;
   m2_interiores: number;
   m2_exteriores: number;
