@@ -720,11 +720,27 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
-        const { data, error } = await query.limit(10000);
-        
-        if (error) throw error;
+        // Fetch ALL data in batches (Supabase has a 1000 record limit per request)
+        let allData: any[] = [];
+        let batchStart = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        const enrichedData = await enrichPropertiesData(data || []);
+        while (hasMore) {
+          const { data: batchData, error } = await query.range(batchStart, batchStart + batchSize - 1);
+          
+          if (error) throw error;
+          
+          if (batchData && batchData.length > 0) {
+            allData = [...allData, ...batchData];
+            batchStart += batchSize;
+            hasMore = batchData.length === batchSize; // Continue if we got a full batch
+          } else {
+            hasMore = false;
+          }
+        }
+
+        const enrichedData = await enrichPropertiesData(allData);
         
         // Client-side sorting: proyecto -> edificio -> número de propiedad
         enrichedData.sort((a, b) => {
@@ -868,11 +884,27 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
-        const { data, error } = await query.limit(10000);
-        
-        if (error) throw error;
+        // Fetch ALL data in batches (Supabase has a 1000 record limit per request)
+        let allData: any[] = [];
+        let batchStart = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        const enrichedData = await enrichPropertiesData(data || []);
+        while (hasMore) {
+          const { data: batchData, error } = await query.range(batchStart, batchStart + batchSize - 1);
+          
+          if (error) throw error;
+          
+          if (batchData && batchData.length > 0) {
+            allData = [...allData, ...batchData];
+            batchStart += batchSize;
+            hasMore = batchData.length === batchSize; // Continue if we got a full batch
+          } else {
+            hasMore = false;
+          }
+        }
+
+        const enrichedData = await enrichPropertiesData(allData);
         
         // Client-side sorting: proyecto -> edificio -> número de propiedad
         enrichedData.sort((a, b) => {
@@ -1017,11 +1049,27 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
-        const { data, error } = await query.limit(10000);
-        
-        if (error) throw error;
+        // Fetch ALL data in batches (Supabase has a 1000 record limit per request)
+        let allData: any[] = [];
+        let batchStart = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        const enrichedData = await enrichPropertiesData(data || []);
+        while (hasMore) {
+          const { data: batchData, error } = await query.range(batchStart, batchStart + batchSize - 1);
+          
+          if (error) throw error;
+          
+          if (batchData && batchData.length > 0) {
+            allData = [...allData, ...batchData];
+            batchStart += batchSize;
+            hasMore = batchData.length === batchSize; // Continue if we got a full batch
+          } else {
+            hasMore = false;
+          }
+        }
+
+        const enrichedData = await enrichPropertiesData(allData);
         
         // Client-side sorting: proyecto -> edificio -> número de propiedad
         enrichedData.sort((a, b) => {
