@@ -174,15 +174,48 @@ const Propiedades = () => {
   const [selectedPropertyBodegas, setSelectedPropertyBodegas] = useState<any[]>([]);
   const [selectedPropertyForDetail, setSelectedPropertyForDetail] = useState<Property | null>(null);
   
-  // Filtros de texto
+  // Filtros de texto - separar input de valores debounced
+  const [proyectoFilterInput, setProyectoFilterInput] = useState("");
   const [proyectoFilter, setProyectoFilter] = useState("");
+  const [modeloFilterInput, setModeloFilterInput] = useState("");
   const [modeloFilter, setModeloFilter] = useState("");
+  const [recamarasFilterInput, setRecamarasFilterInput] = useState("");
   const [recamarasFilter, setRecamarasFilter] = useState("");
+  const [banosFilterInput, setBanosFilterInput] = useState("");
   const [banosFilter, setBanosFilter] = useState("");
   const [disponibilidadFilter, setDisponibilidadFilter] = useState<string[]>([]);
   const [bodegasFilter, setBodegasFilter] = useState("");
   const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   const [cuentaCobranzaFilter, setCuentaCobranzaFilter] = useState("");
+
+  // Debounce filtros de texto
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setProyectoFilter(proyectoFilterInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [proyectoFilterInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setModeloFilter(modeloFilterInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [modeloFilterInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setRecamarasFilter(recamarasFilterInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [recamarasFilterInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBanosFilter(banosFilterInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [banosFilterInput]);
   
   // Paginación
   const [currentPageActive, setCurrentPageActive] = useState(1);
@@ -2564,32 +2597,32 @@ const Propiedades = () => {
                 <label className="text-sm font-medium mb-2 block">Proyecto</label>
                 <Input
                   placeholder="Filtrar por proyecto..."
-                  value={proyectoFilter}
-                  onChange={(e) => setProyectoFilter(e.target.value)}
+                  value={proyectoFilterInput}
+                  onChange={(e) => setProyectoFilterInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Modelo</label>
                 <Input
                   placeholder="Filtrar por modelo..."
-                  value={modeloFilter}
-                  onChange={(e) => setModeloFilter(e.target.value)}
+                  value={modeloFilterInput}
+                  onChange={(e) => setModeloFilterInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Recámaras</label>
                 <Input
                   placeholder="Ej: 2, 3..."
-                  value={recamarasFilter}
-                  onChange={(e) => setRecamarasFilter(e.target.value)}
+                  value={recamarasFilterInput}
+                  onChange={(e) => setRecamarasFilterInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Baños</label>
                 <Input
                   placeholder="Ej: 1, 2..."
-                  value={banosFilter}
-                  onChange={(e) => setBanosFilter(e.target.value)}
+                  value={banosFilterInput}
+                  onChange={(e) => setBanosFilterInput(e.target.value)}
                 />
               </div>
               <div>
@@ -2692,10 +2725,15 @@ const Propiedades = () => {
               <Button
                 variant="outline"
                 onClick={() => {
+                  setInputValue("");
                   setSearchTerm("");
+                  setProyectoFilterInput("");
                   setProyectoFilter("");
+                  setModeloFilterInput("");
                   setModeloFilter("");
+                  setRecamarasFilterInput("");
                   setRecamarasFilter("");
+                  setBanosFilterInput("");
                   setBanosFilter("");
                   setDisponibilidadFilter([]);
                   setBodegasFilter("");
