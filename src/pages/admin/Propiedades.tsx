@@ -188,7 +188,7 @@ const Propiedades = () => {
   const [currentPageActive, setCurrentPageActive] = useState(1);
   const [currentPageDraft, setCurrentPageDraft] = useState(1);
   const [currentPageInactive, setCurrentPageInactive] = useState(1);
-  const itemsPerPage = 25;
+  const itemsPerPage = 50;
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -266,13 +266,348 @@ const Propiedades = () => {
     }
   };
 
-  const { data: properties, isLoading, error: queryError } = useQuery({
-    queryKey: ['properties-detailed-with-payment-dates'],
+  // Shared data enrichment function
+  const enrichPropertiesData = async (data: any[]) => {
+    // Get parking counts
+    const { data: estacionamientosData, error: estacionamientosError } = await supabase
+      .from('estacionamientos')
+      .select('id_propiedad')
+      .eq('activo', true);
+
+    if (estacionamientosError) {
+      console.error('Error fetching estacionamientos:', estacionamientosError);
+    }
+
+    // Get storage counts  
+    const { data: bodegasData, error: bodegasError } = await supabase
+      .from('bodegas')
+      .select('id_propiedad')
+      .eq('activo', true);
+
+    if (bodegasError) {
+      console.error('Error fetching bodegas:', bodegasError);
+    }
+
+    // Create count maps
+    const estacionamientosCounts = (estacionamientosData || []).reduce((acc: any, item: any) => {
+      acc[item.id_propiedad] = (acc[item.id_propiedad] || 0) + 1;
+      return acc;
+    }, {});
+
+    const bodegasCounts = (bodegasData || []).reduce((acc: any, item: any) => {
+      acc[item.id_propiedad] = (acc[item.id_propiedad] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Get active cuentas_cobranza separately
+    const { data: activeCuentas } = await supabase
+      .from('cuentas_cobranza')
+      .select('id, clabe_stp, id_oferta, precio_final, es_comision_venta_efectivo, porcentaje_comision_venta')
+      .eq('activo', true);
+
+    const activeCuentasMap = (activeCuentas || []).reduce((acc: any, cuenta: any) => {
+      acc[cuenta.id_oferta] = cuenta;
+      return acc;
+    }, {});
+
+    // Get payment agreements and applications for each cuenta_cobranza
+    const cuentaIds = (activeCuentas || []).map(c => c.id);
+    
+    // Build payment status map
+    const paymentStatusMap: any = {};
+    
+    // Create a map to store apartado amounts per property
+    const apartadoMap: any = {};
+    data?.forEach((property: any) => {
+      if (property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
+        apartadoMap[property.id] = property.monto_apartado_pagando;
+      }
+    });
+    
+    // Create payment status structure for each cuenta
+    (activeCuentas || []).forEach(cuenta => {
+      paymentStatusMap[cuenta.id] = {
+        apartado: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+        enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+        mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+        entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+        especial: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
+        cesion_derechos: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null }
+      };
+    });
+
+    if (cuentaIds.length > 0) {
+      const { data: acuerdosData } = await supabase
+        .from('acuerdos_pago')
+        .select(`
+          id,
+          monto,
+          pago_completado,
+          id_concepto,
+          id_cuenta_cobranza,
+          fecha_pago
+        `)
+        .in('id_cuenta_cobranza', cuentaIds)
+        .eq('activo', true);
+
+      // Get all aplicaciones_pago for these acuerdos WITH payment method info AND payment dates
+      const acuerdoIds = (acuerdosData || []).map(a => a.id);
+      
+      let aplicacionesMap: any = {};
+      let pagosPorMetodo: any = {};
+      if (acuerdoIds.length > 0) {
+        const { data: aplicacionesData } = await supabase
+          .from('aplicaciones_pago')
+          .select(`
+            id_acuerdo_pago,
+            monto,
+            pagos!fk_aplicaciones_pago_pago!inner(id_metodos_pago, fecha_pago)
+          `)
+          .in('id_acuerdo_pago', acuerdoIds)
+          .eq('activo', true);
+
+        aplicacionesMap = (aplicacionesData || []).reduce((acc: any, app: any) => {
+          if (!acc[app.id_acuerdo_pago]) {
+            acc[app.id_acuerdo_pago] = [];
+          }
+          acc[app.id_acuerdo_pago].push(app);
+          return acc;
+        }, {});
+        
+        // Build map of payment methods used per acuerdo
+        (aplicacionesData || []).forEach((app: any) => {
+          if (!pagosPorMetodo[app.id_acuerdo_pago]) {
+            pagosPorMetodo[app.id_acuerdo_pago] = {};
+          }
+          
+          const idMetodoPago = app.pagos?.id_metodos_pago;
+          if (!pagosPorMetodo[app.id_acuerdo_pago][idMetodoPago]) {
+            pagosPorMetodo[app.id_acuerdo_pago][idMetodoPago] = 0;
+          }
+          pagosPorMetodo[app.id_acuerdo_pago][idMetodoPago] += Number(app.monto) || 0;
+        });
+      }
+
+      // Group acuerdos by cuenta and concepto
+      const acuerdosPorCuentaConcepto: any = {};
+      
+      (acuerdosData || []).forEach((acuerdo: any) => {
+        // Skip if payment status map doesn't have this cuenta
+        if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
+          return;
+        }
+        
+        const aplicaciones = aplicacionesMap[acuerdo.id] || [];
+        const montoPagado = aplicaciones.reduce((sum: number, app: any) => sum + (Number(app.monto) || 0), 0);
+        
+        // Check if any payment was made with "Cesión de derechos" method (ID 8)
+        const metodosUsados = pagosPorMetodo[acuerdo.id] || {};
+        const tieneCesionDerechos = !!metodosUsados[8];
+
+        let conceptoKey: 'apartado' | 'mensualidades' | 'enganche' | 'entrega' | 'especial' | 'cesion_derechos';
+        
+        // Map concept IDs to keys - Apartado(1), Enganche(2), Contraentrega(3), Especial(4), Parcialidad(5), Cesión de derechos(6)
+        if (acuerdo.id_concepto === 1) conceptoKey = 'apartado';
+        else if (acuerdo.id_concepto === 2) {
+          // Enganche - Check if payment method is Cesión de derechos (ID 8)
+          if (tieneCesionDerechos) {
+            conceptoKey = 'cesion_derechos';
+          } else {
+            conceptoKey = 'enganche';
+          }
+        }
+        else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
+        else if (acuerdo.id_concepto === 4) conceptoKey = 'especial';
+        else if (acuerdo.id_concepto === 5) conceptoKey = 'mensualidades';
+        else if (acuerdo.id_concepto === 6) conceptoKey = 'cesion_derechos';
+        else return;
+
+        // Group acuerdos for later processing
+        const groupKey = `${acuerdo.id_cuenta_cobranza}_${conceptoKey}`;
+        if (!acuerdosPorCuentaConcepto[groupKey]) {
+          acuerdosPorCuentaConcepto[groupKey] = [];
+        }
+        acuerdosPorCuentaConcepto[groupKey].push({
+          ...acuerdo,
+          montoPagado,
+          conceptoKey
+        });
+
+        // Acumular montos totales y pagados por concepto
+        paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
+        paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
+        paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].total += 1;
+        
+        // Store the most recent fecha_pago from actual payments (pagos table)
+        aplicaciones.forEach((app: any) => {
+          const fechaPago = app.pagos?.fecha_pago;
+          if (fechaPago) {
+            if (!paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha || 
+                fechaPago > paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha) {
+              paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha = fechaPago;
+            }
+          }
+        });
+        
+        if (acuerdo.pago_completado) {
+          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].completados += 1;
+        }
+      });
+      
+      // Determine final status based on completados vs total
+      Object.keys(acuerdosPorCuentaConcepto).forEach(groupKey => {
+        const acuerdos = acuerdosPorCuentaConcepto[groupKey];
+        if (acuerdos.length === 0) return;
+        
+        const primeracuerdo = acuerdos[0];
+        const cuentaId = primeracuerdo.id_cuenta_cobranza;
+        const conceptoKey = primeracuerdo.conceptoKey;
+        
+        if (!paymentStatusMap[cuentaId]) {
+          return;
+        }
+        
+        const info = paymentStatusMap[cuentaId][conceptoKey];
+        const todosCompletados = info.completados === info.total && info.total > 0;
+        const algunoPagado = acuerdos.some((a: any) => a.montoPagado > 0);
+        
+        if (todosCompletados) {
+          info.status = 'pagado';
+        } else if (algunoPagado || info.completados > 0) {
+          info.status = 'en_proceso';
+        } else {
+          info.status = 'no_pagado';
+        }
+      });
+    }
+
+    // Transform the data with counts
+    const transformedData = data?.map((property: any) => {
+      // Get clabe_stp from ACTIVE cuentas_cobranza if available
+      const cuentaCobranzaData = property.ofertas?.map((oferta: any) => 
+        activeCuentasMap[oferta.id]
+      ).find((cuenta: any) => cuenta !== undefined);
+      
+      // Get es_comision_venta_efectivo and porcentaje_comision_venta
+      const esComisionEfectivo = cuentaCobranzaData?.es_comision_venta_efectivo || false;
+      const porcentajeComision = cuentaCobranzaData?.porcentaje_comision_venta || 0;
+      
+      let paymentStatus = cuentaCobranzaData?.id && paymentStatusMap[cuentaCobranzaData.id] 
+        ? paymentStatusMap[cuentaCobranzaData.id] 
+        : null;
+      
+      // Add apartado amount to enganche if it exists
+      if (paymentStatus && paymentStatus.enganche && property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
+        paymentStatus.enganche.monto_pagado += Number(property.monto_apartado_pagando) || 0;
+        
+        // Recalculate enganche status considering apartado ONLY if there are actual acuerdos
+        if (paymentStatus.enganche.total > 0) {
+          if (paymentStatus.enganche.monto_pagado >= paymentStatus.enganche.monto && paymentStatus.enganche.monto > 0) {
+            paymentStatus.enganche.status = 'pagado';
+          } else if (paymentStatus.enganche.monto_pagado > 0) {
+            paymentStatus.enganche.status = 'en_proceso';
+          }
+        }
+      }
+      
+      // Calculate total pagado and restante
+      const precio_final = cuentaCobranzaData?.precio_final || 0;
+      const total_pagado = paymentStatus ? (
+        (paymentStatus.apartado?.monto_pagado || 0) +
+        (paymentStatus.enganche?.monto_pagado || 0) +
+        (paymentStatus.mensualidades?.monto_pagado || 0) +
+        (paymentStatus.entrega?.monto_pagado || 0) +
+        (paymentStatus.especial?.monto_pagado || 0) +
+        (paymentStatus.cesion_derechos?.monto_pagado || 0)
+      ) : 0;
+      // Calculate restante and eliminate -0
+      let restante = precio_final - total_pagado;
+      restante = +restante.toFixed(2);
+      if (Math.abs(restante) < 0.01) restante = 0;
+      
+      // Determinar si la cuenta existe pero no tiene acuerdos (esquema no seleccionado)
+      const cuentaSinEsquema = cuentaCobranzaData?.id && (!paymentStatus || 
+        (paymentStatus.apartado?.total === 0 && 
+         paymentStatus.enganche?.total === 0 && 
+         paymentStatus.mensualidades?.total === 0 && 
+         paymentStatus.entrega?.total === 0 && 
+         paymentStatus.especial?.total === 0 && 
+         paymentStatus.cesion_derechos?.total === 0));
+
+      // Obtener el desarrollador del proyecto
+      const desarrolladorProyecto = property.edificios_modelos?.edificios?.proyectos?.entidades_relacionadas
+        ?.find((er: any) => er.id_tipo_entidad === 3)?.personas?.nombre_legal || null;
+
+      // Determinar qué mostrar en propietario
+      const propietarioNombre = property.entidades_relacionadas?.personas?.nombre_legal;
+      let propietarioDisplay = 'Sin propietario';
+      let esDarrollador = false;
+
+      if (propietarioNombre) {
+        propietarioDisplay = propietarioNombre;
+        esDarrollador = false;
+      } else if (desarrolladorProyecto) {
+        propietarioDisplay = desarrolladorProyecto;
+        esDarrollador = true;
+      }
+
+      return {
+        id: property.id,
+        numero_propiedad: property.numero_propiedad,
+        numero_piso: property.numero_piso,
+        m2_reales: (property.m2_interiores || 0) + (property.m2_exteriores || 0),
+        m2_interiores: property.m2_interiores || 0,
+        m2_exteriores: property.m2_exteriores || 0,
+        precio_lista: property.precio_lista,
+        monto_apartado: property.monto_apartado,
+        monto_apartado_pagando: property.monto_apartado_pagando,
+        clabe_stp_tmp_apartado: property.clabe_stp_tmp_apartado,
+        id_entidad_relacionada_dueno: property.id_entidad_relacionada_dueno,
+        clabe_stp: cuentaCobranzaData?.clabe_stp || property.clabe_stp_tmp_apartado,
+        cuenta_cobranza_id: cuentaCobranzaData?.id || null,
+        precio_final: precio_final > 0 ? precio_final : null,
+        es_comision_venta_efectivo: esComisionEfectivo,
+        porcentaje_comision_venta: porcentajeComision,
+        total_pagado,
+        restante,
+        activo: property.activo,
+        es_aprobado: property.es_aprobado,
+        apartado_pagado: (paymentStatus?.apartado?.status === 'pagado') || (paymentStatus?.cesion_derechos?.monto_pagado > 0),
+        cuenta_sin_esquema: cuentaSinEsquema,
+        propietario: propietarioDisplay,
+        es_desarrollador: esDarrollador,
+        proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
+        proyecto_id: property.edificios_modelos?.edificios?.proyectos?.id || 0,
+        edificio: property.edificios_modelos?.edificios?.nombre || 'Sin edificio',
+        modelo: property.edificios_modelos?.modelos?.nombre || 'Sin modelo',
+        vista: property.vistas?.nombre || 'Sin vista',
+        disponibilidad: property.estatus_disponibilidad?.nombre || 'Sin estatus',
+        id_estatus_disponibilidad: property.estatus_disponibilidad?.id || 0,
+        tieneOfertas: property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto === null),
+        tieneOfertasProductos: property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto !== null),
+        estacionamientos_count: estacionamientosCounts[property.id] || 0,
+        bodegas_count: bodegasCounts[property.id] || 0,
+        payment_status: paymentStatus,
+        configuracion_modelo: {
+          numero_recamaras: property.edificios_modelos?.modelos?.numero_recamaras || 0,
+          numero_completo_banos: property.edificios_modelos?.modelos?.numero_completo_banos || 0,
+          numero_medio_bano: property.edificios_modelos?.modelos?.numero_medio_bano || 0,
+        }
+      };
+    }) || [];
+    
+    return transformedData;
+  };
+
+  // Separate queries for each tab with server-side pagination
+  const { data: propiedadesActivasData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
+    queryKey: ['properties-activos', currentPageActive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter],
     queryFn: async () => {
       try {
-        console.log('Starting properties query...');
-        // First, get the base property data
-        const { data, error } = await supabase
+        const from = (currentPageActive - 1) * itemsPerPage;
+        const to = from + itemsPerPage - 1;
+
+        let query = supabase
           .from('propiedades')
           .select(`
             id,
@@ -317,359 +652,288 @@ const Propiedades = () => {
               activo,
               cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)
             )
-          `)
-          .order('id', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching properties:', error);
-          throw error;
-        }
-        
-        console.log('Properties fetched:', data?.length);
+          `, { count: 'exact' })
+          .eq('activo', true)
+          .eq('es_aprobado', true);
 
-      // Get parking counts
-      const { data: estacionamientosData, error: estacionamientosError } = await supabase
-        .from('estacionamientos')
-        .select('id_propiedad')
-        .eq('activo', true);
-
-      if (estacionamientosError) {
-        console.error('Error fetching estacionamientos:', estacionamientosError);
-      }
-
-      // Get storage counts  
-      const { data: bodegasData, error: bodegasError } = await supabase
-        .from('bodegas')
-        .select('id_propiedad')
-        .eq('activo', true);
-
-      if (bodegasError) {
-        console.error('Error fetching bodegas:', bodegasError);
-      }
-
-      // Create count maps
-      const estacionamientosCounts = (estacionamientosData || []).reduce((acc: any, item: any) => {
-        acc[item.id_propiedad] = (acc[item.id_propiedad] || 0) + 1;
-        return acc;
-      }, {});
-
-      const bodegasCounts = (bodegasData || []).reduce((acc: any, item: any) => {
-        acc[item.id_propiedad] = (acc[item.id_propiedad] || 0) + 1;
-        return acc;
-      }, {});
-      
-      // Get active cuentas_cobranza separately
-      const { data: activeCuentas } = await supabase
-        .from('cuentas_cobranza')
-        .select('id, clabe_stp, id_oferta, precio_final, es_comision_venta_efectivo, porcentaje_comision_venta')
-        .eq('activo', true);
-
-      const activeCuentasMap = (activeCuentas || []).reduce((acc: any, cuenta: any) => {
-        acc[cuenta.id_oferta] = cuenta;
-        return acc;
-      }, {});
-
-      // Get payment agreements and applications for each cuenta_cobranza
-      const cuentaIds = (activeCuentas || []).map(c => c.id);
-      
-      // Build payment status map
-      const paymentStatusMap: any = {};
-      
-      // Create a map to store apartado amounts per property
-      const apartadoMap: any = {};
-      data?.forEach((property: any) => {
-        if (property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
-          apartadoMap[property.id] = property.monto_apartado_pagando;
-        }
-      });
-      
-      // Create payment status structure for each cuenta
-      (activeCuentas || []).forEach(cuenta => {
-        paymentStatusMap[cuenta.id] = {
-          apartado: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
-          enganche: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
-          mensualidades: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
-          entrega: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
-          especial: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null },
-          cesion_derechos: { status: 'no_pagado', monto: 0, monto_pagado: 0, completados: 0, total: 0, fecha: null }
-        };
-      });
-
-      if (cuentaIds.length > 0) {
-        const { data: acuerdosData } = await supabase
-          .from('acuerdos_pago')
-          .select(`
-            id,
-            monto,
-            pago_completado,
-            id_concepto,
-            id_cuenta_cobranza,
-            fecha_pago
-          `)
-          .in('id_cuenta_cobranza', cuentaIds)
-          .eq('activo', true);
-
-        // Get all aplicaciones_pago for these acuerdos WITH payment method info AND payment dates
-        const acuerdoIds = (acuerdosData || []).map(a => a.id);
-        
-        let aplicacionesMap: any = {};
-        let pagosPorMetodo: any = {};
-        if (acuerdoIds.length > 0) {
-          const { data: aplicacionesData } = await supabase
-            .from('aplicaciones_pago')
-            .select(`
-              id_acuerdo_pago,
-              monto,
-              pagos!fk_aplicaciones_pago_pago!inner(id_metodos_pago, fecha_pago)
-            `)
-            .in('id_acuerdo_pago', acuerdoIds)
-            .eq('activo', true);
-
-          console.log('📅 Aplicaciones data sample:', aplicacionesData?.slice(0, 3));
-
-          aplicacionesMap = (aplicacionesData || []).reduce((acc: any, app: any) => {
-            if (!acc[app.id_acuerdo_pago]) {
-              acc[app.id_acuerdo_pago] = [];
-            }
-            acc[app.id_acuerdo_pago].push(app);
-            return acc;
-          }, {});
-          
-          // Build map of payment methods used per acuerdo
-          (aplicacionesData || []).forEach((app: any) => {
-            if (!pagosPorMetodo[app.id_acuerdo_pago]) {
-              pagosPorMetodo[app.id_acuerdo_pago] = {};
-            }
-            
-            const idMetodoPago = app.pagos?.id_metodos_pago;
-            if (!pagosPorMetodo[app.id_acuerdo_pago][idMetodoPago]) {
-              pagosPorMetodo[app.id_acuerdo_pago][idMetodoPago] = 0;
-            }
-            pagosPorMetodo[app.id_acuerdo_pago][idMetodoPago] += Number(app.monto) || 0;
-          });
+        // Apply filters
+        if (searchTerm) {
+          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
         }
 
-        // Group acuerdos by cuenta and concepto
-        const acuerdosPorCuentaConcepto: any = {};
+        const { data, error, count } = await query
+          .order('id', { ascending: false })
+          .range(from, to);
         
-        (acuerdosData || []).forEach((acuerdo: any) => {
-          // Skip if payment status map doesn't have this cuenta
-          if (!paymentStatusMap[acuerdo.id_cuenta_cobranza]) {
-            console.warn(`⚠️ Cuenta ${acuerdo.id_cuenta_cobranza} no encontrada en paymentStatusMap`);
-            return;
-          }
-          
-          const aplicaciones = aplicacionesMap[acuerdo.id] || [];
-          const montoPagado = aplicaciones.reduce((sum: number, app: any) => sum + (Number(app.monto) || 0), 0);
-          
-          // Check if any payment was made with "Cesión de derechos" method (ID 8)
-          const metodosUsados = pagosPorMetodo[acuerdo.id] || {};
-          const tieneCesionDerechos = !!metodosUsados[8];
+        if (error) throw error;
 
-          let conceptoKey: 'apartado' | 'mensualidades' | 'enganche' | 'entrega' | 'especial' | 'cesion_derechos';
+        const enrichedData = await enrichPropertiesData(data || []);
+        
+        // Apply client-side filters that can't be done in SQL
+        const filtered = enrichedData.filter(property => {
+          const searchLower = searchTerm.toLowerCase();
+          const matchesSearch = searchTerm === "" || 
+            property.numero_propiedad.toString().includes(searchTerm) ||
+            property.numero_propiedad.toLowerCase().includes(searchLower) ||
+            property.propietario.toLowerCase().includes(searchLower) ||
+            property.proyecto.toLowerCase().includes(searchLower) ||
+            property.edificio.toLowerCase().includes(searchLower) ||
+            property.modelo.toLowerCase().includes(searchLower) ||
+            (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
+            (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
           
-          // Map concept IDs to keys - Apartado(1), Enganche(2), Contraentrega(3), Especial(4), Parcialidad(5), Cesión de derechos(6)
-          if (acuerdo.id_concepto === 1) conceptoKey = 'apartado';
-          else if (acuerdo.id_concepto === 2) {
-            // Enganche - Check if payment method is Cesión de derechos (ID 8)
-            if (tieneCesionDerechos) {
-              conceptoKey = 'cesion_derechos';
-            } else {
-              conceptoKey = 'enganche';
-            }
-          }
-          else if (acuerdo.id_concepto === 3) conceptoKey = 'entrega';
-          else if (acuerdo.id_concepto === 4) conceptoKey = 'especial';
-          else if (acuerdo.id_concepto === 5) conceptoKey = 'mensualidades';
-          else if (acuerdo.id_concepto === 6) conceptoKey = 'cesion_derechos';
-          else return;
-
-          // Group acuerdos for later processing
-          const groupKey = `${acuerdo.id_cuenta_cobranza}_${conceptoKey}`;
-          if (!acuerdosPorCuentaConcepto[groupKey]) {
-            acuerdosPorCuentaConcepto[groupKey] = [];
-          }
-          acuerdosPorCuentaConcepto[groupKey].push({
-            ...acuerdo,
-            montoPagado,
-            conceptoKey
-          });
-
-          // Acumular montos totales y pagados por concepto
-          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto += Number(acuerdo.monto) || 0;
-          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].monto_pagado += montoPagado;
-          paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].total += 1;
+          const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
+          const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
+          const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
+          const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
+          const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
+          const matchesBodegas = bodegasFilter === "" || 
+            (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
+            (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
+          const matchesEstacionamientos = estacionamientosFilter === "" || 
+            (estacionamientosFilter === "con_estacionamientos" && property.estacionamientos_count > 0) ||
+            (estacionamientosFilter === "sin_estacionamientos" && property.estacionamientos_count === 0);
+          const matchesCuentaCobranza = cuentaCobranzaFilter === "" ||
+            (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
+            (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
           
-          // Store the most recent fecha_pago from actual payments (pagos table)
-          aplicaciones.forEach((app: any) => {
-            const fechaPago = app.pagos?.fecha_pago;
-            console.log(`🔍 Acuerdo ${acuerdo.id}, concepto ${conceptoKey}: fecha_pago =`, fechaPago);
-            if (fechaPago) {
-              if (!paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha || 
-                  fechaPago > paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha) {
-                paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].fecha = fechaPago;
-              }
-            }
-          });
-          
-          if (acuerdo.pago_completado) {
-            paymentStatusMap[acuerdo.id_cuenta_cobranza][conceptoKey].completados += 1;
-          }
+          return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
         });
-        
-        // Determine final status based on completados vs total
-        Object.keys(acuerdosPorCuentaConcepto).forEach(groupKey => {
-          const acuerdos = acuerdosPorCuentaConcepto[groupKey];
-          if (acuerdos.length === 0) return;
-          
-          const primeracuerdo = acuerdos[0];
-          const cuentaId = primeracuerdo.id_cuenta_cobranza;
-          const conceptoKey = primeracuerdo.conceptoKey;
-          
-          if (!paymentStatusMap[cuentaId]) {
-            console.warn(`⚠️ Cuenta ${cuentaId} no encontrada al determinar estado final`);
-            return;
-          }
-          
-          const info = paymentStatusMap[cuentaId][conceptoKey];
-          const todosCompletados = info.completados === info.total && info.total > 0;
-          const algunoPagado = acuerdos.some((a: any) => a.montoPagado > 0);
-          
-          console.log(`📊 Cuenta ${cuentaId} - ${conceptoKey}: ${info.completados}/${info.total} completados, monto: ${info.monto_pagado}/${info.monto}`);
-          
-          if (todosCompletados) {
-            info.status = 'pagado';
-          } else if (algunoPagado || info.completados > 0) {
-            info.status = 'en_proceso';
-          } else {
-            info.status = 'no_pagado';
-          }
-        });
-      }
 
-      // Transform the data with counts
-      const transformedData = data?.map((property: any) => {
-        // Get clabe_stp from ACTIVE cuentas_cobranza if available
-        const cuentaCobranzaData = property.ofertas?.map((oferta: any) => 
-          activeCuentasMap[oferta.id]
-        ).find((cuenta: any) => cuenta !== undefined);
-        
-        // Get es_comision_venta_efectivo and porcentaje_comision_venta
-        const esComisionEfectivo = cuentaCobranzaData?.es_comision_venta_efectivo || false;
-        const porcentajeComision = cuentaCobranzaData?.porcentaje_comision_venta || 0;
-        
-        let paymentStatus = cuentaCobranzaData?.id && paymentStatusMap[cuentaCobranzaData.id] 
-          ? paymentStatusMap[cuentaCobranzaData.id] 
-          : null;
-        
-        // Add apartado amount to enganche if it exists
-        if (paymentStatus && paymentStatus.enganche && property.monto_apartado_pagando && property.monto_apartado_pagando > 0) {
-          paymentStatus.enganche.monto_pagado += Number(property.monto_apartado_pagando) || 0;
-          
-          // Recalculate enganche status considering apartado ONLY if there are actual acuerdos
-          if (paymentStatus.enganche.total > 0) {
-            if (paymentStatus.enganche.monto_pagado >= paymentStatus.enganche.monto && paymentStatus.enganche.monto > 0) {
-              paymentStatus.enganche.status = 'pagado';
-            } else if (paymentStatus.enganche.monto_pagado > 0) {
-              paymentStatus.enganche.status = 'en_proceso';
-            }
-          }
-        }
-        
-        // Calculate total pagado and restante
-        const precio_final = cuentaCobranzaData?.precio_final || 0;
-        const total_pagado = paymentStatus ? (
-          (paymentStatus.apartado?.monto_pagado || 0) +
-          (paymentStatus.enganche?.monto_pagado || 0) +
-          (paymentStatus.mensualidades?.monto_pagado || 0) +
-          (paymentStatus.entrega?.monto_pagado || 0) +
-          (paymentStatus.especial?.monto_pagado || 0) +
-          (paymentStatus.cesion_derechos?.monto_pagado || 0)
-        ) : 0;
-        // Calculate restante and eliminate -0
-        let restante = precio_final - total_pagado;
-        restante = +restante.toFixed(2);
-        if (Math.abs(restante) < 0.01) restante = 0;
-        
-        // Determinar si la cuenta existe pero no tiene acuerdos (esquema no seleccionado)
-        const cuentaSinEsquema = cuentaCobranzaData?.id && (!paymentStatus || 
-          (paymentStatus.apartado?.total === 0 && 
-           paymentStatus.enganche?.total === 0 && 
-           paymentStatus.mensualidades?.total === 0 && 
-           paymentStatus.entrega?.total === 0 && 
-           paymentStatus.especial?.total === 0 && 
-           paymentStatus.cesion_derechos?.total === 0));
-
-        // Obtener el desarrollador del proyecto
-        const desarrolladorProyecto = property.edificios_modelos?.edificios?.proyectos?.entidades_relacionadas
-          ?.find((er: any) => er.id_tipo_entidad === 3)?.personas?.nombre_legal || null;
-
-        // Determinar qué mostrar en propietario
-        const propietarioNombre = property.entidades_relacionadas?.personas?.nombre_legal;
-        let propietarioDisplay = 'Sin propietario';
-        let esDarrollador = false;
-
-        if (propietarioNombre) {
-          propietarioDisplay = propietarioNombre;
-          esDarrollador = false;
-        } else if (desarrolladorProyecto) {
-          propietarioDisplay = desarrolladorProyecto;
-          esDarrollador = true;
-        }
-
-        return {
-          id: property.id,
-          numero_propiedad: property.numero_propiedad,
-          numero_piso: property.numero_piso,
-          m2_reales: (property.m2_interiores || 0) + (property.m2_exteriores || 0),
-          m2_interiores: property.m2_interiores || 0,
-          m2_exteriores: property.m2_exteriores || 0,
-          precio_lista: property.precio_lista,
-          monto_apartado: property.monto_apartado,
-          monto_apartado_pagando: property.monto_apartado_pagando,
-          clabe_stp_tmp_apartado: property.clabe_stp_tmp_apartado,
-          id_entidad_relacionada_dueno: property.id_entidad_relacionada_dueno,
-          clabe_stp: cuentaCobranzaData?.clabe_stp || property.clabe_stp_tmp_apartado,
-          cuenta_cobranza_id: cuentaCobranzaData?.id || null,
-          precio_final: precio_final > 0 ? precio_final : null,
-          es_comision_venta_efectivo: esComisionEfectivo,
-          porcentaje_comision_venta: porcentajeComision,
-          total_pagado,
-          restante,
-          activo: property.activo,
-          es_aprobado: property.es_aprobado,
-          apartado_pagado: (paymentStatus?.apartado?.status === 'pagado') || (paymentStatus?.cesion_derechos?.monto_pagado > 0),
-          cuenta_sin_esquema: cuentaSinEsquema,
-          propietario: propietarioDisplay,
-          es_desarrollador: esDarrollador,
-          proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
-          proyecto_id: property.edificios_modelos?.edificios?.proyectos?.id || 0,
-          edificio: property.edificios_modelos?.edificios?.nombre || 'Sin edificio',
-          modelo: property.edificios_modelos?.modelos?.nombre || 'Sin modelo',
-          vista: property.vistas?.nombre || 'Sin vista',
-          disponibilidad: property.estatus_disponibilidad?.nombre || 'Sin estatus',
-          id_estatus_disponibilidad: property.estatus_disponibilidad?.id || 0,
-          tieneOfertas: property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto === null),
-          tieneOfertasProductos: property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto !== null),
-          estacionamientos_count: estacionamientosCounts[property.id] || 0,
-          bodegas_count: bodegasCounts[property.id] || 0,
-          payment_status: paymentStatus,
-          configuracion_modelo: {
-            numero_recamaras: property.edificios_modelos?.modelos?.numero_recamaras || 0,
-            numero_completo_banos: property.edificios_modelos?.modelos?.numero_completo_banos || 0,
-            numero_medio_bano: property.edificios_modelos?.modelos?.numero_medio_bano || 0,
-          }
-        };
-      }) || [];
-      
-        console.log('Transforming data...');
-        return transformedData;
+        return { properties: filtered, count: count || 0 };
       } catch (error) {
-        console.error('Error in properties query:', error);
-        throw error;
+        console.error('Error fetching active properties:', error);
+        return { properties: [], count: 0 };
       }
     },
   });
+
+  const { data: propiedadesDraftData, isLoading: loadingDraft, refetch: refetchDraft } = useQuery({
+    queryKey: ['properties-draft', currentPageDraft, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter],
+    queryFn: async () => {
+      try {
+        const from = (currentPageDraft - 1) * itemsPerPage;
+        const to = from + itemsPerPage - 1;
+
+        let query = supabase
+          .from('propiedades')
+          .select(`
+            id,
+            numero_propiedad,
+            numero_piso,
+            m2_interiores,
+            m2_exteriores,
+            precio_lista,
+            monto_apartado,
+            monto_apartado_pagando,
+            clabe_stp_tmp_apartado,
+            id_entidad_relacionada_dueno,
+            activo,
+            es_aprobado,
+            edificios_modelos!propiedades_id_edificio_modelo_fkey!inner(
+              edificios!edificios_modelos_id_edificio_fkey!inner(
+                nombre,
+                proyectos!edificios_id_proyecto_fkey!inner(
+                  id, 
+                  nombre,
+                  entidades_relacionadas!entidades_relacionadas_id_proyecto_fkey(
+                    id_tipo_entidad,
+                    personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
+                  )
+                )
+              ),
+              modelos!edificios_modelos_id_modelo_fkey!inner(
+                nombre,
+                numero_recamaras,
+                numero_completo_banos,
+                numero_medio_bano
+              )
+            ),
+            entidades_relacionadas(
+              personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
+            ),
+            vistas(nombre),
+            estatus_disponibilidad!inner(id, nombre),
+            ofertas!ofertas_id_propiedad_fkey(
+              id,
+              id_producto,
+              activo,
+              cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)
+            )
+          `, { count: 'exact' })
+          .eq('activo', true)
+          .eq('es_aprobado', false);
+
+        // Apply filters
+        if (searchTerm) {
+          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+        }
+
+        const { data, error, count } = await query
+          .order('id', { ascending: false })
+          .range(from, to);
+        
+        if (error) throw error;
+
+        const enrichedData = await enrichPropertiesData(data || []);
+        
+        // Apply client-side filters
+        const filtered = enrichedData.filter(property => {
+          const searchLower = searchTerm.toLowerCase();
+          const matchesSearch = searchTerm === "" || 
+            property.numero_propiedad.toString().includes(searchTerm) ||
+            property.numero_propiedad.toLowerCase().includes(searchLower) ||
+            property.propietario.toLowerCase().includes(searchLower) ||
+            property.proyecto.toLowerCase().includes(searchLower) ||
+            property.edificio.toLowerCase().includes(searchLower) ||
+            property.modelo.toLowerCase().includes(searchLower) ||
+            (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
+            (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
+          
+          const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
+          const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
+          const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
+          const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
+          const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
+          const matchesBodegas = bodegasFilter === "" || 
+            (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
+            (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
+          const matchesEstacionamientos = estacionamientosFilter === "" || 
+            (estacionamientosFilter === "con_estacionamientos" && property.estacionamientos_count > 0) ||
+            (estacionamientosFilter === "sin_estacionamientos" && property.estacionamientos_count === 0);
+          const matchesCuentaCobranza = cuentaCobranzaFilter === "" ||
+            (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
+            (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
+          
+          return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+        });
+
+        return { properties: filtered, count: count || 0 };
+      } catch (error) {
+        console.error('Error fetching draft properties:', error);
+        return { properties: [], count: 0 };
+      }
+    },
+    enabled: activeTab === "draft",
+  });
+
+  const { data: propiedadesEliminadasData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
+    queryKey: ['properties-eliminados', currentPageInactive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter],
+    queryFn: async () => {
+      try {
+        const from = (currentPageInactive - 1) * itemsPerPage;
+        const to = from + itemsPerPage - 1;
+
+        let query = supabase
+          .from('propiedades')
+          .select(`
+            id,
+            numero_propiedad,
+            numero_piso,
+            m2_interiores,
+            m2_exteriores,
+            precio_lista,
+            monto_apartado,
+            monto_apartado_pagando,
+            clabe_stp_tmp_apartado,
+            id_entidad_relacionada_dueno,
+            activo,
+            es_aprobado,
+            edificios_modelos!propiedades_id_edificio_modelo_fkey!inner(
+              edificios!edificios_modelos_id_edificio_fkey!inner(
+                nombre,
+                proyectos!edificios_id_proyecto_fkey!inner(
+                  id, 
+                  nombre,
+                  entidades_relacionadas!entidades_relacionadas_id_proyecto_fkey(
+                    id_tipo_entidad,
+                    personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
+                  )
+                )
+              ),
+              modelos!edificios_modelos_id_modelo_fkey!inner(
+                nombre,
+                numero_recamaras,
+                numero_completo_banos,
+                numero_medio_bano
+              )
+            ),
+            entidades_relacionadas(
+              personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
+            ),
+            vistas(nombre),
+            estatus_disponibilidad!inner(id, nombre),
+            ofertas!ofertas_id_propiedad_fkey(
+              id,
+              id_producto,
+              activo,
+              cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)
+            )
+          `, { count: 'exact' })
+          .eq('activo', false)
+          .eq('es_aprobado', false);
+
+        // Apply filters
+        if (searchTerm) {
+          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+        }
+
+        const { data, error, count } = await query
+          .order('id', { ascending: false })
+          .range(from, to);
+        
+        if (error) throw error;
+
+        const enrichedData = await enrichPropertiesData(data || []);
+        
+        // Apply client-side filters
+        const filtered = enrichedData.filter(property => {
+          const searchLower = searchTerm.toLowerCase();
+          const matchesSearch = searchTerm === "" || 
+            property.numero_propiedad.toString().includes(searchTerm) ||
+            property.numero_propiedad.toLowerCase().includes(searchLower) ||
+            property.propietario.toLowerCase().includes(searchLower) ||
+            property.proyecto.toLowerCase().includes(searchLower) ||
+            property.edificio.toLowerCase().includes(searchLower) ||
+            property.modelo.toLowerCase().includes(searchLower) ||
+            (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
+            (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
+          
+          const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
+          const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
+          const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
+          const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
+          const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
+          const matchesBodegas = bodegasFilter === "" || 
+            (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
+            (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
+          const matchesEstacionamientos = estacionamientosFilter === "" || 
+            (estacionamientosFilter === "con_estacionamientos" && property.estacionamientos_count > 0) ||
+            (estacionamientosFilter === "sin_estacionamientos" && property.estacionamientos_count === 0);
+          const matchesCuentaCobranza = cuentaCobranzaFilter === "" ||
+            (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
+            (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
+          
+          return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+        });
+
+        return { properties: filtered, count: count || 0 };
+      } catch (error) {
+        console.error('Error fetching deleted properties:', error);
+        return { properties: [], count: 0 };
+      }
+    },
+    enabled: activeTab === "eliminados",
+  });
+
+  const activeProperties = propiedadesActivasData?.properties || [];
+  const totalActivosCount = propiedadesActivasData?.count || 0;
+  const draftProperties = propiedadesDraftData?.properties || [];
+  const totalDraftCount = propiedadesDraftData?.count || 0;
+  const inactiveProperties = propiedadesEliminadasData?.properties || [];
+  const totalEliminadosCount = propiedadesEliminadasData?.count || 0;
+
+  const isLoading = activeTab === "activos" ? loadingActivos : activeTab === "draft" ? loadingDraft : loadingEliminados;
 
   const { data: availabilityOptions } = useQuery({
     queryKey: ['availability-options'],
@@ -1122,7 +1386,8 @@ const Propiedades = () => {
       const isProductOffer = !!currentOffer.id_producto;
       
       // Get property details to get id_entidad_relacionada_dueno
-      const property = properties?.find(p => p.id === propertyId);
+      const allProperties = [...activeProperties, ...draftProperties, ...inactiveProperties];
+      const property = allProperties?.find(p => p.id === propertyId);
       const id_er_dueno = property?.id_entidad_relacionada_dueno;
 
       // Get precio_lista
@@ -1275,78 +1540,10 @@ const Propiedades = () => {
     }
   };
 
-  // Filtrar propiedades por pestaña
-  const getPropertiesByTab = (properties: Property[], tab: string) => {
-    switch (tab) {
-      case "activos":
-        return properties.filter(p => p.activo && p.es_aprobado);
-      case "draft":
-        return properties.filter(p => p.activo && !p.es_aprobado);
-      case "eliminados":
-        return properties.filter(p => !p.activo && !p.es_aprobado);
-      default:
-        return [];
-    }
-  };
-
-  // Filtrar propiedades
-  const filteredProperties = properties?.filter(property => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = searchTerm === "" || 
-      property.numero_propiedad.toString().includes(searchTerm) ||
-      property.numero_propiedad.toLowerCase().includes(searchLower) ||
-      property.propietario.toLowerCase().includes(searchLower) ||
-      property.proyecto.toLowerCase().includes(searchLower) ||
-      property.edificio.toLowerCase().includes(searchLower) ||
-      property.modelo.toLowerCase().includes(searchLower) ||
-      (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
-      (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
-    
-    const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
-    const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
-    
-    const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
-    const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
-    
-    const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
-    
-    const matchesBodegas = bodegasFilter === "" || 
-      (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
-      (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
-    
-    const matchesEstacionamientos = estacionamientosFilter === "" || 
-      (estacionamientosFilter === "con_estacionamientos" && property.estacionamientos_count > 0) ||
-      (estacionamientosFilter === "sin_estacionamientos" && property.estacionamientos_count === 0);
-    
-    const matchesCuentaCobranza = cuentaCobranzaFilter === "" ||
-      (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
-      (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
-    
-    return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
-  }) || [];
-
-  // Separar propiedades por pestaña
-  const activeProperties = getPropertiesByTab(filteredProperties, "activos");
-  const draftProperties = getPropertiesByTab(filteredProperties, "draft");
-  const inactiveProperties = getPropertiesByTab(filteredProperties, "eliminados");
-
-  // Paginación para propiedades activas
-  const totalActivePage = Math.ceil(activeProperties.length / itemsPerPage);
-  const startIndexActive = (currentPageActive - 1) * itemsPerPage;
-  const endIndexActive = startIndexActive + itemsPerPage;
-  const paginatedActiveProperties = activeProperties.slice(startIndexActive, endIndexActive);
-
-  // Paginación para propiedades draft
-  const totalDraftPage = Math.ceil(draftProperties.length / itemsPerPage);
-  const startIndexDraft = (currentPageDraft - 1) * itemsPerPage;
-  const endIndexDraft = startIndexDraft + itemsPerPage;
-  const paginatedDraftProperties = draftProperties.slice(startIndexDraft, endIndexDraft);
-
-  // Paginación para propiedades inactivas
-  const totalInactivePage = Math.ceil(inactiveProperties.length / itemsPerPage);
-  const startIndexInactive = (currentPageInactive - 1) * itemsPerPage;
-  const endIndexInactive = startIndexInactive + itemsPerPage;
-  const paginatedInactiveProperties = inactiveProperties.slice(startIndexInactive, endIndexInactive);
+  // Calculate pagination
+  const totalActivePage = Math.ceil(totalActivosCount / itemsPerPage);
+  const totalDraftPage = Math.ceil(totalDraftCount / itemsPerPage);
+  const totalInactivePage = Math.ceil(totalEliminadosCount / itemsPerPage);
 
   const handleDelete = async (propertyId: number) => {
     try {
@@ -1362,7 +1559,9 @@ const Propiedades = () => {
         description: "La propiedad se ha marcado como inactiva correctamente.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+      refetchActivos();
+      refetchDraft();
+      refetchEliminados();
     } catch (error) {
       toast({
         title: "Error",
@@ -1386,7 +1585,9 @@ const Propiedades = () => {
         description: "La propiedad se ha reactivado correctamente y está en Draft.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+      refetchActivos();
+      refetchDraft();
+      refetchEliminados();
     } catch (error) {
       toast({
         title: "Error",
@@ -1410,7 +1611,9 @@ const Propiedades = () => {
         description: "La propiedad se ha aprobado correctamente.",
       });
 
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+      refetchActivos();
+      refetchDraft();
+      refetchEliminados();
     } catch (error) {
       toast({
         title: "Error",
@@ -1437,7 +1640,8 @@ const Propiedades = () => {
       });
 
       setSelectedProperties([]);
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+      refetchActivos();
+      refetchDraft();
     } catch (error) {
       toast({
         title: "Error",
@@ -1464,7 +1668,8 @@ const Propiedades = () => {
       });
 
       setSelectedProperties([]);
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+      refetchActivos();
+      refetchDraft();
     } catch (error) {
       toast({
         title: "Error",
@@ -1492,7 +1697,8 @@ const Propiedades = () => {
       });
 
       setSelectedProperties([]);
-      queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+      refetchActivos();
+      refetchDraft();
     } catch (error) {
       toast({
         title: "Error",
@@ -1548,7 +1754,10 @@ const Propiedades = () => {
   };
 
   const handlePropertyAdded = () => {
-    queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+    refetchActivos();
+    refetchDraft();
+    setCurrentPageActive(1);
+    setCurrentPageDraft(1);
   };
 
   const renderPagination = (currentPage: number, totalPages: number, onPageChange: (page: number) => void) => {
@@ -2379,18 +2588,18 @@ const Propiedades = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="activos">
-                Activos ({activeProperties.length})
+                Activos ({totalActivosCount})
               </TabsTrigger>
               <TabsTrigger value="draft">
-                Draft ({draftProperties.length})
+                Draft ({totalDraftCount})
               </TabsTrigger>
               <TabsTrigger value="eliminados">
-                Eliminados ({inactiveProperties.length})
+                Eliminados ({totalEliminadosCount})
               </TabsTrigger>
             </TabsList>
             
             <TabsContent value="activos" className="mt-4">
-              {renderPropertiesTable(paginatedActiveProperties, "activos")}
+              {renderPropertiesTable(activeProperties, "activos")}
               {renderPagination(currentPageActive, totalActivePage, setCurrentPageActive)}
             </TabsContent>
 
@@ -2412,12 +2621,12 @@ const Propiedades = () => {
                   </>
                 )}
               </div>
-              {renderPropertiesTable(paginatedDraftProperties, "draft")}
+              {renderPropertiesTable(draftProperties, "draft")}
               {renderPagination(currentPageDraft, totalDraftPage, setCurrentPageDraft)}
             </TabsContent>
 
             <TabsContent value="eliminados" className="mt-4">
-              {renderPropertiesTable(paginatedInactiveProperties, "eliminados")}
+              {renderPropertiesTable(inactiveProperties, "eliminados")}
               {renderPagination(currentPageInactive, totalInactivePage, setCurrentPageInactive)}
             </TabsContent>
           </Tabs>
@@ -2428,7 +2637,10 @@ const Propiedades = () => {
         open={bulkUploadOpen}
         onClose={() => setBulkUploadOpen(false)}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+          refetchActivos();
+          refetchDraft();
+          setCurrentPageActive(1);
+          setCurrentPageDraft(1);
           toast({
             title: "Éxito", 
             description: "Las propiedades se han cargado correctamente.",
@@ -2460,7 +2672,9 @@ const Propiedades = () => {
           onClose={() => setEditingProperty(null)}
           onSuccess={() => {
             setEditingProperty(null);
-            queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });
+            refetchActivos();
+            refetchDraft();
+            refetchEliminados();
           }}
         />
       )}
