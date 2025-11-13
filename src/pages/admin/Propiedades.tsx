@@ -301,20 +301,25 @@ const Propiedades = () => {
 
   // Shared data enrichment function
   const enrichPropertiesData = async (data: any[]) => {
-    // Get parking counts
+    // Get property IDs to filter queries
+    const propertyIds = data.map(p => p.id);
+    
+    // Get parking counts - ONLY for current page properties
     const { data: estacionamientosData, error: estacionamientosError } = await supabase
       .from('estacionamientos')
       .select('id_propiedad')
+      .in('id_propiedad', propertyIds)
       .eq('activo', true);
 
     if (estacionamientosError) {
       console.error('Error fetching estacionamientos:', estacionamientosError);
     }
 
-    // Get storage counts  
+    // Get storage counts - ONLY for current page properties
     const { data: bodegasData, error: bodegasError } = await supabase
       .from('bodegas')
       .select('id_propiedad')
+      .in('id_propiedad', propertyIds)
       .eq('activo', true);
 
     if (bodegasError) {
@@ -720,41 +725,12 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
-        // Fetch ALL data in batches (Supabase has a 1000 record limit per request)
-        let allData: any[] = [];
-        let batchStart = 0;
-        const batchSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data: batchData, error } = await query.range(batchStart, batchStart + batchSize - 1);
-          
-          if (error) throw error;
-          
-          if (batchData && batchData.length > 0) {
-            allData = [...allData, ...batchData];
-            batchStart += batchSize;
-            hasMore = batchData.length === batchSize; // Continue if we got a full batch
-          } else {
-            hasMore = false;
-          }
-        }
-
-        const enrichedData = await enrichPropertiesData(allData);
+        // Server-side pagination - only fetch 50 records per page
+        const { data, error, count } = await query.range(from, to);
         
-        // Client-side sorting: proyecto -> edificio -> número de propiedad
-        enrichedData.sort((a, b) => {
-          // Primero por proyecto
-          const proyectoCompare = a.proyecto.localeCompare(b.proyecto, 'es', { numeric: true });
-          if (proyectoCompare !== 0) return proyectoCompare;
-          
-          // Luego por edificio
-          const edificioCompare = a.edificio.localeCompare(b.edificio, 'es', { numeric: true });
-          if (edificioCompare !== 0) return edificioCompare;
-          
-          // Finalmente por número de propiedad
-          return a.numero_propiedad.localeCompare(b.numero_propiedad, 'es', { numeric: true });
-        });
+        if (error) throw error;
+
+        const enrichedData = await enrichPropertiesData(data || []);
         
         // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
@@ -884,41 +860,12 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
-        // Fetch ALL data in batches (Supabase has a 1000 record limit per request)
-        let allData: any[] = [];
-        let batchStart = 0;
-        const batchSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data: batchData, error } = await query.range(batchStart, batchStart + batchSize - 1);
-          
-          if (error) throw error;
-          
-          if (batchData && batchData.length > 0) {
-            allData = [...allData, ...batchData];
-            batchStart += batchSize;
-            hasMore = batchData.length === batchSize; // Continue if we got a full batch
-          } else {
-            hasMore = false;
-          }
-        }
-
-        const enrichedData = await enrichPropertiesData(allData);
+        // Server-side pagination - only fetch 50 records per page
+        const { data, error, count } = await query.range(from, to);
         
-        // Client-side sorting: proyecto -> edificio -> número de propiedad
-        enrichedData.sort((a, b) => {
-          // Primero por proyecto
-          const proyectoCompare = a.proyecto.localeCompare(b.proyecto, 'es', { numeric: true });
-          if (proyectoCompare !== 0) return proyectoCompare;
-          
-          // Luego por edificio
-          const edificioCompare = a.edificio.localeCompare(b.edificio, 'es', { numeric: true });
-          if (edificioCompare !== 0) return edificioCompare;
-          
-          // Finalmente por número de propiedad
-          return a.numero_propiedad.localeCompare(b.numero_propiedad, 'es', { numeric: true });
-        });
+        if (error) throw error;
+
+        const enrichedData = await enrichPropertiesData(data || []);
         
         // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
@@ -1049,41 +996,12 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
-        // Fetch ALL data in batches (Supabase has a 1000 record limit per request)
-        let allData: any[] = [];
-        let batchStart = 0;
-        const batchSize = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { data: batchData, error } = await query.range(batchStart, batchStart + batchSize - 1);
-          
-          if (error) throw error;
-          
-          if (batchData && batchData.length > 0) {
-            allData = [...allData, ...batchData];
-            batchStart += batchSize;
-            hasMore = batchData.length === batchSize; // Continue if we got a full batch
-          } else {
-            hasMore = false;
-          }
-        }
-
-        const enrichedData = await enrichPropertiesData(allData);
+        // Server-side pagination - only fetch 50 records per page
+        const { data, error, count } = await query.range(from, to);
         
-        // Client-side sorting: proyecto -> edificio -> número de propiedad
-        enrichedData.sort((a, b) => {
-          // Primero por proyecto
-          const proyectoCompare = a.proyecto.localeCompare(b.proyecto, 'es', { numeric: true });
-          if (proyectoCompare !== 0) return proyectoCompare;
-          
-          // Luego por edificio
-          const edificioCompare = a.edificio.localeCompare(b.edificio, 'es', { numeric: true });
-          if (edificioCompare !== 0) return edificioCompare;
-          
-          // Finalmente por número de propiedad
-          return a.numero_propiedad.localeCompare(b.numero_propiedad, 'es', { numeric: true });
-        });
+        if (error) throw error;
+
+        const enrichedData = await enrichPropertiesData(data || []);
         
         // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
