@@ -97,6 +97,7 @@ interface Property {
   // Relaciones
   propietario: string;
   es_desarrollador: boolean; // Indica si el propietario mostrado es el desarrollador del proyecto
+  tiene_sozu_como_inmobiliaria: boolean; // Indica si el proyecto tiene a Sozu como inmobiliaria
   proyecto: string;
   proyecto_id: number;
   edificio: string;
@@ -630,7 +631,8 @@ const Propiedades = () => {
           numero_recamaras: property.edificios_modelos?.modelos?.numero_recamaras || 0,
           numero_completo_banos: property.edificios_modelos?.modelos?.numero_completo_banos || 0,
           numero_medio_bano: property.edificios_modelos?.modelos?.numero_medio_bano || 0,
-        }
+        },
+        tiene_sozu_como_inmobiliaria: false // This will be overridden in fetchEnrichedProperties
       };
     }) || [];
     
@@ -732,8 +734,46 @@ const Propiedades = () => {
 
         const enrichedData = await enrichPropertiesData(data || []);
         
+        // Check which projects have "Real Estate Ventures" (Sozu) as Inmobiliaria
+        const projectIds = [...new Set(enrichedData.map((p: any) => p.proyecto_id).filter(Boolean))];
+        const projectsWithSozu = new Set<number>();
+        
+        if (projectIds.length > 0) {
+          const { data: sozuEntities } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_proyecto, id_persona, tipos_entidad!inner(id)')
+            .in('id_proyecto', projectIds)
+            .eq('tipos_entidad.id', 5) // 5 = Inmobiliaria
+            .eq('activo', true);
+          
+          if (sozuEntities) {
+            const personaIds = [...new Set(sozuEntities.map((e: any) => e.id_persona))];
+            const { data: sozuPersonas } = await supabase
+              .from('personas')
+              .select('id')
+              .in('id', personaIds)
+              .ilike('nombre_legal', '%Real Estate Ventures%')
+              .eq('activo', true);
+            
+            if (sozuPersonas && sozuPersonas.length > 0) {
+              const sozuPersonaIds = new Set(sozuPersonas.map((p: any) => p.id));
+              sozuEntities.forEach((entity: any) => {
+                if (sozuPersonaIds.has(entity.id_persona)) {
+                  projectsWithSozu.add(entity.id_proyecto);
+                }
+              });
+            }
+          }
+        }
+        
+        // Add tiene_sozu_como_inmobiliaria flag to each property
+        const dataWithSozu = enrichedData.map((property: any) => ({
+          ...property,
+          tiene_sozu_como_inmobiliaria: projectsWithSozu.has(property.proyecto_id)
+        }));
+        
         // Apply only client-side filters that can't be done in SQL
-        const filtered = enrichedData.filter(property => {
+        const filtered = dataWithSozu.filter(property => {
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -850,8 +890,46 @@ const Propiedades = () => {
 
         const enrichedData = await enrichPropertiesData(data || []);
         
+        // Check which projects have "Real Estate Ventures" (Sozu) as Inmobiliaria
+        const projectIds = [...new Set(enrichedData.map((p: any) => p.proyecto_id).filter(Boolean))];
+        const projectsWithSozu = new Set<number>();
+        
+        if (projectIds.length > 0) {
+          const { data: sozuEntities } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_proyecto, id_persona, tipos_entidad!inner(id)')
+            .in('id_proyecto', projectIds)
+            .eq('tipos_entidad.id', 5) // 5 = Inmobiliaria
+            .eq('activo', true);
+          
+          if (sozuEntities) {
+            const personaIds = [...new Set(sozuEntities.map((e: any) => e.id_persona))];
+            const { data: sozuPersonas } = await supabase
+              .from('personas')
+              .select('id')
+              .in('id', personaIds)
+              .ilike('nombre_legal', '%Real Estate Ventures%')
+              .eq('activo', true);
+            
+            if (sozuPersonas && sozuPersonas.length > 0) {
+              const sozuPersonaIds = new Set(sozuPersonas.map((p: any) => p.id));
+              sozuEntities.forEach((entity: any) => {
+                if (sozuPersonaIds.has(entity.id_persona)) {
+                  projectsWithSozu.add(entity.id_proyecto);
+                }
+              });
+            }
+          }
+        }
+        
+        // Add tiene_sozu_como_inmobiliaria flag to each property
+        const dataWithSozu = enrichedData.map((property: any) => ({
+          ...property,
+          tiene_sozu_como_inmobiliaria: projectsWithSozu.has(property.proyecto_id)
+        }));
+        
         // Apply only client-side filters that can't be done in SQL
-        const filtered = enrichedData.filter(property => {
+        const filtered = dataWithSozu.filter(property => {
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -969,8 +1047,46 @@ const Propiedades = () => {
 
         const enrichedData = await enrichPropertiesData(data || []);
         
+        // Check which projects have "Real Estate Ventures" (Sozu) as Inmobiliaria
+        const projectIds = [...new Set(enrichedData.map((p: any) => p.proyecto_id).filter(Boolean))];
+        const projectsWithSozu = new Set<number>();
+        
+        if (projectIds.length > 0) {
+          const { data: sozuEntities } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_proyecto, id_persona, tipos_entidad!inner(id)')
+            .in('id_proyecto', projectIds)
+            .eq('tipos_entidad.id', 5) // 5 = Inmobiliaria
+            .eq('activo', true);
+          
+          if (sozuEntities) {
+            const personaIds = [...new Set(sozuEntities.map((e: any) => e.id_persona))];
+            const { data: sozuPersonas } = await supabase
+              .from('personas')
+              .select('id')
+              .in('id', personaIds)
+              .ilike('nombre_legal', '%Real Estate Ventures%')
+              .eq('activo', true);
+            
+            if (sozuPersonas && sozuPersonas.length > 0) {
+              const sozuPersonaIds = new Set(sozuPersonas.map((p: any) => p.id));
+              sozuEntities.forEach((entity: any) => {
+                if (sozuPersonaIds.has(entity.id_persona)) {
+                  projectsWithSozu.add(entity.id_proyecto);
+                }
+              });
+            }
+          }
+        }
+        
+        // Add tiene_sozu_como_inmobiliaria flag to each property
+        const dataWithSozu = enrichedData.map((property: any) => ({
+          ...property,
+          tiene_sozu_como_inmobiliaria: projectsWithSozu.has(property.proyecto_id)
+        }));
+        
         // Apply only client-side filters that can't be done in SQL
-        const filtered = enrichedData.filter(property => {
+        const filtered = dataWithSozu.filter(property => {
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -2444,7 +2560,7 @@ const Propiedades = () => {
                       </div>
                      ) : (
                        <div className="flex space-x-2">
-                          {property.disponibilidad === "Disponible" && (
+                          {property.disponibilidad === "Disponible" && property.tiene_sozu_como_inmobiliaria && (
                             <NewOfferDialog 
                               propertyId={property.id} 
                               propertyNumber={property.numero_propiedad} 

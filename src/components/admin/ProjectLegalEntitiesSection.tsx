@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 
 interface ProjectLegalEntitiesSectionProps {
   projectId?: number;
@@ -599,27 +600,18 @@ export const ProjectLegalEntitiesSection = ({
 
             <div>
               <label className="text-sm font-medium mb-2 block">Entidad Legal</label>
-              <Select
+              <Combobox
                 value={selectedEntityId}
                 onValueChange={setSelectedEntityId}
+                options={availableFilteredEntities.map((entity) => ({
+                  value: entity.id.toString(),
+                  label: `${entity.nombre_legal} - ${entity.email}`
+                }))}
+                placeholder="Selecciona una entidad"
+                emptyText="No se encontraron entidades"
+                searchPlaceholder="Buscar entidad..."
                 disabled={!selectedEntityTypeId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una entidad" />
-                </SelectTrigger>
-                 <SelectContent>
-                   {availableFilteredEntities.map((entity) => (
-                     <SelectItem key={entity.id} value={entity.id.toString()}>
-                       <div>
-                         <div className="font-medium">{entity.nombre_legal}</div>
-                         <div className="text-xs text-muted-foreground">
-                           {entity.email}
-                         </div>
-                       </div>
-                     </SelectItem>
-                   ))}
-                 </SelectContent>
-              </Select>
+              />
             </div>
           </div>
 
