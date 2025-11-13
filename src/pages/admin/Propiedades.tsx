@@ -689,9 +689,35 @@ const Propiedades = () => {
           .eq('activo', true)
           .eq('es_aprobado', true);
 
-        // Apply filters
+        // Apply filters on server-side
         if (searchTerm) {
           query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+        }
+        
+        if (proyectoFilter) {
+          query = query.ilike('edificios_modelos.edificios.proyectos.nombre', `%${proyectoFilter}%`);
+        }
+        
+        if (modeloFilter) {
+          query = query.ilike('edificios_modelos.modelos.nombre', `%${modeloFilter}%`);
+        }
+        
+        if (recamarasFilter) {
+          const recamaras = parseInt(recamarasFilter);
+          if (!isNaN(recamaras)) {
+            query = query.eq('edificios_modelos.modelos.numero_recamaras', recamaras);
+          }
+        }
+        
+        if (banosFilter) {
+          const banos = parseInt(banosFilter);
+          if (!isNaN(banos)) {
+            query = query.eq('edificios_modelos.modelos.numero_completo_banos', banos);
+          }
+        }
+        
+        if (disponibilidadFilter.length > 0) {
+          query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
         const { data, error, count } = await query
@@ -701,8 +727,9 @@ const Propiedades = () => {
 
         const enrichedData = await enrichPropertiesData(data || []);
         
-        // Apply client-side filters that can't be done in SQL
+        // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
+          // Search filter includes propietario, proyecto, edificio, modelo which aren't fully covered by server-side search
           const searchLower = searchTerm.toLowerCase();
           const matchesSearch = searchTerm === "" || 
             property.numero_propiedad.toString().includes(searchTerm) ||
@@ -714,11 +741,6 @@ const Propiedades = () => {
             (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
             (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
           
-          const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
-          const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
-          const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
-          const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
-          const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -729,7 +751,7 @@ const Propiedades = () => {
             (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
             (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
           
-          return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+          return matchesSearch && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
         });
 
         // Sort by proyecto, propietario, edificio, numero_departamento
@@ -814,9 +836,35 @@ const Propiedades = () => {
           .eq('activo', true)
           .eq('es_aprobado', false);
 
-        // Apply filters
+        // Apply filters on server-side
         if (searchTerm) {
           query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+        }
+        
+        if (proyectoFilter) {
+          query = query.ilike('edificios_modelos.edificios.proyectos.nombre', `%${proyectoFilter}%`);
+        }
+        
+        if (modeloFilter) {
+          query = query.ilike('edificios_modelos.modelos.nombre', `%${modeloFilter}%`);
+        }
+        
+        if (recamarasFilter) {
+          const recamaras = parseInt(recamarasFilter);
+          if (!isNaN(recamaras)) {
+            query = query.eq('edificios_modelos.modelos.numero_recamaras', recamaras);
+          }
+        }
+        
+        if (banosFilter) {
+          const banos = parseInt(banosFilter);
+          if (!isNaN(banos)) {
+            query = query.eq('edificios_modelos.modelos.numero_completo_banos', banos);
+          }
+        }
+        
+        if (disponibilidadFilter.length > 0) {
+          query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
         const { data, error, count } = await query
@@ -826,8 +874,9 @@ const Propiedades = () => {
 
         const enrichedData = await enrichPropertiesData(data || []);
         
-        // Apply client-side filters
+        // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
+          // Search filter includes propietario, proyecto, edificio, modelo which aren't fully covered by server-side search
           const searchLower = searchTerm.toLowerCase();
           const matchesSearch = searchTerm === "" || 
             property.numero_propiedad.toString().includes(searchTerm) ||
@@ -839,11 +888,6 @@ const Propiedades = () => {
             (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
             (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
           
-          const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
-          const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
-          const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
-          const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
-          const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -854,7 +898,7 @@ const Propiedades = () => {
             (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
             (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
           
-          return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+          return matchesSearch && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
         });
 
         // Sort by proyecto, propietario, edificio, numero_departamento
@@ -940,9 +984,35 @@ const Propiedades = () => {
           .eq('activo', false)
           .eq('es_aprobado', false);
 
-        // Apply filters
+        // Apply filters on server-side
         if (searchTerm) {
           query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+        }
+        
+        if (proyectoFilter) {
+          query = query.ilike('edificios_modelos.edificios.proyectos.nombre', `%${proyectoFilter}%`);
+        }
+        
+        if (modeloFilter) {
+          query = query.ilike('edificios_modelos.modelos.nombre', `%${modeloFilter}%`);
+        }
+        
+        if (recamarasFilter) {
+          const recamaras = parseInt(recamarasFilter);
+          if (!isNaN(recamaras)) {
+            query = query.eq('edificios_modelos.modelos.numero_recamaras', recamaras);
+          }
+        }
+        
+        if (banosFilter) {
+          const banos = parseInt(banosFilter);
+          if (!isNaN(banos)) {
+            query = query.eq('edificios_modelos.modelos.numero_completo_banos', banos);
+          }
+        }
+        
+        if (disponibilidadFilter.length > 0) {
+          query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         }
 
         const { data, error, count } = await query
@@ -952,8 +1022,9 @@ const Propiedades = () => {
 
         const enrichedData = await enrichPropertiesData(data || []);
         
-        // Apply client-side filters
+        // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
+          // Search filter includes propietario, proyecto, edificio, modelo which aren't fully covered by server-side search
           const searchLower = searchTerm.toLowerCase();
           const matchesSearch = searchTerm === "" || 
             property.numero_propiedad.toString().includes(searchTerm) ||
@@ -965,11 +1036,6 @@ const Propiedades = () => {
             (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
             (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
           
-          const matchesProyecto = proyectoFilter === "" || property.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
-          const matchesModelo = modeloFilter === "" || property.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
-          const matchesRecamaras = recamarasFilter === "" || property.configuracion_modelo.numero_recamaras.toString().includes(recamarasFilter);
-          const matchesBanos = banosFilter === "" || property.configuracion_modelo.numero_completo_banos.toString().includes(banosFilter);
-          const matchesDisponibilidad = disponibilidadFilter.length === 0 || disponibilidadFilter.some(filter => property.disponibilidad.toLowerCase().includes(filter.toLowerCase()));
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -980,7 +1046,7 @@ const Propiedades = () => {
             (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
             (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
           
-          return matchesSearch && matchesProyecto && matchesModelo && matchesRecamaras && matchesBanos && matchesDisponibilidad && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+          return matchesSearch && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
         });
 
         // Sort by proyecto, propietario, edificio, numero_departamento
