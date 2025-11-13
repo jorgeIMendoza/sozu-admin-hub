@@ -734,18 +734,6 @@ const Propiedades = () => {
         
         // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
-          // Search filter includes propietario, proyecto, edificio, modelo which aren't fully covered by server-side search
-          const searchLower = searchTerm.toLowerCase();
-          const matchesSearch = searchTerm === "" || 
-            property.numero_propiedad.toString().includes(searchTerm) ||
-            property.numero_propiedad.toLowerCase().includes(searchLower) ||
-            property.propietario.toLowerCase().includes(searchLower) ||
-            property.proyecto.toLowerCase().includes(searchLower) ||
-            property.edificio.toLowerCase().includes(searchLower) ||
-            property.modelo.toLowerCase().includes(searchLower) ||
-            (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
-            (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
-          
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -756,16 +744,11 @@ const Propiedades = () => {
             (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
             (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
           
-          return matchesSearch && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+          return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
         });
 
-        // Calculate total count from filtered data
-        const totalCount = filtered.length;
-        
-        // Apply client-side pagination
-        const paginatedData = filtered.slice(from, to + 1);
-
-        return { properties: paginatedData, count: totalCount };
+        // Use server count for total pages, filtered data for display
+        return { properties: filtered, count: count || 0 };
       } catch (error) {
         console.error('Error fetching active properties:', error);
         return { properties: [], count: 0 };
@@ -869,18 +852,6 @@ const Propiedades = () => {
         
         // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
-          // Search filter includes propietario, proyecto, edificio, modelo which aren't fully covered by server-side search
-          const searchLower = searchTerm.toLowerCase();
-          const matchesSearch = searchTerm === "" || 
-            property.numero_propiedad.toString().includes(searchTerm) ||
-            property.numero_propiedad.toLowerCase().includes(searchLower) ||
-            property.propietario.toLowerCase().includes(searchLower) ||
-            property.proyecto.toLowerCase().includes(searchLower) ||
-            property.edificio.toLowerCase().includes(searchLower) ||
-            property.modelo.toLowerCase().includes(searchLower) ||
-            (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
-            (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
-          
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -891,16 +862,11 @@ const Propiedades = () => {
             (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
             (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
           
-          return matchesSearch && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+          return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
         });
 
-        // Calculate total count from filtered data
-        const totalCount = filtered.length;
-        
-        // Apply client-side pagination
-        const paginatedData = filtered.slice(from, to + 1);
-
-        return { properties: paginatedData, count: totalCount };
+        // Use server count for total pages, filtered data for display
+        return { properties: filtered, count: count || 0 };
       } catch (error) {
         console.error('Error fetching draft properties:', error);
         return { properties: [], count: 0 };
@@ -1005,18 +971,6 @@ const Propiedades = () => {
         
         // Apply only client-side filters that can't be done in SQL
         const filtered = enrichedData.filter(property => {
-          // Search filter includes propietario, proyecto, edificio, modelo which aren't fully covered by server-side search
-          const searchLower = searchTerm.toLowerCase();
-          const matchesSearch = searchTerm === "" || 
-            property.numero_propiedad.toString().includes(searchTerm) ||
-            property.numero_propiedad.toLowerCase().includes(searchLower) ||
-            property.propietario.toLowerCase().includes(searchLower) ||
-            property.proyecto.toLowerCase().includes(searchLower) ||
-            property.edificio.toLowerCase().includes(searchLower) ||
-            property.modelo.toLowerCase().includes(searchLower) ||
-            (property.clabe_stp && property.clabe_stp.toLowerCase().includes(searchLower)) ||
-            (property.clabe_stp_tmp_apartado && property.clabe_stp_tmp_apartado.toLowerCase().includes(searchLower));
-          
           const matchesBodegas = bodegasFilter === "" || 
             (bodegasFilter === "con_bodegas" && property.bodegas_count > 0) ||
             (bodegasFilter === "sin_bodegas" && property.bodegas_count === 0);
@@ -1027,16 +981,11 @@ const Propiedades = () => {
             (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
             (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
           
-          return matchesSearch && matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+          return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
         });
 
-        // Calculate total count from filtered data
-        const totalCount = filtered.length;
-        
-        // Apply client-side pagination
-        const paginatedData = filtered.slice(from, to + 1);
-
-        return { properties: paginatedData, count: totalCount };
+        // Use server count for total pages, filtered data for display
+        return { properties: filtered, count: count || 0 };
       } catch (error) {
         console.error('Error fetching deleted properties:', error);
         return { properties: [], count: 0 };
