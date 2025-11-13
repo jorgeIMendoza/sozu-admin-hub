@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,9 +55,7 @@ const vistaFormSchema = z.object({
 });
 
 export default function Vistas() {
-  const [vistas, setVistas] = useState<Vista[]>([]);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
-  const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProyectoFilter, setSelectedProyectoFilter] = useState<number[]>([]);
@@ -68,8 +68,12 @@ export default function Vistas() {
   const [selectedVista, setSelectedVista] = useState<Vista | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
+  const [currentPageActive, setCurrentPageActive] = useState(1);
+  const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
+  const itemsPerPage = 50;
 
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const createForm = useForm<z.infer<typeof vistaFormSchema>>({
@@ -91,7 +95,6 @@ export default function Vistas() {
   });
 
   useEffect(() => {
-    fetchVistas();
     fetchProyectos();
   }, []);
 
@@ -106,10 +109,10 @@ export default function Vistas() {
 
   // Maintain focus on search input after re-render
   useEffect(() => {
-    if (inputValue && searchInputRef.current && !loading) {
+    if (inputValue && searchInputRef.current) {
       searchInputRef.current.focus();
     }
-  }, [loading, inputValue]);
+  }, [inputValue]);
 
   const fetchProyectos = async () => {
     try {
@@ -132,27 +135,76 @@ export default function Vistas() {
     }
   };
 
-  const fetchVistas = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
+  // Query para vistas activas
+  const { data: activeData, isLoading: isLoadingActive } = useQuery({
+    queryKey: ["vistas", "active", currentPageActive, searchTerm, selectedProyectoFilter],
+    queryFn: async () => {
+      const from = (currentPageActive - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('vistas')
-        .select('*')
-        .order('nombre', { ascending: true });
+        .select('*', { count: 'exact' })
+        .eq('activo', true);
+
+      if (searchTerm) {
+        query = query.ilike('nombre', `%${searchTerm}%`);
+      }
+
+      if (selectedProyectoFilter.length > 0) {
+        query = query.in('id_proyecto', selectedProyectoFilter);
+      }
+
+      const { data, error, count } = await query
+        .order('nombre', { ascending: true })
+        .range(from, to);
 
       if (error) throw error;
-      setVistas(data || []);
-    } catch (error) {
-      console.error('Error fetching vistas:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudieron cargar las vistas",
-      });
-    } finally {
-      setLoading(false);
+      return { items: data || [], count: count || 0 };
+    },
+  });
+
+  // Query para vistas eliminadas
+  const { data: deletedData, isLoading: isLoadingDeleted } = useQuery({
+    queryKey: ["vistas", "deleted", currentPageDeleted, searchTerm, selectedProyectoFilter],
+    queryFn: async () => {
+      const from = (currentPageDeleted - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
+        .from('vistas')
+        .select('*', { count: 'exact' })
+        .eq('activo', false);
+
+      if (searchTerm) {
+        query = query.ilike('nombre', `%${searchTerm}%`);
+      }
+
+      if (selectedProyectoFilter.length > 0) {
+        query = query.in('id_proyecto', selectedProyectoFilter);
+      }
+
+      const { data, error, count } = await query
+        .order('nombre', { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+      return { items: data || [], count: count || 0 };
+    },
+  });
+
+  const currentVistas = activeTab === "activos" ? activeData?.items || [] : deletedData?.items || [];
+  const currentCount = activeTab === "activos" ? activeData?.count || 0 : deletedData?.count || 0;
+  const totalPages = Math.ceil(currentCount / itemsPerPage);
+  const currentPage = activeTab === "activos" ? currentPageActive : currentPageDeleted;
+  const setCurrentPage = (page: number) => {
+    if (activeTab === "activos") {
+      setCurrentPageActive(page);
+    } else {
+      setCurrentPageDeleted(page);
     }
   };
+  const loading = isLoadingActive || isLoadingDeleted;
 
   const handleCreateVista = async (values: z.infer<typeof vistaFormSchema>) => {
     try {
@@ -193,7 +245,7 @@ export default function Vistas() {
 
       if (error) throw error;
 
-      setVistas(prev => [...prev, data]);
+      queryClient.invalidateQueries({ queryKey: ["vistas"] });
       setIsCreateDialogOpen(false);
       createForm.reset();
       toast({
@@ -260,9 +312,7 @@ export default function Vistas() {
 
       if (error) throw error;
 
-      setVistas(prev => prev.map(vista => 
-        vista.id === selectedVista.id ? data : vista
-      ));
+      queryClient.invalidateQueries({ queryKey: ["vistas"] });
       setIsEditDialogOpen(false);
       setSelectedVista(null);
       editForm.reset();
@@ -294,9 +344,7 @@ export default function Vistas() {
 
       if (error) throw error;
 
-      setVistas(prev => prev.map(vista => 
-        vista.id === selectedVista.id ? { ...vista, activo: false } : vista
-      ));
+      queryClient.invalidateQueries({ queryKey: ["vistas"] });
       setIsDeleteDialogOpen(false);
       setSelectedVista(null);
       toast({
@@ -327,9 +375,7 @@ export default function Vistas() {
 
       if (error) throw error;
 
-      setVistas(prev => prev.map(vista => 
-        vista.id === selectedVista.id ? { ...vista, activo: true } : vista
-      ));
+      queryClient.invalidateQueries({ queryKey: ["vistas"] });
       setIsRestoreDialogOpen(false);
       setSelectedVista(null);
       toast({
@@ -392,16 +438,8 @@ export default function Vistas() {
     setSelectedProyectoFilter([]);
   };
 
-  const filteredVistas = vistas.filter(vista => {
-    const matchesSearch = vista.nombre.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTab = activeTab === "activos" ? vista.activo : !vista.activo;
-    const matchesProyecto = selectedProyectoFilter.length === 0 || 
-      (vista.id_proyecto && selectedProyectoFilter.includes(vista.id_proyecto));
-    return matchesSearch && matchesTab && matchesProyecto;
-  });
-
   // Group vistas by project
-  const vistasByProject = filteredVistas.reduce((acc, vista) => {
+  const vistasByProject = currentVistas.reduce((acc, vista) => {
     const projectId = vista.id_proyecto || 0; // 0 for vistas without project
     if (!acc[projectId]) {
       acc[projectId] = [];
@@ -415,9 +453,9 @@ export default function Vistas() {
     return proyectos.find(p => p.id === id)?.nombre || "Proyecto Desconocido";
   };
 
-  // Count active and deleted vistas
-  const activosCount = vistas.filter(v => v.activo).length;
-  const eliminadosCount = vistas.filter(v => !v.activo).length;
+  // Counts from server
+  const activosCount = activeData?.count || 0;
+  const eliminadosCount = deletedData?.count || 0;
 
   if (loading) {
     return (
@@ -548,7 +586,7 @@ export default function Vistas() {
                   Vistas {activeTab === "activos" ? "Activas" : "Eliminadas"}
                 </CardTitle>
                 <Badge variant="secondary" className="text-base px-3 py-1">
-                  {filteredVistas.length} {filteredVistas.length === 1 ? 'vista' : 'vistas'}
+                  {currentVistas.length} {currentVistas.length === 1 ? 'vista' : 'vistas'}
                 </Badge>
               </div>
               <CardDescription>
@@ -737,6 +775,223 @@ export default function Vistas() {
                   })
                 )}
               </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                      className="cursor-pointer"
+                    />
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className="cursor-pointer"
+                    />
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="eliminados" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CardTitle>
+                  Vistas Eliminadas
+                </CardTitle>
+                <Badge variant="secondary" className="text-base px-3 py-1">
+                  {eliminadosCount}
+                </Badge>
+              </div>
+              <CardDescription>
+                Lista de todas las vistas eliminadas en el sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    ref={searchInputRef}
+                    placeholder="Buscar por nombre..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Popover open={isProjectFilterOpen} onOpenChange={setIsProjectFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="whitespace-nowrap">
+                      Proyectos {selectedProyectoFilter.length > 0 && `(${selectedProyectoFilter.length})`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="end">
+                    <Command>
+                      <CommandInput placeholder="Buscar proyecto..." />
+                      <CommandEmpty>No se encontraron proyectos.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {proyectos.map((proyecto) => (
+                            <CommandItem
+                              key={proyecto.id}
+                              onSelect={() => {
+                                toggleProjectSelection(proyecto.id);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={selectedProyectoFilter.includes(proyecto.id)}
+                                onCheckedChange={() => toggleProjectSelection(proyecto.id)}
+                                className="mr-2"
+                              />
+                              {proyecto.nombre}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                    {selectedProyectoFilter.length > 0 && (
+                      <div className="border-t p-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          onClick={clearProjectFilters}
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Limpiar filtros
+                        </Button>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-4">
+                {Object.keys(vistasByProject).length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    No se encontraron vistas
+                  </div>
+                ) : (
+                  Object.entries(vistasByProject).map(([projectId, projectVistas]) => {
+                    const numProjectId = parseInt(projectId);
+                    const isExpanded = expandedProjects.has(numProjectId);
+                    const projectName = getProyectoNombre(numProjectId === 0 ? null : numProjectId);
+
+                    return (
+                      <Collapsible
+                        key={projectId}
+                        open={isExpanded}
+                        onOpenChange={() => toggleProject(numProjectId)}
+                      >
+                        <Card>
+                          <CollapsibleTrigger asChild>
+                            <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-5 w-5" />
+                                  ) : (
+                                    <ChevronRight className="h-5 w-5" />
+                                  )}
+                                  <CardTitle className="text-lg">{projectName}</CardTitle>
+                                  <Badge variant="secondary">{projectVistas.length}</Badge>
+                                </div>
+                              </div>
+                            </CardHeader>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <CardContent>
+                              <div className="rounded-md border">
+                                <Table>
+                                   <TableHeader>
+                                     <TableRow>
+                                       <TableHead>Nombre</TableHead>
+                                       <TableHead>Imagen</TableHead>
+                                       <TableHead className="text-right">Acciones</TableHead>
+                                     </TableRow>
+                                   </TableHeader>
+                                  <TableBody>
+                                     {projectVistas.map((vista) => (
+                                       <TableRow key={vista.id}>
+                                         <TableCell>{vista.nombre}</TableCell>
+                                         <TableCell>
+                                          {vista.url ? (
+                                            <img 
+                                              src={vista.url} 
+                                              alt={vista.nombre}
+                                              className="w-10 h-10 object-cover rounded-md"
+                                              onError={(e) => {
+                                                e.currentTarget.src = '/placeholder.svg';
+                                              }}
+                                            />
+                                          ) : (
+                                            <span className="text-muted-foreground text-sm">Sin imagen</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          <div className="flex items-center justify-end space-x-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => openRestoreDialog(vista)}
+                                            >
+                                              <RotateCcw className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+                    );
+                  })
+                )}
+              </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                      className="cursor-pointer"
+                    />
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className="cursor-pointer"
+                    />
+                  </PaginationContent>
+                </Pagination>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

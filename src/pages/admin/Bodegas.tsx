@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Edit, Trash2, Upload, Plus, Undo2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BulkUploadBodegasDialog } from "@/components/admin/BulkUploadBodegasDialog";
@@ -43,11 +44,14 @@ const Bodegas = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Query para obtener TODAS las bodegas (activas e inactivas)
-  const { data: allBodegas = [], isLoading } = useQuery({
-    queryKey: ['bodegas'],
+  // Query para obtener bodegas activas
+  const { data: activeData, isLoading: isLoadingActive } = useQuery({
+    queryKey: ['bodegas', 'active', currentPageActive, searchTerm, proyectoFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (currentPageActive - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('bodegas')
         .select(`
           *,
@@ -55,14 +59,23 @@ const Bodegas = () => {
             numero_propiedad,
             id_entidad_relacionada_dueno
           )
-        `);
+        `, { count: 'exact' })
+        .eq('activo', true);
+
+      if (searchTerm) {
+        query = query.or(`nombre.ilike.%${searchTerm}%,propiedades.numero_propiedad.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('id', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
       // Get all unique entity IDs to fetch project names
       const entityIds = [...new Set(data.map(item => item.propiedades?.id_entidad_relacionada_dueno).filter(Boolean))];
       
-      let entitiesData = [];
+      let entitiesData: any[] = [];
       if (entityIds.length > 0) {
         const { data: entities, error: entitiesError } = await supabase
           .from('entidades_relacionadas')
@@ -77,7 +90,7 @@ const Bodegas = () => {
         }
       }
 
-      return data.map((item: any) => {
+      const items = data.map((item: any) => {
         const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
         return {
           id: item.id,
@@ -90,9 +103,103 @@ const Bodegas = () => {
           numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
         };
       });
+
+      // Filter by project on client-side as it's a derived field
+      const filteredItems = proyectoFilter && proyectoFilter !== "all" 
+        ? items.filter(item => item.proyecto_nombre === proyectoFilter)
+        : items;
+
+      return { items: filteredItems, count: count || 0 };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
+
+  // Query para obtener bodegas eliminadas
+  const { data: deletedData, isLoading: isLoadingDeleted } = useQuery({
+    queryKey: ['bodegas', 'deleted', currentPageDeleted, searchTerm, proyectoFilter],
+    queryFn: async () => {
+      const from = (currentPageDeleted - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
+        .from('bodegas')
+        .select(`
+          *,
+          propiedades!fk_bodegas_propiedad(
+            numero_propiedad,
+            id_entidad_relacionada_dueno
+          )
+        `, { count: 'exact' })
+        .eq('activo', false);
+
+      if (searchTerm) {
+        query = query.or(`nombre.ilike.%${searchTerm}%,propiedades.numero_propiedad.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('id', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      // Get all unique entity IDs to fetch project names
+      const entityIds = [...new Set(data.map(item => item.propiedades?.id_entidad_relacionada_dueno).filter(Boolean))];
+      
+      let entitiesData: any[] = [];
+      if (entityIds.length > 0) {
+        const { data: entities, error: entitiesError } = await supabase
+          .from('entidades_relacionadas')
+          .select(`
+            id,
+            proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
+          `)
+          .in('id', entityIds);
+        
+        if (!entitiesError) {
+          entitiesData = entities || [];
+        }
+      }
+
+      const items = data.map((item: any) => {
+        const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
+        return {
+          id: item.id,
+          nombre: item.nombre,
+          m2: item.m2,
+          ubicacion: item.ubicacion,
+          es_incluido: item.es_incluido,
+          activo: item.activo,
+          proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
+          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
+        };
+      });
+
+      // Filter by project on client-side as it's a derived field
+      const filteredItems = proyectoFilter && proyectoFilter !== "all" 
+        ? items.filter(item => item.proyecto_nombre === proyectoFilter)
+        : items;
+
+      return { items: filteredItems, count: count || 0 };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const filteredBodegas = activeTab === 'activos' ? activeData?.items || [] : deletedData?.items || [];
+  const currentCount = activeTab === 'activos' ? activeData?.count || 0 : deletedData?.count || 0;
+  const totalPages = Math.ceil(currentCount / itemsPerPage);
+  const currentPage = activeTab === 'activos' ? currentPageActive : currentPageDeleted;
+  const setCurrentPage = (page: number) => {
+    if (activeTab === 'activos') {
+      setCurrentPageActive(page);
+    } else {
+      setCurrentPageDeleted(page);
+    }
+  };
+  const isLoading = isLoadingActive || isLoadingDeleted;
+
+  // Totals for tabs
+  const activosCount = activeData?.count || 0;
+  const eliminadosCount = deletedData?.count || 0;
 
   // Query para obtener proyectos para el filtro
   const { data: proyectos = [] } = useQuery({
@@ -204,24 +311,7 @@ const Bodegas = () => {
     }
   };
 
-  // Filtrado optimizado del lado del cliente usando useMemo
-  const filteredBodegas = useMemo(() => {
-    return allBodegas.filter((bodega) => {
-      // Filtrar por status activo/inactivo según la pestaña
-      const matchesStatus = activeTab === 'activos' ? bodega.activo : !bodega.activo;
-      
-      // Filtrar por búsqueda
-      const matchesSearch = searchTerm === "" || 
-        bodega.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        bodega.numero_propiedad.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Filtrar por proyecto
-      const matchesProyecto = proyectoFilter === "" || proyectoFilter === "all" || 
-        bodega.proyecto_nombre === proyectoFilter;
-
-      return matchesStatus && matchesSearch && matchesProyecto;
-    });
-  }, [allBodegas, activeTab, searchTerm, proyectoFilter]);
+  // Filtrado optimizado del lado del servidor con paginación
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64">Cargando...</div>;
@@ -284,8 +374,8 @@ const Bodegas = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="activos">Bodegas Activas ({allBodegas.filter(b => b.activo).length})</TabsTrigger>
-          <TabsTrigger value="eliminados">Bodegas Eliminadas ({allBodegas.filter(b => !b.activo).length})</TabsTrigger>
+          <TabsTrigger value="activos">Bodegas Activas ({activosCount})</TabsTrigger>
+          <TabsTrigger value="eliminados">Bodegas Eliminadas ({eliminadosCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="activos" className="space-y-4">
@@ -360,6 +450,32 @@ const Bodegas = () => {
                   </TableBody>
                 </Table>
               </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                      className="cursor-pointer"
+                    />
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className="cursor-pointer"
+                    />
+                  </PaginationContent>
+                </Pagination>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -367,7 +483,7 @@ const Bodegas = () => {
         <TabsContent value="eliminados" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Bodegas Eliminadas ({filteredBodegas.length})</CardTitle>
+              <CardTitle>Bodegas Eliminadas ({eliminadosCount})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -430,6 +546,32 @@ const Bodegas = () => {
                   </TableBody>
                 </Table>
               </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                      className="cursor-pointer"
+                    />
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className="cursor-pointer"
+                    />
+                  </PaginationContent>
+                </Pagination>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

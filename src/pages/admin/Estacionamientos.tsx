@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BulkUploadEstacionamientosDialog } from "@/components/admin/BulkUploadEstacionamientosDialog";
@@ -45,11 +46,14 @@ const Estacionamientos = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Query para obtener TODOS los estacionamientos (activos e inactivos)
-  const { data: allEstacionamientos = [], isLoading } = useQuery({
-    queryKey: ['estacionamientos'],
+  // Query para obtener estacionamientos activos
+  const { data: activeData, isLoading: isLoadingActive } = useQuery({
+    queryKey: ['estacionamientos', 'active', currentPageActive, searchTerm, proyectoFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (currentPageActive - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('estacionamientos')
         .select(`
           *,
@@ -58,14 +62,23 @@ const Estacionamientos = () => {
             numero_propiedad,
             id_entidad_relacionada_dueno
           )
-        `);
+        `, { count: 'exact' })
+        .eq('activo', true);
+
+      if (searchTerm) {
+        query = query.or(`nombre.ilike.%${searchTerm}%,propiedades.numero_propiedad.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('id', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
       // Get all unique entity IDs to fetch project names
       const entityIds = [...new Set(data.map(item => item.propiedades?.id_entidad_relacionada_dueno).filter(Boolean))];
       
-      let entitiesData = [];
+      let entitiesData: any[] = [];
       if (entityIds.length > 0) {
         const { data: entities, error: entitiesError } = await supabase
           .from('entidades_relacionadas')
@@ -80,7 +93,7 @@ const Estacionamientos = () => {
         }
       }
 
-      return data.map((item: any) => {
+      const items = data.map((item: any) => {
         const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
         return {
           id: item.id,
@@ -95,9 +108,106 @@ const Estacionamientos = () => {
           id_tipo: item.id_tipo
         };
       });
+
+      // Filter by project on client-side as it's a derived field
+      const filteredItems = proyectoFilter && proyectoFilter !== "all" 
+        ? items.filter(item => item.proyecto_nombre === proyectoFilter)
+        : items;
+
+      return { items: filteredItems, count: count || 0 };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
+
+  // Query para obtener estacionamientos eliminados
+  const { data: deletedData, isLoading: isLoadingDeleted } = useQuery({
+    queryKey: ['estacionamientos', 'deleted', currentPageDeleted, searchTerm, proyectoFilter],
+    queryFn: async () => {
+      const from = (currentPageDeleted - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
+        .from('estacionamientos')
+        .select(`
+          *,
+          tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre),
+          propiedades!estacionamientos_id_propiedad_fkey(
+            numero_propiedad,
+            id_entidad_relacionada_dueno
+          )
+        `, { count: 'exact' })
+        .eq('activo', false);
+
+      if (searchTerm) {
+        query = query.or(`nombre.ilike.%${searchTerm}%,propiedades.numero_propiedad.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('id', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      // Get all unique entity IDs to fetch project names
+      const entityIds = [...new Set(data.map(item => item.propiedades?.id_entidad_relacionada_dueno).filter(Boolean))];
+      
+      let entitiesData: any[] = [];
+      if (entityIds.length > 0) {
+        const { data: entities, error: entitiesError } = await supabase
+          .from('entidades_relacionadas')
+          .select(`
+            id,
+            proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
+          `)
+          .in('id', entityIds);
+        
+        if (!entitiesError) {
+          entitiesData = entities || [];
+        }
+      }
+
+      const items = data.map((item: any) => {
+        const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
+        return {
+          id: item.id,
+          nombre: item.nombre,
+          m2: item.m2,
+          ubicacion: item.ubicacion,
+          es_incluido: item.es_incluido,
+          activo: item.activo,
+          tipo_nombre: item.tipos_estacionamiento?.nombre || 'N/A',
+          proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
+          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A',
+          id_tipo: item.id_tipo
+        };
+      });
+
+      // Filter by project on client-side as it's a derived field
+      const filteredItems = proyectoFilter && proyectoFilter !== "all" 
+        ? items.filter(item => item.proyecto_nombre === proyectoFilter)
+        : items;
+
+      return { items: filteredItems, count: count || 0 };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const filteredEstacionamientos = activeTab === 'activos' ? activeData?.items || [] : deletedData?.items || [];
+  const currentCount = activeTab === 'activos' ? activeData?.count || 0 : deletedData?.count || 0;
+  const totalPages = Math.ceil(currentCount / itemsPerPage);
+  const currentPage = activeTab === 'activos' ? currentPageActive : currentPageDeleted;
+  const setCurrentPage = (page: number) => {
+    if (activeTab === 'activos') {
+      setCurrentPageActive(page);
+    } else {
+      setCurrentPageDeleted(page);
+    }
+  };
+  const isLoading = isLoadingActive || isLoadingDeleted;
+
+  // Totals for tabs
+  const activosCount = activeData?.count || 0;
+  const eliminadosCount = deletedData?.count || 0;
 
   // Query para obtener proyectos para el filtro
   const { data: proyectos = [] } = useQuery({
@@ -209,24 +319,7 @@ const Estacionamientos = () => {
     }
   };
 
-  // Filtrado optimizado del lado del cliente usando useMemo
-  const filteredEstacionamientos = useMemo(() => {
-    return allEstacionamientos.filter((estacionamiento) => {
-      // Filtrar por status activo/inactivo según la pestaña
-      const matchesStatus = activeTab === 'activos' ? estacionamiento.activo : !estacionamiento.activo;
-      
-      // Filtrar por búsqueda
-      const matchesSearch = searchTerm === "" || 
-        estacionamiento.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        estacionamiento.numero_propiedad.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Filtrar por proyecto
-      const matchesProyecto = proyectoFilter === "" || proyectoFilter === "all" || 
-        estacionamiento.proyecto_nombre === proyectoFilter;
-
-      return matchesStatus && matchesSearch && matchesProyecto;
-    });
-  }, [allEstacionamientos, activeTab, searchTerm, proyectoFilter]);
+  // Filtrado optimizado del lado del servidor con paginación
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64">Cargando...</div>;
@@ -289,8 +382,8 @@ const Estacionamientos = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="activos">Estacionamientos Activos ({allEstacionamientos.filter(e => e.activo).length})</TabsTrigger>
-          <TabsTrigger value="eliminados">Estacionamientos Eliminados ({allEstacionamientos.filter(e => !e.activo).length})</TabsTrigger>
+          <TabsTrigger value="activos">Estacionamientos Activos ({activosCount})</TabsTrigger>
+          <TabsTrigger value="eliminados">Estacionamientos Eliminados ({eliminadosCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="activos" className="space-y-4">
@@ -367,6 +460,32 @@ const Estacionamientos = () => {
                   </TableBody>
                 </Table>
               </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                      className="cursor-pointer"
+                    />
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className="cursor-pointer"
+                    />
+                  </PaginationContent>
+                </Pagination>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -374,7 +493,7 @@ const Estacionamientos = () => {
         <TabsContent value="eliminados" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Estacionamientos Eliminados ({filteredEstacionamientos.length})</CardTitle>
+              <CardTitle>Estacionamientos Eliminados ({eliminadosCount})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -439,6 +558,32 @@ const Estacionamientos = () => {
                   </TableBody>
                 </Table>
               </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                      className="cursor-pointer"
+                    />
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className="cursor-pointer"
+                    />
+                  </PaginationContent>
+                </Pagination>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
