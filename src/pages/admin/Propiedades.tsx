@@ -986,6 +986,26 @@ const Propiedades = () => {
 
   const isLoading = activeTab === "activos" ? loadingActivos : activeTab === "draft" ? loadingDraft : loadingEliminados;
 
+  // Maintain focus on search input after re-render
+  useEffect(() => {
+    if (inputValue && searchInputRef.current && !propiedadesActivasData && !propiedadesDraftData && !propiedadesEliminadasData) {
+      searchInputRef.current.focus();
+    }
+  }, [propiedadesActivasData, propiedadesDraftData, propiedadesEliminadasData, inputValue]);
+
+  // Reset pages when filters change
+  useEffect(() => {
+    setCurrentPageActive(1);
+  }, [searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
+
+  useEffect(() => {
+    setCurrentPageDraft(1);
+  }, [searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
+
+  useEffect(() => {
+    setCurrentPageInactive(1);
+  }, [searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
+
   const { data: availabilityOptions } = useQuery({
     queryKey: ['availability-options'],
     queryFn: async () => {
