@@ -511,9 +511,6 @@ const Estacionamientos = () => {
 
         <TabsContent value="activos" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Estacionamientos Activos ({filteredEstacionamientos.length})</CardTitle>
-            </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
@@ -615,9 +612,6 @@ const Estacionamientos = () => {
 
         <TabsContent value="eliminados" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Estacionamientos Eliminados ({eliminadosCount})</CardTitle>
-            </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>

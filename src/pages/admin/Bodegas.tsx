@@ -499,9 +499,6 @@ const Bodegas = () => {
 
         <TabsContent value="activos" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Bodegas Activas ({filteredBodegas.length})</CardTitle>
-            </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
@@ -601,9 +598,6 @@ const Bodegas = () => {
 
         <TabsContent value="eliminados" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Bodegas Eliminadas ({eliminadosCount})</CardTitle>
-            </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
