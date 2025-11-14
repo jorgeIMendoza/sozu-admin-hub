@@ -15,6 +15,7 @@ import { BulkUploadEstacionamientosDialog } from "@/components/admin/BulkUploadE
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { EditEstacionamientoDialog } from "@/components/admin/EditEstacionamientoDialog";
 import { Combobox } from "@/components/ui/combobox";
+import { highlightText } from "@/lib/highlightText";
 
 interface Estacionamiento {
   id: number;
@@ -532,8 +533,8 @@ const Estacionamientos = () => {
                     {filteredEstacionamientos.map((estacionamiento) => (
                       <TableRow key={estacionamiento.id}>
                         <TableCell>{estacionamiento.proyecto_nombre}</TableCell>
-                        <TableCell>{estacionamiento.numero_propiedad}</TableCell>
-                        <TableCell>{estacionamiento.nombre}</TableCell>
+                        <TableCell>{highlightText(estacionamiento.numero_propiedad || "", searchTerm)}</TableCell>
+                        <TableCell>{highlightText(estacionamiento.nombre, searchTerm)}</TableCell>
                         <TableCell>{estacionamiento.tipo_nombre}</TableCell>
                         <TableCell>{estacionamiento.m2} m²</TableCell>
                         <TableCell>
@@ -636,8 +637,8 @@ const Estacionamientos = () => {
                     {filteredEstacionamientos.map((estacionamiento) => (
                       <TableRow key={estacionamiento.id}>
                         <TableCell>{estacionamiento.proyecto_nombre}</TableCell>
-                        <TableCell>{estacionamiento.numero_propiedad}</TableCell>
-                        <TableCell>{estacionamiento.nombre}</TableCell>
+                        <TableCell>{highlightText(estacionamiento.numero_propiedad || "", searchTerm)}</TableCell>
+                        <TableCell>{highlightText(estacionamiento.nombre, searchTerm)}</TableCell>
                         <TableCell>{estacionamiento.tipo_nombre}</TableCell>
                         <TableCell>{estacionamiento.m2} m²</TableCell>
                         <TableCell>

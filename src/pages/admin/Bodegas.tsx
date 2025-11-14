@@ -15,6 +15,7 @@ import { BulkUploadBodegasDialog } from "@/components/admin/BulkUploadBodegasDia
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { EditBodegaDialog } from "@/components/admin/EditBodegaDialog";
 import { Combobox } from "@/components/ui/combobox";
+import { highlightText } from "@/lib/highlightText";
 
 interface Bodega {
   id: number;
@@ -519,8 +520,8 @@ const Bodegas = () => {
                     {filteredBodegas.map((bodega) => (
                       <TableRow key={bodega.id}>
                         <TableCell>{bodega.proyecto_nombre}</TableCell>
-                        <TableCell>{bodega.numero_propiedad}</TableCell>
-                        <TableCell>{bodega.nombre}</TableCell>
+                        <TableCell>{highlightText(bodega.numero_propiedad || "", searchTerm)}</TableCell>
+                        <TableCell>{highlightText(bodega.nombre, searchTerm)}</TableCell>
                         <TableCell>{bodega.m2} m²</TableCell>
                         <TableCell>
                           <Badge variant={bodega.es_incluido ? "default" : "secondary"}>
@@ -621,8 +622,8 @@ const Bodegas = () => {
                     {filteredBodegas.map((bodega) => (
                       <TableRow key={bodega.id}>
                         <TableCell>{bodega.proyecto_nombre}</TableCell>
-                        <TableCell>{bodega.numero_propiedad}</TableCell>
-                        <TableCell>{bodega.nombre}</TableCell>
+                        <TableCell>{highlightText(bodega.numero_propiedad || "", searchTerm)}</TableCell>
+                        <TableCell>{highlightText(bodega.nombre, searchTerm)}</TableCell>
                         <TableCell>{bodega.m2} m²</TableCell>
                         <TableCell>
                           <Badge variant={bodega.es_incluido ? "default" : "secondary"}>
