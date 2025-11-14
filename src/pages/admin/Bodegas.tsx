@@ -64,7 +64,7 @@ const Bodegas = () => {
         .eq('activo', true);
 
       if (searchTerm) {
-        query = query.or(`nombre.ilike.%${searchTerm}%,propiedades.numero_propiedad.ilike.%${searchTerm}%`);
+        query = query.or(`nombre.ilike.*${searchTerm}*,propiedades.numero_propiedad.ilike.*${searchTerm}*`);
       }
 
       const { data, error, count } = await query
@@ -134,7 +134,7 @@ const Bodegas = () => {
         .eq('activo', false);
 
       if (searchTerm) {
-        query = query.or(`nombre.ilike.%${searchTerm}%,propiedades.numero_propiedad.ilike.%${searchTerm}%`);
+        query = query.or(`nombre.ilike.*${searchTerm}*,propiedades.numero_propiedad.ilike.*${searchTerm}*`);
       }
 
       const { data, error, count } = await query
