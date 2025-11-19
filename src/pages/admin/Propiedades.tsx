@@ -27,6 +27,7 @@ import { BodegasDetailDialog } from "@/components/admin/BodegasDetailDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { AsignarPropiedadDialog } from "@/components/admin/AsignarPropiedadDialog";
 
@@ -188,6 +189,8 @@ const Propiedades = () => {
   const [bodegasFilter, setBodegasFilter] = useState("");
   const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   const [cuentaCobranzaFilter, setCuentaCobranzaFilter] = useState("");
+  const [areaFilter, setAreaFilter] = useState<number[]>([0, 200]);
+  const [precioFilter, setPrecioFilter] = useState<number[]>([1000000, 20000000]);
 
   // Debounce filtros de texto
   useEffect(() => {
@@ -790,8 +793,10 @@ const Propiedades = () => {
             const matchesCuentaCobranza = cuentaCobranzaFilter === "" ||
               (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
               (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
+            const matchesArea = property.m2_reales >= areaFilter[0] && property.m2_reales <= areaFilter[1];
+            const matchesPrecio = property.precio_lista >= precioFilter[0] && property.precio_lista <= precioFilter[1];
             
-            return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+            return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
           // Apply local pagination
@@ -1013,8 +1018,10 @@ const Propiedades = () => {
             const matchesCuentaCobranza = cuentaCobranzaFilter === "" ||
               (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
               (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
+            const matchesArea = property.m2_reales >= areaFilter[0] && property.m2_reales <= areaFilter[1];
+            const matchesPrecio = property.precio_lista >= precioFilter[0] && property.precio_lista <= precioFilter[1];
             
-            return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+            return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
           // Apply local pagination
@@ -1237,8 +1244,10 @@ const Propiedades = () => {
             const matchesCuentaCobranza = cuentaCobranzaFilter === "" ||
               (cuentaCobranzaFilter === "si" && property.cuenta_cobranza_id !== null) ||
               (cuentaCobranzaFilter === "no" && property.cuenta_cobranza_id === null);
+            const matchesArea = property.m2_reales >= areaFilter[0] && property.m2_reales <= areaFilter[1];
+            const matchesPrecio = property.precio_lista >= precioFilter[0] && property.precio_lista <= precioFilter[1];
             
-            return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza;
+            return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
           // Apply local pagination
@@ -3019,6 +3028,28 @@ const Propiedades = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Área (m²): {areaFilter[0]} - {areaFilter[1]}</label>
+                <Slider
+                  min={0}
+                  max={200}
+                  step={1}
+                  value={areaFilter}
+                  onValueChange={setAreaFilter}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Precio: ${(precioFilter[0] / 1000000).toFixed(1)}M - ${(precioFilter[1] / 1000000).toFixed(1)}M</label>
+                <Slider
+                  min={1000000}
+                  max={20000000}
+                  step={100000}
+                  value={precioFilter}
+                  onValueChange={setPrecioFilter}
+                  className="mt-2"
+                />
+              </div>
             </div>
             
             {/* Botón para limpiar filtros */}
@@ -3040,6 +3071,8 @@ const Propiedades = () => {
                   setBodegasFilter("");
                   setEstacionamientosFilter("");
                   setCuentaCobranzaFilter("");
+                  setAreaFilter([0, 200]);
+                  setPrecioFilter([1000000, 20000000]);
                   setSelectedProperties([]);
                 }}
               >
