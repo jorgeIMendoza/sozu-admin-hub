@@ -3347,27 +3347,41 @@ const Propiedades = () => {
                 <label className="text-sm font-medium mb-2 block">Área (m²)</label>
                 <div className="flex items-center gap-2 mb-2">
                   <Input
-                    type="number"
+                    type="text"
                     value={areaFilterInput[0]}
                     onChange={(e) => {
-                      const val = Math.max(25, Math.min(200, Number(e.target.value) || 25));
-                      setAreaFilterInput([val, areaFilterInput[1]]);
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      if (val === '') {
+                        setAreaFilterInput([25, areaFilterInput[1]]);
+                      } else {
+                        setAreaFilterInput([Number(val), areaFilterInput[1]]);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 25;
+                      val = Math.max(25, Math.min(200, val));
+                      setAreaFilterInput([val, Math.max(val, areaFilterInput[1])]);
                     }}
                     className="w-20 h-8 text-xs"
-                    min={25}
-                    max={200}
                   />
                   <span className="text-xs text-muted-foreground">-</span>
                   <Input
-                    type="number"
+                    type="text"
                     value={areaFilterInput[1]}
                     onChange={(e) => {
-                      const val = Math.max(25, Math.min(200, Number(e.target.value) || 200));
-                      setAreaFilterInput([areaFilterInput[0], val]);
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      if (val === '') {
+                        setAreaFilterInput([areaFilterInput[0], 200]);
+                      } else {
+                        setAreaFilterInput([areaFilterInput[0], Number(val)]);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 200;
+                      val = Math.max(25, Math.min(200, val));
+                      setAreaFilterInput([Math.min(areaFilterInput[0], val), val]);
                     }}
                     className="w-20 h-8 text-xs"
-                    min={25}
-                    max={200}
                   />
                 </div>
                 <Slider
@@ -3383,29 +3397,41 @@ const Propiedades = () => {
                 <label className="text-sm font-medium mb-2 block whitespace-nowrap">Precio (MXN)</label>
                 <div className="flex items-center gap-2 mb-2">
                   <Input
-                    type="number"
-                    value={precioFilterInput[0]}
+                    type="text"
+                    value={precioFilterInput[0].toLocaleString('es-MX')}
                     onChange={(e) => {
-                      const val = Math.max(1000000, Math.min(20000000, Number(e.target.value) || 1000000));
-                      setPrecioFilterInput([val, precioFilterInput[1]]);
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      if (val === '') {
+                        setPrecioFilterInput([1000000, precioFilterInput[1]]);
+                      } else {
+                        setPrecioFilterInput([Number(val), precioFilterInput[1]]);
+                      }
                     }}
-                    className="w-28 h-8 text-xs"
-                    min={1000000}
-                    max={20000000}
-                    step={100000}
+                    onBlur={(e) => {
+                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 1000000;
+                      val = Math.max(1000000, Math.min(20000000, val));
+                      setPrecioFilterInput([val, Math.max(val, precioFilterInput[1])]);
+                    }}
+                    className="w-32 h-8 text-xs"
                   />
                   <span className="text-xs text-muted-foreground">-</span>
                   <Input
-                    type="number"
-                    value={precioFilterInput[1]}
+                    type="text"
+                    value={precioFilterInput[1].toLocaleString('es-MX')}
                     onChange={(e) => {
-                      const val = Math.max(1000000, Math.min(20000000, Number(e.target.value) || 20000000));
-                      setPrecioFilterInput([precioFilterInput[0], val]);
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      if (val === '') {
+                        setPrecioFilterInput([precioFilterInput[0], 20000000]);
+                      } else {
+                        setPrecioFilterInput([precioFilterInput[0], Number(val)]);
+                      }
                     }}
-                    className="w-28 h-8 text-xs"
-                    min={1000000}
-                    max={20000000}
-                    step={100000}
+                    onBlur={(e) => {
+                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 20000000;
+                      val = Math.max(1000000, Math.min(20000000, val));
+                      setPrecioFilterInput([Math.min(precioFilterInput[0], val), val]);
+                    }}
+                    className="w-32 h-8 text-xs"
                   />
                 </div>
                 <Slider
