@@ -644,7 +644,7 @@ const Propiedades = () => {
 
   // Separate queries for each tab with server-side pagination
   const { data: propiedadesActivasData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
-    queryKey: ['properties-activos', currentPageActive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter],
+    queryKey: ['properties-activos', currentPageActive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
     queryFn: async () => {
       try {
         const from = (currentPageActive - 1) * itemsPerPage;
@@ -869,7 +869,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesDraftData, isLoading: loadingDraft, refetch: refetchDraft } = useQuery({
-    queryKey: ['properties-draft', currentPageDraft, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter],
+    queryKey: ['properties-draft', currentPageDraft, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
     queryFn: async () => {
       try {
         const from = (currentPageDraft - 1) * itemsPerPage;
@@ -1095,7 +1095,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesEliminadasData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
-    queryKey: ['properties-eliminados', currentPageInactive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter],
+    queryKey: ['properties-eliminados', currentPageInactive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
     queryFn: async () => {
       try {
         const from = (currentPageInactive - 1) * itemsPerPage;
@@ -3039,8 +3039,8 @@ const Propiedades = () => {
                   className="mt-2"
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Precio: ${(precioFilter[0] / 1000000).toFixed(1)}M - ${(precioFilter[1] / 1000000).toFixed(1)}M</label>
+              <div className="min-w-[200px]">
+                <label className="text-sm font-medium mb-2 block whitespace-nowrap">Precio: ${(precioFilter[0] / 1000000).toFixed(1)}M - ${(precioFilter[1] / 1000000).toFixed(1)}M</label>
                 <Slider
                   min={1000000}
                   max={20000000}
