@@ -189,7 +189,9 @@ const Propiedades = () => {
   const [bodegasFilter, setBodegasFilter] = useState("");
   const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   const [cuentaCobranzaFilter, setCuentaCobranzaFilter] = useState("");
+  const [areaFilterInput, setAreaFilterInput] = useState<number[]>([0, 200]);
   const [areaFilter, setAreaFilter] = useState<number[]>([0, 200]);
+  const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([1000000, 20000000]);
   const [precioFilter, setPrecioFilter] = useState<number[]>([1000000, 20000000]);
 
   // Debounce filtros de texto
@@ -206,6 +208,21 @@ const Propiedades = () => {
     }, 400);
     return () => clearTimeout(timer);
   }, [modeloFilterInput]);
+
+  // Debounce filtros de sliders
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAreaFilter(areaFilterInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [areaFilterInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPrecioFilter(precioFilterInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [precioFilterInput]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -3029,24 +3046,24 @@ const Propiedades = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Área (m²): {areaFilter[0]} - {areaFilter[1]}</label>
+                <label className="text-sm font-medium mb-2 block">Área (m²): {areaFilterInput[0]} - {areaFilterInput[1]}</label>
                 <Slider
                   min={0}
                   max={200}
                   step={1}
-                  value={areaFilter}
-                  onValueChange={setAreaFilter}
+                  value={areaFilterInput}
+                  onValueChange={setAreaFilterInput}
                   className="mt-2"
                 />
               </div>
               <div className="min-w-[200px]">
-                <label className="text-sm font-medium mb-2 block whitespace-nowrap">Precio: ${(precioFilter[0] / 1000000).toFixed(1)}M - ${(precioFilter[1] / 1000000).toFixed(1)}M</label>
+                <label className="text-sm font-medium mb-2 block whitespace-nowrap">Precio: ${(precioFilterInput[0] / 1000000).toFixed(1)}M - ${(precioFilterInput[1] / 1000000).toFixed(1)}M</label>
                 <Slider
                   min={1000000}
                   max={20000000}
                   step={100000}
-                  value={precioFilter}
-                  onValueChange={setPrecioFilter}
+                  value={precioFilterInput}
+                  onValueChange={setPrecioFilterInput}
                   className="mt-2"
                 />
               </div>
@@ -3071,7 +3088,9 @@ const Propiedades = () => {
                   setBodegasFilter("");
                   setEstacionamientosFilter("");
                   setCuentaCobranzaFilter("");
+                  setAreaFilterInput([0, 200]);
                   setAreaFilter([0, 200]);
+                  setPrecioFilterInput([1000000, 20000000]);
                   setPrecioFilter([1000000, 20000000]);
                   setSelectedProperties([]);
                 }}
