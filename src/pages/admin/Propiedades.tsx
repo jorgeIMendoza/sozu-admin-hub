@@ -878,7 +878,7 @@ const Propiedades = () => {
             return matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
-          return { properties: filtered, count: count || 0 };
+          return { properties: filtered, count: filtered.length };
         }
       } catch (error) {
         console.error('Error fetching active properties:', error);
@@ -1105,7 +1105,7 @@ const Propiedades = () => {
             return matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
-          return { properties: filtered, count: count || 0 };
+          return { properties: filtered, count: filtered.length };
         }
       } catch (error) {
         console.error('Error fetching draft properties:', error);
@@ -1333,7 +1333,7 @@ const Propiedades = () => {
             return matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
-          return { properties: filtered, count: count || 0 };
+          return { properties: filtered, count: filtered.length };
         }
       } catch (error) {
         console.error('Error fetching deleted properties:', error);
