@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 import { NewPropertyDialog } from "@/components/admin/NewPropertyDialog";
 import { EditPropertyDialog } from "@/components/admin/EditPropertyDialog";
+import { Settings2 } from "lucide-react";
 import { BulkUploadPropertiesDialog } from "@/components/admin/BulkUploadPropertiesDialog";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { NewProductOfferDialog } from "@/components/admin/NewProductOfferDialog";
@@ -128,6 +129,49 @@ interface Property {
   } | null;
 }
 
+type ColumnKey = 
+  | 'proyecto' | 'propietario' | 'edificio' | 'modelo' | 'numero_departamento'
+  | 'piso' | 'vista' | 'area' | 'configuracion' | 'precio' | 'precio_m2'
+  | 'estacionamientos' | 'bodegas' | 'ofertas_comerciales' | 'ofertas_productos'
+  | 'disponibilidad' | 'cuenta_cobranza' | 'cuenta_clabe' | 'precio_final'
+  | 'pagado' | 'restante' | 'estado_pagos' | 'factura' | 'acciones';
+
+interface ColumnConfig {
+  key: ColumnKey;
+  label: string;
+  required: boolean;
+  defaultVisible: boolean;
+}
+
+const COLUMNS_CONFIG: ColumnConfig[] = [
+  { key: 'proyecto', label: 'Proyecto', required: false, defaultVisible: true },
+  { key: 'propietario', label: 'Propietario', required: false, defaultVisible: true },
+  { key: 'edificio', label: 'Edificio', required: false, defaultVisible: true },
+  { key: 'modelo', label: 'Modelo', required: false, defaultVisible: true },
+  { key: 'numero_departamento', label: 'No. Departamento', required: true, defaultVisible: true },
+  { key: 'piso', label: 'Piso', required: false, defaultVisible: false },
+  { key: 'vista', label: 'Vista', required: false, defaultVisible: false },
+  { key: 'area', label: 'Área', required: false, defaultVisible: true },
+  { key: 'configuracion', label: 'Configuración', required: false, defaultVisible: true },
+  { key: 'precio', label: 'Precio', required: false, defaultVisible: true },
+  { key: 'precio_m2', label: 'Precio por M2', required: false, defaultVisible: false },
+  { key: 'estacionamientos', label: 'Estacionamientos', required: false, defaultVisible: true },
+  { key: 'bodegas', label: 'Bodegas', required: false, defaultVisible: true },
+  { key: 'ofertas_comerciales', label: 'Ofertas Comerciales', required: false, defaultVisible: false },
+  { key: 'ofertas_productos', label: 'Ofertas de Productos', required: false, defaultVisible: false },
+  { key: 'disponibilidad', label: 'Disponibilidad', required: false, defaultVisible: true },
+  { key: 'cuenta_cobranza', label: 'Cuenta de cobranza', required: false, defaultVisible: true },
+  { key: 'cuenta_clabe', label: 'Cuenta Clabe', required: false, defaultVisible: false },
+  { key: 'precio_final', label: 'Precio Final', required: false, defaultVisible: true },
+  { key: 'pagado', label: 'Pagado', required: false, defaultVisible: false },
+  { key: 'restante', label: 'Restante', required: false, defaultVisible: false },
+  { key: 'estado_pagos', label: 'Estado de Pagos', required: false, defaultVisible: true },
+  { key: 'factura', label: 'Factura', required: false, defaultVisible: false },
+  { key: 'acciones', label: 'Acciones', required: true, defaultVisible: true },
+];
+
+const STORAGE_KEY = 'propiedades-visible-columns';
+
 const Propiedades = () => {
   const [searchParams] = useSearchParams();
   const [inputValue, setInputValue] = useState("");
@@ -193,6 +237,58 @@ const Propiedades = () => {
   const [areaFilter, setAreaFilter] = useState<number[]>([25, 200]);
   const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([1000000, 20000000]);
   const [precioFilter, setPrecioFilter] = useState<number[]>([1000000, 20000000]);
+
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch {
+        return new Set(COLUMNS_CONFIG.filter(col => col.defaultVisible).map(col => col.key));
+      }
+    }
+    return new Set(COLUMNS_CONFIG.filter(col => col.defaultVisible).map(col => col.key));
+  });
+
+  const isColumnVisible = (key: ColumnKey) => visibleColumns.has(key);
+
+  const toggleColumn = (key: ColumnKey) => {
+    const column = COLUMNS_CONFIG.find(col => col.key === key);
+    if (column?.required) return; // Can't toggle required columns
+    
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(newSet)));
+      return newSet;
+    });
+  };
+
+  const selectAllColumns = () => {
+    const allKeys = new Set(COLUMNS_CONFIG.map(col => col.key));
+    setVisibleColumns(allKeys);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(allKeys)));
+  };
+
+  const deselectAllColumns = () => {
+    const requiredKeys = new Set(COLUMNS_CONFIG.filter(col => col.required).map(col => col.key));
+    setVisibleColumns(requiredKeys);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(requiredKeys)));
+  };
+
+  const resetToDefaults = () => {
+    const defaultKeys = new Set(COLUMNS_CONFIG.filter(col => col.defaultVisible).map(col => col.key));
+    setVisibleColumns(defaultKeys);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(defaultKeys)));
+  };
+
+  const visibleCount = visibleColumns.size;
+  const totalCount = COLUMNS_CONFIG.length;
 
   // Debounce filtros de texto
   useEffect(() => {
@@ -2336,36 +2432,36 @@ const Propiedades = () => {
                   />
                 </TableHead>
               )}
-              <TableHead>Proyecto</TableHead>
-              <TableHead>Propietario</TableHead>
-              <TableHead>Edificio</TableHead>
-              <TableHead>Modelo</TableHead>
-              <TableHead>No. Departamento</TableHead>
-              <TableHead>Piso</TableHead>
-              <TableHead>Vista</TableHead>
-              <TableHead>Área</TableHead>
-              <TableHead>Configuración</TableHead>
-              <TableHead>Precio</TableHead>
-              <TableHead>Precio por M2</TableHead>
-              <TableHead>Estacionamientos</TableHead>
-              <TableHead>Bodegas</TableHead>
-              <TableHead>Ofertas Comerciales</TableHead>
-              <TableHead>Ofertas de Productos</TableHead>
-              <TableHead>Disponibilidad</TableHead>
-              <TableHead>Cuenta de cobranza</TableHead>
-              <TableHead>Cuenta Clabe</TableHead>
-              <TableHead>Precio Final</TableHead>
-              <TableHead>Pagado</TableHead>
-              <TableHead>Restante</TableHead>
-              <TableHead>Estado de Pagos</TableHead>
-              <TableHead>Factura</TableHead>
-              <TableHead>Acciones</TableHead>
+              {isColumnVisible('proyecto') && <TableHead>Proyecto</TableHead>}
+              {isColumnVisible('propietario') && <TableHead>Propietario</TableHead>}
+              {isColumnVisible('edificio') && <TableHead>Edificio</TableHead>}
+              {isColumnVisible('modelo') && <TableHead>Modelo</TableHead>}
+              {isColumnVisible('numero_departamento') && <TableHead>No. Departamento</TableHead>}
+              {isColumnVisible('piso') && <TableHead>Piso</TableHead>}
+              {isColumnVisible('vista') && <TableHead>Vista</TableHead>}
+              {isColumnVisible('area') && <TableHead>Área</TableHead>}
+              {isColumnVisible('configuracion') && <TableHead>Configuración</TableHead>}
+              {isColumnVisible('precio') && <TableHead>Precio</TableHead>}
+              {isColumnVisible('precio_m2') && <TableHead>Precio por M2</TableHead>}
+              {isColumnVisible('estacionamientos') && <TableHead>Estacionamientos</TableHead>}
+              {isColumnVisible('bodegas') && <TableHead>Bodegas</TableHead>}
+              {isColumnVisible('ofertas_comerciales') && <TableHead>Ofertas Comerciales</TableHead>}
+              {isColumnVisible('ofertas_productos') && <TableHead>Ofertas de Productos</TableHead>}
+              {isColumnVisible('disponibilidad') && <TableHead>Disponibilidad</TableHead>}
+              {isColumnVisible('cuenta_cobranza') && <TableHead>Cuenta de cobranza</TableHead>}
+              {isColumnVisible('cuenta_clabe') && <TableHead>Cuenta Clabe</TableHead>}
+              {isColumnVisible('precio_final') && <TableHead>Precio Final</TableHead>}
+              {isColumnVisible('pagado') && <TableHead>Pagado</TableHead>}
+              {isColumnVisible('restante') && <TableHead>Restante</TableHead>}
+              {isColumnVisible('estado_pagos') && <TableHead>Estado de Pagos</TableHead>}
+              {isColumnVisible('factura') && <TableHead>Factura</TableHead>}
+              {isColumnVisible('acciones') && <TableHead>Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
           {propertiesToRender.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={tabType === "draft" ? 22 : 21} className="text-center py-6">
+                <TableCell colSpan={visibleCount + (tabType === "draft" ? 1 : 0)} className="text-center py-6">
                   {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter.length > 0 || bodegasFilter || estacionamientosFilter || cuentaCobranzaFilter
                     ? "No se encontraron resultados." 
                     : tabType === "eliminados"
@@ -2389,70 +2485,80 @@ const Propiedades = () => {
                       />
                     </TableCell>
                   )}
-                  <TableCell className="font-medium">{property.proyecto}</TableCell>
-                  <TableCell>
-                    {property.es_desarrollador ? (
-                      <div className="flex flex-col">
-                        <span>{property.propietario}</span>
-                        <span className="text-muted-foreground text-xs">(Desarrollador)</span>
-                      </div>
-                    ) : (
-                      property.propietario
-                    )}
-                  </TableCell>
-                  <TableCell>{property.edificio}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{property.modelo}</Badge>
-                  </TableCell>
-                  <TableCell>{property.numero_propiedad}</TableCell>
-                  <TableCell>{property.numero_piso}</TableCell>
-                  <TableCell>{property.vista}</TableCell>
-                  <TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <span>{((property.m2_interiores || 0) + (property.m2_exteriores || 0)).toFixed(2)} m²</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Home className="h-3 w-3" />
-                              <span>M2 interiores: {(property.m2_interiores || 0).toFixed(2)} m²</span>
+                  {isColumnVisible('proyecto') && <TableCell className="font-medium">{property.proyecto}</TableCell>}
+                  {isColumnVisible('propietario') && (
+                    <TableCell>
+                      {property.es_desarrollador ? (
+                        <div className="flex flex-col">
+                          <span>{property.propietario}</span>
+                          <span className="text-muted-foreground text-xs">(Desarrollador)</span>
+                        </div>
+                      ) : (
+                        property.propietario
+                      )}
+                    </TableCell>
+                  )}
+                  {isColumnVisible('edificio') && <TableCell>{property.edificio}</TableCell>}
+                  {isColumnVisible('modelo') && (
+                    <TableCell>
+                      <Badge variant="outline">{property.modelo}</Badge>
+                    </TableCell>
+                  )}
+                  {isColumnVisible('numero_departamento') && <TableCell>{property.numero_propiedad}</TableCell>}
+                  {isColumnVisible('piso') && <TableCell>{property.numero_piso}</TableCell>}
+                  {isColumnVisible('vista') && <TableCell>{property.vista}</TableCell>}
+                  {isColumnVisible('area') && (
+                    <TableCell>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <span>{((property.m2_interiores || 0) + (property.m2_exteriores || 0)).toFixed(2)} m²</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <Home className="h-3 w-3" />
+                                <span>M2 interiores: {(property.m2_interiores || 0).toFixed(2)} m²</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Home className="h-3 w-3" />
+                                <span>M2 exteriores: {(property.m2_exteriores || 0).toFixed(2)} m²</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Home className="h-3 w-3" />
-                              <span>M2 exteriores: {(property.m2_exteriores || 0).toFixed(2)} m²</span>
-                            </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell className="text-sm">{formatConfiguracion(property.configuracion_modelo)}</TableCell>
-                  <TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          {property.precio_final ? (
-                            <span>{formatCurrency(property.precio_final)}</span>
-                          ) : (
-                            <span>{formatCurrency(property.precio_lista)}</span>
-                          )}
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{property.precio_final ? 'Precio final' : 'Precio de lista'}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell>
-                    {formatPrecioPorM2(
-                      property.precio_final || property.precio_lista,
-                      property.m2_interiores,
-                      property.m2_exteriores
-                    )}
-                  </TableCell>
-                   <TableCell>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
+                  )}
+                  {isColumnVisible('configuracion') && <TableCell className="text-sm">{formatConfiguracion(property.configuracion_modelo)}</TableCell>}
+                  {isColumnVisible('precio') && (
+                    <TableCell>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            {property.precio_final ? (
+                              <span>{formatCurrency(property.precio_final)}</span>
+                            ) : (
+                              <span>{formatCurrency(property.precio_lista)}</span>
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{property.precio_final ? 'Precio final' : 'Precio de lista'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
+                  )}
+                  {isColumnVisible('precio_m2') && (
+                    <TableCell>
+                      {formatPrecioPorM2(
+                        property.precio_final || property.precio_lista,
+                        property.m2_interiores,
+                        property.m2_exteriores
+                      )}
+                    </TableCell>
+                  )}
+                   {isColumnVisible('estacionamientos') && (<TableCell>
                      <Button
                        variant="ghost"
                        size="sm"
@@ -2466,10 +2572,11 @@ const Propiedades = () => {
                        >
                          {property.estacionamientos_count}
                          {property.estacionamientos_count > 0 && <Car className="ml-1 h-3 w-3" />}
-                       </Badge>
-                     </Button>
-                   </TableCell>
-                   <TableCell>
+                        </Badge>
+                      </Button>
+                    </TableCell>
+                  )}
+                    {isColumnVisible('bodegas') && (<TableCell>
                      <Button
                        variant="ghost"
                        size="sm"
@@ -3108,8 +3215,8 @@ const Propiedades = () => {
               </div>
             </div>
             
-            {/* Botón para limpiar filtros */}
-            <div className="flex justify-end">
+            {/* Botón para limpiar filtros y configurar columnas */}
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -3136,6 +3243,77 @@ const Propiedades = () => {
               >
                 Limpiar Filtros
               </Button>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Settings2 className="h-4 w-4" />
+                    Columnas ({visibleCount}/{totalCount})
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="end">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">Columnas visibles</h4>
+                      <span className="text-xs text-muted-foreground">
+                        {visibleCount} de {totalCount}
+                      </span>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllColumns}
+                        className="flex-1 text-xs"
+                      >
+                        Todas
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={deselectAllColumns}
+                        className="flex-1 text-xs"
+                      >
+                        Mínimas
+                      </Button>
+                    </div>
+
+                    <div className="max-h-[400px] overflow-y-auto space-y-2 border rounded-md p-3">
+                      {COLUMNS_CONFIG.map((column) => (
+                        <div key={column.key} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={column.key}
+                            checked={isColumnVisible(column.key)}
+                            onCheckedChange={() => toggleColumn(column.key)}
+                            disabled={column.required}
+                          />
+                          <label
+                            htmlFor={column.key}
+                            className={`text-sm flex-1 cursor-pointer ${
+                              column.required ? 'text-muted-foreground' : ''
+                            }`}
+                          >
+                            {column.label}
+                            {column.required && (
+                              <span className="ml-1 text-xs">(obligatoria)</span>
+                            )}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={resetToDefaults}
+                      className="w-full text-xs"
+                    >
+                      Restaurar predeterminadas
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </CardHeader>
