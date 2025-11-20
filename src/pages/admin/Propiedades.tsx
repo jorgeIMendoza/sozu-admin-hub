@@ -189,10 +189,10 @@ const Propiedades = () => {
   const [bodegasFilter, setBodegasFilter] = useState("");
   const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   const [cuentaCobranzaFilter, setCuentaCobranzaFilter] = useState("");
-  const [areaFilterInput, setAreaFilterInput] = useState<number[]>([0, 500]);
-  const [areaFilter, setAreaFilter] = useState<number[]>([0, 500]);
-  const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([0, 50000000]);
-  const [precioFilter, setPrecioFilter] = useState<number[]>([0, 50000000]);
+  const [areaFilterInput, setAreaFilterInput] = useState<number[]>([1, 200]);
+  const [areaFilter, setAreaFilter] = useState<number[]>([1, 200]);
+  const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([1000000, 20000000]);
+  const [precioFilter, setPrecioFilter] = useState<number[]>([1000000, 20000000]);
 
   // Debounce filtros de texto
   useEffect(() => {
@@ -752,10 +752,10 @@ const Propiedades = () => {
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
           cuentaCobranzaFilter !== "" ||
-          areaFilter[0] !== 0 ||
-          areaFilter[1] !== 500 ||
-          precioFilter[0] !== 0 ||
-          precioFilter[1] !== 50000000;
+          areaFilter[0] !== 1 ||
+          areaFilter[1] !== 200 ||
+          precioFilter[0] !== 1000000 ||
+          precioFilter[1] !== 20000000;
 
         let enrichedData;
         let totalCount;
@@ -986,10 +986,10 @@ const Propiedades = () => {
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
           cuentaCobranzaFilter !== "" ||
-          areaFilter[0] !== 0 ||
-          areaFilter[1] !== 500 ||
-          precioFilter[0] !== 0 ||
-          precioFilter[1] !== 50000000;
+          areaFilter[0] !== 1 ||
+          areaFilter[1] !== 200 ||
+          precioFilter[0] !== 1000000 ||
+          precioFilter[1] !== 20000000;
 
         let enrichedData;
         let totalCount;
@@ -1221,10 +1221,10 @@ const Propiedades = () => {
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
           cuentaCobranzaFilter !== "" ||
-          areaFilter[0] !== 0 ||
-          areaFilter[1] !== 500 ||
-          precioFilter[0] !== 0 ||
-          precioFilter[1] !== 50000000;
+          areaFilter[0] !== 1 ||
+          areaFilter[1] !== 200 ||
+          precioFilter[0] !== 1000000 ||
+          precioFilter[1] !== 20000000;
 
         let enrichedData;
         let totalCount;
@@ -2006,10 +2006,10 @@ const Propiedades = () => {
     bodegasFilter !== "" ||
     estacionamientosFilter !== "" ||
     cuentaCobranzaFilter !== "" ||
-    areaFilter[0] !== 0 ||
-    areaFilter[1] !== 500 ||
-    precioFilter[0] !== 0 ||
-    precioFilter[1] !== 50000000;
+    areaFilter[0] !== 1 ||
+    areaFilter[1] !== 200 ||
+    precioFilter[0] !== 1000000 ||
+    precioFilter[1] !== 20000000;
 
   const totalActivePage = Math.ceil((hasClientSideFilters ? filteredActivosCount : totalActivosCount) / itemsPerPage);
   const totalDraftPage = Math.ceil((hasClientSideFilters ? filteredDraftCount : totalDraftCount) / itemsPerPage);
@@ -3087,8 +3087,8 @@ const Propiedades = () => {
               <div>
                 <label className="text-sm font-medium mb-2 block">Área (m²): {areaFilterInput[0]} - {areaFilterInput[1]}</label>
                 <Slider
-                  min={0}
-                  max={500}
+                  min={1}
+                  max={200}
                   step={1}
                   value={areaFilterInput}
                   onValueChange={setAreaFilterInput}
@@ -3098,8 +3098,8 @@ const Propiedades = () => {
               <div className="min-w-[200px]">
                 <label className="text-sm font-medium mb-2 block whitespace-nowrap">Precio: ${(precioFilterInput[0] / 1000000).toFixed(1)}M - ${(precioFilterInput[1] / 1000000).toFixed(1)}M</label>
                 <Slider
-                  min={0}
-                  max={50000000}
+                  min={1000000}
+                  max={20000000}
                   step={100000}
                   value={precioFilterInput}
                   onValueChange={setPrecioFilterInput}
@@ -3127,10 +3127,10 @@ const Propiedades = () => {
                   setBodegasFilter("");
                   setEstacionamientosFilter("");
                   setCuentaCobranzaFilter("");
-                  setAreaFilterInput([0, 500]);
-                  setAreaFilter([0, 500]);
-                  setPrecioFilterInput([0, 50000000]);
-                  setPrecioFilter([0, 50000000]);
+                  setAreaFilterInput([1, 200]);
+                  setAreaFilter([1, 200]);
+                  setPrecioFilterInput([1000000, 20000000]);
+                  setPrecioFilter([1000000, 20000000]);
                   setSelectedProperties([]);
                 }}
               >
