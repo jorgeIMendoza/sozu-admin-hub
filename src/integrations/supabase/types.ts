@@ -765,6 +765,57 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_ofertas_stagin: {
+        Row: {
+          email_creador: string
+          fecha_generacion: string | null
+          id: number
+          id_esquema_pago_seleccionado: number | null
+          id_persona_lead: number | null
+          id_propiedad: number | null
+          numero_mensualidades: number | null
+          numero_propiedad: string | null
+          persona: string | null
+          porcentaje_descuento_aumento: number | null
+          porcentaje_enganche: number | null
+          porcentaje_entrega: number | null
+          porcentaje_mensualidades: number | null
+          proyecto: string | null
+        }
+        Insert: {
+          email_creador: string
+          fecha_generacion?: string | null
+          id?: number
+          id_esquema_pago_seleccionado?: number | null
+          id_persona_lead?: number | null
+          id_propiedad?: number | null
+          numero_mensualidades?: number | null
+          numero_propiedad?: string | null
+          persona?: string | null
+          porcentaje_descuento_aumento?: number | null
+          porcentaje_enganche?: number | null
+          porcentaje_entrega?: number | null
+          porcentaje_mensualidades?: number | null
+          proyecto?: string | null
+        }
+        Update: {
+          email_creador?: string
+          fecha_generacion?: string | null
+          id?: number
+          id_esquema_pago_seleccionado?: number | null
+          id_persona_lead?: number | null
+          id_propiedad?: number | null
+          numero_mensualidades?: number | null
+          numero_propiedad?: string | null
+          persona?: string | null
+          porcentaje_descuento_aumento?: number | null
+          porcentaje_enganche?: number | null
+          porcentaje_entrega?: number | null
+          porcentaje_mensualidades?: number | null
+          proyecto?: string | null
+        }
+        Relationships: []
+      }
       borrar_personas_stagin: {
         Row: {
           clave_pais_telefono: string | null

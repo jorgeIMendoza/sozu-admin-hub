@@ -418,7 +418,7 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
             <p className="text-xs text-muted-foreground leading-relaxed">
               {legalNotices && legalNotices.length > 0 
                 ? legalNotices.join('. ')
-                : 'Esta oferta es válida por 30 días calendario a partir de la fecha de generación. Los precios y condiciones están sujetos a disponibilidad y pueden cambiar sin previo aviso. Para formalizar la compra se requiere la firma del contrato correspondiente y el cumplimiento de todos los requisitos legales aplicables. Las imágenes y descripciones son referenciales y pueden no corresponder exactamente al inmueble final.'
+                : 'Esta oferta es válida por 5 días calendario a partir de la fecha de generación. Los precios y condiciones están sujetos a disponibilidad y pueden cambiar sin previo aviso. Para formalizar la compra se requiere la firma del contrato correspondiente y el cumplimiento de todos los requisitos legales aplicables. Las imágenes y descripciones son referenciales y pueden no corresponder exactamente al inmueble final.'
               }
             </p>
           </div>

@@ -1984,7 +1984,7 @@ class HTMLToPDFService {
           className: 'text-xs text-muted-foreground leading-relaxed'
         }, legalNotices && legalNotices.length > 0 
           ? legalNotices.join('. ')
-          : 'Esta cotización es válida por 30 días a partir de la fecha de generación. Los precios están sujetos a cambios sin previo aviso.')
+          : 'Esta cotización es válida por 5 días a partir de la fecha de generación. Los precios están sujetos a cambios sin previo aviso.')
       ])
     ]);
   }
