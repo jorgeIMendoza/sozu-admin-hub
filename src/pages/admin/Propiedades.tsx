@@ -2576,60 +2576,69 @@ const Propiedades = () => {
                       </Button>
                     </TableCell>
                   )}
-                    {isColumnVisible('bodegas') && (<TableCell>
-                     <Button
-                       variant="ghost"
-                       size="sm"
-                       onClick={() => handleViewBodegas(property)}
-                       disabled={property.bodegas_count === 0}
-                       className="p-0 h-auto font-normal"
-                     >
-                       <Badge 
-                         variant={property.bodegas_count > 0 ? "default" : "outline"}
-                         className={property.bodegas_count > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
-                       >
-                         {property.bodegas_count}
-                         {property.bodegas_count > 0 && <Warehouse className="ml-1 h-3 w-3" />}
-                       </Badge>
-                     </Button>
-                   </TableCell>
-                   <TableCell>
-                     <Button
-                       variant="ghost"
-                       size="sm"
-                       onClick={() => handleViewOffers(property)}
-                       disabled={!property.tieneOfertas}
-                       className="p-0 h-auto font-normal"
-                     >
-                       <Badge 
-                         variant={property.tieneOfertas ? "default" : "outline"}
-                         className={property.tieneOfertas ? "cursor-pointer hover:bg-primary/80" : ""}
-                       >
-                         {property.tieneOfertas ? "Sí" : "No"}
-                         {property.tieneOfertas && <Eye className="ml-1 h-3 w-3" />}
-                       </Badge>
-                     </Button>
-                   </TableCell>
-                   <TableCell>
-                     <Button
-                       variant="ghost"
-                       size="sm"
-                       onClick={() => handleViewProductOffers(property)}
-                       disabled={!property.tieneOfertasProductos}
-                       className="p-0 h-auto font-normal"
-                     >
-                       <Badge 
-                         variant={property.tieneOfertasProductos ? "default" : "outline"}
-                         className={property.tieneOfertasProductos ? "cursor-pointer hover:bg-primary/80" : ""}
-                       >
-                         {property.tieneOfertasProductos ? "Sí" : "No"}
-                         {property.tieneOfertasProductos && <ShoppingCart className="ml-1 h-3 w-3" />}
-                       </Badge>
-                     </Button>
-                   </TableCell>
+                  {isColumnVisible('bodegas') && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewBodegas(property)}
+                        disabled={property.bodegas_count === 0}
+                        className="p-0 h-auto font-normal"
+                      >
+                        <Badge 
+                          variant={property.bodegas_count > 0 ? "default" : "outline"}
+                          className={property.bodegas_count > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
+                        >
+                          {property.bodegas_count}
+                          {property.bodegas_count > 0 && <Warehouse className="ml-1 h-3 w-3" />}
+                        </Badge>
+                      </Button>
+                    </TableCell>
+                  )}
+                  {isColumnVisible('ofertas_comerciales') && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewOffers(property)}
+                        disabled={!property.tieneOfertas}
+                        className="p-0 h-auto font-normal"
+                      >
+                        <Badge 
+                          variant={property.tieneOfertas ? "default" : "outline"}
+                          className={property.tieneOfertas ? "cursor-pointer hover:bg-primary/80" : ""}
+                        >
+                          {property.tieneOfertas ? "Sí" : "No"}
+                          {property.tieneOfertas && <Eye className="ml-1 h-3 w-3" />}
+                        </Badge>
+                      </Button>
+                    </TableCell>
+                  )}
+                  {isColumnVisible('ofertas_productos') && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleViewProductOffers(property)}
+                        disabled={!property.tieneOfertasProductos}
+                        className="p-0 h-auto font-normal"
+                      >
+                        <Badge 
+                          variant={property.tieneOfertasProductos ? "default" : "outline"}
+                          className={property.tieneOfertasProductos ? "cursor-pointer hover:bg-primary/80" : ""}
+                        >
+                          {property.tieneOfertasProductos ? "Sí" : "No"}
+                          {property.tieneOfertasProductos && <ShoppingCart className="ml-1 h-3 w-3" />}
+                        </Badge>
+                      </Button>
+                    </TableCell>
+                  )}
+                  {isColumnVisible('disponibilidad') && (
                     <TableCell>
                       <span className={getDisponibilidadBadgeClass(property.disponibilidad)}>{property.disponibilidad}</span>
                     </TableCell>
+                  )}
+                  {isColumnVisible('cuenta_cobranza') && (
                     <TableCell>
                       {property.cuenta_cobranza_id ? (
                         <div className="flex items-center gap-2">
@@ -2692,7 +2701,9 @@ const Propiedades = () => {
                         </div>
                       )}
                     </TableCell>
-                   <TableCell 
+                  )}
+                  {isColumnVisible('cuenta_clabe') && (
+                    <TableCell 
                       className="font-mono text-sm cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => {
                         if (property.clabe_stp) {
@@ -2706,7 +2717,8 @@ const Propiedades = () => {
                     >
                       {property.clabe_stp || 'Sin CLABE'}
                     </TableCell>
-                   <TableCell className="text-right font-semibold">
+                  )}
+                  {isColumnVisible('precio_final') && (<TableCell className="text-right font-semibold">
                      {property.precio_final ? (
                        <div className="flex items-center justify-end gap-2">
                          <span>{formatCurrency(property.precio_final)}</span>
@@ -2773,19 +2785,25 @@ const Propiedades = () => {
                              </>
                            );
                          })()}
-                       </div>
-                     ) : '-'}
-                   </TableCell>
+                        </div>
+                      ) : '-'}
+                    </TableCell>
+                  )}
+                  {isColumnVisible('pagado') && (
                     <TableCell className="text-right">
                       {property.cuenta_cobranza_id ? formatCurrency(property.total_pagado) : '-'}
                     </TableCell>
-                   <TableCell className="text-right">
-                     {property.cuenta_cobranza_id ? (
-                       <span className={property.restante > 0 ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold'}>
-                         {formatCurrency(property.restante)}
-                       </span>
-                     ) : '-'}
-                   </TableCell>
+                  )}
+                  {isColumnVisible('restante') && (
+                    <TableCell className="text-right">
+                      {property.cuenta_cobranza_id ? (
+                        <span className={property.restante > 0 ? 'text-orange-600 font-semibold' : 'text-green-600 font-semibold'}>
+                          {formatCurrency(property.restante)}
+                        </span>
+                      ) : '-'}
+                    </TableCell>
+                  )}
+                  {isColumnVisible('estado_pagos') && (
                     <TableCell>
                        {property.payment_status ? (
                          <div className="flex gap-1 items-center">
@@ -2861,11 +2879,15 @@ const Propiedades = () => {
                        ) : (
                          <Badge variant="outline" className="text-xs">N/A</Badge>
                        )}
-                      </TableCell>
-                      <TableCell>
-                        <FacturaCell propertyId={property.id} />
-                      </TableCell>
-                   <TableCell>
+                       </TableCell>
+                  )}
+                  {isColumnVisible('factura') && (
+                    <TableCell>
+                      <FacturaCell propertyId={property.id} />
+                    </TableCell>
+                  )}
+                  {isColumnVisible('acciones') && (
+                    <TableCell>
                     {tabType === "eliminados" ? (
                       <Button
                         variant="ghost"
@@ -3006,9 +3028,10 @@ const Propiedades = () => {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
-                      </div>
+                       </div>
                     )}
                   </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
