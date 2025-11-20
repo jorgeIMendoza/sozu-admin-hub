@@ -748,7 +748,14 @@ const Propiedades = () => {
         }
 
         // Determine if we need full fetch for local filtering
-        const needsFullFetch = bodegasFilter !== "" || estacionamientosFilter !== "";
+        const needsFullFetch =
+          bodegasFilter !== "" ||
+          estacionamientosFilter !== "" ||
+          cuentaCobranzaFilter !== "" ||
+          areaFilter[0] !== 0 ||
+          areaFilter[1] !== 500 ||
+          precioFilter[0] !== 0 ||
+          precioFilter[1] !== 50000000;
 
         let enrichedData;
         let totalCount;
@@ -975,7 +982,14 @@ const Propiedades = () => {
         }
 
         // Determine if we need full fetch for local filtering
-        const needsFullFetch = bodegasFilter !== "" || estacionamientosFilter !== "";
+        const needsFullFetch =
+          bodegasFilter !== "" ||
+          estacionamientosFilter !== "" ||
+          cuentaCobranzaFilter !== "" ||
+          areaFilter[0] !== 0 ||
+          areaFilter[1] !== 500 ||
+          precioFilter[0] !== 0 ||
+          precioFilter[1] !== 50000000;
 
         let enrichedData;
         let totalCount;
@@ -1203,7 +1217,14 @@ const Propiedades = () => {
         }
 
         // Determine if we need full fetch for local filtering
-        const needsFullFetch = bodegasFilter !== "" || estacionamientosFilter !== "";
+        const needsFullFetch =
+          bodegasFilter !== "" ||
+          estacionamientosFilter !== "" ||
+          cuentaCobranzaFilter !== "" ||
+          areaFilter[0] !== 0 ||
+          areaFilter[1] !== 500 ||
+          precioFilter[0] !== 0 ||
+          precioFilter[1] !== 50000000;
 
         let enrichedData;
         let totalCount;
@@ -1980,10 +2001,19 @@ const Propiedades = () => {
     }
   };
 
-  // Calculate pagination
-  const totalActivePage = Math.ceil(totalActivosCount / itemsPerPage);
-  const totalDraftPage = Math.ceil(totalDraftCount / itemsPerPage);
-  const totalInactivePage = Math.ceil(totalEliminadosCount / itemsPerPage);
+  // Calculate pagination (use filtered counts when client-side filters are active)
+  const hasClientSideFilters =
+    bodegasFilter !== "" ||
+    estacionamientosFilter !== "" ||
+    cuentaCobranzaFilter !== "" ||
+    areaFilter[0] !== 0 ||
+    areaFilter[1] !== 500 ||
+    precioFilter[0] !== 0 ||
+    precioFilter[1] !== 50000000;
+
+  const totalActivePage = Math.ceil((hasClientSideFilters ? filteredActivosCount : totalActivosCount) / itemsPerPage);
+  const totalDraftPage = Math.ceil((hasClientSideFilters ? filteredDraftCount : totalDraftCount) / itemsPerPage);
+  const totalInactivePage = Math.ceil((hasClientSideFilters ? filteredEliminadosCount : totalEliminadosCount) / itemsPerPage);
 
   const handleDelete = async (propertyId: number) => {
     try {
@@ -3113,13 +3143,13 @@ const Propiedades = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="activos">
-                Activos ({filteredActivosCount})
+                Activos ({totalActivosCount})
               </TabsTrigger>
               <TabsTrigger value="draft">
-                Draft ({filteredDraftCount})
+                Draft ({totalDraftCount})
               </TabsTrigger>
               <TabsTrigger value="eliminados">
-                Eliminados ({filteredEliminadosCount})
+                Eliminados ({totalEliminadosCount})
               </TabsTrigger>
             </TabsList>
             
