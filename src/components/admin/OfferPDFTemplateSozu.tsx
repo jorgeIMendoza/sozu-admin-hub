@@ -138,7 +138,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
 
     const calculateVigencia = (dateString: string) => {
       const date = new Date(dateString);
-      date.setDate(date.getDate() + 30);
+      date.setDate(date.getDate() + 5);
       return date.toLocaleDateString('es-MX', { 
         year: 'numeric', 
         month: 'short', 
