@@ -2556,27 +2556,45 @@ const Propiedades = () => {
                       />
                     </TableCell>
                   )}
-                  {isColumnVisible('proyecto') && <TableCell className="font-medium">{property.proyecto}</TableCell>}
-                  {isColumnVisible('propietario') && (
-                    <TableCell>
-                      {property.es_desarrollador ? (
-                        <div className="flex flex-col">
-                          <span>{property.propietario}</span>
-                          <span className="text-muted-foreground text-xs">(Desarrollador)</span>
-                        </div>
-                      ) : (
-                        property.propietario
-                      )}
-                    </TableCell>
-                  )}
-                  {isColumnVisible('edificio') && <TableCell>{property.edificio}</TableCell>}
-                  {isColumnVisible('modelo') && (
-                    <TableCell>
-                      <Badge variant="outline">{property.modelo}</Badge>
-                    </TableCell>
-                  )}
-                  {isColumnVisible('numero_departamento') && <TableCell>{property.numero_propiedad}</TableCell>}
-                  {isColumnVisible('piso') && <TableCell>{property.numero_piso}</TableCell>}
+                  {orderedColumns.map((column) => {
+                    if (!isColumnVisible(column.key)) return null;
+                    
+                    switch (column.key) {
+                      case 'proyecto':
+                        return <TableCell key={column.key} className="font-medium">{property.proyecto}</TableCell>;
+                      
+                      case 'propietario':
+                        return (
+                          <TableCell key={column.key}>
+                            {property.es_desarrollador ? (
+                              <div className="flex flex-col">
+                                <span>{property.propietario}</span>
+                                <span className="text-muted-foreground text-xs">(Desarrollador)</span>
+                              </div>
+                            ) : (
+                              property.propietario
+                            )}
+                          </TableCell>
+                        );
+                      
+                      case 'edificio':
+                        return <TableCell key={column.key}>{property.edificio}</TableCell>;
+                      
+                      case 'modelo':
+                        return (
+                          <TableCell key={column.key}>
+                            <Badge variant="outline">{property.modelo}</Badge>
+                          </TableCell>
+                        );
+                      
+                      case 'numero_departamento':
+                        return <TableCell key={column.key}>{property.numero_propiedad}</TableCell>;
+                      
+                      case 'piso':
+                        return <TableCell key={column.key}>{property.numero_piso}</TableCell>;
+                      
+                      case 'vista':
+                        return <TableCell key={column.key}>{property.vista}</TableCell>;
                       
                       case 'area':
                         return (
@@ -3105,82 +3123,6 @@ const Propiedades = () => {
                              </TooltipContent>
                            </Tooltip>
                          <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              disabled={property.tieneOfertas}
-                              title={property.tieneOfertas ? "No se puede eliminar una propiedad con ofertas asociadas" : "Eliminar propiedad"}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Eliminar propiedad?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                ¿Estás seguro de que deseas eliminar la propiedad {property.numero_propiedad}? Esta acción se puede revertir posteriormente.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(property.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Eliminar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    ) : (
-                      <div className="flex space-x-2">
-                        {property.disponibilidad === "Disponible" && property.tiene_sozu_como_inmobiliaria && (
-                          <NewOfferDialog 
-                            propertyId={property.id} 
-                            propertyNumber={property.numero_propiedad} 
-                          />
-                        )}
-                        {(property.disponibilidad === "Apartado" || 
-                          property.disponibilidad === "Vendido" || 
-                          property.disponibilidad === "En escrituración" ||
-                          property.disponibilidad === "Entregado") && (
-                          <NewProductOfferDialog 
-                            propertyId={property.id}
-                            property={property}
-                          />
-                        )}
-                        {(property.disponibilidad === "Disponible" || property.disponibilidad === "Listo") && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AsignarPropiedadDialog 
-                                propertyId={property.id}
-                                propertyNumber={property.numero_propiedad}
-                              />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Asignar propiedad</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => setEditingProperty(property)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Editar propiedad</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
                               variant="ghost"
