@@ -559,11 +559,20 @@ export default function Prospectos() {
     },
   });
 
-  const filteredProspectos = prospectos.filter(prospecto => 
-    prospecto.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prospecto.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prospecto.telefono?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredProspectos = prospectos.filter((prospecto) => {
+    if (!normalizedSearch) return true;
+
+    const nombre = (prospecto.nombre_legal || "").toLowerCase();
+    const email = (prospecto.email || "").toLowerCase();
+    const telefono = (prospecto.telefono || "").toLowerCase();
+
+    return (
+      nombre.includes(normalizedSearch) ||
+      email.includes(normalizedSearch) ||
+      telefono.includes(normalizedSearch)
+    );
+  });
 
   // Helper function to get status badge variant and color
   const getStatusBadge = (statusId?: number, statusName?: string) => {
