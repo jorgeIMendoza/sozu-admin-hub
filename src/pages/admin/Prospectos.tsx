@@ -590,7 +590,9 @@ export default function Prospectos() {
   };
 
   function renderTable() {
-    if (isLoading) {
+    const isInitialLoading = isLoading && prospectos.length === 0;
+
+    if (isInitialLoading) {
       return (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
