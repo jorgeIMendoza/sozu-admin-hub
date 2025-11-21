@@ -85,7 +85,7 @@ export default function Prospectos() {
           activo,
           fecha_creacion,
           id_entidad_relacionada_rep_leg,
-          entidades_relacionadas:entidades_relacionadas!fk_entrel_persona (
+          entidades_relacionadas:entidades_relacionadas!inner (
             id,
             id_tipo_entidad,
             id_estatus_persona,
