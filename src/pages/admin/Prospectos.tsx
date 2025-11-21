@@ -80,7 +80,7 @@ export default function Prospectos() {
           id_estatus_persona,
           id_proyecto,
           activo,
-          persona:personas (
+          persona:personas!fk_entrel_persona (
             id,
             nombre_legal,
             email,
