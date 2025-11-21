@@ -73,53 +73,60 @@ export default function Prospectos() {
     queryKey: ["prospectos"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("entidades_relacionadas")
+        .from("personas")
         .select(`
           id,
-          id_tipo_entidad,
-          id_estatus_persona,
-          id_proyecto,
-          personas:personas!entidades_relacionadas_id_persona_fkey (
+          nombre_legal,
+          email,
+          telefono,
+          curp,
+          rfc,
+          tipo_persona,
+          activo,
+          fecha_creacion,
+          id_entidad_relacionada_rep_leg,
+          entidades_relacionadas:entidades_relacionadas!fk_entrel_persona (
             id,
-            nombre_legal,
-            email,
-            telefono,
-            curp,
-            rfc,
-            tipo_persona,
-            activo,
-            fecha_creacion,
-            id_entidad_relacionada_rep_leg
+            id_tipo_entidad,
+            id_estatus_persona,
+            id_proyecto,
+            activo
           )
         `)
-        .eq("activo", true)
-        .eq("id_tipo_entidad", 7)
-        .order("nombre_legal", { referencedTable: "personas", ascending: true });
+        .eq("entidades_relacionadas.id_tipo_entidad", 7)
+        .eq("entidades_relacionadas.activo", true)
+        .order("nombre_legal", { ascending: true });
 
       if (error) {
         console.error("Error cargando prospectos:", error);
         throw error;
       }
 
-      return (data || []).map((item: any) => ({
-        id: item.personas?.id,
-        entidad_relacionada_id: item.id,
-        id_tipo_entidad: item.id_tipo_entidad,
-        nombre_legal: item.personas?.nombre_legal,
-        email: item.personas?.email,
-        telefono: item.personas?.telefono,
-        curp: item.personas?.curp,
-        rfc: item.personas?.rfc,
-        tipo_persona: item.personas?.tipo_persona,
-        activo: item.personas?.activo,
-        fecha_creacion: item.personas?.fecha_creacion,
-        id_entidad_relacionada_rep_leg: item.personas?.id_entidad_relacionada_rep_leg,
-        representante_legal_nombre: undefined,
-        id_estatus_persona: item.id_estatus_persona,
-        estatus_nombre: undefined,
-        id_proyecto: item.id_proyecto,
-        proyecto_nombre: undefined,
-      })) as (Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
+      return (data || []).map((item: any) => {
+        const entidad = Array.isArray(item.entidades_relacionadas)
+          ? item.entidades_relacionadas[0]
+          : item.entidades_relacionadas;
+
+        return {
+          id: item.id,
+          entidad_relacionada_id: entidad?.id,
+          id_tipo_entidad: entidad?.id_tipo_entidad,
+          nombre_legal: item.nombre_legal,
+          email: item.email,
+          telefono: item.telefono,
+          curp: item.curp,
+          rfc: item.rfc,
+          tipo_persona: item.tipo_persona,
+          activo: item.activo,
+          fecha_creacion: item.fecha_creacion,
+          id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+          representante_legal_nombre: undefined,
+          id_estatus_persona: entidad?.id_estatus_persona,
+          estatus_nombre: undefined,
+          id_proyecto: entidad?.id_proyecto,
+          proyecto_nombre: undefined,
+        } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
+      });
     },
   });
 
