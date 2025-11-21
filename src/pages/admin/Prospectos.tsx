@@ -80,7 +80,7 @@ export default function Prospectos() {
           id_estatus_persona,
           id_proyecto,
           activo,
-          persona:personas!fk_entrel_persona (
+          persona:personas!entidades_relacionadas_id_persona_fkey (
             id,
             nombre_legal,
             email,
@@ -92,11 +92,11 @@ export default function Prospectos() {
             fecha_creacion,
             id_entidad_relacionada_rep_leg
           ),
-          estatus:estatus_persona (
+          estatus:estatus_persona!fk_entidades_relacionadas_estatus_persona (
             id,
             nombre
           ),
-          proyecto:proyectos (
+          proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
             id,
             nombre
           )
