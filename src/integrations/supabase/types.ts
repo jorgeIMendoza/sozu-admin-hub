@@ -1697,6 +1697,7 @@ export type Database = {
           id_persona: number | null
           id_producto: number | null
           id_propiedad: number | null
+          id_proyecto: number | null
           id_tipo_documento: number
           numero: string | null
           url: string
@@ -1712,6 +1713,7 @@ export type Database = {
           id_persona?: number | null
           id_producto?: number | null
           id_propiedad?: number | null
+          id_proyecto?: number | null
           id_tipo_documento: number
           numero?: string | null
           url: string
@@ -1727,6 +1729,7 @@ export type Database = {
           id_persona?: number | null
           id_producto?: number | null
           id_propiedad?: number | null
+          id_proyecto?: number | null
           id_tipo_documento?: number
           numero?: string | null
           url?: string
@@ -1744,6 +1747,13 @@ export type Database = {
             columns: ["id_propiedad"]
             isOneToOne: false
             referencedRelation: "propiedades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
           {

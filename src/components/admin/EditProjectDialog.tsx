@@ -25,6 +25,7 @@ import { NewAmenityDialog } from "./NewAmenityDialog";
 import { EditAmenityDialog } from "./EditAmenityDialog";
 import { ImageUploadField } from "./ImageUploadField";
 import { ProjectLegalNoticesSection } from "./ProjectLegalNoticesSection";
+import { ProjectBrochuresSection } from "./ProjectBrochuresSection";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
@@ -422,7 +423,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="edit-project-form">
               <Tabs defaultValue="information" className="w-full">
-                <TabsList className={`grid w-full ${isSpecialProject ? 'grid-cols-2' : 'grid-cols-7'}`}>
+                <TabsList className={`grid w-full ${isSpecialProject ? 'grid-cols-3' : 'grid-cols-8'}`}>
                   <TabsTrigger value="information">Información</TabsTrigger>
                   {!isSpecialProject && <TabsTrigger value="images">Configuración general</TabsTrigger>}
                   {!isSpecialProject && <TabsTrigger value="multimedia">Multimedia</TabsTrigger>}
@@ -430,6 +431,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                   {!isSpecialProject && <TabsTrigger value="reservable-spaces">Espacios para reservar</TabsTrigger>}
                   {!isSpecialProject && <TabsTrigger value="offer-config">Configuración de oferta</TabsTrigger>}
                   {!isSpecialProject && <TabsTrigger value="vistas">Vistas</TabsTrigger>}
+                  <TabsTrigger value="brochures">Brochures</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="information" className="mt-6">
@@ -1143,6 +1145,10 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
                       </div>
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="brochures" className="mt-6">
+                  <ProjectBrochuresSection projectId={projectId} />
                 </TabsContent>
               </Tabs>
             </form>
