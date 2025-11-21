@@ -15,6 +15,15 @@ import { PersonForm } from "@/components/admin/PersonForm";
 import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationEllipsis, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "@/components/ui/pagination";
 import { format } from "date-fns";
 
 type Prospecto = {
@@ -39,6 +48,9 @@ export default function Prospectos() {
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
+  const [currentPageActive, setCurrentPageActive] = useState(1);
+  const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
+  const itemsPerPage = 50;
   
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +58,8 @@ export default function Prospectos() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchTerm(inputValue);
+      setCurrentPageActive(1);
+      setCurrentPageDeleted(1);
     }, 300);
 
     return () => clearTimeout(timer);
@@ -64,10 +78,13 @@ export default function Prospectos() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: activeProspectos = [], isLoading: loadingActive } = useQuery({
-    queryKey: ['prospectos', 'active'],
+  const { data: activeProspectosData, isLoading: loadingActive } = useQuery({
+    queryKey: ['prospectos', 'active', currentPageActive, searchTerm],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (currentPageActive - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('personas')
         .select(`
           id,
@@ -107,11 +124,18 @@ export default function Prospectos() {
           estados_civil (
             nombre
           )
-        `)
+        `, { count: 'exact' })
         .eq('activo', true)
         .eq('entidades_relacionadas.activo', true)
-        .eq('entidades_relacionadas.id_tipo_entidad', 7)
-        .order('nombre_legal', { ascending: true });
+        .eq('entidades_relacionadas.id_tipo_entidad', 7);
+
+      if (searchTerm) {
+        query = query.or(`nombre_legal.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('nombre_legal', { ascending: true })
+        .range(from, to);
       
       if (error) {
         console.error("Error cargando prospectos activos:", error);
@@ -132,40 +156,46 @@ export default function Prospectos() {
         conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
       }
       
-      return (data || []).map((item: any) => {
-        const entidadRelacionada = item.entidades_relacionadas[0];
-        
-        return {
-          id: item.id,
-          entidad_relacionada_id: entidadRelacionada.id,
-          id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
-          nombre_legal: item.nombre_legal,
-          email: item.email,
-          telefono: item.telefono,
-          curp: item.curp,
-          rfc: item.rfc,
-          tipo_persona: item.tipo_persona,
-          activo: item.activo,
-          fecha_creacion: item.fecha_creacion,
-          id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
-          id_estado_civil: item.id_estado_civil,
-          id_conyuge: item.id_conyuge,
-          representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-          estado_civil_nombre: item.estados_civil?.nombre,
-          conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
-          id_estatus_persona: entidadRelacionada.id_estatus_persona,
-          estatus_nombre: entidadRelacionada.estatus?.nombre,
-          id_proyecto: entidadRelacionada.id_proyecto,
-          proyecto_nombre: entidadRelacionada.proyecto?.nombre,
-        } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
-      });
+      return {
+        prospectos: (data || []).map((item: any) => {
+          const entidadRelacionada = item.entidades_relacionadas[0];
+          
+          return {
+            id: item.id,
+            entidad_relacionada_id: entidadRelacionada.id,
+            id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
+            nombre_legal: item.nombre_legal,
+            email: item.email,
+            telefono: item.telefono,
+            curp: item.curp,
+            rfc: item.rfc,
+            tipo_persona: item.tipo_persona,
+            activo: item.activo,
+            fecha_creacion: item.fecha_creacion,
+            id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+            id_estado_civil: item.id_estado_civil,
+            id_conyuge: item.id_conyuge,
+            representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+            estado_civil_nombre: item.estados_civil?.nombre,
+            conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
+            id_estatus_persona: entidadRelacionada.id_estatus_persona,
+            estatus_nombre: entidadRelacionada.estatus?.nombre,
+            id_proyecto: entidadRelacionada.id_proyecto,
+            proyecto_nombre: entidadRelacionada.proyecto?.nombre,
+          } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
+        }),
+        count: count || 0
+      };
     },
   });
 
-  const { data: deletedProspectos = [], isLoading: loadingDeleted } = useQuery({
-    queryKey: ['prospectos', 'deleted'],
+  const { data: deletedProspectosData, isLoading: loadingDeleted } = useQuery({
+    queryKey: ['prospectos', 'deleted', currentPageDeleted, searchTerm],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (currentPageDeleted - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('personas')
         .select(`
           id,
@@ -205,11 +235,18 @@ export default function Prospectos() {
           estados_civil (
             nombre
           )
-        `)
+        `, { count: 'exact' })
         .eq('activo', false)
         .eq('entidades_relacionadas.activo', false)
-        .eq('entidades_relacionadas.id_tipo_entidad', 7)
-        .order('nombre_legal', { ascending: true });
+        .eq('entidades_relacionadas.id_tipo_entidad', 7);
+
+      if (searchTerm) {
+        query = query.or(`nombre_legal.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('nombre_legal', { ascending: true })
+        .range(from, to);
       
       if (error) {
         console.error("Error cargando prospectos eliminados:", error);
@@ -230,38 +267,51 @@ export default function Prospectos() {
         conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
       }
       
-      return (data || []).map((item: any) => {
-        const entidadRelacionada = item.entidades_relacionadas[0];
-        
-        return {
-          id: item.id,
-          entidad_relacionada_id: entidadRelacionada.id,
-          id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
-          nombre_legal: item.nombre_legal,
-          email: item.email,
-          telefono: item.telefono,
-          curp: item.curp,
-          rfc: item.rfc,
-          tipo_persona: item.tipo_persona,
-          activo: item.activo,
-          fecha_creacion: item.fecha_creacion,
-          id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
-          id_estado_civil: item.id_estado_civil,
-          id_conyuge: item.id_conyuge,
-          representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-          estado_civil_nombre: item.estados_civil?.nombre,
-          conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
-          id_estatus_persona: entidadRelacionada.id_estatus_persona,
-          estatus_nombre: entidadRelacionada.estatus?.nombre,
-          id_proyecto: entidadRelacionada.id_proyecto,
-          proyecto_nombre: entidadRelacionada.proyecto?.nombre,
-        } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
-      });
+      return {
+        prospectos: (data || []).map((item: any) => {
+          const entidadRelacionada = item.entidades_relacionadas[0];
+          
+          return {
+            id: item.id,
+            entidad_relacionada_id: entidadRelacionada.id,
+            id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
+            nombre_legal: item.nombre_legal,
+            email: item.email,
+            telefono: item.telefono,
+            curp: item.curp,
+            rfc: item.rfc,
+            tipo_persona: item.tipo_persona,
+            activo: item.activo,
+            fecha_creacion: item.fecha_creacion,
+            id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+            id_estado_civil: item.id_estado_civil,
+            id_conyuge: item.id_conyuge,
+            representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+            estado_civil_nombre: item.estados_civil?.nombre,
+            conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
+            id_estatus_persona: entidadRelacionada.id_estatus_persona,
+            estatus_nombre: entidadRelacionada.estatus?.nombre,
+            id_proyecto: entidadRelacionada.id_proyecto,
+            proyecto_nombre: entidadRelacionada.proyecto?.nombre,
+          } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
+        }),
+        count: count || 0
+      };
     },
   });
 
+  const activeProspectos = activeProspectosData?.prospectos || [];
+  const activeCount = activeProspectosData?.count || 0;
+  const deletedProspectos = deletedProspectosData?.prospectos || [];
+  const deletedCount = deletedProspectosData?.count || 0;
+
   const prospectos = activeTab === "active" ? activeProspectos : deletedProspectos;
+  const totalCount = activeTab === "active" ? activeCount : deletedCount;
+  const currentPage = activeTab === "active" ? currentPageActive : currentPageDeleted;
+  const setCurrentPage = activeTab === "active" ? setCurrentPageActive : setCurrentPageDeleted;
   const isLoading = activeTab === "active" ? loadingActive : loadingDeleted;
+  
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   // Query for available projects
   const { data: proyectos = [] } = useQuery({
@@ -559,21 +609,6 @@ export default function Prospectos() {
     },
   });
 
-  const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredProspectos = prospectos.filter((prospecto) => {
-    if (!normalizedSearch) return true;
-
-    const nombre = (prospecto.nombre_legal || "").toLowerCase();
-    const email = (prospecto.email || "").toLowerCase();
-    const telefono = (prospecto.telefono || "").toLowerCase();
-
-    return (
-      nombre.includes(normalizedSearch) ||
-      email.includes(normalizedSearch) ||
-      telefono.includes(normalizedSearch)
-    );
-  });
-
   // Helper function to get status badge variant and color
   const getStatusBadge = (statusId?: number, statusName?: string) => {
     if (!statusName) return null;
@@ -672,7 +707,7 @@ export default function Prospectos() {
       );
     }
 
-    if (filteredProspectos.length === 0) {
+    if (prospectos.length === 0) {
       return (
         <div className="text-center py-12">
           <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
@@ -700,7 +735,7 @@ export default function Prospectos() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProspectos.map((prospecto) => (
+            {prospectos.map((prospecto) => (
               <TableRow key={prospecto.id} className="hover:bg-muted/10 transition-colors">
                 <TableCell className="font-medium text-foreground">
                   {prospecto.nombre_legal}
@@ -834,8 +869,8 @@ export default function Prospectos() {
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos ({activeProspectos.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedProspectos.length})</TabsTrigger>
+              <TabsTrigger value="active">Activos ({activeCount})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({deletedCount})</TabsTrigger>
             </TabsList>
             
             <div className="mb-6">
@@ -844,8 +879,8 @@ export default function Prospectos() {
                 <Input
                   type="text"
                   placeholder="Buscar por nombre, correo y teléfono..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
                   className="pl-10 border-border focus:ring-primary/20"
                 />
               </div>
@@ -853,10 +888,122 @@ export default function Prospectos() {
 
             <TabsContent value="active" className="mt-6">
               {renderTable()}
+              
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {[...Array(Math.min(totalPages, 5))].map((_, idx) => {
+                        let pageNumber;
+                        if (totalPages <= 5) {
+                          pageNumber = idx + 1;
+                        } else if (currentPage <= 3) {
+                          pageNumber = idx + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNumber = totalPages - 4 + idx;
+                        } else {
+                          pageNumber = currentPage - 2 + idx;
+                        }
+
+                        return (
+                          <PaginationItem key={pageNumber}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(pageNumber)}
+                              isActive={currentPage === pageNumber}
+                              className="cursor-pointer"
+                            >
+                              {pageNumber}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      
+                      {totalPages > 5 && currentPage < totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                  <div className="text-center text-sm text-muted-foreground mt-2">
+                    Página {currentPage} de {totalPages} ({totalCount} prospectos en total)
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="deleted" className="mt-6">
               {renderTable()}
+              
+              {totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {[...Array(Math.min(totalPages, 5))].map((_, idx) => {
+                        let pageNumber;
+                        if (totalPages <= 5) {
+                          pageNumber = idx + 1;
+                        } else if (currentPage <= 3) {
+                          pageNumber = idx + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNumber = totalPages - 4 + idx;
+                        } else {
+                          pageNumber = currentPage - 2 + idx;
+                        }
+
+                        return (
+                          <PaginationItem key={pageNumber}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(pageNumber)}
+                              isActive={currentPage === pageNumber}
+                              className="cursor-pointer"
+                            >
+                              {pageNumber}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                      
+                      {totalPages > 5 && currentPage < totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                  <div className="text-center text-sm text-muted-foreground mt-2">
+                    Página {currentPage} de {totalPages} ({totalCount} prospectos en total)
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
