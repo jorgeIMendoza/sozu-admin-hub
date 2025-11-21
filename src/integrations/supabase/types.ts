@@ -555,6 +555,81 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_brochures_proyecto_stagin: {
+        Row: {
+          documento_url: string | null
+          id: number
+          id_proyecto: number | null
+          proyecto: string | null
+        }
+        Insert: {
+          documento_url?: string | null
+          id?: number
+          id_proyecto?: number | null
+          proyecto?: string | null
+        }
+        Update: {
+          documento_url?: string | null
+          id?: number
+          id_proyecto?: number | null
+          proyecto?: string | null
+        }
+        Relationships: []
+      }
+      borrar_documentos_stagin: {
+        Row: {
+          documento_url: string | null
+          edificio: string | null
+          es_verificado: boolean | null
+          id: number
+          id_edificio_modelo: number | null
+          id_persona: number | null
+          id_propiedad: number | null
+          id_proyecto: number | null
+          id_tipo_documento: number | null
+          modelo: string | null
+          num_propiedad: string | null
+          persona: string | null
+          proyecto: string | null
+          tipo_documento: string | null
+          tipo_persona: string | null
+        }
+        Insert: {
+          documento_url?: string | null
+          edificio?: string | null
+          es_verificado?: boolean | null
+          id?: number
+          id_edificio_modelo?: number | null
+          id_persona?: number | null
+          id_propiedad?: number | null
+          id_proyecto?: number | null
+          id_tipo_documento?: number | null
+          modelo?: string | null
+          num_propiedad?: string | null
+          persona?: string | null
+          proyecto?: string | null
+          tipo_documento?: string | null
+          tipo_persona?: string | null
+        }
+        Update: {
+          documento_url?: string | null
+          edificio?: string | null
+          es_verificado?: boolean | null
+          id?: number
+          id_edificio_modelo?: number | null
+          id_persona?: number | null
+          id_propiedad?: number | null
+          id_proyecto?: number | null
+          id_tipo_documento?: number | null
+          modelo?: string | null
+          num_propiedad?: string | null
+          persona?: string | null
+          proyecto?: string | null
+          tipo_documento?: string | null
+          tipo_persona?: string | null
+        }
+        Relationships: []
+      }
       borrar_duenos_desarrolladoras_proyecto_stagin: {
         Row: {
           dueno: string | null
