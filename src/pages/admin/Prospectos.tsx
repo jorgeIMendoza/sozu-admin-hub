@@ -87,7 +87,15 @@ export default function Prospectos() {
             id_tipo_entidad,
             id_estatus_persona,
             id_proyecto,
-            activo
+            activo,
+            estatus:estatus_persona!fk_entidades_relacionadas_estatus_persona (
+              id,
+              nombre
+            ),
+            proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
+              id,
+              nombre
+            )
           ),
           representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
             id,
@@ -97,10 +105,6 @@ export default function Prospectos() {
             )
           ),
           estados_civil (
-            nombre
-          ),
-          estatus_persona!fk_entidades_relacionadas_estatus_persona (
-            id,
             nombre
           )
         `)
@@ -150,9 +154,9 @@ export default function Prospectos() {
           estado_civil_nombre: item.estados_civil?.nombre,
           conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
           id_estatus_persona: entidadRelacionada.id_estatus_persona,
-          estatus_nombre: item.estatus_persona?.nombre,
+          estatus_nombre: entidadRelacionada.estatus?.nombre,
           id_proyecto: entidadRelacionada.id_proyecto,
-          proyecto_nombre: null, // Will be populated from proyectos query
+          proyecto_nombre: entidadRelacionada.proyecto?.nombre,
         } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
       });
     },
@@ -181,7 +185,15 @@ export default function Prospectos() {
             id_tipo_entidad,
             id_estatus_persona,
             id_proyecto,
-            activo
+            activo,
+            estatus:estatus_persona!fk_entidades_relacionadas_estatus_persona (
+              id,
+              nombre
+            ),
+            proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
+              id,
+              nombre
+            )
           ),
           representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
             id,
@@ -191,10 +203,6 @@ export default function Prospectos() {
             )
           ),
           estados_civil (
-            nombre
-          ),
-          estatus_persona!fk_entidades_relacionadas_estatus_persona (
-            id,
             nombre
           )
         `)
@@ -244,9 +252,9 @@ export default function Prospectos() {
           estado_civil_nombre: item.estados_civil?.nombre,
           conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
           id_estatus_persona: entidadRelacionada.id_estatus_persona,
-          estatus_nombre: item.estatus_persona?.nombre,
+          estatus_nombre: entidadRelacionada.estatus?.nombre,
           id_proyecto: entidadRelacionada.id_proyecto,
-          proyecto_nombre: null, // Will be populated from proyectos query
+          proyecto_nombre: entidadRelacionada.proyecto?.nombre,
         } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
       });
     },
