@@ -64,89 +64,196 @@ export default function Prospectos() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const {
-    data: allProspectos = [],
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["prospectos"],
+  const { data: activeProspectos = [], isLoading: loadingActive } = useQuery({
+    queryKey: ['prospectos', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("entidades_relacionadas")
+        .from('personas')
         .select(`
           id,
-          id_tipo_entidad,
-          id_estatus_persona,
-          id_proyecto,
+          nombre_legal,
+          email,
+          telefono,
+          curp,
+          rfc,
+          tipo_persona,
           activo,
-          persona:personas!entidades_relacionadas_id_persona_fkey (
+          fecha_creacion,
+          id_entidad_relacionada_rep_leg,
+          id_estado_civil,
+          id_conyuge,
+          entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
             id,
-            nombre_legal,
-            email,
-            telefono,
-            curp,
-            rfc,
-            tipo_persona,
-            activo,
-            fecha_creacion,
-            id_entidad_relacionada_rep_leg
+            id_tipo_entidad,
+            id_estatus_persona,
+            id_proyecto,
+            activo
           ),
-          estatus:estatus_persona!fk_entidades_relacionadas_estatus_persona (
+          representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
             id,
+            personas!entidades_relacionadas_id_persona_fkey (
+              id,
+              nombre_legal
+            )
+          ),
+          estados_civil (
             nombre
           ),
-          proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
+          estatus_persona!fk_entidades_relacionadas_estatus_persona (
             id,
             nombre
           )
         `)
-        .eq("id_tipo_entidad", 7)
-        .eq("activo", true)
-        .order("id", { ascending: true });
-
+        .eq('activo', true)
+        .eq('entidades_relacionadas.activo', true)
+        .eq('entidades_relacionadas.id_tipo_entidad', 7)
+        .order('nombre_legal', { ascending: true });
+      
       if (error) {
-        console.error("Error cargando prospectos:", error);
+        console.error("Error cargando prospectos activos:", error);
         throw error;
       }
-
+      
+      // Obtener nombres de cónyuges en una segunda consulta
+      const personasConConyuge = data?.filter((p: any) => p.id_conyuge) || [];
+      const idsConyuges = personasConConyuge.map((p: any) => p.id_conyuge);
+      
+      let conyugesMap = new Map();
+      if (idsConyuges.length > 0) {
+        const { data: conyugesData } = await supabase
+          .from('personas')
+          .select('id, nombre_legal')
+          .in('id', idsConyuges);
+        
+        conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
+      }
+      
       return (data || []).map((item: any) => {
-        const persona = item.persona;
-
+        const entidadRelacionada = item.entidades_relacionadas[0];
+        
         return {
-          id: persona.id,
-          entidad_relacionada_id: item.id,
-          id_tipo_entidad: item.id_tipo_entidad,
-          nombre_legal: persona.nombre_legal,
-          email: persona.email,
-          telefono: persona.telefono,
-          curp: persona.curp,
-          rfc: persona.rfc,
-          tipo_persona: persona.tipo_persona,
-          activo: persona.activo,
-          fecha_creacion: persona.fecha_creacion,
-          id_entidad_relacionada_rep_leg: persona.id_entidad_relacionada_rep_leg,
-          representante_legal_nombre: undefined,
-          id_estatus_persona: item.id_estatus_persona,
-          estatus_nombre: item.estatus?.nombre,
-          id_proyecto: item.id_proyecto,
-          proyecto_nombre: item.proyecto?.nombre,
+          id: item.id,
+          entidad_relacionada_id: entidadRelacionada.id,
+          id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
+          nombre_legal: item.nombre_legal,
+          email: item.email,
+          telefono: item.telefono,
+          curp: item.curp,
+          rfc: item.rfc,
+          tipo_persona: item.tipo_persona,
+          activo: item.activo,
+          fecha_creacion: item.fecha_creacion,
+          id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+          id_estado_civil: item.id_estado_civil,
+          id_conyuge: item.id_conyuge,
+          representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+          estado_civil_nombre: item.estados_civil?.nombre,
+          conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
+          id_estatus_persona: entidadRelacionada.id_estatus_persona,
+          estatus_nombre: item.estatus_persona?.nombre,
+          id_proyecto: entidadRelacionada.id_proyecto,
+          proyecto_nombre: null, // Will be populated from proyectos query
         } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
       });
     },
   });
 
-  const activeProspectos = (allProspectos as (Prospecto & {
-    entidad_relacionada_id: number;
-    id_tipo_entidad: number;
-  })[]).filter((p) => p.activo);
-
-  const deletedProspectos = (allProspectos as (Prospecto & {
-    entidad_relacionada_id: number;
-    id_tipo_entidad: number;
-  })[]).filter((p) => !p.activo);
+  const { data: deletedProspectos = [], isLoading: loadingDeleted } = useQuery({
+    queryKey: ['prospectos', 'deleted'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select(`
+          id,
+          nombre_legal,
+          email,
+          telefono,
+          curp,
+          rfc,
+          tipo_persona,
+          activo,
+          fecha_creacion,
+          id_entidad_relacionada_rep_leg,
+          id_estado_civil,
+          id_conyuge,
+          entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
+            id,
+            id_tipo_entidad,
+            id_estatus_persona,
+            id_proyecto,
+            activo
+          ),
+          representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
+            id,
+            personas!entidades_relacionadas_id_persona_fkey (
+              id,
+              nombre_legal
+            )
+          ),
+          estados_civil (
+            nombre
+          ),
+          estatus_persona!fk_entidades_relacionadas_estatus_persona (
+            id,
+            nombre
+          )
+        `)
+        .eq('activo', false)
+        .eq('entidades_relacionadas.activo', false)
+        .eq('entidades_relacionadas.id_tipo_entidad', 7)
+        .order('nombre_legal', { ascending: true });
+      
+      if (error) {
+        console.error("Error cargando prospectos eliminados:", error);
+        throw error;
+      }
+      
+      // Obtener nombres de cónyuges en una segunda consulta
+      const personasConConyuge = data?.filter((p: any) => p.id_conyuge) || [];
+      const idsConyuges = personasConConyuge.map((p: any) => p.id_conyuge);
+      
+      let conyugesMap = new Map();
+      if (idsConyuges.length > 0) {
+        const { data: conyugesData } = await supabase
+          .from('personas')
+          .select('id, nombre_legal')
+          .in('id', idsConyuges);
+        
+        conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
+      }
+      
+      return (data || []).map((item: any) => {
+        const entidadRelacionada = item.entidades_relacionadas[0];
+        
+        return {
+          id: item.id,
+          entidad_relacionada_id: entidadRelacionada.id,
+          id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
+          nombre_legal: item.nombre_legal,
+          email: item.email,
+          telefono: item.telefono,
+          curp: item.curp,
+          rfc: item.rfc,
+          tipo_persona: item.tipo_persona,
+          activo: item.activo,
+          fecha_creacion: item.fecha_creacion,
+          id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+          id_estado_civil: item.id_estado_civil,
+          id_conyuge: item.id_conyuge,
+          representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+          estado_civil_nombre: item.estados_civil?.nombre,
+          conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
+          id_estatus_persona: entidadRelacionada.id_estatus_persona,
+          estatus_nombre: item.estatus_persona?.nombre,
+          id_proyecto: entidadRelacionada.id_proyecto,
+          proyecto_nombre: null, // Will be populated from proyectos query
+        } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
+      });
+    },
+  });
 
   const prospectos = activeTab === "active" ? activeProspectos : deletedProspectos;
+  const isLoading = activeTab === "active" ? loadingActive : loadingDeleted;
 
   // Query for available projects
   const { data: proyectos = [] } = useQuery({
@@ -544,17 +651,6 @@ export default function Prospectos() {
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Cargando prospectos...</p>
-        </div>
-      );
-    }
-
-    if (isError) {
-      return (
-        <div className="text-center py-8">
-          <p className="text-destructive font-medium">Error al cargar prospectos.</p>
-          <p className="mt-2 text-muted-foreground text-sm">
-            {(error as any)?.message || "Intenta nuevamente en unos momentos."}
-          </p>
         </div>
       );
     }
