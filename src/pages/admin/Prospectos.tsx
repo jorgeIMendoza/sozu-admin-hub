@@ -86,7 +86,7 @@ export default function Prospectos() {
             fecha_creacion,
             id_entidad_relacionada_rep_leg
           ),
-          proyectos (
+          proyectos:proyectos!entidades_relacionadas_id_proyecto_fkey (
             id,
             nombre
           )
@@ -142,7 +142,7 @@ export default function Prospectos() {
             fecha_creacion,
             id_entidad_relacionada_rep_leg
           ),
-          proyectos (
+          proyectos:proyectos!entidades_relacionadas_id_proyecto_fkey (
             id,
             nombre
           )
