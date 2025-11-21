@@ -936,9 +936,6 @@ export default function Prospectos() {
                       </PaginationItem>
                     </PaginationContent>
                   </Pagination>
-                  <div className="text-center text-sm text-muted-foreground mt-2">
-                    Página {currentPage} de {totalPages} ({totalCount} prospectos en total)
-                  </div>
                 </div>
               )}
             </TabsContent>
@@ -996,9 +993,6 @@ export default function Prospectos() {
                       </PaginationItem>
                     </PaginationContent>
                   </Pagination>
-                  <div className="text-center text-sm text-muted-foreground mt-2">
-                    Página {currentPage} de {totalPages} ({totalCount} prospectos en total)
-                  </div>
                 </div>
               )}
             </TabsContent>
