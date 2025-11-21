@@ -64,11 +64,16 @@ export default function Prospectos() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: activeProspectos = [], isLoading: loadingActive } = useQuery({
-    queryKey: ['prospectos', 'active'],
+  const {
+    data: allProspectos = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["prospectos"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('entidades_relacionadas')
+        .from("entidades_relacionadas")
         .select(`
           id,
           id_tipo_entidad,
@@ -91,26 +96,28 @@ export default function Prospectos() {
             nombre
           )
         `)
-        .eq('activo', true)
-        .eq('id_tipo_entidad', 7)
-        .eq('personas.activo', true)
-        .order('nombre_legal', { referencedTable: 'personas', ascending: true });
-      
-      if (error) throw error;
-      
+        .eq("activo", true)
+        .eq("id_tipo_entidad", 7)
+        .order("nombre_legal", { referencedTable: "personas", ascending: true });
+
+      if (error) {
+        console.error("Error cargando prospectos:", error);
+        throw error;
+      }
+
       return (data || []).map((item: any) => ({
-        id: item.personas.id,
+        id: item.personas?.id,
         entidad_relacionada_id: item.id,
         id_tipo_entidad: item.id_tipo_entidad,
-        nombre_legal: item.personas.nombre_legal,
-        email: item.personas.email,
-        telefono: item.personas.telefono,
-        curp: item.personas.curp,
-        rfc: item.personas.rfc,
-        tipo_persona: item.personas.tipo_persona,
-        activo: item.personas.activo,
-        fecha_creacion: item.personas.fecha_creacion,
-        id_entidad_relacionada_rep_leg: item.personas.id_entidad_relacionada_rep_leg,
+        nombre_legal: item.personas?.nombre_legal,
+        email: item.personas?.email,
+        telefono: item.personas?.telefono,
+        curp: item.personas?.curp,
+        rfc: item.personas?.rfc,
+        tipo_persona: item.personas?.tipo_persona,
+        activo: item.personas?.activo,
+        fecha_creacion: item.personas?.fecha_creacion,
+        id_entidad_relacionada_rep_leg: item.personas?.id_entidad_relacionada_rep_leg,
         representante_legal_nombre: undefined,
         id_estatus_persona: item.id_estatus_persona,
         estatus_nombre: undefined,
@@ -120,64 +127,17 @@ export default function Prospectos() {
     },
   });
 
-  const { data: deletedProspectos = [], isLoading: loadingDeleted } = useQuery({
-    queryKey: ['prospectos', 'deleted'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('entidades_relacionadas')
-        .select(`
-          id,
-          id_tipo_entidad,
-          id_estatus_persona,
-          id_proyecto,
-          personas:personas!entidades_relacionadas_id_persona_fkey (
-            id,
-            nombre_legal,
-            email,
-            telefono,
-            curp,
-            rfc,
-            tipo_persona,
-            activo,
-            fecha_creacion,
-            id_entidad_relacionada_rep_leg
-          ),
-          proyectos:proyectos!entidades_relacionadas_id_proyecto_fkey (
-            id,
-            nombre
-          )
-        `)
-        .eq('activo', true)
-        .eq('id_tipo_entidad', 7)
-        .eq('personas.activo', false)
-        .order('nombre_legal', { referencedTable: 'personas', ascending: true });
-      
-      if (error) throw error;
-      
-      return (data || []).map((item: any) => ({
-        id: item.personas.id,
-        entidad_relacionada_id: item.id,
-        id_tipo_entidad: item.id_tipo_entidad,
-        nombre_legal: item.personas.nombre_legal,
-        email: item.personas.email,
-        telefono: item.personas.telefono,
-        curp: item.personas.curp,
-        rfc: item.personas.rfc,
-        tipo_persona: item.personas.tipo_persona,
-        activo: item.personas.activo,
-        fecha_creacion: item.personas.fecha_creacion,
-        id_entidad_relacionada_rep_leg: item.personas.id_entidad_relacionada_rep_leg,
-        representante_legal_nombre: undefined,
-        id_estatus_persona: item.id_estatus_persona,
-        estatus_nombre: undefined,
-        id_proyecto: item.id_proyecto,
-        proyecto_nombre: item.proyectos?.nombre,
-      })) as (Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
-    },
-  });
+  const activeProspectos = (allProspectos as (Prospecto & {
+    entidad_relacionada_id: number;
+    id_tipo_entidad: number;
+  })[]).filter((p) => p.activo);
 
-  const prospectos = activeTab === 'active' ? activeProspectos : deletedProspectos;
-  const isLoading = activeTab === 'active' ? loadingActive : loadingDeleted;
+  const deletedProspectos = (allProspectos as (Prospecto & {
+    entidad_relacionada_id: number;
+    id_tipo_entidad: number;
+  })[]).filter((p) => !p.activo);
+
+  const prospectos = activeTab === "active" ? activeProspectos : deletedProspectos;
 
   // Query for available projects
   const { data: proyectos = [] } = useQuery({
@@ -575,6 +535,17 @@ export default function Prospectos() {
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Cargando prospectos...</p>
+        </div>
+      );
+    }
+
+    if (isError) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-destructive font-medium">Error al cargar prospectos.</p>
+          <p className="mt-2 text-muted-foreground text-sm">
+            {(error as any)?.message || "Intenta nuevamente en unos momentos."}
+          </p>
         </div>
       );
     }
