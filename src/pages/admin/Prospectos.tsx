@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -774,28 +775,24 @@ export default function Prospectos() {
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <Select
-                    value={prospecto.id_proyecto?.toString() || "null"}
+                  <Combobox
+                    value={prospecto.id_proyecto?.toString() || ""}
                     onValueChange={(value) => {
-                      const proyectoId = value === "null" ? null : parseInt(value);
+                      const proyectoId = value ? parseInt(value) : null;
                       updateProjectMutation.mutate({
                         entidadRelacionadaId: (prospecto as any).entidad_relacionada_id,
                         proyectoId
                       });
                     }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Sin proyecto asignado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="null">Sin proyecto</SelectItem>
-                      {proyectos.map((proyecto) => (
-                        <SelectItem key={proyecto.id} value={proyecto.id.toString()}>
-                          {proyecto.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    options={proyectos.map((proyecto) => ({
+                      value: proyecto.id.toString(),
+                      label: proyecto.nombre
+                    }))}
+                    placeholder="Sin proyecto asignado"
+                    emptyText="No se encontró el proyecto"
+                    searchPlaceholder="Buscar proyecto..."
+                    className="w-full"
+                  />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(prospecto.fecha_creacion)}
