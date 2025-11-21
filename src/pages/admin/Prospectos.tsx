@@ -90,10 +90,6 @@ export default function Prospectos() {
             activo,
             fecha_creacion,
             id_entidad_relacionada_rep_leg
-          ),
-          proyectos:proyectos!entidades_relacionadas_id_proyecto_fkey (
-            id,
-            nombre
           )
         `)
         .eq("activo", true)
@@ -122,7 +118,7 @@ export default function Prospectos() {
         id_estatus_persona: item.id_estatus_persona,
         estatus_nombre: undefined,
         id_proyecto: item.id_proyecto,
-        proyecto_nombre: item.proyectos?.nombre,
+        proyecto_nombre: undefined,
       })) as (Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
