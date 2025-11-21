@@ -91,6 +91,14 @@ export default function Prospectos() {
             activo,
             fecha_creacion,
             id_entidad_relacionada_rep_leg
+          ),
+          estatus:estatus_persona (
+            id,
+            nombre
+          ),
+          proyecto:proyectos (
+            id,
+            nombre
           )
         `)
         .eq("id_tipo_entidad", 7)
@@ -120,9 +128,9 @@ export default function Prospectos() {
           id_entidad_relacionada_rep_leg: persona.id_entidad_relacionada_rep_leg,
           representante_legal_nombre: undefined,
           id_estatus_persona: item.id_estatus_persona,
-          estatus_nombre: undefined,
+          estatus_nombre: item.estatus?.nombre,
           id_proyecto: item.id_proyecto,
-          proyecto_nombre: undefined,
+          proyecto_nombre: item.proyecto?.nombre,
         } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
       });
     },
