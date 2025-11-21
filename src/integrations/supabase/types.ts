@@ -853,6 +853,7 @@ export type Database = {
           nombre_comercial: string | null
           nombre_legal: string
           numero_escritura: string | null
+          numero_identificacion: string | null
           numero_libro: string | null
           ocupacion: string | null
           pais_nacimiento: string | null
@@ -901,6 +902,7 @@ export type Database = {
           nombre_comercial?: string | null
           nombre_legal: string
           numero_escritura?: string | null
+          numero_identificacion?: string | null
           numero_libro?: string | null
           ocupacion?: string | null
           pais_nacimiento?: string | null
@@ -949,6 +951,7 @@ export type Database = {
           nombre_comercial?: string | null
           nombre_legal?: string
           numero_escritura?: string | null
+          numero_identificacion?: string | null
           numero_libro?: string | null
           ocupacion?: string | null
           pais_nacimiento?: string | null

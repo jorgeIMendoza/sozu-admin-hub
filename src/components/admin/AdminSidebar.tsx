@@ -46,11 +46,11 @@ interface AdminSidebarProps {
 }
 
 const navigationItems = [
-  {
-    title: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
+  // {
+  //   title: "Dashboard",
+  //   href: "/admin",
+  //   icon: LayoutDashboard,
+  // },
   {
     title: "Pregunta a Aloris-IA",
     href: "/admin/consultas-ia",
