@@ -85,9 +85,6 @@ export default function Prospectos() {
             id_tipo_entidad,
             id_estatus_persona,
             id_proyecto,
-            tipos_entidad!inner (
-              padre
-            ),
             estatus_persona (
               id,
               nombre
@@ -155,9 +152,6 @@ export default function Prospectos() {
             id_tipo_entidad,
             id_estatus_persona,
             id_proyecto,
-            tipos_entidad!inner (
-              padre
-            ),
             estatus_persona (
               id,
               nombre
