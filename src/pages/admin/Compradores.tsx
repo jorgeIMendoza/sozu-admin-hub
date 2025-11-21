@@ -14,6 +14,7 @@ import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 type Comprador = {
   id: number;
@@ -37,6 +38,9 @@ export default function Compradores() {
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
+  const [currentPageActive, setCurrentPageActive] = useState(1);
+  const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
+  const itemsPerPage = 50;
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   
@@ -53,6 +57,9 @@ export default function Compradores() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchTerm(inputValue);
+      // Reset to page 1 when search term changes
+      setCurrentPageActive(1);
+      setCurrentPageDeleted(1);
     }, 300);
 
     return () => clearTimeout(timer);
@@ -69,10 +76,13 @@ export default function Compradores() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: activeCompradores = [], isLoading: loadingActive } = useQuery({
-    queryKey: ['compradores', 'active'],
+  const { data: activeCompradoresData, isLoading: loadingActive } = useQuery({
+    queryKey: ['compradores', 'active', currentPageActive, searchTerm],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (currentPageActive - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('personas')
         .select(`
           id,
@@ -100,14 +110,20 @@ export default function Compradores() {
           estados_civil (
             nombre
           )
-        `)
+        `, { count: 'exact' })
         .eq('activo', true)
         .eq('entidades_relacionadas.activo', true)
         .eq('entidades_relacionadas.id_tipo_entidad', 2)
-        .is('entidades_relacionadas.id_proyecto', null)
-        .order('nombre_legal', { ascending: true });
-      
-      if (error) throw error;
+        .is('entidades_relacionadas.id_proyecto', null);
+
+      // Apply search filters
+      if (searchTerm) {
+        query = query.or(`nombre_legal.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%,rfc.ilike.%${searchTerm}%,curp.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('nombre_legal', { ascending: true })
+        .range(from, to);
       
       if (error) throw error;
       
@@ -125,7 +141,7 @@ export default function Compradores() {
         conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
       }
       
-      return (data || []).map((item: any) => ({
+      const compradores = (data || []).map((item: any) => ({
         id: item.id,
         entidad_relacionada_id: item.entidades_relacionadas[0].id,
         id_tipo_entidad: item.entidades_relacionadas[0].id_tipo_entidad,
@@ -143,13 +159,18 @@ export default function Compradores() {
         estado_civil_nombre: item.estados_civil?.nombre,
         conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
       })) as (Comprador & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
+
+      return { compradores, count: count || 0 };
     },
   });
 
-  const { data: deletedCompradores = [], isLoading: loadingDeleted } = useQuery({
-    queryKey: ['compradores', 'deleted'],
+  const { data: deletedCompradoresData, isLoading: loadingDeleted } = useQuery({
+    queryKey: ['compradores', 'deleted', currentPageDeleted, searchTerm],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const from = (currentPageDeleted - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('personas')
         .select(`
           id,
@@ -177,14 +198,20 @@ export default function Compradores() {
           estados_civil (
             nombre
           )
-        `)
+        `, { count: 'exact' })
         .eq('activo', false)
         .eq('entidades_relacionadas.activo', true)
         .eq('entidades_relacionadas.id_tipo_entidad', 2)
-        .is('entidades_relacionadas.id_proyecto', null)
-        .order('nombre_legal', { ascending: true });
-      
-      if (error) throw error;
+        .is('entidades_relacionadas.id_proyecto', null);
+
+      // Apply search filters
+      if (searchTerm) {
+        query = query.or(`nombre_legal.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,telefono.ilike.%${searchTerm}%,rfc.ilike.%${searchTerm}%,curp.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .order('nombre_legal', { ascending: true })
+        .range(from, to);
       
       if (error) throw error;
       
@@ -202,7 +229,7 @@ export default function Compradores() {
         conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
       }
       
-      return (data || []).map((item: any) => ({
+      const compradores = (data || []).map((item: any) => ({
         id: item.id,
         entidad_relacionada_id: item.entidades_relacionadas[0].id,
         id_tipo_entidad: item.entidades_relacionadas[0].id_tipo_entidad,
@@ -220,11 +247,22 @@ export default function Compradores() {
         estado_civil_nombre: item.estados_civil?.nombre,
         conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
       })) as (Comprador & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
+
+      return { compradores, count: count || 0 };
     },
   });
 
+  const activeCompradores = activeCompradoresData?.compradores || [];
+  const deletedCompradores = deletedCompradoresData?.compradores || [];
+  const activeCount = activeCompradoresData?.count || 0;
+  const deletedCount = deletedCompradoresData?.count || 0;
+
   const compradores = activeTab === 'active' ? activeCompradores : deletedCompradores;
   const isLoading = activeTab === 'active' ? loadingActive : loadingDeleted;
+  const currentPage = activeTab === 'active' ? currentPageActive : currentPageDeleted;
+  const setCurrentPage = activeTab === 'active' ? setCurrentPageActive : setCurrentPageDeleted;
+  const totalCount = activeTab === 'active' ? activeCount : deletedCount;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
@@ -443,13 +481,6 @@ export default function Compradores() {
     },
   });
 
-  const filteredCompradores = compradores.filter(comprador => 
-    comprador.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comprador.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comprador.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comprador.rfc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comprador.curp?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const handleEdit = async (comprador: Comprador) => {
     // Fetch full persona data including address fields
@@ -513,7 +544,7 @@ export default function Compradores() {
       );
     }
 
-    if (filteredCompradores.length === 0) {
+    if (compradores.length === 0) {
       return (
         <div className="text-center py-12">
           <UserX className="mx-auto h-12 w-12 text-muted-foreground/50" />
@@ -542,7 +573,7 @@ export default function Compradores() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCompradores.map((comprador) => (
+            {compradores.map((comprador) => (
               <TableRow key={comprador.id} className="hover:bg-muted/10 transition-colors">
                 <TableCell className="font-medium text-foreground">
                   {comprador.nombre_legal}
@@ -694,8 +725,8 @@ export default function Compradores() {
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos ({activeCompradores.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedCompradores.length})</TabsTrigger>
+              <TabsTrigger value="active">Activos ({activeCount})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({deletedCount})</TabsTrigger>
             </TabsList>
             
             <div className="mb-6">
@@ -704,8 +735,8 @@ export default function Compradores() {
                 <Input
                   type="text"
                   placeholder="Buscar por nombre, email, CURP, RFC..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
                   className="pl-10 border-border focus:ring-primary/20"
                 />
               </div>
@@ -713,10 +744,72 @@ export default function Compradores() {
 
             <TabsContent value="active" className="mt-6">
               {renderTable()}
+              {totalPages > 1 && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPageActive(Math.max(1, currentPageActive - 1))}
+                          className={currentPageActive === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCurrentPageActive(page)}
+                            isActive={currentPageActive === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPageActive(Math.min(totalPages, currentPageActive + 1))}
+                          className={currentPageActive === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="deleted" className="mt-6">
               {renderTable()}
+              {totalPages > 1 && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPageDeleted(Math.max(1, currentPageDeleted - 1))}
+                          className={currentPageDeleted === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCurrentPageDeleted(page)}
+                            isActive={currentPageDeleted === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPageDeleted(Math.min(totalPages, currentPageDeleted + 1))}
+                          className={currentPageDeleted === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
