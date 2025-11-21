@@ -284,8 +284,8 @@ const Propiedades = () => {
   const [bodegasFilter, setBodegasFilter] = useState("");
   const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   const [cuentaCobranzaFilter, setCuentaCobranzaFilter] = useState("");
-  const [areaFilterInput, setAreaFilterInput] = useState<number[]>([25, 200]);
-  const [areaFilter, setAreaFilter] = useState<number[]>([25, 200]);
+  const [areaFilterInput, setAreaFilterInput] = useState<number[]>([25, 300]);
+  const [areaFilter, setAreaFilter] = useState<number[]>([25, 300]);
   const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([1000000, 20000000]);
   const [precioFilter, setPrecioFilter] = useState<number[]>([1000000, 20000000]);
 
@@ -2195,7 +2195,7 @@ const Propiedades = () => {
     estacionamientosFilter !== "" ||
     cuentaCobranzaFilter !== "" ||
     areaFilter[0] !== 25 ||
-    areaFilter[1] !== 200 ||
+    areaFilter[1] !== 300 ||
     precioFilter[0] !== 1000000 ||
     precioFilter[1] !== 20000000;
 
@@ -3553,13 +3553,13 @@ const Propiedades = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="activos">
-                Activos ({totalActivosCount})
+                Activos ({hasClientSideFilters ? filteredActivosCount : totalActivosCount})
               </TabsTrigger>
               <TabsTrigger value="draft">
-                Draft ({totalDraftCount})
+                Draft ({hasClientSideFilters ? filteredDraftCount : totalDraftCount})
               </TabsTrigger>
               <TabsTrigger value="eliminados">
-                Eliminados ({totalEliminadosCount})
+                Eliminados ({hasClientSideFilters ? filteredEliminadosCount : totalEliminadosCount})
               </TabsTrigger>
             </TabsList>
             

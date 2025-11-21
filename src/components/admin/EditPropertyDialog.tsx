@@ -319,9 +319,9 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
 
   // Fetch models based on project
   const { data: edificiosModelos } = useQuery({
-    queryKey: ['modelos_filtered', propertyProject?.nombre],
+    queryKey: ['modelos_filtered', propertyProject?.id],
     queryFn: async () => {
-      if (!propertyProject?.nombre) return [];
+      if (!propertyProject?.id) return [];
       
       const { data, error } = await supabase
         .from('edificios_modelos')
@@ -332,28 +332,20 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           edificios!edificios_modelos_id_edificio_fkey (
             id,
             nombre,
-            proyectos!fk_edificios_proyecto (
-              id,
-              nombre
-            )
+            id_proyecto
           ),
           modelos!edificios_modelos_id_modelo_fkey (
             id,
             nombre
           )
         `)
-        .eq('activo', true);
+        .eq('activo', true)
+        .eq('edificios.id_proyecto', propertyProject.id);
       
       if (error) throw error;
-      
-      // Filter by project name
-      const filtered = data?.filter(em => 
-        em.edificios?.proyectos?.nombre === propertyProject.nombre
-      ) || [];
-      
-      return filtered;
+      return data || [];
     },
-    enabled: !!propertyProject?.nombre
+    enabled: !!propertyProject?.id
   });
 
   // Fetch current property details

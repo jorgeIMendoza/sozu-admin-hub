@@ -519,6 +519,39 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_bodegas_estacionamientos_daiku_stagin: {
+        Row: {
+          id: number
+          metraje: number | null
+          nivel: string | null
+          nombre: string | null
+          num_depa: string | null
+          precio: number | null
+          tipo: string | null
+          tipo_estacionamiento: string | null
+        }
+        Insert: {
+          id?: number
+          metraje?: number | null
+          nivel?: string | null
+          nombre?: string | null
+          num_depa?: string | null
+          precio?: number | null
+          tipo?: string | null
+          tipo_estacionamiento?: string | null
+        }
+        Update: {
+          id?: number
+          metraje?: number | null
+          nivel?: string | null
+          nombre?: string | null
+          num_depa?: string | null
+          precio?: number | null
+          tipo?: string | null
+          tipo_estacionamiento?: string | null
+        }
+        Relationships: []
+      }
       borrar_bodegas_stagin: {
         Row: {
           edificio: string | null
@@ -3851,6 +3884,13 @@ export type Database = {
             referencedRelation: "edificios_modelos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "propiedades_id_tipo_propiedad_fkey"
+            columns: ["id_tipo_propiedad"]
+            isOneToOne: false
+            referencedRelation: "tipos_propiedad"
+            referencedColumns: ["id"]
+          },
         ]
       }
       propiedades_caracteristicas: {
@@ -4671,14 +4711,14 @@ export type Database = {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           nombre: string
         }
         Update: {
           activo?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
-          id?: never
+          id?: number
           nombre?: string
         }
         Relationships: []
