@@ -276,8 +276,12 @@ const Propiedades = () => {
   // Filtros de selección múltiple para proyecto y modelo
   const [selectedProyectos, setSelectedProyectos] = useState<number[]>([]);
   const [selectedModelos, setSelectedModelos] = useState<number[]>([]);
+  const [selectedModelosLabels, setSelectedModelosLabels] = useState<Record<number, string>>({});
   const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
   const [isModeloFilterOpen, setIsModeloFilterOpen] = useState(false);
+  
+  const [modeloSearchInput, setModeloSearchInput] = useState("");
+  const [modeloSearchTerm, setModeloSearchTerm] = useState("");
   
   const [recamarasFilterInput, setRecamarasFilterInput] = useState("");
   const [recamarasFilter, setRecamarasFilter] = useState("");
@@ -403,8 +407,12 @@ const Propiedades = () => {
 
   // Fetch modelos para el filtro (filtrados por proyectos seleccionados o todos)
   const { data: modelos } = useQuery({
-    queryKey: ['modelos-filter', selectedProyectos],
+    queryKey: ['modelos-filter', selectedProyectos, modeloSearchTerm],
     queryFn: async () => {
+      if (!modeloSearchTerm.trim()) {
+        return [];
+      }
+
       let query = supabase
         .from('modelos')
         .select(`
@@ -414,8 +422,9 @@ const Propiedades = () => {
           proyectos!modelos_id_proyecto_fkey!inner(id, id_tipo_uso)
         `)
         .eq('activo', true)
+        .ilike('nombre', `%${modeloSearchTerm}%`)
         .order('nombre', { ascending: true })
-        .range(0, 4999);
+        .range(0, 99);
       
       // Si hay proyectos seleccionados, filtrar modelos por esos proyectos
       if (selectedProyectos.length > 0) {
@@ -432,7 +441,7 @@ const Propiedades = () => {
     },
   });
 
-  // Debounce filtros de sliders
+  // Debounce filtros de sliders y búsqueda de modelos
   useEffect(() => {
     const timer = setTimeout(() => {
       setAreaFilter(areaFilterInput);
@@ -460,6 +469,13 @@ const Propiedades = () => {
     }, 400);
     return () => clearTimeout(timer);
   }, [banosFilterInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setModeloSearchTerm(modeloSearchInput);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [modeloSearchInput]);
   
   // Paginación
   const [currentPageActive, setCurrentPageActive] = useState(1);
@@ -3315,6 +3331,9 @@ const Propiedades = () => {
                             onClick={() => {
                               setSelectedProyectos([]);
                               setSelectedModelos([]);
+                              setSelectedModelosLabels({});
+                              setModeloSearchInput("");
+                              setModeloSearchTerm("");
                             }}
                           >
                             <X className="mr-2 h-4 w-4" />
@@ -3339,7 +3358,7 @@ const Propiedades = () => {
                       {selectedModelos.length === 0 ? (
                         "Seleccionar modelos..."
                       ) : selectedModelos.length === 1 ? (
-                        modelos?.find(m => m.id === selectedModelos[0])?.nombre
+                        selectedModelosLabels[selectedModelos[0]] ?? "1 modelo seleccionado"
                       ) : (
                         `${selectedModelos.length} modelos seleccionados`
                       )}
@@ -3348,8 +3367,14 @@ const Propiedades = () => {
                   </PopoverTrigger>
                   <PopoverContent className="w-[300px] p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Buscar modelo..." />
-                      <CommandEmpty>No se encontraron modelos.</CommandEmpty>
+                      <CommandInput
+                        placeholder="Buscar modelo..."
+                        value={modeloSearchInput}
+                        onValueChange={setModeloSearchInput}
+                      />
+                      <CommandEmpty>
+                        {modeloSearchTerm ? "No se encontraron modelos." : "Escribe para buscar modelos."}
+                      </CommandEmpty>
                       <CommandList>
                         <CommandGroup className="max-h-64 overflow-auto">
                           {modelos?.map((modelo) => (
@@ -3357,11 +3382,21 @@ const Propiedades = () => {
                               key={modelo.id}
                               value={modelo.nombre}
                               onSelect={() => {
-                                setSelectedModelos(prev => 
-                                  prev.includes(modelo.id)
+                                const isSelected = selectedModelos.includes(modelo.id);
+                                setSelectedModelos(prev =>
+                                  isSelected
                                     ? prev.filter(id => id !== modelo.id)
                                     : [...prev, modelo.id]
                                 );
+                                setSelectedModelosLabels(prevLabels => {
+                                  const updated = { ...prevLabels };
+                                  if (isSelected) {
+                                    delete updated[modelo.id];
+                                  } else {
+                                    updated[modelo.id] = modelo.nombre;
+                                  }
+                                  return updated;
+                                });
                               }}
                               className="cursor-pointer"
                             >
@@ -3386,7 +3421,12 @@ const Propiedades = () => {
                             variant="ghost"
                             size="sm"
                             className="w-full"
-                            onClick={() => setSelectedModelos([])}
+                            onClick={() => {
+                              setSelectedModelos([]);
+                              setSelectedModelosLabels({});
+                              setModeloSearchInput("");
+                              setModeloSearchTerm("");
+                            }}
                           >
                             <X className="mr-2 h-4 w-4" />
                             Limpiar filtros
@@ -3617,6 +3657,9 @@ const Propiedades = () => {
                   setSearchTerm("");
                   setSelectedProyectos([]);
                   setSelectedModelos([]);
+                  setSelectedModelosLabels({});
+                  setModeloSearchInput("");
+                  setModeloSearchTerm("");
                   setRecamarasFilterInput("");
                   setRecamarasFilter("");
                   setBanosFilterInput("");
