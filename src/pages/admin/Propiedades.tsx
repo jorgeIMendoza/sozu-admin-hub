@@ -29,8 +29,10 @@ import { generateOfferPDF } from "@/services/htmlToPdfService";
 import { EstacionamientosDetailDialog } from "@/components/admin/EstacionamientosDetailDialog";
 import { BodegasDetailDialog } from "@/components/admin/BodegasDetailDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { AsignarPropiedadDialog } from "@/components/admin/AsignarPropiedadDialog";
@@ -271,11 +273,11 @@ const Propiedades = () => {
   const [selectedPropertyBodegas, setSelectedPropertyBodegas] = useState<any[]>([]);
   const [selectedPropertyForDetail, setSelectedPropertyForDetail] = useState<Property | null>(null);
   
-  // Filtros de texto - separar input de valores debounced
-  const [proyectoFilterInput, setProyectoFilterInput] = useState("");
-  const [proyectoFilter, setProyectoFilter] = useState("");
-  const [modeloFilterInput, setModeloFilterInput] = useState("");
-  const [modeloFilter, setModeloFilter] = useState("");
+  // Filtros de selección múltiple para proyecto y modelo
+  const [selectedProyectos, setSelectedProyectos] = useState<number[]>([]);
+  const [selectedModelos, setSelectedModelos] = useState<number[]>([]);
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
+  const [isModeloFilterOpen, setIsModeloFilterOpen] = useState(false);
   const [recamarasFilterInput, setRecamarasFilterInput] = useState("");
   const [recamarasFilter, setRecamarasFilter] = useState("");
   const [banosFilterInput, setBanosFilterInput] = useState("");
@@ -382,20 +384,43 @@ const Propiedades = () => {
   const visibleCount = visibleColumns.size;
   const totalCount = COLUMNS_CONFIG.length;
 
-  // Debounce filtros de texto
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setProyectoFilter(proyectoFilterInput);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [proyectoFilterInput]);
+  // Fetch proyectos para el filtro
+  const { data: proyectos } = useQuery({
+    queryKey: ['proyectos-filter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proyectos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .not("id_tipo_uso", "in", "(9,10,11)")
+        .order('nombre', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setModeloFilter(modeloFilterInput);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [modeloFilterInput]);
+  // Fetch modelos para el filtro (filtrados por proyectos seleccionados o todos)
+  const { data: modelos } = useQuery({
+    queryKey: ['modelos-filter', selectedProyectos],
+    queryFn: async () => {
+      let query = supabase
+        .from('modelos')
+        .select('id, nombre, id_proyecto')
+        .eq('activo', true)
+        .order('nombre', { ascending: true });
+      
+      // Si hay proyectos seleccionados, filtrar modelos por esos proyectos
+      if (selectedProyectos.length > 0) {
+        query = query.in('id_proyecto', selectedProyectos);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Debounce filtros de sliders
   useEffect(() => {
@@ -849,7 +874,7 @@ const Propiedades = () => {
 
   // Separate queries for each tab with server-side pagination
   const { data: propiedadesActivasData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
-    queryKey: ['properties-activos', currentPageActive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
+    queryKey: ['properties-activos', currentPageActive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
     queryFn: async () => {
       try {
         const from = (currentPageActive - 1) * itemsPerPage;
@@ -909,12 +934,12 @@ const Propiedades = () => {
           query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
         }
         
-        if (proyectoFilter) {
-          query = query.ilike('edificios_modelos.edificios.proyectos.nombre', `%${proyectoFilter}%`);
+        if (selectedProyectos.length > 0) {
+          query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
         }
         
-        if (modeloFilter) {
-          query = query.ilike('edificios_modelos.modelos.nombre', `%${modeloFilter}%`);
+        if (selectedModelos.length > 0) {
+          query = query.in('edificios_modelos.modelos.id', selectedModelos);
         }
         
         if (recamarasFilter) {
@@ -1083,7 +1108,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesDraftData, isLoading: loadingDraft, refetch: refetchDraft } = useQuery({
-    queryKey: ['properties-draft', currentPageDraft, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
+    queryKey: ['properties-draft', currentPageDraft, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
     queryFn: async () => {
       try {
         const from = (currentPageDraft - 1) * itemsPerPage;
@@ -1143,12 +1168,12 @@ const Propiedades = () => {
           query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
         }
         
-        if (proyectoFilter) {
-          query = query.ilike('edificios_modelos.edificios.proyectos.nombre', `%${proyectoFilter}%`);
+        if (selectedProyectos.length > 0) {
+          query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
         }
         
-        if (modeloFilter) {
-          query = query.ilike('edificios_modelos.modelos.nombre', `%${modeloFilter}%`);
+        if (selectedModelos.length > 0) {
+          query = query.in('edificios_modelos.modelos.id', selectedModelos);
         }
         
         if (recamarasFilter) {
@@ -1318,7 +1343,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesEliminadasData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
-    queryKey: ['properties-eliminados', currentPageInactive, searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
+    queryKey: ['properties-eliminados', currentPageInactive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
     queryFn: async () => {
       try {
         const from = (currentPageInactive - 1) * itemsPerPage;
@@ -1378,12 +1403,12 @@ const Propiedades = () => {
           query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
         }
         
-        if (proyectoFilter) {
-          query = query.ilike('edificios_modelos.edificios.proyectos.nombre', `%${proyectoFilter}%`);
+        if (selectedProyectos.length > 0) {
+          query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
         }
         
-        if (modeloFilter) {
-          query = query.ilike('edificios_modelos.modelos.nombre', `%${modeloFilter}%`);
+        if (selectedModelos.length > 0) {
+          query = query.in('edificios_modelos.modelos.id', selectedModelos);
         }
         
         if (recamarasFilter) {
@@ -1574,15 +1599,15 @@ const Propiedades = () => {
   // Reset pages when filters change
   useEffect(() => {
     setCurrentPageActive(1);
-  }, [searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
+  }, [searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
 
   useEffect(() => {
     setCurrentPageDraft(1);
-  }, [searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
+  }, [searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
 
   useEffect(() => {
     setCurrentPageInactive(1);
-  }, [searchTerm, proyectoFilter, modeloFilter, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
+  }, [searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
 
   const { data: availabilityOptions } = useQuery({
     queryKey: ['availability-options'],
@@ -2532,8 +2557,8 @@ const Propiedades = () => {
           <TableBody>
           {propertiesToRender.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={visibleCount + (tabType === "draft" ? 1 : 0)} className="text-center py-6">
-                  {searchTerm || proyectoFilter || modeloFilter || recamarasFilter || banosFilter || disponibilidadFilter.length > 0 || bodegasFilter || estacionamientosFilter || cuentaCobranzaFilter
+              <TableCell colSpan={visibleCount + (tabType === "draft" ? 1 : 0)} className="text-center py-6">
+                  {searchTerm || selectedProyectos.length > 0 || selectedModelos.length > 0 || recamarasFilter || banosFilter || disponibilidadFilter.length > 0 || bodegasFilter || estacionamientosFilter || cuentaCobranzaFilter
                     ? "No se encontraron resultados." 
                     : tabType === "eliminados"
                       ? "No hay propiedades eliminadas." 
@@ -3220,19 +3245,144 @@ const Propiedades = () => {
             <div className="grid grid-cols-1 md:grid-cols-7 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
                 <label className="text-sm font-medium mb-2 block">Proyecto</label>
-                <Input
-                  placeholder="Filtrar por proyecto..."
-                  value={proyectoFilterInput}
-                  onChange={(e) => setProyectoFilterInput(e.target.value)}
-                />
+                <Popover open={isProjectFilterOpen} onOpenChange={setIsProjectFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isProjectFilterOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {selectedProyectos.length === 0 ? (
+                        "Seleccionar proyectos..."
+                      ) : selectedProyectos.length === 1 ? (
+                        proyectos?.find(p => p.id === selectedProyectos[0])?.nombre
+                      ) : (
+                        `${selectedProyectos.length} proyectos seleccionados`
+                      )}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar proyecto..." />
+                      <CommandEmpty>No se encontraron proyectos.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {proyectos?.map((proyecto) => (
+                          <CommandItem
+                            key={proyecto.id}
+                            onSelect={() => {
+                              setSelectedProyectos(prev => 
+                                prev.includes(proyecto.id)
+                                  ? prev.filter(id => id !== proyecto.id)
+                                  : [...prev, proyecto.id]
+                              );
+                              // Reset modelo filter when changing projects
+                              setSelectedModelos([]);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedProyectos.includes(proyecto.id)}
+                              className="mr-2"
+                            />
+                            <span>{proyecto.nombre}</span>
+                            <Check
+                              className={cn(
+                                "ml-auto h-4 w-4",
+                                selectedProyectos.includes(proyecto.id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {selectedProyectos.length > 0 && (
+                        <div className="border-t p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              setSelectedProyectos([]);
+                              setSelectedModelos([]);
+                            }}
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            Limpiar filtros
+                          </Button>
+                        </div>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Modelo</label>
-                <Input
-                  placeholder="Filtrar por modelo..."
-                  value={modeloFilterInput}
-                  onChange={(e) => setModeloFilterInput(e.target.value)}
-                />
+                <Popover open={isModeloFilterOpen} onOpenChange={setIsModeloFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isModeloFilterOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {selectedModelos.length === 0 ? (
+                        "Seleccionar modelos..."
+                      ) : selectedModelos.length === 1 ? (
+                        modelos?.find(m => m.id === selectedModelos[0])?.nombre
+                      ) : (
+                        `${selectedModelos.length} modelos seleccionados`
+                      )}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar modelo..." />
+                      <CommandEmpty>No se encontraron modelos.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {modelos?.map((modelo) => (
+                          <CommandItem
+                            key={modelo.id}
+                            onSelect={() => {
+                              setSelectedModelos(prev => 
+                                prev.includes(modelo.id)
+                                  ? prev.filter(id => id !== modelo.id)
+                                  : [...prev, modelo.id]
+                              );
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedModelos.includes(modelo.id)}
+                              className="mr-2"
+                            />
+                            <span>{modelo.nombre}</span>
+                            <Check
+                              className={cn(
+                                "ml-auto h-4 w-4",
+                                selectedModelos.includes(modelo.id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {selectedModelos.length > 0 && (
+                        <div className="border-t p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => setSelectedModelos([])}
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            Limpiar filtros
+                          </Button>
+                        </div>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Recámaras</label>
@@ -3452,10 +3602,8 @@ const Propiedades = () => {
                 onClick={() => {
                   setInputValue("");
                   setSearchTerm("");
-                  setProyectoFilterInput("");
-                  setProyectoFilter("");
-                  setModeloFilterInput("");
-                  setModeloFilter("");
+                  setSelectedProyectos([]);
+                  setSelectedModelos([]);
                   setRecamarasFilterInput("");
                   setRecamarasFilter("");
                   setBanosFilterInput("");
