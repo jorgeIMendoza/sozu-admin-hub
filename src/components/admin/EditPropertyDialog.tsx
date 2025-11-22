@@ -323,30 +323,50 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     queryFn: async () => {
       if (!propertyProject?.id) return [];
       
-      const { data, error } = await supabase
+      // Query edificios_modelos with proper joins
+      const { data: edificiosModelosData, error } = await supabase
         .from('edificios_modelos')
         .select(`
           id,
           id_edificio,
-          id_modelo,
-          edificios:edificios!edificios_modelos_id_edificio_fkey (
-            id,
-            nombre,
-            id_proyecto
-          ),
-          modelos:modelos!edificios_modelos_id_modelo_fkey (
-            id,
-            nombre
-          )
+          id_modelo
         `)
         .eq('activo', true);
       
       if (error) throw error;
       
-      // Filter client-side to avoid excluding records with null relations
-      const filtered = data?.filter(em => 
-        em.edificios?.id_proyecto === propertyProject.id
-      ) || [];
+      // Get edificios for this project
+      const { data: edificiosData, error: edificiosError } = await supabase
+        .from('edificios')
+        .select('id, nombre, id_proyecto')
+        .eq('id_proyecto', propertyProject.id)
+        .eq('activo', true);
+      
+      if (edificiosError) throw edificiosError;
+      
+      // Get all modelos for this project
+      const { data: modelosData, error: modelosError } = await supabase
+        .from('modelos')
+        .select('id, nombre, id_proyecto')
+        .eq('id_proyecto', propertyProject.id)
+        .eq('activo', true);
+      
+      if (modelosError) throw modelosError;
+      
+      // Create maps for quick lookup
+      const edificiosMap = new Map(edificiosData?.map(e => [e.id, e]) || []);
+      const modelosMap = new Map(modelosData?.map(m => [m.id, m]) || []);
+      
+      // Filter and enrich edificios_modelos data
+      const filtered = edificiosModelosData?.filter(em => {
+        const edificio = edificiosMap.get(em.id_edificio);
+        const modelo = modelosMap.get(em.id_modelo);
+        return edificio && modelo;
+      }).map(em => ({
+        ...em,
+        edificios: edificiosMap.get(em.id_edificio),
+        modelos: modelosMap.get(em.id_modelo)
+      })) || [];
       
       return filtered;
     },
@@ -515,7 +535,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Combobox
                       value={formData.id_edificio_modelo}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, id_edificio_modelo: value }))}
-                      options={edificiosModelos?.filter(em => em.edificios?.nombre && em.modelos?.nombre).map((em) => ({
+                      options={edificiosModelos?.map((em) => ({
                         value: em.id.toString(),
                         label: `${em.edificios?.nombre} - ${em.modelos?.nombre}`,
                       })) || []}
