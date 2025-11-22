@@ -407,13 +407,21 @@ const Propiedades = () => {
     queryFn: async () => {
       let query = supabase
         .from('modelos')
-        .select('id, nombre, id_proyecto')
+        .select(`
+          id, 
+          nombre, 
+          id_proyecto,
+          proyectos!modelos_id_proyecto_fkey!inner(id, id_tipo_uso)
+        `)
         .eq('activo', true)
         .order('nombre', { ascending: true });
       
       // Si hay proyectos seleccionados, filtrar modelos por esos proyectos
       if (selectedProyectos.length > 0) {
         query = query.in('id_proyecto', selectedProyectos);
+      } else {
+        // Si no hay proyectos seleccionados, excluir modelos de proyectos tipo productos/servicios/mantenimientos
+        query = query.not('proyectos.id_tipo_uso', 'in', '(9,10,11)');
       }
       
       const { data, error } = await query;
@@ -3616,8 +3624,8 @@ const Propiedades = () => {
                   setBodegasFilter("");
                   setEstacionamientosFilter("");
                   setCuentaCobranzaFilter("");
-                  setAreaFilterInput([25, 200]);
-                  setAreaFilter([25, 200]);
+                  setAreaFilterInput([25, 300]);
+                  setAreaFilter([25, 300]);
                   setPrecioFilterInput([1000000, 20000000]);
                   setPrecioFilter([1000000, 20000000]);
                   setSelectedProperties([]);
