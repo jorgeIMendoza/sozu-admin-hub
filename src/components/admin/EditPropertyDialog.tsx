@@ -358,28 +358,38 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
       
       if (edificiosError) throw edificiosError;
       
-      // Get all modelos for this project (including inactive ones to preserve existing relations)
+      // Create map for quick lookup of edificios in this proyecto
+      const edificiosMap = new Map(edificiosData?.map(e => [e.id, e]) || []);
+
+      // Filter edificios_modelos to only those whose edificio belongs to this proyecto
+      const relevantEdificiosModelos = (edificiosModelosData || []).filter(em =>
+        edificiosMap.has(em.id_edificio)
+      );
+
+      if (relevantEdificiosModelos.length === 0) {
+        return [];
+      }
+
+      // Get only the modelos that are actually referenced by these edificios_modelos
+      const modeloIds = Array.from(new Set(relevantEdificiosModelos.map(em => em.id_modelo)));
+
       const { data: modelosData, error: modelosError } = await supabase
         .from('modelos')
-        .select('id, nombre, id_proyecto')
-        .eq('id_proyecto', propertyProject.id);
+        .select('id, nombre')
+        .in('id', modeloIds);
       
       if (modelosError) throw modelosError;
       
-      // Create maps for quick lookup
-      const edificiosMap = new Map(edificiosData?.map(e => [e.id, e]) || []);
       const modelosMap = new Map(modelosData?.map(m => [m.id, m]) || []);
       
-      // Filter and enrich edificios_modelos data
-      const filtered = edificiosModelosData?.filter(em => {
-        const edificio = edificiosMap.get(em.id_edificio);
-        const modelo = modelosMap.get(em.id_modelo);
-        return edificio && modelo;
-      }).map(em => ({
-        ...em,
-        edificios: edificiosMap.get(em.id_edificio),
-        modelos: modelosMap.get(em.id_modelo)
-      })) || [];
+      // Enrich and return
+      const filtered = relevantEdificiosModelos
+        .map(em => ({
+          ...em,
+          edificios: edificiosMap.get(em.id_edificio),
+          modelos: modelosMap.get(em.id_modelo),
+        }))
+        .filter(em => em.modelos);
       
       return filtered;
     },
