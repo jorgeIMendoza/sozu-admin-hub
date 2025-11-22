@@ -6,6 +6,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const formatCurrency = (value: string | number | undefined): string => {
+  if (!value && value !== 0) return "";
+  const numValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
+  if (isNaN(numValue)) return "";
+  return numValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const parseCurrency = (value: string): number => {
+  const cleanValue = value.replace(/,/g, "");
+  const parsed = parseFloat(cleanValue);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 interface PropertyBasicInfoSectionProps {
   form: any;
   selectedProjectId: string;
@@ -421,7 +434,15 @@ export const PropertyBasicInfoSection = ({
               <FormItem>
                 <FormLabel>Precio de Lista *</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" placeholder="Ej: 2500000" {...field} />
+                  <Input
+                    placeholder="Ej: 2,500,000.00"
+                    value={formatCurrency(field.value)}
+                    onChange={(e) => {
+                      const parsed = parseCurrency(e.target.value);
+                      field.onChange(parsed);
+                    }}
+                    onBlur={field.onBlur}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -435,7 +456,15 @@ export const PropertyBasicInfoSection = ({
               <FormItem>
                 <FormLabel>Monto Apartado (Opcional)</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" placeholder="Ej: 50000" {...field} />
+                  <Input
+                    placeholder="Ej: 50,000.00"
+                    value={formatCurrency(field.value)}
+                    onChange={(e) => {
+                      const parsed = parseCurrency(e.target.value);
+                      field.onChange(parsed);
+                    }}
+                    onBlur={field.onBlur}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
