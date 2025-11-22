@@ -414,7 +414,8 @@ const Propiedades = () => {
           proyectos!modelos_id_proyecto_fkey!inner(id, id_tipo_uso)
         `)
         .eq('activo', true)
-        .order('nombre', { ascending: true });
+        .order('nombre', { ascending: true })
+        .range(0, 4999);
       
       // Si hay proyectos seleccionados, filtrar modelos por esos proyectos
       if (selectedProyectos.length > 0) {
