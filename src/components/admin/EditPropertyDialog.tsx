@@ -15,6 +15,20 @@ import { PropertyCharacteristicsSection } from "./PropertyCharacteristicsSection
 import { PropertyYouTubeVideosSection } from "./PropertyYouTubeVideosSection";
 import React from "react";
 
+// Funciones para formatear moneda
+const formatCurrency = (value: string | number | undefined): string => {
+  if (!value && value !== 0) return "";
+  const numValue = typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
+  if (isNaN(numValue)) return "";
+  return numValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const parseCurrency = (value: string): number => {
+  const cleanValue = value.replace(/,/g, "");
+  const parsed = parseFloat(cleanValue);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 // Componente auxiliar para mostrar la configuración del modelo
 const ModelConfigurationDisplay = ({ 
   modeloId, 
@@ -678,12 +692,12 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Label htmlFor="precio_lista">Precio de Lista *</Label>
                     <Input
                       id="precio_lista"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.precio_lista}
-                      onChange={(e) => setFormData(prev => ({ ...prev, precio_lista: parseFloat(e.target.value) || 0 }))}
-                      placeholder="Ej: 2500000"
+                      value={formatCurrency(formData.precio_lista)}
+                      onChange={(e) => {
+                        const parsed = parseCurrency(e.target.value);
+                        setFormData(prev => ({ ...prev, precio_lista: parsed }));
+                      }}
+                      placeholder="Ej: 2,500,000.00"
                       required
                     />
                   </div>
@@ -692,12 +706,12 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Label htmlFor="monto_apartado">Monto Apartado (Opcional)</Label>
                     <Input
                       id="monto_apartado"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.monto_apartado}
-                      onChange={(e) => setFormData(prev => ({ ...prev, monto_apartado: parseFloat(e.target.value) || 0 }))}
-                      placeholder="Ej: 50000"
+                      value={formatCurrency(formData.monto_apartado)}
+                      onChange={(e) => {
+                        const parsed = parseCurrency(e.target.value);
+                        setFormData(prev => ({ ...prev, monto_apartado: parsed }));
+                      }}
+                      placeholder="Ej: 50,000.00"
                     />
                   </div>
                 </CardContent>
