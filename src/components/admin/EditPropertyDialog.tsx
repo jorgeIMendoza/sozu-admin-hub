@@ -329,21 +329,26 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           id,
           id_edificio,
           id_modelo,
-          edificios!edificios_modelos_id_edificio_fkey (
+          edificios:edificios!edificios_modelos_id_edificio_fkey (
             id,
             nombre,
             id_proyecto
           ),
-          modelos!edificios_modelos_id_modelo_fkey (
+          modelos:modelos!edificios_modelos_id_modelo_fkey (
             id,
             nombre
           )
         `)
-        .eq('activo', true)
-        .eq('edificios.id_proyecto', propertyProject.id);
+        .eq('activo', true);
       
       if (error) throw error;
-      return data || [];
+      
+      // Filter client-side to avoid excluding records with null relations
+      const filtered = data?.filter(em => 
+        em.edificios?.id_proyecto === propertyProject.id
+      ) || [];
+      
+      return filtered;
     },
     enabled: !!propertyProject?.id
   });
@@ -510,7 +515,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Combobox
                       value={formData.id_edificio_modelo}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, id_edificio_modelo: value }))}
-                      options={edificiosModelos?.map((em) => ({
+                      options={edificiosModelos?.filter(em => em.edificios?.nombre && em.modelos?.nombre).map((em) => ({
                         value: em.id.toString(),
                         label: `${em.edificios?.nombre} - ${em.modelos?.nombre}`,
                       })) || []}
