@@ -278,6 +278,7 @@ const Propiedades = () => {
   const [selectedModelos, setSelectedModelos] = useState<number[]>([]);
   const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false);
   const [isModeloFilterOpen, setIsModeloFilterOpen] = useState(false);
+  
   const [recamarasFilterInput, setRecamarasFilterInput] = useState("");
   const [recamarasFilter, setRecamarasFilter] = useState("");
   const [banosFilterInput, setBanosFilterInput] = useState("");
@@ -454,7 +455,7 @@ const Propiedades = () => {
   // Paginación
   const [currentPageActive, setCurrentPageActive] = useState(1);
   const [currentPageDraft, setCurrentPageDraft] = useState(1);
-  const [currentPageInactive, setCurrentPageInactive] = useState(1);
+  const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
   const itemsPerPage = 50;
   
   const { toast } = useToast();
@@ -1343,10 +1344,10 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesEliminadasData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
-    queryKey: ['properties-eliminados', currentPageInactive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
+    queryKey: ['properties-eliminados', currentPageDeleted, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
     queryFn: async () => {
       try {
-        const from = (currentPageInactive - 1) * itemsPerPage;
+        const from = (currentPageDeleted - 1) * itemsPerPage;
         const to = from + itemsPerPage - 1;
 
         let query = supabase
@@ -1606,7 +1607,7 @@ const Propiedades = () => {
   }, [searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
 
   useEffect(() => {
-    setCurrentPageInactive(1);
+    setCurrentPageDeleted(1);
   }, [searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter]);
 
   const { data: availabilityOptions } = useQuery({
@@ -3740,7 +3741,7 @@ const Propiedades = () => {
 
             <TabsContent value="eliminados" className="mt-4">
               {renderPropertiesTable(inactiveProperties, "eliminados")}
-              {renderPagination(currentPageInactive, totalInactivePage, setCurrentPageInactive)}
+              {renderPagination(currentPageDeleted, totalInactivePage, setCurrentPageDeleted)}
             </TabsContent>
           </Tabs>
         </CardContent>
