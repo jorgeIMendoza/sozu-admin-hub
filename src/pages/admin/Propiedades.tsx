@@ -407,21 +407,13 @@ const Propiedades = () => {
     queryFn: async () => {
       let query = supabase
         .from('modelos')
-        .select(`
-          id, 
-          nombre, 
-          id_proyecto,
-          proyectos!inner(id, id_tipo_uso)
-        `)
+        .select('id, nombre, id_proyecto')
         .eq('activo', true)
         .order('nombre', { ascending: true });
       
       // Si hay proyectos seleccionados, filtrar modelos por esos proyectos
       if (selectedProyectos.length > 0) {
         query = query.in('id_proyecto', selectedProyectos);
-      } else {
-        // Si no hay proyectos seleccionados, excluir modelos de proyectos tipo productos/servicios/mantenimientos
-        query = query.not('proyectos.id_tipo_uso', 'in', '(9,10,11)');
       }
       
       const { data, error } = await query;
@@ -3349,33 +3341,36 @@ const Propiedades = () => {
                     <Command>
                       <CommandInput placeholder="Buscar modelo..." />
                       <CommandEmpty>No se encontraron modelos.</CommandEmpty>
-                      <CommandGroup className="max-h-64 overflow-auto">
-                        {modelos?.map((modelo) => (
-                          <CommandItem
-                            key={modelo.id}
-                            onSelect={() => {
-                              setSelectedModelos(prev => 
-                                prev.includes(modelo.id)
-                                  ? prev.filter(id => id !== modelo.id)
-                                  : [...prev, modelo.id]
-                              );
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={selectedModelos.includes(modelo.id)}
-                              className="mr-2"
-                            />
-                            <span>{modelo.nombre}</span>
-                            <Check
-                              className={cn(
-                                "ml-auto h-4 w-4",
-                                selectedModelos.includes(modelo.id) ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
+                      <CommandList>
+                        <CommandGroup className="max-h-64 overflow-auto">
+                          {modelos?.map((modelo) => (
+                            <CommandItem
+                              key={modelo.id}
+                              value={modelo.nombre}
+                              onSelect={() => {
+                                setSelectedModelos(prev => 
+                                  prev.includes(modelo.id)
+                                    ? prev.filter(id => id !== modelo.id)
+                                    : [...prev, modelo.id]
+                                );
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={selectedModelos.includes(modelo.id)}
+                                className="mr-2"
+                              />
+                              <span>{modelo.nombre}</span>
+                              <Check
+                                className={cn(
+                                  "ml-auto h-4 w-4",
+                                  selectedModelos.includes(modelo.id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
                       {selectedModelos.length > 0 && (
                         <div className="border-t p-2">
                           <Button
