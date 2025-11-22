@@ -188,18 +188,12 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
     };
 
     // Calcular resumen de estacionamientos
-    // Debug: ver qué datos llegan
-    console.log('🔍 Estacionamientos recibidos:', estacionamientos);
-    
     const estacionamientosResumen = estacionamientos.reduce((acc: any, est: any) => {
-      // El tipo ya viene mapeado desde EditCuentaCobranzaDialog
-      const tipo = est.tipo_estacionamiento || 'Sin especificar';
-      console.log('🔍 Procesando estacionamiento:', est, 'Tipo:', tipo);
+      // Acceder al tipo desde la relación tipos_estacionamiento
+      const tipo = est.tipos_estacionamiento?.nombre || est.tipo_estacionamiento || 'Sin especificar';
       acc[tipo] = (acc[tipo] || 0) + 1;
       return acc;
     }, {});
-
-    console.log('🔍 Resumen final:', estacionamientosResumen);
 
     const estacionamientosTexto = Object.entries(estacionamientosResumen)
       .map(([tipo, cantidad]) => `${cantidad} ${tipo}`)
