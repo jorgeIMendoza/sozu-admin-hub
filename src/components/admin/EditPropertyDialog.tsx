@@ -337,42 +337,29 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     queryFn: async () => {
       if (!propertyProject?.id) return [];
       
-      // Query edificios_modelos with proper joins
-      const { data: edificiosModelosData, error } = await supabase
-        .from('edificios_modelos')
-        .select(`
-          id,
-          id_edificio,
-          id_modelo
-        `)
-        .eq('activo', true);
-      
-      if (error) throw error;
-      
-      // Get edificios for this project
+      // 1. Obtener edificios del proyecto
       const { data: edificiosData, error: edificiosError } = await supabase
         .from('edificios')
-        .select('id, nombre, id_proyecto')
-        .eq('id_proyecto', propertyProject.id)
-        .eq('activo', true);
+        .select('id, nombre')
+        .eq('id_proyecto', propertyProject.id);
       
       if (edificiosError) throw edificiosError;
+      if (!edificiosData || edificiosData.length === 0) return [];
       
-      // Create map for quick lookup of edificios in this proyecto
-      const edificiosMap = new Map(edificiosData?.map(e => [e.id, e]) || []);
-
-      // Filter edificios_modelos to only those whose edificio belongs to this proyecto
-      const relevantEdificiosModelos = (edificiosModelosData || []).filter(em =>
-        edificiosMap.has(em.id_edificio)
-      );
-
-      if (relevantEdificiosModelos.length === 0) {
-        return [];
-      }
-
-      // Get only the modelos that are actually referenced by these edificios_modelos
-      const modeloIds = Array.from(new Set(relevantEdificiosModelos.map(em => em.id_modelo)));
-
+      const edificioIds = edificiosData.map(e => e.id);
+      
+      // 2. Obtener edificios_modelos cuyos edificios pertenezcan al proyecto
+      const { data: edificiosModelosData, error: emError } = await supabase
+        .from('edificios_modelos')
+        .select('id, id_edificio, id_modelo')
+        .in('id_edificio', edificioIds);
+      
+      if (emError) throw emError;
+      if (!edificiosModelosData || edificiosModelosData.length === 0) return [];
+      
+      const modeloIds = Array.from(new Set(edificiosModelosData.map(em => em.id_modelo)));
+      
+      // 3. Obtener modelos
       const { data: modelosData, error: modelosError } = await supabase
         .from('modelos')
         .select('id, nombre')
@@ -380,18 +367,16 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
       
       if (modelosError) throw modelosError;
       
+      // 4. Crear mapas para lookup
+      const edificiosMap = new Map(edificiosData.map(e => [e.id, e]));
       const modelosMap = new Map(modelosData?.map(m => [m.id, m]) || []);
       
-      // Enrich and return
-      const filtered = relevantEdificiosModelos
-        .map(em => ({
-          ...em,
-          edificios: edificiosMap.get(em.id_edificio),
-          modelos: modelosMap.get(em.id_modelo),
-        }))
-        .filter(em => em.modelos);
-      
-      return filtered;
+      // 5. Enriquecer y retornar
+      return edificiosModelosData.map(em => ({
+        ...em,
+        edificios: edificiosMap.get(em.id_edificio),
+        modelos: modelosMap.get(em.id_modelo),
+      })).filter(em => em.edificios && em.modelos);
     },
     enabled: !!propertyProject?.id
   });
