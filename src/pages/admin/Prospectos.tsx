@@ -538,12 +538,16 @@ export default function Prospectos() {
 
       // Handle agent assignment update for prospects
       if (id_persona_duena_lead !== undefined) {
+        const agenteValue = id_persona_duena_lead && id_persona_duena_lead !== "" && id_persona_duena_lead !== "undefined" 
+          ? parseInt(id_persona_duena_lead) 
+          : null;
+        
         const { error: agentError } = await supabase
           .from('entidades_relacionadas')
-          .update({ id_persona_duena_lead: id_persona_duena_lead ? parseInt(id_persona_duena_lead) : null })
+          .update({ id_persona_duena_lead: agenteValue })
           .eq('id_persona', editingProspecto?.id)
           .eq('id_tipo_entidad', 7);
-          
+        
         if (agentError) throw agentError;
       }
     },
