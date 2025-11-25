@@ -1144,17 +1144,13 @@ export function DocumentsTab({
                 <SelectContent>
                   {tiposDocumento
                     .filter((tipo) => {
-                      // Filter out document types that are already added (in saved or pending documents)
-                      const existsInSaved = documentos.some(doc => doc.id_tipo_documento === tipo.id && doc.activo);
-                      const existsInPending = pendingDocuments.some(doc => doc.tipoDocumento === tipo.id.toString());
-                      
                       // Filter out invoice types when shouldAutoGenerateInvoice is true (owner doesn't have facturar enabled)
                       const isInvoiceType = tipo.nombre.toLowerCase().includes('factura');
                       if (shouldAutoGenerateInvoice && isInvoiceType) {
                         return false;
                       }
                       
-                      return !existsInSaved && !existsInPending;
+                      return true;
                     })
                     .map((tipo) => {
                       return (
