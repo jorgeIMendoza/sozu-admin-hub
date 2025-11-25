@@ -702,6 +702,19 @@ export default function Pagos() {
     setSelectedTipos(prev => prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]);
   };
   const totalMonto = filteredCuentas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
+  
+  // Calculate top 3 projects by number of accounts
+  const proyectosCuentaMap = filteredCuentas.reduce((acc, cuenta) => {
+    const proyecto = cuenta.proyecto;
+    acc[proyecto] = (acc[proyecto] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const top3Proyectos = Object.entries(proyectosCuentaMap)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([proyecto, count]) => ({ proyecto, count }));
+
   const formatCurrency = (amount: number) => {
     // Aggressively eliminate -0
     let value = amount;
@@ -1085,6 +1098,38 @@ export default function Pagos() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Top 3 Proyectos con Más Cuentas</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {top3Proyectos.length > 0 ? (
+                <div className="space-y-3">
+                  {top3Proyectos.map((item, index) => (
+                    <div key={item.proyecto} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-semibold">
+                          #{index + 1}
+                        </Badge>
+                        <span className="text-sm font-medium truncate max-w-[200px]">
+                          {item.proyecto}
+                        </span>
+                      </div>
+                      <Badge variant="secondary" className="ml-2">
+                        {item.count} {item.count === 1 ? 'cuenta' : 'cuentas'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay proyectos disponibles</p>
+              )}
             </CardContent>
           </Card>
         </div>
