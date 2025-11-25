@@ -703,17 +703,26 @@ export default function Pagos() {
   };
   const totalMonto = filteredCuentas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
   
-  // Calculate top 3 projects by number of accounts
-  const proyectosCuentaMap = filteredCuentas.reduce((acc, cuenta) => {
+  // Calculate top 3 projects by number of accounts with totals
+  const proyectosDataMap = filteredCuentas.reduce((acc, cuenta) => {
     const proyecto = cuenta.proyecto;
-    acc[proyecto] = (acc[proyecto] || 0) + 1;
+    if (!acc[proyecto]) {
+      acc[proyecto] = { count: 0, total: 0 };
+    }
+    acc[proyecto].count += 1;
+    acc[proyecto].total += Number(cuenta.precio_final);
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, { count: number; total: number }>);
 
-  const top3Proyectos = Object.entries(proyectosCuentaMap)
-    .sort(([, a], [, b]) => b - a)
+  const top3Proyectos = Object.entries(proyectosDataMap)
+    .sort(([, a], [, b]) => b.count - a.count)
     .slice(0, 3)
-    .map(([proyecto, count]) => ({ proyecto, count }));
+    .map(([proyecto, data]) => ({ 
+      proyecto, 
+      count: data.count, 
+      total: data.total,
+      promedio: data.total / data.count
+    }));
 
   const formatCurrency = (amount: number) => {
     // Aggressively eliminate -0
@@ -1110,20 +1119,48 @@ export default function Pagos() {
             </CardHeader>
             <CardContent>
               {top3Proyectos.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {top3Proyectos.map((item, index) => (
-                    <div key={item.proyecto} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs font-semibold">
-                          #{index + 1}
+                    <div key={item.proyecto} className="space-y-2 pb-3 border-b last:border-b-0 last:pb-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs font-semibold">
+                            #{index + 1}
+                          </Badge>
+                          <span className="text-sm font-medium truncate max-w-[200px]">
+                            {item.proyecto}
+                          </span>
+                        </div>
+                        <Badge variant="secondary" className="ml-2">
+                          {item.count} {item.count === 1 ? 'cuenta' : 'cuentas'}
                         </Badge>
-                        <span className="text-sm font-medium truncate max-w-[200px]">
-                          {item.proyecto}
-                        </span>
                       </div>
-                      <Badge variant="secondary" className="ml-2">
-                        {item.count} {item.count === 1 ? 'cuenta' : 'cuentas'}
-                      </Badge>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pl-7">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                Monto Total: <span className="font-semibold text-foreground">{formatCurrencyCompact(item.total)}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{formatCurrency(item.total)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                Promedio: <span className="font-semibold text-foreground">{formatCurrencyCompact(item.promedio)}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{formatCurrency(item.promedio)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </div>
                   ))}
                 </div>
