@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,6 +109,15 @@ export default function Pagos() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPageActive(1);
+  }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos]);
+
+  useEffect(() => {
+    setCurrentPageCancelled(1);
+  }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos]);
 
   // Helper function to normalize balance and avoid floating point precision issues
   const normalizarSaldo = (saldo: number): number => {
