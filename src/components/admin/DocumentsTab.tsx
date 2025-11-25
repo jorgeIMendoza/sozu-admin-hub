@@ -294,10 +294,9 @@ export function DocumentsTab({
     setIsUploading(true);
 
     try {
-      // Upload file to Supabase Storage with unique name
+      // Upload file to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
-      const randomId = crypto.randomUUID();
-      const fileName = `${entityType}_${entityId}_${Date.now()}_${randomId}.${fileExt}`;
+      const fileName = `${entityType}_${entityId}_${Date.now()}.${fileExt}`;
       const filePath = fileName; // Sin prefijo 'documentos/' para evitar duplicación
 
       const { error: uploadError } = await supabase.storage
