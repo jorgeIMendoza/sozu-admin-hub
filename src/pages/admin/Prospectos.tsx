@@ -43,6 +43,8 @@ type Prospecto = {
   id_estatus_persona?: number;
   proyecto_nombre?: string;
   id_proyecto?: number;
+  id_persona_duena_lead?: number;
+  agente_nombre?: string;
 };
 
 export default function Prospectos() {
@@ -76,6 +78,8 @@ export default function Prospectos() {
   const [prospectoToDelete, setProspectoToDelete] = useState<Prospecto | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [prospectoToRestore, setProspectoToRestore] = useState<Prospecto | null>(null);
+  const [newProspectoProyecto, setNewProspectoProyecto] = useState("");
+  const [newProspectoAgente, setNewProspectoAgente] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -105,6 +109,7 @@ export default function Prospectos() {
             id_tipo_entidad,
             id_estatus_persona,
             id_proyecto,
+            id_persona_duena_lead,
             activo,
             estatus:estatus_persona!fk_entidades_relacionadas_estatus_persona (
               id,
@@ -113,6 +118,10 @@ export default function Prospectos() {
             proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
               id,
               nombre
+            ),
+            agente:personas!entidades_relacionadas_id_persona_duena_lead_fkey (
+              id,
+              nombre_legal
             )
           ),
           representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
@@ -183,6 +192,8 @@ export default function Prospectos() {
             estatus_nombre: entidadRelacionada.estatus?.nombre,
             id_proyecto: entidadRelacionada.id_proyecto,
             proyecto_nombre: entidadRelacionada.proyecto?.nombre,
+            id_persona_duena_lead: entidadRelacionada.id_persona_duena_lead,
+            agente_nombre: entidadRelacionada.agente?.nombre_legal,
           } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
         }),
         count: count || 0
@@ -216,6 +227,7 @@ export default function Prospectos() {
             id_tipo_entidad,
             id_estatus_persona,
             id_proyecto,
+            id_persona_duena_lead,
             activo,
             estatus:estatus_persona!fk_entidades_relacionadas_estatus_persona (
               id,
@@ -224,6 +236,10 @@ export default function Prospectos() {
             proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
               id,
               nombre
+            ),
+            agente:personas!entidades_relacionadas_id_persona_duena_lead_fkey (
+              id,
+              nombre_legal
             )
           ),
           representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
@@ -294,6 +310,8 @@ export default function Prospectos() {
             estatus_nombre: entidadRelacionada.estatus?.nombre,
             id_proyecto: entidadRelacionada.id_proyecto,
             proyecto_nombre: entidadRelacionada.proyecto?.nombre,
+            id_persona_duena_lead: entidadRelacionada.id_persona_duena_lead,
+            agente_nombre: entidadRelacionada.agente?.nombre_legal,
           } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
         }),
         count: count || 0
@@ -323,6 +341,31 @@ export default function Prospectos() {
         .select('id, nombre')
         .eq('activo', true)
         .order('nombre', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Query for available agents (id_tipo_entidad = 19)
+  const { data: agentes = [] } = useQuery({
+    queryKey: ['agentes_disponibles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select(`
+          id,
+          nombre_legal,
+          entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
+            id,
+            id_tipo_entidad
+          )
+        `)
+        .eq('activo', true)
+        .eq('entidades_relacionadas.activo', true)
+        .eq('entidades_relacionadas.id_tipo_entidad', 19)
+        .is('entidades_relacionadas.id_proyecto', null)
+        .order('nombre_legal', { ascending: true });
       
       if (error) throw error;
       return data || [];
@@ -371,7 +414,7 @@ export default function Prospectos() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, pendingDocuments, id_proyecto, ...cleanPersonData } = personData;
+      const { entityType, representativeId, pendingDocuments, id_proyecto, id_persona_duena_lead, ...cleanPersonData } = personData;
       
       const { data: personResult, error: personError } = await supabase
         .from('personas')
@@ -387,6 +430,7 @@ export default function Prospectos() {
           id_persona: personResult.id,
           id_tipo_entidad: 7, // Prospecto
           id_proyecto: id_proyecto !== "null" && id_proyecto ? parseInt(id_proyecto) : null,
+          id_persona_duena_lead: id_persona_duena_lead ? parseInt(id_persona_duena_lead) : null,
           activo: true
         }]);
       
@@ -445,6 +489,8 @@ export default function Prospectos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospectos'] });
       setIsNewDialogOpen(false);
+      setNewProspectoProyecto("");
+      setNewProspectoAgente("");
       toast({
         title: "Éxito",
         description: "Prospecto creado correctamente.",
@@ -461,7 +507,7 @@ export default function Prospectos() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, id_proyecto, ...cleanPersonData } = personData;
+      const { entityType, representativeId, id_proyecto, id_persona_duena_lead, ...cleanPersonData } = personData;
       
       const { error: updateError } = await supabase
         .from('personas')
@@ -488,6 +534,17 @@ export default function Prospectos() {
           .eq('id_tipo_entidad', 7); // Prospecto type
           
         if (projectError) throw projectError;
+      }
+
+      // Handle agent assignment update for prospects
+      if (id_persona_duena_lead !== undefined) {
+        const { error: agentError } = await supabase
+          .from('entidades_relacionadas')
+          .update({ id_persona_duena_lead: id_persona_duena_lead ? parseInt(id_persona_duena_lead) : null })
+          .eq('id_persona', editingProspecto?.id)
+          .eq('id_tipo_entidad', 7);
+          
+        if (agentError) throw agentError;
       }
     },
     onSuccess: () => {
@@ -731,6 +788,7 @@ export default function Prospectos() {
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground w-40">Estatus</TableHead>
               <TableHead className="font-semibold text-foreground">Proyecto de Interés</TableHead>
+              <TableHead className="font-semibold text-foreground">Agente</TableHead>
               <TableHead className="font-semibold text-foreground">Fecha de Creación</TableHead>
               <TableHead className="font-semibold text-foreground text-center">Acciones</TableHead>
             </TableRow>
@@ -791,6 +849,26 @@ export default function Prospectos() {
                     placeholder="Sin proyecto asignado"
                     emptyText="No se encontró el proyecto"
                     searchPlaceholder="Buscar proyecto..."
+                    className="w-full"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Combobox
+                    value={prospecto.id_persona_duena_lead?.toString() || ""}
+                    onValueChange={(value) => {
+                      const agenteId = value ? parseInt(value) : null;
+                      updateMutation.mutate({
+                        id: prospecto.id,
+                        id_persona_duena_lead: agenteId
+                      });
+                    }}
+                    options={agentes.map((agente) => ({
+                      value: agente.id.toString(),
+                      label: agente.nombre_legal
+                    }))}
+                    placeholder="Sin agente asignado"
+                    emptyText="No se encontró el agente"
+                    searchPlaceholder="Buscar agente..."
                     className="w-full"
                   />
                 </TableCell>
@@ -1001,17 +1079,65 @@ export default function Prospectos() {
       </Card>
 
       {/* Dialog para nuevo prospecto */}
-      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+      <Dialog open={isNewDialogOpen} onOpenChange={(open) => {
+        setIsNewDialogOpen(open);
+        if (!open) {
+          setNewProspectoProyecto("");
+          setNewProspectoAgente("");
+        }
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nuevo Prospecto</DialogTitle>
           </DialogHeader>
-           <PersonForm
-             onSubmit={(data) => createMutation.mutate(data)}
-             isLoading={createMutation.isPending}
-             onCancel={() => setIsNewDialogOpen(false)}
-             entityType="client"
-           />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Proyecto de Interés</label>
+                <Combobox
+                  value={newProspectoProyecto}
+                  onValueChange={setNewProspectoProyecto}
+                  options={proyectos.map((proyecto) => ({
+                    value: proyecto.id.toString(),
+                    label: proyecto.nombre
+                  }))}
+                  placeholder="Seleccionar proyecto..."
+                  emptyText="No se encontró el proyecto"
+                  searchPlaceholder="Buscar proyecto..."
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Agente Responsable</label>
+                <Combobox
+                  value={newProspectoAgente}
+                  onValueChange={setNewProspectoAgente}
+                  options={agentes.map((agente) => ({
+                    value: agente.id.toString(),
+                    label: agente.nombre_legal
+                  }))}
+                  placeholder="Seleccionar agente..."
+                  emptyText="No se encontró el agente"
+                  searchPlaceholder="Buscar agente..."
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <PersonForm
+              onSubmit={(data) => createMutation.mutate({
+                ...data,
+                id_proyecto: newProspectoProyecto || null,
+                id_persona_duena_lead: newProspectoAgente || null
+              })}
+              isLoading={createMutation.isPending}
+              onCancel={() => {
+                setIsNewDialogOpen(false);
+                setNewProspectoProyecto("");
+                setNewProspectoAgente("");
+              }}
+              entityType="client"
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1021,20 +1147,71 @@ export default function Prospectos() {
           <DialogHeader>
             <DialogTitle>Editar Prospecto</DialogTitle>
           </DialogHeader>
-           <PersonForm
-             initialData={{
-               ...editingProspecto,
-               representativeId: editingProspecto?.id_entidad_relacionada_rep_leg,
-               id_proyecto: editingProspecto?.id_proyecto
-             }}
-             onSubmit={(data) => updateMutation.mutate(data)}
-             isLoading={updateMutation.isPending}
-             onCancel={() => {
-               setIsEditDialogOpen(false);
-               setEditingProspecto(null);
-             }}
-             entityType="client"
-           />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Proyecto de Interés</label>
+                <Combobox
+                  value={editingProspecto?.id_proyecto?.toString() || ""}
+                  onValueChange={(value) => {
+                    if (editingProspecto) {
+                      const proyectoId = value ? parseInt(value) : null;
+                      updateProjectMutation.mutate({
+                        entidadRelacionadaId: (editingProspecto as any).entidad_relacionada_id,
+                        proyectoId
+                      });
+                    }
+                  }}
+                  options={proyectos.map((proyecto) => ({
+                    value: proyecto.id.toString(),
+                    label: proyecto.nombre
+                  }))}
+                  placeholder="Seleccionar proyecto..."
+                  emptyText="No se encontró el proyecto"
+                  searchPlaceholder="Buscar proyecto..."
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Agente Responsable</label>
+                <Combobox
+                  value={editingProspecto?.id_persona_duena_lead?.toString() || ""}
+                  onValueChange={(value) => {
+                    if (editingProspecto) {
+                      const agenteId = value ? parseInt(value) : null;
+                      updateMutation.mutate({
+                        id: editingProspecto.id,
+                        id_persona_duena_lead: agenteId
+                      });
+                    }
+                  }}
+                  options={agentes.map((agente) => ({
+                    value: agente.id.toString(),
+                    label: agente.nombre_legal
+                  }))}
+                  placeholder="Seleccionar agente..."
+                  emptyText="No se encontró el agente"
+                  searchPlaceholder="Buscar agente..."
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <PersonForm
+              initialData={{
+                ...editingProspecto,
+                representativeId: editingProspecto?.id_entidad_relacionada_rep_leg,
+                id_proyecto: editingProspecto?.id_proyecto,
+                id_persona_duena_lead: editingProspecto?.id_persona_duena_lead
+              }}
+              onSubmit={(data) => updateMutation.mutate(data)}
+              isLoading={updateMutation.isPending}
+              onCancel={() => {
+                setIsEditDialogOpen(false);
+                setEditingProspecto(null);
+              }}
+              entityType="client"
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

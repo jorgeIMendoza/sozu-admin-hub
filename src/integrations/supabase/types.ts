@@ -2079,6 +2079,7 @@ export type Database = {
           id: number
           id_estatus_persona: number | null
           id_persona: number | null
+          id_persona_duena_lead: number | null
           id_proyecto: number | null
           id_tipo_entidad: number
           nombre_api_key: string | null
@@ -2094,6 +2095,7 @@ export type Database = {
           id?: number
           id_estatus_persona?: number | null
           id_persona?: number | null
+          id_persona_duena_lead?: number | null
           id_proyecto?: number | null
           id_tipo_entidad: number
           nombre_api_key?: string | null
@@ -2109,12 +2111,20 @@ export type Database = {
           id?: number
           id_estatus_persona?: number | null
           id_persona?: number | null
+          id_persona_duena_lead?: number | null
           id_proyecto?: number | null
           id_tipo_entidad?: number
           nombre_api_key?: string | null
           nombre_api_key_draft?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "entidades_relacionadas_id_persona_duena_lead_fkey"
+            columns: ["id_persona_duena_lead"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "entidades_relacionadas_id_persona_fkey"
             columns: ["id_persona"]
