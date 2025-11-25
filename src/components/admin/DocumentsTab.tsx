@@ -163,8 +163,7 @@ export function DocumentsTab({
         .from('documentos')
         .select('*')
         .eq(column, entityId)
-        .eq('activo', true)
-        .order('fecha_creacion', { ascending: false });
+        .eq('activo', true);
       
       if (docsError) throw docsError;
       
@@ -222,7 +221,15 @@ export function DocumentsTab({
           numero: doc.numero != null ? String(doc.numero) : null,
           tipo_documento_nombre: tiposMap.get(doc.id_tipo_documento) || 'Tipo desconocido',
           comprador_nombre: doc.id_persona ? personasMap.get(doc.id_persona) : undefined
-        }));
+        }))
+        .sort((a, b) => {
+          // Primero ordenar por tipo de documento (alfabéticamente)
+          const tipoComparison = (a.tipo_documento_nombre || '').localeCompare(b.tipo_documento_nombre || '', 'es', { sensitivity: 'base' });
+          if (tipoComparison !== 0) return tipoComparison;
+          
+          // Luego ordenar por fecha (más reciente primero)
+          return new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime();
+        });
       
       setDocumentos(docs);
     } catch (error) {
