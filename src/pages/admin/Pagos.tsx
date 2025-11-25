@@ -1126,7 +1126,9 @@ export default function Pagos() {
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredCuentas.length}</div>
+              <div className="text-2xl font-bold">
+                {activeTab === "activas" ? cuentasActivas.length : cuentasCanceladas.length}
+              </div>
             </CardContent>
           </Card>
           
@@ -1304,6 +1306,12 @@ export default function Pagos() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Filtered count display */}
+              {!isLoading && (
+                <div className="mb-4 text-sm text-muted-foreground">
+                  Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasActivas.length}</span> cuentas
+                </div>
+              )}
               {isLoading ? (
                 <div className="text-center py-8">Cargando cuentas de cobranza...</div>
               ) : filteredCuentas.length === 0 ? (
@@ -1817,6 +1825,12 @@ export default function Pagos() {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Filtered count display */}
+              {!isLoading && (
+                <div className="mb-4 text-sm text-muted-foreground">
+                  Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasCanceladas.length}</span> cuentas
+                </div>
+              )}
               {isLoading ? (
                 <div className="text-center py-8">Cargando cuentas de cobranza...</div>
               ) : filteredCuentas.length === 0 ? (
