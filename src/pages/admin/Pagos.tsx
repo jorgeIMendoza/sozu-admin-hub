@@ -821,6 +821,35 @@ export default function Pagos() {
     }).format(value);
   };
 
+  const formatCurrencyCompact = (amount: number) => {
+    // Aggressively eliminate -0
+    let value = amount;
+    value = +value.toFixed(2);
+    if (Math.abs(value) < 0.01) {
+      value = 0;
+    }
+
+    const absValue = Math.abs(value);
+    
+    if (absValue >= 1_000_000) {
+      // Format as millions with 2 decimal places
+      const millions = value / 1_000_000;
+      return `$${millions.toFixed(2)} M`;
+    } else if (absValue >= 1_000) {
+      // Format as thousands with 2 decimal places
+      const thousands = value / 1_000;
+      return `$${thousands.toFixed(2)} K`;
+    } else {
+      // For amounts less than 1000, use regular format
+      return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    }
+  };
+
   // Handler to open cancel dialog
   const handleCancelCuenta = (cuenta: CuentaCobranza) => {
     setCancelDialog({ isOpen: true, cuenta });
@@ -1155,7 +1184,18 @@ export default function Pagos() {
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalMonto)}</div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-2xl font-bold cursor-help">
+                      {formatCurrencyCompact(totalMonto)}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{formatCurrency(totalMonto)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardContent>
           </Card>
 
@@ -1165,9 +1205,18 @@ export default function Pagos() {
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(filteredCuentas.length > 0 ? totalMonto / filteredCuentas.length : 0)}
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-2xl font-bold cursor-help">
+                      {formatCurrencyCompact(filteredCuentas.length > 0 ? totalMonto / filteredCuentas.length : 0)}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{formatCurrency(filteredCuentas.length > 0 ? totalMonto / filteredCuentas.length : 0)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardContent>
           </Card>
         </div>
