@@ -26,7 +26,7 @@ const Dashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entidades_relacionadas')
-        .select('id_proyecto, personas!inner(nombre_legal)')
+        .select('id_proyecto, personas!entidades_relacionadas_id_persona_fkey(nombre_legal)')
         .eq('id_tipo_entidad', 5) // Tipo Inmobiliaria
         .ilike('personas.nombre_legal', '%Real Estate Ventures%');
 
@@ -56,11 +56,69 @@ const Dashboard = () => {
       // Get amounts for each project
       const projectsWithAmounts = await Promise.all(
         (projects || []).map(async (project) => {
+          // Primero obtenemos las entidades relacionadas del proyecto
+          const { data: entidades } = await supabase
+            .from('entidades_relacionadas')
+            .select('id')
+            .eq('id_proyecto', project.id);
+
+          if (!entidades || entidades.length === 0) {
+            return {
+              id: project.id,
+              nombre: project.nombre,
+              direccion: project.direccion,
+              precio_m2_actual: project.precio_m2_actual || 0,
+              tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
+              monto_total: 0
+            };
+          }
+
+          const entidadIds = entidades.map(e => e.id);
+
+          // Luego las propiedades de esas entidades
+          const { data: propiedades } = await supabase
+            .from('propiedades')
+            .select('id')
+            .in('id_entidad_relacionada_dueno', entidadIds);
+
+          if (!propiedades || propiedades.length === 0) {
+            return {
+              id: project.id,
+              nombre: project.nombre,
+              direccion: project.direccion,
+              precio_m2_actual: project.precio_m2_actual || 0,
+              tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
+              monto_total: 0
+            };
+          }
+
+          const propiedadIds = propiedades.map(p => p.id);
+
+          // Luego las ofertas de esas propiedades
+          const { data: ofertas } = await supabase
+            .from('ofertas')
+            .select('id')
+            .in('id_propiedad', propiedadIds);
+
+          if (!ofertas || ofertas.length === 0) {
+            return {
+              id: project.id,
+              nombre: project.nombre,
+              direccion: project.direccion,
+              precio_m2_actual: project.precio_m2_actual || 0,
+              tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
+              monto_total: 0
+            };
+          }
+
+          const ofertaIds = ofertas.map(o => o.id);
+
+          // Finalmente las cuentas de cobranza
           const { data: cuentas, error: cuentasError } = await supabase
             .from('cuentas_cobranza')
-            .select('precio_final, ofertas!inner(propiedades!inner(entidades_relacionadas!inner(id_proyecto)))')
+            .select('precio_final')
             .eq('activo', true)
-            .eq('ofertas.propiedades.entidades_relacionadas.id_proyecto', project.id);
+            .in('id_oferta', ofertaIds);
 
           if (cuentasError) {
             console.error('Error fetching cuentas:', cuentasError);
