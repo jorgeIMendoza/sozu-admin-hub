@@ -59,9 +59,15 @@ const baseProspectSchema = z.object({
     .max(10, "El teléfono debe tener exactamente 10 dígitos")
     .regex(/^[0-9]{10}$/, "El teléfono debe contener solo números y tener exactamente 10 dígitos"),
   rfc: z.string()
-    .min(1, "El RFC es requerido")
-    .regex(/^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/, "Formato de RFC inválido")
-    .max(13, "El RFC no puede tener más de 13 caracteres"),
+    .optional()
+    .refine((val) => {
+      if (!val || val === "") return true;
+      return /^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/.test(val);
+    }, "Formato de RFC inválido")
+    .refine((val) => {
+      if (!val || val === "") return true;
+      return val.length <= 13;
+    }, "El RFC no puede tener más de 13 caracteres"),
   curp: z.string()
     .optional()
     .refine((val) => {
