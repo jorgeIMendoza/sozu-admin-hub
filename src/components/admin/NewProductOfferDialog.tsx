@@ -15,7 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
 
 // Form validation schema
 const formSchema = z.object({
@@ -650,20 +651,41 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                   <FormField
                     control={form.control}
                     name="porcentaje_descuento_aumento"
-                    render={({ field }) => (
-                      <FormItem className="col-span-2">
-                        <FormLabel>Porcentaje Descuento/Aumento (%)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const value = parseFloat(field.value || "0");
+                      const isDiscount = value < 0;
+                      const isIncrease = value > 0;
+                      
+                      return (
+                        <FormItem className="col-span-2">
+                          <FormLabel className="flex items-center gap-2">
+                            Porcentaje Descuento/Aumento (%)
+                            {isDiscount && (
+                              <Badge variant="destructive" className="text-xs">
+                                Descuento
+                              </Badge>
+                            )}
+                            {isIncrease && (
+                              <Badge variant="default" className="text-xs">
+                                Aumento
+                              </Badge>
+                            )}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Usa valores negativos para descuentos (ej: -5 = 5% descuento) y valores positivos para aumentos (ej: 3 = 3% aumento)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 </div>
               </div>

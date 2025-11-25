@@ -187,7 +187,19 @@ export const PaymentSchemeFormSection = ({
                   </div>
 
                   <div>
-                    <Label className="text-xs">Porcentaje Descuento/Aumento (%)</Label>
+                    <Label className="text-xs flex items-center gap-2">
+                      Porcentaje Descuento/Aumento (%)
+                      {parseFloat(scheme.porcentaje_descuento_aumento || "0") < 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                          Descuento
+                        </Badge>
+                      )}
+                      {parseFloat(scheme.porcentaje_descuento_aumento || "0") > 0 && (
+                        <Badge variant="default" className="text-xs">
+                          Aumento
+                        </Badge>
+                      )}
+                    </Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -195,6 +207,9 @@ export const PaymentSchemeFormSection = ({
                       value={scheme.porcentaje_descuento_aumento || ""}
                       onChange={(e) => updatePaymentScheme(scheme.id, 'porcentaje_descuento_aumento', e.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Usa valores negativos para descuentos (ej: -5 = 5% descuento) y valores positivos para aumentos (ej: 3 = 3% aumento)
+                    </p>
                   </div>
 
                   {!isValid && totalPercentage > 0 && (

@@ -16,6 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -49,6 +50,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Check, ChevronsUpDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const baseProspectSchema = z.object({
   tipo_persona: z.string().min(1, "El tipo de persona es requerido"),
@@ -1089,19 +1091,40 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                      />
                    </div>
 
-                   <FormField
-                     control={form.control}
-                     name="porcentaje_descuento_aumento"
-                     render={({ field }) => (
-                       <FormItem>
-                         <FormLabel>Porcentaje Descuento/Aumento (%)</FormLabel>
-                         <FormControl>
-                           <Input type="number" step="0.01" placeholder="0" {...field} />
-                         </FormControl>
-                         <FormMessage />
-                       </FormItem>
-                     )}
-                   />
+                    <FormField
+                      control={form.control}
+                      name="porcentaje_descuento_aumento"
+                      render={({ field }) => {
+                        const value = parseFloat(field.value || "0");
+                        const isDiscount = value < 0;
+                        const isIncrease = value > 0;
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              Porcentaje Descuento/Aumento (%)
+                              {isDiscount && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Descuento
+                                </Badge>
+                              )}
+                              {isIncrease && (
+                                <Badge variant="default" className="text-xs">
+                                  Aumento
+                                </Badge>
+                              )}
+                            </FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="0" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              Usa valores negativos para descuentos (ej: -5 = 5% descuento) y valores positivos para aumentos (ej: 3 = 3% aumento)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
                 </div>
               </>
             )}
