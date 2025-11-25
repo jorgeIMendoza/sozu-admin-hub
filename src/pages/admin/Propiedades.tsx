@@ -295,6 +295,7 @@ const Propiedades = () => {
   const [areaFilter, setAreaFilter] = useState<number[]>([25, 300]);
   const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([1000000, 20000000]);
   const [precioFilter, setPrecioFilter] = useState<number[]>([1000000, 20000000]);
+  const [precioSort, setPrecioSort] = useState<'asc' | 'desc' | null>(null);
 
   // Column visibility and order state
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => {
@@ -1628,6 +1629,26 @@ const Propiedades = () => {
   const totalEliminadosCount = propiedadesEliminadasData?.count || 0;
   const filteredEliminadosCount = propiedadesEliminadasData?.filteredCount ?? totalEliminadosCount;
 
+  // Aplicar ordenamiento por precio si está activo
+  const sortPropertiesByPrice = (properties: Property[]) => {
+    if (!precioSort) return properties;
+    
+    return [...properties].sort((a, b) => {
+      const precioA = a.precio_lista || 0;
+      const precioB = b.precio_lista || 0;
+      
+      if (precioSort === 'asc') {
+        return precioA - precioB;
+      } else {
+        return precioB - precioA;
+      }
+    });
+  };
+
+  const sortedActiveProperties = sortPropertiesByPrice(activeProperties);
+  const sortedDraftProperties = sortPropertiesByPrice(draftProperties);
+  const sortedInactiveProperties = sortPropertiesByPrice(inactiveProperties);
+
   const isLoading = activeTab === "activos" ? loadingActivos : activeTab === "draft" ? loadingDraft : loadingEliminados;
 
   // Maintain focus on search input after re-render
@@ -2101,7 +2122,7 @@ const Propiedades = () => {
       const isProductOffer = !!currentOffer.id_producto;
       
       // Get property details to get id_entidad_relacionada_dueno
-      const allProperties = [...activeProperties, ...draftProperties, ...inactiveProperties];
+      const allProperties = [...sortedActiveProperties, ...sortedDraftProperties, ...sortedInactiveProperties];
       const property = allProperties?.find(p => p.id === propertyId);
       const id_er_dueno = property?.id_entidad_relacionada_dueno;
 
@@ -2407,7 +2428,7 @@ const Propiedades = () => {
     if (draftProperties.length === 0) return;
 
     try {
-      const propertyIds = draftProperties.map(p => p.id);
+      const propertyIds = sortedDraftProperties.map(p => p.id);
       const { error } = await supabase
         .from('propiedades')
         .update({ es_aprobado: true })
@@ -2417,7 +2438,7 @@ const Propiedades = () => {
 
       toast({
         title: "Propiedades aprobadas",
-        description: `${draftProperties.length} propiedades han sido aprobadas correctamente.`,
+        description: `${sortedDraftProperties.length} propiedades han sido aprobadas correctamente.`,
       });
 
       setSelectedProperties([]);
@@ -3666,8 +3687,23 @@ const Propiedades = () => {
               </div>
             </div>
             
-            {/* Botón para limpiar filtros y configurar columnas */}
+            {/* Botón para limpiar filtros, ordenar por precio y configurar columnas */}
             <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const newSort = precioSort === 'asc' ? 'desc' : precioSort === 'desc' ? null : 'asc';
+                  setPrecioSort(newSort);
+                }}
+                className="gap-2"
+              >
+                <DollarSign className="h-4 w-4" />
+                Precio
+                {precioSort === 'asc' && <TrendingUp className="h-4 w-4" />}
+                {precioSort === 'desc' && <TrendingDown className="h-4 w-4" />}
+                {!precioSort && <ArrowRightLeft className="h-4 w-4" />}
+              </Button>
+              
               <Button
                 variant="outline"
                 onClick={() => {
@@ -3691,6 +3727,7 @@ const Propiedades = () => {
                   setPrecioFilterInput([1000000, 20000000]);
                   setPrecioFilter([1000000, 20000000]);
                   setSelectedProperties([]);
+                  setPrecioSort(null);
                 }}
               >
                 Limpiar Filtros
@@ -3786,15 +3823,15 @@ const Propiedades = () => {
             </TabsList>
             
             <TabsContent value="activos" className="mt-4">
-              {renderPropertiesTable(activeProperties, "activos")}
+              {renderPropertiesTable(sortedActiveProperties, "activos")}
               {renderPagination(currentPageActive, totalActivePage, setCurrentPageActive)}
             </TabsContent>
 
             <TabsContent value="draft" className="mt-4">
               <div className="mb-4 flex flex-wrap gap-2">
-                {draftProperties.length > 0 && (
+                {sortedDraftProperties.length > 0 && (
                   <Button onClick={handleApproveAllVisible} variant="default" className="bg-green-600 hover:bg-green-700">
-                    Aprobar Todas las Visibles ({draftProperties.length})
+                    Aprobar Todas las Visibles ({sortedDraftProperties.length})
                   </Button>
                 )}
                 {selectedProperties.length > 0 && (
@@ -3808,12 +3845,12 @@ const Propiedades = () => {
                   </>
                 )}
               </div>
-              {renderPropertiesTable(draftProperties, "draft")}
+              {renderPropertiesTable(sortedDraftProperties, "draft")}
               {renderPagination(currentPageDraft, totalDraftPage, setCurrentPageDraft)}
             </TabsContent>
 
             <TabsContent value="eliminados" className="mt-4">
-              {renderPropertiesTable(inactiveProperties, "eliminados")}
+              {renderPropertiesTable(sortedInactiveProperties, "eliminados")}
               {renderPagination(currentPageDeleted, totalInactivePage, setCurrentPageDeleted)}
             </TabsContent>
           </Tabs>
