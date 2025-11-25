@@ -17,6 +17,20 @@ interface ProjectData {
 }
 
 const Dashboard = () => {
+  // Fetch Sozu-managed projects (Inmobiliaria = Real Estate Ventures)
+  const { data: sozuProjectIds = [] } = useQuery({
+    queryKey: ['sozu-projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_proyecto, personas!entidades_relacionadas_id_persona_fkey(nombre_legal)')
+        .eq('id_tipo_entidad', 5) // Tipo Inmobiliaria
+        .ilike('personas.nombre_legal', '%Real Estate Ventures%');
+
+      if (error) throw error;
+      return data?.map(er => er.id_proyecto) || [];
+    }
+  });
 
   // Fetch projects with amounts
   const { data: projectAmounts = [] } = useQuery({
@@ -136,10 +150,15 @@ const Dashboard = () => {
     }
   });
 
-  // Fetch total buildings for all projects with monto > 0
+  // Filter projects to only show Sozu-managed ones
+  const filteredProjects = useMemo(() => {
+    return projectAmounts.filter((p: ProjectData) => sozuProjectIds.includes(p.id));
+  }, [projectAmounts, sozuProjectIds]);
+
+  // Fetch total buildings for filtered Sozu projects
   const projectIdsWithAmount = useMemo(() => 
-    projectAmounts.map(p => p.id), 
-    [projectAmounts]
+    filteredProjects.map(p => p.id), 
+    [filteredProjects]
   );
 
   const { data: totalBuildings = 0 } = useQuery({
@@ -159,12 +178,12 @@ const Dashboard = () => {
     enabled: projectIdsWithAmount.length > 0
   });
 
-  // Calculate stats
+  // Calculate stats for Sozu projects only
   const stats = useMemo(() => {
-    const totalProjects = projectAmounts.length;
+    const totalProjects = filteredProjects.length;
 
-    // Calculate average price per m2
-    const projectsWithPrice = projectAmounts.filter((p: ProjectData) => p.precio_m2_actual > 0);
+    // Calculate average price per m2 only for projects with precio_m2_actual > 0
+    const projectsWithPrice = filteredProjects.filter((p: ProjectData) => p.precio_m2_actual > 0);
     const avgPrice = projectsWithPrice.length > 0
       ? projectsWithPrice.reduce((sum: number, p: ProjectData) => sum + p.precio_m2_actual, 0) / projectsWithPrice.length
       : 0;
@@ -182,17 +201,17 @@ const Dashboard = () => {
       },
       {
         title: "Precio Promedio",
-        value: `$${Math.round(avgPrice).toLocaleString('es-MX')}`,
+        value: `${Math.round(avgPrice).toLocaleString('es-MX')}`,
         subtitle: "MXN por m²",
         icon: DollarSign,
       }
     ];
-  }, [projectAmounts, totalBuildings]);
+  }, [filteredProjects, totalBuildings]);
 
   // Get top 5 projects to display
   const topProjects = useMemo(() => {
-    return projectAmounts.slice(0, 5);
-  }, [projectAmounts]);
+    return filteredProjects.slice(0, 5);
+  }, [filteredProjects]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -216,8 +235,8 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Gestión de Proyectos</h1>
-          <p className="text-muted-foreground">Administra los proyectos inmobiliarios</p>
+          <h1 className="text-3xl font-bold text-foreground">Proyectos gestionados por Sozu</h1>
+          <p className="text-muted-foreground">Proyectos inmobiliarios gestionados por Real Estate Ventures</p>
         </div>
       </div>
 
