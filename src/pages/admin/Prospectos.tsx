@@ -507,45 +507,69 @@ export default function Prospectos() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, id_proyecto, id_persona_duena_lead, ...cleanPersonData } = personData;
+      const { entityType, representativeId, id_proyecto, id_persona_duena_lead, id, ...cleanPersonData } = personData;
       
-      const { error: updateError } = await supabase
-        .from('personas')
-        .update(cleanPersonData)
-        .eq('id', editingProspecto?.id);
-      
-      if (updateError) throw updateError;
-      
-      if (representativeId !== undefined && cleanPersonData.tipo_persona === 'pm') {
-        const { error: repError } = await supabase
+      // Solo actualizar la tabla personas cuando se edita desde el diálogo
+      if (editingProspecto) {
+        const { error: updateError } = await supabase
           .from('personas')
-          .update({ id_entidad_relacionada_rep_leg: representativeId || null })
-          .eq('id', editingProspecto?.id);
-          
-        if (repError) throw repError;
+          .update(cleanPersonData)
+          .eq('id', editingProspecto.id);
+        
+        if (updateError) throw updateError;
+        
+        if (representativeId !== undefined && cleanPersonData.tipo_persona === 'pm') {
+          const { error: repError } = await supabase
+            .from('personas')
+            .update({ id_entidad_relacionada_rep_leg: representativeId || null })
+            .eq('id', editingProspecto.id);
+            
+          if (repError) throw repError;
+        }
       }
 
-      // Handle project assignment update for prospects
-      if (id_proyecto !== undefined) {
+      // Determinar el id de persona a usar para entidades_relacionadas
+      const personaId = editingProspecto?.id ?? id;
+
+      // Actualizar proyecto del prospecto (cuando venga en el payload)
+      if (id_proyecto !== undefined && personaId) {
+        let proyectoValue: number | null;
+        
+        if (id_proyecto === null || id_proyecto === '' || id_proyecto === 'null' || id_proyecto === 'undefined') {
+          proyectoValue = null;
+        } else if (typeof id_proyecto === 'number') {
+          proyectoValue = id_proyecto;
+        } else {
+          const parsed = parseInt(id_proyecto as string, 10);
+          proyectoValue = Number.isNaN(parsed) ? null : parsed;
+        }
+        
         const { error: projectError } = await supabase
           .from('entidades_relacionadas')
-          .update({ id_proyecto: id_proyecto })
-          .eq('id_persona', editingProspecto?.id)
+          .update({ id_proyecto: proyectoValue })
+          .eq('id_persona', personaId)
           .eq('id_tipo_entidad', 7); // Prospecto type
           
         if (projectError) throw projectError;
       }
 
-      // Handle agent assignment update for prospects
-      if (id_persona_duena_lead !== undefined) {
-        const agenteValue = id_persona_duena_lead && id_persona_duena_lead !== "" && id_persona_duena_lead !== "undefined" 
-          ? parseInt(id_persona_duena_lead) 
-          : null;
+      // Actualizar agente dueño del lead
+      if (id_persona_duena_lead !== undefined && personaId) {
+        let agenteValue: number | null = null;
+
+        if (id_persona_duena_lead !== null && id_persona_duena_lead !== '' && id_persona_duena_lead !== 'undefined') {
+          if (typeof id_persona_duena_lead === 'number') {
+            agenteValue = id_persona_duena_lead;
+          } else {
+            const parsed = parseInt(id_persona_duena_lead as string, 10);
+            agenteValue = Number.isNaN(parsed) ? null : parsed;
+          }
+        }
         
         const { error: agentError } = await supabase
           .from('entidades_relacionadas')
           .update({ id_persona_duena_lead: agenteValue })
-          .eq('id_persona', editingProspecto?.id)
+          .eq('id_persona', personaId)
           .eq('id_tipo_entidad', 7);
         
         if (agentError) throw agentError;
