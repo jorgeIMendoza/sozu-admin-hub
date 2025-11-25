@@ -133,12 +133,12 @@ const Dashboard = () => {
 
           const monto_total = (cuentas || []).reduce((sum, c) => sum + Number(c.precio_final), 0);
 
-          // Check if project has available properties (id_estatus_disponibilidad = 1 is "Disponible")
+          // Check if project has available properties (id_estatus_disponibilidad = 2 is "Disponible")
           const { data: disponibles } = await supabase
             .from('propiedades')
             .select('id')
             .in('id_entidad_relacionada_dueno', entidadIds)
-            .eq('id_estatus_disponibilidad', 1)
+            .eq('id_estatus_disponibilidad', 2)
             .limit(1);
 
           return {
