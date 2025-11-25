@@ -24,19 +24,16 @@ import { Label } from "@/components/ui/label";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { EstadoCuentaService } from "@/services/estadoCuentaService";
 import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
-
 interface Comprador {
   nombre_legal: string;
   rfc: string | null;
   porcentaje_copropiedad: number;
   id_persona?: number;
 }
-
 interface CashPayment {
   fecha_pago: string;
   monto: number;
 }
-
 interface CuentaCobranza {
   id: number;
   tipo: 'Propiedad' | 'Producto' | 'Servicio';
@@ -67,12 +64,11 @@ interface CuentaCobranza {
   cash_payments?: CashPayment[];
   id_estatus_disponibilidad?: number;
 }
-
 export default function Pagos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("activas");
   const [selectedTipos, setSelectedTipos] = useState<Array<'Propiedad' | 'Producto' | 'Servicio'>>(['Propiedad', 'Producto', 'Servicio']);
-  
+
   // Filter states
   const [idCuentaFilter, setIdCuentaFilter] = useState("");
   const [productoFilter, setProductoFilter] = useState("");
@@ -81,20 +77,32 @@ export default function Pagos() {
   const [proyectoFilter, setProyectoFilter] = useState("");
   const [noPropiedadFilter, setNoPropiedadFilter] = useState("");
   const [modeloFilter, setModeloFilter] = useState("");
-  const [cancelDialog, setCancelDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
+  const [cancelDialog, setCancelDialog] = useState<{
+    isOpen: boolean;
+    cuenta: CuentaCobranza | null;
+  }>({
     isOpen: false,
     cuenta: null
   });
-  const [editDialog, setEditDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
+  const [editDialog, setEditDialog] = useState<{
+    isOpen: boolean;
+    cuenta: CuentaCobranza | null;
+  }>({
     isOpen: false,
     cuenta: null
   });
   const [loadingDownload, setLoadingDownload] = useState<number | null>(null);
-  const [paymentDialog, setPaymentDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
+  const [paymentDialog, setPaymentDialog] = useState<{
+    isOpen: boolean;
+    cuenta: CuentaCobranza | null;
+  }>({
     isOpen: false,
     cuenta: null
   });
-  const [cashDialog, setCashDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
+  const [cashDialog, setCashDialog] = useState<{
+    isOpen: boolean;
+    cuenta: CuentaCobranza | null;
+  }>({
     isOpen: false,
     cuenta: null
   });
@@ -105,8 +113,9 @@ export default function Pagos() {
   const [currentPageActive, setCurrentPageActive] = useState(1);
   const [currentPageCancelled, setCurrentPageCancelled] = useState(1);
   const itemsPerPage = 50;
-
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -114,7 +123,6 @@ export default function Pagos() {
   useEffect(() => {
     setCurrentPageActive(1);
   }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos]);
-
   useEffect(() => {
     setCurrentPageCancelled(1);
   }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos]);
@@ -123,23 +131,25 @@ export default function Pagos() {
   const normalizarSaldo = (saldo: number): number => {
     // Round to 2 decimal places first to avoid precision issues
     const rounded = Math.round(saldo * 100) / 100;
-    
+
     // If balance is very close to zero (less than 1 cent), treat it as exactly zero
     // This also handles -0 (negative zero) by explicitly returning positive 0
     if (Math.abs(rounded) < 0.01 || Object.is(rounded, -0)) {
       return 0; // Explicitly return positive 0
     }
-    
     return rounded;
   };
-
-  const { data: cuentasCobranza, isLoading } = useQuery({
+  const {
+    data: cuentasCobranza,
+    isLoading
+  } = useQuery({
     queryKey: ["cuentas_cobranza"],
     queryFn: async () => {
       // Get basic cuenta cobranza data with payment sums (excluding maintenance accounts)
-      const { data: cuentas, error: cuentasError } = await supabase
-        .from('cuentas_cobranza')
-        .select(`
+      const {
+        data: cuentas,
+        error: cuentasError
+      } = await supabase.from('cuentas_cobranza').select(`
           id,
           clabe_stp,
           precio_final,
@@ -149,42 +159,36 @@ export default function Pagos() {
           es_comision_venta_efectivo,
           porcentaje_comision_venta,
           tipos_cancelacion:id_tipo_cancelacion(nombre)
-        `)
-        .is('id_cuenta_cobranza_padre', null);
-
+        `).is('id_cuenta_cobranza_padre', null);
       if (cuentasError) {
         console.error('Error fetching cuentas:', cuentasError);
         return [];
       }
-
       if (!cuentas || cuentas.length === 0) return [];
 
       // Get all payment amounts for each account using aplicaciones_pago
       const cuentaIds = cuentas.map(c => c.id);
       console.log('Cuenta IDs:', cuentaIds);
-      
-      // First get all acuerdos for these cuentas
-      const { data: acuerdosForPagos } = await supabase
-        .from('acuerdos_pago')
-        .select('id, id_cuenta_cobranza')
-        .in('id_cuenta_cobranza', cuentaIds)
-        .eq('activo', true);
 
+      // First get all acuerdos for these cuentas
+      const {
+        data: acuerdosForPagos
+      } = await supabase.from('acuerdos_pago').select('id, id_cuenta_cobranza').in('id_cuenta_cobranza', cuentaIds).eq('activo', true);
       const acuerdoIdsForPagos = acuerdosForPagos?.map(a => a.id) || [];
-      
+
       // Now get aplicaciones_pago for those acuerdos
-      const { data: aplicacionesPago, error: aplicacionesError } = await supabase
-        .from('aplicaciones_pago')
-        .select(`
+      const {
+        data: aplicacionesPago,
+        error: aplicacionesError
+      } = await supabase.from('aplicaciones_pago').select(`
           monto,
           id_acuerdo_pago,
           es_multa
-        `)
-        .in('id_acuerdo_pago', acuerdoIdsForPagos)
-        .eq('activo', true)
-        .eq('es_multa', false);
-
-      console.log('Aplicaciones pago query result:', { aplicacionesPago, aplicacionesError });
+        `).in('id_acuerdo_pago', acuerdoIdsForPagos).eq('activo', true).eq('es_multa', false);
+      console.log('Aplicaciones pago query result:', {
+        aplicacionesPago,
+        aplicacionesError
+      });
 
       // Create a map from acuerdo_id to cuenta_id
       const acuerdoToCuentaMap = acuerdosForPagos?.reduce((acc: Record<number, number>, a) => {
@@ -194,65 +198,52 @@ export default function Pagos() {
 
       // Calculate total payments per account from aplicaciones
       const pagadoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
-        const totalPagado = aplicacionesPago
-          ?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id)
-          ?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
+        const totalPagado = aplicacionesPago?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id)?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
         acc[cuenta.id] = totalPagado;
         console.log(`Cuenta ${cuenta.id}: pagado = ${totalPagado}`);
         return acc;
       }, {});
-      
       console.log('Pagado por cuenta:', pagadoPorCuenta);
 
       // Get cash payments (id_metodos_pago = 1) for all accounts using aplicaciones_pago
       // Note: Will calculate pagadoEfectivoPorCuenta and pagosCashPorCuenta after fetching ofertas and complementary data
-      const { data: pagosCash } = await supabase
-        .from('pagos')
-        .select('id, fecha_pago, id_metodos_pago, activo')
-        .in('id_cuenta_cobranza', cuentaIds)
-        .eq('id_metodos_pago', 1)
-        .eq('activo', true)
-        .order('fecha_pago', { ascending: false });
-
+      const {
+        data: pagosCash
+      } = await supabase.from('pagos').select('id, fecha_pago, id_metodos_pago, activo').in('id_cuenta_cobranza', cuentaIds).eq('id_metodos_pago', 1).eq('activo', true).order('fecha_pago', {
+        ascending: false
+      });
       const pagosCashIds = pagosCash?.map(p => p.id) || [];
-      
+
       // Get aplicaciones for cash payments
-      const { data: aplicacionesCash } = await supabase
-        .from('aplicaciones_pago')
-        .select(`
+      const {
+        data: aplicacionesCash
+      } = await supabase.from('aplicaciones_pago').select(`
           monto,
           id_acuerdo_pago,
           id_pago,
           es_multa
-        `)
-        .in('id_pago', pagosCashIds)
-        .in('id_acuerdo_pago', acuerdoIdsForPagos)
-        .eq('activo', true)
-        .eq('es_multa', false);
+        `).in('id_pago', pagosCashIds).in('id_acuerdo_pago', acuerdoIdsForPagos).eq('activo', true).eq('es_multa', false);
 
       // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid
-      const { data: acuerdosPago } = await supabase
-        .from('acuerdos_pago')
-        .select('id, id_cuenta_cobranza, id_concepto, pago_completado')
-        .in('id_cuenta_cobranza', cuentaIds)
-        .eq('activo', true);
-
+      const {
+        data: acuerdosPago
+      } = await supabase.from('acuerdos_pago').select('id, id_cuenta_cobranza, id_concepto, pago_completado').in('id_cuenta_cobranza', cuentaIds).eq('activo', true);
       console.log('🔍 Acuerdos de pago:', acuerdosPago);
 
       // Get aplicaciones_pago para verificar si hay pagos de cesión de derechos
       const acuerdoIds = acuerdosPago?.map(a => a.id) || [];
       let cesionDerechosMap: Record<number, boolean> = {};
-      
       if (acuerdoIds.length > 0) {
-        const { data: aplicaciones } = await supabase
-          .from('aplicaciones_pago')
-          .select('id_acuerdo_pago, monto')
-          .in('id_acuerdo_pago', acuerdoIds)
-          .eq('activo', true);
+        const {
+          data: aplicaciones
+        } = await supabase.from('aplicaciones_pago').select('id_acuerdo_pago, monto').in('id_acuerdo_pago', acuerdoIds).eq('activo', true);
 
         // Crear mapeo de acuerdo_id a concepto_id y cuenta_id
         const acuerdosMap = acuerdosPago?.reduce((acc: any, a) => {
-          acc[a.id] = { id_concepto: a.id_concepto, id_cuenta_cobranza: a.id_cuenta_cobranza };
+          acc[a.id] = {
+            id_concepto: a.id_concepto,
+            id_cuenta_cobranza: a.id_cuenta_cobranza
+          };
           return acc;
         }, {});
 
@@ -263,46 +254,34 @@ export default function Pagos() {
             cesionDerechosMap[acuerdo.id_cuenta_cobranza] = true;
           }
         });
-        
         console.log('🔍 Cuentas con cesión de derechos:', cesionDerechosMap);
       }
 
       // Primero necesitamos determinar qué cuentas son de productos
       // Obtenemos las ofertas para saber cuáles tienen id_producto
       const ofertaIdsTemp = cuentas.map(c => c.id_oferta).filter(id => id !== null);
-      const { data: ofertasTemp } = ofertaIdsTemp.length > 0 ? await supabase
-        .from('ofertas')
-        .select('id, id_producto')
-        .in('id', ofertaIdsTemp) : { data: [] };
-
-      const cuentasProductoSet = new Set(
-        ofertasTemp?.filter(o => o.id_producto).map(o => 
-          cuentas.find(c => c.id_oferta === o.id)?.id
-        ).filter(Boolean) || []
-      );
-
+      const {
+        data: ofertasTemp
+      } = ofertaIdsTemp.length > 0 ? await supabase.from('ofertas').select('id, id_producto').in('id', ofertaIdsTemp) : {
+        data: []
+      };
+      const cuentasProductoSet = new Set(ofertasTemp?.filter(o => o.id_producto).map(o => cuentas.find(c => c.id_oferta === o.id)?.id).filter(Boolean) || []);
       console.log('🔍 Cuentas de productos:', Array.from(cuentasProductoSet));
 
       // Create a map of whether initial payment is made for each cuenta
       const apartadoPagadoPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
         const esProducto = cuentasProductoSet.has(cuenta.id);
-        
         if (esProducto) {
           // Para productos, el pago inicial es el Enganche (id_concepto = 2)
-          const acuerdoEnganche = acuerdosPago?.find(
-            ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 2
-          );
+          const acuerdoEnganche = acuerdosPago?.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 2);
           acc[cuenta.id] = acuerdoEnganche?.pago_completado || false;
           console.log(`💰 Cuenta ${cuenta.id} [PRODUCTO]: enganche_pagado = ${acc[cuenta.id]}`);
         } else {
           // Para propiedades, el pago inicial es Apartado (id_concepto = 1) o Cesión de derechos (id_concepto = 6)
-          const acuerdoApartado = acuerdosPago?.find(
-            ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 1
-          );
-          acc[cuenta.id] = (acuerdoApartado?.pago_completado || false) || (cesionDerechosMap[cuenta.id] || false);
+          const acuerdoApartado = acuerdosPago?.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 1);
+          acc[cuenta.id] = acuerdoApartado?.pago_completado || false || cesionDerechosMap[cuenta.id] || false;
           console.log(`💰 Cuenta ${cuenta.id} [PROPIEDAD]: apartado_pagado = ${acc[cuenta.id]} (apartado: ${acuerdoApartado?.pago_completado}, cesión: ${cesionDerechosMap[cuenta.id]})`);
         }
-        
         return acc;
       }, {});
 
@@ -316,14 +295,10 @@ export default function Pagos() {
       // Get multas pendientes para cada cuenta
       const acuerdoIdsForMultas = acuerdosPago?.map(ap => ap.id) || [];
       let multasPendientesPorCuenta: Record<number, boolean> = {};
-      
       if (acuerdoIdsForMultas.length > 0) {
-        const { data: multas } = await supabase
-          .from('multas')
-          .select('id, id_acuerdo_pago, es_pagada')
-          .in('id_acuerdo_pago', acuerdoIdsForMultas)
-          .eq('activo', true)
-          .eq('es_pagada', false);
+        const {
+          data: multas
+        } = await supabase.from('multas').select('id, id_acuerdo_pago, es_pagada').in('id_acuerdo_pago', acuerdoIdsForMultas).eq('activo', true).eq('es_pagada', false);
 
         // Crear un mapa de acuerdo_id a cuenta_id
         const acuerdoToCuentaMap = acuerdosPago?.reduce((acc: any, ap) => {
@@ -338,7 +313,6 @@ export default function Pagos() {
             multasPendientesPorCuenta[cuentaId] = true;
           }
         });
-
         console.log('🔍 Cuentas con multas pendientes:', multasPendientesPorCuenta);
       }
 
@@ -346,9 +320,10 @@ export default function Pagos() {
       const ofertaIds = cuentas.map(c => c.id_oferta).filter(id => id !== null);
 
       // Get ofertas with properties and products
-      const { data: ofertas, error: ofertasError } = ofertaIds.length > 0 ? await supabase
-        .from('ofertas')
-        .select(`
+      const {
+        data: ofertas,
+        error: ofertasError
+      } = ofertaIds.length > 0 ? await supabase.from('ofertas').select(`
           id,
           id_propiedad,
           id_producto,
@@ -360,39 +335,35 @@ export default function Pagos() {
             id_edificio_modelo,
             id_estatus_disponibilidad
           )
-        `)
-        .in('id', ofertaIds) : { data: [], error: null };
-
+        `).in('id', ofertaIds) : {
+        data: [],
+        error: null
+      };
       if (ofertasError) {
         console.error('Error fetching ofertas:', ofertasError);
         return [];
       }
 
       // Get property IDs to find non-included bodegas and estacionamientos
-      const propiedadIds = ofertas
-        ?.filter(o => o.id_propiedad)
-        ?.map(o => o.id_propiedad) || [];
+      const propiedadIds = ofertas?.filter(o => o.id_propiedad)?.map(o => o.id_propiedad) || [];
 
       // Get bodegas not included for these properties
-      const { data: bodegasNoIncluidas } = propiedadIds.length > 0 ? await supabase
-        .from('bodegas')
-        .select('id, id_propiedad, id_producto, es_incluido')
-        .in('id_propiedad', propiedadIds)
-        .eq('es_incluido', false)
-        .eq('activo', true) : { data: [] };
+      const {
+        data: bodegasNoIncluidas
+      } = propiedadIds.length > 0 ? await supabase.from('bodegas').select('id, id_propiedad, id_producto, es_incluido').in('id_propiedad', propiedadIds).eq('es_incluido', false).eq('activo', true) : {
+        data: []
+      };
 
       // Get estacionamientos not included for these properties
-      const { data: estacionamientosNoIncluidos } = propiedadIds.length > 0 ? await supabase
-        .from('estacionamientos')
-        .select('id, id_propiedad, id_producto, es_incluido')
-        .in('id_propiedad', propiedadIds)
-        .eq('es_incluido', false)
-        .eq('activo', true) : { data: [] };
+      const {
+        data: estacionamientosNoIncluidos
+      } = propiedadIds.length > 0 ? await supabase.from('estacionamientos').select('id, id_propiedad, id_producto, es_incluido').in('id_propiedad', propiedadIds).eq('es_incluido', false).eq('activo', true) : {
+        data: []
+      };
 
       // Create maps: propiedad_id -> [producto_ids]
       const bodegaProductosPorPropiedad = new Map<number, number[]>();
       const estacionamientoProductosPorPropiedad = new Map<number, number[]>();
-
       bodegasNoIncluidas?.forEach(b => {
         if (b.id_producto && b.id_propiedad) {
           if (!bodegaProductosPorPropiedad.has(b.id_propiedad)) {
@@ -401,7 +372,6 @@ export default function Pagos() {
           bodegaProductosPorPropiedad.get(b.id_propiedad)!.push(b.id_producto);
         }
       });
-
       estacionamientosNoIncluidos?.forEach(e => {
         if (e.id_producto && e.id_propiedad) {
           if (!estacionamientoProductosPorPropiedad.has(e.id_propiedad)) {
@@ -412,33 +382,21 @@ export default function Pagos() {
       });
 
       // Get all complementary product IDs
-      const complementarioProductIds = [
-        ...(bodegasNoIncluidas?.map(b => b.id_producto).filter(Boolean) || []),
-        ...(estacionamientosNoIncluidos?.map(e => e.id_producto).filter(Boolean) || [])
-      ];
+      const complementarioProductIds = [...(bodegasNoIncluidas?.map(b => b.id_producto).filter(Boolean) || []), ...(estacionamientosNoIncluidos?.map(e => e.id_producto).filter(Boolean) || [])];
 
       // Get ofertas for complementary products
       let ofertasComplementarias: any[] = [];
       let cuentasComplementarias: any[] = [];
-
       if (complementarioProductIds.length > 0) {
-        const { data: ofertasComp } = await supabase
-          .from('ofertas')
-          .select('id, id_producto')
-          .in('id_producto', complementarioProductIds)
-          .eq('activo', true);
-        
+        const {
+          data: ofertasComp
+        } = await supabase.from('ofertas').select('id, id_producto').in('id_producto', complementarioProductIds).eq('activo', true);
         ofertasComplementarias = ofertasComp || [];
-        
         if (ofertasComplementarias.length > 0) {
           const ofertaCompIds = ofertasComplementarias.map(o => o.id);
-          
-          const { data: cuentasComp } = await supabase
-            .from('cuentas_cobranza')
-            .select('id, id_oferta')
-            .in('id_oferta', ofertaCompIds)
-            .eq('activo', true);
-          
+          const {
+            data: cuentasComp
+          } = await supabase.from('cuentas_cobranza').select('id, id_oferta').in('id_oferta', ofertaCompIds).eq('activo', true);
           cuentasComplementarias = cuentasComp || [];
         }
       }
@@ -462,40 +420,33 @@ export default function Pagos() {
       const pagadoEfectivoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
         const oferta = ofertas?.find(o => o.id === cuenta.id_oferta);
         const propiedadId = oferta?.id_propiedad;
-        
+
         // 1. Cash paid for main property account
-        let totalEfectivo = aplicacionesCash
-          ?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id)
-          ?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
-        
+        let totalEfectivo = aplicacionesCash?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id)?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
+
         // 2. Add cash paid for non-included bodegas (only for property accounts)
         if (propiedadId && bodegaProductosPorPropiedad.has(propiedadId)) {
           const bodegaProductos = bodegaProductosPorPropiedad.get(propiedadId) || [];
           bodegaProductos.forEach(productoId => {
             const cuentaComplementariaId = productoToCuentaMap.get(productoId);
             if (cuentaComplementariaId) {
-              const efectivoBodega = aplicacionesCash
-                ?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuentaComplementariaId)
-                ?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
+              const efectivoBodega = aplicacionesCash?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuentaComplementariaId)?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
               totalEfectivo += efectivoBodega;
             }
           });
         }
-        
+
         // 3. Add cash paid for non-included estacionamientos (only for property accounts)
         if (propiedadId && estacionamientoProductosPorPropiedad.has(propiedadId)) {
           const estacionamientoProductos = estacionamientoProductosPorPropiedad.get(propiedadId) || [];
           estacionamientoProductos.forEach(productoId => {
             const cuentaComplementariaId = productoToCuentaMap.get(productoId);
             if (cuentaComplementariaId) {
-              const efectivoEstacionamiento = aplicacionesCash
-                ?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuentaComplementariaId)
-                ?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
+              const efectivoEstacionamiento = aplicacionesCash?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuentaComplementariaId)?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
               totalEfectivo += efectivoEstacionamiento;
             }
           });
         }
-        
         acc[cuenta.id] = totalEfectivo;
         return acc;
       }, {});
@@ -503,15 +454,14 @@ export default function Pagos() {
       // Create a map of individual cash payments per account with aggregated amounts
       const pagosCashPorCuenta = cuentas.reduce((acc: Record<number, CashPayment[]>, cuenta) => {
         // Get all cash payment IDs for this cuenta through aplicaciones
-        const aplicacionesForCuenta = aplicacionesCash
-          ?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id) || [];
-        
+        const aplicacionesForCuenta = aplicacionesCash?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id) || [];
+
         // Group by payment ID and sum amounts
         const pagoAggregated = aplicacionesForCuenta.reduce((pagoAcc: Record<number, number>, ap) => {
           pagoAcc[ap.id_pago] = (pagoAcc[ap.id_pago] || 0) + (ap.monto || 0);
           return pagoAcc;
         }, {});
-        
+
         // Map to payment details
         const pagos = Object.entries(pagoAggregated).map(([pagoId, monto]) => {
           const pago = pagosCash?.find(p => p.id === parseInt(pagoId));
@@ -520,36 +470,42 @@ export default function Pagos() {
             monto: monto as number
           };
         }).filter(p => p.fecha_pago);
-        
         acc[cuenta.id] = pagos;
         return acc;
       }, {});
 
       // Get compradores - include inactive personas too
-      const { data: compradores } = await supabase
-        .from('compradores')
-        .select(`
+      const {
+        data: compradores
+      } = await supabase.from('compradores').select(`
           id_cuenta_cobranza,
           porcentaje_copropiedad,
           id_persona,
           activo
-        `)
-        .in('id_cuenta_cobranza', cuentas.map(c => c.id))
-        .eq('activo', true);
+        `).in('id_cuenta_cobranza', cuentas.map(c => c.id)).eq('activo', true);
 
       // Get all persona IDs
       const personaIds = [...new Set(compradores?.map(c => c.id_persona).filter(Boolean) || [])];
-      
+
       // Fetch personas separately to avoid RLS issues
-      const { data: personas } = personaIds.length > 0 ? await supabase
-        .from('personas')
-        .select('id, nombre_legal, rfc')
-        .in('id', personaIds) : { data: [] };
-      
+      const {
+        data: personas
+      } = personaIds.length > 0 ? await supabase.from('personas').select('id, nombre_legal, rfc').in('id', personaIds) : {
+        data: []
+      };
+
       // Create personas map
-      const personasMap = new Map<number, { id: number; nombre_legal: string; rfc: string | null }>();
+      const personasMap = new Map<number, {
+        id: number;
+        nombre_legal: string;
+        rfc: string | null;
+      }>();
       personas?.forEach(p => {
-        personasMap.set(p.id, { id: p.id, nombre_legal: p.nombre_legal, rfc: p.rfc });
+        personasMap.set(p.id, {
+          id: p.id,
+          nombre_legal: p.nombre_legal,
+          rfc: p.rfc
+        });
       });
 
       // Get entidades relacionadas, proyectos, edificios, modelos, productos
@@ -561,68 +517,44 @@ export default function Pagos() {
       let productosData: any[] = [];
       let entidadesProductosMap: Map<number, number> = new Map(); // id_entidad -> id_proyecto
       let proyectosProductosData: any[] = [];
-      
       if (productoIds.length > 0) {
-        const { data: productos } = await supabase
-          .from('productos_servicios')
-          .select('id, nombre, id_entidad_relacionada_dueno')
-          .in('id', productoIds);
-        
+        const {
+          data: productos
+        } = await supabase.from('productos_servicios').select('id, nombre, id_entidad_relacionada_dueno').in('id', productoIds);
         productosData = productos || [];
-        
         if (productosData.length > 0) {
-          const entidadIdsProductos = productosData
-            .map(p => p.id_entidad_relacionada_dueno)
-            .filter(Boolean);
-          
+          const entidadIdsProductos = productosData.map(p => p.id_entidad_relacionada_dueno).filter(Boolean);
           if (entidadIdsProductos.length > 0) {
-            const { data: entidadesProductos } = await supabase
-              .from('entidades_relacionadas')
-              .select('id, id_proyecto')
-              .in('id', entidadIdsProductos);
-            
+            const {
+              data: entidadesProductos
+            } = await supabase.from('entidades_relacionadas').select('id, id_proyecto').in('id', entidadIdsProductos);
+
             // Create a map for quick lookup
             entidadesProductos?.forEach(e => {
               entidadesProductosMap.set(e.id, e.id_proyecto);
             });
-            
-            const proyectoIdsProductos = entidadesProductos
-              ?.map(e => e.id_proyecto)
-              .filter(Boolean) || [];
-              
+            const proyectoIdsProductos = entidadesProductos?.map(e => e.id_proyecto).filter(Boolean) || [];
             if (proyectoIdsProductos.length > 0) {
-              const { data: proyectos } = await supabase
-                .from('proyectos')
-                .select('id, id_tipo_uso')
-                .in('id', proyectoIdsProductos);
-              
+              const {
+                data: proyectos
+              } = await supabase.from('proyectos').select('id, id_tipo_uso').in('id', proyectoIdsProductos);
               proyectosProductosData = proyectos || [];
             }
           }
         }
       }
-
-      const [entidadesResult, edificiosModelosResult] = await Promise.all([
-        supabase
-          .from('entidades_relacionadas')
-          .select(`
+      const [entidadesResult, edificiosModelosResult] = await Promise.all([supabase.from('entidades_relacionadas').select(`
             id,
             personas!fk_entrel_persona(nombre_legal),
             proyectos!entidades_relacionadas_id_proyecto_fkey(
               nombre,
               id_tipo_uso
             )
-          `)
-          .in('id', entidadIds),
-        supabase
-          .from('edificios_modelos')
-          .select(`
+          `).in('id', entidadIds), supabase.from('edificios_modelos').select(`
             id,
             edificios!edificios_modelos_id_edificio_fkey(nombre),
             modelos!edificios_modelos_id_modelo_fkey(nombre)
-          `)
-          .in('id', edificioModeloIds)
-      ]);
+          `).in('id', edificioModeloIds)]);
 
       // Transform the data
       const transformedData: CuentaCobranza[] = cuentas.map(cuenta => {
@@ -631,7 +563,7 @@ export default function Pagos() {
         const entidad = entidadesResult.data?.find(e => e.id === propiedad?.id_entidad_relacionada_dueno);
         const edificioModelo = edificiosModelosResult.data?.find(em => em.id === propiedad?.id_edificio_modelo);
         const cuentaCompradores = compradores?.filter(c => c.id_cuenta_cobranza === cuenta.id) || [];
-        
+
         // Determine tipo based on oferta
         let tipo: 'Propiedad' | 'Producto' | 'Servicio' = 'Propiedad';
         let productoNombre: string | undefined;
@@ -641,7 +573,6 @@ export default function Pagos() {
           if (producto && producto.id_entidad_relacionada_dueno) {
             // Get proyecto id from the map
             const idProyecto = entidadesProductosMap.get(producto.id_entidad_relacionada_dueno);
-            
             if (idProyecto) {
               const proyecto = proyectosProductosData?.find((pr: any) => pr.id === idProyecto);
               if (proyecto) {
@@ -662,7 +593,6 @@ export default function Pagos() {
             tipo = 'Producto'; // Default if we can't determine
           }
         }
-
         const pagado = pagadoPorCuenta[cuenta.id] || 0;
         const precio_final = cuenta.precio_final || 0;
         // Calculate difference and normalize to avoid -0
@@ -678,15 +608,14 @@ export default function Pagos() {
         // Calculate cash payment data (only for properties)
         const valorUma = cuenta.valor_uma || 0;
         const limiteEfectivo = valorUma * 8025;
-        const pagadoEfectivo = tipo === 'Propiedad' ? (pagadoEfectivoPorCuenta[cuenta.id] || 0) : 0;
+        const pagadoEfectivo = tipo === 'Propiedad' ? pagadoEfectivoPorCuenta[cuenta.id] || 0 : 0;
         let restanteEfectivo = limiteEfectivo - pagadoEfectivo;
         restanteEfectivo = Math.round(restanteEfectivo * 100) / 100;
         if (Math.abs(restanteEfectivo) < 0.01) {
           restanteEfectivo = 0;
         }
         restanteEfectivo = +restanteEfectivo.toFixed(2);
-        const porcentajeEfectivo = limiteEfectivo > 0 ? (pagadoEfectivo / limiteEfectivo) * 100 : 0;
-
+        const porcentajeEfectivo = limiteEfectivo > 0 ? pagadoEfectivo / limiteEfectivo * 100 : 0;
         return {
           id: cuenta.id,
           tipo,
@@ -702,7 +631,7 @@ export default function Pagos() {
           cash_paid: pagadoEfectivo,
           cash_remaining: restanteEfectivo,
           cash_percentage: porcentajeEfectivo,
-          cash_payments: tipo === 'Propiedad' ? (pagosCashPorCuenta[cuenta.id] || []) : [],
+          cash_payments: tipo === 'Propiedad' ? pagosCashPorCuenta[cuenta.id] || [] : [],
           compradores: cuentaCompradores.map(c => {
             const persona = personasMap.get(c.id_persona);
             return {
@@ -726,15 +655,14 @@ export default function Pagos() {
           id_estatus_disponibilidad: propiedad?.id_estatus_disponibilidad
         };
       });
-
       return transformedData.sort((a, b) => b.id - a.id);
-    },
+    }
   });
 
   // Filter by active status and search term
   const cuentasActivas = cuentasCobranza?.filter(cuenta => cuenta.activo) || [];
   const cuentasCanceladas = cuentasCobranza?.filter(cuenta => !cuenta.activo) || [];
-  
+
   // Filter function to apply to any list of cuentas
   const applyFilters = (cuentas: CuentaCobranza[]) => {
     return cuentas.filter(cuenta => {
@@ -742,68 +670,38 @@ export default function Pagos() {
       if (!selectedTipos.includes(cuenta.tipo)) {
         return false;
       }
-      
+
       // Filter by search term
-      const matchesSearch = searchTerm === "" || (
-        cuenta.id.toString().includes(searchTerm) ||
-        cuenta.compradores.some(c => c.nombre_legal.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          c.rfc?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        cuenta.dueno.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cuenta.clabe_stp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cuenta.proyecto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cuenta.edificio.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cuenta.numero_propiedad.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cuenta.modelo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cuenta.producto_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cuenta.precio_final.toString().includes(searchTerm)
-      );
-      
+      const matchesSearch = searchTerm === "" || cuenta.id.toString().includes(searchTerm) || cuenta.compradores.some(c => c.nombre_legal.toLowerCase().includes(searchTerm.toLowerCase()) || c.rfc?.toLowerCase().includes(searchTerm.toLowerCase())) || cuenta.dueno.toLowerCase().includes(searchTerm.toLowerCase()) || cuenta.clabe_stp?.toLowerCase().includes(searchTerm.toLowerCase()) || cuenta.proyecto.toLowerCase().includes(searchTerm.toLowerCase()) || cuenta.edificio.toLowerCase().includes(searchTerm.toLowerCase()) || cuenta.numero_propiedad.toLowerCase().includes(searchTerm.toLowerCase()) || cuenta.modelo.toLowerCase().includes(searchTerm.toLowerCase()) || cuenta.producto_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || cuenta.precio_final.toString().includes(searchTerm);
+
       // Apply individual filters
       const matchesIdCuenta = idCuentaFilter === "" || cuenta.id.toString().includes(idCuentaFilter);
       const matchesProducto = productoFilter === "" || cuenta.producto_nombre?.toLowerCase().includes(productoFilter.toLowerCase());
-      const matchesCompradores = compradoresFilter === "" || cuenta.compradores.some(c => 
-        c.nombre_legal.toLowerCase().includes(compradoresFilter.toLowerCase()) || 
-        c.rfc?.toLowerCase().includes(compradoresFilter.toLowerCase())
-      );
+      const matchesCompradores = compradoresFilter === "" || cuenta.compradores.some(c => c.nombre_legal.toLowerCase().includes(compradoresFilter.toLowerCase()) || c.rfc?.toLowerCase().includes(compradoresFilter.toLowerCase()));
       const matchesClabe = clabeFilter === "" || cuenta.clabe_stp?.toLowerCase().includes(clabeFilter.toLowerCase());
       const matchesProyecto = proyectoFilter === "" || cuenta.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
       const matchesNoPropiedad = noPropiedadFilter === "" || cuenta.numero_propiedad.toLowerCase().includes(noPropiedadFilter.toLowerCase());
       const matchesModelo = modeloFilter === "" || cuenta.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
-      
-      return matchesSearch && matchesIdCuenta && matchesProducto && matchesCompradores && 
-        matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo;
+      return matchesSearch && matchesIdCuenta && matchesProducto && matchesCompradores && matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo;
     });
   };
 
   // Apply filters to both activas and canceladas
   const filteredCuentasActivas = applyFilters(cuentasActivas);
   const filteredCuentasCanceladas = applyFilters(cuentasCanceladas);
-  
   const currentCuentas = activeTab === "activas" ? cuentasActivas : cuentasCanceladas;
   const filteredCuentas = activeTab === "activas" ? filteredCuentasActivas : filteredCuentasCanceladas;
 
   // Pagination logic
   const currentPage = activeTab === "activas" ? currentPageActive : currentPageCancelled;
   const setCurrentPage = activeTab === "activas" ? setCurrentPageActive : setCurrentPageCancelled;
-  
   const totalFilteredCount = filteredCuentas.length;
   const totalPages = Math.ceil(totalFilteredCount / itemsPerPage);
-  
-  const paginatedCuentas = filteredCuentas.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
+  const paginatedCuentas = filteredCuentas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const handleTipoToggle = (tipo: 'Propiedad' | 'Producto' | 'Servicio') => {
-    setSelectedTipos(prev => 
-      prev.includes(tipo) 
-        ? prev.filter(t => t !== tipo)
-        : [...prev, tipo]
-    );
+    setSelectedTipos(prev => prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]);
   };
-
   const totalMonto = filteredCuentas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
-
   const formatCurrency = (amount: number) => {
     // Aggressively eliminate -0
     let value = amount;
@@ -820,7 +718,6 @@ export default function Pagos() {
       maximumFractionDigits: 2
     }).format(value);
   };
-
   const formatCurrencyCompact = (amount: number) => {
     // Aggressively eliminate -0
     let value = amount;
@@ -828,9 +725,7 @@ export default function Pagos() {
     if (Math.abs(value) < 0.01) {
       value = 0;
     }
-
     const absValue = Math.abs(value);
-    
     if (absValue >= 1_000_000) {
       // Format as millions with 2 decimal places and comma separator
       const millions = value / 1_000_000;
@@ -860,95 +755,99 @@ export default function Pagos() {
 
   // Handler to open cancel dialog
   const handleCancelCuenta = (cuenta: CuentaCobranza) => {
-    setCancelDialog({ isOpen: true, cuenta });
+    setCancelDialog({
+      isOpen: true,
+      cuenta
+    });
   };
-
   const handleDownloadEstadoCuenta = async (idCuenta: number) => {
     try {
       setIsGeneratingEstadoCuenta(idCuenta);
       const service = new EstadoCuentaService();
-      await service.generateEstadoCuenta({ id_cuenta: idCuenta });
+      await service.generateEstadoCuenta({
+        id_cuenta: idCuenta
+      });
       toast({
         title: "Estado de cuenta generado",
-        description: "El PDF se ha descargado exitosamente.",
+        description: "El PDF se ha descargado exitosamente."
       });
     } catch (error) {
       console.error("Error generating estado de cuenta:", error);
       toast({
         title: "Error",
         description: "No se pudo generar el estado de cuenta.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsGeneratingEstadoCuenta(null);
     }
   };
-
   const handleEditCuenta = (cuenta: CuentaCobranza) => {
-    setEditDialog({ isOpen: true, cuenta });
+    setEditDialog({
+      isOpen: true,
+      cuenta
+    });
   };
 
   // Navigation functions
   const handlePropertyClick = (clabe: string) => {
     navigate(`/admin/propiedades?search=${encodeURIComponent(clabe)}`);
   };
-
   const handleCompradorClick = (rfc: string) => {
     navigate(`/admin/compradores?search=${encodeURIComponent(rfc)}`);
   };
-
   const handleVendedorClick = (nombreVendedor: string) => {
     navigate(`/admin/entidades-legales?search=${encodeURIComponent(nombreVendedor)}`);
   };
-
   const handleAddManualPayment = (cuenta: CuentaCobranza) => {
-    setPaymentDialog({ isOpen: true, cuenta });
+    setPaymentDialog({
+      isOpen: true,
+      cuenta
+    });
   };
-
   const handleDownloadOffer = async (cuenta: CuentaCobranza) => {
     try {
       setLoadingDownload(cuenta.id);
-      
+
       // Get the offer data for this account
-      const { data: offerData, error: offerError } = await supabase
-        .from('cuentas_cobranza')
-        .select(`
+      const {
+        data: offerData,
+        error: offerError
+      } = await supabase.from('cuentas_cobranza').select(`
           id_oferta,
           ofertas!fk_cuentas_cobranza_oferta(
             id,
             id_propiedad,
             id_producto
           )
-        `)
-        .eq('id', cuenta.id)
-        .single();
-
+        `).eq('id', cuenta.id).single();
       if (offerError) {
         console.error('Error fetching offer data:', offerError);
         toast({
           title: "Error",
           description: "Error al obtener los datos de la oferta",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
-
       if (!offerData?.id_oferta || !offerData.ofertas) {
         toast({
           title: "Error",
           description: "No se encontró la oferta asociada a esta cuenta",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
+      const {
+        generateOfferPDF
+      } = await import('@/services/htmlToPdfService');
 
-      const { generateOfferPDF } = await import('@/services/htmlToPdfService');
-      
       // Check if it's a product/service offer or property offer
       if (offerData.ofertas.id_producto && !offerData.ofertas.id_propiedad) {
         // It's a product/service offer
         await generateOfferPDF({
-          propertyId: offerData.ofertas.id_propiedad || 0, // Will be ignored for product offers
+          propertyId: offerData.ofertas.id_propiedad || 0,
+          // Will be ignored for product offers
           offerId: offerData.id_oferta,
           propertyNumber: cuenta.producto_nombre || '',
           leadName: cuenta.compradores[0]?.nombre_legal || 'Sin comprador',
@@ -973,27 +872,25 @@ export default function Pagos() {
         toast({
           title: "Error",
           description: "La oferta no tiene propiedad ni producto asociado",
-          variant: "destructive",
+          variant: "destructive"
         });
         return;
       }
-
       toast({
         title: "PDF Generado",
-        description: "La oferta se ha descargado exitosamente",
+        description: "La oferta se ha descargado exitosamente"
       });
     } catch (error) {
       console.error('Error downloading offer:', error);
       toast({
         title: "Error",
         description: `No se pudo descargar la oferta: ${error instanceof Error ? error.message : 'Error desconocido'}`,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoadingDownload(null);
     }
   };
-
   const handleCepUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1003,41 +900,39 @@ export default function Pagos() {
       toast({
         title: "Error",
         description: "Solo se permiten archivos .zip",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setUploadingCep(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-
       const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/cargarArchivoCep`, {
         method: 'POST',
-        body: formData,
+        body: formData
       });
-
       if (!response.ok) {
         throw new Error('Error al cargar el archivo');
       }
-
       toast({
         title: "Éxito",
-        description: "CEPs cargados correctamente",
+        description: "CEPs cargados correctamente"
       });
 
       // Reset the input
       event.target.value = '';
-      
+
       // Refresh the data
-      queryClient.invalidateQueries({ queryKey: ["cuentas_cobranza"] });
+      queryClient.invalidateQueries({
+        queryKey: ["cuentas_cobranza"]
+      });
     } catch (error) {
       console.error("Error uploading CEPs:", error);
       toast({
         title: "Error",
         description: "No se pudieron cargar los CEPs",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setUploadingCep(false);
@@ -1048,19 +943,21 @@ export default function Pagos() {
   const getPaginationItems = (currentPage: number, totalPages: number) => {
     const items: (number | 'ellipsis')[] = [];
     const maxVisible = 7; // Maximum number of page buttons to show
-    
+
     if (totalPages <= maxVisible) {
       // Show all pages if total is small
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
+      return Array.from({
+        length: totalPages
+      }, (_, i) => i + 1);
     }
-    
+
     // Always show first page
     items.push(1);
-    
+
     // Calculate range around current page
     let rangeStart = Math.max(2, currentPage - 1);
     let rangeEnd = Math.min(totalPages - 1, currentPage + 1);
-    
+
     // Adjust range if we're near the start or end
     if (currentPage <= 3) {
       rangeEnd = Math.min(4, totalPages - 1);
@@ -1068,74 +965,51 @@ export default function Pagos() {
     if (currentPage >= totalPages - 2) {
       rangeStart = Math.max(totalPages - 3, 2);
     }
-    
+
     // Add ellipsis after first page if needed
     if (rangeStart > 2) {
       items.push('ellipsis');
     }
-    
+
     // Add range around current page
     for (let i = rangeStart; i <= rangeEnd; i++) {
       items.push(i);
     }
-    
+
     // Add ellipsis before last page if needed
     if (rangeEnd < totalPages - 1) {
       items.push('ellipsis');
     }
-    
+
     // Always show last page
     if (totalPages > 1) {
       items.push(totalPages);
     }
-    
     return items;
   };
-
   const renderPagination = (currentPage: number, totalPages: number, onPageChange: (page: number) => void) => {
     if (totalPages <= 1) return null;
-
-    return (
-      <div className="mt-4">
+    return <div className="mt-4">
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious 
-                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
+              <PaginationPrevious onClick={() => onPageChange(Math.max(1, currentPage - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
             </PaginationItem>
-            {getPaginationItems(currentPage, totalPages).map((item, index) => (
-              item === 'ellipsis' ? (
-                <PaginationItem key={`ellipsis-${index}`}>
+            {getPaginationItems(currentPage, totalPages).map((item, index) => item === 'ellipsis' ? <PaginationItem key={`ellipsis-${index}`}>
                   <PaginationEllipsis />
-                </PaginationItem>
-              ) : (
-                <PaginationItem key={item}>
-                  <PaginationLink
-                    onClick={() => onPageChange(item as number)}
-                    isActive={currentPage === item}
-                    className="cursor-pointer"
-                  >
+                </PaginationItem> : <PaginationItem key={item}>
+                  <PaginationLink onClick={() => onPageChange(item as number)} isActive={currentPage === item} className="cursor-pointer">
                     {item}
                   </PaginationLink>
-                </PaginationItem>
-              )
-            ))}
+                </PaginationItem>)}
             <PaginationItem>
-              <PaginationNext 
-                onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
+              <PaginationNext onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
-      </div>
-    );
+      </div>;
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">Cuentas de Cobranza</h1>
@@ -1144,29 +1018,15 @@ export default function Pagos() {
           </p>
         </div>
         <div>
-          <input
-            type="file"
-            id="cep-upload"
-            accept=".zip"
-            className="hidden"
-            onChange={handleCepUpload}
-            disabled={uploadingCep}
-          />
-          <Button
-            onClick={() => document.getElementById('cep-upload')?.click()}
-            disabled={uploadingCep}
-          >
-            {uploadingCep ? (
-              <>
+          <input type="file" id="cep-upload" accept=".zip" className="hidden" onChange={handleCepUpload} disabled={uploadingCep} />
+          <Button onClick={() => document.getElementById('cep-upload')?.click()} disabled={uploadingCep}>
+            {uploadingCep ? <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Subiendo...
-              </>
-            ) : (
-              <>
+              </> : <>
                 <Upload className="mr-2 h-4 w-4" />
                 Subir Cep's
-              </>
-            )}
+              </>}
           </Button>
         </div>
       </div>
@@ -1188,7 +1048,7 @@ export default function Pagos() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monto Total</CardTitle>
+              <CardTitle className="text-sm font-medium">Monto Total Colocado  </CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -1242,23 +1102,14 @@ export default function Pagos() {
                 {/* Search bar */}
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por ID, compradores, dueño, CLABE, proyecto, edificio, propiedad o modelo..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
+                  <Input placeholder="Buscar por ID, compradores, dueño, CLABE, proyecto, edificio, propiedad o modelo..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-8" />
                 </div>
                 
                 {/* Filters grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div>
                     <label className="text-sm font-medium mb-2 block">ID Cuenta</label>
-                    <Input
-                      placeholder="Filtrar por ID..."
-                      value={idCuentaFilter}
-                      onChange={(e) => setIdCuentaFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por ID..." value={idCuentaFilter} onChange={e => setIdCuentaFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Tipo</label>
@@ -1274,31 +1125,19 @@ export default function Pagos() {
                           <h4 className="font-medium text-sm">Filtrar por Tipo</h4>
                           <div className="space-y-2">
                             <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="tipo-propiedad"
-                                checked={selectedTipos.includes('Propiedad')}
-                                onCheckedChange={() => handleTipoToggle('Propiedad')}
-                              />
+                              <Checkbox id="tipo-propiedad" checked={selectedTipos.includes('Propiedad')} onCheckedChange={() => handleTipoToggle('Propiedad')} />
                               <Label htmlFor="tipo-propiedad" className="cursor-pointer">
                                 Propiedad
                               </Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="tipo-producto"
-                                checked={selectedTipos.includes('Producto')}
-                                onCheckedChange={() => handleTipoToggle('Producto')}
-                              />
+                              <Checkbox id="tipo-producto" checked={selectedTipos.includes('Producto')} onCheckedChange={() => handleTipoToggle('Producto')} />
                               <Label htmlFor="tipo-producto" className="cursor-pointer">
                                 Producto
                               </Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="tipo-servicio"
-                                checked={selectedTipos.includes('Servicio')}
-                                onCheckedChange={() => handleTipoToggle('Servicio')}
-                              />
+                              <Checkbox id="tipo-servicio" checked={selectedTipos.includes('Servicio')} onCheckedChange={() => handleTipoToggle('Servicio')} />
                               <Label htmlFor="tipo-servicio" className="cursor-pointer">
                                 Servicio
                               </Label>
@@ -1310,70 +1149,43 @@ export default function Pagos() {
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Nombre de producto</label>
-                    <Input
-                      placeholder="Filtrar por producto..."
-                      value={productoFilter}
-                      onChange={(e) => setProductoFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por producto..." value={productoFilter} onChange={e => setProductoFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Compradores</label>
-                    <Input
-                      placeholder="Filtrar por comprador..."
-                      value={compradoresFilter}
-                      onChange={(e) => setCompradoresFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por comprador..." value={compradoresFilter} onChange={e => setCompradoresFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">CLABE</label>
-                    <Input
-                      placeholder="Filtrar por CLABE..."
-                      value={clabeFilter}
-                      onChange={(e) => setClabeFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por CLABE..." value={clabeFilter} onChange={e => setClabeFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Proyecto</label>
-                    <Input
-                      placeholder="Filtrar por proyecto..."
-                      value={proyectoFilter}
-                      onChange={(e) => setProyectoFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por proyecto..." value={proyectoFilter} onChange={e => setProyectoFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">No. Propiedad</label>
-                    <Input
-                      placeholder="Filtrar por propiedad..."
-                      value={noPropiedadFilter}
-                      onChange={(e) => setNoPropiedadFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por propiedad..." value={noPropiedadFilter} onChange={e => setNoPropiedadFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Modelo</label>
-                    <Input
-                      placeholder="Filtrar por modelo..."
-                      value={modeloFilter}
-                      onChange={(e) => setModeloFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por modelo..." value={modeloFilter} onChange={e => setModeloFilter(e.target.value)} />
                   </div>
                 </div>
                 
                 {/* Clear filters button */}
                 <div className="flex justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setIdCuentaFilter("");
-                      setSelectedTipos(['Propiedad', 'Producto', 'Servicio']);
-                      setProductoFilter("");
-                      setCompradoresFilter("");
-                      setClabeFilter("");
-                      setProyectoFilter("");
-                      setNoPropiedadFilter("");
-                      setModeloFilter("");
-                    }}
-                  >
+                  <Button variant="outline" onClick={() => {
+                  setSearchTerm("");
+                  setIdCuentaFilter("");
+                  setSelectedTipos(['Propiedad', 'Producto', 'Servicio']);
+                  setProductoFilter("");
+                  setCompradoresFilter("");
+                  setClabeFilter("");
+                  setProyectoFilter("");
+                  setNoPropiedadFilter("");
+                  setModeloFilter("");
+                }}>
                     Limpiar Filtros
                   </Button>
                 </div>
@@ -1381,21 +1193,12 @@ export default function Pagos() {
             </CardHeader>
             <CardContent>
               {/* Filtered count display */}
-              {!isLoading && (
-                <div className="mb-4 text-sm text-muted-foreground">
+              {!isLoading && <div className="mb-4 text-sm text-muted-foreground">
                   Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasActivas.length}</span> cuentas
-                </div>
-              )}
-              {isLoading ? (
-                <div className="text-center py-8">Cargando cuentas de cobranza...</div>
-              ) : filteredCuentas.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3
-                    ? "No se encontraron cuentas que coincidan con los filtros" 
-                    : "No hay cuentas de cobranza activas"}
-                </div>
-              ) : (
-                <Table>
+                </div>}
+              {isLoading ? <div className="text-center py-8">Cargando cuentas de cobranza...</div> : filteredCuentas.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza activas"}
+                </div> : <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID Cuenta</TableHead>
@@ -1416,16 +1219,11 @@ export default function Pagos() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedCuentas.map((cuenta) => (
-                      <TableRow 
-                        key={cuenta.id}
-                        className={Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 ? "bg-green-50 dark:bg-green-950/20" : ""}
-                      >
+                    {paginatedCuentas.map(cuenta => <TableRow key={cuenta.id} className={Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 ? "bg-green-50 dark:bg-green-950/20" : ""}>
                         <TableCell className="font-semibold">
                           <div className="flex items-center gap-2">
                             <span>{formatCuentaCobranzaId(cuenta.id, cuenta.tipo)}</span>
-                            {!cuenta.tiene_acuerdos ? (
-                              <TooltipProvider>
+                            {!cuenta.tiene_acuerdos ? <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 h-6 w-6 p-0 flex items-center justify-center">
@@ -1437,9 +1235,7 @@ export default function Pagos() {
                                     <p className="text-sm">La cuenta de cobranza fue generada pero falta seleccionar el esquema de pago para generar los acuerdos</p>
                                   </TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
-                            ) : !cuenta.apartado_pagado && cuenta.id_estatus_disponibilidad !== 10 ? (
-                              <TooltipProvider>
+                              </TooltipProvider> : !cuenta.apartado_pagado && cuenta.id_estatus_disponibilidad !== 10 ? <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 h-6 w-6 p-0 flex items-center justify-center">
@@ -1451,8 +1247,7 @@ export default function Pagos() {
                                     <p className="text-sm">Esta cuenta fue generada pero aún no ha recibido el pago inicial completo</p>
                                   </TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
-                            ) : null}
+                              </TooltipProvider> : null}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1461,23 +1256,11 @@ export default function Pagos() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {cuenta.producto_nombre ? (
-                            <span className="text-sm">{cuenta.producto_nombre}</span>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">N/A</span>
-                          )}
+                          {cuenta.producto_nombre ? <span className="text-sm">{cuenta.producto_nombre}</span> : <span className="text-muted-foreground text-xs">N/A</span>}
                         </TableCell>
                          <TableCell>
-                           {cuenta.compradores.length > 0 ? (
-                             cuenta.compradores.length > 1 ? (
-                               <CompradoresDetailDialog compradores={cuenta.compradores} />
-                             ) : (
-                               <div className="space-y-1">
-                                  <Badge 
-                                    variant="secondary" 
-                                    className="block w-fit cursor-pointer hover:bg-secondary/80" 
-                                    onClick={() => handleCompradorClick(cuenta.compradores[0].rfc || cuenta.compradores[0].nombre_legal)}
-                                  >
+                           {cuenta.compradores.length > 0 ? cuenta.compradores.length > 1 ? <CompradoresDetailDialog compradores={cuenta.compradores} /> : <div className="space-y-1">
+                                  <Badge variant="secondary" className="block w-fit cursor-pointer hover:bg-secondary/80" onClick={() => handleCompradorClick(cuenta.compradores[0].rfc || cuenta.compradores[0].nombre_legal)}>
                                    {cuenta.compradores[0].nombre_legal}
                                  </Badge>
                                  <div className="text-xs text-muted-foreground">
@@ -1485,46 +1268,28 @@ export default function Pagos() {
                                    <br />
                                    {cuenta.compradores[0].porcentaje_copropiedad.toFixed(2)}% propiedad
                                  </div>
-                               </div>
-                             )
-                           ) : (
-                             <span className="text-muted-foreground">Sin compradores</span>
-                           )}
+                               </div> : <span className="text-muted-foreground">Sin compradores</span>}
                          </TableCell>
                          <TableCell>
-                           <span 
-                             className="cursor-pointer hover:text-primary hover:underline" 
-                             onClick={() => handleVendedorClick(cuenta.dueno)}
-                           >
+                           <span className="cursor-pointer hover:text-primary hover:underline" onClick={() => handleVendedorClick(cuenta.dueno)}>
                              {cuenta.dueno}
                            </span>
                          </TableCell>
                           <TableCell>
-                            {cuenta.clabe_stp ? (
-                              <Badge 
-                                variant="outline" 
-                                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(cuenta.clabe_stp!);
-                                  toast({
-                                    title: "CLABE copiada",
-                                    description: "La cuenta CLABE se copió al portapapeles",
-                                  });
-                                }}
-                              >
+                            {cuenta.clabe_stp ? <Badge variant="outline" className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => {
+                      navigator.clipboard.writeText(cuenta.clabe_stp!);
+                      toast({
+                        title: "CLABE copiada",
+                        description: "La cuenta CLABE se copió al portapapeles"
+                      });
+                    }}>
                                 {cuenta.clabe_stp}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">Sin CLABE</span>
-                            )}
+                              </Badge> : <span className="text-muted-foreground">Sin CLABE</span>}
                           </TableCell>
                          <TableCell>{cuenta.proyecto}</TableCell>
                          <TableCell>{cuenta.edificio}</TableCell>
                           <TableCell>
-                            <span 
-                              className="cursor-pointer hover:text-primary hover:underline font-medium" 
-                              onClick={() => handlePropertyClick(cuenta.clabe_stp || cuenta.numero_propiedad)}
-                            >
+                            <span className="cursor-pointer hover:text-primary hover:underline font-medium" onClick={() => handlePropertyClick(cuenta.clabe_stp || cuenta.numero_propiedad)}>
                               {cuenta.numero_propiedad}
                             </span>
                           </TableCell>
@@ -1533,20 +1298,17 @@ export default function Pagos() {
                            <div className="flex items-center justify-end gap-2">
                              <span>{formatCurrency(Number(cuenta.precio_final))}</span>
                               {(() => {
-                                // Ajustar precio_final si hay comisión en efectivo usando fórmula inversa
-                                let precioFinalAjustado = cuenta.precio_final;
-                                if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta) {
-                                  // Recalcular precio antes de aplicar la comisión
-                                  precioFinalAjustado = cuenta.precio_final / (1 - cuenta.porcentaje_comision_venta / 100);
-                                }
-                                
-                                const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
-                               const tolerance = 10.0; // Tolerancia para redondeo
-                               
-                               return (
-                                 <>
-                                   {cuenta.precio_lista && difference > tolerance ? (
-                                     <TooltipProvider>
+                        // Ajustar precio_final si hay comisión en efectivo usando fórmula inversa
+                        let precioFinalAjustado = cuenta.precio_final;
+                        if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta) {
+                          // Recalcular precio antes de aplicar la comisión
+                          precioFinalAjustado = cuenta.precio_final / (1 - cuenta.porcentaje_comision_venta / 100);
+                        }
+                        const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
+                        const tolerance = 10.0; // Tolerancia para redondeo
+
+                        return <>
+                                   {cuenta.precio_lista && difference > tolerance ? <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <TrendingUp className="h-4 w-4 text-orange-600" />
@@ -1555,9 +1317,7 @@ export default function Pagos() {
                                            <p>Precio final mayor a precio de lista</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   ) : cuenta.precio_lista && difference < -tolerance ? (
-                                     <TooltipProvider>
+                                     </TooltipProvider> : cuenta.precio_lista && difference < -tolerance ? <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <TrendingDown className="h-4 w-4 text-green-600" />
@@ -1566,9 +1326,7 @@ export default function Pagos() {
                                            <p>Precio final menor a precio de lista</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   ) : cuenta.precio_lista && Math.abs(difference) <= tolerance ? (
-                                     <TooltipProvider>
+                                     </TooltipProvider> : cuenta.precio_lista && Math.abs(difference) <= tolerance ? <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <Equal className="h-4 w-4 text-blue-600" />
@@ -1577,10 +1335,8 @@ export default function Pagos() {
                                            <p>Precio final igual a precio de lista</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   ) : null}
-                                   {cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && (
-                                     <TooltipProvider>
+                                     </TooltipProvider> : null}
+                                   {cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <Banknote className="h-4 w-4 text-yellow-600" />
@@ -1590,11 +1346,9 @@ export default function Pagos() {
                                            <p className="text-xs mt-1">Precio antes de comisión: {formatCurrency(precioFinalAjustado)}</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   )}
-                                 </>
-                               );
-                             })()}
+                                     </TooltipProvider>}
+                                 </>;
+                      })()}
                            </div>
                          </TableCell>
                         <TableCell className="font-semibold text-blue-600">
@@ -1603,8 +1357,7 @@ export default function Pagos() {
                          <TableCell className="font-semibold text-orange-600">
                            <div className="flex items-center gap-2">
                              {formatCurrency(cuenta.restante)}
-                             {Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 && (
-                               <TooltipProvider>
+                             {Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 && <TooltipProvider>
                                  <Tooltip>
                                    <TooltipTrigger>
                                      <CheckCircle className="h-4 w-4 text-green-500" />
@@ -1613,25 +1366,18 @@ export default function Pagos() {
                                      <p>Cuenta completamente pagada</p>
                                    </TooltipContent>
                                  </Tooltip>
-                               </TooltipProvider>
-                             )}
+                               </TooltipProvider>}
                            </div>
                          </TableCell>
                          <TableCell>
-                           {cuenta.tipo === 'Propiedad' ? (
-                             <TooltipProvider>
+                           {cuenta.tipo === 'Propiedad' ? <TooltipProvider>
                                <Tooltip>
                                  <TooltipTrigger asChild>
-                                   <Button 
-                                     variant="ghost" 
-                                     size="icon"
-                                     onClick={() => setCashDialog({ isOpen: true, cuenta })}
-                                   >
-                                     <DollarSign className={`h-4 w-4 ${
-                                       cuenta.cash_percentage >= 85 ? 'text-red-600' :
-                                       cuenta.cash_percentage >= 75 ? 'text-yellow-600' :
-                                       'text-green-600'
-                                     }`} />
+                                   <Button variant="ghost" size="icon" onClick={() => setCashDialog({
+                            isOpen: true,
+                            cuenta
+                          })}>
+                                     <DollarSign className={`h-4 w-4 ${cuenta.cash_percentage >= 85 ? 'text-red-600' : cuenta.cash_percentage >= 75 ? 'text-yellow-600' : 'text-green-600'}`} />
                                    </Button>
                                  </TooltipTrigger>
                                   <TooltipContent>
@@ -1640,10 +1386,7 @@ export default function Pagos() {
                                     <p>Aún permitido: {formatCurrency(cuenta.cash_remaining || 0)}</p>
                                   </TooltipContent>
                                </Tooltip>
-                             </TooltipProvider>
-                           ) : (
-                             <span className="text-muted-foreground text-xs">N/A</span>
-                           )}
+                             </TooltipProvider> : <span className="text-muted-foreground text-xs">N/A</span>}
                          </TableCell>
                            <TableCell>
                              <TooltipProvider>
@@ -1662,17 +1405,8 @@ export default function Pagos() {
                                  </Tooltip>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="outline" 
-                                        size="icon"
-                                        onClick={() => handleDownloadEstadoCuenta(cuenta.id)}
-                                        disabled={isGeneratingEstadoCuenta !== null}
-                                      >
-                                        {isGeneratingEstadoCuenta === cuenta.id ? (
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <FileText className="h-4 w-4" />
-                                        )}
+                                      <Button variant="outline" size="icon" onClick={() => handleDownloadEstadoCuenta(cuenta.id)} disabled={isGeneratingEstadoCuenta !== null}>
+                                        {isGeneratingEstadoCuenta === cuenta.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
@@ -1681,11 +1415,7 @@ export default function Pagos() {
                                   </Tooltip>
                                  <Tooltip>
                                    <TooltipTrigger asChild>
-                                     <Button 
-                                       variant="outline" 
-                                       size="icon"
-                                       onClick={() => handleEditCuenta(cuenta)}
-                                     >
+                                     <Button variant="outline" size="icon" onClick={() => handleEditCuenta(cuenta)}>
                                        <Edit className="h-4 w-4" />
                                      </Button>
                                    </TooltipTrigger>
@@ -1695,12 +1425,7 @@ export default function Pagos() {
                                  </Tooltip>
                                   <Tooltip>
                                    <TooltipTrigger asChild>
-                                     <Button 
-                                       variant="outline" 
-                                       size="icon"
-                                       onClick={() => handleAddManualPayment(cuenta)}
-                                       disabled={cuenta.pagado >= cuenta.precio_final}
-                                     >
+                                     <Button variant="outline" size="icon" onClick={() => handleAddManualPayment(cuenta)} disabled={cuenta.pagado >= cuenta.precio_final}>
                                        <Plus className="h-4 w-4" />
                                      </Button>
                                    </TooltipTrigger>
@@ -1710,17 +1435,8 @@ export default function Pagos() {
                                  </Tooltip>
                                  <Tooltip>
                                    <TooltipTrigger asChild>
-                                     <Button 
-                                       variant="outline" 
-                                       size="icon"
-                                       onClick={() => handleDownloadOffer(cuenta)}
-                                       disabled={loadingDownload === cuenta.id}
-                                     >
-                                       {loadingDownload === cuenta.id ? (
-                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                       ) : (
-                                         <Download className="h-4 w-4" />
-                                       )}
+                                     <Button variant="outline" size="icon" onClick={() => handleDownloadOffer(cuenta)} disabled={loadingDownload === cuenta.id}>
+                                       {loadingDownload === cuenta.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                      </Button>
                                    </TooltipTrigger>
                                    <TooltipContent>
@@ -1729,11 +1445,7 @@ export default function Pagos() {
                                  </Tooltip>
                                  <Tooltip>
                                    <TooltipTrigger asChild>
-                                      <Button 
-                                       variant="destructive" 
-                                       size="icon"
-                                       onClick={() => handleCancelCuenta(cuenta)}
-                                     >
+                                      <Button variant="destructive" size="icon" onClick={() => handleCancelCuenta(cuenta)}>
                                        <X className="h-4 w-4" />
                                      </Button>
                                    </TooltipTrigger>
@@ -1744,11 +1456,9 @@ export default function Pagos() {
                                </div>
                              </TooltipProvider>
                           </TableCell>
-                      </TableRow>
-                    ))}
+                      </TableRow>)}
                   </TableBody>
-                </Table>
-              )}
+                </Table>}
               {renderPagination(currentPage, totalPages, setCurrentPage)}
             </CardContent>
           </Card>
@@ -1761,23 +1471,14 @@ export default function Pagos() {
                 {/* Search bar */}
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por ID, compradores, dueño, CLABE, proyecto, edificio, propiedad o modelo..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
+                  <Input placeholder="Buscar por ID, compradores, dueño, CLABE, proyecto, edificio, propiedad o modelo..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-8" />
                 </div>
                 
                 {/* Filters grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div>
                     <label className="text-sm font-medium mb-2 block">ID Cuenta</label>
-                    <Input
-                      placeholder="Filtrar por ID..."
-                      value={idCuentaFilter}
-                      onChange={(e) => setIdCuentaFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por ID..." value={idCuentaFilter} onChange={e => setIdCuentaFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Tipo</label>
@@ -1793,31 +1494,19 @@ export default function Pagos() {
                           <h4 className="font-medium text-sm">Filtrar por Tipo</h4>
                           <div className="space-y-2">
                             <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="tipo-propiedad-canceladas"
-                                checked={selectedTipos.includes('Propiedad')}
-                                onCheckedChange={() => handleTipoToggle('Propiedad')}
-                              />
+                              <Checkbox id="tipo-propiedad-canceladas" checked={selectedTipos.includes('Propiedad')} onCheckedChange={() => handleTipoToggle('Propiedad')} />
                               <Label htmlFor="tipo-propiedad-canceladas" className="cursor-pointer">
                                 Propiedad
                               </Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="tipo-producto-canceladas"
-                                checked={selectedTipos.includes('Producto')}
-                                onCheckedChange={() => handleTipoToggle('Producto')}
-                              />
+                              <Checkbox id="tipo-producto-canceladas" checked={selectedTipos.includes('Producto')} onCheckedChange={() => handleTipoToggle('Producto')} />
                               <Label htmlFor="tipo-producto-canceladas" className="cursor-pointer">
                                 Producto
                               </Label>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="tipo-servicio-canceladas"
-                                checked={selectedTipos.includes('Servicio')}
-                                onCheckedChange={() => handleTipoToggle('Servicio')}
-                              />
+                              <Checkbox id="tipo-servicio-canceladas" checked={selectedTipos.includes('Servicio')} onCheckedChange={() => handleTipoToggle('Servicio')} />
                               <Label htmlFor="tipo-servicio-canceladas" className="cursor-pointer">
                                 Servicio
                               </Label>
@@ -1829,70 +1518,43 @@ export default function Pagos() {
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Nombre de producto</label>
-                    <Input
-                      placeholder="Filtrar por producto..."
-                      value={productoFilter}
-                      onChange={(e) => setProductoFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por producto..." value={productoFilter} onChange={e => setProductoFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Compradores</label>
-                    <Input
-                      placeholder="Filtrar por comprador..."
-                      value={compradoresFilter}
-                      onChange={(e) => setCompradoresFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por comprador..." value={compradoresFilter} onChange={e => setCompradoresFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">CLABE</label>
-                    <Input
-                      placeholder="Filtrar por CLABE..."
-                      value={clabeFilter}
-                      onChange={(e) => setClabeFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por CLABE..." value={clabeFilter} onChange={e => setClabeFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Proyecto</label>
-                    <Input
-                      placeholder="Filtrar por proyecto..."
-                      value={proyectoFilter}
-                      onChange={(e) => setProyectoFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por proyecto..." value={proyectoFilter} onChange={e => setProyectoFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">No. Propiedad</label>
-                    <Input
-                      placeholder="Filtrar por propiedad..."
-                      value={noPropiedadFilter}
-                      onChange={(e) => setNoPropiedadFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por propiedad..." value={noPropiedadFilter} onChange={e => setNoPropiedadFilter(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">Modelo</label>
-                    <Input
-                      placeholder="Filtrar por modelo..."
-                      value={modeloFilter}
-                      onChange={(e) => setModeloFilter(e.target.value)}
-                    />
+                    <Input placeholder="Filtrar por modelo..." value={modeloFilter} onChange={e => setModeloFilter(e.target.value)} />
                   </div>
                 </div>
                 
                 {/* Clear filters button */}
                 <div className="flex justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setIdCuentaFilter("");
-                      setSelectedTipos(['Propiedad', 'Producto', 'Servicio']);
-                      setProductoFilter("");
-                      setCompradoresFilter("");
-                      setClabeFilter("");
-                      setProyectoFilter("");
-                      setNoPropiedadFilter("");
-                      setModeloFilter("");
-                    }}
-                  >
+                  <Button variant="outline" onClick={() => {
+                  setSearchTerm("");
+                  setIdCuentaFilter("");
+                  setSelectedTipos(['Propiedad', 'Producto', 'Servicio']);
+                  setProductoFilter("");
+                  setCompradoresFilter("");
+                  setClabeFilter("");
+                  setProyectoFilter("");
+                  setNoPropiedadFilter("");
+                  setModeloFilter("");
+                }}>
                     Limpiar Filtros
                   </Button>
                 </div>
@@ -1900,21 +1562,12 @@ export default function Pagos() {
             </CardHeader>
             <CardContent>
               {/* Filtered count display */}
-              {!isLoading && (
-                <div className="mb-4 text-sm text-muted-foreground">
+              {!isLoading && <div className="mb-4 text-sm text-muted-foreground">
                   Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasCanceladas.length}</span> cuentas
-                </div>
-              )}
-              {isLoading ? (
-                <div className="text-center py-8">Cargando cuentas de cobranza...</div>
-              ) : filteredCuentas.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3
-                    ? "No se encontraron cuentas que coincidan con los filtros" 
-                    : "No hay cuentas de cobranza canceladas"}
-                </div>
-              ) : (
-                <Table>
+                </div>}
+              {isLoading ? <div className="text-center py-8">Cargando cuentas de cobranza...</div> : filteredCuentas.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza canceladas"}
+                </div> : <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID Cuenta</TableHead>
@@ -1936,16 +1589,11 @@ export default function Pagos() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedCuentas.map((cuenta) => (
-                      <TableRow 
-                        key={cuenta.id}
-                        className={Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 ? "bg-green-50 dark:bg-green-950/20" : ""}
-                      >
+                    {paginatedCuentas.map(cuenta => <TableRow key={cuenta.id} className={Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 ? "bg-green-50 dark:bg-green-950/20" : ""}>
                         <TableCell className="font-semibold">
                           <div className="flex items-center gap-2">
                             <span>{formatCuentaCobranzaId(cuenta.id, cuenta.tipo)}</span>
-                            {!cuenta.tiene_acuerdos ? (
-                              <TooltipProvider>
+                            {!cuenta.tiene_acuerdos ? <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 h-6 w-6 p-0 flex items-center justify-center">
@@ -1957,9 +1605,7 @@ export default function Pagos() {
                                     <p className="text-sm">La cuenta de cobranza fue generada pero falta seleccionar el esquema de pago para generar los acuerdos</p>
                                   </TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
-                            ) : !cuenta.apartado_pagado && cuenta.id_estatus_disponibilidad !== 10 ? (
-                              <TooltipProvider>
+                              </TooltipProvider> : !cuenta.apartado_pagado && cuenta.id_estatus_disponibilidad !== 10 ? <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 h-6 w-6 p-0 flex items-center justify-center">
@@ -1971,8 +1617,7 @@ export default function Pagos() {
                                     <p className="text-sm">Esta cuenta fue generada pero aún no ha recibido el pago inicial completo</p>
                                   </TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
-                            ) : null}
+                              </TooltipProvider> : null}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1981,23 +1626,11 @@ export default function Pagos() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {cuenta.producto_nombre ? (
-                            <span className="text-sm">{cuenta.producto_nombre}</span>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">N/A</span>
-                          )}
+                          {cuenta.producto_nombre ? <span className="text-sm">{cuenta.producto_nombre}</span> : <span className="text-muted-foreground text-xs">N/A</span>}
                         </TableCell>
                          <TableCell>
-                           {cuenta.compradores.length > 0 ? (
-                             cuenta.compradores.length > 1 ? (
-                               <CompradoresDetailDialog compradores={cuenta.compradores} />
-                             ) : (
-                               <div className="space-y-1">
-                                  <Badge 
-                                    variant="secondary" 
-                                    className="block w-fit cursor-pointer hover:bg-secondary/80"
-                                    onClick={() => handleCompradorClick(cuenta.compradores[0].rfc || cuenta.compradores[0].nombre_legal)}
-                                  >
+                           {cuenta.compradores.length > 0 ? cuenta.compradores.length > 1 ? <CompradoresDetailDialog compradores={cuenta.compradores} /> : <div className="space-y-1">
+                                  <Badge variant="secondary" className="block w-fit cursor-pointer hover:bg-secondary/80" onClick={() => handleCompradorClick(cuenta.compradores[0].rfc || cuenta.compradores[0].nombre_legal)}>
                                    {cuenta.compradores[0].nombre_legal}
                                  </Badge>
                                   <div className="text-xs text-muted-foreground">
@@ -2005,46 +1638,28 @@ export default function Pagos() {
                                     <br />
                                     {cuenta.compradores[0].porcentaje_copropiedad.toFixed(2)}% propiedad
                                   </div>
-                               </div>
-                             )
-                           ) : (
-                             <span className="text-muted-foreground">Sin compradores</span>
-                           )}
+                               </div> : <span className="text-muted-foreground">Sin compradores</span>}
                          </TableCell>
                          <TableCell>
-                           <span 
-                             className="cursor-pointer hover:text-primary hover:underline" 
-                             onClick={() => handleVendedorClick(cuenta.dueno)}
-                           >
+                           <span className="cursor-pointer hover:text-primary hover:underline" onClick={() => handleVendedorClick(cuenta.dueno)}>
                              {cuenta.dueno}
                            </span>
                          </TableCell>
                           <TableCell>
-                            {cuenta.clabe_stp ? (
-                              <Badge 
-                                variant="outline" 
-                                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(cuenta.clabe_stp!);
-                                  toast({
-                                    title: "CLABE copiada",
-                                    description: "La cuenta CLABE se copió al portapapeles",
-                                  });
-                                }}
-                              >
+                            {cuenta.clabe_stp ? <Badge variant="outline" className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => {
+                      navigator.clipboard.writeText(cuenta.clabe_stp!);
+                      toast({
+                        title: "CLABE copiada",
+                        description: "La cuenta CLABE se copió al portapapeles"
+                      });
+                    }}>
                                 {cuenta.clabe_stp}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">Sin CLABE</span>
-                            )}
+                              </Badge> : <span className="text-muted-foreground">Sin CLABE</span>}
                           </TableCell>
                          <TableCell>{cuenta.proyecto}</TableCell>
                          <TableCell>{cuenta.edificio}</TableCell>
                           <TableCell>
-                            <span 
-                              className="cursor-pointer hover:text-primary hover:underline font-medium" 
-                              onClick={() => handlePropertyClick(cuenta.clabe_stp || cuenta.numero_propiedad)}
-                            >
+                            <span className="cursor-pointer hover:text-primary hover:underline font-medium" onClick={() => handlePropertyClick(cuenta.clabe_stp || cuenta.numero_propiedad)}>
                               {cuenta.numero_propiedad}
                             </span>
                           </TableCell>
@@ -2053,21 +1668,18 @@ export default function Pagos() {
                            <div className="flex items-center justify-end gap-2">
                              <span>{formatCurrency(Number(cuenta.precio_final))}</span>
                              {(() => {
-                               // Ajustar precio_final si hay comisión en efectivo
-                               // La comisión se calcula como: precio_lista * porcentaje
-                               let precioFinalAjustado = cuenta.precio_final;
-                               if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && cuenta.precio_lista) {
-                                 const montoComision = cuenta.precio_lista * (cuenta.porcentaje_comision_venta / 100);
-                                 precioFinalAjustado = cuenta.precio_final + montoComision;
-                               }
-                               
-                               const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
-                               const tolerance = 10.0; // Tolerancia para redondeo
-                               
-                               return (
-                                 <>
-                                   {cuenta.precio_lista && difference > tolerance ? (
-                                     <TooltipProvider>
+                        // Ajustar precio_final si hay comisión en efectivo
+                        // La comisión se calcula como: precio_lista * porcentaje
+                        let precioFinalAjustado = cuenta.precio_final;
+                        if (cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && cuenta.precio_lista) {
+                          const montoComision = cuenta.precio_lista * (cuenta.porcentaje_comision_venta / 100);
+                          precioFinalAjustado = cuenta.precio_final + montoComision;
+                        }
+                        const difference = cuenta.precio_lista ? precioFinalAjustado - cuenta.precio_lista : 0;
+                        const tolerance = 10.0; // Tolerancia para redondeo
+
+                        return <>
+                                   {cuenta.precio_lista && difference > tolerance ? <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <TrendingUp className="h-4 w-4 text-orange-600" />
@@ -2076,9 +1688,7 @@ export default function Pagos() {
                                            <p>Precio final mayor a precio de lista</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   ) : cuenta.precio_lista && difference < -tolerance ? (
-                                     <TooltipProvider>
+                                     </TooltipProvider> : cuenta.precio_lista && difference < -tolerance ? <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <TrendingDown className="h-4 w-4 text-green-600" />
@@ -2087,9 +1697,7 @@ export default function Pagos() {
                                            <p>Precio final menor a precio de lista</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   ) : cuenta.precio_lista && Math.abs(difference) <= tolerance ? (
-                                     <TooltipProvider>
+                                     </TooltipProvider> : cuenta.precio_lista && Math.abs(difference) <= tolerance ? <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <Equal className="h-4 w-4 text-blue-600" />
@@ -2098,10 +1706,8 @@ export default function Pagos() {
                                            <p>Precio final igual a precio de lista</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   ) : null}
-                                   {cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && (
-                                     <TooltipProvider>
+                                     </TooltipProvider> : null}
+                                   {cuenta.es_comision_venta_efectivo && cuenta.porcentaje_comision_venta && <TooltipProvider>
                                        <Tooltip>
                                          <TooltipTrigger>
                                            <Banknote className="h-4 w-4 text-yellow-600" />
@@ -2111,11 +1717,9 @@ export default function Pagos() {
                                            <p className="text-xs mt-1">Precio antes de comisión: {formatCurrency(precioFinalAjustado)}</p>
                                          </TooltipContent>
                                        </Tooltip>
-                                     </TooltipProvider>
-                                   )}
-                                 </>
-                               );
-                             })()}
+                                     </TooltipProvider>}
+                                 </>;
+                      })()}
                            </div>
                          </TableCell>
                         <TableCell className="font-semibold text-blue-600">
@@ -2124,8 +1728,7 @@ export default function Pagos() {
                          <TableCell className="font-semibold text-orange-600">
                            <div className="flex items-center gap-2">
                              {formatCurrency(cuenta.restante)}
-                             {Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 && (
-                               <TooltipProvider>
+                             {Math.abs(cuenta.restante) < 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 && <TooltipProvider>
                                  <Tooltip>
                                    <TooltipTrigger>
                                      <CheckCircle className="h-4 w-4 text-green-500" />
@@ -2134,25 +1737,18 @@ export default function Pagos() {
                                      <p>Cuenta completamente pagada</p>
                                    </TooltipContent>
                                  </Tooltip>
-                               </TooltipProvider>
-                             )}
+                               </TooltipProvider>}
                            </div>
                          </TableCell>
                          <TableCell>
-                           {cuenta.tipo === 'Propiedad' ? (
-                             <TooltipProvider>
+                           {cuenta.tipo === 'Propiedad' ? <TooltipProvider>
                                <Tooltip>
                                  <TooltipTrigger asChild>
-                                   <Button 
-                                     variant="ghost" 
-                                     size="icon"
-                                     onClick={() => setCashDialog({ isOpen: true, cuenta })}
-                                   >
-                                     <DollarSign className={`h-4 w-4 ${
-                                       cuenta.cash_percentage >= 85 ? 'text-red-600' :
-                                       cuenta.cash_percentage >= 75 ? 'text-yellow-600' :
-                                       'text-green-600'
-                                     }`} />
+                                   <Button variant="ghost" size="icon" onClick={() => setCashDialog({
+                            isOpen: true,
+                            cuenta
+                          })}>
+                                     <DollarSign className={`h-4 w-4 ${cuenta.cash_percentage >= 85 ? 'text-red-600' : cuenta.cash_percentage >= 75 ? 'text-yellow-600' : 'text-green-600'}`} />
                                    </Button>
                                  </TooltipTrigger>
                                   <TooltipContent>
@@ -2161,10 +1757,7 @@ export default function Pagos() {
                                     <p>Aún permitido: {formatCurrency(cuenta.cash_remaining || 0)}</p>
                                   </TooltipContent>
                                </Tooltip>
-                             </TooltipProvider>
-                           ) : (
-                             <span className="text-muted-foreground text-xs">N/A</span>
-                           )}
+                             </TooltipProvider> : <span className="text-muted-foreground text-xs">N/A</span>}
                          </TableCell>
                          <TableCell>
                           <Badge variant={cuenta.motivo_cancelacion === "Cesión de derechos" ? "secondary" : "destructive"}>
@@ -2188,17 +1781,8 @@ export default function Pagos() {
                                 </Tooltip>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="outline" 
-                                        size="icon"
-                                        onClick={() => handleDownloadEstadoCuenta(cuenta.id)}
-                                        disabled={isGeneratingEstadoCuenta !== null}
-                                      >
-                                        {isGeneratingEstadoCuenta === cuenta.id ? (
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <FileText className="h-4 w-4" />
-                                        )}
+                                      <Button variant="outline" size="icon" onClick={() => handleDownloadEstadoCuenta(cuenta.id)} disabled={isGeneratingEstadoCuenta !== null}>
+                                        {isGeneratingEstadoCuenta === cuenta.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
@@ -2207,17 +1791,8 @@ export default function Pagos() {
                                   </Tooltip>
                                  <Tooltip>
                                    <TooltipTrigger asChild>
-                                     <Button 
-                                       variant="outline" 
-                                       size="icon"
-                                       onClick={() => handleDownloadOffer(cuenta)}
-                                       disabled={loadingDownload === cuenta.id}
-                                     >
-                                       {loadingDownload === cuenta.id ? (
-                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                       ) : (
-                                         <Download className="h-4 w-4" />
-                                       )}
+                                     <Button variant="outline" size="icon" onClick={() => handleDownloadOffer(cuenta)} disabled={loadingDownload === cuenta.id}>
+                                       {loadingDownload === cuenta.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                      </Button>
                                    </TooltipTrigger>
                                    <TooltipContent>
@@ -2227,67 +1802,49 @@ export default function Pagos() {
                               </div>
                             </TooltipProvider>
                          </TableCell>
-                      </TableRow>
-                    ))}
+                      </TableRow>)}
                   </TableBody>
-                </Table>
-              )}
+                </Table>}
               {renderPagination(currentPage, totalPages, setCurrentPage)}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {cancelDialog.isOpen && cancelDialog.cuenta && (
-        <CancelCuentaDialog
-          isOpen={cancelDialog.isOpen}
-          onClose={() => setCancelDialog({ isOpen: false, cuenta: null })}
-          cuentaId={cancelDialog.cuenta.id}
-          precioFinal={cancelDialog.cuenta.precio_final}
-          totalPagado={cancelDialog.cuenta.pagado}
-          idOferta={cancelDialog.cuenta.id_oferta}
-          clabeStpOriginal={cancelDialog.cuenta.clabe_stp}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["cuentas_cobranza"] });
-            setCancelDialog({ isOpen: false, cuenta: null });
-          }}
-        />
-      )}
+      {cancelDialog.isOpen && cancelDialog.cuenta && <CancelCuentaDialog isOpen={cancelDialog.isOpen} onClose={() => setCancelDialog({
+      isOpen: false,
+      cuenta: null
+    })} cuentaId={cancelDialog.cuenta.id} precioFinal={cancelDialog.cuenta.precio_final} totalPagado={cancelDialog.cuenta.pagado} idOferta={cancelDialog.cuenta.id_oferta} clabeStpOriginal={cancelDialog.cuenta.clabe_stp} onSuccess={() => {
+      queryClient.invalidateQueries({
+        queryKey: ["cuentas_cobranza"]
+      });
+      setCancelDialog({
+        isOpen: false,
+        cuenta: null
+      });
+    }} />}
 
-      {editDialog.isOpen && editDialog.cuenta && (
-        <EditCuentaCobranzaDialog
-          cuenta={editDialog.cuenta}
-          onClose={() => setEditDialog({ isOpen: false, cuenta: null })}
-          onUpdate={() => {
-            queryClient.invalidateQueries({ queryKey: ["cuentas_cobranza"] });
-            setEditDialog({ isOpen: false, cuenta: null });
-          }}
-        />
-      )}
+      {editDialog.isOpen && editDialog.cuenta && <EditCuentaCobranzaDialog cuenta={editDialog.cuenta} onClose={() => setEditDialog({
+      isOpen: false,
+      cuenta: null
+    })} onUpdate={() => {
+      queryClient.invalidateQueries({
+        queryKey: ["cuentas_cobranza"]
+      });
+      setEditDialog({
+        isOpen: false,
+        cuenta: null
+      });
+    }} />}
 
-      {paymentDialog.cuenta && (
-        <AddManualPaymentDialog
-          isOpen={paymentDialog.isOpen}
-          cuentaCobranzaId={paymentDialog.cuenta.id}
-          cuentaCobranzaLabel={formatCuentaCobranzaId(paymentDialog.cuenta.id, paymentDialog.cuenta.tipo)}
-          onClose={() => setPaymentDialog({ isOpen: false, cuenta: null })}
-          tipoCuenta={paymentDialog.cuenta.tipo}
-          precioFinal={paymentDialog.cuenta.precio_final}
-          montoPagado={paymentDialog.cuenta.pagado}
-        />
-      )}
+      {paymentDialog.cuenta && <AddManualPaymentDialog isOpen={paymentDialog.isOpen} cuentaCobranzaId={paymentDialog.cuenta.id} cuentaCobranzaLabel={formatCuentaCobranzaId(paymentDialog.cuenta.id, paymentDialog.cuenta.tipo)} onClose={() => setPaymentDialog({
+      isOpen: false,
+      cuenta: null
+    })} tipoCuenta={paymentDialog.cuenta.tipo} precioFinal={paymentDialog.cuenta.precio_final} montoPagado={paymentDialog.cuenta.pagado} />}
 
-      {cashDialog.cuenta && (
-        <CashPaymentDetailDialog
-          isOpen={cashDialog.isOpen}
-          onClose={() => setCashDialog({ isOpen: false, cuenta: null })}
-          cashLimit={cashDialog.cuenta.cash_limit || 0}
-          cashPaid={cashDialog.cuenta.cash_paid || 0}
-          cashRemaining={cashDialog.cuenta.cash_remaining || 0}
-          cashPercentage={cashDialog.cuenta.cash_percentage || 0}
-          cashPayments={cashDialog.cuenta.cash_payments || []}
-        />
-      )}
-    </div>
-  );
+      {cashDialog.cuenta && <CashPaymentDetailDialog isOpen={cashDialog.isOpen} onClose={() => setCashDialog({
+      isOpen: false,
+      cuenta: null
+    })} cashLimit={cashDialog.cuenta.cash_limit || 0} cashPaid={cashDialog.cuenta.cash_paid || 0} cashRemaining={cashDialog.cuenta.cash_remaining || 0} cashPercentage={cashDialog.cuenta.cash_percentage || 0} cashPayments={cashDialog.cuenta.cash_payments || []} />}
+    </div>;
 }
