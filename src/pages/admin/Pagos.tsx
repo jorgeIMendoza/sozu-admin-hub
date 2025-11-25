@@ -701,10 +701,13 @@ export default function Pagos() {
   const handleTipoToggle = (tipo: 'Propiedad' | 'Producto' | 'Servicio') => {
     setSelectedTipos(prev => prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]);
   };
-  const totalMonto = filteredCuentas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
   
-  // Calculate top 3 projects by number of accounts with totals
-  const proyectosDataMap = filteredCuentas.reduce((acc, cuenta) => {
+  // Statistics should always use unfiltered data based on active tab
+  const statsCuentas = activeTab === "activas" ? cuentasActivas : cuentasCanceladas;
+  const totalMonto = statsCuentas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
+  
+  // Calculate top 3 projects by number of accounts with totals (unfiltered)
+  const proyectosDataMap = statsCuentas.reduce((acc, cuenta) => {
     const proyecto = cuenta.proyecto;
     if (!acc[proyecto]) {
       acc[proyecto] = { count: 0, total: 0 };
@@ -1063,7 +1066,7 @@ export default function Pagos() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {activeTab === "activas" ? cuentasActivas.length : cuentasCanceladas.length}
+                {statsCuentas.length}
               </div>
             </CardContent>
           </Card>
@@ -1099,11 +1102,11 @@ export default function Pagos() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="text-2xl font-bold cursor-help">
-                      {formatCurrencyCompact(filteredCuentas.length > 0 ? totalMonto / filteredCuentas.length : 0)}
+                      {formatCurrencyCompact(statsCuentas.length > 0 ? totalMonto / statsCuentas.length : 0)}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{formatCurrency(filteredCuentas.length > 0 ? totalMonto / filteredCuentas.length : 0)}</p>
+                    <p>{formatCurrency(statsCuentas.length > 0 ? totalMonto / statsCuentas.length : 0)}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
