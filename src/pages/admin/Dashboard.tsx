@@ -14,6 +14,7 @@ interface ProjectData {
   precio_m2_actual: number;
   tipo_uso: string;
   monto_total: number;
+  tiene_disponibles: boolean;
 }
 
 const Dashboard = () => {
@@ -132,13 +133,22 @@ const Dashboard = () => {
 
           const monto_total = (cuentas || []).reduce((sum, c) => sum + Number(c.precio_final), 0);
 
+          // Check if project has available properties (id_estatus_disponibilidad = 1 is "Disponible")
+          const { data: disponibles } = await supabase
+            .from('propiedades')
+            .select('id')
+            .in('id_entidad_relacionada_dueno', entidadIds)
+            .eq('id_estatus_disponibilidad', 1)
+            .limit(1);
+
           return {
             id: project.id,
             nombre: project.nombre,
             direccion: project.direccion,
             precio_m2_actual: project.precio_m2_actual || 0,
             tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
-            monto_total
+            monto_total,
+            tiene_disponibles: (disponibles && disponibles.length > 0) || false
           };
         })
       );
@@ -265,9 +275,12 @@ const Dashboard = () => {
                     </div>
                     <Badge 
                       variant="default"
-                      className="bg-green-500 text-white hover:bg-green-600"
+                      className={project.tiene_disponibles 
+                        ? "bg-green-500 text-white hover:bg-green-600" 
+                        : "bg-blue-500 text-white hover:bg-blue-600"
+                      }
                     >
-                      Activo
+                      {project.tiene_disponibles ? 'En venta' : 'Vendido'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
