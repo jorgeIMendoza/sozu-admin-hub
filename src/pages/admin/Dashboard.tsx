@@ -20,13 +20,14 @@ interface ProjectData {
 const Dashboard = () => {
   const [showSozuOnly, setShowSozuOnly] = useState(true);
 
-  // Fetch Sozu-managed projects
+  // Fetch Sozu-managed projects (Inmobiliaria = Real Estate Ventures)
   const { data: sozuProjectIds = [] } = useQuery({
     queryKey: ['sozu-projects'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entidades_relacionadas')
         .select('id_proyecto, personas!inner(nombre_legal)')
+        .eq('id_tipo_entidad', 5) // Tipo Inmobiliaria
         .ilike('personas.nombre_legal', '%Real Estate Ventures%');
 
       if (error) throw error;
@@ -47,7 +48,8 @@ const Dashboard = () => {
           precio_m2_actual,
           tipos_uso(nombre)
         `)
-        .eq('activo', true);
+        .eq('activo', true)
+        .not('nombre', 'in', '("Productos","Servicios","Mantenimientos")');
 
       if (projectsError) throw projectsError;
 
@@ -199,7 +201,7 @@ const Dashboard = () => {
           htmlFor="sozu-filter"
           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
         >
-          Gestionados por inmobiliaria Real Estate Ventures (sozu)
+          Gestionados por inmobiliaria Sozu (Real Estate Ventures)
         </Label>
       </div>
 
