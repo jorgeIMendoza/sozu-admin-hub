@@ -1,12 +1,11 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/admin/StatCard";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Building2, Home, DollarSign, MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ProjectData {
   id: number;
@@ -18,22 +17,6 @@ interface ProjectData {
 }
 
 const Dashboard = () => {
-  const [showSozuOnly, setShowSozuOnly] = useState(true);
-
-  // Fetch Sozu-managed projects (Inmobiliaria = Real Estate Ventures)
-  const { data: sozuProjectIds = [] } = useQuery({
-    queryKey: ['sozu-projects'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('entidades_relacionadas')
-        .select('id_proyecto, personas!entidades_relacionadas_id_persona_fkey(nombre_legal)')
-        .eq('id_tipo_entidad', 5) // Tipo Inmobiliaria
-        .ilike('personas.nombre_legal', '%Real Estate Ventures%');
-
-      if (error) throw error;
-      return data?.map(er => er.id_proyecto) || [];
-    }
-  });
 
   // Fetch projects with amounts
   const { data: projectAmounts = [] } = useQuery({
@@ -49,7 +32,8 @@ const Dashboard = () => {
           tipos_uso(nombre)
         `)
         .eq('activo', true)
-        .not('nombre', 'in', '("Productos","Servicios","Mantenimientos")');
+        .not('nombre', 'in', '("Productos","Servicios","Mantenimientos")')
+        .limit(10000);
 
       if (projectsError) throw projectsError;
 
@@ -145,55 +129,42 @@ const Dashboard = () => {
         })
       );
 
-      return projectsWithAmounts.sort((a, b) => b.monto_total - a.monto_total);
+      // Filter out projects with 0 monto_total and sort by monto_total descending
+      return projectsWithAmounts
+        .filter(p => p.monto_total > 0)
+        .sort((a, b) => b.monto_total - a.monto_total);
     }
   });
 
-  // Fetch total buildings
+  // Fetch total buildings for all projects with monto > 0
+  const projectIdsWithAmount = useMemo(() => 
+    projectAmounts.map(p => p.id), 
+    [projectAmounts]
+  );
+
   const { data: totalBuildings = 0 } = useQuery({
-    queryKey: ['dashboard-buildings'],
+    queryKey: ['dashboard-buildings', projectIdsWithAmount.join(',')],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('edificios')
-        .select('*', { count: 'exact', head: true })
-        .eq('activo', true);
-
-      if (error) throw error;
-      return count || 0;
-    }
-  });
-
-  // Filter projects based on checkbox
-  const filteredProjects = useMemo(() => {
-    if (!showSozuOnly) return projectAmounts;
-    return projectAmounts.filter((p: ProjectData) => sozuProjectIds.includes(p.id));
-  }, [projectAmounts, sozuProjectIds, showSozuOnly]);
-
-  // Calculate buildings for filtered projects
-  const { data: filteredBuildings = 0 } = useQuery({
-    queryKey: ['dashboard-filtered-buildings', filteredProjects.map(p => p.id).join(',')],
-    queryFn: async () => {
-      if (filteredProjects.length === 0) return 0;
+      if (projectIdsWithAmount.length === 0) return 0;
       
       const { count, error } = await supabase
         .from('edificios')
         .select('*', { count: 'exact', head: true })
-        .in('id_proyecto', filteredProjects.map(p => p.id))
+        .in('id_proyecto', projectIdsWithAmount)
         .eq('activo', true);
 
       if (error) throw error;
       return count || 0;
     },
-    enabled: filteredProjects.length > 0
+    enabled: projectIdsWithAmount.length > 0
   });
 
-  // Calculate stats based on filtered projects
+  // Calculate stats
   const stats = useMemo(() => {
-    const totalProjects = filteredProjects.length;
-    const buildingsCount = showSozuOnly ? filteredBuildings : totalBuildings;
+    const totalProjects = projectAmounts.length;
 
     // Calculate average price per m2
-    const projectsWithPrice = filteredProjects.filter((p: ProjectData) => p.precio_m2_actual > 0);
+    const projectsWithPrice = projectAmounts.filter((p: ProjectData) => p.precio_m2_actual > 0);
     const avgPrice = projectsWithPrice.length > 0
       ? projectsWithPrice.reduce((sum: number, p: ProjectData) => sum + p.precio_m2_actual, 0) / projectsWithPrice.length
       : 0;
@@ -206,7 +177,7 @@ const Dashboard = () => {
       },
       {
         title: "Edificios", 
-        value: buildingsCount.toString(),
+        value: totalBuildings.toString(),
         icon: Home,
       },
       {
@@ -216,12 +187,12 @@ const Dashboard = () => {
         icon: DollarSign,
       }
     ];
-  }, [filteredProjects, filteredBuildings, totalBuildings, showSozuOnly]);
+  }, [projectAmounts, totalBuildings]);
 
   // Get top 5 projects to display
   const topProjects = useMemo(() => {
-    return filteredProjects.slice(0, 5);
-  }, [filteredProjects]);
+    return projectAmounts.slice(0, 5);
+  }, [projectAmounts]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -230,6 +201,15 @@ const Dashboard = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+  };
+
+  const formatCompactCurrency = (amount: number) => {
+    if (amount >= 1000000) {
+      return `${(amount / 1000000).toFixed(2)}M`;
+    } else if (amount >= 1000) {
+      return `${(amount / 1000).toFixed(2)}K`;
+    }
+    return formatCurrency(amount);
   };
 
   return (
@@ -246,21 +226,6 @@ const Dashboard = () => {
         {stats.map((stat, index) => (
           <StatCard key={index} {...stat} />
         ))}
-      </div>
-
-      {/* Filter Checkbox */}
-      <div className="flex items-center space-x-2">
-        <Checkbox 
-          id="sozu-filter" 
-          checked={showSozuOnly}
-          onCheckedChange={(checked) => setShowSozuOnly(checked === true)}
-        />
-        <Label 
-          htmlFor="sozu-filter"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-        >
-          Gestionados por inmobiliaria Sozu (Real Estate Ventures)
-        </Label>
       </div>
 
       {/* Projects List */}
@@ -300,9 +265,18 @@ const Dashboard = () => {
                   </div>
                   <div className="pt-2 border-t">
                     <div className="text-xs text-muted-foreground">Monto Total Colocado</div>
-                    <div className="text-lg font-bold text-foreground">
-                      {formatCurrency(project.monto_total)}
-                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="text-lg font-bold text-foreground cursor-help">
+                            {formatCompactCurrency(project.monto_total)}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{formatCurrency(project.monto_total)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </CardContent>
