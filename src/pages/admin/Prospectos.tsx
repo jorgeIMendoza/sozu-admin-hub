@@ -1121,7 +1121,9 @@ export default function Prospectos() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Proyecto de Interés</label>
+                <label className="text-sm font-medium">
+                  Proyecto de Interés <span className="text-destructive">*</span>
+                </label>
                 <Combobox
                   value={newProspectoProyecto}
                   onValueChange={setNewProspectoProyecto}
@@ -1152,11 +1154,34 @@ export default function Prospectos() {
               </div>
             </div>
             <PersonForm
-              onSubmit={(data) => createMutation.mutate({
-                ...data,
-                id_proyecto: newProspectoProyecto || null,
-                id_persona_duena_lead: newProspectoAgente || null
-              })}
+              onSubmit={(data) => {
+                // Validar que el proyecto esté seleccionado
+                if (!newProspectoProyecto) {
+                  toast({
+                    title: "Error",
+                    description: "Debes seleccionar un proyecto de interés",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
+                // Convertir id_proyecto a número
+                const proyectoId = parseInt(newProspectoProyecto, 10);
+                if (isNaN(proyectoId)) {
+                  toast({
+                    title: "Error",
+                    description: "El proyecto seleccionado no es válido",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
+                createMutation.mutate({
+                  ...data,
+                  id_proyecto: proyectoId,
+                  id_persona_duena_lead: newProspectoAgente ? parseInt(newProspectoAgente, 10) : null
+                });
+              }}
               isLoading={createMutation.isPending}
               onCancel={() => {
                 setIsNewDialogOpen(false);
