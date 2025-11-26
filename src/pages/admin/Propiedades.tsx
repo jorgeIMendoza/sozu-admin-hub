@@ -973,7 +973,21 @@ const Propiedades = () => {
 
         // Apply filters on server-side
         if (searchTerm) {
-          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+          // First, find property IDs that have cuentas_cobranza with matching clabe_stp
+          const { data: matchingCuentas } = await supabase
+            .from('cuentas_cobranza')
+            .select('id_oferta, ofertas!fk_cuentas_cobranza_oferta!inner(id_propiedad)')
+            .ilike('clabe_stp', `%${searchTerm}%`)
+            .eq('activo', true);
+          
+          const propertyIdsFromCuentas = matchingCuentas?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [];
+          
+          // Build OR query including property number, clabe_stp_tmp_apartado, and property IDs from cuentas
+          if (propertyIdsFromCuentas.length > 0) {
+            query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%,id.in.(${propertyIdsFromCuentas.join(',')})`);
+          } else {
+            query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+          }
         }
         
         if (selectedProyectos.length > 0) {
@@ -1218,7 +1232,21 @@ const Propiedades = () => {
 
         // Apply filters on server-side
         if (searchTerm) {
-          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+          // First, find property IDs that have cuentas_cobranza with matching clabe_stp
+          const { data: matchingCuentas } = await supabase
+            .from('cuentas_cobranza')
+            .select('id_oferta, ofertas!fk_cuentas_cobranza_oferta!inner(id_propiedad)')
+            .ilike('clabe_stp', `%${searchTerm}%`)
+            .eq('activo', true);
+          
+          const propertyIdsFromCuentas = matchingCuentas?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [];
+          
+          // Build OR query including property number, clabe_stp_tmp_apartado, and property IDs from cuentas
+          if (propertyIdsFromCuentas.length > 0) {
+            query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%,id.in.(${propertyIdsFromCuentas.join(',')})`);
+          } else {
+            query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+          }
         }
         
         if (selectedProyectos.length > 0) {
@@ -1464,7 +1492,21 @@ const Propiedades = () => {
 
         // Apply filters on server-side
         if (searchTerm) {
-          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+          // First, find property IDs that have cuentas_cobranza with matching clabe_stp
+          const { data: matchingCuentas } = await supabase
+            .from('cuentas_cobranza')
+            .select('id_oferta, ofertas!fk_cuentas_cobranza_oferta!inner(id_propiedad)')
+            .ilike('clabe_stp', `%${searchTerm}%`)
+            .eq('activo', true);
+          
+          const propertyIdsFromCuentas = matchingCuentas?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [];
+          
+          // Build OR query including property number, clabe_stp_tmp_apartado, and property IDs from cuentas
+          if (propertyIdsFromCuentas.length > 0) {
+            query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%,id.in.(${propertyIdsFromCuentas.join(',')})`);
+          } else {
+            query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+          }
         }
         
         if (selectedProyectos.length > 0) {
