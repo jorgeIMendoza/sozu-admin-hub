@@ -916,7 +916,7 @@ const Propiedades = () => {
 
   // Separate queries for each tab with server-side pagination
   const { data: propiedadesActivasData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
-    queryKey: ['properties-activos', currentPageActive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
+    queryKey: ['properties-activos', currentPageActive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort],
     queryFn: async () => {
       try {
         const from = (currentPageActive - 1) * itemsPerPage;
@@ -1010,7 +1010,8 @@ const Propiedades = () => {
           areaFilter[0] !== 25 ||
           areaFilter[1] !== 300 ||
           precioFilter[0] !== 1000000 ||
-          precioFilter[1] !== 20000000;
+          precioFilter[1] !== 20000000 ||
+          precioSort !== null;
 
         let enrichedData;
         let totalCount;
@@ -1078,11 +1079,21 @@ const Propiedades = () => {
             return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
-          // Apply local pagination
-          const paginatedData = filtered.slice(from, from + itemsPerPage);
-          totalCount = filtered.length;
+          // Apply sorting if active
+          let sortedFiltered = filtered;
+          if (precioSort) {
+            sortedFiltered = [...filtered].sort((a, b) => {
+              const precioA = a.precio_lista || 0;
+              const precioB = b.precio_lista || 0;
+              return precioSort === 'asc' ? precioA - precioB : precioB - precioA;
+            });
+          }
 
-          return { properties: paginatedData, count: totalCount, filteredCount: filtered.length };
+          // Apply local pagination
+          const paginatedData = sortedFiltered.slice(from, from + itemsPerPage);
+          totalCount = sortedFiltered.length;
+
+          return { properties: paginatedData, count: totalCount, filteredCount: sortedFiltered.length };
         } else {
           // Use server-side pagination for better performance
           const { data, error, count } = await query.range(from, to);
@@ -1150,7 +1161,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesDraftData, isLoading: loadingDraft, refetch: refetchDraft } = useQuery({
-    queryKey: ['properties-draft', currentPageDraft, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
+    queryKey: ['properties-draft', currentPageDraft, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort],
     queryFn: async () => {
       try {
         const from = (currentPageDraft - 1) * itemsPerPage;
@@ -1244,7 +1255,8 @@ const Propiedades = () => {
           areaFilter[0] !== 25 ||
           areaFilter[1] !== 300 ||
           precioFilter[0] !== 1000000 ||
-          precioFilter[1] !== 20000000;
+          precioFilter[1] !== 20000000 ||
+          precioSort !== null;
 
         let enrichedData;
         let totalCount;
@@ -1312,11 +1324,21 @@ const Propiedades = () => {
             return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
-          // Apply local pagination
-          const paginatedData = filtered.slice(from, from + itemsPerPage);
-          totalCount = filtered.length;
+          // Apply sorting if active
+          let sortedFiltered = filtered;
+          if (precioSort) {
+            sortedFiltered = [...filtered].sort((a, b) => {
+              const precioA = a.precio_lista || 0;
+              const precioB = b.precio_lista || 0;
+              return precioSort === 'asc' ? precioA - precioB : precioB - precioA;
+            });
+          }
 
-          return { properties: paginatedData, count: totalCount, filteredCount: filtered.length };
+          // Apply local pagination
+          const paginatedData = sortedFiltered.slice(from, from + itemsPerPage);
+          totalCount = sortedFiltered.length;
+
+          return { properties: paginatedData, count: totalCount, filteredCount: sortedFiltered.length };
         } else {
           // Use server-side pagination for better performance
           const { data, error, count } = await query.range(from, to);
@@ -1385,7 +1407,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesEliminadasData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
-    queryKey: ['properties-eliminados', currentPageDeleted, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter],
+    queryKey: ['properties-eliminados', currentPageDeleted, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort],
     queryFn: async () => {
       try {
         const from = (currentPageDeleted - 1) * itemsPerPage;
@@ -1479,7 +1501,8 @@ const Propiedades = () => {
           areaFilter[0] !== 25 ||
           areaFilter[1] !== 300 ||
           precioFilter[0] !== 1000000 ||
-          precioFilter[1] !== 20000000;
+          precioFilter[1] !== 20000000 ||
+          precioSort !== null;
 
         let enrichedData;
         let totalCount;
@@ -1547,11 +1570,21 @@ const Propiedades = () => {
             return matchesBodegas && matchesEstacionamientos && matchesCuentaCobranza && matchesArea && matchesPrecio;
           });
 
-          // Apply local pagination
-          const paginatedData = filtered.slice(from, from + itemsPerPage);
-          totalCount = filtered.length;
+          // Apply sorting if active
+          let sortedFiltered = filtered;
+          if (precioSort) {
+            sortedFiltered = [...filtered].sort((a, b) => {
+              const precioA = a.precio_lista || 0;
+              const precioB = b.precio_lista || 0;
+              return precioSort === 'asc' ? precioA - precioB : precioB - precioA;
+            });
+          }
 
-          return { properties: paginatedData, count: totalCount, filteredCount: filtered.length };
+          // Apply local pagination
+          const paginatedData = sortedFiltered.slice(from, from + itemsPerPage);
+          totalCount = sortedFiltered.length;
+
+          return { properties: paginatedData, count: totalCount, filteredCount: sortedFiltered.length };
         } else {
           // Use server-side pagination for better performance
           const { data, error, count } = await query.range(from, to);
@@ -1629,25 +1662,10 @@ const Propiedades = () => {
   const totalEliminadosCount = propiedadesEliminadasData?.count || 0;
   const filteredEliminadosCount = propiedadesEliminadasData?.filteredCount ?? totalEliminadosCount;
 
-  // Aplicar ordenamiento por precio si está activo
-  const sortPropertiesByPrice = (properties: Property[]) => {
-    if (!precioSort) return properties;
-    
-    return [...properties].sort((a, b) => {
-      const precioA = a.precio_lista || 0;
-      const precioB = b.precio_lista || 0;
-      
-      if (precioSort === 'asc') {
-        return precioA - precioB;
-      } else {
-        return precioB - precioA;
-      }
-    });
-  };
-
-  const sortedActiveProperties = sortPropertiesByPrice(activeProperties);
-  const sortedDraftProperties = sortPropertiesByPrice(draftProperties);
-  const sortedInactiveProperties = sortPropertiesByPrice(inactiveProperties);
+  // Ya no necesitamos ordenar aquí porque el ordenamiento se aplica dentro de las queries
+  const sortedActiveProperties = activeProperties;
+  const sortedDraftProperties = draftProperties;
+  const sortedInactiveProperties = inactiveProperties;
 
   const isLoading = activeTab === "activos" ? loadingActivos : activeTab === "draft" ? loadingDraft : loadingEliminados;
 
