@@ -3716,7 +3716,7 @@ const Propiedades = () => {
                 className="gap-2"
               >
                 <DollarSign className="h-4 w-4" />
-                Precio
+                Ordenar
                 {precioSort === 'asc' && <TrendingUp className="h-4 w-4" />}
                 {precioSort === 'desc' && <TrendingDown className="h-4 w-4" />}
                 {!precioSort && <ArrowRightLeft className="h-4 w-4" />}
