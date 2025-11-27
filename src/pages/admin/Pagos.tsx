@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Upload, Banknote } from "lucide-react";
+import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Upload, Banknote, ChevronDown, ChevronUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -109,6 +109,12 @@ export default function Pagos() {
   });
   const [uploadingCep, setUploadingCep] = useState(false);
   const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState<number | null>(null);
+  
+  // Estado para controlar si las estadísticas están expandidas (con persistencia en localStorage)
+  const [statsExpanded, setStatsExpanded] = useState(() => {
+    const saved = localStorage.getItem('pagos-stats-expanded');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
 
   // Paginación
   const [currentPageActive, setCurrentPageActive] = useState(1);
@@ -739,12 +745,23 @@ export default function Pagos() {
     setSelectedTipos(prev => prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]);
   };
   
+  // Función para alternar expansión de estadísticas
+  const toggleStatsExpanded = () => {
+    const newValue = !statsExpanded;
+    setStatsExpanded(newValue);
+    localStorage.setItem('pagos-stats-expanded', JSON.stringify(newValue));
+  };
+
   // Statistics should always use unfiltered data based on active tab
   const statsCuentas = activeTab === "activas" ? cuentasActivas : cuentasCanceladas;
   const totalMonto = statsCuentas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
   
-  // Calculate top 3 projects by number of accounts with totals (unfiltered)
-  const proyectosDataMap = statsCuentas.reduce((acc, cuenta) => {
+  // Separar cuentas por tipo (Propiedades vs Productos/Servicios)
+  const cuentasPropiedades = statsCuentas.filter(c => c.tipo === 'Propiedad');
+  const cuentasProductos = statsCuentas.filter(c => c.tipo === 'Producto' || c.tipo === 'Servicio');
+  
+  // Calculate top 3 projects by number of accounts with totals (unfiltered) - SOLO PROPIEDADES
+  const proyectosDataMap = cuentasPropiedades.reduce((acc, cuenta) => {
     const proyecto = cuenta.proyecto;
     if (!acc[proyecto]) {
       acc[proyecto] = { count: 0, total: 0 };
@@ -763,6 +780,10 @@ export default function Pagos() {
       total: data.total,
       promedio: data.total / data.count
     }));
+
+  // Estadísticas para productos
+  const totalMontoProductos = cuentasProductos.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
+  const promedioProductos = cuentasProductos.length > 0 ? totalMontoProductos / cuentasProductos.length : 0;
 
   const formatCurrency = (amount: number) => {
     // Aggressively eliminate -0
@@ -1093,7 +1114,30 @@ export default function Pagos() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Sección de estadísticas contraíble */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold">Resumen de Cuentas</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleStatsExpanded}
+              className="h-8 w-8 p-0"
+            >
+              {statsExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        
+        {statsExpanded && (
+          <CardContent className="space-y-6">
+            {/* Cards de estadísticas generales */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -1151,12 +1195,14 @@ export default function Pagos() {
           </Card>
         </div>
 
-        <div className="grid gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Top 3 Proyectos con Más Cuentas</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
+            {/* Grid con dos secciones: Top 3 Propiedades y Estadísticas de Productos */}
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Lado izquierdo: Top 3 Proyectos de Propiedades */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Top 3 Proyectos con Más Cuentas (Propiedades)</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
             <CardContent>
               {top3Proyectos.length > 0 ? (
                 <div className="space-y-4">
@@ -1205,11 +1251,74 @@ export default function Pagos() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No hay proyectos disponibles</p>
+                <p className="text-sm text-muted-foreground">No hay proyectos de propiedades disponibles</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lado derecho: Estadísticas de Productos */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Estadísticas de Productos y Servicios</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {cuentasProductos.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="space-y-2 pb-3 border-b">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Total de Cuentas</span>
+                      <Badge variant="secondary">
+                        {cuentasProductos.length} {cuentasProductos.length === 1 ? 'cuenta' : 'cuentas'}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 pb-3 border-b">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Monto Total Colocado</span>
+                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="text-right cursor-help">
+                            <span className="text-lg font-semibold">{formatCurrencyCompact(totalMontoProductos)}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{formatCurrency(totalMontoProductos)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Promedio por Cuenta</span>
+                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="text-right cursor-help">
+                            <span className="text-lg font-semibold">{formatCurrencyCompact(promedioProductos)}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{formatCurrency(promedioProductos)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay cuentas de productos o servicios disponibles</p>
               )}
             </CardContent>
           </Card>
         </div>
+          </CardContent>
+        )}
+      </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
