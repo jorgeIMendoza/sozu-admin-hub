@@ -358,19 +358,42 @@ export default function Prospectos() {
   
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-  // Query for available projects
+  // Query for available projects with pagination to bypass 1000-row limit
   const { data: proyectos = [] } = useQuery({
     queryKey: ['proyectos'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('proyectos')
-        .select('id, nombre')
-        .eq('activo', true)
-        .order('nombre', { ascending: true })
-        .limit(10000);
+      let allProyectos: any[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let to = pageSize - 1;
+      let more = true;
+
+      while (more) {
+        const { data, error } = await supabase
+          .from('proyectos')
+          .select('id, nombre')
+          .eq('activo', true)
+          .order('nombre', { ascending: true })
+          .range(from, to);
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+          more = false;
+          break;
+        }
+
+        allProyectos = allProyectos.concat(data);
+
+        if (data.length < pageSize) {
+          more = false;
+        } else {
+          from += pageSize;
+          to += pageSize;
+        }
+      }
       
-      if (error) throw error;
-      return data || [];
+      return allProyectos;
     },
   });
 
