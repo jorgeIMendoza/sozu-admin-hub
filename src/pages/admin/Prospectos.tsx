@@ -366,7 +366,8 @@ export default function Prospectos() {
         .from('proyectos')
         .select('id, nombre')
         .eq('activo', true)
-        .order('nombre', { ascending: true });
+        .order('nombre', { ascending: true })
+        .limit(10000);
       
       if (error) throw error;
       return data || [];
