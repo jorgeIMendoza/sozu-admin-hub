@@ -115,10 +115,6 @@ export default function Prospectos() {
               id,
               nombre
             ),
-            proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
-              id,
-              nombre
-            ),
             agente:personas!entidades_relacionadas_id_persona_duena_lead_fkey (
               id,
               nombre_legal
@@ -166,6 +162,23 @@ export default function Prospectos() {
         conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
       }
       
+      // Obtener IDs de proyectos únicos para buscar nombres
+      const proyectoIds = [...new Set(
+        (data || [])
+          .map((item: any) => item.entidades_relacionadas[0]?.id_proyecto)
+          .filter(Boolean)
+      )];
+      
+      let proyectosMap = new Map();
+      if (proyectoIds.length > 0) {
+        const { data: proyectosData } = await supabase
+          .from('proyectos')
+          .select('id, nombre')
+          .in('id', proyectoIds);
+        
+        proyectosMap = new Map(proyectosData?.map((p: any) => [p.id, p.nombre]) || []);
+      }
+      
       return {
         prospectos: (data || []).map((item: any) => {
           const entidadRelacionada = item.entidades_relacionadas[0];
@@ -191,7 +204,7 @@ export default function Prospectos() {
             id_estatus_persona: entidadRelacionada.id_estatus_persona,
             estatus_nombre: entidadRelacionada.estatus?.nombre,
             id_proyecto: entidadRelacionada.id_proyecto,
-            proyecto_nombre: entidadRelacionada.proyecto?.nombre,
+            proyecto_nombre: entidadRelacionada.id_proyecto ? proyectosMap.get(entidadRelacionada.id_proyecto) : null,
             id_persona_duena_lead: entidadRelacionada.id_persona_duena_lead,
             agente_nombre: entidadRelacionada.agente?.nombre_legal,
           } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
@@ -230,10 +243,6 @@ export default function Prospectos() {
             id_persona_duena_lead,
             activo,
             estatus:estatus_persona!fk_entidades_relacionadas_estatus_persona (
-              id,
-              nombre
-            ),
-            proyecto:proyectos!entidades_relacionadas_id_proyecto_fkey (
               id,
               nombre
             ),
@@ -284,6 +293,23 @@ export default function Prospectos() {
         conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
       }
       
+      // Obtener IDs de proyectos únicos para buscar nombres
+      const proyectoIds = [...new Set(
+        (data || [])
+          .map((item: any) => item.entidades_relacionadas[0]?.id_proyecto)
+          .filter(Boolean)
+      )];
+      
+      let proyectosMap = new Map();
+      if (proyectoIds.length > 0) {
+        const { data: proyectosData } = await supabase
+          .from('proyectos')
+          .select('id, nombre')
+          .in('id', proyectoIds);
+        
+        proyectosMap = new Map(proyectosData?.map((p: any) => [p.id, p.nombre]) || []);
+      }
+      
       return {
         prospectos: (data || []).map((item: any) => {
           const entidadRelacionada = item.entidades_relacionadas[0];
@@ -309,7 +335,7 @@ export default function Prospectos() {
             id_estatus_persona: entidadRelacionada.id_estatus_persona,
             estatus_nombre: entidadRelacionada.estatus?.nombre,
             id_proyecto: entidadRelacionada.id_proyecto,
-            proyecto_nombre: entidadRelacionada.proyecto?.nombre,
+            proyecto_nombre: entidadRelacionada.id_proyecto ? proyectosMap.get(entidadRelacionada.id_proyecto) : null,
             id_persona_duena_lead: entidadRelacionada.id_persona_duena_lead,
             agente_nombre: entidadRelacionada.agente?.nombre_legal,
           } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };

@@ -870,6 +870,36 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_leads_hs_manuel_stagin: {
+        Row: {
+          clave_pais_telefono: string | null
+          email: string | null
+          id: number
+          id_persona_duena_lead: number | null
+          id_proyecto: number | null
+          nombre_completo: string | null
+          telefono: string | null
+        }
+        Insert: {
+          clave_pais_telefono?: string | null
+          email?: string | null
+          id?: number
+          id_persona_duena_lead?: number | null
+          id_proyecto?: number | null
+          nombre_completo?: string | null
+          telefono?: string | null
+        }
+        Update: {
+          clave_pais_telefono?: string | null
+          email?: string | null
+          id?: number
+          id_persona_duena_lead?: number | null
+          id_proyecto?: number | null
+          nombre_completo?: string | null
+          telefono?: string | null
+        }
+        Relationships: []
+      }
       borrar_modelos_caracteristicas_stagin: {
         Row: {
           caracteristica: string | null
@@ -960,6 +990,60 @@ export type Database = {
           id?: number
           proyecto?: string | null
           url?: string | null
+        }
+        Relationships: []
+      }
+      borrar_ofertas_esquemas_pago_productos_stagin: {
+        Row: {
+          collection_id: number | null
+          comprador: string | null
+          edificio: string | null
+          id: number
+          id_edificio_modelo: number | null
+          id_persona_lead: number | null
+          id_producto_servicio: number | null
+          id_propiedad: number | null
+          id_proyecto: number | null
+          insert_esquemas_pago: string | null
+          modelo: string | null
+          nombre_esquema_pago: string | null
+          numero_propiedad: string | null
+          producto: string | null
+          proyecto: string | null
+        }
+        Insert: {
+          collection_id?: number | null
+          comprador?: string | null
+          edificio?: string | null
+          id?: number
+          id_edificio_modelo?: number | null
+          id_persona_lead?: number | null
+          id_producto_servicio?: number | null
+          id_propiedad?: number | null
+          id_proyecto?: number | null
+          insert_esquemas_pago?: string | null
+          modelo?: string | null
+          nombre_esquema_pago?: string | null
+          numero_propiedad?: string | null
+          producto?: string | null
+          proyecto?: string | null
+        }
+        Update: {
+          collection_id?: number | null
+          comprador?: string | null
+          edificio?: string | null
+          id?: number
+          id_edificio_modelo?: number | null
+          id_persona_lead?: number | null
+          id_producto_servicio?: number | null
+          id_propiedad?: number | null
+          id_proyecto?: number | null
+          insert_esquemas_pago?: string | null
+          modelo?: string | null
+          nombre_esquema_pago?: string | null
+          numero_propiedad?: string | null
+          producto?: string | null
+          proyecto?: string | null
         }
         Relationships: []
       }
@@ -3549,7 +3633,7 @@ export type Database = {
           direccion_id_pais: string | null
           direccion_num_ext: string | null
           direccion_num_int: string | null
-          email: string
+          email: string | null
           fecha_actualizacion: string
           fecha_creacion: string
           fecha_escritura: string | null
@@ -3598,7 +3682,7 @@ export type Database = {
           direccion_id_pais?: string | null
           direccion_num_ext?: string | null
           direccion_num_int?: string | null
-          email: string
+          email?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_escritura?: string | null
@@ -3647,7 +3731,7 @@ export type Database = {
           direccion_id_pais?: string | null
           direccion_num_ext?: string | null
           direccion_num_int?: string | null
-          email?: string
+          email?: string | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_escritura?: string | null
