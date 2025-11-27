@@ -1178,6 +1178,32 @@ export default function Pagos() {
               <div className="text-2xl font-bold">
                 {statsCuentas.length}
               </div>
+              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Propiedades: <span className="font-medium text-foreground">{cuentasPropiedades.length}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Total de cuentas de propiedades</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Productos: <span className="font-medium text-foreground">{cuentasProductos.length}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Total de cuentas de productos y servicios</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </CardContent>
           </Card>
           
@@ -1199,6 +1225,32 @@ export default function Pagos() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Propiedades: <span className="font-medium text-foreground">{formatCurrencyCompact(cuentasPropiedades.reduce((sum, c) => sum + Number(c.precio_final), 0))}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(cuentasPropiedades.reduce((sum, c) => sum + Number(c.precio_final), 0))}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Productos: <span className="font-medium text-foreground">{formatCurrencyCompact(totalMontoProductos)}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(totalMontoProductos)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </CardContent>
           </Card>
 
@@ -1220,6 +1272,32 @@ export default function Pagos() {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Propiedades: <span className="font-medium text-foreground">{formatCurrencyCompact(cuentasPropiedades.length > 0 ? cuentasPropiedades.reduce((sum, c) => sum + Number(c.precio_final), 0) / cuentasPropiedades.length : 0)}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(cuentasPropiedades.length > 0 ? cuentasPropiedades.reduce((sum, c) => sum + Number(c.precio_final), 0) / cuentasPropiedades.length : 0)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Productos: <span className="font-medium text-foreground">{formatCurrencyCompact(promedioProductos)}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(promedioProductos)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -1306,37 +1384,33 @@ export default function Pagos() {
                   <div className="space-y-2 pb-3 border-b">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Monto Total Colocado</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-lg font-semibold cursor-help">{formatCurrencyCompact(totalMontoProductos)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{formatCurrency(totalMontoProductos)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="text-right cursor-help">
-                            <span className="text-lg font-semibold">{formatCurrencyCompact(totalMontoProductos)}</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{formatCurrency(totalMontoProductos)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Promedio por Cuenta</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-lg font-semibold cursor-help">{formatCurrencyCompact(promedioProductos)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{formatCurrency(promedioProductos)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="text-right cursor-help">
-                            <span className="text-lg font-semibold">{formatCurrencyCompact(promedioProductos)}</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{formatCurrency(promedioProductos)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
                   </div>
                 </div>
               ) : (
