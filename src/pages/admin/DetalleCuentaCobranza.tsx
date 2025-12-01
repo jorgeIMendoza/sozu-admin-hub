@@ -2566,7 +2566,16 @@ export default function DetalleCuentaCobranza() {
                          Plan Original
                          {originalScheme && (
                            <Badge variant="secondary" className="ml-2 text-xs">
-                             {originalScheme.numero_mensualidades + (cuentaDetalle?.tipo_cuenta === 'Propiedad' ? 3 : 2)} pagos
+                             {(() => {
+                               let count = 0;
+                               // Count Enganche if exists
+                               if (originalScheme.porcentaje_enganche > 0) count += 1;
+                               // Count Mensualidades
+                               count += originalScheme.numero_mensualidades || 0;
+                               // Count Entrega if exists
+                               if (originalScheme.porcentaje_entrega > 0) count += 1;
+                               return count;
+                             })()} pagos
                            </Badge>
                          )}
                        </label>
@@ -2607,7 +2616,16 @@ export default function DetalleCuentaCobranza() {
                         Plan Modificado
                         {currentPaymentPlan && (
                           <Badge variant="secondary" className="ml-2 text-xs">
-                            {(currentPaymentPlan.numero_mensualidades || 0) + (cuentaDetalle?.tipo_cuenta === 'Propiedad' ? 3 : 2)} pagos
+                            {(() => {
+                              let count = 0;
+                              // Count Enganche/Cesión if exists
+                              if (currentPaymentPlan.porcentaje_enganche > 0) count += 1;
+                              // Count Mensualidades
+                              count += currentPaymentPlan.numero_mensualidades || 0;
+                              // Count Entrega if exists
+                              if (currentPaymentPlan.porcentaje_entrega > 0) count += 1;
+                              return count;
+                            })()} pagos
                           </Badge>
                         )}
                       </label>
