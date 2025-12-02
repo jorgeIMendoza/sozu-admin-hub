@@ -178,6 +178,7 @@ export default function Pagos() {
           .from('cuentas_cobranza')
           .select(selectColumns)
           .is('id_cuenta_cobranza_padre', null)
+          .order('id', { ascending: false })
           .range(from, to);
 
         if (error) {
