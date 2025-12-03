@@ -75,8 +75,16 @@ export default function ReporteDiscrepancias() {
       // Find discrepancies
       const discrepanciasResult: Discrepancia[] = [];
       
+      console.log('Sample cuentas IDs:', cuentasData?.slice(0, 5).map(c => c.id));
+      
       cuentasData?.forEach(cuenta => {
-        const sumaAcuerdos = sumasPorCuenta[String(cuenta.id)] || 0;
+        const cuentaIdStr = String(cuenta.id);
+        const sumaAcuerdos = sumasPorCuenta[cuentaIdStr] || 0;
+        
+        // Debug first few
+        if (discrepanciasResult.length < 3) {
+          console.log(`Cuenta ${cuenta.id}: suma=${sumaAcuerdos}, existe en mapa=${cuentaIdStr in sumasPorCuenta}`);
+        }
         const precioFinal = Number(cuenta.precio_final);
         const diferencia = precioFinal - sumaAcuerdos;
 
