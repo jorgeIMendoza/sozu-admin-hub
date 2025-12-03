@@ -23,6 +23,16 @@ interface ProjectCollectionSummaryDialogProps {
 
 const DURANTE_OBRA_CONCEPTS = [1, 2, 4, 5]; // Apartado, Enganche, Pago especial, Parcialidad/Mensualidades
 const CONTRAENTREGA_CONCEPT = 3; // Pago a contra entrega
+const BATCH_SIZE = 100; // Batch size for .in() queries to avoid URL length limits
+
+// Helper function to batch an array
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
 
 export function ProjectCollectionSummaryDialog({ 
   isOpen, 
@@ -34,35 +44,53 @@ export function ProjectCollectionSummaryDialog({
 }: ProjectCollectionSummaryDialogProps) {
   
   const { data: summaryData, isLoading } = useQuery({
-    queryKey: ["project-collection-summary", projectName, cuentaIds],
+    queryKey: ["project-collection-summary", projectName, cuentaIds.length],
     queryFn: async () => {
       if (!cuentaIds.length) return null;
 
-      // Get all acuerdos_pago for these cuentas
-      const { data: acuerdos, error: acuerdosError } = await supabase
-        .from('acuerdos_pago')
-        .select('id, id_cuenta_cobranza, id_concepto, monto, pago_completado')
-        .in('id_cuenta_cobranza', cuentaIds)
-        .eq('activo', true)
-        .limit(50000);
+      // Batch the cuentaIds to avoid .in() URL length limits
+      const cuentaIdBatches = chunkArray(cuentaIds, BATCH_SIZE);
+      
+      // Fetch all acuerdos in batches
+      let allAcuerdos: Array<{ id: number; id_cuenta_cobranza: number; id_concepto: number; monto: number; pago_completado: boolean }> = [];
+      
+      for (const batch of cuentaIdBatches) {
+        const { data: batchAcuerdos, error } = await supabase
+          .from('acuerdos_pago')
+          .select('id, id_cuenta_cobranza, id_concepto, monto, pago_completado')
+          .in('id_cuenta_cobranza', batch)
+          .eq('activo', true);
+        
+        if (error) throw error;
+        if (batchAcuerdos) {
+          allAcuerdos = allAcuerdos.concat(batchAcuerdos);
+        }
+      }
 
-      if (acuerdosError) throw acuerdosError;
-      if (!acuerdos || acuerdos.length === 0) return null;
+      if (allAcuerdos.length === 0) return null;
 
-      // Get aplicaciones_pago for these acuerdos
-      const acuerdoIds = acuerdos.map(a => a.id);
-      const { data: aplicaciones, error: aplicacionesError } = await supabase
-        .from('aplicaciones_pago')
-        .select('id_acuerdo_pago, monto')
-        .in('id_acuerdo_pago', acuerdoIds)
-        .eq('activo', true)
-        .eq('es_multa', false)
-        .limit(100000);
-
-      if (aplicacionesError) throw aplicacionesError;
+      // Batch the acuerdoIds for aplicaciones query
+      const acuerdoIds = allAcuerdos.map(a => a.id);
+      const acuerdoIdBatches = chunkArray(acuerdoIds, BATCH_SIZE);
+      
+      let allAplicaciones: Array<{ id_acuerdo_pago: number; monto: number }> = [];
+      
+      for (const batch of acuerdoIdBatches) {
+        const { data: batchAplicaciones, error } = await supabase
+          .from('aplicaciones_pago')
+          .select('id_acuerdo_pago, monto')
+          .in('id_acuerdo_pago', batch)
+          .eq('activo', true)
+          .eq('es_multa', false);
+        
+        if (error) throw error;
+        if (batchAplicaciones) {
+          allAplicaciones = allAplicaciones.concat(batchAplicaciones);
+        }
+      }
 
       // Create a map of acuerdo_id to concept_id
-      const acuerdoToConceptMap = acuerdos.reduce((acc: Record<number, number>, a) => {
+      const acuerdoToConceptMap = allAcuerdos.reduce((acc: Record<number, number>, a) => {
         acc[a.id] = a.id_concepto;
         return acc;
       }, {});
@@ -74,7 +102,7 @@ export function ProjectCollectionSummaryDialog({
       let pagadoContraentrega = 0;
 
       // Calculate total amounts per concept
-      acuerdos.forEach(acuerdo => {
+      allAcuerdos.forEach(acuerdo => {
         if (DURANTE_OBRA_CONCEPTS.includes(acuerdo.id_concepto)) {
           totalDuranteObra += acuerdo.monto || 0;
         } else if (acuerdo.id_concepto === CONTRAENTREGA_CONCEPT) {
@@ -83,7 +111,7 @@ export function ProjectCollectionSummaryDialog({
       });
 
       // Calculate paid amounts per concept from aplicaciones
-      (aplicaciones || []).forEach(app => {
+      allAplicaciones.forEach(app => {
         const conceptId = acuerdoToConceptMap[app.id_acuerdo_pago];
         if (DURANTE_OBRA_CONCEPTS.includes(conceptId)) {
           pagadoDuranteObra += app.monto || 0;
@@ -144,6 +172,10 @@ export function ProjectCollectionSummaryDialog({
     return formatCurrency(amount);
   };
 
+  // Calculate percentages for the breakdown relative to totalColocado
+  const porcentajeDuranteObra = totalColocado > 0 && summaryData ? (summaryData.totalDuranteObra / totalColocado) * 100 : 0;
+  const porcentajeContraentrega = totalColocado > 0 && summaryData ? (summaryData.totalContraentrega / totalColocado) * 100 : 0;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
@@ -202,14 +234,6 @@ export function ProjectCollectionSummaryDialog({
               </div>
             </div>
 
-            {/* Note about acuerdos coverage */}
-            {summaryData.totalAcuerdos > 0 && Math.abs(totalColocado - summaryData.totalAcuerdos) > 1 && (
-              <div className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/20 p-2 rounded">
-                <strong>Nota:</strong> El desglose por etapa suma {formatCurrencyCompact(summaryData.totalAcuerdos)} (acuerdos de pago generados). 
-                La diferencia de {formatCurrencyCompact(totalColocado - summaryData.totalAcuerdos)} corresponde a cuentas sin esquema de pagos asignado.
-              </div>
-            )}
-
             {/* Durante la Obra Section */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm border-b pb-2">Desglose por Etapa - Durante la Obra</h3>
@@ -221,7 +245,10 @@ export function ProjectCollectionSummaryDialog({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <p className="text-lg font-bold cursor-help">{formatCurrencyCompact(summaryData.totalDuranteObra)}</p>
+                        <p className="text-lg font-bold cursor-help">
+                          {formatCurrencyCompact(summaryData.totalDuranteObra)}
+                          <span className="text-xs font-normal ml-1 text-muted-foreground">({porcentajeDuranteObra.toFixed(1)}%)</span>
+                        </p>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{formatCurrency(summaryData.totalDuranteObra)}</p>
@@ -277,7 +304,10 @@ export function ProjectCollectionSummaryDialog({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <p className="text-lg font-bold cursor-help">{formatCurrencyCompact(summaryData.totalContraentrega)}</p>
+                        <p className="text-lg font-bold cursor-help">
+                          {formatCurrencyCompact(summaryData.totalContraentrega)}
+                          <span className="text-xs font-normal ml-1 text-muted-foreground">({porcentajeContraentrega.toFixed(1)}%)</span>
+                        </p>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{formatCurrency(summaryData.totalContraentrega)}</p>
