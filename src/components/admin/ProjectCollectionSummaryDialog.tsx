@@ -23,16 +23,6 @@ interface ProjectCollectionSummaryDialogProps {
 
 const DURANTE_OBRA_CONCEPTS = [1, 2, 4, 5]; // Apartado, Enganche, Pago especial, Parcialidad/Mensualidades
 const CONTRAENTREGA_CONCEPT = 3; // Pago a contra entrega
-const BATCH_SIZE = 100; // Batch size for .in() queries to avoid URL length limits
-
-// Helper function to batch an array
-function chunkArray<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
 
 export function ProjectCollectionSummaryDialog({ 
   isOpen, 
@@ -48,90 +38,86 @@ export function ProjectCollectionSummaryDialog({
     queryFn: async () => {
       if (!cuentaIds.length) return null;
 
-      // Batch the cuentaIds to avoid .in() URL length limits
-      const cuentaIdBatches = chunkArray(cuentaIds, BATCH_SIZE);
-      
-      // Fetch all acuerdos in batches
-      let allAcuerdos: Array<{ id: number; id_cuenta_cobranza: number; id_concepto: number; monto: number; pago_completado: boolean }> = [];
-      
-      for (const batch of cuentaIdBatches) {
-        const { data: batchAcuerdos, error } = await supabase
-          .from('acuerdos_pago')
-          .select('id, id_cuenta_cobranza, id_concepto, monto, pago_completado')
-          .in('id_cuenta_cobranza', batch)
-          .eq('activo', true)
-          .limit(50000);
-        
-        if (error) throw error;
-        if (batchAcuerdos) {
-          allAcuerdos = allAcuerdos.concat(batchAcuerdos);
-        }
-      }
+      // Query aggregated totals directly from the database using SQL
+      // This avoids any client-side limits
+      const { data: acuerdosTotals, error: acuerdosError } = await supabase
+        .rpc('execute_safe_query', {
+          query_text: `
+            SELECT 
+              CASE 
+                WHEN id_concepto IN (1, 2, 4, 5) THEN 'durante_obra'
+                WHEN id_concepto = 3 THEN 'contraentrega'
+                ELSE 'otro'
+              END as categoria,
+              SUM(monto) as total_monto
+            FROM acuerdos_pago
+            WHERE id_cuenta_cobranza IN (${cuentaIds.join(',')})
+              AND activo = true
+            GROUP BY categoria
+          `,
+          max_rows: 10
+        });
 
-      if (allAcuerdos.length === 0) return null;
+      if (acuerdosError) throw acuerdosError;
 
-      // Batch the acuerdoIds for aplicaciones query
-      const acuerdoIds = allAcuerdos.map(a => a.id);
-      const acuerdoIdBatches = chunkArray(acuerdoIds, BATCH_SIZE);
-      
-      let allAplicaciones: Array<{ id_acuerdo_pago: number; monto: number }> = [];
-      
-      for (const batch of acuerdoIdBatches) {
-        const { data: batchAplicaciones, error } = await supabase
-          .from('aplicaciones_pago')
-          .select('id_acuerdo_pago, monto')
-          .in('id_acuerdo_pago', batch)
-          .eq('activo', true)
-          .eq('es_multa', false)
-          .limit(100000);
-        
-        if (error) throw error;
-        if (batchAplicaciones) {
-          allAplicaciones = allAplicaciones.concat(batchAplicaciones);
-        }
-      }
+      // Query aggregated paid amounts
+      const { data: pagadoTotals, error: pagadoError } = await supabase
+        .rpc('execute_safe_query', {
+          query_text: `
+            SELECT 
+              CASE 
+                WHEN ap.id_concepto IN (1, 2, 4, 5) THEN 'durante_obra'
+                WHEN ap.id_concepto = 3 THEN 'contraentrega'
+                ELSE 'otro'
+              END as categoria,
+              SUM(apl.monto) as total_pagado
+            FROM aplicaciones_pago apl
+            JOIN acuerdos_pago ap ON apl.id_acuerdo_pago = ap.id
+            WHERE ap.id_cuenta_cobranza IN (${cuentaIds.join(',')})
+              AND apl.activo = true
+              AND apl.es_multa = false
+              AND ap.activo = true
+            GROUP BY categoria
+          `,
+          max_rows: 10
+        });
 
-      // Create a map of acuerdo_id to concept_id
-      const acuerdoToConceptMap = allAcuerdos.reduce((acc: Record<number, number>, a) => {
-        acc[a.id] = a.id_concepto;
-        return acc;
-      }, {});
+      if (pagadoError) throw pagadoError;
 
-      // Calculate totals by concept type
+      // Parse results
+      const acuerdosArray = acuerdosTotals as Array<{ categoria: string; total_monto: number }> || [];
+      const pagadoArray = pagadoTotals as Array<{ categoria: string; total_pagado: number }> || [];
+
       let totalDuranteObra = 0;
       let totalContraentrega = 0;
       let pagadoDuranteObra = 0;
       let pagadoContraentrega = 0;
 
-      // Calculate total amounts per concept
-      allAcuerdos.forEach(acuerdo => {
-        if (DURANTE_OBRA_CONCEPTS.includes(acuerdo.id_concepto)) {
-          totalDuranteObra += acuerdo.monto || 0;
-        } else if (acuerdo.id_concepto === CONTRAENTREGA_CONCEPT) {
-          totalContraentrega += acuerdo.monto || 0;
+      // Process acuerdos totals
+      acuerdosArray.forEach(row => {
+        if (row.categoria === 'durante_obra') {
+          totalDuranteObra = Number(row.total_monto) || 0;
+        } else if (row.categoria === 'contraentrega') {
+          totalContraentrega = Number(row.total_monto) || 0;
         }
       });
 
-      // Calculate paid amounts per concept from aplicaciones
-      allAplicaciones.forEach(app => {
-        const conceptId = acuerdoToConceptMap[app.id_acuerdo_pago];
-        if (DURANTE_OBRA_CONCEPTS.includes(conceptId)) {
-          pagadoDuranteObra += app.monto || 0;
-        } else if (conceptId === CONTRAENTREGA_CONCEPT) {
-          pagadoContraentrega += app.monto || 0;
+      // Process pagado totals
+      pagadoArray.forEach(row => {
+        if (row.categoria === 'durante_obra') {
+          pagadoDuranteObra = Number(row.total_pagado) || 0;
+        } else if (row.categoria === 'contraentrega') {
+          pagadoContraentrega = Number(row.total_pagado) || 0;
         }
       });
 
       const restanteDuranteObra = totalDuranteObra - pagadoDuranteObra;
       const restanteContraentrega = totalContraentrega - pagadoContraentrega;
-      
-      // Total sum of all acuerdos
-      const totalAcuerdos = totalDuranteObra + totalContraentrega;
 
       return {
         totalDuranteObra,
         totalContraentrega,
-        totalAcuerdos,
+        totalAcuerdos: totalDuranteObra + totalContraentrega,
         pagadoDuranteObra,
         pagadoContraentrega,
         restanteDuranteObra,
