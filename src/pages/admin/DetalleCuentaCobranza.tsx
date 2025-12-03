@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload, Scale, Gavel } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +23,8 @@ import { EditPaymentDialog } from "@/components/admin/EditPaymentDialog";
 import { TransferPaymentDialog } from "@/components/admin/TransferPaymentDialog";
 import { formatCuentaCobranzaId, formatOfertaId } from "@/utils/cuentaCobranzaUtils";
 import { ReciboPagoService } from "@/services/reciboPagoService";
+import { EnDemandaDialog } from "@/components/admin/EnDemandaDialog";
+import { JuicioTerminadoDialog } from "@/components/admin/JuicioTerminadoDialog";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -420,6 +422,8 @@ export default function DetalleCuentaCobranza() {
   });
   const [downloadingRecibo, setDownloadingRecibo] = useState<number | null>(null);
   const [uploadingEvidence, setUploadingEvidence] = useState<number | null>(null);
+  const [enDemandaDialog, setEnDemandaDialog] = useState(false);
+  const [juicioTerminadoDialog, setJuicioTerminadoDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -2033,10 +2037,36 @@ export default function DetalleCuentaCobranza() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* Botón En Demanda - solo para propiedades que no están en demanda ni canceladas */}
+          {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
+           cuentaDetalle.id_estatus_disponibilidad !== 11 && 
+           !esCuentaCancelada && (
+            <Button 
+              onClick={() => setEnDemandaDialog(true)}
+              variant="outline"
+              className="border-amber-500 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+            >
+              <Scale className="h-4 w-4 mr-2" />
+              En Demanda
+            </Button>
+          )}
+          
+          {/* Botón Juicio Terminado - solo cuando está en demanda */}
+          {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
+           cuentaDetalle.id_estatus_disponibilidad === 11 && (
+            <Button 
+              onClick={() => setJuicioTerminadoDialog(true)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Gavel className="h-4 w-4 mr-2" />
+              Juicio Terminado
+            </Button>
+          )}
+          
           <Button 
             onClick={() => setTransferDialog({ isOpen: true })}
-            disabled={!ultimoPagoSTP || esCuentaCancelada || isReadOnly}
+            disabled={!ultimoPagoSTP || esCuentaCancelada || isReadOnly || cuentaDetalle.id_estatus_disponibilidad === 11}
             variant="outline"
           >
             <ArrowRight className="h-4 w-4 mr-2" />
@@ -2044,7 +2074,7 @@ export default function DetalleCuentaCobranza() {
           </Button>
           <Button 
             onClick={() => setManualPaymentDialog(true)}
-            disabled={esCuentaCancelada || totalPagado >= (cuentaDetalle?.precio_final || 0) || isReadOnly}
+            disabled={esCuentaCancelada || totalPagado >= (cuentaDetalle?.precio_final || 0) || isReadOnly || cuentaDetalle.id_estatus_disponibilidad === 11}
           >
             <CreditCard className="h-4 w-4 mr-2" />
             Agregar pago manual
@@ -2064,6 +2094,22 @@ export default function DetalleCuentaCobranza() {
             <p className="text-sm font-medium text-red-700 dark:text-red-300 mt-1">
               Diferencia: {formatCurrency(discrepanciaAcuerdos)}
               {discrepanciaAcuerdos > 0 ? ' (acuerdos faltantes)' : ' (acuerdos exceden precio)'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Alert for En Demanda status */}
+      {cuentaDetalle.tipo_cuenta === 'Propiedad' && cuentaDetalle.id_estatus_disponibilidad === 11 && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+          <Scale className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-700 dark:text-amber-300">Propiedad En Demanda</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+              Esta cuenta está bloqueada debido a un proceso legal en curso. La propiedad no puede ser reasignada hasta que el juicio termine.
+            </p>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+              Use el botón "Juicio Terminado" para finalizar el proceso y liberar la propiedad.
             </p>
           </div>
         </div>
@@ -3428,6 +3474,20 @@ export default function DetalleCuentaCobranza() {
           clave_rastreo: ultimoPagoSTP.clave_rastreo || '',
           monto: ultimoPagoSTP.monto
         } : null}
+      />
+
+      <EnDemandaDialog
+        isOpen={enDemandaDialog}
+        onClose={() => setEnDemandaDialog(false)}
+        cuentaCobranzaId={cuentaId}
+        propiedadId={cuentaDetalle?.id_propiedad}
+      />
+
+      <JuicioTerminadoDialog
+        isOpen={juicioTerminadoDialog}
+        onClose={() => setJuicioTerminadoDialog(false)}
+        cuentaCobranzaId={cuentaId}
+        propiedadId={cuentaDetalle?.id_propiedad}
       />
     </div>
   );

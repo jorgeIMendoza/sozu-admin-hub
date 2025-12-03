@@ -2704,7 +2704,13 @@ const Propiedades = () => {
               </TableRow>
             ) : (
               propertiesToRender.map((property) => (
-                <TableRow key={property.id} className={tabType === "eliminados" ? "opacity-60" : ""}>
+                <TableRow 
+                  key={property.id} 
+                  className={`
+                    ${tabType === "eliminados" ? "opacity-60" : ""}
+                    ${property.id_estatus_disponibilidad === 11 ? "bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50" : ""}
+                  `}
+                >
                   {tabType === "draft" && (
                     <TableCell>
                       <input
