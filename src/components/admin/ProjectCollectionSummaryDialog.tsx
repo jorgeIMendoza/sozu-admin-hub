@@ -90,6 +90,7 @@ export function ProjectCollectionSummaryDialog({
 
       let totalDuranteObra = 0;
       let totalContraentrega = 0;
+      let totalOtros = 0;
       let pagadoDuranteObra = 0;
       let pagadoContraentrega = 0;
 
@@ -99,6 +100,8 @@ export function ProjectCollectionSummaryDialog({
           totalDuranteObra = Number(row.total_monto) || 0;
         } else if (row.categoria === 'contraentrega') {
           totalContraentrega = Number(row.total_monto) || 0;
+        } else if (row.categoria === 'otro') {
+          totalOtros = Number(row.total_monto) || 0;
         }
       });
 
@@ -113,11 +116,15 @@ export function ProjectCollectionSummaryDialog({
 
       const restanteDuranteObra = totalDuranteObra - pagadoDuranteObra;
       const restanteContraentrega = totalContraentrega - pagadoContraentrega;
+      
+      // Sum from acuerdos_pago
+      const totalFromAcuerdos = totalDuranteObra + totalContraentrega + totalOtros;
 
       return {
         totalDuranteObra,
         totalContraentrega,
-        totalAcuerdos: totalDuranteObra + totalContraentrega,
+        totalOtros,
+        totalFromAcuerdos,
         pagadoDuranteObra,
         pagadoContraentrega,
         restanteDuranteObra,
@@ -160,9 +167,14 @@ export function ProjectCollectionSummaryDialog({
     return formatCurrency(amount);
   };
 
-  // Calculate percentages for the breakdown relative to totalColocado
-  const porcentajeDuranteObra = totalColocado > 0 && summaryData ? (summaryData.totalDuranteObra / totalColocado) * 100 : 0;
-  const porcentajeContraentrega = totalColocado > 0 && summaryData ? (summaryData.totalContraentrega / totalColocado) * 100 : 0;
+  // Calculate percentages for the breakdown relative to totalFromAcuerdos (from acuerdos_pago)
+  const totalAcuerdos = summaryData?.totalFromAcuerdos || 0;
+  const porcentajeDuranteObra = totalAcuerdos > 0 && summaryData ? (summaryData.totalDuranteObra / totalAcuerdos) * 100 : 0;
+  const porcentajeContraentrega = totalAcuerdos > 0 && summaryData ? (summaryData.totalContraentrega / totalAcuerdos) * 100 : 0;
+  const porcentajeOtros = totalAcuerdos > 0 && summaryData ? (summaryData.totalOtros / totalAcuerdos) * 100 : 0;
+  
+  // Difference between precio_final and acuerdos_pago totals
+  const diferenciaColocado = summaryData ? totalColocado - totalAcuerdos : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -339,6 +351,41 @@ export function ProjectCollectionSummaryDialog({
                 </TooltipProvider>
               </div>
             </div>
+
+            {/* Otros conceptos - solo mostrar si hay */}
+            {summaryData.totalOtros > 0 && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm border-b pb-2">Otros Conceptos</h3>
+                <p className="text-xs text-muted-foreground">(Pagos por cancelación, etc.)</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Monto Total</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="text-lg font-bold cursor-help">
+                          {formatCurrencyCompact(summaryData.totalOtros)}
+                          <span className="text-xs font-normal ml-1 text-muted-foreground">({porcentajeOtros.toFixed(1)}%)</span>
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{formatCurrency(summaryData.totalOtros)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+            )}
+
+            {/* Nota sobre diferencia si existe */}
+            {Math.abs(diferenciaColocado) > 1 && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  <strong>Nota:</strong> Existe una diferencia de {formatCurrencyCompact(Math.abs(diferenciaColocado))} entre el Total Colocado ({formatCurrencyCompact(totalColocado)}) 
+                  y la suma de acuerdos de pago ({formatCurrencyCompact(totalAcuerdos)}). 
+                  Esto puede deberse a ajustes en precios finales o acuerdos pendientes de registrar.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>
