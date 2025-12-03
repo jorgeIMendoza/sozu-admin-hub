@@ -1424,9 +1424,15 @@ export default function DetalleCuentaCobranza() {
     // Also check for "Cesión de derechos" as a concepto
     const cesionDerechos = acuerdosPago.find(a => a.concepto?.toLowerCase() === 'cesión de derechos');
     
+    // Check for "Pago especial" as a concepto
+    const pagosEspeciales = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'pago especial');
+    
     // Update hayCesionDerechos to include both cases: as payment method OR as concepto
     const hayCesionDerechosConcepto = !!cesionDerechos;
     const hayCesionDerechosActual = hayCesionDerechos || hayCesionDerechosConcepto;
+    
+    // Check if there are special payments
+    const hayPagosEspeciales = pagosEspeciales.length > 0;
 
     if (!cuentaDetalle?.precio_final) return null;
 
@@ -1437,22 +1443,34 @@ export default function DetalleCuentaCobranza() {
     const totalCesionConcepto = cesionDerechos?.monto || 0;
     const totalCesionFinal = totalCesion + totalCesionConcepto;
     
+    // Calculate total special payments
+    const totalPagosEspeciales = pagosEspeciales.reduce((sum, p) => sum + p.monto, 0);
+    
     console.log('DEBUG - Total cesión (method):', totalCesion);
     console.log('DEBUG - Total cesión (concepto):', totalCesionConcepto);
     console.log('DEBUG - Total cesión final:', totalCesionFinal);
     console.log('DEBUG - Hay cesión de derechos:', hayCesionDerechosActual);
+    console.log('DEBUG - Total pagos especiales:', totalPagosEspeciales);
+    console.log('DEBUG - Hay pagos especiales:', hayPagosEspeciales);
     
     // If there's "Cesión de derechos", use it instead of traditional "Enganche"
     const totalEnganche = hayCesionDerechosActual ? totalCesionFinal : (apartado?.monto || 0) + (enganche?.monto || 0);
     const totalParcialidades = parcialidades.reduce((sum, p) => sum + p.monto, 0);
     const totalContraentrega = contraentrega?.monto || 0;
 
+    // Count total payments: parcialidades + special payments
+    const totalPagosCount = parcialidades.length + pagosEspeciales.length;
+
     const result = {
       porcentaje_enganche: Number(((totalEnganche / cuentaDetalle.precio_final) * 100).toFixed(1)),
       porcentaje_mensualidades: Number(((totalParcialidades / cuentaDetalle.precio_final) * 100).toFixed(1)),
       porcentaje_entrega: Number(((totalContraentrega / cuentaDetalle.precio_final) * 100).toFixed(1)),
+      porcentaje_pagos_especiales: Number(((totalPagosEspeciales / cuentaDetalle.precio_final) * 100).toFixed(1)),
       numero_mensualidades: parcialidades.length,
-      hayCesionDerechos: hayCesionDerechosActual
+      numero_pagos_especiales: pagosEspeciales.length,
+      total_pagos_count: totalPagosCount,
+      hayCesionDerechos: hayCesionDerechosActual,
+      hayPagosEspeciales: hayPagosEspeciales
     };
     
     console.log('DEBUG - Current payment plan:', result);
@@ -1469,6 +1487,9 @@ export default function DetalleCuentaCobranza() {
     
     // Also get cesión de derechos as concepto
     const cesionDerechos = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'cesión de derechos');
+    
+    // Get pagos especiales
+    const pagosEspeciales = acuerdosPago.filter(a => a.concepto?.toLowerCase() === 'pago especial');
 
     // Calculate total payments by "Cesión de derechos" method
     const totalCesion = pagosConCesion.reduce((sum, app) => sum + app.monto, 0);
@@ -1476,6 +1497,9 @@ export default function DetalleCuentaCobranza() {
     // Add cesión de derechos amount if it exists as a concepto
     const totalCesionConcepto = cesionDerechos.reduce((sum, a) => sum + a.monto, 0);
     const totalCesionFinal = totalCesion + totalCesionConcepto;
+    
+    // Calculate total special payments
+    const totalPagosEspeciales = pagosEspeciales.reduce((sum, a) => sum + a.monto, 0);
     
     // Update to use the combined hayCesionDerechos logic
     const hayCesionDerechosActual = hayCesionDerechos || cesionDerechos.length > 0;
@@ -1489,7 +1513,8 @@ export default function DetalleCuentaCobranza() {
       enganche: totalEnganche,
       mensualidades: totalMensualidades,
       entrega: totalEntrega,
-      cesion: totalCesionFinal
+      cesion: totalCesionFinal,
+      pagosEspeciales: totalPagosEspeciales
     };
   })() : null;
 
@@ -2622,6 +2647,8 @@ export default function DetalleCuentaCobranza() {
                               if (currentPaymentPlan.porcentaje_enganche > 0) count += 1;
                               // Count Mensualidades
                               count += currentPaymentPlan.numero_mensualidades || 0;
+                              // Count Pagos Especiales
+                              count += currentPaymentPlan.numero_pagos_especiales || 0;
                               // Count Entrega if exists
                               if (currentPaymentPlan.porcentaje_entrega > 0) count += 1;
                               return count;
@@ -2657,16 +2684,42 @@ export default function DetalleCuentaCobranza() {
                             {formatCurrency(actualAmounts?.mensualidades || 0)}
                           </p>
                         </div>
-                         <div>
-                           <label className="text-sm font-medium text-muted-foreground">Entrega</label>
-                           <p className="text-sm font-semibold">
-                             {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
-                           </p>
-                           <p className="text-xs text-muted-foreground">
-                             {formatCurrency(actualAmounts?.entrega || 0)}
-                           </p>
-                         </div>
+                        {currentPaymentPlan?.hayPagosEspeciales && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Pagos Especiales</label>
+                            <p className="text-sm font-semibold">
+                              {currentPaymentPlan?.numero_pagos_especiales} pagos de {currentPaymentPlan?.porcentaje_pagos_especiales.toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency(actualAmounts?.pagosEspeciales || 0)}
+                            </p>
+                          </div>
+                        )}
+                        {!currentPaymentPlan?.hayPagosEspeciales && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Entrega</label>
+                            <p className="text-sm font-semibold">
+                              {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency(actualAmounts?.entrega || 0)}
+                            </p>
+                          </div>
+                        )}
                       </div>
+                      {currentPaymentPlan?.hayPagosEspeciales && currentPaymentPlan?.porcentaje_entrega > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
+                          <div className="md:col-start-4">
+                            <label className="text-sm font-medium text-muted-foreground">Entrega</label>
+                            <p className="text-sm font-semibold">
+                              {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency(actualAmounts?.entrega || 0)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

@@ -282,6 +282,13 @@ export default function Pagos() {
         return acc;
       }, {});
 
+      // DEBUG: Check if account 536 is being processed correctly
+      const acuerdos536 = acuerdosForPagos.filter(a => a.id_cuenta_cobranza === 536);
+      console.log('🔍 DEBUG - Acuerdos for cuenta 536:', acuerdos536);
+      const acuerdoIds536 = acuerdos536.map(a => a.id);
+      const aplicaciones536 = aplicacionesPago.filter(ap => acuerdoIds536.includes(ap.id_acuerdo_pago));
+      console.log('🔍 DEBUG - Aplicaciones for cuenta 536:', aplicaciones536);
+
       // Calculate total payments per account from aplicaciones
       const pagadoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
         const totalPagado = aplicacionesPago.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id).reduce((sum, ap) => sum + (ap.monto || 0), 0);
@@ -289,6 +296,7 @@ export default function Pagos() {
         return acc;
       }, {});
       console.log('Pagado por cuenta sample:', Object.entries(pagadoPorCuenta).slice(0, 5));
+      console.log('🔍 DEBUG - Pagado cuenta 536:', pagadoPorCuenta[536]);
 
       // Get cash payments (id_metodos_pago = 1) for all accounts (batched)
       let pagosCash: any[] = [];
