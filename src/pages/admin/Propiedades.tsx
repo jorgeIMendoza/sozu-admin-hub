@@ -291,10 +291,10 @@ const Propiedades = () => {
   const [bodegasFilter, setBodegasFilter] = useState("");
   const [estacionamientosFilter, setEstacionamientosFilter] = useState("");
   const [cuentaCobranzaFilter, setCuentaCobranzaFilter] = useState("");
-  const [areaFilterInput, setAreaFilterInput] = useState<number[]>([25, 300]);
-  const [areaFilter, setAreaFilter] = useState<number[]>([25, 300]);
-  const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([1000000, 100000000]);
-  const [precioFilter, setPrecioFilter] = useState<number[]>([1000000, 100000000]);
+  const [areaFilterInput, setAreaFilterInput] = useState<number[]>([0, 500]);
+  const [areaFilter, setAreaFilter] = useState<number[]>([0, 500]);
+  const [precioFilterInput, setPrecioFilterInput] = useState<number[]>([0, 100000000]);
+  const [precioFilter, setPrecioFilter] = useState<number[]>([0, 100000000]);
   const [precioSort, setPrecioSort] = useState<'asc' | 'desc' | null>(null);
 
   // Column visibility and order state
@@ -1060,9 +1060,9 @@ const Propiedades = () => {
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
           cuentaCobranzaFilter !== "" ||
-          areaFilter[0] !== 25 ||
-          areaFilter[1] !== 300 ||
-          precioFilter[0] !== 1000000 ||
+          areaFilter[0] !== 0 ||
+          areaFilter[1] !== 500 ||
+          precioFilter[0] !== 0 ||
           precioFilter[1] !== 100000000 ||
           precioSort !== null;
 
@@ -1310,9 +1310,9 @@ const Propiedades = () => {
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
           cuentaCobranzaFilter !== "" ||
-          areaFilter[0] !== 25 ||
-          areaFilter[1] !== 300 ||
-          precioFilter[0] !== 1000000 ||
+          areaFilter[0] !== 0 ||
+          areaFilter[1] !== 500 ||
+          precioFilter[0] !== 0 ||
           precioFilter[1] !== 100000000 ||
           precioSort !== null;
 
@@ -1561,9 +1561,9 @@ const Propiedades = () => {
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
           cuentaCobranzaFilter !== "" ||
-          areaFilter[0] !== 25 ||
-          areaFilter[1] !== 300 ||
-          precioFilter[0] !== 1000000 ||
+          areaFilter[0] !== 0 ||
+          areaFilter[1] !== 500 ||
+          precioFilter[0] !== 0 ||
           precioFilter[1] !== 100000000 ||
           precioSort !== null;
 
@@ -2353,9 +2353,9 @@ const Propiedades = () => {
     bodegasFilter !== "" ||
     estacionamientosFilter !== "" ||
     cuentaCobranzaFilter !== "" ||
-    areaFilter[0] !== 25 ||
-    areaFilter[1] !== 300 ||
-    precioFilter[0] !== 1000000 ||
+    areaFilter[0] !== 0 ||
+    areaFilter[1] !== 500 ||
+    precioFilter[0] !== 0 ||
     precioFilter[1] !== 100000000;
 
   const totalActivePage = Math.ceil((hasClientSideFilters ? filteredActivosCount : totalActivosCount) / itemsPerPage);
@@ -3666,14 +3666,14 @@ const Propiedades = () => {
                     onChange={(e) => {
                       const val = e.target.value.replace(/[^0-9]/g, '');
                       if (val === '') {
-                        setAreaFilterInput([25, areaFilterInput[1]]);
+                        setAreaFilterInput([0, areaFilterInput[1]]);
                       } else {
                         setAreaFilterInput([Number(val), areaFilterInput[1]]);
                       }
                     }}
                     onBlur={(e) => {
-                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 25;
-                      val = Math.max(25, Math.min(200, val));
+                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
+                      val = Math.max(0, Math.min(500, val));
                       setAreaFilterInput([val, Math.max(val, areaFilterInput[1])]);
                     }}
                     className="w-20 h-8 text-xs"
@@ -3685,22 +3685,22 @@ const Propiedades = () => {
                     onChange={(e) => {
                       const val = e.target.value.replace(/[^0-9]/g, '');
                       if (val === '') {
-                        setAreaFilterInput([areaFilterInput[0], 200]);
+                        setAreaFilterInput([areaFilterInput[0], 500]);
                       } else {
                         setAreaFilterInput([areaFilterInput[0], Number(val)]);
                       }
                     }}
                     onBlur={(e) => {
-                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 200;
-                      val = Math.max(25, Math.min(200, val));
+                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 500;
+                      val = Math.max(0, Math.min(500, val));
                       setAreaFilterInput([Math.min(areaFilterInput[0], val), val]);
                     }}
                     className="w-20 h-8 text-xs"
                   />
                 </div>
                 <Slider
-                  min={25}
-                  max={200}
+                  min={0}
+                  max={500}
                   step={1}
                   value={areaFilterInput}
                   onValueChange={setAreaFilterInput}
@@ -3716,14 +3716,14 @@ const Propiedades = () => {
                     onChange={(e) => {
                       const val = e.target.value.replace(/[^0-9]/g, '');
                       if (val === '') {
-                        setPrecioFilterInput([1000000, precioFilterInput[1]]);
+                        setPrecioFilterInput([0, precioFilterInput[1]]);
                       } else {
                         setPrecioFilterInput([Number(val), precioFilterInput[1]]);
                       }
                     }}
                     onBlur={(e) => {
-                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 1000000;
-                      val = Math.max(1000000, Math.min(100000000, val));
+                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
+                      val = Math.max(0, Math.min(100000000, val));
                       setPrecioFilterInput([val, Math.max(val, precioFilterInput[1])]);
                     }}
                     className="w-32 h-8 text-xs"
@@ -3742,14 +3742,14 @@ const Propiedades = () => {
                     }}
                     onBlur={(e) => {
                       let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 100000000;
-                      val = Math.max(1000000, Math.min(100000000, val));
+                      val = Math.max(0, Math.min(100000000, val));
                       setPrecioFilterInput([Math.min(precioFilterInput[0], val), val]);
                     }}
                     className="w-32 h-8 text-xs"
                   />
                 </div>
                 <Slider
-                  min={1000000}
+                  min={0}
                   max={100000000}
                   step={1000000}
                   value={precioFilterInput}
@@ -3794,10 +3794,10 @@ const Propiedades = () => {
                   setBodegasFilter("");
                   setEstacionamientosFilter("");
                   setCuentaCobranzaFilter("");
-                  setAreaFilterInput([25, 300]);
-                  setAreaFilter([25, 300]);
-                  setPrecioFilterInput([1000000, 100000000]);
-                  setPrecioFilter([1000000, 100000000]);
+                  setAreaFilterInput([0, 500]);
+                  setAreaFilter([0, 500]);
+                  setPrecioFilterInput([0, 100000000]);
+                  setPrecioFilter([0, 100000000]);
                   setSelectedProperties([]);
                   setPrecioSort(null);
                 }}
