@@ -45,7 +45,7 @@ export default function ReporteDiscrepancias() {
                 )
               )
             ),
-            productos_servicios (nombre)
+            productos_servicios!fk_ofertas_producto (nombre)
           )
         `)
         .eq('activo', true);
