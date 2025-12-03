@@ -213,76 +213,170 @@ export default function Pagos() {
       const cuentaIds = cuentas.map(c => c.id);
       console.log('Cuenta IDs:', cuentaIds);
 
-      // First get all acuerdos for these cuentas
-      const {
-        data: acuerdosForPagos
-      } = await supabase.from('acuerdos_pago').select('id, id_cuenta_cobranza').in('id_cuenta_cobranza', cuentaIds).eq('activo', true);
-      const acuerdoIdsForPagos = acuerdosForPagos?.map(a => a.id) || [];
+      // First get all acuerdos for these cuentas (with pagination)
+      let acuerdosForPagos: any[] = [];
+      {
+        const pageSize = 1000;
+        let from = 0;
+        let more = true;
+        while (more) {
+          const { data, error } = await supabase
+            .from('acuerdos_pago')
+            .select('id, id_cuenta_cobranza')
+            .in('id_cuenta_cobranza', cuentaIds)
+            .eq('activo', true)
+            .range(from, from + pageSize - 1);
+          if (error || !data || data.length === 0) {
+            more = false;
+          } else {
+            acuerdosForPagos = acuerdosForPagos.concat(data);
+            if (data.length < pageSize) more = false;
+            else from += pageSize;
+          }
+        }
+      }
+      const acuerdoIdsForPagos = acuerdosForPagos.map(a => a.id);
 
-      // Now get aplicaciones_pago for those acuerdos
-      const {
-        data: aplicacionesPago,
-        error: aplicacionesError
-      } = await supabase.from('aplicaciones_pago').select(`
-          monto,
-          id_acuerdo_pago,
-          es_multa
-        `).in('id_acuerdo_pago', acuerdoIdsForPagos).eq('activo', true).eq('es_multa', false);
-      console.log('Aplicaciones pago query result:', {
-        aplicacionesPago,
-        aplicacionesError
-      });
+      // Now get aplicaciones_pago for those acuerdos (with pagination)
+      let aplicacionesPago: any[] = [];
+      if (acuerdoIdsForPagos.length > 0) {
+        const pageSize = 1000;
+        let from = 0;
+        let more = true;
+        while (more) {
+          const { data, error } = await supabase
+            .from('aplicaciones_pago')
+            .select('monto, id_acuerdo_pago, es_multa')
+            .in('id_acuerdo_pago', acuerdoIdsForPagos)
+            .eq('activo', true)
+            .eq('es_multa', false)
+            .range(from, from + pageSize - 1);
+          if (error || !data || data.length === 0) {
+            more = false;
+          } else {
+            aplicacionesPago = aplicacionesPago.concat(data);
+            if (data.length < pageSize) more = false;
+            else from += pageSize;
+          }
+        }
+      }
+      console.log('Aplicaciones pago count:', aplicacionesPago.length);
 
       // Create a map from acuerdo_id to cuenta_id
-      const acuerdoToCuentaMap = acuerdosForPagos?.reduce((acc: Record<number, number>, a) => {
+      const acuerdoToCuentaMap = acuerdosForPagos.reduce((acc: Record<number, number>, a) => {
         acc[a.id] = a.id_cuenta_cobranza;
         return acc;
-      }, {}) || {};
+      }, {});
 
       // Calculate total payments per account from aplicaciones
       const pagadoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
-        const totalPagado = aplicacionesPago?.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id)?.reduce((sum, ap) => sum + (ap.monto || 0), 0) || 0;
+        const totalPagado = aplicacionesPago.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id).reduce((sum, ap) => sum + (ap.monto || 0), 0);
         acc[cuenta.id] = totalPagado;
-        console.log(`Cuenta ${cuenta.id}: pagado = ${totalPagado}`);
         return acc;
       }, {});
       console.log('Pagado por cuenta:', pagadoPorCuenta);
 
-      // Get cash payments (id_metodos_pago = 1) for all accounts using aplicaciones_pago
-      // Note: Will calculate pagadoEfectivoPorCuenta and pagosCashPorCuenta after fetching ofertas and complementary data
-      const {
-        data: pagosCash
-      } = await supabase.from('pagos').select('id, fecha_pago, id_metodos_pago, activo').in('id_cuenta_cobranza', cuentaIds).eq('id_metodos_pago', 1).eq('activo', true).order('fecha_pago', {
-        ascending: false
-      });
-      const pagosCashIds = pagosCash?.map(p => p.id) || [];
+      // Get cash payments (id_metodos_pago = 1) for all accounts (with pagination)
+      let pagosCash: any[] = [];
+      {
+        const pageSize = 1000;
+        let from = 0;
+        let more = true;
+        while (more) {
+          const { data, error } = await supabase
+            .from('pagos')
+            .select('id, fecha_pago, id_metodos_pago, activo')
+            .in('id_cuenta_cobranza', cuentaIds)
+            .eq('id_metodos_pago', 1)
+            .eq('activo', true)
+            .order('fecha_pago', { ascending: false })
+            .range(from, from + pageSize - 1);
+          if (error || !data || data.length === 0) {
+            more = false;
+          } else {
+            pagosCash = pagosCash.concat(data);
+            if (data.length < pageSize) more = false;
+            else from += pageSize;
+          }
+        }
+      }
+      const pagosCashIds = pagosCash.map(p => p.id);
 
-      // Get aplicaciones for cash payments
-      const {
-        data: aplicacionesCash
-      } = await supabase.from('aplicaciones_pago').select(`
-          monto,
-          id_acuerdo_pago,
-          id_pago,
-          es_multa
-        `).in('id_pago', pagosCashIds).in('id_acuerdo_pago', acuerdoIdsForPagos).eq('activo', true).eq('es_multa', false);
+      // Get aplicaciones for cash payments (with pagination)
+      let aplicacionesCash: any[] = [];
+      if (pagosCashIds.length > 0 && acuerdoIdsForPagos.length > 0) {
+        const pageSize = 1000;
+        let from = 0;
+        let more = true;
+        while (more) {
+          const { data, error } = await supabase
+            .from('aplicaciones_pago')
+            .select('monto, id_acuerdo_pago, id_pago, es_multa')
+            .in('id_pago', pagosCashIds)
+            .in('id_acuerdo_pago', acuerdoIdsForPagos)
+            .eq('activo', true)
+            .eq('es_multa', false)
+            .range(from, from + pageSize - 1);
+          if (error || !data || data.length === 0) {
+            more = false;
+          } else {
+            aplicacionesCash = aplicacionesCash.concat(data);
+            if (data.length < pageSize) more = false;
+            else from += pageSize;
+          }
+        }
+      }
 
-      // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid
-      const {
-        data: acuerdosPago
-      } = await supabase.from('acuerdos_pago').select('id, id_cuenta_cobranza, id_concepto, pago_completado').in('id_cuenta_cobranza', cuentaIds).eq('activo', true);
-      console.log('🔍 Acuerdos de pago:', acuerdosPago);
+      // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid (with pagination)
+      let acuerdosPago: any[] = [];
+      {
+        const pageSize = 1000;
+        let from = 0;
+        let more = true;
+        while (more) {
+          const { data, error } = await supabase
+            .from('acuerdos_pago')
+            .select('id, id_cuenta_cobranza, id_concepto, pago_completado')
+            .in('id_cuenta_cobranza', cuentaIds)
+            .eq('activo', true)
+            .range(from, from + pageSize - 1);
+          if (error || !data || data.length === 0) {
+            more = false;
+          } else {
+            acuerdosPago = acuerdosPago.concat(data);
+            if (data.length < pageSize) more = false;
+            else from += pageSize;
+          }
+        }
+      }
+      console.log('🔍 Acuerdos de pago count:', acuerdosPago.length);
 
-      // Get aplicaciones_pago para verificar si hay pagos de cesión de derechos
-      const acuerdoIds = acuerdosPago?.map(a => a.id) || [];
+      // Get aplicaciones_pago para verificar si hay pagos de cesión de derechos (with pagination)
+      const acuerdoIds = acuerdosPago.map(a => a.id);
       let cesionDerechosMap: Record<number, boolean> = {};
       if (acuerdoIds.length > 0) {
-        const {
-          data: aplicaciones
-        } = await supabase.from('aplicaciones_pago').select('id_acuerdo_pago, monto').in('id_acuerdo_pago', acuerdoIds).eq('activo', true);
+        let aplicaciones: any[] = [];
+        const pageSize = 1000;
+        let from = 0;
+        let more = true;
+        while (more) {
+          const { data, error } = await supabase
+            .from('aplicaciones_pago')
+            .select('id_acuerdo_pago, monto')
+            .in('id_acuerdo_pago', acuerdoIds)
+            .eq('activo', true)
+            .range(from, from + pageSize - 1);
+          if (error || !data || data.length === 0) {
+            more = false;
+          } else {
+            aplicaciones = aplicaciones.concat(data);
+            if (data.length < pageSize) more = false;
+            else from += pageSize;
+          }
+        }
 
         // Crear mapeo de acuerdo_id a concepto_id y cuenta_id
-        const acuerdosMap = acuerdosPago?.reduce((acc: any, a) => {
+        const acuerdosMap = acuerdosPago.reduce((acc: any, a) => {
           acc[a.id] = {
             id_concepto: a.id_concepto,
             id_cuenta_cobranza: a.id_cuenta_cobranza
@@ -291,7 +385,7 @@ export default function Pagos() {
         }, {});
 
         // Crear un mapa de cuentas que tienen cesión de derechos con pagos (id_concepto = 6)
-        aplicaciones?.forEach((app: any) => {
+        aplicaciones.forEach((app: any) => {
           const acuerdo = acuerdosMap[app.id_acuerdo_pago];
           if (acuerdo && acuerdo.id_concepto === 6 && app.monto > 0) {
             cesionDerechosMap[acuerdo.id_cuenta_cobranza] = true;
@@ -316,12 +410,12 @@ export default function Pagos() {
         const esProducto = cuentasProductoSet.has(cuenta.id);
         if (esProducto) {
           // Para productos, el pago inicial es el Enganche (id_concepto = 2)
-          const acuerdoEnganche = acuerdosPago?.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 2);
+          const acuerdoEnganche = acuerdosPago.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 2);
           acc[cuenta.id] = acuerdoEnganche?.pago_completado || false;
           console.log(`💰 Cuenta ${cuenta.id} [PRODUCTO]: enganche_pagado = ${acc[cuenta.id]}`);
         } else {
           // Para propiedades, el pago inicial es Apartado (id_concepto = 1) o Cesión de derechos (id_concepto = 6)
-          const acuerdoApartado = acuerdosPago?.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 1);
+          const acuerdoApartado = acuerdosPago.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 1);
           acc[cuenta.id] = acuerdoApartado?.pago_completado || false || cesionDerechosMap[cuenta.id] || false;
           console.log(`💰 Cuenta ${cuenta.id} [PROPIEDAD]: apartado_pagado = ${acc[cuenta.id]} (apartado: ${acuerdoApartado?.pago_completado}, cesión: ${cesionDerechosMap[cuenta.id]})`);
         }
@@ -330,28 +424,45 @@ export default function Pagos() {
 
       // Create a map to check if each cuenta has acuerdos
       const tieneAcuerdosPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
-        const tieneAcuerdos = acuerdosPago?.some(ap => ap.id_cuenta_cobranza === cuenta.id) || false;
+        const tieneAcuerdos = acuerdosPago.some(ap => ap.id_cuenta_cobranza === cuenta.id);
         acc[cuenta.id] = tieneAcuerdos;
         return acc;
       }, {});
 
-      // Get multas pendientes para cada cuenta
-      const acuerdoIdsForMultas = acuerdosPago?.map(ap => ap.id) || [];
+      // Get multas pendientes para cada cuenta (with pagination)
+      const acuerdoIdsForMultas = acuerdosPago.map(ap => ap.id);
       let multasPendientesPorCuenta: Record<number, boolean> = {};
       if (acuerdoIdsForMultas.length > 0) {
-        const {
-          data: multas
-        } = await supabase.from('multas').select('id, id_acuerdo_pago, es_pagada').in('id_acuerdo_pago', acuerdoIdsForMultas).eq('activo', true).eq('es_pagada', false);
+        let multas: any[] = [];
+        const pageSize = 1000;
+        let from = 0;
+        let more = true;
+        while (more) {
+          const { data, error } = await supabase
+            .from('multas')
+            .select('id, id_acuerdo_pago, es_pagada')
+            .in('id_acuerdo_pago', acuerdoIdsForMultas)
+            .eq('activo', true)
+            .eq('es_pagada', false)
+            .range(from, from + pageSize - 1);
+          if (error || !data || data.length === 0) {
+            more = false;
+          } else {
+            multas = multas.concat(data);
+            if (data.length < pageSize) more = false;
+            else from += pageSize;
+          }
+        }
 
         // Crear un mapa de acuerdo_id a cuenta_id
-        const acuerdoToCuentaMap = acuerdosPago?.reduce((acc: any, ap) => {
+        const acuerdoToCuentaMapMultas = acuerdosPago.reduce((acc: any, ap) => {
           acc[ap.id] = ap.id_cuenta_cobranza;
           return acc;
         }, {});
 
         // Marcar qué cuentas tienen multas pendientes
-        multas?.forEach(multa => {
-          const cuentaId = acuerdoToCuentaMap[multa.id_acuerdo_pago];
+        multas.forEach(multa => {
+          const cuentaId = acuerdoToCuentaMapMultas[multa.id_acuerdo_pago];
           if (cuentaId) {
             multasPendientesPorCuenta[cuentaId] = true;
           }
