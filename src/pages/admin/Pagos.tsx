@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Upload, Banknote, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, CreditCard, Eye, X, Edit, Plus, Download, Loader2, Filter, TrendingUp, TrendingDown, Equal, AlertCircle, DollarSign, CheckCircle, FileText, Upload, Banknote, ChevronDown, ChevronUp, Wallet } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -17,6 +17,7 @@ import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaD
 import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialog";
 import { CancelCuentaDialog } from "@/components/admin/CancelCuentaDialog";
 import { CashPaymentDetailDialog } from "@/components/admin/CashPaymentDetailDialog";
+import { ProjectCollectionSummaryDialog } from "@/components/admin/ProjectCollectionSummaryDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -114,6 +115,17 @@ export default function Pagos() {
   const [statsExpanded, setStatsExpanded] = useState(() => {
     const saved = localStorage.getItem('pagos-stats-expanded');
     return saved !== null ? JSON.parse(saved) : true;
+  });
+  
+  // State for project summary dialog
+  const [projectSummaryDialog, setProjectSummaryDialog] = useState<{
+    isOpen: boolean;
+    projectName: string;
+    cuentaIds: number[];
+  }>({
+    isOpen: false,
+    projectName: "",
+    cuentaIds: []
   });
 
   // Paginación
@@ -1034,16 +1046,27 @@ export default function Pagos() {
   const cuentasPropiedades = statsCuentas.filter(c => c.tipo === 'Propiedad');
   const cuentasProductos = statsCuentas.filter(c => c.tipo === 'Producto' || c.tipo === 'Servicio');
   
-  // Calculate top 3 projects by number of accounts with totals (unfiltered) - SOLO PROPIEDADES
-  const proyectosDataMap = cuentasPropiedades.reduce((acc, cuenta) => {
+  // Calculate total cobrado (only from ACTIVE accounts - not cancelled)
+  const cuentasActivasParaCobrado = cuentasActivas;
+  const cuentasPropiedadesActivas = cuentasActivasParaCobrado.filter(c => c.tipo === 'Propiedad');
+  const cuentasProductosActivas = cuentasActivasParaCobrado.filter(c => c.tipo === 'Producto' || c.tipo === 'Servicio');
+  
+  const totalCobradoPropiedades = cuentasPropiedadesActivas.reduce((sum, cuenta) => sum + Number(cuenta.pagado || 0), 0);
+  const totalCobradoProductos = cuentasProductosActivas.reduce((sum, cuenta) => sum + Number(cuenta.pagado || 0), 0);
+  const totalCobrado = totalCobradoPropiedades + totalCobradoProductos;
+  
+  // Calculate top 3 projects by number of accounts with totals (unfiltered) - SOLO PROPIEDADES ACTIVAS
+  const proyectosDataMap = cuentasPropiedadesActivas.reduce((acc, cuenta) => {
     const proyecto = cuenta.proyecto;
     if (!acc[proyecto]) {
-      acc[proyecto] = { count: 0, total: 0 };
+      acc[proyecto] = { count: 0, total: 0, cobrado: 0, cuentaIds: [] as number[] };
     }
     acc[proyecto].count += 1;
     acc[proyecto].total += Number(cuenta.precio_final);
+    acc[proyecto].cobrado += Number(cuenta.pagado || 0);
+    acc[proyecto].cuentaIds.push(cuenta.id);
     return acc;
-  }, {} as Record<string, { count: number; total: number }>);
+  }, {} as Record<string, { count: number; total: number; cobrado: number; cuentaIds: number[] }>);
 
   const top3Proyectos = Object.entries(proyectosDataMap)
     .sort(([, a], [, b]) => b.count - a.count)
@@ -1052,7 +1075,9 @@ export default function Pagos() {
       proyecto, 
       count: data.count, 
       total: data.total,
-      promedio: data.total / data.count
+      promedio: data.total / data.count,
+      cobrado: data.cobrado,
+      cuentaIds: data.cuentaIds
     }));
 
   // Estadísticas para productos
@@ -1411,7 +1436,7 @@ export default function Pagos() {
         {statsExpanded && (
           <CardContent className="space-y-6">
             {/* Cards de estadísticas generales */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -1454,7 +1479,7 @@ export default function Pagos() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monto Total Colocado  </CardTitle>
+              <CardTitle className="text-sm font-medium">Monto Total Colocado</CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -1492,6 +1517,54 @@ export default function Pagos() {
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>{formatCurrency(totalMontoProductos)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* New Card: Monto Total Cobrado */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Monto Total Cobrado</CardTitle>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-2xl font-bold text-green-600 cursor-help">
+                      {formatCurrencyCompact(totalCobrado)}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{formatCurrency(totalCobrado)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Propiedades: <span className="font-medium text-green-600">{formatCurrencyCompact(totalCobradoPropiedades)}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(totalCobradoPropiedades)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">
+                        Productos: <span className="font-medium text-green-600">{formatCurrencyCompact(totalCobradoProductos)}</span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(totalCobradoProductos)}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -1559,20 +1632,28 @@ export default function Pagos() {
                           <Badge variant="outline" className="text-xs font-semibold">
                             #{index + 1}
                           </Badge>
-                          <span className="text-sm font-medium truncate max-w-[200px]">
+                          <button 
+                            className="text-sm font-medium truncate max-w-[200px] text-primary hover:underline cursor-pointer text-left"
+                            onClick={() => setProjectSummaryDialog({
+                              isOpen: true,
+                              projectName: item.proyecto,
+                              cuentaIds: item.cuentaIds
+                            })}
+                          >
                             {item.proyecto}
-                          </span>
+                          </button>
                         </div>
                         <Badge variant="secondary" className="ml-2">
                           {item.count} {item.count === 1 ? 'cuenta' : 'cuentas'}
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground pl-7">
+                      <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground pl-7">
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="cursor-help">
-                                Monto Total: <span className="font-semibold text-foreground">{formatCurrencyCompact(item.total)}</span>
+                                <span className="block text-muted-foreground">Colocado:</span>
+                                <span className="font-semibold text-foreground">{formatCurrencyCompact(item.total)}</span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -1584,7 +1665,21 @@ export default function Pagos() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="cursor-help">
-                                Promedio: <span className="font-semibold text-foreground">{formatCurrencyCompact(item.promedio)}</span>
+                                <span className="block text-muted-foreground">Cobrado:</span>
+                                <span className="font-semibold text-green-600">{formatCurrencyCompact(item.cobrado)}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{formatCurrency(item.cobrado)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <span className="block text-muted-foreground">Promedio:</span>
+                                <span className="font-semibold text-foreground">{formatCurrencyCompact(item.promedio)}</span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -1630,6 +1725,22 @@ export default function Pagos() {
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>{formatCurrency(totalMontoProductos)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pb-3 border-b">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Monto Total Cobrado</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-lg font-semibold text-green-600 cursor-help">{formatCurrencyCompact(totalCobradoProductos)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{formatCurrency(totalCobradoProductos)}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -2447,5 +2558,12 @@ export default function Pagos() {
       isOpen: false,
       cuenta: null
     })} cashLimit={cashDialog.cuenta.cash_limit || 0} cashPaid={cashDialog.cuenta.cash_paid || 0} cashRemaining={cashDialog.cuenta.cash_remaining || 0} cashPercentage={cashDialog.cuenta.cash_percentage || 0} cashPayments={cashDialog.cuenta.cash_payments || []} />}
+
+      <ProjectCollectionSummaryDialog
+        isOpen={projectSummaryDialog.isOpen}
+        onClose={() => setProjectSummaryDialog({ isOpen: false, projectName: "", cuentaIds: [] })}
+        projectName={projectSummaryDialog.projectName}
+        cuentaIds={projectSummaryDialog.cuentaIds}
+      />
     </div>;
 }
