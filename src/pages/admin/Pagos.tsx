@@ -2039,7 +2039,7 @@ export default function Pagos() {
                                 </Tooltip>
                               </TooltipProvider> : null}
                             {/* Discrepancy indicator */}
-                            {cuenta.tiene_acuerdos && cuenta.discrepancia && Math.abs(cuenta.discrepancia) > 0.01 && (
+                            {cuenta.tiene_acuerdos && Math.abs(cuenta.discrepancia || 0) > 0.01 && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger>
