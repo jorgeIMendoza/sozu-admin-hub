@@ -155,12 +155,23 @@ function SortableItem({ id, children, disabled = false }: SortableItemProps) {
   );
 }
 
-const ReadOnlyBanner = () => (
-  <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+const ReadOnlyBanner = ({ isEnDemanda = false }: { isEnDemanda?: boolean }) => (
+  <div className={`mb-4 p-3 rounded-lg border ${
+    isEnDemanda 
+      ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" 
+      : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+  }`}>
     <div className="flex items-center gap-2">
-      <CheckCircle className="h-5 w-5 text-green-600" />
-      <span className="font-medium text-green-700 dark:text-green-300">
-        Propiedad entregada - Esta sección es de solo lectura
+      <CheckCircle className={`h-5 w-5 ${isEnDemanda ? "text-amber-600" : "text-green-600"}`} />
+      <span className={`font-medium ${
+        isEnDemanda 
+          ? "text-amber-700 dark:text-amber-300" 
+          : "text-green-700 dark:text-green-300"
+      }`}>
+        {isEnDemanda 
+          ? "Propiedad en demanda - Todos los campos son de solo lectura hasta que termine el juicio"
+          : "Propiedad entregada - Esta sección es de solo lectura"
+        }
       </span>
     </div>
   </div>
@@ -401,7 +412,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   });
 
   // Determinar si está en modo solo lectura
-  const isReadOnly = estatusPropiedad?.id_estatus_disponibilidad === 8;
+  // Determinar si está en modo solo lectura (Entregado=8 o En Demanda=11)
+  const isReadOnly = estatusPropiedad?.id_estatus_disponibilidad === 8 || estatusPropiedad?.id_estatus_disponibilidad === 11;
+  const isEnDemanda = estatusPropiedad?.id_estatus_disponibilidad === 11;
 
   // Check if vendedor should generate invoice
   useEffect(() => {
@@ -2214,7 +2227,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           </TabsList>
 
           <TabsContent value="propiedad" className="space-y-4">
-            {isReadOnly && <ReadOnlyBanner />}
+{isReadOnly && <ReadOnlyBanner isEnDemanda={isEnDemanda} />}
             <Card>
               <CardHeader>
                 <CardTitle>Información de la Propiedad</CardTitle>
@@ -2401,7 +2414,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           </TabsContent>
 
           <TabsContent value="compradores" className="space-y-4">
-            {isReadOnly && <ReadOnlyBanner />}
+{isReadOnly && <ReadOnlyBanner isEnDemanda={isEnDemanda} />}
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -2682,7 +2695,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
           {tipoCuenta === 'Propiedad' && (
             <TabsContent value="escrituracion" className="space-y-4">
-              {isReadOnly && <ReadOnlyBanner />}
+{isReadOnly && <ReadOnlyBanner isEnDemanda={isEnDemanda} />}
               <Card>
                 <CardHeader>
                   <CardTitle>Datos de escrituración</CardTitle>
@@ -2967,7 +2980,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           {/* Documentos Tab - Only for properties */}
           {tipoCuenta === 'Propiedad' && (
             <TabsContent value="documentos" className="space-y-4">
-              {isReadOnly && <ReadOnlyBanner />}
+{isReadOnly && <ReadOnlyBanner isEnDemanda={isEnDemanda} />}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -3183,7 +3196,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           {/* Facturas Tab - Only for properties with facturas */}
           {tipoCuenta === 'Propiedad' && hasFacturas && (
             <TabsContent value="facturas" className="space-y-4">
-              {isReadOnly && <ReadOnlyBanner />}
+{isReadOnly && <ReadOnlyBanner isEnDemanda={isEnDemanda} />}
               <FacturasTab
                 cuentaCobranzaId={cuenta.id}
                 compradores={compradoresExistentes?.map(c => ({ 
@@ -3352,7 +3365,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           )}
 
           <TabsContent value="acuerdo" className="space-y-4">
-            {isReadOnly && <ReadOnlyBanner />}
+{isReadOnly && <ReadOnlyBanner isEnDemanda={isEnDemanda} />}
             <Card>
               <CardContent className="pt-6">
                 {/* Purchase and UMA Information Section */}
@@ -3992,7 +4005,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           </TabsContent>
 
           <TabsContent value="comisiones" className="space-y-4">
-            {isReadOnly && <ReadOnlyBanner />}
+            {isReadOnly && <ReadOnlyBanner isEnDemanda={isEnDemanda} />}
             <Card>
               <CardHeader>
                 <CardTitle>Información de Comisiones</CardTitle>
