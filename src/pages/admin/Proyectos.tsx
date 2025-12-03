@@ -429,7 +429,13 @@ const Proyectos = () => {
     
     if (properties.length === 0) return 0;
     
-    return properties.reduce((sum: number, property: any) => 
+    const validProperties = properties.filter((property: any) => 
+      property.precio_lista && property.precio_lista > 0
+    );
+    
+    if (validProperties.length === 0) return 0;
+    
+    return validProperties.reduce((sum: number, property: any) => 
       sum + (property.precio_lista || 0), 0);
   };
 
@@ -555,7 +561,7 @@ const Proyectos = () => {
                 <TableHead>Número de Departamentos</TableHead>
                 <TableHead>Ciudad</TableHead>
                 <TableHead>Dirección</TableHead>
-                <TableHead>Total a Colocar</TableHead>
+                <TableHead>Total del proyecto</TableHead>
                 <TableHead>Precio Promedio Propiedades</TableHead>
                 <TableHead>Precio Promedio por M2</TableHead>
                 <TableHead>Multimedia</TableHead>
