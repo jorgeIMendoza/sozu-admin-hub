@@ -1020,23 +1020,14 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     </div>
                   )}
 
-                  {/* Representante Legal - para entidades legales, administradoras y PM clients */}
-                  {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || (entityType === 'client' && tipoPersona === 'pm')) && (
+                  {/* Representante Legal - para entidades legales, administradoras, compradores y PM clients */}
+                  {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || entityType === 'comprador' || (entityType === 'client' && tipoPersona === 'pm')) && (
                     <div>
                       <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
-                      <Select value={idRepresentanteLegal?.toString() || ''} onValueChange={setIdRepresentanteLegal}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un representante legal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin representante legal</SelectItem>
-                          {representantesLegales.map((rep) => (
-                            <SelectItem key={rep.id} value={rep.id.toString()}>
-                              {rep.nombre_legal}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <RepresentanteLegalSelector
+                        value={idRepresentanteLegal?.toString() || ''}
+                        onValueChange={setIdRepresentanteLegal}
+                      />
                     </div>
                   )}
 
