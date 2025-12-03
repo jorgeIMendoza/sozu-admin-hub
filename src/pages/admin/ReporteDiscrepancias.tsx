@@ -36,7 +36,7 @@ export default function ReporteDiscrepancias() {
           ofertas!fk_ccob_oferta (
             id_propiedad,
             id_producto,
-            propiedades (
+            propiedades!fk_ofertas_propiedad (
               numero_propiedad,
               edificios_modelos (
                 edificios (
