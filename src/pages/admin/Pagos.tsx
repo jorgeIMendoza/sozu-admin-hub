@@ -449,15 +449,33 @@ export default function Pagos() {
       }
 
       // Primero necesitamos determinar qué cuentas son de productos
-      // Obtenemos las ofertas para saber cuáles tienen id_producto
+      // Obtenemos las ofertas para saber cuáles tienen id_producto (CON PAGINACIÓN)
       const ofertaIdsTemp = cuentas.map(c => c.id_oferta).filter(id => id !== null);
-      const {
-        data: ofertasTemp
-      } = ofertaIdsTemp.length > 0 ? await supabase.from('ofertas').select('id, id_producto').in('id', ofertaIdsTemp) : {
-        data: []
-      };
-      const cuentasProductoSet = new Set(ofertasTemp?.filter(o => o.id_producto).map(o => cuentas.find(c => c.id_oferta === o.id)?.id).filter(Boolean) || []);
-      console.log('🔍 Cuentas de productos:', Array.from(cuentasProductoSet));
+      let ofertasTemp: { id: number; id_producto: number | null }[] = [];
+      if (ofertaIdsTemp.length > 0) {
+        const ofertaIdChunks = chunkArray(ofertaIdsTemp, 500);
+        for (const chunk of ofertaIdChunks) {
+          const pageSize = 1000;
+          let from = 0;
+          let more = true;
+          while (more) {
+            const { data, error } = await supabase
+              .from('ofertas')
+              .select('id, id_producto')
+              .in('id', chunk)
+              .range(from, from + pageSize - 1);
+            if (error || !data || data.length === 0) {
+              more = false;
+            } else {
+              ofertasTemp = ofertasTemp.concat(data);
+              if (data.length < pageSize) more = false;
+              else from += pageSize;
+            }
+          }
+        }
+      }
+      const cuentasProductoSet = new Set(ofertasTemp.filter(o => o.id_producto).map(o => cuentas.find(c => c.id_oferta === o.id)?.id).filter(Boolean) || []);
+      console.log('🔍 Cuentas de productos (total ofertas cargadas:', ofertasTemp.length, '):', Array.from(cuentasProductoSet));
 
       // Create a map of whether initial payment is made for each cuenta
       const apartadoPagadoPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
