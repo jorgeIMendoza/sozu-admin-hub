@@ -52,20 +52,31 @@ export default function ReporteDiscrepancias() {
 
       if (cuentasError) throw cuentasError;
 
-      // Get all acuerdos_pago sums
-      const { data: acuerdosData, error: acuerdosError } = await supabase
-        .from('acuerdos_pago')
-        .select('id_cuenta_cobranza, monto')
-        .eq('activo', true);
+      // Get all acuerdos_pago sums - fetch in batches to avoid 1000 row limit
+      let allAcuerdos: { id_cuenta_cobranza: number; monto: number }[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      
+      while (true) {
+        const { data: batch, error: batchError } = await supabase
+          .from('acuerdos_pago')
+          .select('id_cuenta_cobranza, monto')
+          .eq('activo', true)
+          .range(from, from + batchSize - 1);
+        
+        if (batchError) throw batchError;
+        if (!batch || batch.length === 0) break;
+        
+        allAcuerdos = [...allAcuerdos, ...batch];
+        if (batch.length < batchSize) break;
+        from += batchSize;
+      }
 
-      if (acuerdosError) throw acuerdosError;
-
-      console.log('Acuerdos data count:', acuerdosData?.length);
-      console.log('Sample acuerdos:', acuerdosData?.slice(0, 3));
+      console.log('Total acuerdos fetched:', allAcuerdos.length);
 
       // Calculate sums per cuenta_cobranza
       const sumasPorCuenta: Record<string, number> = {};
-      acuerdosData?.forEach(acuerdo => {
+      allAcuerdos.forEach(acuerdo => {
         const idCuentaCobranza = String(acuerdo.id_cuenta_cobranza);
         sumasPorCuenta[idCuentaCobranza] = (sumasPorCuenta[idCuentaCobranza] || 0) + Number(acuerdo.monto);
       });
