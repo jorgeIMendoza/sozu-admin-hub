@@ -1780,13 +1780,13 @@ export default function Pagos() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {cuentasProductos.length > 0 ? (
+              {cuentasProductosActivas.length > 0 ? (
                 <div className="space-y-4">
                   <div className="space-y-2 pb-3 border-b">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Total de Cuentas</span>
                       <Badge variant="secondary">
-                        {cuentasProductos.length} {cuentasProductos.length === 1 ? 'cuenta' : 'cuentas'}
+                        {cuentasProductosActivas.length} {cuentasProductosActivas.length === 1 ? 'cuenta' : 'cuentas'}
                       </Badge>
                     </div>
                   </div>
