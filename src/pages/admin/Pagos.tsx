@@ -1790,6 +1790,22 @@ export default function Pagos() {
                     </div>
                   </div>
 
+                  <div className="space-y-2 pb-3 border-b">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Monto Total Restante</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-lg font-semibold text-orange-600 cursor-help">{formatCurrencyCompact(totalMontoProductos - totalCobradoProductos)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{formatCurrency(totalMontoProductos - totalCobradoProductos)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Promedio por Cuenta</span>
