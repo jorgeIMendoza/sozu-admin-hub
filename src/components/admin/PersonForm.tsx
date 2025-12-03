@@ -991,6 +991,89 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       />
                     </div>
                   )}
+
+                  {/* Tipo de Entidad Legal - solo para entidades legales */}
+                  {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria') && (
+                    <div>
+                      <Label htmlFor="idTipoEntidad">
+                        Tipo de Entidad Legal *
+                      </Label>
+                      <Select 
+                        value={idTipoEntidad?.toString() || ''} 
+                        onValueChange={(value) => setIdTipoEntidad(parseInt(value))}
+                        disabled={fixedEntityType}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el tipo de entidad legal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tiposEntidad.map((tipo) => (
+                            <SelectItem key={tipo.id} value={tipo.id.toString()}>
+                              {tipo.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Representante Legal - para entidades legales y PM clients */}
+                  {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || (entityType === 'client' && tipoPersona === 'pm')) && (
+                    <div>
+                      <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
+                      <Select value={idRepresentanteLegal?.toString() || ''} onValueChange={setIdRepresentanteLegal}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un representante legal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin representante legal</SelectItem>
+                          {representantesLegales.map((rep) => (
+                            <SelectItem key={rep.id} value={rep.id.toString()}>
+                              {rep.nombre_legal}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Uso CFDI */}
+                  {shouldShowTaxFields() && (
+                    <div>
+                      <Label htmlFor="usoCfdi">Uso CFDI</Label>
+                      <Select value={usoCfdi} onValueChange={setUsoCfdi}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el uso CFDI" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {usosCfdi.map((uso) => (
+                            <SelectItem key={uso.codigo} value={uso.codigo}>
+                              {uso.codigo} - {uso.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Régimen */}
+                  {shouldShowTaxFields() && (
+                    <div>
+                      <Label htmlFor="regimen">Régimen</Label>
+                      <Select value={regimen} onValueChange={setRegimen}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un régimen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {regimenes.map((reg) => (
+                            <SelectItem key={reg.id} value={reg.id.toString()}>
+                              {reg.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               ) : (
                 // Original form structure for other entity types
