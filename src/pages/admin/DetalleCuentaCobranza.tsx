@@ -2550,31 +2550,37 @@ export default function DetalleCuentaCobranza() {
                       <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
                       <p className="text-sm font-semibold">{originalScheme.nombre}</p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Enganche</label>
-                      <p className="text-sm font-semibold">
-                        {originalScheme.porcentaje_enganche.toFixed(1)}%
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_enganche / 100))}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
-                      <p className="text-sm font-semibold">
-                        {originalScheme.numero_mensualidades} pagos de {originalScheme.porcentaje_mensualidades.toFixed(1)}%
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_mensualidades / 100))}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Entrega</label>
-                      <p className="text-sm font-semibold">{originalScheme.porcentaje_entrega.toFixed(1)}%</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_entrega / 100))}
-                      </p>
-                    </div>
+                    {originalScheme.porcentaje_enganche > 0 && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Enganche</label>
+                        <p className="text-sm font-semibold">
+                          {originalScheme.porcentaje_enganche.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_enganche / 100))}
+                        </p>
+                      </div>
+                    )}
+                    {originalScheme.porcentaje_mensualidades > 0 && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
+                        <p className="text-sm font-semibold">
+                          {originalScheme.numero_mensualidades} pagos de {originalScheme.porcentaje_mensualidades.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_mensualidades / 100))}
+                        </p>
+                      </div>
+                    )}
+                    {originalScheme.porcentaje_entrega > 0 && (
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">Entrega</label>
+                        <p className="text-sm font-semibold">{originalScheme.porcentaje_entrega.toFixed(1)}%</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_entrega / 100))}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   {acuerdosPago && acuerdosPago.length > 0 && (
                     <Badge variant="secondary" className="text-xs">
@@ -2609,29 +2615,35 @@ export default function DetalleCuentaCobranza() {
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
                           <p className="text-sm">{originalScheme.nombre}</p>
                         </div>
-                         <div>
-                           <label className="text-sm font-medium text-muted-foreground">Enganche</label>
-                           <p className="text-sm">{originalScheme.porcentaje_enganche.toFixed(1)}%</p>
-                           <p className="text-xs text-muted-foreground">
-                             {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_enganche / 100))}
-                           </p>
-                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
-                          <p className="text-sm">
-                            {originalScheme.numero_mensualidades} pagos de {originalScheme.porcentaje_mensualidades.toFixed(1)}%
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_mensualidades / 100))}
-                          </p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Entrega</label>
-                          <p className="text-sm">{originalScheme.porcentaje_entrega.toFixed(1)}%</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_entrega / 100))}
-                          </p>
-                        </div>
+                        {originalScheme.porcentaje_enganche > 0 && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Enganche</label>
+                            <p className="text-sm">{originalScheme.porcentaje_enganche.toFixed(1)}%</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_enganche / 100))}
+                            </p>
+                          </div>
+                        )}
+                        {originalScheme.porcentaje_mensualidades > 0 && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
+                            <p className="text-sm">
+                              {originalScheme.numero_mensualidades} pagos de {originalScheme.porcentaje_mensualidades.toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_mensualidades / 100))}
+                            </p>
+                          </div>
+                        )}
+                        {originalScheme.porcentaje_entrega > 0 && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Entrega</label>
+                            <p className="text-sm">{originalScheme.porcentaje_entrega.toFixed(1)}%</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency((cuentaDetalle?.precio_final || 0) * (originalScheme.porcentaje_entrega / 100))}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -2661,29 +2673,33 @@ export default function DetalleCuentaCobranza() {
                           <label className="text-sm font-medium text-muted-foreground">Nombre del Plan</label>
                           <p className="text-sm font-semibold">{originalScheme.nombre} modificado</p>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">
-                            {currentPaymentPlan?.hayCesionDerechos ? 'Cesión de derechos' : 'Enganche'}
-                          </label>
-                          <p className="text-sm font-semibold">
-                            {currentPaymentPlan?.hayCesionDerechos ? 
-                              ((actualAmounts?.cesion || 0) / (cuentaDetalle?.precio_final || 1) * 100).toFixed(1) :
-                              currentPaymentPlan?.porcentaje_enganche.toFixed(1)
-                            }%
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency(currentPaymentPlan?.hayCesionDerechos ? (actualAmounts?.cesion || 0) : (actualAmounts?.enganche || 0))}
-                          </p>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
-                          <p className="text-sm font-semibold">
-                            {currentPaymentPlan?.numero_mensualidades} pagos de {currentPaymentPlan?.porcentaje_mensualidades.toFixed(1)}%
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency(actualAmounts?.mensualidades || 0)}
-                          </p>
-                        </div>
+                        {(currentPaymentPlan?.porcentaje_enganche > 0 || (currentPaymentPlan?.hayCesionDerechos && (actualAmounts?.cesion || 0) > 0)) && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                              {currentPaymentPlan?.hayCesionDerechos ? 'Cesión de derechos' : 'Enganche'}
+                            </label>
+                            <p className="text-sm font-semibold">
+                              {currentPaymentPlan?.hayCesionDerechos ? 
+                                ((actualAmounts?.cesion || 0) / (cuentaDetalle?.precio_final || 1) * 100).toFixed(1) :
+                                currentPaymentPlan?.porcentaje_enganche.toFixed(1)
+                              }%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency(currentPaymentPlan?.hayCesionDerechos ? (actualAmounts?.cesion || 0) : (actualAmounts?.enganche || 0))}
+                            </p>
+                          </div>
+                        )}
+                        {(currentPaymentPlan?.numero_mensualidades || 0) > 0 && (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Mensualidades</label>
+                            <p className="text-sm font-semibold">
+                              {currentPaymentPlan?.numero_mensualidades} pagos de {currentPaymentPlan?.porcentaje_mensualidades.toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency(actualAmounts?.mensualidades || 0)}
+                            </p>
+                          </div>
+                        )}
                         {currentPaymentPlan?.hayPagosEspeciales && (
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">Pagos Especiales</label>
@@ -2695,7 +2711,7 @@ export default function DetalleCuentaCobranza() {
                             </p>
                           </div>
                         )}
-                        {!currentPaymentPlan?.hayPagosEspeciales && (
+                        {(currentPaymentPlan?.porcentaje_entrega || 0) > 0 && (
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">Entrega</label>
                             <p className="text-sm font-semibold">
@@ -2707,19 +2723,6 @@ export default function DetalleCuentaCobranza() {
                           </div>
                         )}
                       </div>
-                      {currentPaymentPlan?.hayPagosEspeciales && currentPaymentPlan?.porcentaje_entrega > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
-                          <div className="md:col-start-4">
-                            <label className="text-sm font-medium text-muted-foreground">Entrega</label>
-                            <p className="text-sm font-semibold">
-                              {currentPaymentPlan?.porcentaje_entrega.toFixed(1)}%
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatCurrency(actualAmounts?.entrega || 0)}
-                            </p>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
