@@ -922,7 +922,10 @@ const Propiedades = () => {
         restante,
         activo: property.activo,
         es_aprobado: property.es_aprobado,
-        apartado_pagado: (paymentStatus?.apartado?.status === 'pagado') || (paymentStatus?.cesion_derechos?.monto_pagado > 0),
+        apartado_pagado: (paymentStatus?.apartado?.status === 'pagado') || 
+                         (paymentStatus?.enganche?.status === 'pagado') ||
+                         (paymentStatus?.especial?.status === 'pagado') ||
+                         (paymentStatus?.cesion_derechos?.monto_pagado > 0),
         cuenta_sin_esquema: cuentaSinEsquema,
         propietario: propietarioDisplay,
         es_desarrollador: esDarrollador,
