@@ -2038,10 +2038,11 @@ export default function DetalleCuentaCobranza() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Botón En Demanda - solo para propiedades que no están en demanda ni canceladas */}
+          {/* Botón En Demanda - solo para propiedades no pagadas completamente, que no están en demanda ni canceladas */}
           {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
            cuentaDetalle.id_estatus_disponibilidad !== 11 && 
-           !esCuentaCancelada && (
+           !esCuentaCancelada &&
+           totalPagado < (cuentaDetalle?.precio_final || 0) && (
             <Button 
               onClick={() => setEnDemandaDialog(true)}
               variant="outline"
