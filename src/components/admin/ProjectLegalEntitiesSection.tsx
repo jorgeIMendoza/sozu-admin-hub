@@ -65,49 +65,48 @@ export const ProjectLegalEntitiesSection = ({
     queryFn: async () => {
       const allowedEntityTypeIds = [3, 4, 5, 6, 8, 9, 10, 13, 15]; // Desarrollador, Dueño Vendedor, Inmobiliaria, Administradora, Proveedor, Socio, Inversionista, Contratista, Aportante
 
-      // Query without nested filters - they don't work reliably with PostgREST
+      // Query from entidades_relacionadas directly - more efficient and avoids PostgREST row limit issues
       const { data, error } = await supabase
-        .from("personas")
+        .from("entidades_relacionadas")
         .select(`
           id,
-          nombre_legal,
-          email,
-          telefono,
-          entidades_relacionadas!entidades_relacionadas_id_persona_fkey (
+          id_tipo_entidad,
+          personas!entidades_relacionadas_id_persona_fkey (
             id,
-            id_tipo_entidad,
-            activo,
-            tipos_entidad (
-              id,
-              nombre
-            )
+            nombre_legal,
+            email,
+            telefono,
+            tipo_persona,
+            activo
+          ),
+          tipos_entidad (
+            id,
+            nombre
           )
         `)
         .eq("activo", true)
-        .eq("tipo_persona", "pm");
+        .is("id_proyecto", null)  // Solo entidades no asignadas a proyectos específicos
+        .in("id_tipo_entidad", allowedEntityTypeIds);
       
       if (error) throw error;
       
-      // Group entities by tipo_entidad_id to get unique combinations
-      // Filter client-side for reliability
+      // Transform to expected format, filtering for PM personas activas
       const entityMap = new Map();
-      (data || []).forEach((item: any) => {
-        (item.entidades_relacionadas || []).forEach((rel: any) => {
-          // Filter: must be active and in allowed types
-          if (rel.activo && allowedEntityTypeIds.includes(rel.id_tipo_entidad)) {
-            const key = `${item.id}-${rel.id_tipo_entidad}`;
-            if (!entityMap.has(key)) {
-              entityMap.set(key, {
-                id: item.id,
-                nombre_legal: item.nombre_legal,
-                email: item.email,
-                telefono: item.telefono,
-                tipo_entidad_id: rel.id_tipo_entidad,
-                tipo_entidad_nombre: rel.tipos_entidad?.nombre,
-              });
-            }
+      (data || []).forEach((rel: any) => {
+        const persona = rel.personas;
+        if (persona && persona.activo && persona.tipo_persona === 'pm') {
+          const key = `${persona.id}-${rel.id_tipo_entidad}`;
+          if (!entityMap.has(key)) {
+            entityMap.set(key, {
+              id: persona.id,
+              nombre_legal: persona.nombre_legal,
+              email: persona.email,
+              telefono: persona.telefono,
+              tipo_entidad_id: rel.id_tipo_entidad,
+              tipo_entidad_nombre: rel.tipos_entidad?.nombre,
+            });
           }
-        });
+        }
       });
       
       return Array.from(entityMap.values());
