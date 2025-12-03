@@ -9,6 +9,8 @@ interface ProjectCollectionSummaryDialogProps {
   onClose: () => void;
   projectName: string;
   cuentaIds: number[];
+  totalColocado: number;
+  totalCobrado: number;
 }
 
 // Concept IDs:
@@ -25,7 +27,9 @@ export function ProjectCollectionSummaryDialog({
   isOpen, 
   onClose, 
   projectName, 
-  cuentaIds 
+  cuentaIds,
+  totalColocado,
+  totalCobrado
 }: ProjectCollectionSummaryDialogProps) {
   
   const { data: summaryData, isLoading } = useQuery({
@@ -148,9 +152,52 @@ export function ProjectCollectionSummaryDialog({
           <p className="text-sm text-muted-foreground py-4">No hay datos disponibles</p>
         ) : (
           <div className="space-y-6">
+            {/* Resumen General */}
+            <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Total Colocado</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-lg font-bold cursor-help">{formatCurrencyCompact(totalColocado)}</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(totalColocado)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Total Cobrado</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-lg font-bold text-green-600 cursor-help">{formatCurrencyCompact(totalCobrado)}</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(totalCobrado)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Total Restante</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-lg font-bold text-orange-600 cursor-help">{formatCurrencyCompact(totalColocado - totalCobrado)}</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(totalColocado - totalCobrado)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+
             {/* Durante la Obra Section */}
             <div className="space-y-3">
-              <h3 className="font-semibold text-sm border-b pb-2">Durante la Obra</h3>
+              <h3 className="font-semibold text-sm border-b pb-2">Desglose por Etapa - Durante la Obra</h3>
               <p className="text-xs text-muted-foreground">(Apartado + Enganche + Mensualidades + Pagos Especiales)</p>
               
               <div className="grid grid-cols-2 gap-4">
@@ -206,7 +253,7 @@ export function ProjectCollectionSummaryDialog({
 
             {/* A la Entrega Section */}
             <div className="space-y-3">
-              <h3 className="font-semibold text-sm border-b pb-2">A la Entrega</h3>
+              <h3 className="font-semibold text-sm border-b pb-2">Desglose por Etapa - A la Entrega</h3>
               <p className="text-xs text-muted-foreground">(Contraentrega)</p>
               
               <div className="grid grid-cols-2 gap-4">
