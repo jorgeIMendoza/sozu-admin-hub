@@ -2108,11 +2108,14 @@ export default function DetalleCuentaCobranza() {
         <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 flex items-start gap-3">
           <Scale className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-amber-700 dark:text-amber-300">Propiedad En Demanda</p>
+            <p className="font-semibold text-amber-700 dark:text-amber-300">Propiedad En Demanda - Solo Lectura</p>
             <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
-              Esta cuenta está bloqueada debido a un proceso legal en curso. La propiedad no puede ser reasignada hasta que el juicio termine.
+              Esta cuenta está bloqueada debido a un proceso legal en curso. <strong>Todos los campos son de solo lectura</strong> y no se pueden realizar modificaciones hasta que el juicio termine.
             </p>
             <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+              No se permite: agregar pagos manuales, editar/eliminar pagos, agregar/eliminar multas, transferir sobrepagos, ni cambiar el esquema de pago.
+            </p>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-2 font-medium">
               Use el botón "Juicio Terminado" para finalizar el proceso y liberar la propiedad.
             </p>
           </div>
