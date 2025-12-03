@@ -59,19 +59,22 @@ export const ProjectLegalEntitiesSection = ({
     },
   });
 
-  // Fetch available legal entities with their entity relations (only allowed types)
-  const { data: availableLegalEntities = [] } = useQuery({
-    queryKey: ["available-legal-entities-v2"],
-    staleTime: 0,
+  // Fetch available legal entities based on selected entity type
+  const { data: availableLegalEntities = [], isLoading: isLoadingEntities } = useQuery({
+    queryKey: ["available-legal-entities-by-type", selectedEntityTypeId],
+    enabled: !!selectedEntityTypeId,
     queryFn: async () => {
-      const allowedEntityTypeIds = [3, 4, 5, 6, 8, 9, 10, 13, 15]; // Desarrollador, Dueño Vendedor, Inmobiliaria, Administradora, Proveedor, Socio, Inversionista, Contratista, Aportante
-
-      // Query from entidades_relacionadas directly - more efficient and avoids PostgREST row limit issues
+      if (!selectedEntityTypeId) return [];
+      
+      const tipoEntidadId = parseInt(selectedEntityTypeId);
+      
+      // Query entidades_relacionadas filtered by selected tipo_entidad
       const { data, error } = await supabase
         .from("entidades_relacionadas")
         .select(`
           id,
           id_tipo_entidad,
+          id_persona,
           personas!entidades_relacionadas_id_persona_fkey (
             id,
             nombre_legal,
@@ -86,31 +89,28 @@ export const ProjectLegalEntitiesSection = ({
           )
         `)
         .eq("activo", true)
-        .is("id_proyecto", null)  // Solo entidades no asignadas a proyectos específicos
-        .in("id_tipo_entidad", allowedEntityTypeIds);
+        .eq("id_tipo_entidad", tipoEntidadId)
+        .is("id_proyecto", null);
       
       if (error) throw error;
       
       // Transform to expected format, filtering for PM personas activas
-      const entityMap = new Map();
+      const results: any[] = [];
       (data || []).forEach((rel: any) => {
         const persona = rel.personas;
         if (persona && persona.activo && persona.tipo_persona === 'pm') {
-          const key = `${persona.id}-${rel.id_tipo_entidad}`;
-          if (!entityMap.has(key)) {
-            entityMap.set(key, {
-              id: persona.id,
-              nombre_legal: persona.nombre_legal,
-              email: persona.email,
-              telefono: persona.telefono,
-              tipo_entidad_id: rel.id_tipo_entidad,
-              tipo_entidad_nombre: rel.tipos_entidad?.nombre,
-            });
-          }
+          results.push({
+            id: persona.id,
+            nombre_legal: persona.nombre_legal,
+            email: persona.email,
+            telefono: persona.telefono,
+            tipo_entidad_id: rel.id_tipo_entidad,
+            tipo_entidad_nombre: rel.tipos_entidad?.nombre,
+          });
         }
       });
       
-      return Array.from(entityMap.values());
+      return results;
     },
   });
 
@@ -240,26 +240,20 @@ export const ProjectLegalEntitiesSection = ({
     },
   });
 
-  // Filter available entities by selected type
-  const filteredEntities = selectedEntityTypeId
-    ? availableLegalEntities.filter(
-        entity => entity.tipo_entidad_id === parseInt(selectedEntityTypeId)
-      )
-    : [];
-
-  // Get used entity types for this specific project
-  const usedEntityTypes = new Set(
-    projectLegalEntities.map(entity => entity.id_tipo_entidad)
-  );
-
-  // Get used entity IDs (personas) for this specific project to avoid duplicates
+  // availableLegalEntities is already filtered by selected type from the query
+  // Just filter out entities already assigned to this project
   const usedEntityIds = new Set(
     projectLegalEntities.map(entity => entity.personas?.id)
   );
 
   // Filter out already selected entities
-  const availableFilteredEntities = filteredEntities.filter(
+  const availableFilteredEntities = availableLegalEntities.filter(
     entity => !usedEntityIds.has(entity.id)
+  );
+
+  // Get used entity types for this specific project (for reference/display)
+  const usedEntityTypes = new Set(
+    projectLegalEntities.map(entity => entity.id_tipo_entidad)
   );
 
   // Check if entity has generated STP accounts (first 14 digits match)
@@ -625,12 +619,14 @@ export const ProjectLegalEntitiesSection = ({
              {addEntityMutation.isPending ? "Agregando..." : "Agregar Entidad"}
            </Button>
            {selectedEntityTypeId && availableFilteredEntities.length === 0 && (
-             <p className="text-sm text-muted-foreground text-center">
-               {filteredEntities.length > 0 
-                 ? "Todas las entidades de este tipo ya fueron asignadas al proyecto."
-                 : "No hay entidades legales disponibles para este tipo."}
-             </p>
-           )}
+              <p className="text-sm text-muted-foreground text-center">
+                {isLoadingEntities 
+                  ? "Cargando entidades..."
+                  : availableLegalEntities.length > 0 
+                    ? "Todas las entidades de este tipo ya fueron asignadas al proyecto."
+                    : "No hay entidades legales disponibles para este tipo."}
+              </p>
+            )}
         </CardContent>
       </Card>
 
