@@ -420,6 +420,19 @@ const Proyectos = () => {
     return average;
   };
 
+  const getTotalPrecioLista = (project: any) => {
+    const properties = project.edificios?.flatMap((edificio: any) => 
+      edificio.edificios_modelos?.flatMap((modelo: any) => 
+        modelo.propiedades || []
+      ) || []
+    ) || [];
+    
+    if (properties.length === 0) return 0;
+    
+    return properties.reduce((sum: number, property: any) => 
+      sum + (property.precio_lista || 0), 0);
+  };
+
   const getAveragePricePerM2 = (project: any) => {
     console.log('Calculating average price per M2 for project:', project.nombre);
     
@@ -542,6 +555,7 @@ const Proyectos = () => {
                 <TableHead>Número de Departamentos</TableHead>
                 <TableHead>Ciudad</TableHead>
                 <TableHead>Dirección</TableHead>
+                <TableHead>Total a Colocar</TableHead>
                 <TableHead>Precio Promedio Propiedades</TableHead>
                 <TableHead>Precio Promedio por M2</TableHead>
                 <TableHead>Multimedia</TableHead>
@@ -561,6 +575,7 @@ const Proyectos = () => {
                     return edificioTotal + (modelo.propiedades?.length || 0);
                   }, 0) || 0);
                 }, 0) || 0;
+                const totalPrecioLista = getTotalPrecioLista(project);
                 const avgPropertyPrice = getAveragePropertyPrice(project);
                 const avgPricePerM2 = getAveragePricePerM2(project);
                 
@@ -586,6 +601,12 @@ const Proyectos = () => {
                           <MapPin className="h-5 w-5 text-muted-foreground/50" />
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {totalPrecioLista > 0 ? `$${totalPrecioLista.toLocaleString('es-MX', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}` : "N/A"}
                     </TableCell>
                     <TableCell>
                       {avgPropertyPrice > 0 ? `$${avgPropertyPrice.toLocaleString('es-MX', { 
