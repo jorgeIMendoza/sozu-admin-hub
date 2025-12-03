@@ -42,7 +42,8 @@ export function ProjectCollectionSummaryDialog({
         .from('acuerdos_pago')
         .select('id, id_cuenta_cobranza, id_concepto, monto, pago_completado')
         .in('id_cuenta_cobranza', cuentaIds)
-        .eq('activo', true);
+        .eq('activo', true)
+        .limit(50000);
 
       if (acuerdosError) throw acuerdosError;
       if (!acuerdos || acuerdos.length === 0) return null;
@@ -54,7 +55,8 @@ export function ProjectCollectionSummaryDialog({
         .select('id_acuerdo_pago, monto')
         .in('id_acuerdo_pago', acuerdoIds)
         .eq('activo', true)
-        .eq('es_multa', false);
+        .eq('es_multa', false)
+        .limit(100000);
 
       if (aplicacionesError) throw aplicacionesError;
 
