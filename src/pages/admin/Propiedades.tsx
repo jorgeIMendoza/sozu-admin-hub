@@ -2855,7 +2855,7 @@ const Propiedades = () => {
                          variant={property.estacionamientos_count > 0 ? "default" : "outline"}
                          className={property.estacionamientos_count > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
                        >
-                         {property.estacionamientos_count}
+                         {property.estacionamientos_count > 0 ? property.estacionamientos_count : "No"}
                          {property.estacionamientos_count > 0 && <Car className="ml-1 h-3 w-3" />}
                             </Badge>
                           </Button>
@@ -2876,7 +2876,7 @@ const Propiedades = () => {
                           variant={property.bodegas_count > 0 ? "default" : "outline"}
                           className={property.bodegas_count > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
                         >
-                          {property.bodegas_count}
+                          {property.bodegas_count > 0 ? property.bodegas_count : "No"}
                           {property.bodegas_count > 0 && <Warehouse className="ml-1 h-3 w-3" />}
                             </Badge>
                           </Button>
