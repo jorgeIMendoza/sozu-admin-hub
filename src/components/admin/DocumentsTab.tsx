@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X } from "lucide-react";
+import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
@@ -96,6 +96,19 @@ export function DocumentsTab({
   const [hasInvoices, setHasInvoices] = useState(false);
   const [showConfirmEntrega, setShowConfirmEntrega] = useState(false);
   const [documentoPendienteVerificar, setDocumentoPendienteVerificar] = useState<Documento | null>(null);
+  const [adminValidation, setAdminValidation] = useState<{
+    isLoading: boolean;
+    hasAdmin: boolean;
+    adminName: string | null;
+    hasCuentaMadre: boolean;
+    cuentaMadre: string | null;
+  }>({
+    isLoading: false,
+    hasAdmin: false,
+    adminName: null,
+    hasCuentaMadre: false,
+    cuentaMadre: null
+  });
   const { toast } = useToast();
 
   // Auto-select comprador if only one exists and invoice type is selected
@@ -506,9 +519,86 @@ export function DocumentsTab({
             const esUltimoSinVerificar = docsNoVerificados.length === 1 && docsNoVerificados[0].id === documento.id;
             
             if (esUltimoSinVerificar) {
-              // 🎯 Es el último! Mostrar diálogo de confirmación sin verificar aún
+              // 🎯 Es el último! Validar administradora antes de mostrar diálogo
               setDocumentoPendienteVerificar(documento);
+              setAdminValidation({ isLoading: true, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
               setShowConfirmEntrega(true);
+              
+              // Ejecutar validación asíncrona
+              (async () => {
+                try {
+                  // Obtener proyecto desde la cuenta de cobranza
+                  const cuentaResp = await supabase
+                    .from('cuentas_cobranza')
+                    .select('id_oferta')
+                    .eq('id', entityId)
+                    .single();
+                  
+                  if (!cuentaResp.data?.id_oferta) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+                  
+                  const ofertaResp = await supabase
+                    .from('ofertas')
+                    .select('id_propiedad')
+                    .eq('id', cuentaResp.data.id_oferta)
+                    .single();
+                  
+                  if (!ofertaResp.data?.id_propiedad) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+                  
+                  const propResp = await supabase
+                    .from('propiedades')
+                    .select('id_entidad_relacionada_dueno')
+                    .eq('id', ofertaResp.data.id_propiedad)
+                    .single();
+                  
+                  if (!propResp.data?.id_entidad_relacionada_dueno) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+                  
+                  const entRelResp = await supabase
+                    .from('entidades_relacionadas')
+                    .select('id_proyecto')
+                    .eq('id', propResp.data.id_entidad_relacionada_dueno)
+                    .single();
+                  
+                  if (!entRelResp.data?.id_proyecto) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+                  
+                  // Buscar entidad administradora con cuenta madre STP
+                  const adminResp = await supabase
+                    .from('entidades_relacionadas')
+                    .select('id, cuenta_madre_stp, personas!fk_entrel_persona!inner(nombre_legal)')
+                    .eq('id_proyecto', entRelResp.data.id_proyecto)
+                    .eq('id_tipo_entidad', 6)
+                    .eq('activo', true)
+                    .maybeSingle();
+                  
+                  if (!adminResp.data) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                  } else {
+                    const personaData = adminResp.data.personas as any;
+                    setAdminValidation({
+                      isLoading: false,
+                      hasAdmin: true,
+                      adminName: personaData?.nombre_legal || 'Administradora',
+                      hasCuentaMadre: !!adminResp.data.cuenta_madre_stp,
+                      cuentaMadre: adminResp.data.cuenta_madre_stp || null
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error validando administradora:', error);
+                  setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                }
+              })();
+              
               return; // No verificar todavía
             }
           }
@@ -746,10 +836,10 @@ export function DocumentsTab({
       throw new Error('No se pudo obtener el costo de mantenimiento del proyecto');
     }
 
-    // 5. Obtener la entidad administradora del proyecto
+    // 5. Obtener la entidad administradora del proyecto CON cuenta madre STP
     const { data: entidadAdmin, error: adminError } = await supabase
       .from('entidades_relacionadas')
-      .select('id')
+      .select('id, cuenta_madre_stp')
       .eq('id_proyecto', entidadData.id_proyecto)
       .eq('id_tipo_entidad', 6) // 6 = Administradora
       .eq('activo', true)
@@ -757,6 +847,11 @@ export function DocumentsTab({
 
     if (adminError || !entidadAdmin) {
       throw new Error('No se encontró la entidad administradora del proyecto');
+    }
+
+    // Validar que tenga cuenta madre STP configurada
+    if (!entidadAdmin.cuenta_madre_stp) {
+      throw new Error('La entidad administradora no tiene cuenta madre STP configurada');
     }
 
     // 6. Obtener compradores con sus datos
@@ -1235,31 +1330,91 @@ export function DocumentsTab({
       <AlertDialog open={showConfirmEntrega} onOpenChange={(open) => {
         setShowConfirmEntrega(open);
         if (!open) {
-          setDocumentoPendienteVerificar(null); // Limpiar documento pendiente si se cierra
+          setDocumentoPendienteVerificar(null);
+          setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
         }
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar entrega de propiedad?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>Este es el último documento de entrega pendiente por verificar.</p>
-              <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 p-3 border border-yellow-200 dark:border-yellow-800">
-                <p className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
-                  ⚠️ Esta acción es IRREVOCABLE
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
-                  <li>El documento se verificará</li>
-                  <li>La propiedad cambiará a estatus "Entregado"</li>
-                  <li>Se generará automáticamente una cuenta de cobranza de mantenimiento</li>
-                  <li>Todas las secciones quedarán en modo solo lectura</li>
-                </ul>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Este es el último documento de entrega pendiente por verificar.</p>
+                
+                {/* Validación de Administradora */}
+                <div className="rounded-lg border p-3 space-y-2">
+                  <p className="font-semibold text-foreground">Validación de prerequisitos:</p>
+                  
+                  {adminValidation.isLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Verificando configuración...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Estado de Administradora */}
+                      <div className={`flex items-start gap-2 ${adminValidation.hasAdmin ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
+                        {adminValidation.hasAdmin ? (
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                        )}
+                        <span>
+                          {adminValidation.hasAdmin 
+                            ? `Administradora: ${adminValidation.adminName}` 
+                            : 'No hay entidad Administradora configurada en el proyecto'}
+                        </span>
+                      </div>
+                      
+                      {/* Estado de Cuenta Madre STP */}
+                      {adminValidation.hasAdmin && (
+                        <div className={`flex items-start gap-2 ${adminValidation.hasCuentaMadre ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
+                          {adminValidation.hasCuentaMadre ? (
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                          )}
+                          <span>
+                            {adminValidation.hasCuentaMadre 
+                              ? `Cuenta madre STP: ${adminValidation.cuentaMadre}` 
+                              : 'La Administradora no tiene cuenta madre STP configurada'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Mensaje de error si falta algo */}
+                      {(!adminValidation.hasAdmin || !adminValidation.hasCuentaMadre) && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Configure los prerequisitos en la sección de Entidades Legales del proyecto antes de continuar.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                {/* Advertencia solo si todo está bien */}
+                {adminValidation.hasAdmin && adminValidation.hasCuentaMadre && (
+                  <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 p-3 border border-yellow-200 dark:border-yellow-800">
+                    <p className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                      ⚠️ Esta acción es IRREVOCABLE
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
+                      <li>El documento se verificará</li>
+                      <li>La propiedad cambiará a estatus "Entregado"</li>
+                      <li>Se generará automáticamente una cuenta de cobranza de mantenimiento</li>
+                      <li>Todas las secciones quedarán en modo solo lectura</li>
+                    </ul>
+                  </div>
+                )}
+                
+                <p className="text-sm font-medium pt-2">¿Desea continuar con la entrega?</p>
               </div>
-              <p className="text-sm font-medium pt-2">¿Desea continuar con la entrega?</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
+              disabled={adminValidation.isLoading || !adminValidation.hasAdmin || !adminValidation.hasCuentaMadre}
               onClick={async () => {
                 setShowConfirmEntrega(false);
                 
@@ -1282,16 +1437,16 @@ export function DocumentsTab({
                   
                   // 4. Limpiar estado
                   setDocumentoPendienteVerificar(null);
+                  setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
                 } catch (error: any) {
                   toast({
                     variant: "destructive",
                     title: "Error",
                     description: `Error al procesar: ${error.message}`
                   });
-                  // No se limpia documentoPendienteVerificar para permitir reintentar
                 }
               }}
-              className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
+              className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirmar Entrega
             </AlertDialogAction>
