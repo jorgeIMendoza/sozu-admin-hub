@@ -287,7 +287,8 @@ export default function Compradores() {
       
       if (entidadError) throw entidadError;
 
-      if (representativeId && cleanPersonData.tipo_persona === 'pm') {
+      // Guardar representante legal para cualquier tipo de persona (PF o PM)
+      if (representativeId) {
         const { error: updateError } = await supabase
           .from('personas')
           .update({ id_entidad_relacionada_rep_leg: representativeId })
@@ -339,7 +340,8 @@ export default function Compradores() {
       
       if (updateError) throw updateError;
       
-      if (representativeId !== undefined && cleanPersonData.tipo_persona === 'pm') {
+      // Actualizar representante legal para cualquier tipo de persona (PF o PM)
+      if (representativeId !== undefined) {
         const { error: repError } = await supabase
           .from('personas')
           .update({ id_entidad_relacionada_rep_leg: representativeId || null })

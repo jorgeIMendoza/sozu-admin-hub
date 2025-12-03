@@ -22,6 +22,7 @@ import { TempBeneficiariosSection } from "./TempBeneficiariosSection";
 import { ImageUploadField } from "./ImageUploadField";
 import { DocumentsTab } from "./DocumentsTab";
 import { isFiscalDataComplete } from '@/utils/fiscalDataValidation';
+import { RepresentanteLegalSelector } from "./RepresentanteLegalSelector";
 
 interface PersonFormProps {
   onSubmit: (data: any) => void;
@@ -499,6 +500,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     }
   }, [entityType, tiposEntidad, idTipoEntidad]);
 
+  // Note: representantesLegales is now fetched inside RepresentanteLegalSelector component
+  // This query is kept for backward compatibility but may be removed in future
   const { data: representantesLegales = [] } = useQuery({
     queryKey: ['representantes_legales_select'],
     queryFn: async () => {
@@ -524,7 +527,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         nombre_legal: item.personas.nombre_legal
       }));
     },
-    enabled: entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || entityType === 'banco' || (entityType === 'client' && tipoPersona === 'pm')
+    enabled: entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || entityType === 'banco' || entityType === 'comprador' || (entityType === 'client' && tipoPersona === 'pm')
   });
 
   // Query for available projects (for prospects) with pagination to get ALL projects
@@ -1238,22 +1241,13 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   </div>
                 )}
 
-                {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || (entityType === 'client' && tipoPersona === 'pm')) && (
+                {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || entityType === 'comprador' || (entityType === 'client' && tipoPersona === 'pm')) && (
                   <div>
                     <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
-                    <Select value={idRepresentanteLegal?.toString() || ''} onValueChange={setIdRepresentanteLegal}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un representante legal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin representante legal</SelectItem>
-                        {representantesLegales.map((rep) => (
-                          <SelectItem key={rep.id} value={rep.id.toString()}>
-                            {rep.nombre_legal}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <RepresentanteLegalSelector
+                      value={idRepresentanteLegal?.toString() || ''}
+                      onValueChange={setIdRepresentanteLegal}
+                    />
                   </div>
                 )}
 
