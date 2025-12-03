@@ -39,7 +39,7 @@ export default function ReporteDiscrepancias() {
             propiedades!fk_ofertas_propiedad (
               numero_propiedad,
               edificios_modelos!fk_propiedades_edificio_modelo (
-                edificios (
+                edificios!fk_edificios_modelos_edificio (
                   nombre,
                   proyectos (nombre)
                 )
