@@ -84,7 +84,6 @@ export const ProjectLegalEntitiesSection = ({
         .eq("activo", true)
         .eq("tipo_persona", "pm")
         .eq("entidades_relacionadas.activo", true)
-        .eq("entidades_relacionadas.tipos_entidad.padre", "p")
         .in("entidades_relacionadas.id_tipo_entidad", allowedEntityTypeIds);
       
       if (error) throw error;
