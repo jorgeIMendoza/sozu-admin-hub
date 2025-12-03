@@ -60,12 +60,17 @@ export default function ReporteDiscrepancias() {
 
       if (acuerdosError) throw acuerdosError;
 
-      // Calculate sums per cuenta
+      console.log('Acuerdos data count:', acuerdosData?.length);
+      console.log('Sample acuerdos:', acuerdosData?.slice(0, 3));
+
+      // Calculate sums per cuenta_cobranza
       const sumasPorCuenta: Record<string, number> = {};
-      acuerdosData?.forEach(a => {
-        const cuentaId = String(a.id_cuenta_cobranza);
-        sumasPorCuenta[cuentaId] = (sumasPorCuenta[cuentaId] || 0) + Number(a.monto);
+      acuerdosData?.forEach(acuerdo => {
+        const idCuentaCobranza = String(acuerdo.id_cuenta_cobranza);
+        sumasPorCuenta[idCuentaCobranza] = (sumasPorCuenta[idCuentaCobranza] || 0) + Number(acuerdo.monto);
       });
+
+      console.log('Sumas por cuenta sample:', Object.entries(sumasPorCuenta).slice(0, 5));
 
       // Find discrepancies
       const discrepanciasResult: Discrepancia[] = [];
