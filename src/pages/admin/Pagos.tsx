@@ -1480,25 +1480,23 @@ export default function Pagos() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {activeTab === "activas" ? "Cuentas Activas" : "Cuentas Canceladas"}
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Cuentas Activas</CardTitle>
               <CreditCard className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {statsCuentas.length}
+                {cuentasActivas.length}
               </div>
               <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        Propiedades: <span className="font-medium text-foreground">{cuentasPropiedades.length}</span>
+                        Propiedades: <span className="font-medium text-foreground">{cuentasPropiedadesActivas.length}</span>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Total de cuentas de propiedades</p>
+                      <p>Total de cuentas de propiedades activas</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -1506,11 +1504,11 @@ export default function Pagos() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        Productos: <span className="font-medium text-foreground">{cuentasProductos.length}</span>
+                        Productos: <span className="font-medium text-foreground">{cuentasProductosActivas.length}</span>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Total de cuentas de productos y servicios</p>
+                      <p>Total de cuentas de productos y servicios activas</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -1648,12 +1646,12 @@ export default function Pagos() {
                       <div className="cursor-help">
                         <div className="text-xs text-muted-foreground">Propiedades</div>
                         <div className="text-xl font-bold">
-                          {formatCurrencyCompact(cuentasPropiedades.length > 0 ? cuentasPropiedades.reduce((sum, c) => sum + Number(c.precio_final), 0) / cuentasPropiedades.length : 0)}
+                          {formatCurrencyCompact(cuentasPropiedadesActivas.length > 0 ? totalMontoPropiedades / cuentasPropiedadesActivas.length : 0)}
                         </div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{formatCurrency(cuentasPropiedades.length > 0 ? cuentasPropiedades.reduce((sum, c) => sum + Number(c.precio_final), 0) / cuentasPropiedades.length : 0)}</p>
+                      <p>{formatCurrency(cuentasPropiedadesActivas.length > 0 ? totalMontoPropiedades / cuentasPropiedadesActivas.length : 0)}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
