@@ -1017,8 +1017,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     </div>
                   )}
 
-                  {/* Representante Legal - para entidades legales y PM clients */}
-                  {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || (entityType === 'client' && tipoPersona === 'pm')) && (
+                  {/* Representante Legal - para entidades legales, administradoras y PM clients */}
+                  {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || (entityType === 'client' && tipoPersona === 'pm')) && (
                     <div>
                       <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
                       <Select value={idRepresentanteLegal?.toString() || ''} onValueChange={setIdRepresentanteLegal}>
@@ -1238,7 +1238,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   </div>
                 )}
 
-                {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || (entityType === 'client' && tipoPersona === 'pm')) && (
+                {(entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || (entityType === 'client' && tipoPersona === 'pm')) && (
                   <div>
                     <Label htmlFor="idRepresentanteLegal">Representante Legal</Label>
                     <Select value={idRepresentanteLegal?.toString() || ''} onValueChange={setIdRepresentanteLegal}>
