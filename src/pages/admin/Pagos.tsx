@@ -122,10 +122,14 @@ export default function Pagos() {
     isOpen: boolean;
     projectName: string;
     cuentaIds: number[];
+    totalColocado: number;
+    totalCobrado: number;
   }>({
     isOpen: false,
     projectName: "",
-    cuentaIds: []
+    cuentaIds: [],
+    totalColocado: 0,
+    totalCobrado: 0
   });
 
   // Paginación
@@ -1077,6 +1081,7 @@ export default function Pagos() {
       total: data.total,
       promedio: data.total / data.count,
       cobrado: data.cobrado,
+      restante: data.total - data.cobrado,
       cuentaIds: data.cuentaIds
     }));
 
@@ -1637,7 +1642,9 @@ export default function Pagos() {
                             onClick={() => setProjectSummaryDialog({
                               isOpen: true,
                               projectName: item.proyecto,
-                              cuentaIds: item.cuentaIds
+                              cuentaIds: item.cuentaIds,
+                              totalColocado: item.total,
+                              totalCobrado: item.cobrado
                             })}
                           >
                             {item.proyecto}
@@ -1647,7 +1654,7 @@ export default function Pagos() {
                           {item.count} {item.count === 1 ? 'cuenta' : 'cuentas'}
                         </Badge>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground pl-7">
+                      <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground pl-7">
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1671,6 +1678,19 @@ export default function Pagos() {
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{formatCurrency(item.cobrado)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <span className="block text-muted-foreground">Restante:</span>
+                                <span className="font-semibold text-orange-600">{formatCurrencyCompact(item.restante)}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{formatCurrency(item.restante)}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -2561,9 +2581,11 @@ export default function Pagos() {
 
       <ProjectCollectionSummaryDialog
         isOpen={projectSummaryDialog.isOpen}
-        onClose={() => setProjectSummaryDialog({ isOpen: false, projectName: "", cuentaIds: [] })}
+        onClose={() => setProjectSummaryDialog({ isOpen: false, projectName: "", cuentaIds: [], totalColocado: 0, totalCobrado: 0 })}
         projectName={projectSummaryDialog.projectName}
         cuentaIds={projectSummaryDialog.cuentaIds}
+        totalColocado={projectSummaryDialog.totalColocado}
+        totalCobrado={projectSummaryDialog.totalCobrado}
       />
     </div>;
 }
