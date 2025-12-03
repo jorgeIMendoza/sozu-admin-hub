@@ -13,15 +13,16 @@ interface ProjectCollectionSummaryDialogProps {
   totalCobrado: number;
 }
 
-// Concept IDs:
+// Concept IDs (from conceptos_pago table):
 // 1 = Apartado
 // 2 = Enganche
-// 3 = Mensualidades
-// 4 = Pagos Especiales
-// 5 = Contraentrega
+// 3 = Pago a contra entrega (Contraentrega)
+// 4 = Pago especial
+// 5 = Parcialidad (Mensualidades)
+// 6 = Cesión de derechos
 
-const DURANTE_OBRA_CONCEPTS = [1, 2, 3, 4]; // Apartado, Enganche, Mensualidades, Pagos Especiales
-const CONTRAENTREGA_CONCEPT = 5;
+const DURANTE_OBRA_CONCEPTS = [1, 2, 4, 5]; // Apartado, Enganche, Pago especial, Parcialidad/Mensualidades
+const CONTRAENTREGA_CONCEPT = 3; // Pago a contra entrega
 
 export function ProjectCollectionSummaryDialog({ 
   isOpen, 
@@ -212,7 +213,7 @@ export function ProjectCollectionSummaryDialog({
             {/* Durante la Obra Section */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm border-b pb-2">Desglose por Etapa - Durante la Obra</h3>
-              <p className="text-xs text-muted-foreground">(Apartado + Enganche + Mensualidades + Pagos Especiales)</p>
+              <p className="text-xs text-muted-foreground">(Apartado + Enganche + Pagos Especiales + Parcialidades)</p>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -268,7 +269,7 @@ export function ProjectCollectionSummaryDialog({
             {/* A la Entrega Section */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm border-b pb-2">Desglose por Etapa - A la Entrega</h3>
-              <p className="text-xs text-muted-foreground">(Contraentrega)</p>
+              <p className="text-xs text-muted-foreground">(Pago a Contra Entrega)</p>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
