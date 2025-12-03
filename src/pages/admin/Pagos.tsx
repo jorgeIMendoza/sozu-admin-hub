@@ -812,9 +812,10 @@ export default function Pagos() {
 
       // Apply individual filters (ID filter supports both raw ID and formatted ID like CC-000001)
       const idFilterTrimmed = idCuentaFilter.trim().toLowerCase();
+      const formattedIdLower = formattedId.toLowerCase();
       const matchesIdCuenta = idCuentaFilter.trim() === "" || 
-        formattedId.includes(idFilterTrimmed) || 
-        formattedId === idFilterTrimmed ||
+        formattedIdLower.includes(idFilterTrimmed) || 
+        formattedIdLower === idFilterTrimmed ||
         cuenta.id.toString() === idCuentaFilter.trim();
       const matchesProducto = productoFilter === "" || cuenta.producto_nombre?.toLowerCase().includes(productoFilter.toLowerCase());
       const matchesCompradores = compradoresFilter === "" || cuenta.compradores.some(c => c.nombre_legal.toLowerCase().includes(compradoresFilter.toLowerCase()) || c.rfc?.toLowerCase().includes(compradoresFilter.toLowerCase()));
