@@ -2000,8 +2000,8 @@ export default function Pagos() {
                       <TableHead>No. Propiedad</TableHead>
                       <TableHead>Modelo</TableHead>
                       <TableHead>Metraje</TableHead>
-                      <TableHead>Precio Final</TableHead>
                       <TableHead>Precio/m²</TableHead>
+                      <TableHead>Precio Final</TableHead>
                       <TableHead>Pagado</TableHead>
                       <TableHead>Restante</TableHead>
                       <TableHead>Pagos en Efectivo</TableHead>
@@ -2145,6 +2145,13 @@ export default function Pagos() {
                              <span className="text-muted-foreground text-xs">N/A</span>
                            )}
                          </TableCell>
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' && cuenta.precio_por_m2 ? (
+                             <span className="font-semibold">{formatCurrency(cuenta.precio_por_m2)}</span>
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
+                         </TableCell>
                          <TableCell className="font-semibold text-green-600">
                            <div className="flex items-center justify-end gap-2">
                              <span>{formatCurrency(Number(cuenta.precio_final))}</span>
@@ -2201,13 +2208,6 @@ export default function Pagos() {
                                  </>;
                       })()}
                            </div>
-                         </TableCell>
-                         <TableCell>
-                           {cuenta.tipo === 'Propiedad' && cuenta.precio_por_m2 ? (
-                             <span className="font-semibold">{formatCurrency(cuenta.precio_por_m2)}</span>
-                           ) : (
-                             <span className="text-muted-foreground text-xs">N/A</span>
-                           )}
                          </TableCell>
                         <TableCell className="font-semibold text-blue-600">
                           {formatCurrency(cuenta.pagado)}
