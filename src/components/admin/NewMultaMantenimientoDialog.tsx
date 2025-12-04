@@ -89,8 +89,8 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
     },
     onSuccess: () => {
       toast({
-        title: "Multa agregada",
-        description: "La multa ha sido agregada exitosamente",
+        title: "Multa o Pago extra agregado",
+        description: "Se ha agregado exitosamente",
       });
       queryClient.invalidateQueries({ queryKey: ["cuenta_mantenimiento_detalle", cuentaId] });
       queryClient.invalidateQueries({ queryKey: ["acuerdos_mantenimiento", cuentaId] });
@@ -100,7 +100,7 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
     onError: (error) => {
       toast({
         title: "Error",
-        description: "No se pudo agregar la multa",
+        description: "No se pudo agregar la multa o pago extra",
         variant: "destructive",
       });
       console.error('Error creating multa:', error);
@@ -132,7 +132,7 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
     if (!idTipoMulta) {
       toast({
         title: "Error",
-        description: "Debe seleccionar un tipo de multa",
+        description: "Debe seleccionar un tipo",
         variant: "destructive",
       });
       return;
@@ -156,9 +156,9 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Agregar Multa</DialogTitle>
+          <DialogTitle>Agregar Multa o Pago extra</DialogTitle>
           <DialogDescription>
-            Ingrese los detalles de la multa. Se creará un nuevo acuerdo de pago para esta multa.
+            Ingrese los detalles. Se creará un nuevo acuerdo de pago.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -170,7 +170,7 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
               <div className="col-span-3">
                 <Select value={idTipoMulta} onValueChange={setIdTipoMulta} required>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el tipo de multa" />
+                    <SelectValue placeholder="Seleccione el tipo" />
                   </SelectTrigger>
                   <SelectContent>
                     {tiposMulta.map((tipo) => (
@@ -206,7 +206,7 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
               <div className="col-span-3">
                 <Textarea
                   id="descripcion"
-                  placeholder="Motivo de la multa..."
+                  placeholder="Motivo de la multa o pago extra..."
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
                   required
@@ -220,7 +220,7 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
               Cancelar
             </Button>
             <Button type="submit" disabled={createMultaMutation.isPending}>
-              {createMultaMutation.isPending ? "Agregando..." : "Agregar Multa"}
+              {createMultaMutation.isPending ? "Agregando..." : "Agregar"}
             </Button>
           </DialogFooter>
         </form>
