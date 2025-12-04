@@ -839,7 +839,11 @@ export default function CuentasMantenimiento() {
     );
     
     // Apply individual filters
-    const matchesIdCuenta = idCuentaFilter === "" || cuenta.id.toString().includes(idCuentaFilter);
+    const formattedId = formatCuentaMantenimientoId(cuenta.id);
+    const filterValue = idCuentaFilter.toLowerCase().replace('cm-', '');
+    const matchesIdCuenta = idCuentaFilter === "" || 
+      formattedId.toLowerCase().includes(idCuentaFilter.toLowerCase()) ||
+      cuenta.id.toString().includes(filterValue);
     const matchesPropietarios = propietariosFilter === "" || cuenta.compradores.some(c => 
       c.nombre_legal.toLowerCase().includes(propietariosFilter.toLowerCase()) || 
       c.rfc?.toLowerCase().includes(propietariosFilter.toLowerCase())
