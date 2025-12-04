@@ -171,7 +171,8 @@ export default function CuentasMantenimiento() {
           id_cuenta_cobranza_padre,
           tipos_cancelacion:id_tipo_cancelacion(nombre)
         `)
-        .not('id_cuenta_cobranza_padre', 'is', null);
+        .not('id_cuenta_cobranza_padre', 'is', null)
+        .limit(50000);
 
       if (cuentasError) {
         console.error('Error fetching cuentas:', cuentasError);
@@ -203,7 +204,8 @@ export default function CuentasMantenimiento() {
         .from('acuerdos_pago')
         .select('id, id_cuenta_cobranza, monto')
         .in('id_cuenta_cobranza', cuentaIds)
-        .eq('activo', true);
+        .eq('activo', true)
+        .limit(50000);
 
       const acuerdoIdsForPagos = acuerdosForPagos?.map(a => a.id) || [];
       
@@ -219,7 +221,8 @@ export default function CuentasMantenimiento() {
         `)
         .in('id_acuerdo_pago', acuerdoIdsForPagos)
         .eq('activo', true)
-        .eq('es_multa', false);
+        .eq('es_multa', false)
+        .limit(50000);
 
       console.log('Aplicaciones pago query result:', { aplicacionesPago, aplicacionesError });
 
@@ -246,7 +249,8 @@ export default function CuentasMantenimiento() {
         .in('id_cuenta_cobranza', cuentaIds)
         .eq('id_metodos_pago', 1)
         .eq('activo', true)
-        .order('fecha_pago', { ascending: false });
+        .order('fecha_pago', { ascending: false })
+        .limit(50000);
 
       const pagosCashIds = pagosCash?.map(p => p.id) || [];
       
@@ -262,7 +266,8 @@ export default function CuentasMantenimiento() {
         .in('id_pago', pagosCashIds)
         .in('id_acuerdo_pago', acuerdoIdsForPagos)
         .eq('activo', true)
-        .eq('es_multa', false);
+        .eq('es_multa', false)
+        .limit(50000);
 
       const pagadoEfectivoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
         const totalEfectivo = aplicacionesCash
@@ -318,14 +323,16 @@ export default function CuentasMantenimiento() {
           .from('aplicaciones_pago')
           .select('id_acuerdo_pago, monto')
           .in('id_acuerdo_pago', acuerdoIds)
-          .eq('activo', true);
+          .eq('activo', true)
+          .limit(50000);
 
         // Get concepto info for cesion de derechos check
         const { data: acuerdosConConcepto } = await supabase
           .from('acuerdos_pago')
           .select('id, id_concepto, id_cuenta_cobranza')
           .in('id', acuerdoIds)
-          .eq('activo', true);
+          .eq('activo', true)
+          .limit(50000);
 
         // Crear mapeo de acuerdo_id a concepto_id y cuenta_id
         const acuerdosMap = acuerdosConConcepto?.reduce((acc: any, a) => {
@@ -365,7 +372,8 @@ export default function CuentasMantenimiento() {
         .from('acuerdos_pago')
         .select('id, id_cuenta_cobranza, id_concepto, pago_completado')
         .in('id_cuenta_cobranza', cuentaIds)
-        .eq('activo', true);
+        .eq('activo', true)
+        .limit(50000);
 
       // Create a map of whether initial payment is made for each cuenta
       const apartadoPagadoPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
@@ -407,7 +415,8 @@ export default function CuentasMantenimiento() {
           .from('multas')
           .select('id, id_acuerdo_pago, es_pagada, monto')
           .in('id_acuerdo_pago', acuerdoIdsForMultas)
-          .eq('activo', true);
+          .eq('activo', true)
+          .limit(50000);
 
         // Crear un mapa de acuerdo_id a cuenta_id
         const acuerdoToCuentaMapMultas = acuerdosForPagos?.reduce((acc: any, ap) => {
@@ -441,7 +450,8 @@ export default function CuentasMantenimiento() {
         .eq('activo', true)
         .eq('pago_completado', false)
         .not('fecha_pago', 'is', null)
-        .order('fecha_pago', { ascending: false });
+        .order('fecha_pago', { ascending: false })
+        .limit(50000);
 
       // Crear un mapa con la fecha máxima de pago por cuenta
       const proximaFechaPagoPorCuenta = cuentas.reduce((acc: Record<number, string | null>, cuenta) => {
@@ -514,7 +524,8 @@ export default function CuentasMantenimiento() {
           id_persona,
           personas!compradores_id_persona_fkey(id, nombre_legal, rfc)
         `)
-        .in('id_cuenta_cobranza', cuentas.map(c => c.id));
+        .in('id_cuenta_cobranza', cuentas.map(c => c.id))
+        .limit(50000);
 
       // Get todos los residentes (activos e inactivos)
       const { data: residentes } = await (supabase as any)
@@ -525,7 +536,8 @@ export default function CuentasMantenimiento() {
           activo,
           personas!residentes_id_persona_fkey(id, nombre_legal)
         `)
-        .in('id_cuenta_cobranza', cuentas.map(c => c.id));
+        .in('id_cuenta_cobranza', cuentas.map(c => c.id))
+        .limit(50000);
 
       // Get entidades relacionadas, proyectos, edificios, modelos, productos
       // Include both maintenance account ofertas AND parent ofertas
@@ -614,7 +626,8 @@ export default function CuentasMantenimiento() {
         .from('bodegas')
         .select('id_propiedad, nombre, m2, ubicacion, es_incluido')
         .in('id_propiedad', propiedadIds)
-        .eq('activo', true) : { data: [] };
+        .eq('activo', true)
+        .limit(50000) : { data: [] };
 
       // Get estacionamientos with tipo
       const { data: estacionamientosData } = propiedadIds.length > 0 ? await supabase
@@ -628,7 +641,8 @@ export default function CuentasMantenimiento() {
           tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre)
         `)
         .in('id_propiedad', propiedadIds)
-        .eq('activo', true) : { data: [] };
+        .eq('activo', true)
+        .limit(50000) : { data: [] };
 
       // Get productos (condensadoras, etc.) - productos adicionales comprados via ofertas
       const ofertasProductosIds = parentOfertaIds;
