@@ -700,7 +700,7 @@ export default function DetalleCuentaMantenimiento() {
             variant="outline"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Agregar Multa
+            Agregar Multa o Pago extra
           </Button>
           <TooltipProvider>
             <Tooltip>
@@ -735,7 +735,7 @@ export default function DetalleCuentaMantenimiento() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(pagoMensual)}</div>
-            <p className="text-xs text-muted-foreground">Incluye recargos y multas</p>
+            <p className="text-xs text-muted-foreground">Incluye recargos y multas o pagos extra</p>
           </CardContent>
         </Card>
 
@@ -907,7 +907,7 @@ export default function DetalleCuentaMantenimiento() {
                                   {esAcuerdoMulta && multaAsociada ? (
                                     <>
                                       <span className="text-sm font-medium">
-                                        Multa: {(multaAsociada as any).tipo_nombre || 'N/A'}
+                                        Multa o Pago extra: {(multaAsociada as any).tipo_nombre || 'N/A'}
                                       </span>
                                       <span className="text-sm text-muted-foreground">
                                         {(multaAsociada as any).descripcion || 'Sin descripción'}
