@@ -487,6 +487,36 @@ export type Database = {
           },
         ]
       }
+      borrar_acuerdos_pago_manto_stagin: {
+        Row: {
+          fecha_pago: string | null
+          id: number
+          id_concepto: number | null
+          id_cuenta_cobranza: number | null
+          m2: number | null
+          orden: number | null
+          precio_m2: number | null
+        }
+        Insert: {
+          fecha_pago?: string | null
+          id?: number
+          id_concepto?: number | null
+          id_cuenta_cobranza?: number | null
+          m2?: number | null
+          orden?: number | null
+          precio_m2?: number | null
+        }
+        Update: {
+          fecha_pago?: string | null
+          id?: number
+          id_concepto?: number | null
+          id_cuenta_cobranza?: number | null
+          m2?: number | null
+          orden?: number | null
+          precio_m2?: number | null
+        }
+        Relationships: []
+      }
       borrar_acuerdos_pago_productos_stagin: {
         Row: {
           collection_id: number

@@ -17,7 +17,6 @@ import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaD
 import { CashPaymentDetailDialog } from "@/components/admin/CashPaymentDetailDialog";
 import { ComplementosDetailDialog } from "@/components/admin/ComplementosDetailDialog";
 import { useToast } from "@/hooks/use-toast";
-import { Label } from "@/components/ui/label";
 import { formatCuentaMantenimientoId } from "@/utils/cuentaCobranzaUtils";
 import { AddResidenteDialog } from "@/components/admin/AddResidenteDialog";
 import { ResidentesDetailDialog } from "@/components/admin/ResidentesDetailDialog";
@@ -109,6 +108,7 @@ export default function CuentasMantenimiento() {
   const [proyectoFilter, setProyectoFilter] = useState("");
   const [noPropiedadFilter, setNoPropiedadFilter] = useState("");
   const [modeloFilter, setModeloFilter] = useState("");
+  const [claveCatastralFilter, setClaveCatastralFilter] = useState("");
   
   const [editDialog, setEditDialog] = useState<{ isOpen: boolean; cuenta: CuentaCobranza | null }>({
     isOpen: false,
@@ -139,7 +139,7 @@ export default function CuentasMantenimiento() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, idCuentaFilter, propietariosFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter]);
+  }, [searchTerm, idCuentaFilter, propietariosFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, claveCatastralFilter]);
 
   // Debounce search input
   useEffect(() => {
@@ -852,9 +852,10 @@ export default function CuentasMantenimiento() {
     const matchesProyecto = proyectoFilter === "" || cuenta.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
     const matchesNoPropiedad = noPropiedadFilter === "" || cuenta.numero_propiedad.toLowerCase().includes(noPropiedadFilter.toLowerCase());
     const matchesModelo = modeloFilter === "" || cuenta.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
+    const matchesClaveCatastral = claveCatastralFilter === "" || cuenta.clave_catastral?.toLowerCase().includes(claveCatastralFilter.toLowerCase());
     
     return matchesSearch && matchesIdCuenta && matchesPropietarios && 
-           matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo;
+           matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo && matchesClaveCatastral;
   });
 
   const clearFilters = () => {
@@ -864,13 +865,14 @@ export default function CuentasMantenimiento() {
     setProyectoFilter("");
     setNoPropiedadFilter("");
     setModeloFilter("");
+    setClaveCatastralFilter("");
     setSearchTerm("");
     setInputValue("");
   };
 
   const hasActiveFilters = idCuentaFilter || propietariosFilter || 
                           clabeFilter || proyectoFilter || noPropiedadFilter || 
-                          modeloFilter || searchTerm;
+                          modeloFilter || claveCatastralFilter || searchTerm;
 
   // Pagination logic
   const totalFilteredCount = filteredCuentas.length;
@@ -1011,60 +1013,62 @@ export default function CuentasMantenimiento() {
               />
             </div>
             
-            {/* Filters grid - always visible */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-4 bg-muted/50 rounded-lg">
+            {/* Filters grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4 p-4 bg-muted/50 rounded-lg">
               <div>
-                <Label htmlFor="filter-id" className="text-sm font-medium mb-2 block">ID Cuenta</Label>
+                <label className="text-sm font-medium mb-2 block">ID Cuenta</label>
                 <Input
-                  id="filter-id"
                   placeholder="Filtrar por ID..."
                   value={idCuentaFilter}
                   onChange={(e) => setIdCuentaFilter(e.target.value)}
                 />
               </div>
               <div>
-                <Label htmlFor="filter-propietarios" className="text-sm font-medium mb-2 block">Propietarios</Label>
+                <label className="text-sm font-medium mb-2 block">Propietarios</label>
                 <Input
-                  id="filter-propietarios"
                   placeholder="Filtrar por propietario..."
                   value={propietariosFilter}
                   onChange={(e) => setPropietariosFilter(e.target.value)}
                 />
               </div>
               <div>
-                <Label htmlFor="filter-clabe" className="text-sm font-medium mb-2 block">CLABE STP</Label>
+                <label className="text-sm font-medium mb-2 block">CLABE STP</label>
                 <Input
-                  id="filter-clabe"
                   placeholder="Filtrar por CLABE..."
                   value={clabeFilter}
                   onChange={(e) => setClabeFilter(e.target.value)}
                 />
               </div>
               <div>
-                <Label htmlFor="filter-proyecto" className="text-sm font-medium mb-2 block">Proyecto</Label>
+                <label className="text-sm font-medium mb-2 block">Proyecto</label>
                 <Input
-                  id="filter-proyecto"
                   placeholder="Filtrar por proyecto..."
                   value={proyectoFilter}
                   onChange={(e) => setProyectoFilter(e.target.value)}
                 />
               </div>
               <div>
-                <Label htmlFor="filter-propiedad" className="text-sm font-medium mb-2 block">No. Propiedad</Label>
+                <label className="text-sm font-medium mb-2 block">No. Propiedad</label>
                 <Input
-                  id="filter-propiedad"
                   placeholder="Filtrar por propiedad..."
                   value={noPropiedadFilter}
                   onChange={(e) => setNoPropiedadFilter(e.target.value)}
                 />
               </div>
               <div>
-                <Label htmlFor="filter-modelo" className="text-sm font-medium mb-2 block">Modelo</Label>
+                <label className="text-sm font-medium mb-2 block">Modelo</label>
                 <Input
-                  id="filter-modelo"
                   placeholder="Filtrar por modelo..."
                   value={modeloFilter}
                   onChange={(e) => setModeloFilter(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Clave Catastral</label>
+                <Input
+                  placeholder="Filtrar por clave..."
+                  value={claveCatastralFilter}
+                  onChange={(e) => setClaveCatastralFilter(e.target.value)}
                 />
               </div>
             </div>
