@@ -1005,24 +1005,30 @@ export default function DetalleCuentaMantenimiento() {
                                      // Si el monto es 0 y está completado, mostrar 100%
                                      // Si el monto es 0 y no está completado, mostrar 0%
                                      // Si el monto es mayor a 0, calcular normalmente
-                                     const porcentaje = montoTotal === 0 
-                                       ? (acuerdo.pago_completado ? 100 : 0)
-                                       : (totalAplicado / montoTotal) * 100;
-                                     return (
-                                       <>
-                                         <Progress 
-                                           value={porcentaje} 
-                                           className="h-6"
-                                         />
-                                         <div className="absolute inset-0 flex items-center justify-center">
-                                           <span className="text-xs font-bold bg-background/80 px-2 py-0.5 rounded">
-                                             {porcentaje.toFixed(1)}%
-                                           </span>
-                                         </div>
-                                       </>
-                                     );
-                                   })()}
-                                 </div>
+                                     const pendiente = montoTotal - totalAplicado;
+                                      // Calcular porcentaje real sin redondear a 100% si hay pendiente
+                                      let porcentaje = montoTotal === 0 
+                                        ? (pendiente <= 0 ? 100 : 0)
+                                        : (totalAplicado / montoTotal) * 100;
+                                      // Si hay pendiente mayor a 0, no permitir que muestre 100%
+                                      if (pendiente > 0 && porcentaje >= 99.95) {
+                                        porcentaje = 99.9;
+                                      }
+                                      return (
+                                        <>
+                                          <Progress 
+                                            value={porcentaje} 
+                                            className="h-6"
+                                          />
+                                          <div className="absolute inset-0 flex items-center justify-center">
+                                            <span className="text-xs font-bold bg-background/80 px-2 py-0.5 rounded">
+                                              {porcentaje.toFixed(1)}%
+                                            </span>
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
                               </div>
                             </div>
                           </CollapsibleTrigger>
