@@ -1150,7 +1150,7 @@ export default function CuentasMantenimiento() {
                       <TableHead>Propiedad</TableHead>
                       <TableHead>Modelo</TableHead>
                       <TableHead>Clave Catastral</TableHead>
-                      <TableHead className="text-right">Total Mensual</TableHead>
+                      <TableHead className="text-right">Pago mantenimiento acumulado</TableHead>
                       <TableHead className="text-right">Total Pagado</TableHead>
                       <TableHead className="text-right">Saldo Pendiente</TableHead>
                       <TableHead>Próxima Fecha de Pago</TableHead>
