@@ -1008,11 +1008,11 @@ export default function DetalleCuentaMantenimiento() {
                                      const pendiente = montoTotal - totalAplicado;
                                       // Calcular porcentaje real sin redondear a 100% si hay pendiente
                                       let porcentaje = montoTotal === 0 
-                                        ? (pendiente <= 0 ? 100 : 0)
+                                        ? (pendiente <= 0.001 ? 100 : 0)
                                         : (totalAplicado / montoTotal) * 100;
-                                      // Si hay pendiente mayor a 0, no permitir que muestre 100%
-                                      if (pendiente > 0 && porcentaje >= 99.95) {
-                                        porcentaje = 99.9;
+                                      // Si hay pendiente mayor a 0.01 (1 centavo), no permitir que muestre 100%
+                                      if (pendiente > 0.01 && porcentaje >= 99.5) {
+                                        porcentaje = Math.min(porcentaje, 99.9);
                                       }
                                       return (
                                         <>
