@@ -1247,16 +1247,16 @@ export default function CuentasMantenimiento() {
                           <TableCell className="text-right font-medium">
                             {(() => {
                               const saldo = normalizarSaldo(cuenta.restante);
-                              const tieneSaldoAFavor = cuenta.pagado > cuenta.precio_final && saldo <= 0.01;
+                              const excedente = cuenta.pagado - cuenta.precio_final;
+                              const tieneSaldoAFavor = excedente > 0.01;
                               
                               if (tieneSaldoAFavor) {
-                                const saldoAFavor = cuenta.pagado - cuenta.precio_final;
                                 return (
                                   <span className="text-green-600">
-                                    ${saldoAFavor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} a favor
+                                    ${excedente.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} a favor
                                   </span>
                                 );
-                              } else if (saldo > 0) {
+                              } else if (saldo > 0.01) {
                                 return (
                                   <span className="text-orange-600">
                                     ${saldo.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
