@@ -1383,6 +1383,110 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_pagos_stp_raw_duplicate: {
+        Row: {
+          claverastreo: string
+          concepto_pago: string | null
+          cuenta_beneficiario: string
+          cuenta_beneficiario2: string | null
+          cuenta_ordenante: string | null
+          empresa: string | null
+          es_pago_aplicado: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          fecha_operacion: string | null
+          folio_codi: string | null
+          id: number
+          id_tipo_pago: number
+          institucion_beneficiaria: string | null
+          institucion_ordenante: string | null
+          monto: number
+          nombre_beneficiario: string | null
+          nombre_beneficiario2: string | null
+          nombre_ordenante: string | null
+          razon_rechazo: string | null
+          referencia_numerica: string | null
+          rfc_curp_beneficiario: string | null
+          rfc_curp_ordenante: string | null
+          stp_id: string | null
+          tipo_cuenta_beneficiario: string | null
+          tipo_cuenta_beneficiario2: string | null
+          tipo_cuenta_ordenante: string | null
+          tipo_pago: string | null
+          ts_liquidacion: string | null
+        }
+        Insert: {
+          claverastreo: string
+          concepto_pago?: string | null
+          cuenta_beneficiario: string
+          cuenta_beneficiario2?: string | null
+          cuenta_ordenante?: string | null
+          empresa?: string | null
+          es_pago_aplicado?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          fecha_operacion?: string | null
+          folio_codi?: string | null
+          id?: number
+          id_tipo_pago?: number
+          institucion_beneficiaria?: string | null
+          institucion_ordenante?: string | null
+          monto: number
+          nombre_beneficiario?: string | null
+          nombre_beneficiario2?: string | null
+          nombre_ordenante?: string | null
+          razon_rechazo?: string | null
+          referencia_numerica?: string | null
+          rfc_curp_beneficiario?: string | null
+          rfc_curp_ordenante?: string | null
+          stp_id?: string | null
+          tipo_cuenta_beneficiario?: string | null
+          tipo_cuenta_beneficiario2?: string | null
+          tipo_cuenta_ordenante?: string | null
+          tipo_pago?: string | null
+          ts_liquidacion?: string | null
+        }
+        Update: {
+          claverastreo?: string
+          concepto_pago?: string | null
+          cuenta_beneficiario?: string
+          cuenta_beneficiario2?: string | null
+          cuenta_ordenante?: string | null
+          empresa?: string | null
+          es_pago_aplicado?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          fecha_operacion?: string | null
+          folio_codi?: string | null
+          id?: number
+          id_tipo_pago?: number
+          institucion_beneficiaria?: string | null
+          institucion_ordenante?: string | null
+          monto?: number
+          nombre_beneficiario?: string | null
+          nombre_beneficiario2?: string | null
+          nombre_ordenante?: string | null
+          razon_rechazo?: string | null
+          referencia_numerica?: string | null
+          rfc_curp_beneficiario?: string | null
+          rfc_curp_ordenante?: string | null
+          stp_id?: string | null
+          tipo_cuenta_beneficiario?: string | null
+          tipo_cuenta_beneficiario2?: string | null
+          tipo_cuenta_ordenante?: string | null
+          tipo_pago?: string | null
+          ts_liquidacion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "borrar_pagos_stp_raw_duplicate_id_tipo_pago_fkey"
+            columns: ["id_tipo_pago"]
+            isOneToOne: false
+            referencedRelation: "tipos_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       borrar_personas_stagin: {
         Row: {
           clave_pais_telefono: string | null

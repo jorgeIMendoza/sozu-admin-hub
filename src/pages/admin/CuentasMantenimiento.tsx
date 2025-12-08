@@ -1152,7 +1152,7 @@ export default function CuentasMantenimiento() {
                       <TableHead>Clave Catastral</TableHead>
                       <TableHead className="text-right">Pago mantenimiento acumulado</TableHead>
                       <TableHead className="text-right">Total Pagado</TableHead>
-                      <TableHead className="text-right">Saldo Pendiente</TableHead>
+                      <TableHead className="text-right">Saldo Pendiente / a Favor</TableHead>
                       <TableHead>Próxima Fecha de Pago</TableHead>
                       <TableHead className="text-center">Complementos</TableHead>
                       <TableHead className="text-center">Acciones</TableHead>
@@ -1244,13 +1244,28 @@ export default function CuentasMantenimiento() {
                           <TableCell className="text-right font-medium text-green-600">
                             ${cuenta.pagado.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
-                          <TableCell className="text-right font-medium text-orange-600">
-                            ${normalizarSaldo(cuenta.restante) > 0 
-                              ? normalizarSaldo(cuenta.restante).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                              : normalizarSaldo(cuenta.restante) < 0
-                                ? Math.abs(normalizarSaldo(cuenta.restante)).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                : '0.00'
-                            }
+                          <TableCell className="text-right font-medium">
+                            {(() => {
+                              const saldo = normalizarSaldo(cuenta.restante);
+                              const tieneSaldoAFavor = cuenta.pagado > cuenta.precio_final && saldo <= 0.01;
+                              
+                              if (tieneSaldoAFavor) {
+                                const saldoAFavor = cuenta.pagado - cuenta.precio_final;
+                                return (
+                                  <span className="text-green-600">
+                                    ${saldoAFavor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} a favor
+                                  </span>
+                                );
+                              } else if (saldo > 0) {
+                                return (
+                                  <span className="text-orange-600">
+                                    ${saldo.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                );
+                              } else {
+                                return <span className="text-muted-foreground">$0.00</span>;
+                              }
+                            })()}
                           </TableCell>
                           <TableCell>
                             {cuenta.proxima_fecha_pago ? (
