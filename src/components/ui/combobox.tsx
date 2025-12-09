@@ -59,10 +59,14 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <Command>
+      <PopoverContent className="w-full min-w-[400px] p-0" align="start">
+        <Command filter={(value, search) => {
+          // Case-insensitive search that matches anywhere in the string
+          if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+          return 0;
+        }}>
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-[300px]">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
