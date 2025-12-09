@@ -5773,6 +5773,7 @@ export type Database = {
         }
         Returns: Json
       }
+      is_super_admin: { Args: { user_id: string }; Returns: boolean }
       mark_password_changed: { Args: never; Returns: undefined }
       sync_conyuge_compradores: {
         Args: { p_id_persona: number }
