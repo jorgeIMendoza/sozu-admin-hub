@@ -50,8 +50,9 @@ interface UsersTableProps {
   currentUserEmail: string | undefined;
   getRoleBadgeColor: (roleName: string | undefined) => string;
   onResetPassword: (email: string) => void;
-  onToggleActive: (email: string, activo: boolean) => void;
-  showActivateButton?: boolean;
+  onActivate: (email: string) => void;
+  onDeactivate: (email: string) => void;
+  isInactiveTab?: boolean;
 }
 
 function UsersTable({ 
@@ -59,8 +60,9 @@ function UsersTable({
   currentUserEmail, 
   getRoleBadgeColor, 
   onResetPassword, 
-  onToggleActive,
-  showActivateButton 
+  onActivate,
+  onDeactivate,
+  isInactiveTab 
 }: UsersTableProps) {
   return (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -70,7 +72,9 @@ function UsersTable({
             <TableHead className="font-semibold text-foreground">Usuario</TableHead>
             <TableHead className="font-semibold text-foreground">Email</TableHead>
             <TableHead className="font-semibold text-foreground">Rol</TableHead>
-            <TableHead className="font-semibold text-foreground">Contraseña</TableHead>
+            {!isInactiveTab && (
+              <TableHead className="font-semibold text-foreground">Contraseña</TableHead>
+            )}
             <TableHead className="font-semibold text-foreground text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -124,49 +128,53 @@ function UsersTable({
                     {usuario.roles?.nombre || 'Sin rol'}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  {usuario.debe_cambiar_password ? (
-                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-                      <Key className="h-3 w-3 mr-1" />
-                      Temporal
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">Personalizada</span>
-                  )}
-                </TableCell>
+                {!isInactiveTab && (
+                  <TableCell>
+                    {usuario.debe_cambiar_password ? (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                        <Key className="h-3 w-3 mr-1" />
+                        Temporal
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Personalizada</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-right">
                   <div className="flex gap-2 justify-end">
                     {!isCurrentUser && (
                       <>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => onResetPassword(usuario.email)}
-                          title="Resetear contraseña"
-                          className="hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Resetear
-                        </Button>
-                        {showActivateButton ? (
+                        {isInactiveTab ? (
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => onToggleActive(usuario.email, true)}
+                            onClick={() => onActivate(usuario.email)}
                             className="hover:bg-green-500/10 hover:border-green-500 hover:text-green-600"
                           >
                             <UserCheck className="h-3 w-3 mr-1" />
                             Activar
                           </Button>
                         ) : (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => onToggleActive(usuario.email, false)}
-                            className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive"
-                          >
-                            Desactivar
-                          </Button>
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => onResetPassword(usuario.email)}
+                              title="Resetear contraseña"
+                              className="hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" />
+                              Resetear
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => onDeactivate(usuario.email)}
+                              className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive"
+                            >
+                              Desactivar
+                            </Button>
+                          </>
                         )}
                       </>
                     )}
@@ -296,12 +304,12 @@ export default function Usuarios() {
     },
   });
 
-  // Toggle user active status
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ email, activo }: { email: string; activo: boolean }) => {
+  // Deactivate user mutation
+  const deactivateMutation = useMutation({
+    mutationFn: async (email: string) => {
       const { error } = await supabase
         .from('usuarios')
-        .update({ activo, fecha_actualizacion: new Date().toISOString() })
+        .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
         .eq('email', email);
       
       if (error) throw error;
@@ -309,14 +317,56 @@ export default function Usuarios() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       toast({
-        title: "Éxito",
-        description: "Estado del usuario actualizado correctamente.",
+        title: "Usuario desactivado",
+        description: "El usuario ha sido desactivado correctamente.",
       });
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: `Error al actualizar el usuario: ${error.message}`,
+        description: `Error al desactivar el usuario: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Activate user mutation (also resets password to temporary)
+  const activateMutation = useMutation({
+    mutationFn: async (email: string) => {
+      // First activate the user
+      const { error: updateError } = await supabase
+        .from('usuarios')
+        .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
+        .eq('email', email);
+      
+      if (updateError) throw updateError;
+
+      // Then reset the password
+      const response = await supabase.functions.invoke('reset-user-password', {
+        body: { email },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      toast({
+        title: "Usuario activado",
+        description: "El usuario ha sido activado con contraseña temporal: Temporal123!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Error al activar el usuario: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -572,7 +622,8 @@ export default function Usuarios() {
                     currentUserEmail={currentUserEmail} 
                     getRoleBadgeColor={getRoleBadgeColor}
                     onResetPassword={handleOpenResetPassword}
-                    onToggleActive={(email, activo) => toggleActiveMutation.mutate({ email, activo })}
+                    onActivate={(email) => activateMutation.mutate(email)}
+                    onDeactivate={(email) => deactivateMutation.mutate(email)}
                   />
                 )}
               </TabsContent>
@@ -588,8 +639,9 @@ export default function Usuarios() {
                     currentUserEmail={currentUserEmail} 
                     getRoleBadgeColor={getRoleBadgeColor}
                     onResetPassword={handleOpenResetPassword}
-                    onToggleActive={(email, activo) => toggleActiveMutation.mutate({ email, activo })}
-                    showActivateButton
+                    onActivate={(email) => activateMutation.mutate(email)}
+                    onDeactivate={(email) => deactivateMutation.mutate(email)}
+                    isInactiveTab
                   />
                 )}
               </TabsContent>
