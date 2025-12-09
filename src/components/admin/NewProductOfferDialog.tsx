@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 const formSchema = z.object({
   porcentaje_enganche: z.string()
     .min(1, "El porcentaje de enganche es requerido")
-    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0 && parseFloat(val) <= 100, 
+    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0 && parseFloat(val) <= 100, 
       "Debe estar entre 0 y 100"),
   porcentaje_mensualidades: z.string()
     .min(1, "El porcentaje de mensualidades es requerido")
@@ -34,8 +34,8 @@ const formSchema = z.object({
       "Debe estar entre 0 y 100"),
   numero_mensualidades: z.string()
     .min(1, "El número de mensualidades es requerido")
-    .refine((val) => !isNaN(parseInt(val)) && parseInt(val) > 0, 
-      "Debe ser mayor a 0"),
+    .refine((val) => !isNaN(parseInt(val)) && parseInt(val) >= 0, 
+      "Debe ser 0 o mayor"),
   porcentaje_descuento_aumento: z.string().optional(),
   tipo_persona: z.string().min(1, "El tipo de persona es requerido"),
   razon_social: z.string().min(1, "Este campo es requerido"),
@@ -64,6 +64,17 @@ const formSchema = z.object({
 }, {
   message: "La suma de los porcentajes debe ser 100%",
   path: ["porcentaje_entrega"]
+}).refine((data) => {
+  // Si el porcentaje de mensualidades es mayor a 0, el número debe ser mayor a 0
+  const porcentajeMens = parseFloat(data.porcentaje_mensualidades || "0");
+  const numMens = parseInt(data.numero_mensualidades || "0");
+  if (porcentajeMens > 0 && numMens <= 0) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Si hay porcentaje de mensualidades, el número debe ser mayor a 0",
+  path: ["numero_mensualidades"]
 });
 
 type FormData = z.infer<typeof formSchema>;
