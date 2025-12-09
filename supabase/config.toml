@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.generar-draft-proyecto-escritura]
 verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false

@@ -6,10 +6,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+
+// Auth pages
+const Login = lazy(() => import("./pages/auth/Login"));
+const ChangePassword = lazy(() => import("./pages/auth/ChangePassword"));
 
 // Lazy load non-critical route components
 const Proyectos = lazy(() => import("./pages/admin/Proyectos"));
@@ -66,64 +72,74 @@ const App = () => (
         <Sonner />
         <PWAInstallPrompt />
         <BrowserRouter>
-        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/admin" replace />} />
-          <Route path="/welcome" element={<Index />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="proyectos" element={<Proyectos />} />
-            <Route path="propiedades" element={<Propiedades />} />
-            <Route path="usuarios" element={<Usuarios />} />
-            <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
-            <Route path="entidades-legales" element={<EntidadesLegales />} />
-            <Route path="desarrolladores" element={<Desarrolladores />} />
-            <Route path="inmobiliarias" element={<Inmobiliarias />} />
-            <Route path="administradoras" element={<Administradoras />} />
-            <Route path="notarias" element={<Notarias />} />
-            <Route path="bancos" element={<Bancos />} />
-            <Route path="prospectos" element={<Prospectos />} />
-            <Route path="compradores" element={<Compradores />} />
-            <Route path="vendedores" element={<Vendedores />} />
-            <Route path="duenos" element={<Duenos />} />
-            <Route path="residentes" element={<Residentes />} />
-            <Route path="agentes" element={<Agentes />} />
-            <Route path="administradores-personas" element={<AdministradoresPersonas />} />
-            <Route path="representantes-legales" element={<RepresentantesLegales />} />
-            <Route path="productos" element={<Productos />} />
-            <Route path="servicios" element={<Servicios />} />
-            <Route path="categorias-productos" element={<CategoriasProductos />} />
-            <Route path="amenidades" element={<ComingSoon title="Amenidades" />} />
-            <Route path="caracteristicas" element={<ComingSoon title="Características" />} />
-            <Route path="modelos" element={<Modelos />} />
-            <Route path="vistas" element={<Vistas />} />
-            <Route path="estacionamientos" element={<Estacionamientos />} />
-            <Route path="bodegas" element={<Bodegas />} />
-            <Route path="cuentas-cobranza" element={<Pagos />} />
-            <Route path="cuentas-mantenimiento" element={<CuentasMantenimiento />} />
-            <Route path="cuentas-mantenimiento/:id/detalle" element={<DetalleCuentaMantenimiento />} />
-            <Route path="cuentas-cobranza/:id/detalle" element={<DetalleCuentaCobranza />} />
-            <Route path="comisiones" element={<Comisiones />} />
-            <Route path="aprobacion-comisiones" element={<AprobacionComisiones />} />
-            <Route path="pagar-comisiones" element={<PagarComisiones />} />
-            <Route path="pagos" element={<ComingSoon title="Pagos" />} />
-            <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
-            <Route path="documentos" element={<ComingSoon title="Documentos" />} />
-            <Route path="notarios/revision-documentacion" element={<RevisionDocumentacion />} />
-            <Route path="consultas-ia" element={<ConsultasIA />} />
-            <Route path="reservas" element={<Reservas />} />
-            <Route path="legal/contratos" element={<Contratos />} />
-            <Route path="reportes/discrepancias" element={<ReporteDiscrepancias />} />
-          </Route>
-          
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </TooltipProvider>
+          <AuthProvider>
+            <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/admin" replace />} />
+                <Route path="/welcome" element={<Index />} />
+                
+                {/* Auth Routes */}
+                <Route path="/auth/login" element={<Login />} />
+                <Route path="/auth/change-password" element={<ChangePassword />} />
+                
+                {/* Admin Routes - Protected */}
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<Dashboard />} />
+                  <Route path="proyectos" element={<Proyectos />} />
+                  <Route path="propiedades" element={<Propiedades />} />
+                  <Route path="usuarios" element={<Usuarios />} />
+                  <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
+                  <Route path="entidades-legales" element={<EntidadesLegales />} />
+                  <Route path="desarrolladores" element={<Desarrolladores />} />
+                  <Route path="inmobiliarias" element={<Inmobiliarias />} />
+                  <Route path="administradoras" element={<Administradoras />} />
+                  <Route path="notarias" element={<Notarias />} />
+                  <Route path="bancos" element={<Bancos />} />
+                  <Route path="prospectos" element={<Prospectos />} />
+                  <Route path="compradores" element={<Compradores />} />
+                  <Route path="vendedores" element={<Vendedores />} />
+                  <Route path="duenos" element={<Duenos />} />
+                  <Route path="residentes" element={<Residentes />} />
+                  <Route path="agentes" element={<Agentes />} />
+                  <Route path="administradores-personas" element={<AdministradoresPersonas />} />
+                  <Route path="representantes-legales" element={<RepresentantesLegales />} />
+                  <Route path="productos" element={<Productos />} />
+                  <Route path="servicios" element={<Servicios />} />
+                  <Route path="categorias-productos" element={<CategoriasProductos />} />
+                  <Route path="amenidades" element={<ComingSoon title="Amenidades" />} />
+                  <Route path="caracteristicas" element={<ComingSoon title="Características" />} />
+                  <Route path="modelos" element={<Modelos />} />
+                  <Route path="vistas" element={<Vistas />} />
+                  <Route path="estacionamientos" element={<Estacionamientos />} />
+                  <Route path="bodegas" element={<Bodegas />} />
+                  <Route path="cuentas-cobranza" element={<Pagos />} />
+                  <Route path="cuentas-mantenimiento" element={<CuentasMantenimiento />} />
+                  <Route path="cuentas-mantenimiento/:id/detalle" element={<DetalleCuentaMantenimiento />} />
+                  <Route path="cuentas-cobranza/:id/detalle" element={<DetalleCuentaCobranza />} />
+                  <Route path="comisiones" element={<Comisiones />} />
+                  <Route path="aprobacion-comisiones" element={<AprobacionComisiones />} />
+                  <Route path="pagar-comisiones" element={<PagarComisiones />} />
+                  <Route path="pagos" element={<ComingSoon title="Pagos" />} />
+                  <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
+                  <Route path="documentos" element={<ComingSoon title="Documentos" />} />
+                  <Route path="notarios/revision-documentacion" element={<RevisionDocumentacion />} />
+                  <Route path="consultas-ia" element={<ConsultasIA />} />
+                  <Route path="reservas" element={<Reservas />} />
+                  <Route path="legal/contratos" element={<Contratos />} />
+                  <Route path="reportes/discrepancias" element={<ReporteDiscrepancias />} />
+                </Route>
+                
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

@@ -5046,6 +5046,7 @@ export type Database = {
           fecha_actualizacion: string | null
           fecha_creacion: string | null
           permiso_id: number
+          rol_id: number | null
           submenu_id: number
         }
         Insert: {
@@ -5053,6 +5054,7 @@ export type Database = {
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           permiso_id: number
+          rol_id?: number | null
           submenu_id: number
         }
         Update: {
@@ -5060,6 +5062,7 @@ export type Database = {
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           permiso_id?: number
+          rol_id?: number | null
           submenu_id?: number
         }
         Relationships: [
@@ -5068,6 +5071,13 @@ export type Database = {
             columns: ["permiso_id"]
             isOneToOne: false
             referencedRelation: "permisos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submenus_permisos_rol_id_fkey"
+            columns: ["rol_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
@@ -5476,33 +5486,45 @@ export type Database = {
       usuarios: {
         Row: {
           activo: boolean | null
+          auth_user_id: string | null
           clave_pais_telefono: string | null
+          debe_cambiar_password: boolean
           email: string
           fecha_actualizacion: string | null
           fecha_creacion: string | null
+          id_persona: number | null
           nombre: string
           rol_id: number
           telefono: string | null
+          ultimo_cambio_password: string | null
         }
         Insert: {
           activo?: boolean | null
+          auth_user_id?: string | null
           clave_pais_telefono?: string | null
+          debe_cambiar_password?: boolean
           email: string
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
+          id_persona?: number | null
           nombre: string
           rol_id: number
           telefono?: string | null
+          ultimo_cambio_password?: string | null
         }
         Update: {
           activo?: boolean | null
+          auth_user_id?: string | null
           clave_pais_telefono?: string | null
+          debe_cambiar_password?: boolean
           email?: string
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
+          id_persona?: number | null
           nombre?: string
           rol_id?: number
           telefono?: string | null
+          ultimo_cambio_password?: string | null
         }
         Relationships: [
           {
@@ -5510,6 +5532,13 @@ export type Database = {
             columns: ["clave_pais_telefono"]
             isOneToOne: false
             referencedRelation: "paises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuarios_id_persona_fkey"
+            columns: ["id_persona"]
+            isOneToOne: false
+            referencedRelation: "personas"
             referencedColumns: ["id"]
           },
           {
@@ -5653,6 +5682,18 @@ export type Database = {
         Args: { max_rows?: number; query_text: string }
         Returns: Json
       }
+      get_current_user_profile: {
+        Args: never
+        Returns: {
+          activo: boolean
+          debe_cambiar_password: boolean
+          email: string
+          id_persona: number
+          nombre: string
+          rol_id: number
+          rol_nombre: string
+        }[]
+      }
       get_offers_with_agent: {
         Args: { property_id: number }
         Returns: {
@@ -5695,6 +5736,14 @@ export type Database = {
           vista: string
         }[]
       }
+      get_user_menus: {
+        Args: never
+        Returns: {
+          menu_id: number
+          menu_nombre: string
+        }[]
+      }
+      get_user_role: { Args: never; Returns: string }
       incrementar_precio_m2_mensual: { Args: never; Returns: undefined }
       insertar_pago_stp: {
         Args: {
@@ -5724,12 +5773,17 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_password_changed: { Args: never; Returns: undefined }
       sync_conyuge_compradores: {
         Args: { p_id_persona: number }
         Returns: {
           cuentas_procesadas: number
           mensaje: string
         }[]
+      }
+      user_has_permission: {
+        Args: { _permission_name: string; _submenu_path: string }
+        Returns: boolean
       }
     }
     Enums: {

@@ -1,0 +1,180 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, KeyRound, AlertCircle, CheckCircle } from 'lucide-react';
+import { z } from 'zod';
+
+const passwordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(8, 'La contraseña debe tener al menos 8 caracteres')
+    .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
+    .regex(/[a-z]/, 'Debe contener al menos una minúscula')
+    .regex(/[0-9]/, 'Debe contener al menos un número')
+    .regex(/[^A-Za-z0-9]/, 'Debe contener al menos un símbolo especial'),
+  confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: 'Las contraseñas no coinciden',
+  path: ['confirmPassword'],
+});
+
+export default function ChangePassword() {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { updatePassword, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  // If user doesn't need to change password, redirect
+  if (profile && !profile.debe_cambiar_password) {
+    navigate('/admin', { replace: true });
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      // Validate input
+      const result = passwordSchema.safeParse({ newPassword, confirmPassword });
+      if (!result.success) {
+        setError(result.error.errors[0].message);
+        setIsLoading(false);
+        return;
+      }
+
+      const { error } = await updatePassword(newPassword);
+      
+      if (error) {
+        setError(error.message);
+        setIsLoading(false);
+        return;
+      }
+
+      // Success - redirect to admin
+      navigate('/admin', { replace: true });
+    } catch (err) {
+      setError('Error al cambiar la contraseña. Intenta de nuevo.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth/login', { replace: true });
+  };
+
+  const passwordRequirements = [
+    { text: 'Al menos 8 caracteres', valid: newPassword.length >= 8 },
+    { text: 'Al menos una mayúscula', valid: /[A-Z]/.test(newPassword) },
+    { text: 'Al menos una minúscula', valid: /[a-z]/.test(newPassword) },
+    { text: 'Al menos un número', valid: /[0-9]/.test(newPassword) },
+    { text: 'Al menos un símbolo especial', valid: /[^A-Za-z0-9]/.test(newPassword) },
+  ];
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 rounded-full bg-primary/10">
+              <KeyRound className="h-8 w-8 text-primary" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold">Cambiar Contraseña</CardTitle>
+          <CardDescription>
+            Por seguridad, debes cambiar tu contraseña temporal antes de continuar
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">Nueva Contraseña</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={isLoading}
+                autoComplete="new-password"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isLoading}
+                autoComplete="new-password"
+                required
+              />
+            </div>
+
+            {/* Password requirements */}
+            <div className="space-y-1 text-sm">
+              <p className="font-medium text-muted-foreground">Requisitos:</p>
+              {passwordRequirements.map((req, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  {req.valid ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                  )}
+                  <span className={req.valid ? 'text-green-600' : 'text-muted-foreground'}>
+                    {req.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cambiando contraseña...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Cambiar Contraseña
+                </>
+              )}
+            </Button>
+
+            <Button 
+              type="button" 
+              variant="ghost" 
+              className="w-full" 
+              onClick={handleLogout}
+              disabled={isLoading}
+            >
+              Cerrar sesión
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
