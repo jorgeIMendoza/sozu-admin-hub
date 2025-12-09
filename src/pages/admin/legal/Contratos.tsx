@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { FileText, Loader2, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
@@ -58,6 +59,10 @@ export default function Contratos() {
     cuenta_cobranza: "",
   });
 
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
   const [validandoCuentaId, setValidandoCuentaId] = useState<number | null>(null);
 
   const [validacionDialogData, setValidacionDialogData] = useState<{
@@ -70,6 +75,11 @@ export default function Contratos() {
 
   const [subirContratoDialogOpen, setSubirContratoDialogOpen] = useState(false);
   const [cuentaParaSubirContrato, setCuentaParaSubirContrato] = useState<number | null>(null);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
 
   // Fetch contratos pendientes
   const { data: contratos = [], isLoading } = useQuery({
@@ -350,14 +360,69 @@ export default function Contratos() {
     return true;
   });
 
+  // Calcular paginación
+  const totalPages = Math.ceil(contratosFiltrados.length / itemsPerPage);
+  const paginatedContratos = contratosFiltrados.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Helper function to generate pagination items with ellipsis
+  const getPaginationItems = (current: number, total: number) => {
+    const items: (number | 'ellipsis')[] = [];
+    const maxVisible = 7;
+    
+    if (total <= maxVisible) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    
+    items.push(1);
+    
+    let rangeStart = Math.max(2, current - 1);
+    let rangeEnd = Math.min(total - 1, current + 1);
+    
+    if (current <= 3) {
+      rangeEnd = Math.min(4, total - 1);
+    }
+    if (current >= total - 2) {
+      rangeStart = Math.max(total - 3, 2);
+    }
+    
+    if (rangeStart > 2) {
+      items.push('ellipsis');
+    }
+    
+    for (let i = rangeStart; i <= rangeEnd; i++) {
+      items.push(i);
+    }
+    
+    if (rangeEnd < total - 1) {
+      items.push('ellipsis');
+    }
+    
+    if (total > 1) {
+      items.push(total);
+    }
+    
+    return items;
+  };
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Contratos
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Contratos
+            </CardTitle>
+            <span className="text-sm text-muted-foreground">
+              {contratosFiltrados.length === contratos.length 
+                ? `${contratos.length} registro${contratos.length !== 1 ? 's' : ''}`
+                : `${contratosFiltrados.length} de ${contratos.length} registro${contratos.length !== 1 ? 's' : ''}`
+              }
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Filtros */}
@@ -421,7 +486,7 @@ export default function Contratos() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contratosFiltrados.map((contrato) => (
+                  {paginatedContratos.map((contrato) => (
                     <TableRow key={contrato.cuenta_id}>
                       <TableCell>{contrato.proyecto}</TableCell>
                       <TableCell>{contrato.edificio}</TableCell>
@@ -496,6 +561,45 @@ export default function Contratos() {
                   ))}
                 </TableBody>
               </Table>
+
+              {/* Paginación */}
+              {totalPages > 1 && (
+                <div className="mt-4">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {getPaginationItems(currentPage, totalPages).map((item, index) => (
+                        item === 'ellipsis' ? (
+                          <PaginationItem key={`ellipsis-${index}`}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={item}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(item as number)}
+                              isActive={currentPage === item}
+                              className="cursor-pointer"
+                            >
+                              {item}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      ))}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
