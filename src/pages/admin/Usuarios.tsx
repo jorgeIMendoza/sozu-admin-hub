@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserProjectAccessDialog } from "@/components/admin/UserProjectAccessDialog";
+import { ChangeUserRoleDialog } from "@/components/admin/ChangeUserRoleDialog";
 
 type Usuario = {
   email: string;
@@ -54,6 +55,7 @@ interface UsersTableProps {
   onResetPassword: (email: string) => void;
   onActivate: (email: string) => void;
   onDeactivate: (email: string) => void;
+  onChangeRole: (email: string, name: string, roleId: number | null) => void;
   isInactiveTab?: boolean;
 }
 
@@ -64,8 +66,10 @@ function UsersTable({
   onResetPassword, 
   onActivate,
   onDeactivate,
+  onChangeRole,
   isInactiveTab 
 }: UsersTableProps) {
+
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <Table>
@@ -154,6 +158,18 @@ function UsersTable({
                     )}
                     {!isCurrentUser && (
                       <>
+                        {!isInactiveTab && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => onChangeRole(usuario.email, usuario.nombre || 'Sin nombre', usuario.rol_id)}
+                            title="Cambiar rol"
+                            className="hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-600"
+                          >
+                            <Shield className="h-3 w-3 mr-1" />
+                            Rol
+                          </Button>
+                        )}
                         {isInactiveTab ? (
                           <Button 
                             variant="outline" 
@@ -204,8 +220,10 @@ export default function Usuarios() {
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
+  const [isChangeRoleDialogOpen, setIsChangeRoleDialogOpen] = useState(false);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
+  const [selectedUserRoleId, setSelectedUserRoleId] = useState<number | null>(null);
   const [newUserForm, setNewUserForm] = useState({
     email: "",
     nombre: "",
@@ -215,6 +233,7 @@ export default function Usuarios() {
   const [isFieldsLocked, setIsFieldsLocked] = useState(false);
   const [selectedPersonaTipo, setSelectedPersonaTipo] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -641,6 +660,12 @@ export default function Usuarios() {
                       setSelectedUserName(user?.nombre || email);
                       setIsDeactivateDialogOpen(true);
                     }}
+                    onChangeRole={(email, name, roleId) => {
+                      setSelectedUserEmail(email);
+                      setSelectedUserName(name);
+                      setSelectedUserRoleId(roleId);
+                      setIsChangeRoleDialogOpen(true);
+                    }}
                   />
                 )}
               </TabsContent>
@@ -658,6 +683,12 @@ export default function Usuarios() {
                     onResetPassword={handleOpenResetPassword}
                     onActivate={(email) => activateMutation.mutate(email)}
                     onDeactivate={(email) => deactivateMutation.mutate(email)}
+                    onChangeRole={(email, name, roleId) => {
+                      setSelectedUserEmail(email);
+                      setSelectedUserName(name);
+                      setSelectedUserRoleId(roleId);
+                      setIsChangeRoleDialogOpen(true);
+                    }}
                     isInactiveTab
                   />
                 )}
@@ -875,6 +906,24 @@ export default function Usuarios() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Change Role Dialog */}
+      {selectedUserEmail && selectedUserName && (
+        <ChangeUserRoleDialog
+          open={isChangeRoleDialogOpen}
+          onOpenChange={(open) => {
+            setIsChangeRoleDialogOpen(open);
+            if (!open) {
+              setSelectedUserEmail(null);
+              setSelectedUserName(null);
+              setSelectedUserRoleId(null);
+            }
+          }}
+          userEmail={selectedUserEmail}
+          userName={selectedUserName}
+          currentRoleId={selectedUserRoleId}
+        />
+      )}
     </div>
   );
 }

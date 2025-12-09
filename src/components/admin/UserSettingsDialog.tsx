@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { User, Mail, Shield, Key, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Shield, Key, Eye, EyeOff, CheckCircle } from "lucide-react";
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -15,36 +16,87 @@ interface UserSettingsDialogProps {
 }
 
 export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogProps) {
-  const { profile, updatePassword } = useAuth();
+  const { profile, user } = useAuth();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const passwordRequirements = [
+    { text: 'Al menos 8 caracteres', valid: newPassword.length >= 8 },
+    { text: 'Al menos una mayúscula', valid: /[A-Z]/.test(newPassword) },
+    { text: 'Al menos una minúscula', valid: /[a-z]/.test(newPassword) },
+    { text: 'Al menos un número', valid: /[0-9]/.test(newPassword) },
+    { text: 'Al menos un símbolo especial', valid: /[^A-Za-z0-9]/.test(newPassword) },
+  ];
+
+  const allRequirementsMet = passwordRequirements.every(req => req.valid);
+
   const handlePasswordChange = async () => {
-    if (newPassword.length < 6) {
-      toast.error("La contraseña debe tener al menos 6 caracteres");
+    // Validate current password is provided
+    if (!currentPassword) {
+      toast.error("Debes ingresar tu contraseña actual");
       return;
     }
+
+    // Validate new password meets requirements
+    if (!allRequirementsMet) {
+      toast.error("La nueva contraseña no cumple con los requisitos");
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       toast.error("Las contraseñas no coinciden");
       return;
     }
 
     setIsLoading(true);
-    const { error } = await updatePassword(newPassword);
-    setIsLoading(false);
 
-    if (error) {
-      toast.error("Error al cambiar la contraseña: " + error.message);
-    } else {
+    try {
+      // First verify the current password by signing in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || "",
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        toast.error("La contraseña actual es incorrecta");
+        setIsLoading(false);
+        return;
+      }
+
+      // Now update to the new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        toast.error("Error al cambiar la contraseña: " + updateError.message);
+        setIsLoading(false);
+        return;
+      }
+
       toast.success("Contraseña actualizada correctamente");
-      setIsChangingPassword(false);
-      setNewPassword("");
-      setConfirmPassword("");
+      resetForm();
+    } catch (err) {
+      toast.error("Error al cambiar la contraseña");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setIsChangingPassword(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const getRoleBadgeColor = (rol: string) => {
@@ -61,7 +113,10 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      if (!newOpen) resetForm();
+      onOpenChange(newOpen);
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Configuración de Usuario</DialogTitle>
@@ -128,6 +183,30 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
             {isChangingPassword && (
               <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                {/* Current Password */}
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Contraseña actual</Label>
+                  <div className="relative">
+                    <Input
+                      id="currentPassword"
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Ingresa tu contraseña actual"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    >
+                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* New Password */}
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">Nueva contraseña</Label>
                   <div className="relative">
@@ -136,7 +215,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
                       type={showNewPassword ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Ingresa la nueva contraseña"
                     />
                     <Button
                       type="button"
@@ -150,6 +229,24 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
                   </div>
                 </div>
 
+                {/* Password Requirements */}
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium text-muted-foreground">Requisitos:</p>
+                  {passwordRequirements.map((req, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      {req.valid ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                      )}
+                      <span className={req.valid ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                        {req.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Confirm Password */}
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
                   <div className="relative">
@@ -158,7 +255,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
                       type={showConfirmPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repite la contraseña"
+                      placeholder="Repite la nueva contraseña"
                     />
                     <Button
                       type="button"
@@ -170,17 +267,16 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-sm text-destructive">Las contraseñas no coinciden</p>
+                  )}
                 </div>
 
                 <div className="flex gap-2 justify-end">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      setIsChangingPassword(false);
-                      setNewPassword("");
-                      setConfirmPassword("");
-                    }}
+                    onClick={resetForm}
                     disabled={isLoading}
                   >
                     Cancelar
@@ -188,7 +284,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
                   <Button
                     size="sm"
                     onClick={handlePasswordChange}
-                    disabled={isLoading || !newPassword || !confirmPassword}
+                    disabled={isLoading || !currentPassword || !allRequirementsMet || newPassword !== confirmPassword}
                   >
                     {isLoading ? "Guardando..." : "Guardar"}
                   </Button>
