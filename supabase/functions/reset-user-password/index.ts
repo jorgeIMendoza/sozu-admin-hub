@@ -101,33 +101,74 @@ Deno.serve(async (req) => {
 
     console.log(`Resetting password for user: ${email}`);
 
-    // Get the target user's auth_user_id
+    // Get the target user's auth_user_id and nombre
     const { data: targetUser, error: targetUserError } = await supabaseAdmin
       .from('usuarios')
-      .select('auth_user_id')
+      .select('auth_user_id, nombre')
       .eq('email', email)
       .single();
 
-    if (targetUserError || !targetUser?.auth_user_id) {
+    if (targetUserError || !targetUser) {
       console.error('Error finding target user:', targetUserError);
       return new Response(
-        JSON.stringify({ error: 'Usuario no encontrado' }),
+        JSON.stringify({ error: 'Usuario no encontrado en la base de datos' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Reset password in auth.users
-    const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(
-      targetUser.auth_user_id,
-      { password: 'Temporal123!' }
-    );
+    let authUserId = targetUser.auth_user_id;
 
-    if (updateAuthError) {
-      console.error('Error updating auth password:', updateAuthError);
-      return new Response(
-        JSON.stringify({ error: `Error al resetear contraseña: ${updateAuthError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    // If user doesn't have an auth_user_id, create them in Auth first
+    if (!authUserId) {
+      console.log(`User ${email} has no auth_user_id. Creating auth user...`);
+      
+      const { data: newAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+        email: email,
+        password: 'Temporal123!',
+        email_confirm: true,
+        user_metadata: {
+          name: targetUser.nombre || email
+        }
+      });
+
+      if (createAuthError) {
+        console.error('Error creating auth user:', createAuthError);
+        return new Response(
+          JSON.stringify({ error: `Error al crear usuario en Auth: ${createAuthError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      authUserId = newAuthUser.user.id;
+
+      // Update the usuarios table with the new auth_user_id
+      const { error: updateAuthIdError } = await supabaseAdmin
+        .from('usuarios')
+        .update({ 
+          auth_user_id: authUserId,
+          fecha_actualizacion: new Date().toISOString()
+        })
+        .eq('email', email);
+
+      if (updateAuthIdError) {
+        console.error('Error updating auth_user_id:', updateAuthIdError);
+      }
+
+      console.log(`Auth user created successfully with id: ${authUserId}`);
+    } else {
+      // Reset password in auth.users for existing auth user
+      const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(
+        authUserId,
+        { password: 'Temporal123!' }
       );
+
+      if (updateAuthError) {
+        console.error('Error updating auth password:', updateAuthError);
+        return new Response(
+          JSON.stringify({ error: `Error al resetear contraseña: ${updateAuthError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Update usuarios table to mark password as temporary
