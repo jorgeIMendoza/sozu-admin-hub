@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAllowedMenus } from "@/hooks/useAllowedMenus";
+import { Loader2 } from "lucide-react";
 import {
   LayoutDashboard,
   Building2,
@@ -48,7 +50,20 @@ interface AdminSidebarProps {
   currentPath: string;
 }
 
-const navigationItems = [
+interface NavigationChild {
+  title: string;
+  href: string;
+  icon: any;
+}
+
+interface NavigationItem {
+  title: string;
+  href?: string;
+  icon: any;
+  children?: NavigationChild[];
+}
+
+const navigationItems: NavigationItem[] = [
   {
     title: "Dashboard",
     href: "/admin",
@@ -151,6 +166,7 @@ const navigationItems = [
 export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps) => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const { isPathAllowed, isLoading: isLoadingPermissions, isSuperAdmin } = useAllowedMenus();
 
   const handleSignOut = async () => {
     await signOut();
@@ -167,10 +183,38 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
     return name.substring(0, 2).toUpperCase();
   };
 
+  // Filter navigation items based on permissions
+  const filteredNavigationItems = useMemo(() => {
+    if (isSuperAdmin) {
+      return navigationItems;
+    }
+
+    return navigationItems
+      .map(item => {
+        if (item.href) {
+          // Single item with href - check if allowed
+          return isPathAllowed(item.href) ? item : null;
+        } else if (item.children) {
+          // Group with children - filter children
+          const allowedChildren = item.children.filter(child => 
+            isPathAllowed(child.href)
+          );
+          
+          // Only show group if it has allowed children
+          if (allowedChildren.length > 0) {
+            return { ...item, children: allowedChildren };
+          }
+          return null;
+        }
+        return null;
+      })
+      .filter(Boolean) as NavigationItem[];
+  }, [isPathAllowed, isSuperAdmin]);
+
   // Auto-expand the group that contains the current path
   const getInitialExpandedGroups = () => {
     const expanded = new Set<string>();
-    navigationItems.forEach(item => {
+    filteredNavigationItems.forEach(item => {
       if (item.children) {
         const hasActiveChild = item.children.some(child => currentPath === child.href);
         if (hasActiveChild) {
@@ -192,6 +236,7 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
     }
     setExpandedGroups(newExpanded);
   };
+
   return (
     <>
       {/* Overlay for mobile */}
@@ -229,64 +274,70 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
 
         {/* Navigation */}
         <ScrollArea className="flex-1 px-4">
-          <nav className="py-4 space-y-2">
-            {navigationItems.map((item, index) => (
-              <div key={index}>
-                {item.href ? (
-                  <Link
-                    to={item.href}
-                    className={cn(
-                      "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
-                      currentPath === item.href
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-accent"
-                    )}
-                    onClick={onClose}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.title}</span>
-                  </Link>
-                ) : (
-                  <div className="space-y-1">
-                    <button
-                      onClick={() => toggleGroup(item.title)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-all"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <item.icon className="h-5 w-5" />
-                        <span>{item.title}</span>
-                      </div>
-                      {expandedGroups.has(item.title) ? (
-                        <ChevronDown className="h-4 w-4 transition-transform" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 transition-transform" />
+          {isLoadingPermissions ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <nav className="py-4 space-y-2">
+              {filteredNavigationItems.map((item, index) => (
+                <div key={index}>
+                  {item.href ? (
+                    <Link
+                      to={item.href}
+                      className={cn(
+                        "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+                        currentPath === item.href
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-accent"
                       )}
-                    </button>
-                    {expandedGroups.has(item.title) && (
-                      <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-                        {item.children?.map((child, childIndex) => (
-                          <Link
-                            key={childIndex}
-                            to={child.href}
-                            className={cn(
-                              "flex items-center space-x-3 pl-8 pr-3 py-2 rounded-lg transition-colors text-sm",
-                              currentPath === child.href
-                                ? "bg-primary text-primary-foreground"
-                                : "hover:bg-accent"
-                            )}
-                            onClick={onClose}
-                          >
-                            <child.icon className="h-4 w-4" />
-                            <span>{child.title}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </nav>
+                      onClick={onClose}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      <span>{item.title}</span>
+                    </Link>
+                  ) : (
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => toggleGroup(item.title)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-all"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <item.icon className="h-5 w-5" />
+                          <span>{item.title}</span>
+                        </div>
+                        {expandedGroups.has(item.title) ? (
+                          <ChevronDown className="h-4 w-4 transition-transform" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 transition-transform" />
+                        )}
+                      </button>
+                      {expandedGroups.has(item.title) && (
+                        <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+                          {item.children?.map((child, childIndex) => (
+                            <Link
+                              key={childIndex}
+                              to={child.href}
+                              className={cn(
+                                "flex items-center space-x-3 pl-8 pr-3 py-2 rounded-lg transition-colors text-sm",
+                                currentPath === child.href
+                                  ? "bg-primary text-primary-foreground"
+                                  : "hover:bg-accent"
+                              )}
+                              onClick={onClose}
+                            >
+                              <child.icon className="h-4 w-4" />
+                              <span>{child.title}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </nav>
+          )}
         </ScrollArea>
 
         {/* User Profile */}

@@ -182,16 +182,19 @@ function UsersTable({
                           </Button>
                         ) : (
                           <>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => onResetPassword(usuario.email)}
-                              title="Resetear contraseña"
-                              className="hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
-                            >
-                              <RotateCcw className="h-3 w-3 mr-1" />
-                              Resetear
-                            </Button>
+                            {/* Only show reset button when password is NOT temporary (personalizada) */}
+                            {!usuario.debe_cambiar_password && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => onResetPassword(usuario.email)}
+                                title="Resetear contraseña"
+                                className="hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Resetear
+                              </Button>
+                            )}
                             <Button 
                               variant="outline" 
                               size="sm"
