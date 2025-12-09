@@ -180,13 +180,17 @@ export default function Agentes() {
         if (updateError) throw updateError;
       }
 
-      // Crear usuario automáticamente con rol Agente Inmobiliario (id: 3)
+      // Determinar rol basado en el dominio del email
+      const isInternalAgent = cleanPersonData.email?.toLowerCase().endsWith('@sozu.com');
+      const rolId = isInternalAgent ? 9 : 3; // 9 = Agente Interno, 3 = Agente Inmobiliario
+
+      // Crear usuario automáticamente
       try {
         const { error: userError } = await supabase.functions.invoke('create-user', {
           body: {
             email: cleanPersonData.email,
             nombre: cleanPersonData.nombre_legal,
-            rol_id: 3, // Agente Inmobiliario
+            rol_id: rolId,
             id_persona: personResult.id,
             telefono: cleanPersonData.telefono || null,
             clave_pais_telefono: cleanPersonData.clave_pais_telefono || null
