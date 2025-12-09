@@ -36,7 +36,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole 
   // Check if user is Super Admin
   const isSuperAdmin = userRole === 'Super Administrador';
 
-  // Fetch all active projects
+  // Fetch all active projects (without the default 1000 limit)
   const { data: proyectos, isLoading: loadingProyectos } = useQuery({
     queryKey: ['proyectos-list'],
     queryFn: async () => {
@@ -44,7 +44,8 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole 
         .from('proyectos')
         .select('id, nombre')
         .eq('activo', true)
-        .order('nombre');
+        .order('nombre')
+        .range(0, 10000);
       
       if (error) throw error;
       return data as Proyecto[];
