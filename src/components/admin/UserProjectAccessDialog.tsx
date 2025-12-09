@@ -1,18 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FolderOpen, Loader2 } from 'lucide-react';
+import { Building2, Loader2, Search } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 interface UserProjectAccessDialogProps {
   userId: string;
   userName: string;
   userEmail: string;
+  userRole?: string;
 }
 
 interface Proyecto {
@@ -24,10 +27,14 @@ interface ProyectoAcceso {
   proyecto_id: number;
 }
 
-export function UserProjectAccessDialog({ userId, userName, userEmail }: UserProjectAccessDialogProps) {
+export function UserProjectAccessDialog({ userId, userName, userEmail, userRole }: UserProjectAccessDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
+
+  // Check if user is Super Admin
+  const isSuperAdmin = userRole === 'Super Administrador';
 
   // Fetch all active projects
   const { data: proyectos, isLoading: loadingProyectos } = useQuery({
@@ -42,7 +49,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail }: UserPro
       if (error) throw error;
       return data as Proyecto[];
     },
-    enabled: open,
+    enabled: open && !isSuperAdmin,
   });
 
   // Fetch user's current project access
@@ -58,7 +65,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail }: UserPro
       if (error) throw error;
       return data as ProyectoAcceso[];
     },
-    enabled: open,
+    enabled: open && !isSuperAdmin,
   });
 
   // Update selected projects when data loads
@@ -67,6 +74,24 @@ export function UserProjectAccessDialog({ userId, userName, userEmail }: UserPro
       setSelectedProjects(userAccess.map(a => a.proyecto_id));
     }
   }, [userAccess]);
+
+  // Reset search when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSearchTerm('');
+    }
+  }, [open]);
+
+  // Filter projects based on search term
+  const filteredProyectos = useMemo(() => {
+    if (!proyectos) return [];
+    if (!searchTerm.trim()) return proyectos;
+    
+    const lowerSearch = searchTerm.toLowerCase();
+    return proyectos.filter(p => 
+      p.nombre.toLowerCase().includes(lowerSearch)
+    );
+  }, [proyectos, searchTerm]);
 
   // Mutation to save access
   const saveAccessMutation = useMutation({
@@ -148,16 +173,30 @@ export function UserProjectAccessDialog({ userId, userName, userEmail }: UserPro
 
   const isLoading = loadingProyectos || loadingAccess;
 
+  // Don't show button for Super Admins
+  if (isSuperAdmin) {
+    return null;
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" title="Gestionar acceso a proyectos">
-          <FolderOpen className="h-4 w-4" />
+        <Button 
+          variant="outline" 
+          size="sm" 
+          title="Gestionar acceso a proyectos"
+          className="gap-1"
+        >
+          <Building2 className="h-4 w-4" />
+          <span className="sr-only md:not-sr-only md:inline text-xs">Proyectos</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Acceso a Proyectos</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            Acceso a Proyectos
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">
             {userName} ({userEmail})
           </p>
@@ -169,6 +208,17 @@ export function UserProjectAccessDialog({ userId, userName, userEmail }: UserPro
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar proyectos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleSelectAll}>
                 Seleccionar todos
@@ -178,23 +228,37 @@ export function UserProjectAccessDialog({ userId, userName, userEmail }: UserPro
               </Button>
             </div>
 
-            <ScrollArea className="h-[300px] border rounded-md p-3">
-              <div className="space-y-3">
-                {proyectos?.map((proyecto) => (
-                  <div key={proyecto.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`project-${proyecto.id}`}
-                      checked={selectedProjects.includes(proyecto.id)}
-                      onCheckedChange={() => handleProjectToggle(proyecto.id)}
-                    />
-                    <Label 
-                      htmlFor={`project-${proyecto.id}`}
-                      className="text-sm cursor-pointer flex-1"
+            <ScrollArea className="h-[280px] border rounded-md p-3">
+              <div className="space-y-2">
+                {filteredProyectos.map((proyecto) => {
+                  const isSelected = selectedProjects.includes(proyecto.id);
+                  return (
+                    <div 
+                      key={proyecto.id} 
+                      className={`flex items-center space-x-2 p-2 rounded-md cursor-pointer transition-colors ${
+                        isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => handleProjectToggle(proyecto.id)}
                     >
-                      {proyecto.nombre}
-                    </Label>
-                  </div>
-                ))}
+                      <Checkbox
+                        id={`project-${proyecto.id}`}
+                        checked={isSelected}
+                        onCheckedChange={() => handleProjectToggle(proyecto.id)}
+                      />
+                      <Label 
+                        htmlFor={`project-${proyecto.id}`}
+                        className="text-sm cursor-pointer flex-1"
+                      >
+                        {proyecto.nombre}
+                      </Label>
+                    </div>
+                  );
+                })}
+                {filteredProyectos.length === 0 && searchTerm && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No se encontraron proyectos con "{searchTerm}"
+                  </p>
+                )}
                 {proyectos?.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No hay proyectos disponibles
@@ -204,9 +268,9 @@ export function UserProjectAccessDialog({ userId, userName, userEmail }: UserPro
             </ScrollArea>
 
             <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">
-                {selectedProjects.length} proyecto(s) seleccionado(s)
-              </p>
+              <Badge variant="secondary">
+                {selectedProjects.length} seleccionado(s)
+              </Badge>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setOpen(false)}>
                   Cancelar
