@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -202,7 +203,9 @@ export default function Usuarios() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
+  const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
   const [newUserForm, setNewUserForm] = useState({
     email: "",
     nombre: "",
@@ -632,7 +635,12 @@ export default function Usuarios() {
                     getRoleBadgeColor={getRoleBadgeColor}
                     onResetPassword={handleOpenResetPassword}
                     onActivate={(email) => activateMutation.mutate(email)}
-                    onDeactivate={(email) => deactivateMutation.mutate(email)}
+                    onDeactivate={(email) => {
+                      const user = activeUsers.find(u => u.email === email);
+                      setSelectedUserEmail(email);
+                      setSelectedUserName(user?.nombre || email);
+                      setIsDeactivateDialogOpen(true);
+                    }}
                   />
                 )}
               </TabsContent>
@@ -832,6 +840,41 @@ export default function Usuarios() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Deactivate User Confirmation Dialog */}
+      <AlertDialog open={isDeactivateDialogOpen} onOpenChange={setIsDeactivateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Desactivar usuario?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás a punto de desactivar a <strong>{selectedUserName}</strong>. 
+              El usuario no podrá acceder al sistema hasta que sea reactivado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setIsDeactivateDialogOpen(false);
+              setSelectedUserEmail(null);
+              setSelectedUserName(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedUserEmail) {
+                  deactivateMutation.mutate(selectedUserEmail);
+                  setIsDeactivateDialogOpen(false);
+                  setSelectedUserEmail(null);
+                  setSelectedUserName(null);
+                }
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Desactivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
