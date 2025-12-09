@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Shield, ChevronDown, ChevronRight, Loader2, Save, Plus, Pencil, Trash2, Search, Lock, XCircle } from "lucide-react";
+import { Shield, ChevronDown, ChevronRight, Loader2, Save, Plus, Pencil, Trash2, Search, Lock, XCircle, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -281,10 +281,16 @@ export default function RolesPermisos() {
     setPendingChanges(newChanges);
   };
 
-  // Deselect all permissions for a submenu (row)
-  const deselectAllPermissionsForSubmenu = (submenuId: number) => {
+  // Check if all permissions are active for a submenu
+  const areAllPermissionsActiveForSubmenu = (submenuId: number): boolean => {
+    return permisos.every(permiso => hasPermission(submenuId, permiso.id));
+  };
+
+  // Toggle all permissions for a submenu (row)
+  const toggleAllPermissionsForSubmenu = (submenuId: number) => {
     if (isSuperAdminSelected) return;
     
+    const allActive = areAllPermissionsActiveForSubmenu(submenuId);
     const newChanges = new Map(pendingChanges);
     
     permisos.forEach(permiso => {
@@ -293,23 +299,36 @@ export default function RolesPermisos() {
         rp => rp.submenu_id === submenuId && rp.permiso_id === permiso.id && rp.activo
       );
       
-      if (originalValue) {
-        newChanges.set(key, false);
-      } else {
+      const newValue = !allActive;
+      
+      if (originalValue === newValue) {
         newChanges.delete(key);
+      } else {
+        newChanges.set(key, newValue);
       }
     });
     
     setPendingChanges(newChanges);
   };
 
-  // Deselect all permissions for a menu (module)
-  const deselectAllPermissionsForMenu = (menuId: number) => {
+  // Check if all permissions are active for a menu (module)
+  const areAllPermissionsActiveForMenu = (menuId: number): boolean => {
+    const menu = menus.find(m => m.id === menuId);
+    if (!menu) return false;
+    
+    return menu.submenus.every(submenu => 
+      permisos.every(permiso => hasPermission(submenu.id, permiso.id))
+    );
+  };
+
+  // Toggle all permissions for a menu (module)
+  const toggleAllPermissionsForMenu = (menuId: number) => {
     if (isSuperAdminSelected) return;
     
     const menu = menus.find(m => m.id === menuId);
     if (!menu) return;
     
+    const allActive = areAllPermissionsActiveForMenu(menuId);
     const newChanges = new Map(pendingChanges);
     
     menu.submenus.forEach(submenu => {
@@ -319,10 +338,12 @@ export default function RolesPermisos() {
           rp => rp.submenu_id === submenu.id && rp.permiso_id === permiso.id && rp.activo
         );
         
-        if (originalValue) {
-          newChanges.set(key, false);
-        } else {
+        const newValue = !allActive;
+        
+        if (originalValue === newValue) {
           newChanges.delete(key);
+        } else {
+          newChanges.set(key, newValue);
         }
       });
     });
@@ -641,17 +662,24 @@ export default function RolesPermisos() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    className={`h-7 w-7 ${areAllPermissionsActiveForMenu(menu.id) ? 'text-destructive hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:text-primary hover:bg-primary/10'}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      deselectAllPermissionsForMenu(menu.id);
+                                      toggleAllPermissionsForMenu(menu.id);
                                     }}
                                   >
-                                    <XCircle className="h-4 w-4" />
+                                    {areAllPermissionsActiveForMenu(menu.id) ? (
+                                      <XCircle className="h-4 w-4" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    )}
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  Deseleccionar todos los permisos de este módulo
+                                  {areAllPermissionsActiveForMenu(menu.id) 
+                                    ? 'Deseleccionar todos los permisos de este módulo'
+                                    : 'Seleccionar todos los permisos de este módulo'
+                                  }
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -665,7 +693,7 @@ export default function RolesPermisos() {
                                 className="grid gap-2 py-2 border-b border-border/50 last:border-0 items-center"
                                 style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, 80px)` }}
                               >
-                                {/* Deselect row button */}
+                                {/* Toggle row button */}
                                 <div className="flex justify-center">
                                   {!isSuperAdminSelected && (
                                     <TooltipProvider>
@@ -674,14 +702,21 @@ export default function RolesPermisos() {
                                           <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => deselectAllPermissionsForSubmenu(submenu.id)}
+                                            className={`h-6 w-6 ${areAllPermissionsActiveForSubmenu(submenu.id) ? 'text-destructive hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:text-primary hover:bg-primary/10'}`}
+                                            onClick={() => toggleAllPermissionsForSubmenu(submenu.id)}
                                           >
-                                            <XCircle className="h-3 w-3" />
+                                            {areAllPermissionsActiveForSubmenu(submenu.id) ? (
+                                              <XCircle className="h-3 w-3" />
+                                            ) : (
+                                              <CheckCircle2 className="h-3 w-3" />
+                                            )}
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          Deseleccionar todos los permisos de esta fila
+                                          {areAllPermissionsActiveForSubmenu(submenu.id)
+                                            ? 'Deseleccionar todos los permisos de esta fila'
+                                            : 'Seleccionar todos los permisos de esta fila'
+                                          }
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
