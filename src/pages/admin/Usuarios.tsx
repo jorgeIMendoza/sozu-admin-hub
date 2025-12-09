@@ -81,7 +81,7 @@ function UsersTable({
             {!isInactiveTab && (
               <TableHead className="font-semibold text-foreground">Contraseña</TableHead>
             )}
-            <TableHead className="font-semibold text-foreground text-right">Acciones</TableHead>
+            <TableHead className="font-semibold text-foreground text-center">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
