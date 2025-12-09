@@ -30,6 +30,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useProjectAccess } from "@/hooks/useProjectAccess";
+import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 
 interface Modelo {
   id: number;
@@ -66,10 +68,15 @@ export default function Modelos() {
   
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Project access control
+  const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
 
   useEffect(() => {
-    fetchProyectos();
-  }, []);
+    if (!isLoadingAccess) {
+      fetchProyectos();
+    }
+  }, [isLoadingAccess, hasUnrestrictedAccess, accessibleProjectIds]);
 
   // Debounce search input to prevent focus loss
   useEffect(() => {
@@ -85,12 +92,19 @@ export default function Modelos() {
 
   const fetchProyectos = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('proyectos')
         .select('id, nombre')
         .eq('activo', true)
         .not("id_tipo_uso", "in", "(9,10,11)")
         .order('nombre', { ascending: true });
+
+      // Apply project access filter for non-admin users
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+        query = query.in('id', accessibleProjectIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setProyectos(data || []);
@@ -100,8 +114,13 @@ export default function Modelos() {
   };
 
   const { data: modelosActivosData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
-    queryKey: ["modelos", "active", currentPageActive, searchTerm, selectedProyectoFilter],
+    queryKey: ["modelos", "active", currentPageActive, searchTerm, selectedProyectoFilter, accessibleProjectIds],
     queryFn: async () => {
+      // If user has no access and is not admin, return empty
+      if (hasNoAccess) {
+        return { modelos: [], count: 0 };
+      }
+
       const from = (currentPageActive - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
@@ -109,6 +128,11 @@ export default function Modelos() {
         .from("modelos")
         .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo", { count: 'exact' })
         .eq("activo", true);
+
+      // Apply project access filter for non-admin users
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+        query = query.in("id_proyecto", accessibleProjectIds);
+      }
 
       // Apply filters
       if (searchTerm) {
@@ -129,6 +153,7 @@ export default function Modelos() {
 
       return { modelos: (data || []) as Modelo[], count: count || 0 };
     },
+    enabled: !isLoadingAccess,
   });
 
   const { data: modelosEliminadosData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
@@ -300,8 +325,23 @@ export default function Modelos() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingAccess) {
     return <div>Cargando modelos...</div>;
+  }
+
+  // Show no access message if user has no projects assigned
+  if (hasNoAccess) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gestión de Modelos</h1>
+          <p className="text-muted-foreground">
+            Administra los modelos de propiedades
+          </p>
+        </div>
+        <NoProjectAccess />
+      </div>
+    );
   }
 
   return (

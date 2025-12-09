@@ -8,6 +8,7 @@ import { ThemeProvider } from "next-themes";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { PermissionRoute } from "@/components/auth/PermissionRoute";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Index from "./pages/Index";
@@ -57,6 +58,7 @@ const AprobacionComisiones = lazy(() => import("./pages/admin/AprobacionComision
 const PagarComisiones = lazy(() => import("./pages/admin/PagarComisiones"));
 const ReporteDiscrepancias = lazy(() => import("./pages/admin/ReporteDiscrepancias"));
 const RolesPermisos = lazy(() => import("./pages/admin/RolesPermisos"));
+const AccessDenied = lazy(() => import("./pages/admin/AccessDenied"));
 
 const queryClient = new QueryClient();
 
@@ -83,13 +85,16 @@ const App = () => (
                 <Route path="/auth/login" element={<Login />} />
                 <Route path="/auth/change-password" element={<ChangePassword />} />
                 
-                {/* Admin Routes - Protected */}
+                {/* Admin Routes - Protected by Auth and Permissions */}
                 <Route path="/admin" element={
                   <ProtectedRoute>
-                    <AdminLayout />
+                    <PermissionRoute>
+                      <AdminLayout />
+                    </PermissionRoute>
                   </ProtectedRoute>
                 }>
                   <Route index element={<Dashboard />} />
+                  <Route path="access-denied" element={<AccessDenied />} />
                   <Route path="proyectos" element={<Proyectos />} />
                   <Route path="propiedades" element={<Propiedades />} />
                   <Route path="usuarios" element={<Usuarios />} />

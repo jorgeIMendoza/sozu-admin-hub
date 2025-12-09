@@ -2,10 +2,12 @@ import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/admin/StatCard";
+import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 import { Building2, Home, DollarSign, MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useProjectAccess } from "@/hooks/useProjectAccess";
 
 interface ProjectData {
   id: number;
@@ -20,6 +22,14 @@ interface ProjectData {
 }
 
 const Dashboard = () => {
+  // Project access control
+  const { 
+    accessibleProjectIds, 
+    hasUnrestrictedAccess, 
+    isLoading: isLoadingAccess, 
+    hasNoAccess 
+  } = useProjectAccess();
+
   // Fetch Sozu-managed projects (Inmobiliaria = Real Estate Ventures)
   const { data: sozuProjectIds = [] } = useQuery({
     queryKey: ['sozu-projects'],
@@ -37,9 +47,14 @@ const Dashboard = () => {
 
   // Fetch projects with amounts
   const { data: projectAmounts = [] } = useQuery({
-    queryKey: ['dashboard-project-amounts'],
+    queryKey: ['dashboard-project-amounts', accessibleProjectIds],
     queryFn: async () => {
-      const { data: projects, error: projectsError } = await supabase
+      // If user has no access and is not admin, return empty
+      if (hasNoAccess) {
+        return [];
+      }
+
+      let query = supabase
         .from('proyectos')
         .select(`
           id,
@@ -51,6 +66,13 @@ const Dashboard = () => {
         .eq('activo', true)
         .not('nombre', 'in', '("Productos","Servicios","Mantenimientos")')
         .limit(10000);
+
+      // Apply project access filter for non-admin users
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+        query = query.in('id', accessibleProjectIds);
+      }
+
+      const { data: projects, error: projectsError } = await query;
 
       if (projectsError) throw projectsError;
 
@@ -174,13 +196,21 @@ const Dashboard = () => {
       return projectsWithAmounts
         .filter(p => p.monto_total > 0)
         .sort((a, b) => b.monto_total - a.monto_total);
-    }
+    },
+    enabled: !isLoadingAccess
   });
 
-  // Filter projects to only show Sozu-managed ones
+  // Filter projects to only show Sozu-managed ones (and accessible to user)
   const filteredProjects = useMemo(() => {
-    return projectAmounts.filter((p: ProjectData) => sozuProjectIds.includes(p.id));
-  }, [projectAmounts, sozuProjectIds]);
+    let projects = projectAmounts.filter((p: ProjectData) => sozuProjectIds.includes(p.id));
+    
+    // Additional filter for non-admin users
+    if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+      projects = projects.filter((p: ProjectData) => accessibleProjectIds.includes(p.id));
+    }
+    
+    return projects;
+  }, [projectAmounts, sozuProjectIds, hasUnrestrictedAccess, accessibleProjectIds]);
 
   // Fetch total buildings for filtered Sozu projects
   const projectIdsWithAmount = useMemo(() => 
@@ -257,6 +287,21 @@ const Dashboard = () => {
     }
     return formatCurrency(amount);
   };
+
+  // Show no access message if user has no projects assigned
+  if (!isLoadingAccess && hasNoAccess) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground">Panel de control</p>
+          </div>
+        </div>
+        <NoProjectAccess message="No tienes proyectos asignados. Contacta al administrador para solicitar acceso a los proyectos." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -363,7 +408,7 @@ const Dashboard = () => {
             </Card>
           ))}
         </div>
-        {topProjects.length === 0 && (
+        {topProjects.length === 0 && !isLoadingAccess && (
           <div className="text-center py-12 text-muted-foreground">
             No hay proyectos disponibles
           </div>

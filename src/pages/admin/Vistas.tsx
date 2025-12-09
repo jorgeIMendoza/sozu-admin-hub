@@ -32,6 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useProjectAccess } from "@/hooks/useProjectAccess";
+import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 
 interface Vista {
   id: number;
@@ -75,6 +77,9 @@ export default function Vistas() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Project access control
+  const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
 
   const createForm = useForm<z.infer<typeof vistaFormSchema>>({
     resolver: zodResolver(vistaFormSchema),
@@ -95,8 +100,10 @@ export default function Vistas() {
   });
 
   useEffect(() => {
-    fetchProyectos();
-  }, []);
+    if (!isLoadingAccess) {
+      fetchProyectos();
+    }
+  }, [isLoadingAccess, hasUnrestrictedAccess, accessibleProjectIds]);
 
   // Debounce search input
   useEffect(() => {
@@ -116,12 +123,19 @@ export default function Vistas() {
 
   const fetchProyectos = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('proyectos')
         .select('id, nombre')
         .eq('activo', true)
         .not("id_tipo_uso", "in", "(9,10,11)")
         .order('nombre', { ascending: true });
+
+      // Apply project access filter for non-admin users
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+        query = query.in('id', accessibleProjectIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setProyectos(data || []);
@@ -457,12 +471,27 @@ export default function Vistas() {
   const activosCount = activeData?.count || 0;
   const eliminadosCount = deletedData?.count || 0;
 
-  if (loading) {
+  if (loading || isLoadingAccess) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-lg">Cargando vistas...</div>
         </div>
+      </div>
+    );
+  }
+
+  // Show no access message if user has no projects assigned
+  if (hasNoAccess) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gestión de Vistas</h1>
+          <p className="text-muted-foreground">
+            Administra las vistas disponibles para las propiedades
+          </p>
+        </div>
+        <NoProjectAccess />
       </div>
     );
   }
