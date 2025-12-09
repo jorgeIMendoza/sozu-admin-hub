@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -2704,18 +2705,18 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <Label>Notario asignado</Label>
-                      <Select value={selectedNotario} onValueChange={handleNotarioChange} disabled={isReadOnly}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar notario" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {notarios?.map((notario) => (
-                            <SelectItem key={notario.id} value={notario.id.toString()}>
-                              {notario.nombre} - {notario.notaria}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        value={selectedNotario}
+                        onValueChange={handleNotarioChange}
+                        options={notarios?.map((notario) => ({
+                          value: notario.id.toString(),
+                          label: `${notario.nombre} - ${notario.notaria}`
+                        })) || []}
+                        placeholder="Seleccionar notario"
+                        searchPlaceholder="Buscar notario..."
+                        emptyText="No se encontraron notarios"
+                        disabled={isReadOnly}
+                      />
                     </div>
 
                     {/* Campos de escritura - solo visibles cuando hay notario seleccionado */}
