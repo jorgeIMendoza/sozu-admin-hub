@@ -179,13 +179,34 @@ export default function Agentes() {
           
         if (updateError) throw updateError;
       }
+
+      // Crear usuario automáticamente con rol Agente Inmobiliario (id: 3)
+      try {
+        const { error: userError } = await supabase.functions.invoke('create-user', {
+          body: {
+            email: cleanPersonData.email,
+            nombre: cleanPersonData.nombre_legal,
+            rol_id: 3, // Agente Inmobiliario
+            id_persona: personResult.id,
+            telefono: cleanPersonData.telefono || null,
+            clave_pais_telefono: cleanPersonData.clave_pais_telefono || null
+          }
+        });
+        
+        if (userError) {
+          console.error('Error al crear usuario automático:', userError);
+        }
+      } catch (e) {
+        console.error('Error al crear usuario automático:', e);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agentes'] });
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       setIsNewDialogOpen(false);
       toast({
         title: "Éxito",
-        description: "Agente creado correctamente.",
+        description: "Agente y usuario creados correctamente.",
       });
     },
     onError: (error: any) => {

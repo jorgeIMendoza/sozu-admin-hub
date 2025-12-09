@@ -197,13 +197,34 @@ export default function Inmobiliarias() {
           
         if (updateError) throw updateError;
       }
+
+      // Crear usuario automáticamente con rol Inmobiliaria (id: 4)
+      try {
+        const { error: userError } = await supabase.functions.invoke('create-user', {
+          body: {
+            email: cleanPersonData.email,
+            nombre: cleanPersonData.nombre_legal,
+            rol_id: 4, // Inmobiliaria
+            id_persona: personResult.id,
+            telefono: cleanPersonData.telefono || null,
+            clave_pais_telefono: cleanPersonData.clave_pais_telefono || null
+          }
+        });
+        
+        if (userError) {
+          console.error('Error al crear usuario automático:', userError);
+        }
+      } catch (e) {
+        console.error('Error al crear usuario automático:', e);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       setIsNewDialogOpen(false);
       toast({
         title: "Éxito",
-        description: "Inmobiliaria creada correctamente.",
+        description: "Inmobiliaria y usuario creados correctamente.",
       });
     },
     onError: (error: any) => {
