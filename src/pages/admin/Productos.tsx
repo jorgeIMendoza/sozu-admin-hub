@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, Package } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, Package, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Producto = {
   id: number;
@@ -29,6 +30,7 @@ type Producto = {
   categoria_nombre?: string;
   dueno_nombre?: string;
   unidad_sat_descripcion?: string;
+  tiene_metraje?: boolean;
 };
 
 export default function Productos() {
@@ -64,7 +66,7 @@ export default function Productos() {
       .from('productos_servicios')
       .select(`
         *,
-        categorias_producto!productos_servicios_id_categoria_fkey (nombre),
+        categorias_producto!productos_servicios_id_categoria_fkey (nombre, tiene_metraje),
         entidades_relacionadas!productos_servicios_id_entidad_relacionada_dueno_fkey (
           personas!entidades_relacionadas_id_persona_fkey (nombre_legal)
         ),
@@ -90,6 +92,7 @@ export default function Productos() {
       categoria_nombre: item.categorias_producto?.nombre,
       dueno_nombre: item.entidades_relacionadas?.personas?.nombre_legal,
       unidad_sat_descripcion: item.unidades_sat?.descripcion,
+      tiene_metraje: item.categorias_producto?.tiene_metraje || false,
     })) as Producto[];
   };
 
@@ -506,7 +509,7 @@ export default function Productos() {
               <TableHead className="font-semibold">Nombre</TableHead>
               <TableHead className="font-semibold">Descripción</TableHead>
               <TableHead className="font-semibold">Categoría</TableHead>
-              <TableHead className="font-semibold">Precio Lista</TableHead>
+              <TableHead className="font-semibold">Precio</TableHead>
               <TableHead className="font-semibold">Stock</TableHead>
               <TableHead className="font-semibold">SAT ID</TableHead>
               <TableHead className="font-semibold">Unidad SAT</TableHead>
@@ -524,9 +527,18 @@ export default function Productos() {
                 <TableCell className="max-w-xs truncate">{producto.descripcion || '-'}</TableCell>
                 <TableCell>{producto.categoria_nombre || '-'}</TableCell>
                 <TableCell>
-                  <span className="font-semibold">
-                    $ {parseFloat(producto.precio_lista.toString()).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="font-semibold cursor-help">
+                          $ {parseFloat(producto.precio_lista.toString()).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{producto.tiene_metraje ? 'Precio por M²' : 'Precio de Lista'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </TableCell>
                 <TableCell>
                   <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
