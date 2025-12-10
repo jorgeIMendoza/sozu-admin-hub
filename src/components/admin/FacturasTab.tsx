@@ -393,7 +393,7 @@ export function FacturasTab({
       id_cuenta_cobranza: cuentaCobranzaId,
       ...(idDocumento && { id_documento: idDocumento }),
       es_draft: esDraft,
-      es_verificado: !esDraft,
+      id_estatus_verificacion: esDraft ? 1 : 2, // 1=Pendiente, 2=Validado
       propiedad: {
         numero_propiedad: propiedadData.numero_propiedad,
         metraje_escriturable: ((propiedadData.m2_interiores || 0) + (propiedadData.m2_exteriores || 0)),

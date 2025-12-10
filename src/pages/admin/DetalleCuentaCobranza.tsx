@@ -156,7 +156,7 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
           id,
           numero,
           url,
-          es_verificado,
+          id_estatus_verificacion,
           fecha_creacion,
           tipos_documento:id_tipo_documento(nombre)
         `)
@@ -313,8 +313,8 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
                     {new Date(doc.fecha_creacion).toLocaleDateString('es-MX')}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={doc.es_verificado ? "default" : "secondary"}>
-                      {doc.es_verificado ? "Verificado" : "Pendiente"}
+                    <Badge variant={doc.id_estatus_verificacion === 2 ? "default" : doc.id_estatus_verificacion === 3 ? "destructive" : "secondary"}>
+                      {doc.id_estatus_verificacion === 2 ? "Validado" : doc.id_estatus_verificacion === 3 ? "Rechazado" : doc.id_estatus_verificacion === 4 ? "Expirado" : "Pendiente"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">

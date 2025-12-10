@@ -515,7 +515,7 @@ export default function Prospectos() {
               .insert({
                 numero: (i + 1).toString(),
                 url: urlData.publicUrl,
-                es_verificado: false,
+                id_estatus_verificacion: 1, // 1 = Pendiente
                 activo: true,
                 id_tipo_documento: parseInt(doc.tipoDocumento),
                 id_persona: personResult.id

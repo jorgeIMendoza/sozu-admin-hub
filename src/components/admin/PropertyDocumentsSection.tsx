@@ -33,7 +33,7 @@ interface TempDocument {
 interface Documento {
   numero: string | null;
   url: string;
-  es_verificado: boolean;
+  id_estatus_verificacion: number; // 1=Pendiente, 2=Validado, 3=Rechazado, 4=Expirado
   activo: boolean;
   id_tipo_documento: number;
   fecha_creacion: string;
@@ -271,8 +271,8 @@ export const PropertyDocumentsSection = ({
                         <TableCell className="font-medium">{documento.numero}</TableCell>
                         <TableCell>{documento.tipo_documento_nombre}</TableCell>
                         <TableCell>
-                          <Badge variant={documento.es_verificado ? "default" : "secondary"}>
-                            {documento.es_verificado ? "Verificado" : "Pendiente"}
+                          <Badge variant={documento.id_estatus_verificacion === 2 ? "default" : documento.id_estatus_verificacion === 3 ? "destructive" : "secondary"}>
+                            {documento.id_estatus_verificacion === 2 ? "Validado" : documento.id_estatus_verificacion === 3 ? "Rechazado" : documento.id_estatus_verificacion === 4 ? "Expirado" : "Pendiente"}
                           </Badge>
                         </TableCell>
                         <TableCell>

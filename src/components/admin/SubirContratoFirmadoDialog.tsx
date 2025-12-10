@@ -97,7 +97,7 @@ export function SubirContratoFirmadoDialog({
           id_tipo_documento: 18, // Tipo "Contrato"
           url: publicUrl,
           numero: numeroContrato || null,
-          es_verificado: true,
+          id_estatus_verificacion: 2, // 2 = Validado
           es_draft: false,
           activo: true,
         });

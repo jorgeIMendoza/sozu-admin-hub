@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
     for (const personaId of personaIds) {
       const { data: documentos, error: docsError } = await supabase
         .from('documentos')
-        .select('id, es_verificado, id_tipo_documento')
+        .select('id, id_estatus_verificacion, id_tipo_documento')
         .eq('id_persona', personaId)
         .eq('activo', true)
         .neq('id_tipo_documento', 22); // Excluir Factura PDF
@@ -142,7 +142,8 @@ Deno.serve(async (req) => {
       }
 
       totalDocumentos += documentos.length;
-      const verificados = documentos.filter(d => d.es_verificado).length;
+      // id_estatus_verificacion = 2 significa Validado
+      const verificados = documentos.filter(d => d.id_estatus_verificacion === 2).length;
       documentosVerificados += verificados;
 
       console.log(`[check-escrituracion] Persona ${personaId}: ${verificados}/${documentos.length} documentos verificados`);

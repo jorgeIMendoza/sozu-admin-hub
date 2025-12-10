@@ -149,7 +149,7 @@ export default function SubirProyectoEscrituraDialog({
           .from('documentos')
           .update({
             url: urlPath,
-            es_verificado: false,
+            id_estatus_verificacion: 1, // 1 = Pendiente
             fecha_actualizacion: new Date().toISOString(),
           })
           .eq('id', existingDoc.id)
@@ -176,7 +176,7 @@ export default function SubirProyectoEscrituraDialog({
             id_tipo_documento: 29, // Proyecto de escritura
             url: urlPath,
             activo: true,
-            es_verificado: false,
+            id_estatus_verificacion: 1, // 1 = Pendiente
             es_draft: false,
           })
           .select()

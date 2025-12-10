@@ -54,7 +54,7 @@ interface Documento {
   id: number;
   numero: string | null;
   url: string;
-  es_verificado: boolean;
+  id_estatus_verificacion: number; // 1=Pendiente, 2=Validado, 3=Rechazado, 4=Expirado
   activo: boolean;
   id_tipo_documento: number;
   fecha_creacion: string;
@@ -396,7 +396,8 @@ export function DocumentsTab({
       // Determinar si es una factura PDF o XML
       const nombreTipoDoc = tipoDoc?.nombre.toLowerCase() || '';
       const esFactura = nombreTipoDoc.includes('factura pdf') || nombreTipoDoc.includes('factura xml');
-      const esVerificado = esFactura ? true : false;
+      // 1=Pendiente, 2=Validado
+      const idEstatusVerificacion = esFactura ? 2 : 1;
 
       // Create new documento record (permitir múltiples documentos del mismo tipo)
       const documentoData: any = {
@@ -404,7 +405,7 @@ export function DocumentsTab({
         url: urlData.publicUrl,
         id_tipo_documento: parseInt(selectedTipoDocumento),
         activo: true,
-        es_verificado: esVerificado,
+        id_estatus_verificacion: idEstatusVerificacion,
       };
 
       // Add foreign keys based on entity type
@@ -488,7 +489,8 @@ export function DocumentsTab({
   const handleToggleVerification = async (documento: Documento) => {
     try {
       // 🔹 NUEVO: Si es cuenta_cobranza y se está verificando (no des-verificando)
-      if (entityType === 'cuenta_cobranza' && !documento.es_verificado) {
+      // id_estatus_verificacion: 1=Pendiente, 2=Validado
+      if (entityType === 'cuenta_cobranza' && documento.id_estatus_verificacion !== 2) {
         // Verificar si este documento es de categoría 7
         const tipoDocResp = await supabase
           .from('tipos_documento')
@@ -509,13 +511,13 @@ export function DocumentsTab({
             
             const { data: allDocs } = await supabase
               .from('documentos')
-              .select('id, es_verificado')
+              .select('id, id_estatus_verificacion')
               .eq('id_cuenta_cobranza', entityId)
               .in('id_tipo_documento', categoria7Ids)
               .eq('activo', true);
             
-            // Verificar si este es el ÚNICO documento sin verificar
-            const docsNoVerificados = allDocs?.filter(d => !d.es_verificado) || [];
+            // Verificar si este es el ÚNICO documento sin verificar (estatus != 2)
+            const docsNoVerificados = allDocs?.filter(d => d.id_estatus_verificacion !== 2) || [];
             const esUltimoSinVerificar = docsNoVerificados.length === 1 && docsNoVerificados[0].id === documento.id;
             
             if (esUltimoSinVerificar) {
@@ -606,8 +608,8 @@ export function DocumentsTab({
       }
 
       // 🔹 Flujo normal: verificar/des-verificar documento
-      // Si es cuenta_cobranza y el documento NO está verificado, validamos antes de verificar
-      if (entityType === 'cuenta_cobranza' && !documento.es_verificado && entityId) {
+      // Si es cuenta_cobranza y el documento NO está verificado (estatus != 2), validamos antes de verificar
+      if (entityType === 'cuenta_cobranza' && documento.id_estatus_verificacion !== 2 && entityId) {
         // Verificar si es documento de categoría 7
         const supabaseClient = supabase as any;
         const tipoDocResp = await supabaseClient
@@ -630,8 +632,8 @@ export function DocumentsTab({
               d => categoria7Ids.includes(d.id_tipo_documento) && d.activo
             );
             
-            // Contar cuántos NO están verificados (incluyendo el actual)
-            const noVerificados = categoria7Docs.filter(d => !d.es_verificado);
+            // Contar cuántos NO están verificados (estatus != 2)
+            const noVerificados = categoria7Docs.filter(d => d.id_estatus_verificacion !== 2);
             
             // Validar entidad administradora antes de verificar cualquier documento de categoría 7
             if (noVerificados.length >= 1) {
@@ -724,9 +726,12 @@ export function DocumentsTab({
         }
       }
 
+      // Toggle: si está validado (2) -> pendiente (1), si no está validado -> validado (2)
+      const nuevoEstatus = documento.id_estatus_verificacion === 2 ? 1 : 2;
+      
       const { error } = await supabase
         .from('documentos')
-        .update({ es_verificado: !documento.es_verificado })
+        .update({ id_estatus_verificacion: nuevoEstatus })
         .eq('id', documento.id);
         
       if (error) throw error;
@@ -735,11 +740,11 @@ export function DocumentsTab({
       
       toast({ 
         title: "Éxito", 
-        description: documento.es_verificado ? "Documento marcado como no verificado" : "Documento verificado correctamente"
+        description: documento.id_estatus_verificacion === 2 ? "Documento marcado como no verificado" : "Documento verificado correctamente"
       });
 
       // 🔹 NUEVO: Si se está verificando un contrato firmado (tipo 18) en cuenta_cobranza
-      if (!documento.es_verificado && documento.id_tipo_documento === 18 && entityType === 'cuenta_cobranza' && entityId) {
+      if (documento.id_estatus_verificacion !== 2 && documento.id_tipo_documento === 18 && entityType === 'cuenta_cobranza' && entityId) {
         console.log('[DocumentsTab] Contrato firmado verificado. Llamando a check-property-sold-status...');
         
         try {
@@ -1120,8 +1125,8 @@ export function DocumentsTab({
                         <TableCell>{documento.tipo_documento_nombre}</TableCell>
                         <TableCell>{documento.numero || ''}</TableCell>
                         <TableCell>
-                          <Badge variant={documento.es_verificado ? "default" : "secondary"}>
-                            {documento.es_verificado ? "Verificado" : "Pendiente"}
+                          <Badge variant={documento.id_estatus_verificacion === 2 ? "default" : documento.id_estatus_verificacion === 3 ? "destructive" : "secondary"}>
+                            {documento.id_estatus_verificacion === 2 ? "Validado" : documento.id_estatus_verificacion === 3 ? "Rechazado" : documento.id_estatus_verificacion === 4 ? "Expirado" : "Pendiente"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -1164,7 +1169,7 @@ export function DocumentsTab({
                                         size="sm"
                                         onClick={() => handleToggleVerification(documento)}
                                       >
-                                        {documento.es_verificado ? (
+                                        {documento.id_estatus_verificacion === 2 ? (
                                           <Check className="h-4 w-4 text-green-600" />
                                         ) : (
                                           <CheckCircle className="h-4 w-4 text-muted-foreground" />
@@ -1172,7 +1177,7 @@ export function DocumentsTab({
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>{documento.es_verificado ? 'Anular Verificación' : 'Verificar'}</p>
+                                      <p>{documento.id_estatus_verificacion === 2 ? 'Anular Verificación' : 'Verificar'}</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1424,10 +1429,10 @@ export function DocumentsTab({
                   // 1. Primero llamar al webhook - CRÍTICO: webhook debe ejecutarse ANTES de verificar
                   await procesarUltimoDocumento();
                   
-                  // 2. Solo si el webhook fue exitoso, verificar el documento
+                  // 2. Solo si el webhook fue exitoso, verificar el documento (estatus 2 = Validado)
                   const { error: verifyError } = await supabase
                     .from('documentos')
-                    .update({ es_verificado: true })
+                    .update({ id_estatus_verificacion: 2 })
                     .eq('id', documentoPendienteVerificar.id);
                   
                   if (verifyError) throw verifyError;

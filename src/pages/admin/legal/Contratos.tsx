@@ -128,14 +128,14 @@ export default function Contratos() {
                   EXISTS (
                     SELECT 1 FROM documentos doc_no_verificado
                     WHERE doc_no_verificado.id_persona = comp.id_persona
-                      AND doc_no_verificado.es_verificado = false
+                      AND doc_no_verificado.id_estatus_verificacion != 2
                       AND doc_no_verificado.activo = true
                       AND doc_no_verificado.id_cuenta_cobranza IS NULL
                   )
                   OR NOT EXISTS (
                     SELECT 1 FROM documentos doc_verificado
                     WHERE doc_verificado.id_persona = comp.id_persona
-                      AND doc_verificado.es_verificado = true
+                      AND doc_verificado.id_estatus_verificacion = 2
                       AND doc_verificado.activo = true
                       AND doc_verificado.id_cuenta_cobranza IS NULL
                   )
@@ -194,7 +194,7 @@ export default function Contratos() {
           `)
           .eq('id_persona', c.id_persona)
           .is('id_cuenta_cobranza', null)
-          .eq('es_verificado', true)
+          .eq('id_estatus_verificacion', 2) // 2 = Validado
           .eq('activo', true);
 
         return {

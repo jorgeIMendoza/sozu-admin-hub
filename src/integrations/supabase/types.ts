@@ -2048,6 +2048,54 @@ export type Database = {
         }
         Relationships: []
       }
+      comentarios_verificacion_documento: {
+        Row: {
+          activo: boolean
+          comentario: string
+          email_usuario: string | null
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_documento: number
+          id_estatus_verificacion: number
+        }
+        Insert: {
+          activo?: boolean
+          comentario: string
+          email_usuario?: string | null
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_documento: number
+          id_estatus_verificacion: number
+        }
+        Update: {
+          activo?: boolean
+          comentario?: string
+          email_usuario?: string | null
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_documento?: number
+          id_estatus_verificacion?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comentarios_verificacion_documento_id_estatus_verificacion_fkey"
+            columns: ["id_estatus_verificacion"]
+            isOneToOne: false
+            referencedRelation: "estatus_verificacion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_comentarios_verif_documento"
+            columns: ["id_documento"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comisionistas: {
         Row: {
           activo: boolean
@@ -2399,11 +2447,11 @@ export type Database = {
         Row: {
           activo: boolean
           es_draft: boolean
-          es_verificado: boolean
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
           id_cuenta_cobranza: number | null
+          id_estatus_verificacion: number
           id_persona: number | null
           id_producto: number | null
           id_propiedad: number | null
@@ -2415,11 +2463,11 @@ export type Database = {
         Insert: {
           activo?: boolean
           es_draft?: boolean
-          es_verificado?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
           id_cuenta_cobranza?: number | null
+          id_estatus_verificacion?: number
           id_persona?: number | null
           id_producto?: number | null
           id_propiedad?: number | null
@@ -2431,11 +2479,11 @@ export type Database = {
         Update: {
           activo?: boolean
           es_draft?: boolean
-          es_verificado?: boolean
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
           id_cuenta_cobranza?: number | null
+          id_estatus_verificacion?: number
           id_persona?: number | null
           id_producto?: number | null
           id_propiedad?: number | null
@@ -2445,6 +2493,13 @@ export type Database = {
           url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "documentos_id_estatus_verificacion_fkey"
+            columns: ["id_estatus_verificacion"]
+            isOneToOne: false
+            referencedRelation: "estatus_verificacion"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documentos_id_producto_fkey"
             columns: ["id_producto"]
@@ -3132,6 +3187,30 @@ export type Database = {
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
+          nombre: string
+        }
+        Update: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          nombre?: string
+        }
+        Relationships: []
+      }
+      estatus_verificacion: {
+        Row: {
+          activo: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          nombre: string
+        }
+        Insert: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id: number
           nombre: string
         }
         Update: {

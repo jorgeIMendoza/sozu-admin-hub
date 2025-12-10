@@ -132,7 +132,7 @@ export function JuicioTerminadoDialog({ isOpen, onClose, cuentaCobranzaId, propi
             id_cuenta_cobranza: cuentaCobranzaId,
             id_tipo_documento: tipoDocumentoJuicio.id,
             url: file.url,
-            es_verificado: true,
+            id_estatus_verificacion: 2, // 2 = Validado
             activo: true
           });
 

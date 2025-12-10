@@ -161,9 +161,10 @@ Deno.serve(async (req) => {
           const idsPersonas = compradores.map(c => c.id_persona);
           console.log(`[check-property-sold-status] Desverificando documentos de ${idsPersonas.length} comprador(es): ${idsPersonas.join(', ')}`);
 
+          // id_estatus_verificacion: 1 = Pendiente (des-verificar)
           const { error: docsError } = await supabase
             .from('documentos')
-            .update({ es_verificado: false })
+            .update({ id_estatus_verificacion: 1 })
             .in('id_persona', idsPersonas)
             .eq('activo', true)
             .neq('id_tipo_documento', 22); // Excluir Factura PDF
@@ -227,13 +228,13 @@ Deno.serve(async (req) => {
 
     console.log(`[check-property-sold-status] Acuerdos de enganche: ${acuerdosPagados}/${totalAcuerdos} pagados`);
 
-    // 4. CONDICIÓN 2: Verificar que existe contrato firmado (tipo 18) verificado
+    // 4. CONDICIÓN 2: Verificar que existe contrato firmado (tipo 18) verificado (id_estatus_verificacion = 2)
     const { data: contratos, error: contratosError } = await supabase
       .from('documentos')
       .select('id')
       .eq('id_cuenta_cobranza', id_cuenta_cobranza)
       .eq('id_tipo_documento', 18) // Contrato firmado
-      .eq('es_verificado', true)
+      .eq('id_estatus_verificacion', 2) // 2 = Validado
       .eq('activo', true);
 
     if (contratosError) {

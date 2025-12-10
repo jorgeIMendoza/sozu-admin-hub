@@ -72,7 +72,7 @@ export const ProjectBrochuresSection = ({ projectId }: ProjectBrochuresSectionPr
           id_proyecto: projectId,
           url: publicUrl,
           id_tipo_documento: 30,
-          es_verificado: true,
+          id_estatus_verificacion: 2, // 2 = Validado
         });
 
       if (insertError) throw insertError;
