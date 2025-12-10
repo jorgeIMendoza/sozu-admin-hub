@@ -621,13 +621,13 @@ export default function RolesPermisos() {
                   <div className="min-w-[900px]">
                   {/* Permissions header */}
                   <div className="sticky top-0 bg-background z-10 border-b pb-2 mb-2">
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, minmax(85px, 1fr))` }}>
+                    <div className="grid gap-1" style={{ gridTemplateColumns: `30px 160px repeat(${permisos.length}, minmax(55px, 1fr))` }}>
                       <div></div>
-                      <div className="font-medium text-sm">Módulo</div>
+                      <div className="font-medium text-xs">Módulo</div>
                       {permisos.map(permiso => (
                         <div key={permiso.id} className="text-center">
-                          <Badge variant="outline" className="text-xs capitalize whitespace-nowrap">
-                            {permiso.nombre}
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize whitespace-nowrap">
+                            {permiso.nombre.replace('_', ' ')}
                           </Badge>
                         </div>
                       ))}
@@ -691,8 +691,8 @@ export default function RolesPermisos() {
                             {menu.submenus.map(submenu => (
                               <div 
                                 key={submenu.id} 
-                                className="grid gap-2 py-2 border-b border-border/50 last:border-0 items-center"
-                                style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, minmax(85px, 1fr))` }}
+                                className="grid gap-1 py-1.5 border-b border-border/50 last:border-0 items-center"
+                                style={{ gridTemplateColumns: `30px 160px repeat(${permisos.length}, minmax(55px, 1fr))` }}
                               >
                                 {/* Toggle row button */}
                                 <div className="flex justify-center">

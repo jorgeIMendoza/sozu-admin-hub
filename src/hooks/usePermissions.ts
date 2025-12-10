@@ -40,6 +40,7 @@ export function usePermissions() {
   const canApprove = useCallback((path: string) => hasPermission(path, 'aprobar'), [hasPermission]);
   const canExport = useCallback((path: string) => hasPermission(path, 'exportar'), [hasPermission]);
   const canConfigure = useCallback((path: string) => hasPermission(path, 'configurar'), [hasPermission]);
+  const canGenerateOffer = useCallback((path: string) => hasPermission(path, 'generar_oferta'), [hasPermission]);
 
   // Check if user is Super Admin (has all permissions)
   const isSuperAdmin = profile?.rol_nombre === 'Super Administrador';
@@ -53,6 +54,7 @@ export function usePermissions() {
     canApprove,
     canExport,
     canConfigure,
+    canGenerateOffer,
     isSuperAdmin,
   };
 }

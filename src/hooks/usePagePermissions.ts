@@ -10,6 +10,7 @@ interface PagePermissions {
   canApprove: boolean;
   canExport: boolean;
   canConfigure: boolean;
+  canGenerateOffer: boolean;
 }
 
 const DEFAULT_PERMISSIONS: PagePermissions = {
@@ -20,6 +21,7 @@ const DEFAULT_PERMISSIONS: PagePermissions = {
   canApprove: false,
   canExport: false,
   canConfigure: false,
+  canGenerateOffer: false,
 };
 
 const SUPER_ADMIN_PERMISSIONS: PagePermissions = {
@@ -30,6 +32,7 @@ const SUPER_ADMIN_PERMISSIONS: PagePermissions = {
   canApprove: true,
   canExport: true,
   canConfigure: true,
+  canGenerateOffer: true,
 };
 
 export function usePagePermissions(pagePath: string) {
@@ -102,6 +105,7 @@ export function usePagePermissions(pagePath: string) {
           canApprove: permissionNames.has('aprobar'),
           canExport: permissionNames.has('exportar'),
           canConfigure: permissionNames.has('configurar'),
+          canGenerateOffer: permissionNames.has('generar_oferta'),
         });
       } catch (err) {
         console.error('Error in fetchPermissions:', err);
