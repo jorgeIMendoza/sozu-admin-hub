@@ -272,9 +272,7 @@ serve(async (req) => {
           id_estado_civil,
           id_estado_nacimiento,
           id_municipio_nacimiento,
-          ocupacion,
-          id_tipo_identificacion,
-          numero_identificacion
+          ocupacion
         )
       `)
       .eq("id_cuenta_cobranza", id_cuenta_cobranza)
@@ -380,12 +378,6 @@ serve(async (req) => {
     const compradoresFinales = compradoresConRelaciones;
 
     // Formatear compradores
-    // Obtener tipos de identificación
-    const { data: tiposIdentificacion } = await supabase
-      .from("tipos_identificacion")
-      .select("id, nombre");
-    const tiposIdMap = new Map(tiposIdentificacion?.map(t => [t.id, t.nombre]) || []);
-
     // Contar estacionamientos de la propiedad
     const { data: estacionamientosData } = await supabase
       .from("estacionamientos")
@@ -396,7 +388,6 @@ serve(async (req) => {
 
     function formatearComprador(comprador: any, index: number) {
       const p = comprador.personas;
-      const tipoIdentificacion = p.id_tipo_identificacion ? tiposIdMap.get(p.id_tipo_identificacion) || "" : "";
       return {
         nombre: p.nombre_legal || "",
         rfc: p.rfc || "",
@@ -425,9 +416,7 @@ serve(async (req) => {
           p.paises?.nombre
         ].filter(Boolean).join(", "),
         porcentaje_copropiedad: comprador.porcentaje_copropiedad?.toString() || "0",
-        ocupacion: p.ocupacion || "",
-        tipo_identificacion: tipoIdentificacion,
-        numero_identificacion: p.numero_identificacion || ""
+        ocupacion: p.ocupacion || ""
       };
     }
 
@@ -508,9 +497,9 @@ serve(async (req) => {
       pais: primerComprador?.direccion_pais || "",
       direccion_completa: primerComprador?.direccion_completa || "",
       ocupacion: primerComprador?.ocupacion || "",
-      tipo_identificacion: primerComprador?.tipo_identificacion || "",
-      numero: primerComprador?.numero_identificacion || "",
-      numero_identificacion: primerComprador?.numero_identificacion || "",
+      tipo_identificacion: "", // TODO: agregar id_tipo_identificacion a personas si se necesita
+      numero: "", // TODO: agregar numero_identificacion a personas si se necesita
+      numero_identificacion: "",
       
       // Campos de pagos
       estacionamientos: numEstacionamientos.toString(),
