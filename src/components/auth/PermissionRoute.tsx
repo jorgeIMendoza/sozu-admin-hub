@@ -11,6 +11,11 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
   const { isPathAllowed, isLoading, isSuperAdmin } = useAllowedMenus();
   const location = useLocation();
 
+  // Always allow access to the access-denied page to prevent infinite redirects
+  if (location.pathname === '/admin/access-denied') {
+    return <>{children}</>;
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
