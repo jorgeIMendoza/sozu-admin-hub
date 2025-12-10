@@ -617,16 +617,16 @@ export default function RolesPermisos() {
                     </AlertDescription>
                   </Alert>
                 )}
-                <ScrollArea className="h-[500px]">
-                  <div className="min-w-max">
+                <div className="h-[500px] overflow-auto">
+                  <div className="min-w-[900px]">
                   {/* Permissions header */}
                   <div className="sticky top-0 bg-background z-10 border-b pb-2 mb-2">
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, 90px)` }}>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, minmax(85px, 1fr))` }}>
                       <div></div>
                       <div className="font-medium text-sm">Módulo</div>
                       {permisos.map(permiso => (
                         <div key={permiso.id} className="text-center">
-                          <Badge variant="outline" className="text-xs capitalize">
+                          <Badge variant="outline" className="text-xs capitalize whitespace-nowrap">
                             {permiso.nombre}
                           </Badge>
                         </div>
@@ -692,7 +692,7 @@ export default function RolesPermisos() {
                               <div 
                                 key={submenu.id} 
                                 className="grid gap-2 py-2 border-b border-border/50 last:border-0 items-center"
-                                style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, 90px)` }}
+                                style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, minmax(85px, 1fr))` }}
                               >
                                 {/* Toggle row button */}
                                 <div className="flex justify-center">
@@ -750,7 +750,7 @@ export default function RolesPermisos() {
                     ))}
                   </div>
                   </div>
-                </ScrollArea>
+                </div>
               </>
             )}
           </CardContent>
