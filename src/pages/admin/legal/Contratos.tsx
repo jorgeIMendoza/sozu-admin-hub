@@ -334,7 +334,7 @@ export default function Contratos() {
         toast({
           title: validation.tiene_problemas ? "⚠️ Problemas detectados" : "✅ Todo listo",
           description: validation.tiene_problemas 
-            ? `${validation.total_faltantes} faltantes, ${validation.total_vacios} vacíos. Revisa el diálogo.`
+            ? `${validation.total_faltantes} por solicitar, ${validation.total_vacios} vacíos. Revisa el diálogo.`
             : `Todos los ${validation.total_disponibles} placeholders están listos.`,
           duration: 2000,
         });
