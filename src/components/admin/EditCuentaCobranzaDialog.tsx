@@ -318,6 +318,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           id_edificio_modelo,
           edificios_modelos!propiedades_id_edificio_modelo_fkey(
             edificios!edificios_modelos_id_edificio_fkey(
+              nombre,
               proyectos!edificios_id_proyecto_fkey(
                 nombre,
                 direccion
@@ -480,13 +481,13 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     enabled: !!cuenta.id
   });
 
-  // Get estacionamientos details
+  // Get estacionamientos details with precio and cuenta_cobranza
   const { data: estacionamientosDetalle } = useQuery({
-    queryKey: ["estacionamientos_detalle", propiedadDetalle?.id],
+    queryKey: ["estacionamientos_detalle_cc", propiedadDetalle?.id],
     queryFn: async () => {
       if (!propiedadDetalle?.id) return [];
       
-      const { data } = await supabase
+      const { data: estacionamientos } = await supabase
         .from('estacionamientos')
         .select(`
           id,
@@ -495,35 +496,109 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
           ubicacion,
           es_incluido,
           id_tipo,
-          tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre)
+          id_producto,
+          tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre),
+          productos_servicios!estacionamientos_id_producto_fkey(precio_lista)
         `)
         .eq('id_propiedad', propiedadDetalle.id)
         .eq('activo', true);
 
-      return data || [];
+      if (!estacionamientos) return [];
+
+      // Check for cuenta_cobranza for each estacionamiento
+      const enrichedData = await Promise.all(estacionamientos.map(async (est) => {
+        // Look for an oferta that has this producto and this propiedad
+        const { data: ofertaData } = await supabase
+          .from('ofertas')
+          .select('id')
+          .eq('id_producto', est.id_producto)
+          .eq('id_propiedad', propiedadDetalle.id)
+          .eq('activo', true)
+          .maybeSingle();
+
+        let cuentaCobranzaId = null;
+        if (ofertaData?.id) {
+          const { data: ccData } = await supabase
+            .from('cuentas_cobranza')
+            .select('id')
+            .eq('id_oferta', ofertaData.id)
+            .eq('activo', true)
+            .maybeSingle();
+          cuentaCobranzaId = ccData?.id || null;
+        }
+
+        const precioM2 = est.productos_servicios?.precio_lista ?? null;
+        const precioFinal = precioM2 !== null ? Number(est.m2 || 0) * Number(precioM2) : null;
+
+        return {
+          ...est,
+          precio_m2: precioM2,
+          precio_final: precioFinal,
+          cuenta_cobranza_id: cuentaCobranzaId
+        };
+      }));
+
+      return enrichedData;
     },
     enabled: !!propiedadDetalle?.id
   });
 
-  // Get bodegas details
+  // Get bodegas details with precio and cuenta_cobranza
   const { data: bodegasDetalle } = useQuery({
-    queryKey: ["bodegas_detalle", propiedadDetalle?.id],
+    queryKey: ["bodegas_detalle_cc", propiedadDetalle?.id],
     queryFn: async () => {
       if (!propiedadDetalle?.id) return [];
       
-      const { data } = await supabase
+      const { data: bodegas } = await supabase
         .from('bodegas')
         .select(`
           id,
           nombre,
           m2,
           ubicacion,
-          es_incluido
+          es_incluido,
+          id_producto,
+          productos_servicios!bodegas_id_producto_fkey(precio_lista)
         `)
         .eq('id_propiedad', propiedadDetalle.id)
         .eq('activo', true);
 
-      return data || [];
+      if (!bodegas) return [];
+
+      // Check for cuenta_cobranza for each bodega
+      const enrichedData = await Promise.all(bodegas.map(async (bod) => {
+        // Look for an oferta that has this producto and this propiedad
+        const { data: ofertaData } = await supabase
+          .from('ofertas')
+          .select('id')
+          .eq('id_producto', bod.id_producto)
+          .eq('id_propiedad', propiedadDetalle.id)
+          .eq('activo', true)
+          .maybeSingle();
+
+        let cuentaCobranzaId = null;
+        if (ofertaData?.id) {
+          const { data: ccData } = await supabase
+            .from('cuentas_cobranza')
+            .select('id')
+            .eq('id_oferta', ofertaData.id)
+            .eq('activo', true)
+            .maybeSingle();
+          cuentaCobranzaId = ccData?.id || null;
+        }
+
+        const precioM2 = bod.productos_servicios?.precio_lista ?? null;
+        const precioFinal = precioM2 !== null ? Number(bod.m2 || 0) * Number(precioM2) : null;
+
+        return {
+          ...bod,
+          precio_m2: precioM2,
+          precio_final: precioFinal,
+          cuenta_cobranza_id: cuentaCobranzaId
+        };
+      }));
+
+      return enrichedData;
     },
     enabled: !!propiedadDetalle?.id
   });
@@ -2238,6 +2313,14 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
+                        <Label>Proyecto</Label>
+                        <Input value={propiedadDetalle.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto'} readOnly />
+                      </div>
+                      <div>
+                        <Label>Edificio</Label>
+                        <Input value={propiedadDetalle.edificios_modelos?.edificios?.nombre || 'Sin edificio'} readOnly />
+                      </div>
+                      <div>
                         <Label>Número de Propiedad</Label>
                         <Input value={propiedadDetalle.numero_propiedad || ''} readOnly />
                       </div>
@@ -2260,27 +2343,64 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     </div>
 
                     {/* Estacionamientos Section */}
-                    {estacionamientosDetalle && estacionamientosDetalle.filter(e => e.es_incluido).length > 0 && (
+                    {estacionamientosDetalle && estacionamientosDetalle.length > 0 && (
                       <div className="mt-6 p-4 bg-muted/30 rounded-lg">
-                        <h4 className="font-medium text-foreground mb-4">Estacionamientos Incluidos</h4>
+                        <h4 className="font-medium text-foreground mb-4">Estacionamientos</h4>
                         <div className="grid gap-3">
-                          {estacionamientosDetalle.filter(e => e.es_incluido).map((estacionamiento) => (
-                            <div key={estacionamiento.id} className="flex justify-between items-center p-3 bg-background rounded border">
-                              <div className="flex gap-4">
+                          {estacionamientosDetalle.map((estacionamiento) => (
+                            <div key={estacionamiento.id} className="p-3 bg-background rounded border">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
+                                  <p className="text-sm text-muted-foreground">Nombre</p>
                                   <p className="font-medium">{estacionamiento.nombre}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {estacionamiento.tipos_estacionamiento?.nombre || 'Tipo no especificado'}
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Tipo</p>
+                                  <p className="font-medium">{estacionamiento.tipos_estacionamiento?.nombre || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">M²</p>
+                                  <p className="font-medium">{estacionamiento.m2} m²</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Ubicación</p>
+                                  <p className="font-medium">{estacionamiento.ubicacion || 'No especificada'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Precio por M²</p>
+                                  <p className="font-medium">
+                                    {estacionamiento.precio_m2 !== null 
+                                      ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(estacionamiento.precio_m2)
+                                      : 'N/A'}
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-sm font-medium">{estacionamiento.m2} m²</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {estacionamiento.ubicacion || 'Ubicación no especificada'}
+                                  <p className="text-sm text-muted-foreground">Precio Final</p>
+                                  <p className="font-medium">
+                                    {estacionamiento.precio_final !== null 
+                                      ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(estacionamiento.precio_final)
+                                      : 'N/A'}
                                   </p>
+                                </div>
+                                <div className="col-span-2">
+                                  <p className="text-sm text-muted-foreground">Estatus</p>
+                                  {estacionamiento.cuenta_cobranza_id ? (
+                                    <Badge variant="secondary" className="mt-1">
+                                      Cuenta: {formatCuentaCobranzaId(estacionamiento.cuenta_cobranza_id, 'Producto')}
+                                    </Badge>
+                                  ) : estacionamiento.precio_final === 0 ? (
+                                    <Badge variant="default" className="mt-1 bg-green-600">
+                                      Incluido con el departamento
+                                    </Badge>
+                                  ) : (
+                                    <div className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                                      Aún no se adquiere. Costo: {estacionamiento.precio_final !== null 
+                                        ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(estacionamiento.precio_final)
+                                        : 'N/A'}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              <Badge variant="default">Incluido</Badge>
                             </div>
                           ))}
                         </div>
@@ -2288,27 +2408,60 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     )}
 
                     {/* Bodegas Section */}
-                    {bodegasDetalle && bodegasDetalle.filter(b => b.es_incluido).length > 0 && (
+                    {bodegasDetalle && bodegasDetalle.length > 0 && (
                       <div className="mt-6 p-4 bg-muted/30 rounded-lg">
-                        <h4 className="font-medium text-foreground mb-4">Bodegas Incluidas</h4>
+                        <h4 className="font-medium text-foreground mb-4">Bodegas</h4>
                         <div className="grid gap-3">
-                          {bodegasDetalle.filter(b => b.es_incluido).map((bodega) => (
-                            <div key={bodega.id} className="flex justify-between items-center p-3 bg-background rounded border">
-                              <div className="flex gap-4">
+                          {bodegasDetalle.map((bodega) => (
+                            <div key={bodega.id} className="p-3 bg-background rounded border">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
+                                  <p className="text-sm text-muted-foreground">Nombre</p>
                                   <p className="font-medium">{bodega.nombre}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Bodega de almacenamiento
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">M²</p>
+                                  <p className="font-medium">{bodega.m2} m²</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Ubicación</p>
+                                  <p className="font-medium">{bodega.ubicacion || 'No especificada'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Precio por M²</p>
+                                  <p className="font-medium">
+                                    {bodega.precio_m2 !== null 
+                                      ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(bodega.precio_m2)
+                                      : 'N/A'}
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-sm font-medium">{bodega.m2} m²</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {bodega.ubicacion || 'Ubicación no especificada'}  
+                                  <p className="text-sm text-muted-foreground">Precio Final</p>
+                                  <p className="font-medium">
+                                    {bodega.precio_final !== null 
+                                      ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(bodega.precio_final)
+                                      : 'N/A'}
                                   </p>
+                                </div>
+                                <div className="col-span-2">
+                                  <p className="text-sm text-muted-foreground">Estatus</p>
+                                  {bodega.cuenta_cobranza_id ? (
+                                    <Badge variant="secondary" className="mt-1">
+                                      Cuenta: {formatCuentaCobranzaId(bodega.cuenta_cobranza_id, 'Producto')}
+                                    </Badge>
+                                  ) : bodega.precio_final === 0 ? (
+                                    <Badge variant="default" className="mt-1 bg-green-600">
+                                      Incluido con el departamento
+                                    </Badge>
+                                  ) : (
+                                    <div className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                                      Aún no se adquiere. Costo: {bodega.precio_final !== null 
+                                        ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(bodega.precio_final)
+                                        : 'N/A'}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              <Badge variant="default">Incluida</Badge>
                             </div>
                           ))}
                         </div>
