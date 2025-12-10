@@ -656,17 +656,7 @@ export function ValidarPlaceholdersDialog({
                 ¿Cómo deseas manejarlos en el contrato?
               </DialogDescription>
             </DialogHeader>
-            {/* Información sobre placeholders Por Solicitar */}
-            {(validacion.total_faltantes || 0) > 0 && (
-              <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-950 border border-orange-300 dark:border-orange-700 rounded-md">
-                <span className="bg-orange-400 px-1.5 py-0.5 rounded text-white text-xs font-mono">{'{{variable}}'}</span>
-                <span className="text-sm text-orange-700 dark:text-orange-300">
-                  <strong>{validacion.total_faltantes}</strong> placeholders Por Solicitar se marcarán en <strong>NARANJA</strong>
-                </span>
-              </div>
-            )}
-
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 py-2">
               <p className="text-sm font-medium text-muted-foreground">¿Cómo manejar los {validacion.total_vacios} placeholders vacíos?</p>
               <Button
                 variant="outline"
@@ -704,6 +694,17 @@ export function ValidarPlaceholdersDialog({
                 </div>
               </Button>
             </div>
+
+            {/* Información sobre placeholders Por Solicitar - al final */}
+            {(validacion.total_faltantes || 0) > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-950 border border-orange-300 dark:border-orange-700 rounded-md mt-2">
+                <span className="bg-orange-400 px-1.5 py-0.5 rounded text-white text-xs font-mono">{'{{variable}}'}</span>
+                <span className="text-sm text-orange-700 dark:text-orange-300">
+                  <strong>{validacion.total_faltantes}</strong> placeholders Por Solicitar se marcarán en <strong>NARANJA</strong>
+                </span>
+              </div>
+            )}
+
             <DialogFooter>
               <Button variant="ghost" onClick={() => setShowConfirmDialog(false)}>
                 Cancelar
