@@ -17,17 +17,17 @@ const AccessDenied = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center space-y-6 max-w-md px-6 animate-fade-in">
-        {/* Ilustración decorativa */}
-        <div className="relative h-40 flex items-center justify-center">
-          <div className="absolute text-[120px] font-bold text-destructive/10 leading-none select-none">
-            403
-          </div>
-          <div className="relative z-10 rounded-full bg-destructive/10 p-6">
+    <div className="flex flex-1 items-center justify-center py-12">
+      <div className="text-center space-y-6 max-w-md px-6">
+        {/* Icono */}
+        <div className="flex items-center justify-center">
+          <div className="rounded-full bg-destructive/10 p-6">
             <ShieldAlert className="h-16 w-16 text-destructive" />
           </div>
         </div>
+
+        {/* Código de error */}
+        <p className="text-6xl font-bold text-destructive/30">403</p>
 
         {/* Mensaje */}
         <div className="space-y-3">
