@@ -55,45 +55,32 @@ const Bodegas = () => {
   const { data: activeData, isLoading: isLoadingActive } = useQuery({
     queryKey: ['bodegas', 'active', currentPageActive, searchTerm, proyectoFilter, accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
-      let query = supabase
+      const { data: allData, error } = await supabase
         .from('bodegas')
         .select(`
           *,
           propiedades!fk_bodegas_propiedad(
             numero_propiedad,
-            id_entidad_relacionada_dueno
+            id_edificio_modelo,
+            edificios_modelos!propiedades_id_edificio_modelo_fkey(
+              id_edificio,
+              edificios!edificios_modelos_id_edificio_fkey(
+                id_proyecto,
+                proyectos!edificios_id_proyecto_fkey(id, nombre)
+              )
+            )
           )
-        `, { count: 'exact' })
+        `)
         .eq('activo', true)
-        .order('id', { ascending: false });
-
-      // Siempre obtenemos más resultados para poder filtrar por proyecto accesible
-      const { data: allData, error } = await query.range(0, 2000);
+        .order('id', { ascending: false })
+        .range(0, 2000);
       
       if (error) throw error;
 
-      // Obtener nombres de proyecto para TODOS los datos
-      const entityIds = [...new Set(allData.map(item => item.propiedades?.id_entidad_relacionada_dueno).filter(Boolean))];
-      
-      let entitiesData: any[] = [];
-      if (entityIds.length > 0) {
-        const { data: entities, error: entitiesError } = await supabase
-          .from('entidades_relacionadas')
-          .select(`
-            id,
-            id_proyecto,
-            proyectos!entidades_relacionadas_id_proyecto_fkey(id, nombre)
-          `)
-          .in('id', entityIds);
-        
-        if (!entitiesError) {
-          entitiesData = entities || [];
-        }
-      }
-
-      // Enriquecer TODOS los datos con nombres de proyecto y project_id
+      // Enriquecer datos con proyecto a través de la cadena correcta
       const enrichedData = allData.map((item: any) => {
-        const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
+        const proyecto = item.propiedades?.edificios_modelos?.edificios?.proyectos;
+        const id_proyecto = item.propiedades?.edificios_modelos?.edificios?.id_proyecto;
         return {
           id: item.id,
           nombre: item.nombre,
@@ -101,24 +88,23 @@ const Bodegas = () => {
           ubicacion: item.ubicacion,
           es_incluido: item.es_incluido,
           activo: item.activo,
-          proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
-          proyecto_id: entity?.id_proyecto || entity?.proyectos?.id || null,
+          proyecto_nombre: proyecto?.nombre || 'N/A',
+          proyecto_id: id_proyecto || proyecto?.id || null,
           numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
         };
       });
 
-      // FIRST: Filter by project access
+      // Filtrar por acceso a proyectos
       let filteredData = enrichedData;
       if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
         filteredData = filteredData.filter(item => 
           item.proyecto_id && accessibleProjectIds.includes(item.proyecto_id)
         );
       } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
-        // User has no project access
         filteredData = [];
       }
 
-      // Then apply search filter
+      // Filtro de búsqueda
       if (searchTerm) {
         filteredData = filteredData.filter(item => {
           const matchesNombre = item.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -127,12 +113,12 @@ const Bodegas = () => {
         });
       }
 
-      // Apply project name filter if selected
+      // Filtro por proyecto
       if (proyectoFilter && proyectoFilter !== "all") {
         filteredData = filteredData.filter(item => item.proyecto_nombre === proyectoFilter);
       }
 
-      // Aplicar paginación local
+      // Paginación local
       const from = (currentPageActive - 1) * itemsPerPage;
       const to = from + itemsPerPage;
       const paginatedData = filteredData.slice(from, to);
@@ -150,42 +136,32 @@ const Bodegas = () => {
   const { data: deletedData, isLoading: isLoadingDeleted } = useQuery({
     queryKey: ['bodegas', 'deleted', currentPageDeleted, searchTerm, proyectoFilter, accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
-      let query = supabase
+      const { data: allData, error } = await supabase
         .from('bodegas')
         .select(`
           *,
           propiedades!fk_bodegas_propiedad(
             numero_propiedad,
-            id_entidad_relacionada_dueno
+            id_edificio_modelo,
+            edificios_modelos!propiedades_id_edificio_modelo_fkey(
+              id_edificio,
+              edificios!edificios_modelos_id_edificio_fkey(
+                id_proyecto,
+                proyectos!edificios_id_proyecto_fkey(id, nombre)
+              )
+            )
           )
-        `, { count: 'exact' })
+        `)
         .eq('activo', false)
-        .order('id', { ascending: false });
-
-      const { data: allData, error } = await query.range(0, 2000);
+        .order('id', { ascending: false })
+        .range(0, 2000);
       
       if (error) throw error;
 
-      const entityIds = [...new Set(allData.map(item => item.propiedades?.id_entidad_relacionada_dueno).filter(Boolean))];
-      
-      let entitiesData: any[] = [];
-      if (entityIds.length > 0) {
-        const { data: entities, error: entitiesError } = await supabase
-          .from('entidades_relacionadas')
-          .select(`
-            id,
-            id_proyecto,
-            proyectos!entidades_relacionadas_id_proyecto_fkey(id, nombre)
-          `)
-          .in('id', entityIds);
-        
-        if (!entitiesError) {
-          entitiesData = entities || [];
-        }
-      }
-
+      // Enriquecer datos con proyecto a través de la cadena correcta
       const enrichedData = allData.map((item: any) => {
-        const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
+        const proyecto = item.propiedades?.edificios_modelos?.edificios?.proyectos;
+        const id_proyecto = item.propiedades?.edificios_modelos?.edificios?.id_proyecto;
         return {
           id: item.id,
           nombre: item.nombre,
@@ -193,13 +169,13 @@ const Bodegas = () => {
           ubicacion: item.ubicacion,
           es_incluido: item.es_incluido,
           activo: item.activo,
-          proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
-          proyecto_id: entity?.id_proyecto || entity?.proyectos?.id || null,
+          proyecto_nombre: proyecto?.nombre || 'N/A',
+          proyecto_id: id_proyecto || proyecto?.id || null,
           numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
         };
       });
 
-      // Filter by project access
+      // Filtrar por acceso a proyectos
       let filteredData = enrichedData;
       if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
         filteredData = filteredData.filter(item => 
@@ -209,6 +185,7 @@ const Bodegas = () => {
         filteredData = [];
       }
 
+      // Filtro de búsqueda
       if (searchTerm) {
         filteredData = filteredData.filter(item => {
           const matchesNombre = item.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -217,10 +194,12 @@ const Bodegas = () => {
         });
       }
 
+      // Filtro por proyecto
       if (proyectoFilter && proyectoFilter !== "all") {
         filteredData = filteredData.filter(item => item.proyecto_nombre === proyectoFilter);
       }
 
+      // Paginación local
       const from = (currentPageDeleted - 1) * itemsPerPage;
       const to = from + itemsPerPage;
       const paginatedData = filteredData.slice(from, to);
