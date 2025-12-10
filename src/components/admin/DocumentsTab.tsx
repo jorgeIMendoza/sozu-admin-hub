@@ -8,7 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
+import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X, AlertTriangle, Loader2, CheckCircle2, History, Edit } from "lucide-react";
+import { DocumentHistoryDialog } from "./DocumentHistoryDialog";
+import { DocumentStatusChangeDialog } from "./DocumentStatusChangeDialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
@@ -109,7 +112,22 @@ export function DocumentsTab({
     hasCuentaMadre: false,
     cuentaMadre: null
   });
+  const [historyDialog, setHistoryDialog] = useState<{ isOpen: boolean; documentId: number | null; documentName: string }>({
+    isOpen: false,
+    documentId: null,
+    documentName: ''
+  });
+  const [statusChangeDialog, setStatusChangeDialog] = useState<{ 
+    isOpen: boolean; 
+    document: Documento | null;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    document: null,
+    isLoading: false
+  });
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Auto-select comprador if only one exists and invoice type is selected
   useEffect(() => {
@@ -785,6 +803,55 @@ export function DocumentsTab({
     }
   };
 
+  const handleStatusChange = async (newStatus: number, comment: string) => {
+    const documento = statusChangeDialog.document;
+    if (!documento) return;
+
+    setStatusChangeDialog(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      // Update document status
+      const { error: updateError } = await supabase
+        .from('documentos')
+        .update({ id_estatus_verificacion: newStatus })
+        .eq('id', documento.id);
+
+      if (updateError) throw updateError;
+
+      // Insert comment into history
+      const { error: commentError } = await supabase
+        .from('comentarios_verificacion_documento')
+        .insert({
+          id_documento: documento.id,
+          id_estatus_verificacion: newStatus,
+          comentario: comment || `Estatus cambiado a ${newStatus === 1 ? 'Pendiente' : newStatus === 2 ? 'Validado' : newStatus === 3 ? 'Rechazado' : 'Expirado'}`,
+          email_usuario: user?.email || null,
+          activo: true
+        });
+
+      if (commentError) throw commentError;
+
+      await loadDocumentos();
+
+      toast({
+        title: "Éxito",
+        description: "Estatus del documento actualizado correctamente"
+      });
+
+      setStatusChangeDialog({ isOpen: false, document: null, isLoading: false });
+
+      // Notify parent
+      onDocumentAdded?.();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Error al cambiar estatus: ${error.message}`
+      });
+      setStatusChangeDialog(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
   const procesarUltimoDocumento = async () => {
     // 1. Obtener la oferta desde la cuenta de cobranza
     const { data: cuentaData, error: cuentaError } = await supabase
@@ -1133,7 +1200,7 @@ export function DocumentsTab({
                           {new Date(documento.fecha_creacion).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end space-x-2">
+                          <div className="flex items-center justify-end space-x-1">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1158,6 +1225,30 @@ export function DocumentsTab({
                               </Tooltip>
                             </TooltipProvider>
                             
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setHistoryDialog({
+                                        isOpen: true,
+                                        documentId: documento.id,
+                                        documentName: documento.tipo_documento_nombre || 'Documento'
+                                      });
+                                    }}
+                                  >
+                                    <History className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Ver historial</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            
                             {!isReadOnly && (
                               <>
                                 <TooltipProvider>
@@ -1178,6 +1269,29 @@ export function DocumentsTab({
                                     </TooltipTrigger>
                                     <TooltipContent>
                                       <p>{documento.id_estatus_verificacion === 2 ? 'Anular Verificación' : 'Verificar'}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setStatusChangeDialog({
+                                            isOpen: true,
+                                            document: documento,
+                                            isLoading: false
+                                          });
+                                        }}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Cambiar estatus</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1458,6 +1572,24 @@ export function DocumentsTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Document History Dialog */}
+      <DocumentHistoryDialog
+        isOpen={historyDialog.isOpen}
+        onClose={() => setHistoryDialog({ isOpen: false, documentId: null, documentName: '' })}
+        documentId={historyDialog.documentId}
+        documentName={historyDialog.documentName}
+      />
+
+      {/* Document Status Change Dialog */}
+      <DocumentStatusChangeDialog
+        isOpen={statusChangeDialog.isOpen}
+        onClose={() => setStatusChangeDialog({ isOpen: false, document: null, isLoading: false })}
+        onConfirm={handleStatusChange}
+        currentStatus={statusChangeDialog.document?.id_estatus_verificacion || 1}
+        documentName={statusChangeDialog.document?.tipo_documento_nombre || 'Documento'}
+        isLoading={statusChangeDialog.isLoading}
+      />
     </div>
   );
 }
