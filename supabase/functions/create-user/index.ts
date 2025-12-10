@@ -92,15 +92,15 @@ serve(async (req) => {
     }
 
     // Check if user already exists in usuarios table
-    const { data: existingUser } = await supabaseAdmin
+    const { data: existingUsuario } = await supabaseAdmin
       .from("usuarios")
       .select("email")
       .eq("email", email)
       .single();
 
-    if (existingUser) {
+    if (existingUsuario) {
       return new Response(
-        JSON.stringify({ error: "A user with this email already exists" }),
+        JSON.stringify({ error: "A user with this email already exists in usuarios table" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -108,51 +108,62 @@ serve(async (req) => {
     // Default password
     const defaultPassword = "Temporal123!";
 
-    // Create user in auth.users
-    const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: defaultPassword,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        nombre,
-        rol_id,
-      },
-    });
+    // Check if user already exists in auth.users
+    const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const existingAuthUser = existingAuthUsers?.users?.find(u => u.email === email);
 
-    if (createAuthError) {
-      console.error("Error creating auth user:", createAuthError);
-      return new Response(
-        JSON.stringify({ error: `Error creating auth user: ${createAuthError.message}` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let authUserId: string;
+
+    if (existingAuthUser) {
+      // User exists in auth but not in usuarios - use existing auth user
+      console.log("Auth user already exists, using existing:", existingAuthUser.id);
+      authUserId = existingAuthUser.id;
+    } else {
+      // Create new user in auth.users
+      const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: defaultPassword,
+        email_confirm: true,
+        user_metadata: {
+          nombre,
+          rol_id,
+        },
+      });
+
+      if (createAuthError) {
+        console.error("Error creating auth user:", createAuthError);
+        return new Response(
+          JSON.stringify({ error: `Error creating auth user: ${createAuthError.message}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("Auth user created:", authData.user?.id);
+      authUserId = authData.user!.id;
     }
 
-    console.log("Auth user created:", authData.user?.id);
-
-    // Create/update entry in usuarios table
+    // Create entry in usuarios table
     const { data: usuarioData, error: usuarioError } = await supabaseAdmin
       .from("usuarios")
-      .upsert({
+      .insert({
         email,
         nombre,
         rol_id,
         id_persona: id_persona || null,
-        auth_user_id: authData.user?.id,
+        auth_user_id: authUserId,
         debe_cambiar_password: true,
         activo: true,
         telefono: telefono || null,
         clave_pais_telefono: clave_pais_telefono || null,
-      }, {
-        onConflict: "email",
       })
       .select()
       .single();
 
     if (usuarioError) {
       console.error("Error creating usuario:", usuarioError);
-      // Try to delete the auth user if usuario creation fails
-      if (authData.user?.id) {
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      // Only delete auth user if we just created it
+      if (!existingAuthUser) {
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
       }
       return new Response(
         JSON.stringify({ error: `Error creating usuario: ${usuarioError.message}` }),
@@ -162,6 +173,10 @@ serve(async (req) => {
 
     console.log("Usuario created successfully:", usuarioData);
 
+    const message = existingAuthUser 
+      ? `Usuario creado (auth existente). La contraseña no fue cambiada.`
+      : `Usuario creado con contraseña temporal: ${defaultPassword}`;
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -170,7 +185,7 @@ serve(async (req) => {
           nombre: usuarioData.nombre,
           rol_id: usuarioData.rol_id,
         },
-        message: `Usuario creado con contraseña temporal: ${defaultPassword}`
+        message
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
