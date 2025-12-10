@@ -1023,7 +1023,7 @@ serve(async (req) => {
         }
       });
 
-      // Resaltar en ROJO los placeholders faltantes (no están en mergeData)
+      // Resaltar en NARANJA los placeholders faltantes/por solicitar (no están en mergeData)
       for (const placeholder of stillMissingPlaceholders) {
         const ranges = findTextRanges(finalDocContent, `{{${placeholder}}}`);
         for (const range of ranges) {
@@ -1036,7 +1036,7 @@ serve(async (req) => {
               textStyle: {
                 backgroundColor: {
                   color: {
-                    rgbColor: { red: 1, green: 0, blue: 0 } // Rojo
+                    rgbColor: { red: 1, green: 0.6, blue: 0.2 } // Naranja
                   }
                 },
                 bold: true
@@ -1084,7 +1084,7 @@ serve(async (req) => {
           }
         );
         
-        console.log(`Resaltados aplicados: ${stillMissingPlaceholders.length} faltantes (rojo), ${stillEmptyPlaceholders.length} vacíos (amarillo)`);
+        console.log(`Resaltados aplicados: ${stillMissingPlaceholders.length} por solicitar (naranja), ${stillEmptyPlaceholders.length} vacíos (amarillo)`);
       }
 
       // Actualizar variables para el response
@@ -1123,7 +1123,7 @@ serve(async (req) => {
           total_compradores: compradoresFormateados.length
         },
         message: missingPlaceholders.length || emptyPlaceholders.length
-          ? `Contrato generado con advertencias. Placeholders resaltados: ${missingPlaceholders.length} faltantes (ROJO), ${emptyPlaceholders.length} vacíos (AMARILLO).`
+          ? `Contrato generado con advertencias. Placeholders resaltados: ${missingPlaceholders.length} por solicitar (NARANJA), ${emptyPlaceholders.length} vacíos (AMARILLO).`
           : "Contrato generado exitosamente - todos los placeholders fueron reemplazados"
       }),
       {
