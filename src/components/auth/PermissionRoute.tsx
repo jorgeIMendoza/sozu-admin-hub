@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAllowedMenus } from '@/hooks/useAllowedMenus';
 import { Loader2 } from 'lucide-react';
@@ -7,57 +7,9 @@ interface PermissionRouteProps {
   children: ReactNode;
 }
 
-// Navigation items to determine first allowed path
-const NAVIGATION_PATHS = [
-  '/admin',
-  '/admin/proyectos',
-  '/admin/propiedades',
-  '/admin/modelos',
-  '/admin/vistas',
-  '/admin/estacionamientos',
-  '/admin/bodegas',
-  '/admin/cuentas-cobranza',
-  '/admin/cuentas-mantenimiento',
-  '/admin/comisiones',
-  '/admin/aprobacion-comisiones',
-  '/admin/pagar-comisiones',
-  '/admin/prospectos',
-  '/admin/compradores',
-  '/admin/vendedores',
-  '/admin/duenos',
-  '/admin/residentes',
-  '/admin/agentes',
-  '/admin/administradores-personas',
-  '/admin/representantes-legales',
-  '/admin/productos',
-  '/admin/servicios',
-  '/admin/categorias-productos',
-  '/admin/usuarios',
-  '/admin/roles-permisos',
-  '/admin/entidades-legales',
-  '/admin/desarrolladores',
-  '/admin/inmobiliarias',
-  '/admin/administradoras',
-  '/admin/notarias',
-  '/admin/bancos',
-  '/admin/reservas',
-  '/admin/legal/contratos',
-  '/admin/consultas-ia',
-  '/admin/reportes/discrepancias',
-];
-
 export function PermissionRoute({ children }: PermissionRouteProps) {
-  const { isPathAllowed, isLoading, isSuperAdmin, allowedPaths } = useAllowedMenus();
+  const { isPathAllowed, isLoading, isSuperAdmin } = useAllowedMenus();
   const location = useLocation();
-  const [firstAllowedPath, setFirstAllowedPath] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isLoading && !isSuperAdmin) {
-      // Find first allowed path
-      const firstPath = NAVIGATION_PATHS.find(path => isPathAllowed(path));
-      setFirstAllowedPath(firstPath || null);
-    }
-  }, [isLoading, isSuperAdmin, allowedPaths, isPathAllowed]);
 
   if (isLoading) {
     return (
@@ -85,13 +37,7 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
     return <>{children}</>;
   }
 
-  // User doesn't have permission to this route
-  // Redirect to first allowed path or access denied page
-  if (firstAllowedPath) {
-    return <Navigate to={firstAllowedPath} replace />;
-  }
-
-  // No allowed paths at all - show access denied
+  // User doesn't have permission to this route - show access denied
   return <Navigate to="/admin/access-denied" replace />;
 }
 
