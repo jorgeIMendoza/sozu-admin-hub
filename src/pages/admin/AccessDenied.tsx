@@ -20,14 +20,12 @@ const AccessDenied = () => {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="text-center space-y-6 max-w-md px-6 animate-fade-in">
         {/* Ilustración decorativa */}
-        <div className="relative">
-          <div className="text-[120px] font-bold text-destructive/10 leading-none select-none">
+        <div className="relative h-40 flex items-center justify-center">
+          <div className="absolute text-[120px] font-bold text-destructive/10 leading-none select-none">
             403
           </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="rounded-full bg-destructive/10 p-6">
-              <ShieldAlert className="h-16 w-16 text-destructive" />
-            </div>
+          <div className="relative z-10 rounded-full bg-destructive/10 p-6">
+            <ShieldAlert className="h-16 w-16 text-destructive" />
           </div>
         </div>
 
