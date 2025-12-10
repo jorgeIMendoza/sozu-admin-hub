@@ -37,6 +37,7 @@ import { Slider } from "@/components/ui/slider";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { AsignarPropiedadDialog } from "@/components/admin/AsignarPropiedadDialog";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
+import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -3345,6 +3346,11 @@ const Propiedades = () => {
         <div className="text-lg">Cargando propiedades...</div>
       </div>
     );
+  }
+
+  // Show no access message if user has no projects assigned
+  if (hasNoAccess) {
+    return <NoProjectAccess />;
   }
 
   return (

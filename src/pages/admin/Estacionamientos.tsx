@@ -16,6 +16,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { EditEstacionamientoDialog } from "@/components/admin/EditEstacionamientoDialog";
 import { Combobox } from "@/components/ui/combobox";
 import { highlightText } from "@/lib/highlightText";
+import { useProjectAccess } from "@/hooks/useProjectAccess";
+import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 
 interface Estacionamiento {
   id: number;
@@ -47,6 +49,9 @@ const Estacionamientos = () => {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Project access control
+  const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
 
   // Query para obtener estacionamientos activos
   const { data: activeData, isLoading: isLoadingActive } = useQuery({
@@ -331,19 +336,27 @@ const Estacionamientos = () => {
   const activosCount = activeData?.count || 0;
   const eliminadosCount = deletedData?.count || 0;
 
-  // Query para obtener proyectos para el filtro
+  // Query para obtener proyectos para el filtro (filtered by access)
   const { data: proyectos = [] } = useQuery({
-    queryKey: ['proyectos-filter'],
+    queryKey: ['proyectos-filter', accessibleProjectIds],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('proyectos')
-        .select('nombre')
+        .select('id, nombre')
         .eq('activo', true)
         .order('nombre');
+      
+      // Filter by accessible projects if user doesn't have unrestricted access
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+        query = query.in('id', accessibleProjectIds);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutos
+    enabled: hasUnrestrictedAccess || accessibleProjectIds.length > 0,
   });
 
   // Debounce search input
@@ -443,8 +456,13 @@ const Estacionamientos = () => {
 
   // Filtrado optimizado del lado del servidor con paginación
 
-  if (isLoading) {
+  if (isLoading || isLoadingAccess) {
     return <div className="flex justify-center items-center h-64">Cargando...</div>;
+  }
+
+  // Show no access message if user has no projects assigned
+  if (hasNoAccess) {
+    return <NoProjectAccess />
   }
 
   return (
