@@ -814,7 +814,11 @@ export default function Productos() {
 
             {/* Precio Lista */}
             <div className="space-y-2">
-              <Label htmlFor="precio_lista">Precio Lista</Label>
+              <Label htmlFor="precio_lista">
+                {categorias.find((cat: any) => cat.id.toString() === formData.id_categoria)?.tiene_metraje 
+                  ? "Precio por m²" 
+                  : "Precio Lista"}
+              </Label>
               <Input
                 id="precio_lista"
                 type="number"

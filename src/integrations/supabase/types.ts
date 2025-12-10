@@ -2007,6 +2007,7 @@ export type Database = {
           fecha_creacion: string
           id: number
           nombre: string
+          tiene_metraje: boolean | null
         }
         Insert: {
           activo?: boolean
@@ -2014,6 +2015,7 @@ export type Database = {
           fecha_creacion?: string
           id?: never
           nombre: string
+          tiene_metraje?: boolean | null
         }
         Update: {
           activo?: boolean
@@ -2021,6 +2023,7 @@ export type Database = {
           fecha_creacion?: string
           id?: never
           nombre?: string
+          tiene_metraje?: boolean | null
         }
         Relationships: []
       }
