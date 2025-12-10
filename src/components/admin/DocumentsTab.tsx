@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Upload, Eye, Trash2, Check, CheckCircle, FileCheck, X, AlertTriangle, Loader2, CheckCircle2, History, Edit } from "lucide-react";
+import { FileText, Upload, Eye, Trash2, AlertTriangle, Loader2, CheckCircle2, History, Edit } from "lucide-react";
 import { DocumentHistoryDialog } from "./DocumentHistoryDialog";
 import { DocumentStatusChangeDialog } from "./DocumentStatusChangeDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1148,9 +1148,9 @@ export function DocumentsTab({
                     <TableHead>#</TableHead>
                    <TableHead>Tipo de Documento</TableHead>
                    <TableHead>Número</TableHead>
-                   <TableHead>Verificado</TableHead>
+                   <TableHead>Estatus</TableHead>
                    <TableHead>Fecha</TableHead>
-                   <TableHead className="text-right">Acciones</TableHead>
+                   <TableHead className="text-center">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1168,7 +1168,7 @@ export function DocumentsTab({
                         <TableCell>
                           {new Date().toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-center">
                           {!isReadOnly && (
                             <Button
                               type="button"
@@ -1199,8 +1199,8 @@ export function DocumentsTab({
                         <TableCell>
                           {new Date(documento.fecha_creacion).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end space-x-1">
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center space-x-1">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1244,34 +1244,13 @@ export function DocumentsTab({
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Ver historial</p>
+                                  <p>Ver historial de verificación</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                             
                             {!isReadOnly && (
                               <>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleToggleVerification(documento)}
-                                      >
-                                        {documento.id_estatus_verificacion === 2 ? (
-                                          <Check className="h-4 w-4 text-green-600" />
-                                        ) : (
-                                          <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                                        )}
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>{documento.id_estatus_verificacion === 2 ? 'Anular Verificación' : 'Verificar'}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
