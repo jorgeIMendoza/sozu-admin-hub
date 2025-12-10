@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAllowedMenus } from "@/hooks/useAllowedMenus";
+
+const LOGS_ALLOWED_EMAIL = 'jorge.mendoza@sozu.com';
 import { Loader2 } from "lucide-react";
 import {
   LayoutDashboard,
@@ -37,6 +39,7 @@ import {
   Landmark,
   Shield,
   Wrench,
+  Activity,
   KeyRound,
   ScrollText,
   Bot,
@@ -159,6 +162,7 @@ const navigationItems: NavigationItem[] = [
     children: [
       { title: "Usuarios", href: "/admin/usuarios", icon: UserPlus },
       { title: "Roles y Permisos", href: "/admin/roles-permisos", icon: Shield },
+      { title: "Logs de Actividad", href: "/admin/logs-actividad", icon: Activity },
     ]
   },
 ];
@@ -183,32 +187,44 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
     return name.substring(0, 2).toUpperCase();
   };
 
+  const userEmail = profile?.email;
+
   // Filter navigation items based on permissions
   const filteredNavigationItems = useMemo(() => {
-    if (isSuperAdmin) {
-      return navigationItems;
-    }
-
-    return navigationItems
-      .map(item => {
-        if (item.href) {
-          // Single item with href - check if allowed
-          return isPathAllowed(item.href) ? item : null;
-        } else if (item.children) {
-          // Group with children - filter children
-          const allowedChildren = item.children.filter(child => 
-            isPathAllowed(child.href)
-          );
-          
-          // Only show group if it has allowed children
-          if (allowedChildren.length > 0) {
-            return { ...item, children: allowedChildren };
+    const filterItems = (items: NavigationItem[]) => {
+      return items
+        .map(item => {
+          if (item.href) {
+            // Single item with href - check if allowed
+            // Special case: logs-actividad only for jorge.mendoza@sozu.com
+            if (item.href === '/admin/logs-actividad') {
+              return userEmail === LOGS_ALLOWED_EMAIL ? item : null;
+            }
+            if (isSuperAdmin) return item;
+            return isPathAllowed(item.href) ? item : null;
+          } else if (item.children) {
+            // Group with children - filter children
+            const allowedChildren = item.children.filter(child => {
+              // Special case: logs-actividad only for jorge.mendoza@sozu.com
+              if (child.href === '/admin/logs-actividad') {
+                return userEmail === LOGS_ALLOWED_EMAIL;
+              }
+              if (isSuperAdmin) return true;
+              return isPathAllowed(child.href);
+            });
+            
+            // Only show group if it has allowed children
+            if (allowedChildren.length > 0) {
+              return { ...item, children: allowedChildren };
+            }
+            return null;
           }
           return null;
-        }
-        return null;
-      })
-      .filter(Boolean) as NavigationItem[];
+        })
+        .filter(Boolean) as NavigationItem[];
+    };
+
+    return filterItems(navigationItems);
   }, [isPathAllowed, isSuperAdmin]);
 
   // Auto-expand the group that contains the current path

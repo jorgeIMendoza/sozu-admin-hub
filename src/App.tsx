@@ -59,6 +59,7 @@ const PagarComisiones = lazy(() => import("./pages/admin/PagarComisiones"));
 const ReporteDiscrepancias = lazy(() => import("./pages/admin/ReporteDiscrepancias"));
 const RolesPermisos = lazy(() => import("./pages/admin/RolesPermisos"));
 const AccessDenied = lazy(() => import("./pages/admin/AccessDenied"));
+const LogsActividad = lazy(() => import("./pages/admin/LogsActividad"));
 
 const queryClient = new QueryClient();
 
@@ -138,6 +139,7 @@ const App = () => (
                   <Route path="reservas" element={<Reservas />} />
                   <Route path="legal/contratos" element={<Contratos />} />
                   <Route path="reportes/discrepancias" element={<ReporteDiscrepancias />} />
+                  <Route path="logs-actividad" element={<LogsActividad />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
