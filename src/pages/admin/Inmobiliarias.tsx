@@ -281,7 +281,7 @@ export default function Inmobiliarias() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { representativeId, ...cleanPersonData } = personData;
+      const { representativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
       
       const { error: updateError } = await supabase
         .from('personas')
