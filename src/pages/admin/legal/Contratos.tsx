@@ -221,9 +221,9 @@ export default function Contratos() {
 
   // Generar contrato mutation
   const generarContratoMutation = useMutation({
-    mutationFn: async (cuentaId: number) => {
+    mutationFn: async ({ cuentaId, marcarVacios }: { cuentaId: number; marcarVacios: boolean }) => {
       const { data, error } = await supabase.functions.invoke('generar-contrato', {
-        body: { id_cuenta_cobranza: cuentaId },
+        body: { id_cuenta_cobranza: cuentaId, marcar_vacios: marcarVacios },
       });
 
       if (error) throw error;
@@ -630,7 +630,7 @@ export default function Contratos() {
           compradores={validacionDialogData.compradores}
           tipoPersona={validacionDialogData.tipo_persona}
           templateName={validacionDialogData.template_name}
-          onGenerarContrato={() => validacionDialogData.cuenta_id && generarContratoMutation.mutate(validacionDialogData.cuenta_id)}
+          onGenerarContrato={(options) => validacionDialogData.cuenta_id && generarContratoMutation.mutate({ cuentaId: validacionDialogData.cuenta_id, marcarVacios: options.marcarVacios })}
           isGenerating={generarContratoMutation.isPending}
         />
       )}

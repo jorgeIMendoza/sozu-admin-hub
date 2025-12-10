@@ -50,7 +50,7 @@ interface ValidarPlaceholdersDialogProps {
   compradores: any[];
   tipoPersona: string;
   templateName: string;
-  onGenerarContrato?: () => void;
+  onGenerarContrato?: (options: { marcarVacios: boolean }) => void;
   isGenerating?: boolean;
 }
 
@@ -70,6 +70,7 @@ export function ValidarPlaceholdersDialog({
   const [seccionActiva, setSeccionActiva] = React.useState<'todas' | 'disponibles' | 'vacios' | 'faltantes' | 'variables' | 'noUsadas'>('disponibles');
   const [copiedVariable, setCopiedVariable] = React.useState<string | null>(null);
   const [searchTerm, setSearchTerm] = React.useState<string>("");
+  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
 
   const handleCopyVariable = (variable: string) => {
     const textoACopiar = `{{${variable}}}`;
@@ -615,8 +616,14 @@ export function ValidarPlaceholdersDialog({
               </Button>
               <Button
                 onClick={() => {
-                  onGenerarContrato();
-                  onOpenChange(false);
+                  // Si hay placeholders vacíos, mostrar confirmación
+                  if ((validacion.total_vacios || 0) > 0) {
+                    setShowConfirmDialog(true);
+                  } else {
+                    // Si no hay vacíos, generar directamente
+                    onGenerarContrato({ marcarVacios: false });
+                    onOpenChange(false);
+                  }
                 }}
                 disabled={isGenerating}
               >
@@ -635,6 +642,64 @@ export function ValidarPlaceholdersDialog({
             </div>
           </DialogFooter>
         )}
+
+        {/* Diálogo de confirmación para placeholders vacíos */}
+        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                Placeholders Vacíos Detectados
+              </DialogTitle>
+              <DialogDescription>
+                Se encontraron <strong>{validacion.total_vacios}</strong> placeholders con valores vacíos. 
+                ¿Cómo deseas manejarlos en el contrato?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-4">
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto py-3 px-4"
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  onGenerarContrato({ marcarVacios: false });
+                  onOpenChange(false);
+                }}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Dejar vacíos</div>
+                  <div className="text-xs text-muted-foreground">
+                    Los placeholders se reemplazan por texto vacío (no visibles)
+                  </div>
+                </div>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start h-auto py-3 px-4 border-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-950"
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  onGenerarContrato({ marcarVacios: true });
+                  onOpenChange(false);
+                }}
+              >
+                <div className="text-left">
+                  <div className="font-medium flex items-center gap-2">
+                    <span className="bg-yellow-300 px-1 rounded text-black text-xs">{'{{placeholder}}'}</span>
+                    Marcar en amarillo
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Los placeholders vacíos aparecerán con su nombre y fondo amarillo para identificarlos
+                  </div>
+                </div>
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setShowConfirmDialog(false)}>
+                Cancelar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

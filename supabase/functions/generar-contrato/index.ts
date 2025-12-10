@@ -177,9 +177,9 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { id_cuenta_cobranza } = await req.json();
+    const { id_cuenta_cobranza, marcar_vacios = false } = await req.json();
 
-    console.log("Generando contrato para cuenta:", id_cuenta_cobranza);
+    console.log("Generando contrato para cuenta:", id_cuenta_cobranza, "| marcar_vacios:", marcar_vacios);
 
     // 1. Obtener cuenta de cobranza
     const { data: cuentaData, error: cuentaError } = await supabase
@@ -926,8 +926,14 @@ serve(async (req) => {
     const newDocId = copiedDoc.id;
 
     // 19. Hacer merge PRIMERO (reemplazar todos los placeholders con datos)
+    // Si marcar_vacios es true, NO reemplazar los placeholders vacíos (se marcarán en amarillo después)
     const requests = [];
     for (const [key, value] of Object.entries(mergeData)) {
+      // Si marcar_vacios está activo y el valor está vacío, no reemplazar
+      if (marcar_vacios && (!value || value.toString().trim() === '')) {
+        console.log(`Placeholder vacío NO reemplazado (se marcará en amarillo): {{${key}}}`);
+        continue;
+      }
       requests.push({
         replaceAllText: {
           containsText: {
@@ -1047,26 +1053,29 @@ serve(async (req) => {
         }
       }
 
-      // Resaltar en AMARILLO los placeholders vacíos (están en mergeData pero con valor vacío)
-      for (const placeholder of stillEmptyPlaceholders) {
-        const ranges = findTextRanges(finalDocContent, `{{${placeholder}}}`);
-        for (const range of ranges) {
-          highlightRequests.push({
-            updateTextStyle: {
-              range: {
-                startIndex: range.start,
-                endIndex: range.end
-              },
-              textStyle: {
-                backgroundColor: {
-                  color: {
-                    rgbColor: { red: 1, green: 1, blue: 0 } // Amarillo
-                  }
-                }
-              },
-              fields: 'backgroundColor'
-            }
-          });
+      // Resaltar en AMARILLO los placeholders vacíos SOLO si marcar_vacios está activo
+      if (marcar_vacios) {
+        for (const placeholder of stillEmptyPlaceholders) {
+          const ranges = findTextRanges(finalDocContent, `{{${placeholder}}}`);
+          for (const range of ranges) {
+            highlightRequests.push({
+              updateTextStyle: {
+                range: {
+                  startIndex: range.start,
+                  endIndex: range.end
+                },
+                textStyle: {
+                  backgroundColor: {
+                    color: {
+                      rgbColor: { red: 1, green: 1, blue: 0 } // Amarillo
+                    }
+                  },
+                  bold: true
+                },
+                fields: 'backgroundColor,bold'
+              }
+            });
+          }
         }
       }
 
