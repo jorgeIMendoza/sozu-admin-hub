@@ -819,14 +819,19 @@ export default function Productos() {
                   ? "Precio por m²" 
                   : "Precio Lista"}
               </Label>
-              <Input
-                id="precio_lista"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.precio_lista}
-                onChange={(e) => setFormData({ ...formData, precio_lista: parseFloat(e.target.value) || 0 })}
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <Input
+                  id="precio_lista"
+                  type="text"
+                  className="pl-7"
+                  value={formData.precio_lista.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  onChange={(e) => {
+                    const rawValue = e.target.value.replace(/[^0-9.]/g, '');
+                    setFormData({ ...formData, precio_lista: parseFloat(rawValue) || 0 });
+                  }}
+                />
+              </div>
             </div>
 
             <DialogFooter>
