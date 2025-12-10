@@ -162,34 +162,18 @@ export function ValidarPlaceholdersDialog({
             {/* Resumen - Dos grupos visuales */}
             <div className="flex gap-4">
               {/* Grupo 1: Variables del Template (con desglose) */}
-              <div className="flex-1 rounded-lg border-2 border-blue-500 p-3 bg-blue-50/50 dark:bg-blue-950/30">
+              <div 
+                className={`flex-1 rounded-lg border-2 p-3 cursor-pointer transition-all ${
+                  seccionActiva === 'variables' 
+                    ? 'border-blue-500 bg-blue-100/70 dark:bg-blue-950/50 ring-2 ring-blue-500' 
+                    : 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 hover:bg-blue-100/50 dark:hover:bg-blue-950/40'
+                }`}
+                onClick={() => setSeccionActiva(seccionActiva === 'variables' ? 'todas' : 'variables')}
+              >
                 <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2 text-center">
-                  Variables en el Template
+                  Variables en el Template ({totalTemplate})
                 </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {/* Total */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Card 
-                          className={`p-2 border-blue-500 cursor-pointer transition-all ${
-                            seccionActiva === 'variables' 
-                              ? 'bg-blue-100 dark:bg-blue-950 ring-2 ring-blue-500' 
-                              : 'hover:bg-blue-100 dark:hover:bg-blue-950'
-                          }`}
-                          onClick={() => setSeccionActiva(seccionActiva === 'variables' ? 'todas' : 'variables')}
-                        >
-                          <div className="text-[10px] text-muted-foreground text-center">Total</div>
-                          <div className="text-xl font-bold text-blue-500 text-center">{totalTemplate}</div>
-                        </Card>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="font-semibold">Variables del Template</p>
-                        <p className="text-xs">Suma de Encontradas + Vacías + Por Solicitar</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
+                <div className="grid grid-cols-3 gap-2">
                   {/* Encontradas */}
                   <TooltipProvider>
                     <Tooltip>
@@ -200,7 +184,7 @@ export function ValidarPlaceholdersDialog({
                               ? 'bg-green-100 dark:bg-green-950 ring-2 ring-green-500' 
                               : 'hover:bg-green-100 dark:hover:bg-green-950'
                           }`}
-                          onClick={() => setSeccionActiva(seccionActiva === 'disponibles' ? 'todas' : 'disponibles')}
+                          onClick={(e) => { e.stopPropagation(); setSeccionActiva(seccionActiva === 'disponibles' ? 'todas' : 'disponibles'); }}
                         >
                           <div className="text-[10px] text-muted-foreground text-center">Encontradas</div>
                           <div className="text-xl font-bold text-green-500 text-center">{validacion.total_disponibles}</div>
@@ -223,7 +207,7 @@ export function ValidarPlaceholdersDialog({
                               ? 'bg-yellow-100 dark:bg-yellow-950 ring-2 ring-yellow-500' 
                               : 'hover:bg-yellow-100 dark:hover:bg-yellow-950'
                           }`}
-                          onClick={() => setSeccionActiva(seccionActiva === 'vacios' ? 'todas' : 'vacios')}
+                          onClick={(e) => { e.stopPropagation(); setSeccionActiva(seccionActiva === 'vacios' ? 'todas' : 'vacios'); }}
                         >
                           <div className="text-[10px] text-muted-foreground text-center">Vacíos</div>
                           <div className="text-xl font-bold text-yellow-500 text-center">{validacion.total_vacios}</div>
@@ -246,7 +230,7 @@ export function ValidarPlaceholdersDialog({
                               ? 'bg-orange-100 dark:bg-orange-950 ring-2 ring-orange-500' 
                               : 'hover:bg-orange-100 dark:hover:bg-orange-950'
                           }`}
-                          onClick={() => setSeccionActiva(seccionActiva === 'faltantes' ? 'todas' : 'faltantes')}
+                          onClick={(e) => { e.stopPropagation(); setSeccionActiva(seccionActiva === 'faltantes' ? 'todas' : 'faltantes'); }}
                         >
                           <div className="text-[10px] text-muted-foreground text-center">Por Solicitar</div>
                           <div className="text-xl font-bold text-orange-500 text-center">{validacion.total_faltantes}</div>
@@ -258,9 +242,6 @@ export function ValidarPlaceholdersDialog({
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                </div>
-                <div className="text-[10px] text-center text-muted-foreground mt-2">
-                  {validacion.total_disponibles} + {validacion.total_vacios} + {validacion.total_faltantes} = {totalTemplate}
                 </div>
               </div>
 
