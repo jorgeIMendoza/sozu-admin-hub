@@ -84,11 +84,13 @@ serve(async (req) => {
 
     const { data: propiedadData } = await supabase
       .from("propiedades")
-      .select("id, numero_propiedad, m2_interiores, m2_exteriores, m2_loft, id_edificio_modelo, id_entidad_relacionada_dueno")
+      .select("id, numero_propiedad, numero_piso, m2_interiores, m2_exteriores, m2_loft, m2_reales, precio_lista, id_edificio_modelo, id_entidad_relacionada_dueno, descripcion")
       .eq("id", ofertaData.id_propiedad)
       .single();
 
     if (!propiedadData) throw new Error("Propiedad no encontrada");
+
+    console.log("Datos propiedad:", propiedadData);
 
     const m2Totales = (propiedadData.m2_interiores || 0) + (propiedadData.m2_exteriores || 0) + (propiedadData.m2_loft || 0);
 
@@ -307,17 +309,22 @@ serve(async (req) => {
     
     const mergeData: Record<string, string> = {
       // Datos de la propiedad
-      numero_propiedad: propiedadData.numero_propiedad,
-      numero_departamento: propiedadData.numero_propiedad, // Alias
-      proyecto: proyectoData.nombre,
-      edificio: edificioData.nombre,
-      modelo: modeloData.nombre,
-      precio_final: cuentaData.precio_final.toLocaleString("es-MX", { style: "currency", currency: "MXN" }),
+      numero_propiedad: propiedadData.numero_propiedad || "",
+      numero_departamento: propiedadData.numero_propiedad || "", // Alias
+      piso: propiedadData.numero_piso?.toString() || "",
+      numero_piso: propiedadData.numero_piso?.toString() || "",
+      proyecto: proyectoData.nombre || "",
+      edificio: edificioData?.nombre || "",
+      modelo: modeloData?.nombre || "",
+      precio_final: cuentaData.precio_final?.toLocaleString("es-MX", { style: "currency", currency: "MXN" }) || "",
+      precio_lista: propiedadData.precio_lista?.toLocaleString("es-MX", { style: "currency", currency: "MXN" }) || "",
       m2_totales: m2Totales.toString(),
       metraje: m2Totales.toString(), // Alias
+      m2_reales: propiedadData.m2_reales?.toString() || m2Totales.toString(),
       m2_interiores: (propiedadData.m2_interiores || 0).toString(),
       m2_exteriores: (propiedadData.m2_exteriores || 0).toString(),
       m2_loft: (propiedadData.m2_loft || 0).toString(),
+      descripcion_propiedad: propiedadData.descripcion || "",
       cuenta_cobranza: `CC-${id_cuenta_cobranza.toString().padStart(6, "0")}`,
       fecha_actual: new Date().toLocaleDateString("es-MX"),
       compradores_nombres: compradoresFormateados.map(c => c.nombre).join(", "),
@@ -364,7 +371,6 @@ serve(async (req) => {
       
       // Campos de pagos (estos necesitan calcularse de acuerdos_pago)
       estacionamientos: "", // TODO: contar estacionamientos
-      piso: "", // TODO: obtener piso de la propiedad
       precio_final_letra: "", // TODO: convertir a letras
       num_pagos_parcialidades: "",
       num_pagos_parcialidades_letra: "",
