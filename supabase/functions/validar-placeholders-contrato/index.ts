@@ -737,6 +737,9 @@ serve(async (req) => {
 
     const variablesSistema = Object.keys(mergeData);
     const variablesUsadasEnTemplate = Array.from(placeholdersEnTemplate);
+    
+    // Variables en el sistema pero NO usadas en el template (disponibles para usar)
+    const variablesNoUsadas = variablesSistema.filter(v => !placeholdersEnTemplate.has(v));
 
     return new Response(
       JSON.stringify({
@@ -747,9 +750,11 @@ serve(async (req) => {
           total_disponibles: placeholdersDisponibles.filter(p => p.estado === "ok").length,
           total_vacios: placeholdersVacios.length,
           total_faltantes: placeholdersFaltantes.length,
+          total_no_usadas: variablesNoUsadas.length,
           placeholders_disponibles: placeholdersDisponibles,
           placeholders_faltantes: placeholdersFaltantes,
           placeholders_vacios: placeholdersVacios,
+          variables_no_usadas: variablesNoUsadas,
           variables_sistema: variablesSistema,
           variables_usadas_en_template: variablesUsadasEnTemplate,
           todosPlaceholdersTemplate: variablesUsadasEnTemplate

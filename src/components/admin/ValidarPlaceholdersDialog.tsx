@@ -31,6 +31,7 @@ interface ValidacionData {
   variables_disponibles_sistema?: string[];
   variables_sistema?: string[];
   variables_usadas_en_template?: string[];
+  variables_no_usadas?: string[];
   total_variables_sistema?: number;
   total_variables_usadas?: number;
   total_template?: number;
@@ -38,6 +39,7 @@ interface ValidacionData {
   total_disponibles: number;
   total_faltantes: number;
   total_vacios: number;
+  total_no_usadas?: number;
   tiene_problemas: boolean;
 }
 
@@ -65,7 +67,7 @@ export function ValidarPlaceholdersDialog({
   if (!validacion) return null;
 
   const { toast } = useToast();
-  const [seccionActiva, setSeccionActiva] = React.useState<'todas' | 'disponibles' | 'vacios' | 'faltantes' | 'variables'>('disponibles');
+  const [seccionActiva, setSeccionActiva] = React.useState<'todas' | 'disponibles' | 'vacios' | 'faltantes' | 'variables' | 'noUsadas'>('disponibles');
   const [copiedVariable, setCopiedVariable] = React.useState<string | null>(null);
   const [searchTerm, setSearchTerm] = React.useState<string>("");
 
@@ -124,6 +126,10 @@ export function ValidarPlaceholdersDialog({
     return todosPlaceholdersTemplate.filter(filterBySearch);
   }, [todosPlaceholdersTemplate, searchTerm]);
 
+  const filteredVariablesNoUsadas = React.useMemo(() => {
+    return (validacion.variables_no_usadas || []).filter(filterBySearch);
+  }, [validacion.variables_no_usadas, searchTerm]);
+
   const estadoBadge = (estado: string) => {
     switch (estado) {
       case 'ok':
@@ -153,9 +159,9 @@ export function ValidarPlaceholdersDialog({
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
             {/* Resumen */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-5 gap-3">
               <Card 
-                className={`p-4 border-green-500 cursor-pointer transition-all relative ${
+                className={`p-3 border-green-500 cursor-pointer transition-all relative ${
                   seccionActiva === 'disponibles' 
                     ? 'bg-green-100 dark:bg-green-950 ring-2 ring-green-500' 
                     : 'hover:bg-green-50 dark:hover:bg-green-950'
@@ -170,15 +176,15 @@ export function ValidarPlaceholdersDialog({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Datos extraídos del template de Google Docs</p>
+                      <p>Variables del template con datos disponibles</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <div className="text-sm text-muted-foreground">Encontradas</div>
-                <div className="text-2xl font-bold text-green-500">{validacion.total_disponibles}</div>
+                <div className="text-xs text-muted-foreground">Encontradas</div>
+                <div className="text-xl font-bold text-green-500">{validacion.total_disponibles}</div>
               </Card>
               <Card 
-                className={`p-4 border-yellow-500 cursor-pointer transition-all relative ${
+                className={`p-3 border-yellow-500 cursor-pointer transition-all relative ${
                   seccionActiva === 'vacios' 
                     ? 'bg-yellow-100 dark:bg-yellow-950 ring-2 ring-yellow-500' 
                     : 'hover:bg-yellow-50 dark:hover:bg-yellow-950'
@@ -193,15 +199,15 @@ export function ValidarPlaceholdersDialog({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Datos extraídos del template de Google Docs</p>
+                      <p>Variables del template mapeadas pero sin valor</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <div className="text-sm text-muted-foreground">Vacíos</div>
-                <div className="text-2xl font-bold text-yellow-500">{validacion.total_vacios}</div>
+                <div className="text-xs text-muted-foreground">Vacíos</div>
+                <div className="text-xl font-bold text-yellow-500">{validacion.total_vacios}</div>
               </Card>
               <Card 
-                className={`p-4 border-orange-500 cursor-pointer transition-all relative ${
+                className={`p-3 border-orange-500 cursor-pointer transition-all relative ${
                   seccionActiva === 'faltantes' 
                     ? 'bg-orange-100 dark:bg-orange-950 ring-2 ring-orange-500' 
                     : 'hover:bg-orange-50 dark:hover:bg-orange-950'
@@ -216,25 +222,58 @@ export function ValidarPlaceholdersDialog({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Variables en el template que no están mapeadas en el sistema. Requieren ser agregadas.</p>
+                      <p>Variables en el template que no están mapeadas. Requieren ser agregadas al código.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <div className="text-sm text-muted-foreground">Por Solicitar</div>
-                <div className="text-2xl font-bold text-orange-500">{validacion.total_faltantes}</div>
+                <div className="text-xs text-muted-foreground">Por Solicitar</div>
+                <div className="text-xl font-bold text-orange-500">{validacion.total_faltantes}</div>
               </Card>
               <Card 
-                className={`p-4 border-blue-500 cursor-pointer transition-all ${
+                className={`p-3 border-blue-500 cursor-pointer transition-all relative ${
                   seccionActiva === 'variables' 
                     ? 'bg-blue-100 dark:bg-blue-950 ring-2 ring-blue-500' 
                     : 'hover:bg-blue-50 dark:hover:bg-blue-950'
                 }`}
                 onClick={() => setSeccionActiva(seccionActiva === 'variables' ? 'todas' : 'variables')}
               >
-                <div className="text-sm text-muted-foreground">Variables Template</div>
-                <div className="text-2xl font-bold text-blue-500">
-                  {totalTemplate}
-                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="absolute top-2 right-2 text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
+                        Template
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Todas las variables encontradas en el template</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="text-xs text-muted-foreground">Variables Template</div>
+                <div className="text-xl font-bold text-blue-500">{totalTemplate}</div>
+              </Card>
+              <Card 
+                className={`p-3 border-gray-400 cursor-pointer transition-all relative ${
+                  seccionActiva === 'noUsadas' 
+                    ? 'bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-400' 
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`}
+                onClick={() => setSeccionActiva(seccionActiva === 'noUsadas' ? 'todas' : 'noUsadas')}
+              >
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="absolute top-2 right-2 text-[10px] bg-gray-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
+                        Sistema
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Variables disponibles en el sistema pero no usadas en el template. Puedes agregarlas al template.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="text-xs text-muted-foreground">No Usadas</div>
+                <div className="text-xl font-bold text-gray-500">{validacion.total_no_usadas || 0}</div>
               </Card>
             </div>
 
@@ -466,6 +505,62 @@ export function ValidarPlaceholdersDialog({
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Revisa las secciones de Vacíos y Faltantes para ver qué placeholders necesitan atención
+                  </div>
+                </Card>
+              )
+            )}
+
+            {/* Variables disponibles en el sistema pero NO usadas en el template */}
+            {(seccionActiva === 'todas' || seccionActiva === 'noUsadas') && (
+              (validacion.variables_no_usadas || []).length > 0 ? (
+                <Card className="p-4 border-gray-400 bg-gray-50 dark:bg-gray-900">
+                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    📦 {validacion.total_no_usadas || 0} Variables Disponibles (no usadas en template)
+                    {searchTerm && <span className="text-xs">({filteredVariablesNoUsadas.length} resultados)</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Estas variables están disponibles en el sistema y puedes agregarlas a tu template de Google Docs
+                  </div>
+                  <ScrollArea className="h-[250px] w-full border rounded bg-white dark:bg-background p-2">
+                    {filteredVariablesNoUsadas.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {filteredVariablesNoUsadas.map((variable, i) => {
+                          const isCopied = copiedVariable === variable;
+                          return (
+                            <div 
+                              key={i} 
+                              className="text-xs font-mono p-2 rounded border cursor-pointer transition-all flex items-center justify-between gap-2 group bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              onClick={() => handleCopyVariable(variable)}
+                              title="Click para copiar y usar en tu template"
+                            >
+                              <span className="flex-1 truncate">{`{{${variable}}}`}</span>
+                              <div className="flex items-center gap-1">
+                                {isCopied ? (
+                                  <Check className="w-3 h-3 text-green-500 animate-in zoom-in" />
+                                ) : (
+                                  <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-gray-500" />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center text-muted-foreground py-8">
+                        No se encontraron resultados para "{searchTerm}"
+                      </div>
+                    )}
+                  </ScrollArea>
+                </Card>
+              ) : seccionActiva === 'noUsadas' && (
+                <Card className="p-4 border-gray-400 bg-gray-50 dark:bg-gray-900">
+                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    ✅ Todas las variables del sistema están siendo usadas
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    No hay variables adicionales disponibles para agregar al template
                   </div>
                 </Card>
               )
