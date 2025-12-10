@@ -8,22 +8,33 @@ interface AllowedMenu {
 }
 
 export function useAllowedMenus() {
-  const { profile } = useAuth();
+  const { profile, isLoading: isAuthLoading } = useAuth();
   const [allowedPaths, setAllowedPaths] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
 
   // Super Admin has access to everything
   const isSuperAdmin = profile?.rol_nombre === 'Super Administrador';
 
   useEffect(() => {
-    const fetchAllowedMenus = async () => {
-      if (isSuperAdmin) {
-        // Super Admin can access everything
-        setAllowedPaths(new Set(['*']));
-        setIsLoading(false);
-        return;
-      }
+    // Wait for auth to finish loading
+    if (isAuthLoading) {
+      return;
+    }
 
+    // If Super Admin, skip fetching permissions
+    if (isSuperAdmin) {
+      setAllowedPaths(new Set(['*']));
+      setIsLoadingPermissions(false);
+      return;
+    }
+
+    // If no profile yet (not logged in or still loading), wait
+    if (!profile?.rol_id) {
+      setIsLoadingPermissions(false);
+      return;
+    }
+
+    const fetchAllowedMenus = async () => {
       try {
         // Get all submenus where user has 'leer' permission
         // First get the 'leer' permission id
@@ -35,7 +46,7 @@ export function useAllowedMenus() {
 
         if (!permisoData) {
           setAllowedPaths(new Set());
-          setIsLoading(false);
+          setIsLoadingPermissions(false);
           return;
         }
 
@@ -50,7 +61,7 @@ export function useAllowedMenus() {
         if (permisosError) {
           console.error('Error fetching permissions:', permisosError);
           setAllowedPaths(new Set());
-          setIsLoading(false);
+          setIsLoadingPermissions(false);
           return;
         }
 
@@ -59,7 +70,7 @@ export function useAllowedMenus() {
         
         if (submenuIds.length === 0) {
           setAllowedPaths(new Set());
-          setIsLoading(false);
+          setIsLoadingPermissions(false);
           return;
         }
 
@@ -72,7 +83,7 @@ export function useAllowedMenus() {
         if (submenusError) {
           console.error('Error fetching submenus:', submenusError);
           setAllowedPaths(new Set());
-          setIsLoading(false);
+          setIsLoadingPermissions(false);
           return;
         }
 
@@ -88,23 +99,21 @@ export function useAllowedMenus() {
         console.error('Error in fetchAllowedMenus:', err);
         setAllowedPaths(new Set());
       } finally {
-        setIsLoading(false);
+        setIsLoadingPermissions(false);
       }
     };
 
-    if (profile?.rol_id) {
-      fetchAllowedMenus();
-    } else {
-      setIsLoading(false);
-    }
-  }, [profile?.rol_id, isSuperAdmin]);
-
+    fetchAllowedMenus();
+  }, [profile?.rol_id, isSuperAdmin, isAuthLoading]);
   const isPathAllowed = (path: string): boolean => {
     if (isSuperAdmin || allowedPaths.has('*')) {
       return true;
     }
     return allowedPaths.has(path);
   };
+
+  // Loading = auth loading OR permissions loading (but not if super admin already determined)
+  const isLoading = isAuthLoading || (isLoadingPermissions && !isSuperAdmin);
 
   return {
     isPathAllowed,

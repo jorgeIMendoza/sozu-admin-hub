@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Building2, Loader2, Search } from 'lucide-react';
+import { Building2, Loader2, Search, Filter } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Toggle } from '@/components/ui/toggle';
 
 interface UserProjectAccessDialogProps {
   userId: string;
@@ -31,6 +32,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole 
   const [open, setOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showOnlySelected, setShowOnlySelected] = useState(false);
   const queryClient = useQueryClient();
 
   // Check if user is Super Admin
@@ -76,23 +78,35 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole 
     }
   }, [userAccess]);
 
-  // Reset search when dialog closes
+  // Reset search and filter when dialog closes
   useEffect(() => {
     if (!open) {
       setSearchTerm('');
+      setShowOnlySelected(false);
     }
   }, [open]);
 
-  // Filter projects based on search term
+  // Filter projects based on search term and selected filter
   const filteredProyectos = useMemo(() => {
     if (!proyectos) return [];
-    if (!searchTerm.trim()) return proyectos;
     
-    const lowerSearch = searchTerm.toLowerCase();
-    return proyectos.filter(p => 
-      p.nombre.toLowerCase().includes(lowerSearch)
-    );
-  }, [proyectos, searchTerm]);
+    let filtered = proyectos;
+    
+    // Filter by selected if enabled
+    if (showOnlySelected) {
+      filtered = filtered.filter(p => selectedProjects.includes(p.id));
+    }
+    
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const lowerSearch = searchTerm.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.nombre.toLowerCase().includes(lowerSearch)
+      );
+    }
+    
+    return filtered;
+  }, [proyectos, searchTerm, showOnlySelected, selectedProjects]);
 
   // Mutation to save access (using email as FK, not UUID)
   const saveAccessMutation = useMutation({
@@ -220,13 +234,23 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole 
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={handleSelectAll}>
                 Seleccionar todos
               </Button>
               <Button variant="outline" size="sm" onClick={handleDeselectAll}>
                 Quitar todos
               </Button>
+              <Toggle
+                pressed={showOnlySelected}
+                onPressedChange={setShowOnlySelected}
+                size="sm"
+                variant="outline"
+                className="gap-1"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                Solo seleccionados
+              </Toggle>
             </div>
 
             <ScrollArea className="h-[280px] border rounded-md p-3">
