@@ -130,6 +130,8 @@ export function ValidarPlaceholdersDialog({
         return <Badge variant="default" className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" /> OK</Badge>;
       case 'vacío':
         return <Badge variant="outline" className="border-yellow-500 text-yellow-500"><AlertCircle className="w-3 h-3 mr-1" /> Vacío</Badge>;
+      case 'faltante':
+        return <Badge variant="outline" className="border-orange-500 text-orange-500 bg-orange-50"><AlertCircle className="w-3 h-3 mr-1" /> Por Solicitar</Badge>;
       default:
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Falta</Badge>;
     }
@@ -199,27 +201,27 @@ export function ValidarPlaceholdersDialog({
                 <div className="text-2xl font-bold text-yellow-500">{validacion.total_vacios}</div>
               </Card>
               <Card 
-                className={`p-4 border-red-500 cursor-pointer transition-all relative ${
+                className={`p-4 border-orange-500 cursor-pointer transition-all relative ${
                   seccionActiva === 'faltantes' 
-                    ? 'bg-red-100 dark:bg-red-950 ring-2 ring-red-500' 
-                    : 'hover:bg-red-50 dark:hover:bg-red-950'
+                    ? 'bg-orange-100 dark:bg-orange-950 ring-2 ring-orange-500' 
+                    : 'hover:bg-orange-50 dark:hover:bg-orange-950'
                 }`}
                 onClick={() => setSeccionActiva(seccionActiva === 'faltantes' ? 'todas' : 'faltantes')}
               >
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="absolute top-2 right-2 text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
-                        Template
+                      <div className="absolute top-2 right-2 text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
+                        Solicitar
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Datos extraídos del template de Google Docs</p>
+                      <p>Variables en el template que no están mapeadas en el sistema. Requieren ser agregadas.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <div className="text-sm text-muted-foreground">Faltantes</div>
-                <div className="text-2xl font-bold text-red-500">{validacion.total_faltantes}</div>
+                <div className="text-sm text-muted-foreground">Por Solicitar</div>
+                <div className="text-2xl font-bold text-orange-500">{validacion.total_faltantes}</div>
               </Card>
               <Card 
                 className={`p-4 border-blue-500 cursor-pointer transition-all ${
@@ -272,7 +274,7 @@ export function ValidarPlaceholdersDialog({
                 <div className="text-xs text-muted-foreground mb-2">
                   <span className="text-green-600 dark:text-green-400 font-semibold">Verde = Encontrada con datos ({validacion.total_disponibles || 0})</span>, 
                   <span className="text-yellow-600 dark:text-yellow-400 font-semibold"> Amarillo = Vacía ({validacion.total_vacios || 0})</span>, 
-                  <span className="text-red-600 dark:text-red-400 font-semibold"> Rojo = Faltante ({validacion.total_faltantes || 0})</span>
+                  <span className="text-orange-600 dark:text-orange-400 font-semibold"> Naranja = Por Solicitar ({validacion.total_faltantes || 0})</span>
                 </div>
                 <ScrollArea className="h-[300px] w-full border rounded bg-white dark:bg-background p-2">
                   {filteredTodosPlaceholdersTemplate.length > 0 ? (
@@ -299,10 +301,10 @@ export function ValidarPlaceholdersDialog({
                           Icon = AlertCircle;
                           tooltip = '⚠️ Vacía - Click para copiar';
                         } else if (estaFaltante) {
-                          bgColor = 'bg-red-50 dark:bg-red-900 border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-800';
-                          iconColor = 'text-red-600 dark:text-red-400';
-                          Icon = XCircle;
-                          tooltip = '❌ Faltante - No existe en el sistema';
+                          bgColor = 'bg-orange-50 dark:bg-orange-900 border-orange-300 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-800';
+                          iconColor = 'text-orange-600 dark:text-orange-400';
+                          Icon = AlertCircle;
+                          tooltip = '🔶 Por Solicitar - No mapeada en el sistema';
                         }
                         
                         return (
@@ -334,24 +336,27 @@ export function ValidarPlaceholdersDialog({
               </Card>
             )}
 
-            {/* Placeholders Faltantes - PRIORIDAD */}
+            {/* Placeholders Por Solicitar - En template pero NO en sistema */}
             {(seccionActiva === 'todas' || seccionActiva === 'faltantes') && (
               validacion.placeholders_faltantes.length > 0 ? (
-                <Card className="p-4 border-red-500 bg-red-50 dark:bg-red-950">
-                  <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-2 flex items-center gap-2">
-                    <XCircle className="w-4 h-4" />
-                    ⚠️ CRÍTICO: {validacion.total_faltantes} Placeholders NO GENERADOS (aparecerán en ROJO)
+                <Card className="p-4 border-orange-500 bg-orange-50 dark:bg-orange-950">
+                  <div className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-2 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    🔶 {validacion.total_faltantes} Placeholders POR SOLICITAR (aparecerán en NARANJA)
                     {searchTerm && <span className="text-xs">({filteredPlaceholdersFaltantes.length} resultados)</span>}
                   </div>
                   <div className="text-xs text-muted-foreground mb-2">
-                    Estos placeholders están en el template pero NO tienen datos disponibles
+                    Estos placeholders están en el template pero NO están mapeados en el sistema. Deben ser agregados al código.
                   </div>
                   <ScrollArea className="h-[200px] w-full border rounded bg-white dark:bg-background p-2">
                     {filteredPlaceholdersFaltantes.length > 0 ? (
                       <div className="space-y-1">
                         {filteredPlaceholdersFaltantes.map((ph, i) => (
-                          <div key={i} className="text-sm font-mono bg-red-50 dark:bg-red-900 p-2 rounded border border-red-300 dark:border-red-700">
-                            {`{{${ph}}}`}
+                          <div key={i} className="text-sm font-mono bg-orange-50 dark:bg-orange-900 p-2 rounded border border-orange-300 dark:border-orange-700 flex items-center justify-between">
+                            <span>{`{{${ph}}}`}</span>
+                            <Badge variant="outline" className="text-orange-600 border-orange-400 text-xs">
+                              Por agregar
+                            </Badge>
                           </div>
                         ))}
                       </div>
@@ -363,10 +368,10 @@ export function ValidarPlaceholdersDialog({
                   </ScrollArea>
                 </Card>
               ) : seccionActiva === 'faltantes' && (
-                <Card className="p-4 border-red-500 bg-red-50 dark:bg-red-950">
-                  <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-2 flex items-center gap-2">
+                <Card className="p-4 border-orange-500 bg-orange-50 dark:bg-orange-950">
+                  <div className="text-sm font-medium text-orange-600 dark:text-orange-400 mb-2 flex items-center gap-2">
                     <CheckCircle className="w-4 h-4" />
-                    ✅ No hay placeholders faltantes
+                    ✅ No hay placeholders por solicitar
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Todos los placeholders del template tienen datos mapeados en el sistema
