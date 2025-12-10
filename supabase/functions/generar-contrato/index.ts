@@ -5,6 +5,55 @@ import { corsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Función recursiva para extraer placeholders de todo el documento
+function extractPlaceholdersFromElement(element: any, placeholders: Set<string>) {
+  // Si es párrafo, buscar en sus elementos
+  if (element.paragraph) {
+    element.paragraph.elements?.forEach((el: any) => {
+      const text = el.textRun?.content || "";
+      const matches = text.matchAll(/\{\{([^}]+)\}\}/g);
+      for (const match of matches) {
+        placeholders.add(match[1].trim());
+      }
+    });
+  }
+  
+  // Si es tabla, recorrer filas y celdas
+  if (element.table) {
+    element.table.tableRows?.forEach((row: any) => {
+      row.tableCells?.forEach((cell: any) => {
+        cell.content?.forEach((cellContent: any) => {
+          extractPlaceholdersFromElement(cellContent, placeholders);
+        });
+      });
+    });
+  }
+  
+  // Si es lista
+  if (element.list) {
+    element.list.listItems?.forEach((item: any) => {
+      item.content?.forEach((itemContent: any) => {
+        extractPlaceholdersFromElement(itemContent, placeholders);
+      });
+    });
+  }
+}
+
+// Extraer placeholders de headers y footers
+function extractPlaceholdersFromHeadersFooters(doc: any, placeholders: Set<string>) {
+  // Headers
+  const headers = doc.headers || {};
+  Object.values(headers).forEach((header: any) => {
+    header.content?.forEach((el: any) => extractPlaceholdersFromElement(el, placeholders));
+  });
+  
+  // Footers
+  const footers = doc.footers || {};
+  Object.values(footers).forEach((footer: any) => {
+    footer.content?.forEach((el: any) => extractPlaceholdersFromElement(el, placeholders));
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,7 +68,7 @@ serve(async (req) => {
     // 1. Obtener cuenta de cobranza
     const { data: cuentaData, error: cuentaError } = await supabase
       .from("cuentas_cobranza")
-      .select("id, precio_final, id_oferta")
+      .select("id, precio_final, id_oferta, clabe_stp, numero_escritura, clave_catastral, numero_unidad_privativa, fecha_compra, fecha_escritura, libro, hoja")
       .eq("id", id_cuenta_cobranza)
       .single();
 
@@ -476,21 +525,20 @@ serve(async (req) => {
 
     const templateContent = await templateContentResponse.json();
     
-    // Extraer placeholders
+    // Extraer placeholders usando función recursiva
     const placeholders = new Set<string>();
     const content = templateContent.body?.content || [];
     
+    // Extraer de body
     content.forEach((element: any) => {
-      if (element.paragraph) {
-        element.paragraph.elements?.forEach((el: any) => {
-          const text = el.textRun?.content || "";
-          const matches = text.matchAll(/\{\{([^}]+)\}\}/g);
-          for (const match of matches) {
-            placeholders.add(match[1].trim());
-          }
-        });
-      }
+      extractPlaceholdersFromElement(element, placeholders);
     });
+    
+    // Extraer de headers y footers
+    extractPlaceholdersFromHeadersFooters(templateContent, placeholders);
+    
+    console.log("Total placeholders encontrados en template:", placeholders.size);
+    console.log("Placeholders:", Array.from(placeholders));
 
     // 14. Preparar datos para merge con array completo de compradores
     const mergeData: Record<string, string> = {
@@ -509,6 +557,16 @@ serve(async (req) => {
       m2_loft: (propiedad.m2_loft || 0).toString(),
       cuenta_cobranza: `CC-${id_cuenta_cobranza.toString().padStart(6, "0")}`,
       fecha_actual: new Date().toLocaleDateString("es-MX"),
+      
+      // Campos adicionales de cuenta_cobranza
+      clabe_stp: cuentaData.clabe_stp || "",
+      numero_escritura: cuentaData.numero_escritura || "",
+      clave_catastral: cuentaData.clave_catastral || "",
+      numero_unidad_privativa: cuentaData.numero_unidad_privativa || "",
+      libro: cuentaData.libro || "",
+      hoja: cuentaData.hoja || "",
+      fecha_compra: cuentaData.fecha_compra ? new Date(cuentaData.fecha_compra).toLocaleDateString("es-MX") : "",
+      fecha_escritura: cuentaData.fecha_escritura ? new Date(cuentaData.fecha_escritura).toLocaleDateString("es-MX") : "",
       
       // Datos agregados de compradores
       compradores_nombres: compradoresFormateados.map(c => c.nombre).join(", "),

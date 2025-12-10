@@ -5,6 +5,55 @@ import { corsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Función recursiva para extraer placeholders de todo el documento
+function extractPlaceholdersFromElement(element: any, placeholders: Set<string>) {
+  // Si es párrafo, buscar en sus elementos
+  if (element.paragraph) {
+    element.paragraph.elements?.forEach((el: any) => {
+      const text = el.textRun?.content || "";
+      const matches = text.matchAll(/\{\{([^}]+)\}\}/g);
+      for (const match of matches) {
+        placeholders.add(match[1].trim());
+      }
+    });
+  }
+  
+  // Si es tabla, recorrer filas y celdas
+  if (element.table) {
+    element.table.tableRows?.forEach((row: any) => {
+      row.tableCells?.forEach((cell: any) => {
+        cell.content?.forEach((cellContent: any) => {
+          extractPlaceholdersFromElement(cellContent, placeholders);
+        });
+      });
+    });
+  }
+  
+  // Si es lista
+  if (element.list) {
+    element.list.listItems?.forEach((item: any) => {
+      item.content?.forEach((itemContent: any) => {
+        extractPlaceholdersFromElement(itemContent, placeholders);
+      });
+    });
+  }
+}
+
+// Extraer placeholders de headers y footers
+function extractPlaceholdersFromHeadersFooters(doc: any, placeholders: Set<string>) {
+  // Headers
+  const headers = doc.headers || {};
+  Object.values(headers).forEach((header: any) => {
+    header.content?.forEach((el: any) => extractPlaceholdersFromElement(el, placeholders));
+  });
+  
+  // Footers
+  const footers = doc.footers || {};
+  Object.values(footers).forEach((footer: any) => {
+    footer.content?.forEach((el: any) => extractPlaceholdersFromElement(el, placeholders));
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,7 +68,7 @@ serve(async (req) => {
     // Obtener datos (mismo flujo que generar-contrato pero sin crear documento)
     const { data: cuentaData } = await supabase
       .from("cuentas_cobranza")
-      .select("id, precio_final, id_oferta")
+      .select("id, precio_final, id_oferta, clabe_stp, numero_escritura, clave_catastral, numero_unidad_privativa, fecha_compra, fecha_escritura, libro, hoja")
       .eq("id", id_cuenta_cobranza)
       .single();
 
@@ -267,7 +316,16 @@ serve(async (req) => {
       fecha_actual: new Date().toLocaleDateString("es-MX"),
       compradores_nombres: compradoresFormateados.map(c => c.nombre).join(", "),
       compradores_siglas: siglas,
-      numero_compradores: compradoresFormateados.length.toString()
+      numero_compradores: compradoresFormateados.length.toString(),
+      // Campos adicionales de cuenta_cobranza
+      clabe_stp: cuentaData.clabe_stp || "",
+      numero_escritura: cuentaData.numero_escritura || "",
+      clave_catastral: cuentaData.clave_catastral || "",
+      numero_unidad_privativa: cuentaData.numero_unidad_privativa || "",
+      libro: cuentaData.libro || "",
+      hoja: cuentaData.hoja || "",
+      fecha_compra: cuentaData.fecha_compra ? new Date(cuentaData.fecha_compra).toLocaleDateString("es-MX") : "",
+      fecha_escritura: cuentaData.fecha_escritura ? new Date(cuentaData.fecha_escritura).toLocaleDateString("es-MX") : "",
     };
 
     compradoresFormateados.forEach((comprador, index) => {
@@ -420,20 +478,20 @@ serve(async (req) => {
 
     const templateContent = await templateContentResponse.json();
     
+    // Usar extracción recursiva para todo el documento
     const placeholdersEnTemplate = new Set<string>();
     const content = templateContent.body?.content || [];
     
+    // Extraer de body
     content.forEach((element: any) => {
-      if (element.paragraph) {
-        element.paragraph.elements?.forEach((el: any) => {
-          const text = el.textRun?.content || "";
-          const matches = text.matchAll(/\{\{([^}]+)\}\}/g);
-          for (const match of matches) {
-            placeholdersEnTemplate.add(match[1].trim());
-          }
-        });
-      }
+      extractPlaceholdersFromElement(element, placeholdersEnTemplate);
     });
+    
+    // Extraer de headers y footers
+    extractPlaceholdersFromHeadersFooters(templateContent, placeholdersEnTemplate);
+    
+    console.log("Total placeholders encontrados en template:", placeholdersEnTemplate.size);
+    console.log("Placeholders:", Array.from(placeholdersEnTemplate));
 
     // Clasificar placeholders
     const placeholdersDisponibles: Array<{placeholder: string, valor: string, estado: string}> = [];
@@ -459,49 +517,37 @@ serve(async (req) => {
       }
     });
 
-    // Calcular variables del sistema que están siendo usadas en el template
-    const variablesSistemaKeys = Object.keys(mergeData);
-    const variablesUsadasEnTemplate = variablesSistemaKeys.filter(key => 
-      placeholdersEnTemplate.has(key)
-    );
+    const variablesSistema = Object.keys(mergeData);
+    const variablesUsadasEnTemplate = Array.from(placeholdersEnTemplate);
 
     return new Response(
       JSON.stringify({
         success: true,
-        validation: {
-          placeholders_en_template: Array.from(placeholdersEnTemplate),
+        validacion: {
+          tiene_problemas: placeholdersFaltantes.length > 0 || placeholdersVacios.length > 0,
+          total_placeholders_template: placeholdersEnTemplate.size,
+          total_disponibles: placeholdersDisponibles.filter(p => p.estado === "ok").length,
+          total_vacios: placeholdersVacios.length,
+          total_faltantes: placeholdersFaltantes.length,
           placeholders_disponibles: placeholdersDisponibles,
           placeholders_faltantes: placeholdersFaltantes,
           placeholders_vacios: placeholdersVacios,
-          variables_disponibles_sistema: variablesSistemaKeys.sort(),
-          variables_usadas_en_template: variablesUsadasEnTemplate.sort(),
-          total_variables_sistema: variablesSistemaKeys.length,
-          total_variables_usadas: variablesUsadasEnTemplate.length,
-          total_template: placeholdersEnTemplate.size,
-          total_disponibles: placeholdersDisponibles.length,
-          total_faltantes: placeholdersFaltantes.length,
-          total_vacios: placeholdersVacios.length,
-          tiene_problemas: placeholdersFaltantes.length > 0 || placeholdersVacios.length > 0
+          variables_sistema: variablesSistema,
+          variables_usadas_en_template: variablesUsadasEnTemplate,
+          todosPlaceholdersTemplate: variablesUsadasEnTemplate
         },
         compradores: compradoresFormateados,
         tipo_persona: tipoPersona,
         template_name: templateName
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
     console.error("Error validando placeholders:", error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
