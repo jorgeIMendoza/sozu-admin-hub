@@ -446,7 +446,19 @@ serve(async (req) => {
 
     const siglas = compradoresFinales.map((c: any) => generarSiglas(c.personas.nombre_legal)).join("-");
 
-    // 8.5. Formatear datos de compradores
+    // 8.5. Función para formatear fecha en español: "16 de junio de 1979"
+    function formatearFechaEspanol(fecha: string | null): string {
+      if (!fecha) return "";
+      const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", 
+                     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+      const date = new Date(fecha);
+      const dia = date.getDate();
+      const mes = meses[date.getMonth()];
+      const anio = date.getFullYear();
+      return `${dia} de ${mes} de ${anio}`;
+    }
+
+    // 8.6. Formatear datos de compradores
     function formatearComprador(comprador: any, index: number) {
       const p = comprador.personas;
       
@@ -461,9 +473,7 @@ serve(async (req) => {
         // Datos personales
         tipo_persona: p.tipo_persona || "",
         sexo: p.sexo || "",
-        fecha_nacimiento: p.fecha_nacimiento 
-          ? new Date(p.fecha_nacimiento).toLocaleDateString("es-MX") 
-          : "",
+        fecha_nacimiento: formatearFechaEspanol(p.fecha_nacimiento),
         estado_civil: p.estados_civil?.nombre || "",
         nacionalidad: p.paises?.nacionalidad || "",
         ocupacion: p.ocupacion || "",
@@ -695,7 +705,7 @@ serve(async (req) => {
       m2_loft: (propiedad.m2_loft || 0).toString(),
       descripcion_propiedad: propiedad.descripcion || "",
       cuenta_cobranza: `CC-${id_cuenta_cobranza.toString().padStart(6, "0")}`,
-      fecha_actual: new Date().toLocaleDateString("es-MX"),
+      fecha_actual: formatearFechaEspanol(new Date().toISOString()),
       estacionamientos: numEstacionamientos.toString(),
       
       // Campos adicionales de cuenta_cobranza
@@ -705,8 +715,8 @@ serve(async (req) => {
       numero_unidad_privativa: cuentaData.numero_unidad_privativa || "",
       libro: cuentaData.libro || "",
       hoja: cuentaData.hoja || "",
-      fecha_compra: cuentaData.fecha_compra ? new Date(cuentaData.fecha_compra).toLocaleDateString("es-MX") : "",
-      fecha_escritura: cuentaData.fecha_escritura ? new Date(cuentaData.fecha_escritura).toLocaleDateString("es-MX") : "",
+      fecha_compra: formatearFechaEspanol(cuentaData.fecha_compra),
+      fecha_escritura: formatearFechaEspanol(cuentaData.fecha_escritura),
       
       // Datos agregados de compradores
       compradores_nombres: compradoresFormateados.map(c => c.nombre).join(", "),
@@ -743,9 +753,17 @@ serve(async (req) => {
       numero_identificacion: "",
       
       // Campos de pagos (placeholders para tablas de pagos)
+      pagos_enganche: "",
+      num_pagos_enganche: "",
+      num_pagos_enganche_letra: "",
+      monto_enganche: "",
+      monto_enganche_letra: "",
+      fecha_enganche: "",
       num_pagos_parcialidades: "",
       num_pagos_parcialidades_letra: "",
       pagos_parcialidades: "",
+      monto_parcialidad: "",
+      monto_parcialidad_letra: "",
       orden_pagos_especiales: "",
       num_pagos_especiales: "",
       num_pagos_especiales_letra: "",
@@ -754,6 +772,9 @@ serve(async (req) => {
       num_pagos_finales: "",
       num_pagos_finales_letra: "",
       pagos_finales: "",
+      monto_entrega: "",
+      monto_entrega_letra: "",
+      fecha_entrega: "",
     };
 
     // Agregar datos individuales por cada comprador
