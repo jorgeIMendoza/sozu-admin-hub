@@ -205,6 +205,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [acuerdoToDelete, setAcuerdoToDelete] = useState<{ id: number; concepto: string; monto: number } | null>(null);
   const [tipoCuenta, setTipoCuenta] = useState<'Propiedad' | 'Producto' | 'Servicio'>('Propiedad');
   const [productoServicioInfo, setProductoServicioInfo] = useState<any>(null);
+  const [ofertaProductoData, setOfertaProductoData] = useState<{ id_producto: number | null; id_propiedad: number | null }>({ id_producto: null, id_propiedad: null });
   const [fechaCompra, setFechaCompra] = useState<Date | undefined>(undefined);
   const [selectedConyugeForBuyer, setSelectedConyugeForBuyer] = useState<{ buyerPersonaId: number | null; conyugePersonaId: number | null }>({ buyerPersonaId: null, conyugePersonaId: null });
   
@@ -298,8 +299,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         const categoriaNombre = ofertaData.productos_servicios.categorias_producto?.nombre?.toLowerCase();
         setTipoCuenta(categoriaNombre === 'servicios' ? 'Servicio' : 'Producto');
         setProductoServicioInfo(ofertaData.productos_servicios);
+        setOfertaProductoData({ id_producto: ofertaData.id_producto, id_propiedad: ofertaData.id_propiedad });
       } else {
         setTipoCuenta('Propiedad');
+        setOfertaProductoData({ id_producto: null, id_propiedad: null });
       }
 
       if (!ofertaData?.id_propiedad) return null;
@@ -374,7 +377,41 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     enabled: !!propiedadDetalle?.id && tipoCuenta === 'Producto'
   });
 
-  // Get seller details
+  // Get bodega or estacionamiento details for product accounts
+  const { data: bodegaEstacionamientoData } = useQuery({
+    queryKey: ["bodega_estacionamiento_data", ofertaProductoData.id_producto, ofertaProductoData.id_propiedad, productoServicioInfo?.categorias_producto?.nombre],
+    queryFn: async () => {
+      if (!ofertaProductoData.id_producto || !ofertaProductoData.id_propiedad) return null;
+      
+      const categoriaNombre = productoServicioInfo?.categorias_producto?.nombre?.toLowerCase();
+      
+      if (categoriaNombre === 'bodega') {
+        const { data } = await supabase
+          .from('bodegas')
+          .select('id, nombre, m2, ubicacion')
+          .eq('id_producto', ofertaProductoData.id_producto)
+          .eq('id_propiedad', ofertaProductoData.id_propiedad)
+          .eq('activo', true)
+          .maybeSingle();
+        
+        return data ? { ...data, tipo: 'bodega' } : null;
+      } else if (categoriaNombre === 'estacionamiento') {
+        const { data } = await supabase
+          .from('estacionamientos')
+          .select('id, nombre, m2, ubicacion')
+          .eq('id_producto', ofertaProductoData.id_producto)
+          .eq('id_propiedad', ofertaProductoData.id_propiedad)
+          .eq('activo', true)
+          .maybeSingle();
+        
+        return data ? { ...data, tipo: 'estacionamiento' } : null;
+      }
+      
+      return null;
+    },
+    enabled: !!ofertaProductoData.id_producto && !!ofertaProductoData.id_propiedad && tipoCuenta === 'Producto'
+  });
+
   const { data: vendedorDetalle } = useQuery({
     queryKey: ["vendedor_detalle", propiedadDetalle?.id_entidad_relacionada_dueno],
     queryFn: async () => {
@@ -2500,13 +2537,16 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Nombre</Label>
-                      <Input value={productoServicioInfo.nombre || ''} readOnly />
+                      <Input 
+                        value={bodegaEstacionamientoData?.nombre || productoServicioInfo.nombre || ''} 
+                        readOnly 
+                      />
                     </div>
                     <div>
                       <Label>Categoría</Label>
                       <Input value={productoServicioInfo.categorias_producto?.nombre || ''} readOnly />
                     </div>
-                    {productoServicioInfo.categorias_producto?.tiene_metraje ? (
+                    {bodegaEstacionamientoData ? (
                       <>
                         <div>
                           <Label>Precio por M²</Label>
@@ -2518,17 +2558,16 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                         <div>
                           <Label>Metraje</Label>
                           <Input 
-                            value={productoServicioInfo.precio_lista && cuentaDetalle?.precio_final 
-                              ? `${(cuentaDetalle.precio_final / productoServicioInfo.precio_lista).toFixed(2)} m²`
-                              : 'N/A'
-                            } 
+                            value={bodegaEstacionamientoData.m2 ? `${Number(bodegaEstacionamientoData.m2).toFixed(2)} m²` : 'N/A'} 
                             readOnly 
                           />
                         </div>
                         <div>
                           <Label>Precio Final</Label>
                           <Input 
-                            value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle?.precio_final || 0)} 
+                            value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
+                              (productoServicioInfo.precio_lista || 0) * (bodegaEstacionamientoData.m2 || 0)
+                            )} 
                             readOnly 
                           />
                         </div>
@@ -2537,7 +2576,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       <div>
                         <Label>Precio de Lista</Label>
                         <Input 
-                          value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(productoServicioInfo.precio_lista || 0)} 
+                          value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle?.precio_final || 0)} 
                           readOnly 
                         />
                       </div>
@@ -3660,20 +3699,35 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           {/* Price Summary Section */}
                           <div className="mb-6 p-4 bg-muted/20 rounded-lg">
                             <div className={`grid grid-cols-1 gap-4 ${
-                              ((tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista)) && cuentaDetalle?.precio_final && 
-                              cuentaDetalle.precio_final !== (tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista)
+                              (() => {
+                                const precioListaCalculado = tipoCuenta === 'Propiedad' 
+                                  ? propiedadDetalle?.precio_lista 
+                                  : (bodegaEstacionamientoData 
+                                      ? (productoServicioInfo?.precio_lista || 0) * (bodegaEstacionamientoData.m2 || 0)
+                                      : productoServicioInfo?.precio_lista);
+                                return precioListaCalculado && cuentaDetalle?.precio_final && 
+                                  cuentaDetalle.precio_final !== precioListaCalculado;
+                              })()
                                 ? 'md:grid-cols-3' 
                                 : 'md:grid-cols-2'
                             }`}>
                               <div>
                                 <h4 className="font-medium text-foreground mb-1">Precio de Lista</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  {(tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista) ? 
-                                    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
-                                      tipoCuenta === 'Propiedad' ? propiedadDetalle.precio_lista : productoServicioInfo.precio_lista
-                                    ) : 
-                                    'No definido'
-                                  }
+                                  {(() => {
+                                    if (tipoCuenta === 'Propiedad') {
+                                      return propiedadDetalle?.precio_lista 
+                                        ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(propiedadDetalle.precio_lista)
+                                        : 'No definido';
+                                    } else if (bodegaEstacionamientoData) {
+                                      const precioCalculado = (productoServicioInfo?.precio_lista || 0) * (bodegaEstacionamientoData.m2 || 0);
+                                      return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(precioCalculado);
+                                    } else {
+                                      return productoServicioInfo?.precio_lista 
+                                        ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(productoServicioInfo.precio_lista)
+                                        : 'No definido';
+                                    }
+                                  })()}
                                 </p>
                               </div>
                               <div>
@@ -3708,7 +3762,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 </div>
                               </div>
                               {(() => {
-                                const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
+                                const precioLista = tipoCuenta === 'Propiedad' 
+                                  ? propiedadDetalle?.precio_lista 
+                                  : (bodegaEstacionamientoData 
+                                      ? (productoServicioInfo?.precio_lista || 0) * (bodegaEstacionamientoData.m2 || 0)
+                                      : productoServicioInfo?.precio_lista);
                                 
                                 if (!precioLista || !cuentaDetalle?.precio_final) return null;
                                 
@@ -3800,20 +3858,35 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           {/* Price Summary Section */}
                           <div className="mb-4 p-4 bg-muted/20 rounded-lg">
                             <div className={`grid grid-cols-1 gap-4 ${
-                              ((tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista)) && cuentaDetalle?.precio_final && 
-                              cuentaDetalle.precio_final !== (tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista)
+                              (() => {
+                                const precioListaCalculado = tipoCuenta === 'Propiedad' 
+                                  ? propiedadDetalle?.precio_lista 
+                                  : (bodegaEstacionamientoData 
+                                      ? (productoServicioInfo?.precio_lista || 0) * (bodegaEstacionamientoData.m2 || 0)
+                                      : productoServicioInfo?.precio_lista);
+                                return precioListaCalculado && cuentaDetalle?.precio_final && 
+                                  cuentaDetalle.precio_final !== precioListaCalculado;
+                              })()
                                 ? 'md:grid-cols-3' 
                                 : 'md:grid-cols-2'
                             }`}>
                               <div>
                                 <h4 className="font-medium text-foreground mb-1">Precio de Lista</h4>
                                 <p className="text-sm text-muted-foreground">
-                                  {(tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista) ? 
-                                    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
-                                      tipoCuenta === 'Propiedad' ? propiedadDetalle.precio_lista : productoServicioInfo.precio_lista
-                                    ) : 
-                                    'No definido'
-                                  }
+                                  {(() => {
+                                    if (tipoCuenta === 'Propiedad') {
+                                      return propiedadDetalle?.precio_lista 
+                                        ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(propiedadDetalle.precio_lista)
+                                        : 'No definido';
+                                    } else if (bodegaEstacionamientoData) {
+                                      const precioCalculado = (productoServicioInfo?.precio_lista || 0) * (bodegaEstacionamientoData.m2 || 0);
+                                      return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(precioCalculado);
+                                    } else {
+                                      return productoServicioInfo?.precio_lista 
+                                        ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(productoServicioInfo.precio_lista)
+                                        : 'No definido';
+                                    }
+                                  })()}
                                 </p>
                               </div>
                               <div>
@@ -3826,7 +3899,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 </p>
                               </div>
                               {(() => {
-                                const precioLista = tipoCuenta === 'Propiedad' ? propiedadDetalle?.precio_lista : productoServicioInfo?.precio_lista;
+                                const precioLista = tipoCuenta === 'Propiedad' 
+                                  ? propiedadDetalle?.precio_lista 
+                                  : (bodegaEstacionamientoData 
+                                      ? (productoServicioInfo?.precio_lista || 0) * (bodegaEstacionamientoData.m2 || 0)
+                                      : productoServicioInfo?.precio_lista);
                                 
                                 if (!precioLista || !cuentaDetalle?.precio_final) return null;
                                 
