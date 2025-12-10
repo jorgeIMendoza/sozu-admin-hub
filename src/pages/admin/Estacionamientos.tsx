@@ -30,7 +30,20 @@ interface Estacionamiento {
   proyecto_nombre: string;
   numero_propiedad: string;
   id_tipo: number | null;
+  precio_m2: number | null;
+  precio_final: number | null;
 }
+
+// Helper para formatear moneda
+const formatCurrency = (value: number | null): string => {
+  if (value === null || value === undefined) return 'N/A';
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
 
 const Estacionamientos = () => {
   const [inputValue, setInputValue] = useState("");
@@ -65,7 +78,8 @@ const Estacionamientos = () => {
           propiedades!estacionamientos_id_propiedad_fkey(
             numero_propiedad,
             id_entidad_relacionada_dueno
-          )
+          ),
+          productos_servicios!estacionamientos_id_producto_fkey(precio_lista)
         `, { count: 'exact' })
         .eq('activo', true)
         .order('id', { ascending: false });
@@ -94,6 +108,8 @@ const Estacionamientos = () => {
 
       const enrichedData = allData.map((item: any) => {
         const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
+        const precioM2 = item.productos_servicios?.precio_lista ?? null;
+        const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
         return {
           id: item.id,
           nombre: item.nombre,
@@ -105,7 +121,9 @@ const Estacionamientos = () => {
           proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
           proyecto_id: entity?.id_proyecto || entity?.proyectos?.id || null,
           numero_propiedad: item.propiedades?.numero_propiedad || 'N/A',
-          id_tipo: item.id_tipo
+          id_tipo: item.id_tipo,
+          precio_m2: precioM2,
+          precio_final: precioFinal
         };
       });
 
@@ -156,7 +174,8 @@ const Estacionamientos = () => {
           propiedades!estacionamientos_id_propiedad_fkey(
             numero_propiedad,
             id_entidad_relacionada_dueno
-          )
+          ),
+          productos_servicios!estacionamientos_id_producto_fkey(precio_lista)
         `, { count: 'exact' })
         .eq('activo', false)
         .order('id', { ascending: false });
@@ -176,6 +195,8 @@ const Estacionamientos = () => {
 
       const enrichedData = allData.map((item: any) => {
         const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
+        const precioM2 = item.productos_servicios?.precio_lista ?? null;
+        const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
         return {
           id: item.id, nombre: item.nombre, m2: item.m2, ubicacion: item.ubicacion,
           es_incluido: item.es_incluido, activo: item.activo,
@@ -183,7 +204,9 @@ const Estacionamientos = () => {
           proyecto_nombre: entity?.proyectos?.nombre || 'N/A',
           proyecto_id: entity?.id_proyecto || entity?.proyectos?.id || null,
           numero_propiedad: item.propiedades?.numero_propiedad || 'N/A',
-          id_tipo: item.id_tipo
+          id_tipo: item.id_tipo,
+          precio_m2: precioM2,
+          precio_final: precioFinal
         };
       });
 
@@ -435,6 +458,8 @@ const Estacionamientos = () => {
                       <TableHead>Nombre Estacionamiento</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>M2</TableHead>
+                      <TableHead>Precio por M2</TableHead>
+                      <TableHead>Precio Final</TableHead>
                       <TableHead>Incluido</TableHead>
                       <TableHead>Ubicación</TableHead>
                       <TableHead>Acciones</TableHead>
@@ -448,6 +473,8 @@ const Estacionamientos = () => {
                         <TableCell>{highlightText(estacionamiento.nombre, searchTerm)}</TableCell>
                         <TableCell>{estacionamiento.tipo_nombre}</TableCell>
                         <TableCell>{estacionamiento.m2} m²</TableCell>
+                        <TableCell>{formatCurrency(estacionamiento.precio_m2)}</TableCell>
+                        <TableCell>{formatCurrency(estacionamiento.precio_final)}</TableCell>
                         <TableCell>
                           <Badge variant={estacionamiento.es_incluido ? "default" : "secondary"}>
                             {estacionamiento.es_incluido ? "Sí" : "No"}
@@ -536,6 +563,8 @@ const Estacionamientos = () => {
                       <TableHead>Nombre Estacionamiento</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>M2</TableHead>
+                      <TableHead>Precio por M2</TableHead>
+                      <TableHead>Precio Final</TableHead>
                       <TableHead>Incluido</TableHead>
                       <TableHead>Ubicación</TableHead>
                       <TableHead>Acciones</TableHead>
@@ -549,6 +578,8 @@ const Estacionamientos = () => {
                         <TableCell>{highlightText(estacionamiento.nombre, searchTerm)}</TableCell>
                         <TableCell>{estacionamiento.tipo_nombre}</TableCell>
                         <TableCell>{estacionamiento.m2} m²</TableCell>
+                        <TableCell>{formatCurrency(estacionamiento.precio_m2)}</TableCell>
+                        <TableCell>{formatCurrency(estacionamiento.precio_final)}</TableCell>
                         <TableCell>
                           <Badge variant={estacionamiento.es_incluido ? "default" : "secondary"}>
                             {estacionamiento.es_incluido ? "Sí" : "No"}

@@ -28,7 +28,20 @@ interface Bodega {
   activo: boolean;
   proyecto_nombre: string;
   numero_propiedad: string;
+  precio_m2: number | null;
+  precio_final: number | null;
 }
+
+// Helper para formatear moneda
+const formatCurrency = (value: number | null): string => {
+  if (value === null || value === undefined) return 'N/A';
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
 
 const Bodegas = () => {
   const [inputValue, setInputValue] = useState("");
@@ -69,7 +82,8 @@ const Bodegas = () => {
                 proyectos!edificios_id_proyecto_fkey(id, nombre)
               )
             )
-          )
+          ),
+          productos_servicios!bodegas_id_producto_fkey(precio_lista)
         `)
         .eq('activo', true)
         .order('id', { ascending: false })
@@ -81,6 +95,8 @@ const Bodegas = () => {
       const enrichedData = allData.map((item: any) => {
         const proyecto = item.propiedades?.edificios_modelos?.edificios?.proyectos;
         const id_proyecto = item.propiedades?.edificios_modelos?.edificios?.id_proyecto;
+        const precioM2 = item.productos_servicios?.precio_lista ?? null;
+        const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
         return {
           id: item.id,
           nombre: item.nombre,
@@ -90,7 +106,9 @@ const Bodegas = () => {
           activo: item.activo,
           proyecto_nombre: proyecto?.nombre || 'N/A',
           proyecto_id: id_proyecto || proyecto?.id || null,
-          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
+          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A',
+          precio_m2: precioM2,
+          precio_final: precioFinal
         };
       });
 
@@ -150,7 +168,8 @@ const Bodegas = () => {
                 proyectos!edificios_id_proyecto_fkey(id, nombre)
               )
             )
-          )
+          ),
+          productos_servicios!bodegas_id_producto_fkey(precio_lista)
         `)
         .eq('activo', false)
         .order('id', { ascending: false })
@@ -162,6 +181,8 @@ const Bodegas = () => {
       const enrichedData = allData.map((item: any) => {
         const proyecto = item.propiedades?.edificios_modelos?.edificios?.proyectos;
         const id_proyecto = item.propiedades?.edificios_modelos?.edificios?.id_proyecto;
+        const precioM2 = item.productos_servicios?.precio_lista ?? null;
+        const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
         return {
           id: item.id,
           nombre: item.nombre,
@@ -171,7 +192,9 @@ const Bodegas = () => {
           activo: item.activo,
           proyecto_nombre: proyecto?.nombre || 'N/A',
           proyecto_id: id_proyecto || proyecto?.id || null,
-          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A'
+          numero_propiedad: item.propiedades?.numero_propiedad || 'N/A',
+          precio_m2: precioM2,
+          precio_final: precioFinal
         };
       });
 
@@ -432,6 +455,8 @@ const Bodegas = () => {
                       <TableHead>Número Departamento</TableHead>
                       <TableHead>Nombre Bodega</TableHead>
                       <TableHead>M2</TableHead>
+                      <TableHead>Precio por M2</TableHead>
+                      <TableHead>Precio Final</TableHead>
                       <TableHead>Incluido</TableHead>
                       <TableHead>Ubicación</TableHead>
                       <TableHead>Acciones</TableHead>
@@ -444,6 +469,8 @@ const Bodegas = () => {
                         <TableCell>{highlightText(bodega.numero_propiedad || "", searchTerm)}</TableCell>
                         <TableCell>{highlightText(bodega.nombre, searchTerm)}</TableCell>
                         <TableCell>{bodega.m2} m²</TableCell>
+                        <TableCell>{formatCurrency(bodega.precio_m2)}</TableCell>
+                        <TableCell>{formatCurrency(bodega.precio_final)}</TableCell>
                         <TableCell>
                           <Badge variant={bodega.es_incluido ? "default" : "secondary"}>
                             {bodega.es_incluido ? "Sí" : "No"}
@@ -531,6 +558,8 @@ const Bodegas = () => {
                       <TableHead>Número Departamento</TableHead>
                       <TableHead>Nombre Bodega</TableHead>
                       <TableHead>M2</TableHead>
+                      <TableHead>Precio por M2</TableHead>
+                      <TableHead>Precio Final</TableHead>
                       <TableHead>Incluido</TableHead>
                       <TableHead>Ubicación</TableHead>
                       <TableHead>Acciones</TableHead>
@@ -543,6 +572,8 @@ const Bodegas = () => {
                         <TableCell>{highlightText(bodega.numero_propiedad || "", searchTerm)}</TableCell>
                         <TableCell>{highlightText(bodega.nombre, searchTerm)}</TableCell>
                         <TableCell>{bodega.m2} m²</TableCell>
+                        <TableCell>{formatCurrency(bodega.precio_m2)}</TableCell>
+                        <TableCell>{formatCurrency(bodega.precio_final)}</TableCell>
                         <TableCell>
                           <Badge variant={bodega.es_incluido ? "default" : "secondary"}>
                             {bodega.es_incluido ? "Sí" : "No"}
