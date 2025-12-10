@@ -2383,9 +2383,16 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                   </p>
                                 </div>
                                 <div className="col-span-2">
-                                  <p className="text-sm text-muted-foreground">Estatus</p>
+                                  <p className="text-sm text-muted-foreground">Forma de adquisición:</p>
                                   {estacionamiento.cuenta_cobranza_id ? (
-                                    <Badge variant="secondary" className="mt-1">
+                                    <Badge 
+                                      variant="secondary" 
+                                      className="mt-1 cursor-pointer hover:bg-secondary/80"
+                                      onClick={() => {
+                                        onClose();
+                                        navigate(`/admin/cuentas-cobranza?cuenta=${estacionamiento.cuenta_cobranza_id}`);
+                                      }}
+                                    >
                                       Cuenta: {formatCuentaCobranzaId(estacionamiento.cuenta_cobranza_id, 'Producto')}
                                     </Badge>
                                   ) : estacionamiento.precio_final === 0 ? (
@@ -2444,9 +2451,16 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                   </p>
                                 </div>
                                 <div className="col-span-2">
-                                  <p className="text-sm text-muted-foreground">Estatus</p>
+                                  <p className="text-sm text-muted-foreground">Forma de adquisición:</p>
                                   {bodega.cuenta_cobranza_id ? (
-                                    <Badge variant="secondary" className="mt-1">
+                                    <Badge 
+                                      variant="secondary" 
+                                      className="mt-1 cursor-pointer hover:bg-secondary/80"
+                                      onClick={() => {
+                                        onClose();
+                                        navigate(`/admin/cuentas-cobranza?cuenta=${bodega.cuenta_cobranza_id}`);
+                                      }}
+                                    >
                                       Cuenta: {formatCuentaCobranzaId(bodega.cuenta_cobranza_id, 'Producto')}
                                     </Badge>
                                   ) : bodega.precio_final === 0 ? (
