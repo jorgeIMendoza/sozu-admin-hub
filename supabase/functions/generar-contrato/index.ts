@@ -5,6 +5,122 @@ import { corsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Función para convertir número (0-999) a palabras
+function convierteLetra(numero: number, subfijo: string): string {
+  const c = Math.floor(numero / 100);
+  const d = Math.floor((numero % 100) / 10);
+  const u = numero % 10;
+
+  let palabra_c = "";
+  let palabra_d = "";
+  let palabra_u = "";
+
+  if (numero === 100) {
+    return "CIEN ";
+  }
+
+  // Centenas
+  switch (c) {
+    case 1: palabra_c = "CIENTO "; break;
+    case 2: palabra_c = "DOSCIENTOS "; break;
+    case 3: palabra_c = "TRESCIENTOS "; break;
+    case 4: palabra_c = "CUATROCIENTOS "; break;
+    case 5: palabra_c = "QUINIENTOS "; break;
+    case 6: palabra_c = "SEISCIENTOS "; break;
+    case 7: palabra_c = "SETECIENTOS "; break;
+    case 8: palabra_c = "OCHOCIENTOS "; break;
+    case 9: palabra_c = "NOVECIENTOS "; break;
+  }
+
+  // Decenas
+  if (d === 1 && u === 0) palabra_d = "DIEZ ";
+  else if (d === 1 && u === 1) palabra_d = "ONCE ";
+  else if (d === 1 && u === 2) palabra_d = "DOCE ";
+  else if (d === 1 && u === 3) palabra_d = "TRECE ";
+  else if (d === 1 && u === 4) palabra_d = "CATORCE ";
+  else if (d === 1 && u === 5) palabra_d = "QUINCE ";
+  else if (d === 1 && u >= 6) palabra_d = "DIECI";
+  else if (d === 2 && u === 0) palabra_d = "VEINTE ";
+  else if (d === 2 && u >= 1) palabra_d = "VEINTI";
+  else if (d === 3 && u === 0) palabra_d = "TREINTA ";
+  else if (d === 3 && u > 0) palabra_d = "TREINTA Y ";
+  else if (d === 4 && u === 0) palabra_d = "CUARENTA ";
+  else if (d === 4 && u > 0) palabra_d = "CUARENTA Y ";
+  else if (d === 5 && u === 0) palabra_d = "CINCUENTA ";
+  else if (d === 5 && u > 0) palabra_d = "CINCUENTA Y ";
+  else if (d === 6 && u === 0) palabra_d = "SESENTA ";
+  else if (d === 6 && u > 0) palabra_d = "SESENTA Y ";
+  else if (d === 7 && u === 0) palabra_d = "SETENTA ";
+  else if (d === 7 && u > 0) palabra_d = "SETENTA Y ";
+  else if (d === 8 && u === 0) palabra_d = "OCHENTA ";
+  else if (d === 8 && u > 0) palabra_d = "OCHENTA Y ";
+  else if (d === 9 && u === 0) palabra_d = "NOVENTA ";
+  else if (d === 9 && u > 0) palabra_d = "NOVENTA Y ";
+
+  // Unidades
+  if (d !== 1) {
+    if (u === 1 && d === 0 && subfijo === "S") palabra_u = "UN ";
+    else if (u === 1 && d === 0 && subfijo === "N") palabra_u = "UNO";
+    else if (u === 1 && d > 1 && subfijo === "S") palabra_u = "UN ";
+    else if (u === 1 && d > 1 && subfijo === "N") palabra_u = "UNO";
+    else if (u === 2) palabra_u = "DOS ";
+    else if (u === 3) palabra_u = "TRES ";
+    else if (u === 4) palabra_u = "CUATRO ";
+    else if (u === 5) palabra_u = "CINCO ";
+    else if (u === 6) palabra_u = "SEIS ";
+    else if (u === 7) palabra_u = "SIETE ";
+    else if (u === 8) palabra_u = "OCHO ";
+    else if (u === 9) palabra_u = "NUEVE ";
+  }
+
+  return palabra_c + palabra_d + palabra_u;
+}
+
+// Función principal para convertir número a palabras (pesos mexicanos)
+function convertirAPalabras(numero: number, currency = "PESOS", currency_cent = "/100 M.N."): string {
+  if (numero === 0) return "CERO " + currency;
+
+  const negativo = numero < 0;
+  if (negativo) numero = Math.abs(numero);
+
+  const entero = Math.floor(numero);
+  const decimales = Math.round((numero - entero) * 100);
+
+  const millares = Math.floor((entero % 1000000000) / 1000000);
+  const miles = Math.floor((entero % 1000000) / 1000);
+  const centenares = Math.floor(entero % 1000);
+
+  let palabras_millares = "";
+  let palabras_miles = "";
+  let palabras_centenares = "";
+
+  if (millares === 1) {
+    palabras_millares = convierteLetra(millares, "S") + "MILLÓN ";
+  } else if (millares > 1) {
+    palabras_millares = convierteLetra(millares, "S") + "MILLONES ";
+  }
+
+  if (miles > 1) {
+    palabras_miles = convierteLetra(miles, "S") + "MIL ";
+  } else if (miles === 1) {
+    palabras_miles = "MIL ";
+  }
+
+  palabras_centenares = convierteLetra(centenares, "S");
+
+  let resultado = palabras_millares + palabras_miles + palabras_centenares;
+
+  if (negativo) {
+    resultado = "MENOS " + resultado;
+  }
+
+  if (decimales === 0 && currency_cent === "") {
+    return resultado.trim() + " " + currency;
+  } else {
+    return resultado.trim() + " " + currency + " " + decimales.toString().padStart(2, "0") + currency_cent;
+  }
+}
+
 // Función recursiva para extraer placeholders de todo el documento
 function extractPlaceholdersFromElement(element: any, placeholders: Set<string>) {
   // Si es párrafo, buscar en sus elementos
@@ -90,7 +206,7 @@ serve(async (req) => {
     // 3. Obtener propiedad
     const { data: propiedadData, error: propiedadError } = await supabase
       .from("propiedades")
-      .select("id, numero_propiedad, m2_interiores, m2_exteriores, m2_loft, precio_lista, id_edificio_modelo, id_entidad_relacionada_dueno")
+      .select("id, numero_propiedad, numero_piso, m2_interiores, m2_exteriores, m2_loft, precio_lista, id_edificio_modelo, id_entidad_relacionada_dueno, descripcion")
       .eq("id", ofertaData.id_propiedad)
       .single();
 
@@ -100,6 +216,15 @@ serve(async (req) => {
 
     // Calcular m2 totales
     const m2Totales = (propiedadData.m2_interiores || 0) + (propiedadData.m2_exteriores || 0) + (propiedadData.m2_loft || 0);
+
+    // Obtener estacionamientos de la propiedad
+    const { data: estacionamientosData } = await supabase
+      .from("estacionamientos")
+      .select("id")
+      .eq("id_propiedad", ofertaData.id_propiedad)
+      .eq("activo", true);
+    
+    const numEstacionamientos = estacionamientosData?.length || 0;
 
     // 4. Obtener edificio y modelo
     const { data: edificioModeloData, error: emError } = await supabase
@@ -175,6 +300,7 @@ serve(async (req) => {
           telefono,
           sexo,
           fecha_nacimiento,
+          ocupacion,
           direccion_calle,
           direccion_colonia,
           direccion_codigo_postal,
@@ -340,6 +466,7 @@ serve(async (req) => {
           : "",
         estado_civil: p.estados_civil?.nombre || "",
         nacionalidad: p.paises?.nacionalidad || "",
+        ocupacion: p.ocupacion || "",
         
         // Lugar de nacimiento
         estado_nacimiento: p.estado_nacimiento?.nombre || "",
@@ -377,6 +504,7 @@ serve(async (req) => {
     }
 
     const compradoresFormateados = compradoresFinales.map((c, i) => formatearComprador(c, i));
+    const primerComprador = compradoresFormateados[0];
 
     // 9. Autenticación con Google Drive
     const serviceAccountEmail = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
@@ -544,6 +672,9 @@ serve(async (req) => {
     const mergeData: Record<string, string> = {
       // Datos generales de la propiedad
       numero_propiedad: propiedad.numero_propiedad,
+      numero_departamento: propiedad.numero_propiedad, // Alias
+      piso: propiedad.numero_piso?.toString() || "",
+      numero_piso: propiedad.numero_piso?.toString() || "",
       proyecto: proyecto.nombre,
       edificio: edificio.nombre,
       modelo: modelo.nombre,
@@ -551,12 +682,21 @@ serve(async (req) => {
         style: "currency",
         currency: "MXN",
       }),
+      precio_lista: (propiedad.precio_lista || 0).toLocaleString("es-MX", {
+        style: "currency",
+        currency: "MXN",
+      }),
+      precio_final_letra: convertirAPalabras(cuentaData.precio_final || 0),
       m2_totales: m2Totales.toString(),
+      metraje: m2Totales.toString(), // Alias
+      m2_reales: m2Totales.toString(), // Alias
       m2_interiores: (propiedad.m2_interiores || 0).toString(),
       m2_exteriores: (propiedad.m2_exteriores || 0).toString(),
       m2_loft: (propiedad.m2_loft || 0).toString(),
+      descripcion_propiedad: propiedad.descripcion || "",
       cuenta_cobranza: `CC-${id_cuenta_cobranza.toString().padStart(6, "0")}`,
       fecha_actual: new Date().toLocaleDateString("es-MX"),
+      estacionamientos: numEstacionamientos.toString(),
       
       // Campos adicionales de cuenta_cobranza
       clabe_stp: cuentaData.clabe_stp || "",
@@ -571,7 +711,49 @@ serve(async (req) => {
       // Datos agregados de compradores
       compradores_nombres: compradoresFormateados.map(c => c.nombre).join(", "),
       compradores_siglas: siglas,
-      numero_compradores: compradoresFormateados.length.toString()
+      siglas: siglas, // Alias
+      numero_compradores: compradoresFormateados.length.toString(),
+      
+      // Alias para el primer comprador (sin prefijo) - los más comunes en templates
+      nombre_completo: primerComprador?.nombre || "",
+      rfc: primerComprador?.rfc || "",
+      curp: primerComprador?.curp || "",
+      email: primerComprador?.email || "",
+      telefono: primerComprador?.telefono || "",
+      tipo: primerComprador?.tipo_persona || "",
+      sexo: primerComprador?.sexo || "",
+      fecha_nacimiento: primerComprador?.fecha_nacimiento || "",
+      estado_civil: primerComprador?.estado_civil || "",
+      nacionalidad: primerComprador?.nacionalidad || "",
+      ocupacion: primerComprador?.ocupacion || "",
+      estado_nacimiento: primerComprador?.estado_nacimiento || "",
+      ciudad_nacimiento: primerComprador?.municipio_nacimiento || "",
+      municipio_nacimiento: primerComprador?.municipio_nacimiento || "",
+      calle: primerComprador?.direccion_calle || "",
+      num_ext: "", // TODO: separar número exterior de la dirección
+      colonia: primerComprador?.direccion_colonia || "",
+      codigo_postal: primerComprador?.direccion_codigo_postal || "",
+      municipio: primerComprador?.direccion_municipio || "",
+      ciudad: primerComprador?.direccion_municipio || "", // Alias
+      estado: primerComprador?.direccion_estado || "",
+      pais: primerComprador?.direccion_pais || "",
+      direccion_completa: primerComprador?.direccion_completa || "",
+      tipo_identificacion: "", // TODO: agregar si se necesita
+      numero: "", // TODO: agregar si se necesita (numero_identificacion)
+      numero_identificacion: "",
+      
+      // Campos de pagos (placeholders para tablas de pagos)
+      num_pagos_parcialidades: "",
+      num_pagos_parcialidades_letra: "",
+      pagos_parcialidades: "",
+      orden_pagos_especiales: "",
+      num_pagos_especiales: "",
+      num_pagos_especiales_letra: "",
+      pagos_especiales: "",
+      orden_pagos_finales: "",
+      num_pagos_finales: "",
+      num_pagos_finales_letra: "",
+      pagos_finales: "",
     };
 
     // Agregar datos individuales por cada comprador
@@ -589,6 +771,7 @@ serve(async (req) => {
       mergeData[`comprador_${num}_fecha_nacimiento`] = comprador.fecha_nacimiento;
       mergeData[`comprador_${num}_estado_civil`] = comprador.estado_civil;
       mergeData[`comprador_${num}_nacionalidad`] = comprador.nacionalidad;
+      mergeData[`comprador_${num}_ocupacion`] = comprador.ocupacion;
       mergeData[`comprador_${num}_estado_nacimiento`] = comprador.estado_nacimiento;
       mergeData[`comprador_${num}_municipio_nacimiento`] = comprador.municipio_nacimiento;
       mergeData[`comprador_${num}_direccion_calle`] = comprador.direccion_calle;
@@ -615,6 +798,7 @@ serve(async (req) => {
         mergeData[`comprador_fecha_nacimiento`] = comprador.fecha_nacimiento;
         mergeData[`comprador_estado_civil`] = comprador.estado_civil;
         mergeData[`comprador_nacionalidad`] = comprador.nacionalidad;
+        mergeData[`comprador_ocupacion`] = comprador.ocupacion;
         mergeData[`comprador_direccion_completa`] = comprador.direccion_completa;
         mergeData[`comprador_direccion_calle`] = comprador.direccion_calle;
         mergeData[`comprador_direccion_colonia`] = comprador.direccion_colonia;
