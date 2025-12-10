@@ -2044,7 +2044,10 @@ const Propiedades = () => {
 
     return (data || []).map((item: any) => {
       const precioM2 = item.productos_servicios?.precio_lista ?? null;
-      const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
+      // Si m2 > 0, calcular precio_final = m2 * precio_m2; si no, usar precio_lista directamente
+      const precioFinal = precioM2 !== null 
+        ? (item.m2 > 0 ? Number(item.m2) * Number(precioM2) : Number(precioM2))
+        : null;
       return {
         id: item.id,
         nombre: item.nombre,
