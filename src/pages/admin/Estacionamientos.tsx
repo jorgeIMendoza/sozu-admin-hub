@@ -138,7 +138,7 @@ const Estacionamientos = () => {
       const enrichedData = allData.map((item: any) => {
         const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
         const precioM2 = item.productos_servicios?.precio_lista ?? null;
-        const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
+        const precioFinal = precioM2 !== null ? Number(item.m2 || 0) * Number(precioM2) : null;
         return {
           id: item.id,
           nombre: item.nombre,
@@ -225,7 +225,7 @@ const Estacionamientos = () => {
       const enrichedData = allData.map((item: any) => {
         const entity = entitiesData.find(e => e.id === item.propiedades?.id_entidad_relacionada_dueno);
         const precioM2 = item.productos_servicios?.precio_lista ?? null;
-        const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
+        const precioFinal = precioM2 !== null ? Number(item.m2 || 0) * Number(precioM2) : null;
         return {
           id: item.id, nombre: item.nombre, m2: item.m2, ubicacion: item.ubicacion,
           es_incluido: item.es_incluido, activo: item.activo,
