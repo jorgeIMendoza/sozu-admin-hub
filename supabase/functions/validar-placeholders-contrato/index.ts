@@ -5,6 +5,122 @@ import { corsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Función para convertir número (0-999) a palabras
+function convierteLetra(numero: number, subfijo: string): string {
+  const c = Math.floor(numero / 100);
+  const d = Math.floor((numero % 100) / 10);
+  const u = numero % 10;
+
+  let palabra_c = "";
+  let palabra_d = "";
+  let palabra_u = "";
+
+  if (numero === 100) {
+    return "CIEN ";
+  }
+
+  // Centenas
+  switch (c) {
+    case 1: palabra_c = "CIENTO "; break;
+    case 2: palabra_c = "DOSCIENTOS "; break;
+    case 3: palabra_c = "TRESCIENTOS "; break;
+    case 4: palabra_c = "CUATROCIENTOS "; break;
+    case 5: palabra_c = "QUINIENTOS "; break;
+    case 6: palabra_c = "SEISCIENTOS "; break;
+    case 7: palabra_c = "SETECIENTOS "; break;
+    case 8: palabra_c = "OCHOCIENTOS "; break;
+    case 9: palabra_c = "NOVECIENTOS "; break;
+  }
+
+  // Decenas
+  if (d === 1 && u === 0) palabra_d = "DIEZ ";
+  else if (d === 1 && u === 1) palabra_d = "ONCE ";
+  else if (d === 1 && u === 2) palabra_d = "DOCE ";
+  else if (d === 1 && u === 3) palabra_d = "TRECE ";
+  else if (d === 1 && u === 4) palabra_d = "CATORCE ";
+  else if (d === 1 && u === 5) palabra_d = "QUINCE ";
+  else if (d === 1 && u >= 6) palabra_d = "DIECI";
+  else if (d === 2 && u === 0) palabra_d = "VEINTE ";
+  else if (d === 2 && u >= 1) palabra_d = "VEINTI";
+  else if (d === 3 && u === 0) palabra_d = "TREINTA ";
+  else if (d === 3 && u > 0) palabra_d = "TREINTA Y ";
+  else if (d === 4 && u === 0) palabra_d = "CUARENTA ";
+  else if (d === 4 && u > 0) palabra_d = "CUARENTA Y ";
+  else if (d === 5 && u === 0) palabra_d = "CINCUENTA ";
+  else if (d === 5 && u > 0) palabra_d = "CINCUENTA Y ";
+  else if (d === 6 && u === 0) palabra_d = "SESENTA ";
+  else if (d === 6 && u > 0) palabra_d = "SESENTA Y ";
+  else if (d === 7 && u === 0) palabra_d = "SETENTA ";
+  else if (d === 7 && u > 0) palabra_d = "SETENTA Y ";
+  else if (d === 8 && u === 0) palabra_d = "OCHENTA ";
+  else if (d === 8 && u > 0) palabra_d = "OCHENTA Y ";
+  else if (d === 9 && u === 0) palabra_d = "NOVENTA ";
+  else if (d === 9 && u > 0) palabra_d = "NOVENTA Y ";
+
+  // Unidades
+  if (d !== 1) { // Si no son los casos especiales del 11-19
+    if (u === 1 && d === 0 && subfijo === "S") palabra_u = "UN ";
+    else if (u === 1 && d === 0 && subfijo === "N") palabra_u = "UNO";
+    else if (u === 1 && d > 1 && subfijo === "S") palabra_u = "UN ";
+    else if (u === 1 && d > 1 && subfijo === "N") palabra_u = "UNO";
+    else if (u === 2) palabra_u = "DOS ";
+    else if (u === 3) palabra_u = "TRES ";
+    else if (u === 4) palabra_u = "CUATRO ";
+    else if (u === 5) palabra_u = "CINCO ";
+    else if (u === 6) palabra_u = "SEIS ";
+    else if (u === 7) palabra_u = "SIETE ";
+    else if (u === 8) palabra_u = "OCHO ";
+    else if (u === 9) palabra_u = "NUEVE ";
+  }
+
+  return palabra_c + palabra_d + palabra_u;
+}
+
+// Función principal para convertir número a palabras (pesos mexicanos)
+function convertirAPalabras(numero: number, currency = "PESOS", currency_cent = "/100 M.N."): string {
+  if (numero === 0) return "CERO " + currency;
+
+  const negativo = numero < 0;
+  if (negativo) numero = Math.abs(numero);
+
+  const entero = Math.floor(numero);
+  const decimales = Math.round((numero - entero) * 100);
+
+  const millares = Math.floor((entero % 1000000000) / 1000000);
+  const miles = Math.floor((entero % 1000000) / 1000);
+  const centenares = Math.floor(entero % 1000);
+
+  let palabras_millares = "";
+  let palabras_miles = "";
+  let palabras_centenares = "";
+
+  if (millares === 1) {
+    palabras_millares = convierteLetra(millares, "S") + "MILLÓN ";
+  } else if (millares > 1) {
+    palabras_millares = convierteLetra(millares, "S") + "MILLONES ";
+  }
+
+  if (miles === 1) {
+    palabras_miles = "MIL ";
+  } else if (miles > 1) {
+    palabras_miles = convierteLetra(miles, "S") + "MIL ";
+  }
+
+  palabras_centenares = convierteLetra(centenares, "S");
+
+  let resultado = palabras_millares + palabras_miles + palabras_centenares;
+
+  if (negativo) {
+    resultado = "MENOS " + resultado;
+  }
+
+  if (decimales === 0 && currency_cent === "") {
+    return resultado.trim() + " " + currency;
+  } else {
+    return resultado.trim() + " " + currency + " " + decimales.toString().padStart(2, "0") + currency_cent;
+  }
+}
+
 // Función recursiva para extraer placeholders de todo el documento
 function extractPlaceholdersFromElement(element: any, placeholders: Set<string>) {
   // Si es párrafo, buscar en sus elementos
@@ -155,7 +271,10 @@ serve(async (req) => {
           direccion_id_municipio,
           id_estado_civil,
           id_estado_nacimiento,
-          id_municipio_nacimiento
+          id_municipio_nacimiento,
+          ocupacion,
+          id_tipo_identificacion,
+          numero_identificacion
         )
       `)
       .eq("id_cuenta_cobranza", id_cuenta_cobranza)
@@ -261,8 +380,23 @@ serve(async (req) => {
     const compradoresFinales = compradoresConRelaciones;
 
     // Formatear compradores
+    // Obtener tipos de identificación
+    const { data: tiposIdentificacion } = await supabase
+      .from("tipos_identificacion")
+      .select("id, nombre");
+    const tiposIdMap = new Map(tiposIdentificacion?.map(t => [t.id, t.nombre]) || []);
+
+    // Contar estacionamientos de la propiedad
+    const { data: estacionamientosData } = await supabase
+      .from("estacionamientos")
+      .select("id")
+      .eq("id_propiedad", ofertaData.id_propiedad)
+      .eq("activo", true);
+    const numEstacionamientos = estacionamientosData?.length || 0;
+
     function formatearComprador(comprador: any, index: number) {
       const p = comprador.personas;
+      const tipoIdentificacion = p.id_tipo_identificacion ? tiposIdMap.get(p.id_tipo_identificacion) || "" : "";
       return {
         nombre: p.nombre_legal || "",
         rfc: p.rfc || "",
@@ -291,7 +425,9 @@ serve(async (req) => {
           p.paises?.nombre
         ].filter(Boolean).join(", "),
         porcentaje_copropiedad: comprador.porcentaje_copropiedad?.toString() || "0",
-        numero: (index + 1).toString()
+        ocupacion: p.ocupacion || "",
+        tipo_identificacion: tipoIdentificacion,
+        numero_identificacion: p.numero_identificacion || ""
       };
     }
 
@@ -371,13 +507,14 @@ serve(async (req) => {
       estado: primerComprador?.direccion_estado || "",
       pais: primerComprador?.direccion_pais || "",
       direccion_completa: primerComprador?.direccion_completa || "",
-      ocupacion: "", // TODO: agregar a personas si se necesita
-      tipo_identificacion: "", // TODO: agregar a personas si se necesita
-      numero: "", // Número de identificación - TODO
+      ocupacion: primerComprador?.ocupacion || "",
+      tipo_identificacion: primerComprador?.tipo_identificacion || "",
+      numero: primerComprador?.numero_identificacion || "",
+      numero_identificacion: primerComprador?.numero_identificacion || "",
       
-      // Campos de pagos (estos necesitan calcularse de acuerdos_pago)
-      estacionamientos: "", // TODO: contar estacionamientos
-      precio_final_letra: "", // TODO: convertir a letras
+      // Campos de pagos
+      estacionamientos: numEstacionamientos.toString(),
+      precio_final_letra: convertirAPalabras(cuentaData.precio_final || 0),
       num_pagos_parcialidades: "",
       num_pagos_parcialidades_letra: "",
       pagos_parcialidades: "",
