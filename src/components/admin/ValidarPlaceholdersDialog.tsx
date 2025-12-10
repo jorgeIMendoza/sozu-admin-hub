@@ -22,15 +22,18 @@ import { useToast } from "@/hooks/use-toast";
 import React from "react";
 
 interface ValidacionData {
-  placeholders_en_template: string[];
+  placeholders_en_template?: string[];
+  todosPlaceholdersTemplate?: string[];
   placeholders_disponibles: Array<{placeholder: string, valor: string, estado: string}>;
   placeholders_faltantes: string[];
   placeholders_vacios: string[];
-  variables_disponibles_sistema: string[];
-  variables_usadas_en_template: string[];
-  total_variables_sistema: number;
-  total_variables_usadas: number;
-  total_template: number;
+  variables_disponibles_sistema?: string[];
+  variables_sistema?: string[];
+  variables_usadas_en_template?: string[];
+  total_variables_sistema?: number;
+  total_variables_usadas?: number;
+  total_template?: number;
+  total_placeholders_template?: number;
   total_disponibles: number;
   total_faltantes: number;
   total_vacios: number;
@@ -89,10 +92,13 @@ export function ValidarPlaceholdersDialog({
     return new Set(validacion.placeholders_faltantes || []);
   }, [validacion.placeholders_faltantes]);
 
-  // Todos los placeholders del template
+  // Todos los placeholders del template - soporta ambos nombres de campo
   const todosPlaceholdersTemplate = React.useMemo(() => {
-    return validacion.placeholders_en_template || [];
-  }, [validacion.placeholders_en_template]);
+    return validacion.todosPlaceholdersTemplate || validacion.placeholders_en_template || validacion.variables_usadas_en_template || [];
+  }, [validacion.todosPlaceholdersTemplate, validacion.placeholders_en_template, validacion.variables_usadas_en_template]);
+  
+  // Total de placeholders del template - soporta ambos nombres
+  const totalTemplate = validacion.total_placeholders_template || validacion.total_template || todosPlaceholdersTemplate.length;
 
   const estadoBadge = (estado: string) => {
     switch (estado) {
@@ -201,7 +207,7 @@ export function ValidarPlaceholdersDialog({
               >
                 <div className="text-sm text-muted-foreground">Variables Template</div>
                 <div className="text-2xl font-bold text-blue-500">
-                  {validacion.total_template || 0}
+                  {totalTemplate}
                 </div>
               </Card>
             </div>
@@ -215,7 +221,7 @@ export function ValidarPlaceholdersDialog({
               <Card className="p-4 border-blue-500 bg-blue-50 dark:bg-blue-950">
                 <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4" />
-                  📋 Variables del Template: {validacion.total_disponibles || 0} encontradas + {validacion.total_vacios || 0} vacías + {validacion.total_faltantes || 0} faltantes = {validacion.total_template || 0} total
+                  📋 Variables del Template: {validacion.total_disponibles || 0} encontradas + {validacion.total_vacios || 0} vacías + {validacion.total_faltantes || 0} faltantes = {totalTemplate} total
                 </div>
                 <div className="text-xs text-muted-foreground mb-2">
                   <span className="text-green-600 dark:text-green-400 font-semibold">Verde = Encontrada con datos ({validacion.total_disponibles || 0})</span>, 

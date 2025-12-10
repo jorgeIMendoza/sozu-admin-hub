@@ -302,13 +302,19 @@ serve(async (req) => {
     }) ? "pf" : "pm";
 
     // Preparar mergeData (mismo que en generar-contrato)
+    // El primer comprador se usa para los campos sin número
+    const primerComprador = compradoresFormateados[0];
+    
     const mergeData: Record<string, string> = {
+      // Datos de la propiedad
       numero_propiedad: propiedadData.numero_propiedad,
+      numero_departamento: propiedadData.numero_propiedad, // Alias
       proyecto: proyectoData.nombre,
       edificio: edificioData.nombre,
       modelo: modeloData.nombre,
       precio_final: cuentaData.precio_final.toLocaleString("es-MX", { style: "currency", currency: "MXN" }),
       m2_totales: m2Totales.toString(),
+      metraje: m2Totales.toString(), // Alias
       m2_interiores: (propiedadData.m2_interiores || 0).toString(),
       m2_exteriores: (propiedadData.m2_exteriores || 0).toString(),
       m2_loft: (propiedadData.m2_loft || 0).toString(),
@@ -316,7 +322,9 @@ serve(async (req) => {
       fecha_actual: new Date().toLocaleDateString("es-MX"),
       compradores_nombres: compradoresFormateados.map(c => c.nombre).join(", "),
       compradores_siglas: siglas,
+      siglas: siglas, // Alias
       numero_compradores: compradoresFormateados.length.toString(),
+      
       // Campos adicionales de cuenta_cobranza
       clabe_stp: cuentaData.clabe_stp || "",
       numero_escritura: cuentaData.numero_escritura || "",
@@ -326,8 +334,52 @@ serve(async (req) => {
       hoja: cuentaData.hoja || "",
       fecha_compra: cuentaData.fecha_compra ? new Date(cuentaData.fecha_compra).toLocaleDateString("es-MX") : "",
       fecha_escritura: cuentaData.fecha_escritura ? new Date(cuentaData.fecha_escritura).toLocaleDateString("es-MX") : "",
+      
+      // Alias para el primer comprador (sin prefijo) - los más comunes en templates
+      nombre_completo: primerComprador?.nombre || "",
+      rfc: primerComprador?.rfc || "",
+      curp: primerComprador?.curp || "",
+      email: primerComprador?.email || "",
+      telefono: primerComprador?.telefono || "",
+      tipo: primerComprador?.tipo_persona || "",
+      sexo: primerComprador?.sexo || "",
+      fecha_nacimiento: primerComprador?.fecha_nacimiento || "",
+      estado_civil: primerComprador?.estado_civil || "",
+      nacionalidad: primerComprador?.nacionalidad || "",
+      estado_nacimiento: primerComprador?.estado_nacimiento || "",
+      ciudad_nacimiento: primerComprador?.municipio_nacimiento || "",
+      municipio_nacimiento: primerComprador?.municipio_nacimiento || "",
+      calle: primerComprador?.direccion_calle || "",
+      num_ext: "", // TODO: separar número exterior de la dirección
+      colonia: primerComprador?.direccion_colonia || "",
+      codigo_postal: primerComprador?.direccion_codigo_postal || "",
+      municipio: primerComprador?.direccion_municipio || "",
+      ciudad: primerComprador?.direccion_municipio || "", // Alias
+      estado: primerComprador?.direccion_estado || "",
+      pais: primerComprador?.direccion_pais || "",
+      direccion_completa: primerComprador?.direccion_completa || "",
+      ocupacion: "", // TODO: agregar a personas si se necesita
+      tipo_identificacion: "", // TODO: agregar a personas si se necesita
+      numero: "", // Número de identificación - TODO
+      
+      // Campos de pagos (estos necesitan calcularse de acuerdos_pago)
+      estacionamientos: "", // TODO: contar estacionamientos
+      piso: "", // TODO: obtener piso de la propiedad
+      precio_final_letra: "", // TODO: convertir a letras
+      num_pagos_parcialidades: "",
+      num_pagos_parcialidades_letra: "",
+      pagos_parcialidades: "",
+      orden_pagos_especiales: "",
+      num_pagos_especiales: "",
+      num_pagos_especiales_letra: "",
+      pagos_especiales: "",
+      orden_pagos_finales: "",
+      num_pagos_finales: "",
+      num_pagos_finales_letra: "",
+      pagos_finales: "",
     };
 
+    // Agregar datos de cada comprador con prefijo
     compradoresFormateados.forEach((comprador, index) => {
       const num = index + 1;
       mergeData[`comprador_${num}_nombre`] = comprador.nombre;
@@ -351,6 +403,7 @@ serve(async (req) => {
       mergeData[`comprador_${num}_direccion_completa`] = comprador.direccion_completa;
       mergeData[`comprador_${num}_porcentaje_copropiedad`] = comprador.porcentaje_copropiedad;
 
+      // También con prefijo "comprador_" para el primer comprador
       if (index === 0) {
         mergeData[`comprador_nombre`] = comprador.nombre;
         mergeData[`comprador_rfc`] = comprador.rfc;
