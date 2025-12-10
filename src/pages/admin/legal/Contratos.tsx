@@ -66,7 +66,7 @@ export default function Contratos() {
   const [validandoCuentaId, setValidandoCuentaId] = useState<number | null>(null);
 
   const [validacionDialogData, setValidacionDialogData] = useState<{
-    validation: any;
+    validacion: any;
     compradores: any[];
     tipo_persona: string;
     template_name: string;
@@ -611,7 +611,7 @@ export default function Contratos() {
         <ValidarPlaceholdersDialog
           open={!!validacionDialogData}
           onOpenChange={(open) => !open && setValidacionDialogData(null)}
-          validacion={validacionDialogData.validation}
+          validacion={validacionDialogData.validacion}
           compradores={validacionDialogData.compradores}
           tipoPersona={validacionDialogData.tipo_persona}
           templateName={validacionDialogData.template_name}
