@@ -38,19 +38,36 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole 
   // Check if user is Super Admin
   const isSuperAdmin = userRole === 'Super Administrador';
 
-  // Fetch all active projects (without the default 1000 limit)
+  // Fetch all active projects (paginating to get all)
   const { data: proyectos, isLoading: loadingProyectos } = useQuery({
     queryKey: ['proyectos-list'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('proyectos')
-        .select('id, nombre')
-        .eq('activo', true)
-        .order('nombre')
-        .range(0, 10000);
+      // Fetch all projects using pagination to bypass the 1000 limit
+      const allProjects: Proyecto[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
       
-      if (error) throw error;
-      return data as Proyecto[];
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('proyectos')
+          .select('id, nombre')
+          .eq('activo', true)
+          .order('nombre')
+          .range(from, from + pageSize - 1);
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allProjects.push(...data);
+          from += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      return allProjects;
     },
     enabled: open && !isSuperAdmin,
   });
