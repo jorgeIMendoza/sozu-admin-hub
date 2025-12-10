@@ -50,7 +50,7 @@ const getAmbiente = (): string => {
 
 const insertarLog = async (params: LogParams): Promise<void> => {
   try {
-    const { error } = await supabase.from('logs_actividad').insert({
+    const logData = {
       usuario_id: params.usuarioId,
       actividad_id: params.actividadId,
       valor_anterior: params.valorAnterior || null,
@@ -61,7 +61,9 @@ const insertarLog = async (params: LogParams): Promise<void> => {
       primer_nodo: params.primerNodo || null,
       ultimo_nodo: params.ultimoNodo || null,
       ambiente: getAmbiente(),
-    });
+    };
+    
+    const { error } = await supabase.from('logs_actividad').insert(logData as any);
 
     if (error) {
       console.error('Error al registrar actividad:', error);
