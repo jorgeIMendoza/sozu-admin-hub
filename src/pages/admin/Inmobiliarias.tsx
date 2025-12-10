@@ -212,10 +212,53 @@ export default function Inmobiliarias() {
         });
         
         if (userError) {
-          console.error('Error al crear usuario automático:', userError);
+          console.error('Error al crear usuario automático para inmobiliaria:', userError);
         }
       } catch (e) {
-        console.error('Error al crear usuario automático:', e);
+        console.error('Error al crear usuario automático para inmobiliaria:', e);
+      }
+
+      // Crear usuario para el representante legal si existe
+      if (representativeId) {
+        try {
+          // Obtener la información del representante legal desde entidades_relacionadas -> personas
+          const { data: repLegalData, error: repLegalError } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, email, telefono, clave_pais_telefono)')
+            .eq('id', representativeId)
+            .single();
+          
+          if (!repLegalError && repLegalData?.personas) {
+            const repPersona = repLegalData.personas as any;
+            
+            // Verificar si ya existe un usuario con ese email
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('id')
+              .eq('email', repPersona.email)
+              .maybeSingle();
+            
+            if (!existingUser) {
+              // Crear usuario para el representante legal con rol Representante Legal (id: 5)
+              const { error: repUserError } = await supabase.functions.invoke('create-user', {
+                body: {
+                  email: repPersona.email,
+                  nombre: repPersona.nombre_legal,
+                  rol_id: 5, // Representante Legal
+                  id_persona: repPersona.id,
+                  telefono: repPersona.telefono || null,
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null
+                }
+              });
+              
+              if (repUserError) {
+                console.error('Error al crear usuario para representante legal:', repUserError);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error al crear usuario para representante legal:', e);
+        }
       }
     },
     onSuccess: () => {
@@ -224,7 +267,7 @@ export default function Inmobiliarias() {
       setIsNewDialogOpen(false);
       toast({
         title: "Éxito",
-        description: "Inmobiliaria y usuario creados correctamente.",
+        description: "Inmobiliaria y usuarios creados correctamente.",
       });
     },
     onError: (error: any) => {
