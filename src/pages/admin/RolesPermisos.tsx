@@ -664,23 +664,7 @@ export default function RolesPermisos() {
                   </Alert>
                 )}
                 <div className="h-[500px] overflow-auto">
-                  <div className="min-w-[900px]">
-                  {/* Permissions header */}
-                  <div className="sticky top-0 bg-background z-10 border-b pb-2 mb-2">
-                    <div className="grid gap-1" style={{ gridTemplateColumns: `30px 160px repeat(${permisos.length}, minmax(55px, 1fr))` }}>
-                      <div></div>
-                      <div className="font-medium text-xs">Módulo</div>
-                      {permisos.map(permiso => (
-                        <div key={permiso.id} className="text-center">
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize whitespace-nowrap">
-                            {permiso.nombre.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Menus and submenus */}
+                  {/* Menus and submenus - no fixed header */}
                   <div className="space-y-2">
                     {menus.map(menu => (
                       <Collapsible 
@@ -688,16 +672,16 @@ export default function RolesPermisos() {
                         open={expandedMenus.has(menu.id)}
                         onOpenChange={() => toggleMenu(menu.id)}
                       >
-                        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border">
                           <CollapsibleTrigger asChild>
-                            <div className="flex items-center gap-2 flex-1 cursor-pointer hover:bg-muted transition-colors rounded px-1">
+                            <div className="flex items-center gap-3 flex-1 cursor-pointer hover:bg-muted/80 transition-colors rounded px-2 py-1">
                               {expandedMenus.has(menu.id) ? (
-                                <ChevronDown className="h-4 w-4" />
+                                <ChevronDown className="h-4 w-4 shrink-0" />
                               ) : (
-                                <ChevronRight className="h-4 w-4" />
+                                <ChevronRight className="h-4 w-4 shrink-0" />
                               )}
-                              <span className="font-medium text-sm">{menu.nombre}</span>
-                              <Badge variant="secondary" className="text-xs ml-auto mr-2">
+                              <span className="font-semibold">{menu.nombre}</span>
+                              <Badge variant="secondary" className="text-xs ml-auto">
                                 {menu.submenus.length} submenús
                               </Badge>
                             </div>
@@ -708,8 +692,8 @@ export default function RolesPermisos() {
                                 <TooltipTrigger asChild>
                                   <Button
                                     variant="ghost"
-                                    size="icon"
-                                    className={`h-7 w-7 ${areAllPermissionsActiveForMenu(menu.id) ? 'text-destructive hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:text-primary hover:bg-primary/10'}`}
+                                    size="sm"
+                                    className={`h-8 px-2 ${areAllPermissionsActiveForMenu(menu.id) ? 'text-destructive hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:text-primary hover:bg-primary/10'}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleAllPermissionsForMenu(menu.id);
@@ -733,15 +717,18 @@ export default function RolesPermisos() {
                           )}
                         </div>
                         <CollapsibleContent>
-                          <div className="space-y-1 pl-6 pt-2">
-                            {menu.submenus.map(submenu => (
-                              <div 
-                                key={submenu.id} 
-                                className="grid gap-1 py-1.5 border-b border-border/50 last:border-0 items-center"
-                                style={{ gridTemplateColumns: `30px 160px repeat(${permisos.length}, minmax(55px, 1fr))` }}
-                              >
-                                {/* Toggle row button */}
-                                <div className="flex justify-center">
+                          <div className="mt-2 space-y-1 pl-4">
+                            {menu.submenus.map(submenu => {
+                              const availablePermisos = permisos.filter(p => 
+                                isPermissionAvailableForSubmenu(submenu.id, p.id)
+                              );
+                              
+                              return (
+                                <div 
+                                  key={submenu.id} 
+                                  className="flex items-center gap-3 py-2 px-3 rounded-md border border-border/50 bg-background hover:bg-muted/30 transition-colors"
+                                >
+                                  {/* Toggle all button */}
                                   {!isSuperAdminSelected && (
                                     <TooltipProvider>
                                       <Tooltip>
@@ -749,63 +736,69 @@ export default function RolesPermisos() {
                                           <Button
                                             variant="ghost"
                                             size="icon"
-                                            className={`h-6 w-6 ${areAllPermissionsActiveForSubmenu(submenu.id) ? 'text-destructive hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:text-primary hover:bg-primary/10'}`}
+                                            className={`h-6 w-6 shrink-0 ${areAllPermissionsActiveForSubmenu(submenu.id) ? 'text-destructive hover:text-destructive hover:bg-destructive/10' : 'text-primary hover:text-primary hover:bg-primary/10'}`}
                                             onClick={() => toggleAllPermissionsForSubmenu(submenu.id)}
                                           >
                                             {areAllPermissionsActiveForSubmenu(submenu.id) ? (
-                                              <XCircle className="h-3 w-3" />
+                                              <XCircle className="h-3.5 w-3.5" />
                                             ) : (
-                                              <CheckCircle2 className="h-3 w-3" />
+                                              <CheckCircle2 className="h-3.5 w-3.5" />
                                             )}
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                           {areAllPermissionsActiveForSubmenu(submenu.id)
-                                            ? 'Deseleccionar todos los permisos de esta fila'
-                                            : 'Seleccionar todos los permisos de esta fila'
+                                            ? 'Quitar todos'
+                                            : 'Seleccionar todos'
                                           }
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   )}
+                                  
+                                  {/* Submenu name */}
+                                  <span className="text-sm font-medium min-w-[140px] shrink-0">
+                                    {submenu.nombre}
+                                  </span>
+                                  
+                                  {/* Permissions as compact badges with checkboxes */}
+                                  <div className="flex flex-wrap gap-1.5 items-center">
+                                    {availablePermisos.map(permiso => {
+                                      const isChecked = hasPermission(submenu.id, permiso.id);
+                                      const key = `${submenu.id}-${permiso.id}`;
+                                      const hasChange = pendingChanges.has(key);
+                                      
+                                      return (
+                                        <label
+                                          key={permiso.id}
+                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs cursor-pointer transition-colors select-none ${
+                                            isChecked 
+                                              ? hasChange 
+                                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300 dark:border-amber-700' 
+                                                : 'bg-primary/10 text-primary border border-primary/30'
+                                              : hasChange
+                                                ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/10 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                                                : 'bg-muted text-muted-foreground border border-transparent hover:border-border'
+                                          } ${isSuperAdminSelected ? 'cursor-default' : 'hover:bg-muted/80'}`}
+                                        >
+                                          <Checkbox
+                                            checked={isChecked}
+                                            onCheckedChange={() => togglePermission(submenu.id, permiso.id)}
+                                            disabled={isSuperAdminSelected}
+                                            className="h-3 w-3 border-current"
+                                          />
+                                          <span className="capitalize">{permiso.nombre.replace('_', ' ')}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                                <div className="text-sm text-muted-foreground truncate">
-                                  {submenu.nombre}
-                                </div>
-                                {permisos.map(permiso => {
-                                  const isAvailable = isPermissionAvailableForSubmenu(submenu.id, permiso.id);
-                                  
-                                  // If permission is not available for this submenu, show empty cell
-                                  if (!isAvailable) {
-                                    return (
-                                      <div key={permiso.id} className="flex justify-center">
-                                        <span className="text-muted-foreground/30">—</span>
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  const isChecked = hasPermission(submenu.id, permiso.id);
-                                  const key = `${submenu.id}-${permiso.id}`;
-                                  const hasChange = pendingChanges.has(key);
-                                  
-                                  return (
-                                    <div key={permiso.id} className="flex justify-center">
-                                      <Checkbox
-                                        checked={isChecked}
-                                        onCheckedChange={() => togglePermission(submenu.id, permiso.id)}
-                                        disabled={isSuperAdminSelected}
-                                        className={hasChange ? 'border-amber-500 data-[state=checked]:bg-amber-500' : ''}
-                                      />
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
                     ))}
-                  </div>
                   </div>
                 </div>
               </>
