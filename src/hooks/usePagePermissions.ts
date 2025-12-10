@@ -9,7 +9,6 @@ interface PagePermissions {
   canDelete: boolean;
   canApprove: boolean;
   canExport: boolean;
-  canConfigure: boolean;
   canGenerateOffer: boolean;
 }
 
@@ -20,7 +19,6 @@ const DEFAULT_PERMISSIONS: PagePermissions = {
   canDelete: false,
   canApprove: false,
   canExport: false,
-  canConfigure: false,
   canGenerateOffer: false,
 };
 
@@ -31,7 +29,6 @@ const SUPER_ADMIN_PERMISSIONS: PagePermissions = {
   canDelete: true,
   canApprove: true,
   canExport: true,
-  canConfigure: true,
   canGenerateOffer: true,
 };
 
@@ -104,7 +101,6 @@ export function usePagePermissions(pagePath: string) {
           canDelete: permissionNames.has('eliminar'),
           canApprove: permissionNames.has('aprobar'),
           canExport: permissionNames.has('exportar'),
-          canConfigure: permissionNames.has('configurar'),
           canGenerateOffer: permissionNames.has('generar_oferta'),
         });
       } catch (err) {
