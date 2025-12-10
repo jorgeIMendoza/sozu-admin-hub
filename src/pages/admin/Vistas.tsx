@@ -151,8 +151,13 @@ export default function Vistas() {
 
   // Query para vistas activas
   const { data: activeData, isLoading: isLoadingActive } = useQuery({
-    queryKey: ["vistas", "active", currentPageActive, searchTerm, selectedProyectoFilter],
+    queryKey: ["vistas", "active", currentPageActive, searchTerm, selectedProyectoFilter, accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
+      // If no access and no unrestricted access, return empty
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+        return { items: [], count: 0 };
+      }
+
       const from = (currentPageActive - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
@@ -161,6 +166,11 @@ export default function Vistas() {
         .select('*', { count: 'exact' })
         .eq('activo', true);
 
+      // Apply project access filter
+      if (!hasUnrestrictedAccess) {
+        query = query.in('id_proyecto', accessibleProjectIds);
+      }
+
       if (searchTerm) {
         query = query.ilike('nombre', `%${searchTerm}%`);
       }
@@ -170,18 +180,25 @@ export default function Vistas() {
       }
 
       const { data, error, count } = await query
+        .order('id_proyecto', { ascending: true })
         .order('nombre', { ascending: true })
         .range(from, to);
 
       if (error) throw error;
       return { items: data || [], count: count || 0 };
     },
+    enabled: !isLoadingAccess,
   });
 
   // Query para vistas eliminadas
   const { data: deletedData, isLoading: isLoadingDeleted } = useQuery({
-    queryKey: ["vistas", "deleted", currentPageDeleted, searchTerm, selectedProyectoFilter],
+    queryKey: ["vistas", "deleted", currentPageDeleted, searchTerm, selectedProyectoFilter, accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
+      // If no access and no unrestricted access, return empty
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+        return { items: [], count: 0 };
+      }
+
       const from = (currentPageDeleted - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
@@ -190,6 +207,11 @@ export default function Vistas() {
         .select('*', { count: 'exact' })
         .eq('activo', false);
 
+      // Apply project access filter
+      if (!hasUnrestrictedAccess) {
+        query = query.in('id_proyecto', accessibleProjectIds);
+      }
+
       if (searchTerm) {
         query = query.ilike('nombre', `%${searchTerm}%`);
       }
@@ -199,12 +221,14 @@ export default function Vistas() {
       }
 
       const { data, error, count } = await query
+        .order('id_proyecto', { ascending: true })
         .order('nombre', { ascending: true })
         .range(from, to);
 
       if (error) throw error;
       return { items: data || [], count: count || 0 };
     },
+    enabled: !isLoadingAccess,
   });
 
   const currentVistas = activeTab === "activos" ? activeData?.items || [] : deletedData?.items || [];
