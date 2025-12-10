@@ -607,6 +607,21 @@ export default function Contratos() {
         </CardContent>
       </Card>
 
+      {/* Overlay de generación de contrato */}
+      {generarContratoMutation.isPending && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card border rounded-lg shadow-lg p-8 flex flex-col items-center gap-4 animate-scale-in">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="text-lg font-semibold">Generando contrato...</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Esto puede tomar unos segundos
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {validacionDialogData && (
         <ValidarPlaceholdersDialog
           open={!!validacionDialogData}
