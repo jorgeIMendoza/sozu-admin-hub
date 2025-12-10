@@ -234,7 +234,7 @@ export default function Inmobiliarias() {
             // Verificar si ya existe un usuario con ese email
             const { data: existingUser } = await supabase
               .from('usuarios')
-              .select('id')
+              .select('email')
               .eq('email', repPersona.email)
               .maybeSingle();
             
