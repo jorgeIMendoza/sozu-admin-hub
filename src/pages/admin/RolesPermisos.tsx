@@ -618,9 +618,10 @@ export default function RolesPermisos() {
                   </Alert>
                 )}
                 <ScrollArea className="h-[500px]">
+                  <div className="min-w-max">
                   {/* Permissions header */}
                   <div className="sticky top-0 bg-background z-10 border-b pb-2 mb-2">
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, 80px)` }}>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, 90px)` }}>
                       <div></div>
                       <div className="font-medium text-sm">Módulo</div>
                       {permisos.map(permiso => (
@@ -691,7 +692,7 @@ export default function RolesPermisos() {
                               <div 
                                 key={submenu.id} 
                                 className="grid gap-2 py-2 border-b border-border/50 last:border-0 items-center"
-                                style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, 80px)` }}
+                                style={{ gridTemplateColumns: `40px 200px repeat(${permisos.length}, 90px)` }}
                               >
                                 {/* Toggle row button */}
                                 <div className="flex justify-center">
@@ -747,6 +748,7 @@ export default function RolesPermisos() {
                         </CollapsibleContent>
                       </Collapsible>
                     ))}
+                  </div>
                   </div>
                 </ScrollArea>
               </>
