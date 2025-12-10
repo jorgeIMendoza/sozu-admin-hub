@@ -158,123 +158,122 @@ export function ValidarPlaceholdersDialog({
 
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
-            {/* Resumen */}
+            {/* Resumen - Orden: Variables Template, Encontradas, Vacíos, Por Solicitar, No Usadas */}
             <div className="grid grid-cols-5 gap-3">
-              <Card 
-                className={`p-3 border-green-500 cursor-pointer transition-all relative ${
-                  seccionActiva === 'disponibles' 
-                    ? 'bg-green-100 dark:bg-green-950 ring-2 ring-green-500' 
-                    : 'hover:bg-green-50 dark:hover:bg-green-950'
-                }`}
-                onClick={() => setSeccionActiva(seccionActiva === 'disponibles' ? 'todas' : 'disponibles')}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="absolute top-2 right-2 text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
-                        Template
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Variables del template con datos disponibles</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <div className="text-xs text-muted-foreground">Encontradas</div>
-                <div className="text-xl font-bold text-green-500">{validacion.total_disponibles}</div>
-              </Card>
-              <Card 
-                className={`p-3 border-yellow-500 cursor-pointer transition-all relative ${
-                  seccionActiva === 'vacios' 
-                    ? 'bg-yellow-100 dark:bg-yellow-950 ring-2 ring-yellow-500' 
-                    : 'hover:bg-yellow-50 dark:hover:bg-yellow-950'
-                }`}
-                onClick={() => setSeccionActiva(seccionActiva === 'vacios' ? 'todas' : 'vacios')}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="absolute top-2 right-2 text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
-                        Template
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Variables del template mapeadas pero sin valor</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <div className="text-xs text-muted-foreground">Vacíos</div>
-                <div className="text-xl font-bold text-yellow-500">{validacion.total_vacios}</div>
-              </Card>
-              <Card 
-                className={`p-3 border-orange-500 cursor-pointer transition-all relative ${
-                  seccionActiva === 'faltantes' 
-                    ? 'bg-orange-100 dark:bg-orange-950 ring-2 ring-orange-500' 
-                    : 'hover:bg-orange-50 dark:hover:bg-orange-950'
-                }`}
-                onClick={() => setSeccionActiva(seccionActiva === 'faltantes' ? 'todas' : 'faltantes')}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="absolute top-2 right-2 text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
-                        Solicitar
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Variables en el template que no están mapeadas. Requieren ser agregadas al código.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <div className="text-xs text-muted-foreground">Por Solicitar</div>
-                <div className="text-xl font-bold text-orange-500">{validacion.total_faltantes}</div>
-              </Card>
-              <Card 
-                className={`p-3 border-blue-500 cursor-pointer transition-all relative ${
-                  seccionActiva === 'variables' 
-                    ? 'bg-blue-100 dark:bg-blue-950 ring-2 ring-blue-500' 
-                    : 'hover:bg-blue-50 dark:hover:bg-blue-950'
-                }`}
-                onClick={() => setSeccionActiva(seccionActiva === 'variables' ? 'todas' : 'variables')}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="absolute top-2 right-2 text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
-                        Template
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Todas las variables encontradas en el template</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <div className="text-xs text-muted-foreground">Variables Template</div>
-                <div className="text-xl font-bold text-blue-500">{totalTemplate}</div>
-              </Card>
-              <Card 
-                className={`p-3 border-gray-400 cursor-pointer transition-all relative ${
-                  seccionActiva === 'noUsadas' 
-                    ? 'bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-400' 
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
-                onClick={() => setSeccionActiva(seccionActiva === 'noUsadas' ? 'todas' : 'noUsadas')}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="absolute top-2 right-2 text-[10px] bg-gray-500 text-white px-2 py-0.5 rounded-full font-semibold cursor-help">
-                        Sistema
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Variables disponibles en el sistema pero no usadas en el template. Puedes agregarlas al template.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <div className="text-xs text-muted-foreground">No Usadas</div>
-                <div className="text-xl font-bold text-gray-500">{validacion.total_no_usadas || 0}</div>
-              </Card>
+              {/* 1. Variables Template (azul) */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Card 
+                      className={`p-3 border-blue-500 cursor-pointer transition-all ${
+                        seccionActiva === 'variables' 
+                          ? 'bg-blue-100 dark:bg-blue-950 ring-2 ring-blue-500' 
+                          : 'hover:bg-blue-50 dark:hover:bg-blue-950'
+                      }`}
+                      onClick={() => setSeccionActiva(seccionActiva === 'variables' ? 'todas' : 'variables')}
+                    >
+                      <div className="text-xs text-muted-foreground">Variables Template</div>
+                      <div className="text-xl font-bold text-blue-500">{totalTemplate}</div>
+                    </Card>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Variables del Template</p>
+                    <p className="text-xs">Todas las variables {`{{placeholder}}`} encontradas dentro del documento de contrato.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* 2. Encontradas (verde) */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Card 
+                      className={`p-3 border-green-500 cursor-pointer transition-all ${
+                        seccionActiva === 'disponibles' 
+                          ? 'bg-green-100 dark:bg-green-950 ring-2 ring-green-500' 
+                          : 'hover:bg-green-50 dark:hover:bg-green-950'
+                      }`}
+                      onClick={() => setSeccionActiva(seccionActiva === 'disponibles' ? 'todas' : 'disponibles')}
+                    >
+                      <div className="text-xs text-muted-foreground">Encontradas</div>
+                      <div className="text-xl font-bold text-green-500">{validacion.total_disponibles}</div>
+                    </Card>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Variables Encontradas</p>
+                    <p className="text-xs">Variables del template que están mapeadas en el sistema Y tienen un valor asignado. Listas para generar.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* 3. Vacíos (amarillo) */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Card 
+                      className={`p-3 border-yellow-500 cursor-pointer transition-all ${
+                        seccionActiva === 'vacios' 
+                          ? 'bg-yellow-100 dark:bg-yellow-950 ring-2 ring-yellow-500' 
+                          : 'hover:bg-yellow-50 dark:hover:bg-yellow-950'
+                      }`}
+                      onClick={() => setSeccionActiva(seccionActiva === 'vacios' ? 'todas' : 'vacios')}
+                    >
+                      <div className="text-xs text-muted-foreground">Vacíos</div>
+                      <div className="text-xl font-bold text-yellow-500">{validacion.total_vacios}</div>
+                    </Card>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Variables Vacías</p>
+                    <p className="text-xs">Variables del template que están mapeadas en el sistema PERO no tienen valor. Requieren que se capture la información.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* 4. Por Solicitar (naranja) */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Card 
+                      className={`p-3 border-orange-500 cursor-pointer transition-all ${
+                        seccionActiva === 'faltantes' 
+                          ? 'bg-orange-100 dark:bg-orange-950 ring-2 ring-orange-500' 
+                          : 'hover:bg-orange-50 dark:hover:bg-orange-950'
+                      }`}
+                      onClick={() => setSeccionActiva(seccionActiva === 'faltantes' ? 'todas' : 'faltantes')}
+                    >
+                      <div className="text-xs text-muted-foreground">Por Solicitar</div>
+                      <div className="text-xl font-bold text-orange-500">{validacion.total_faltantes}</div>
+                    </Card>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Variables Por Solicitar</p>
+                    <p className="text-xs">Variables en el template que NO están mapeadas en el sistema. Requieren desarrollo para agregarlas al código.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* 5. No Usadas (gris) */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Card 
+                      className={`p-3 border-gray-400 cursor-pointer transition-all ${
+                        seccionActiva === 'noUsadas' 
+                          ? 'bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-400' 
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                      onClick={() => setSeccionActiva(seccionActiva === 'noUsadas' ? 'todas' : 'noUsadas')}
+                    >
+                      <div className="text-xs text-muted-foreground">No Usadas</div>
+                      <div className="text-xl font-bold text-gray-500">{validacion.total_no_usadas || 0}</div>
+                    </Card>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Variables No Usadas</p>
+                    <p className="text-xs">Variables disponibles en el sistema que NO están siendo usadas en el template actual. Puedes copiarlas y agregarlas al template.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             {/* Barra de búsqueda */}
