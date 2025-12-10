@@ -247,7 +247,7 @@ export function ValidarPlaceholdersDialog({
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
                     <p className="font-semibold">Variables Por Solicitar</p>
-                    <p className="text-xs">Variables en el template que NO están mapeadas en el sistema. Requieren desarrollo para agregarlas al código.</p>
+                    <p className="text-xs">Variables en el template que NO están mapeadas en el sistema. Requieren solicitarse al administrador del sistema para agregarlas al código.</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
