@@ -48,7 +48,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Check, ChevronsUpDown, UserPlus } from "lucide-react";
+import { FileText, Check, ChevronsUpDown, UserPlus, Warehouse, Car, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -314,6 +314,31 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       if (error) throw error;
       return data;
     },
+  });
+
+  // Fetch bodegas and estacionamientos for this property
+  const { data: includedProducts } = useQuery({
+    queryKey: ["property-included-products", propertyId],
+    queryFn: async () => {
+      const [bodegasRes, estacionamientosRes] = await Promise.all([
+        supabase
+          .from("bodegas")
+          .select("id, nombre, es_incluido, productos_servicios(precio)")
+          .eq("id_propiedad", propertyId)
+          .eq("activo", true),
+        supabase
+          .from("estacionamientos")
+          .select("id, nombre, es_incluido, productos_servicios(precio)")
+          .eq("id_propiedad", propertyId)
+          .eq("activo", true)
+      ]);
+
+      return {
+        bodegas: bodegasRes.data || [],
+        estacionamientos: estacionamientosRes.data || []
+      };
+    },
+    enabled: open,
   });
 
   // Update form values when project config loads
@@ -744,6 +769,53 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
             Propiedad <span className="font-semibold">{propertyNumber}</span>
             {projectName && <span className="font-semibold"> de {projectName}</span>}
           </p>
+          
+          {/* Badges for included products */}
+          {includedProducts && (includedProducts.bodegas.length > 0 || includedProducts.estacionamientos.length > 0) && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-medium">Productos asociados a esta propiedad:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {includedProducts.bodegas.map((bodega: any) => (
+                  <Badge 
+                    key={`bodega-${bodega.id}`}
+                    variant={bodega.es_incluido ? "default" : "outline"}
+                    className={cn(
+                      "flex items-center gap-1",
+                      bodega.es_incluido && "bg-amber-500 hover:bg-amber-600"
+                    )}
+                  >
+                    <Warehouse className="h-3 w-3" />
+                    {bodega.nombre}
+                    {bodega.es_incluido && (
+                      <span className="text-xs ml-1">(incluida)</span>
+                    )}
+                  </Badge>
+                ))}
+                {includedProducts.estacionamientos.map((est: any) => (
+                  <Badge 
+                    key={`est-${est.id}`}
+                    variant={est.es_incluido ? "default" : "outline"}
+                    className={cn(
+                      "flex items-center gap-1",
+                      est.es_incluido && "bg-blue-500 hover:bg-blue-600"
+                    )}
+                  >
+                    <Car className="h-3 w-3" />
+                    {est.nombre}
+                    {est.es_incluido && (
+                      <span className="text-xs ml-1">(incluido)</span>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Los productos marcados como "incluidos" generarán ofertas automáticamente.
+              </p>
+            </div>
+          )}
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
