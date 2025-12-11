@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, Package, Info } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, Package, Info, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
+import { ProductPaymentSchemeManagement } from "@/components/admin/ProductPaymentSchemeManagement";
 type Producto = {
   id: number;
   nombre: string;
@@ -516,6 +517,7 @@ export default function Productos() {
               <TableHead className="font-semibold">SAT ID</TableHead>
               <TableHead className="font-semibold">Unidad SAT</TableHead>
               <TableHead className="font-semibold">Dueño</TableHead>
+              <TableHead className="font-semibold text-center">Esquemas de Pago</TableHead>
               <TableHead className="text-right font-semibold">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -550,6 +552,12 @@ export default function Productos() {
                 <TableCell className="font-mono text-sm">{producto.sat_id || '-'}</TableCell>
                 <TableCell>{producto.unidad_sat_descripcion || '-'}</TableCell>
                 <TableCell>{producto.dueno_nombre || '-'}</TableCell>
+                <TableCell className="text-center">
+                  <ProductPaymentSchemeManagement 
+                    productId={producto.id} 
+                    productName={producto.nombre}
+                  />
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end space-x-2">
                     {producto.activo ? (

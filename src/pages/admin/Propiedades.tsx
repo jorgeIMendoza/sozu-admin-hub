@@ -2942,23 +2942,41 @@ const Propiedades = () => {
                         );
                       
                       case 'ofertas_productos':
+                        // Only show product offers when property is at least Apartado (id_estatus_disponibilidad > 3)
+                        const canShowProductOffers = property.id_estatus_disponibilidad > 3;
                         return (
                           <TableCell key={column.key}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewProductOffers(property)}
-                        disabled={!property.tieneOfertasProductos}
-                        className="p-0 h-auto font-normal"
-                      >
-                        <Badge 
-                          variant={property.tieneOfertasProductos ? "default" : "outline"}
-                          className={property.tieneOfertasProductos ? "cursor-pointer hover:bg-primary/80" : ""}
-                        >
-                          {property.tieneOfertasProductos ? "Sí" : "No"}
-                          {property.tieneOfertasProductos && <ShoppingCart className="ml-1 h-3 w-3" />}
-                            </Badge>
-                          </Button>
+                            {canShowProductOffers ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewProductOffers(property)}
+                                disabled={!property.tieneOfertasProductos}
+                                className="p-0 h-auto font-normal"
+                              >
+                                <Badge 
+                                  variant={property.tieneOfertasProductos ? "default" : "outline"}
+                                  className={property.tieneOfertasProductos ? "cursor-pointer hover:bg-primary/80" : ""}
+                                >
+                                  {property.tieneOfertasProductos ? "Sí" : "No"}
+                                  {property.tieneOfertasProductos && <ShoppingCart className="ml-1 h-3 w-3" />}
+                                </Badge>
+                              </Button>
+                            ) : (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="outline" className="text-muted-foreground">
+                                      <Lock className="h-3 w-3 mr-1" />
+                                      N/A
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Disponible después de apartar la propiedad</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                           </TableCell>
                         );
                       
