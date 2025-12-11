@@ -542,7 +542,7 @@ export default function Productos() {
                 key={producto.id} 
                 className={`hover:bg-muted/30 transition-colors ${!producto.activo ? 'opacity-60' : ''}`}
               >
-                <TableCell className="font-medium text-primary">{producto.proyecto_nombre || '-'}</TableCell>
+                <TableCell className="font-medium">{producto.proyecto_nombre || '-'}</TableCell>
                 <TableCell className="font-medium">{producto.nombre}</TableCell>
                 <TableCell className="max-w-xs truncate">{producto.descripcion || '-'}</TableCell>
                 <TableCell>{producto.categoria_nombre || '-'}</TableCell>
