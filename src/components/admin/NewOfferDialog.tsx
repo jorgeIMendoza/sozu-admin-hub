@@ -323,12 +323,12 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       const [bodegasRes, estacionamientosRes] = await Promise.all([
         supabase
           .from("bodegas")
-          .select("id, nombre, es_incluido, productos_servicios(precio)")
+          .select("id, nombre, es_incluido, productos_servicios!bodegas_id_producto_fkey(precio)")
           .eq("id_propiedad", propertyId)
           .eq("activo", true),
         supabase
           .from("estacionamientos")
-          .select("id, nombre, es_incluido, productos_servicios(precio)")
+          .select("id, nombre, es_incluido, productos_servicios!estacionamientos_id_producto_fkey(precio)")
           .eq("id_propiedad", propertyId)
           .eq("activo", true)
       ]);
