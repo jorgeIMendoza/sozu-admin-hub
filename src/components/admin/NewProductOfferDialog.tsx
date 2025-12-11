@@ -259,7 +259,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       if (selectedCategory === -1) {
         const { data, error } = await supabase
           .from('productos_servicios')
-          .select('*')
+          .select('*, categorias_producto(tiene_metraje)')
           .eq('es_producto', false)
           .eq('activo', true)
           .order('nombre');
@@ -270,7 +270,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       // Otherwise, fetch by category
       const { data, error } = await supabase
         .from('productos_servicios')
-        .select('*')
+        .select('*, categorias_producto(tiene_metraje)')
         .eq('id_categoria', selectedCategory)
         .eq('activo', true)
         .order('nombre');
@@ -1165,7 +1165,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                     )}
                     {product.precio_lista && (
                       <span className="text-sm font-medium mt-2">
-                        Precio: ${parseFloat(product.precio_lista).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        {product.categorias_producto?.tiene_metraje ? 'Precio por m²' : 'Precio'}: ${parseFloat(product.precio_lista).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </span>
                     )}
                   </Button>
