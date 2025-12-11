@@ -4404,6 +4404,7 @@ export type Database = {
           id: number
           id_categoria: number | null
           id_entidad_relacionada_dueno: number
+          id_proyecto: number | null
           id_unidad_sat: string | null
           nombre: string
           precio_lista: number | null
@@ -4419,6 +4420,7 @@ export type Database = {
           id?: number
           id_categoria?: number | null
           id_entidad_relacionada_dueno: number
+          id_proyecto?: number | null
           id_unidad_sat?: string | null
           nombre: string
           precio_lista?: number | null
@@ -4434,6 +4436,7 @@ export type Database = {
           id?: number
           id_categoria?: number | null
           id_entidad_relacionada_dueno?: number
+          id_proyecto?: number | null
           id_unidad_sat?: string | null
           nombre?: string
           precio_lista?: number | null
@@ -4467,6 +4470,13 @@ export type Database = {
             columns: ["id_entidad_relacionada_dueno"]
             isOneToOne: false
             referencedRelation: "entidades_relacionadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productos_servicios_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
         ]

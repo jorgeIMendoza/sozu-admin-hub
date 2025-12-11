@@ -249,38 +249,16 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
     ...categoriesData
   ];
 
-  // Get project ID from property details for filtering products via esquemas_pago
+  // Get project ID from property details for filtering products
   const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;
 
-  // First, fetch product IDs that have esquemas_pago configured for this project
-  const { data: projectProductIds = [] } = useQuery({
-    queryKey: ['product-ids-for-project', projectId],
-    queryFn: async (): Promise<number[]> => {
-      if (!projectId) return [];
-      
-      const { data, error } = await supabase
-        .from('esquemas_pago')
-        .select('id_producto')
-        .eq('id_proyecto', projectId)
-        .eq('activo', true)
-        .not('id_producto', 'is', null);
-      
-      if (error) throw error;
-      
-      // Get unique product IDs
-      const uniqueIds = [...new Set((data || []).map(item => item.id_producto).filter(Boolean))];
-      return uniqueIds as number[];
-    },
-    enabled: !!projectId,
-  });
-
-  // Fetch products/services by category, filtered by esquemas_pago for this project
+  // Fetch products/services by category, filtered by id_proyecto for products
   const { data: products = [] } = useQuery({
-    queryKey: ['productos-servicios-por-categoria', selectedCategory, projectProductIds],
+    queryKey: ['productos-servicios-por-categoria', selectedCategory, projectId],
     queryFn: async (): Promise<any[]> => {
       if (!selectedCategory) return [];
       
-      // If "Servicios" category is selected (id = -1) - services are global
+      // If "Servicios" category is selected (id = -1) - services are global (no project filter)
       if (selectedCategory === -1) {
         const { data, error } = await (supabase as any)
           .from('productos_servicios')
@@ -292,9 +270,9 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
         return data || [];
       }
       
-      // For products: only show those with esquemas_pago for this project
-      if (projectProductIds.length === 0) {
-        return []; // No products configured for this project
+      // For products: filter by id_proyecto directly
+      if (!projectId) {
+        return []; // No project, no products
       }
       
       const { data, error } = await (supabase as any)
@@ -302,7 +280,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
         .select('id, nombre, precio_lista, descripcion, es_producto, id_categoria, categorias_producto!fk_prodserv_categoria(tiene_metraje)')
         .eq('id_categoria', selectedCategory)
         .eq('activo', true)
-        .in('id', projectProductIds)
+        .eq('id_proyecto', projectId)
         .order('nombre');
       
       if (error) throw error;

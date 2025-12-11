@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, Package, Info, CreditCard } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProductPaymentSchemeManagement } from "@/components/admin/ProductPaymentSchemeManagement";
+import { Combobox } from "@/components/ui/combobox";
+
 type Producto = {
   id: number;
   nombre: string;
@@ -25,11 +26,13 @@ type Producto = {
   id_unidad_sat?: string;
   id_categoria: number;
   id_entidad_relacionada_dueno: number;
+  id_proyecto?: number;
   stock: number;
   activo: boolean;
   precio_lista: number;
   categoria_nombre?: string;
   dueno_nombre?: string;
+  proyecto_nombre?: string;
   unidad_sat_descripcion?: string;
   tiene_metraje?: boolean;
 };
@@ -53,6 +56,7 @@ export default function Productos() {
     id_unidad_sat: "",
     id_categoria: "",
     id_entidad_relacionada_dueno: "",
+    id_proyecto: "",
     stock: 0,
     precio_lista: 0,
   });
@@ -61,41 +65,6 @@ export default function Productos() {
   
   const itemsPerPage = 20;
   const currentPage = activeTab === 'active' ? currentPageActive : currentPageDeleted;
-
-  const fetchProductos = async (activo: boolean) => {
-    const { data, error } = await supabase
-      .from('productos_servicios')
-      .select(`
-        *,
-        categorias_producto!productos_servicios_id_categoria_fkey (nombre, tiene_metraje),
-        entidades_relacionadas!productos_servicios_id_entidad_relacionada_dueno_fkey (
-          personas!entidades_relacionadas_id_persona_fkey (nombre_legal)
-        ),
-        unidades_sat (descripcion)
-      `)
-      .eq('activo', activo)
-      .eq('es_producto', true)
-      .order('nombre', { ascending: true });
-    
-    if (error) throw error;
-    
-    return (data || []).map((item: any) => ({
-      id: item.id,
-      nombre: item.nombre,
-      descripcion: item.descripcion,
-      sat_id: item.sat_id,
-      id_unidad_sat: item.id_unidad_sat,
-      id_categoria: item.id_categoria,
-      id_entidad_relacionada_dueno: item.id_entidad_relacionada_dueno,
-      stock: item.stock,
-      activo: item.activo,
-      precio_lista: item.precio_lista || 0,
-      categoria_nombre: item.categorias_producto?.nombre,
-      dueno_nombre: item.entidades_relacionadas?.personas?.nombre_legal,
-      unidad_sat_descripcion: item.unidades_sat?.descripcion,
-      tiene_metraje: item.categorias_producto?.tiene_metraje || false,
-    })) as Producto[];
-  };
 
   // Fetch categorías
   const { data: categorias = [] } = useQuery({
@@ -108,6 +77,23 @@ export default function Productos() {
         .order('nombre');
       if (error) throw error;
       return data || [];
+    },
+  });
+
+  // Fetch proyectos for combobox
+  const { data: proyectos = [] } = useQuery({
+    queryKey: ['proyectos-productos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proyectos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return (data || []).map((p: any) => ({
+        value: p.id.toString(),
+        label: p.nombre
+      }));
     },
   });
 
@@ -176,7 +162,8 @@ export default function Productos() {
           entidades_relacionadas!productos_servicios_id_entidad_relacionada_dueno_fkey (
             personas!entidades_relacionadas_id_persona_fkey (nombre_legal)
           ),
-          unidades_sat (descripcion)
+          unidades_sat (descripcion),
+          proyectos!productos_servicios_id_proyecto_fkey (nombre)
         `, { count: 'exact' })
         .eq('activo', true)
         .eq('es_producto', true);
@@ -199,11 +186,13 @@ export default function Productos() {
         id_unidad_sat: item.id_unidad_sat,
         id_categoria: item.id_categoria,
         id_entidad_relacionada_dueno: item.id_entidad_relacionada_dueno,
+        id_proyecto: item.id_proyecto,
         stock: item.stock,
         activo: item.activo,
         precio_lista: item.precio_lista || 0,
         categoria_nombre: item.categorias_producto?.nombre,
         dueno_nombre: item.entidades_relacionadas?.personas?.nombre_legal,
+        proyecto_nombre: item.proyectos?.nombre,
         unidad_sat_descripcion: item.unidades_sat?.descripcion,
         tiene_metraje: item.categorias_producto?.tiene_metraje || false,
       })) as Producto[];
@@ -226,7 +215,8 @@ export default function Productos() {
           entidades_relacionadas!productos_servicios_id_entidad_relacionada_dueno_fkey (
             personas!entidades_relacionadas_id_persona_fkey (nombre_legal)
           ),
-          unidades_sat (descripcion)
+          unidades_sat (descripcion),
+          proyectos!productos_servicios_id_proyecto_fkey (nombre)
         `, { count: 'exact' })
         .eq('activo', false)
         .eq('es_producto', true);
@@ -249,11 +239,13 @@ export default function Productos() {
         id_unidad_sat: item.id_unidad_sat,
         id_categoria: item.id_categoria,
         id_entidad_relacionada_dueno: item.id_entidad_relacionada_dueno,
+        id_proyecto: item.id_proyecto,
         stock: item.stock,
         activo: item.activo,
         precio_lista: item.precio_lista || 0,
         categoria_nombre: item.categorias_producto?.nombre,
         dueno_nombre: item.entidades_relacionadas?.personas?.nombre_legal,
+        proyecto_nombre: item.proyectos?.nombre,
         unidad_sat_descripcion: item.unidades_sat?.descripcion,
         tiene_metraje: item.categorias_producto?.tiene_metraje || false,
       })) as Producto[];
@@ -303,6 +295,7 @@ export default function Productos() {
       id_unidad_sat: "",
       id_categoria: "",
       id_entidad_relacionada_dueno: "",
+      id_proyecto: "",
       stock: 0,
       precio_lista: 0,
     });
@@ -313,12 +306,16 @@ export default function Productos() {
       const { error } = await supabase
         .from('productos_servicios')
         .insert([{
-          ...data,
+          nombre: data.nombre,
+          descripcion: data.descripcion || null,
           es_producto: true,
           id_categoria: parseInt(data.id_categoria),
           id_entidad_relacionada_dueno: parseInt(data.id_entidad_relacionada_dueno),
+          id_proyecto: data.id_proyecto ? parseInt(data.id_proyecto) : null,
           id_unidad_sat: data.id_unidad_sat === "" ? null : data.id_unidad_sat,
           sat_id: data.sat_id === "" ? null : data.sat_id,
+          stock: data.stock,
+          precio_lista: data.precio_lista,
         }]);
       
       if (error) throw error;
@@ -346,11 +343,15 @@ export default function Productos() {
       const { error } = await supabase
         .from('productos_servicios')
         .update({
-          ...data,
+          nombre: data.nombre,
+          descripcion: data.descripcion || null,
           id_categoria: parseInt(data.id_categoria),
           id_entidad_relacionada_dueno: parseInt(data.id_entidad_relacionada_dueno),
+          id_proyecto: data.id_proyecto ? parseInt(data.id_proyecto) : null,
           id_unidad_sat: data.id_unidad_sat === "" ? null : data.id_unidad_sat,
           sat_id: data.sat_id === "" ? null : data.sat_id,
+          stock: data.stock,
+          precio_lista: data.precio_lista,
         })
         .eq('id', editingEntity?.id);
       
@@ -438,6 +439,7 @@ export default function Productos() {
       id_unidad_sat: producto.id_unidad_sat || "",
       id_categoria: producto.id_categoria.toString(),
       id_entidad_relacionada_dueno: producto.id_entidad_relacionada_dueno.toString(),
+      id_proyecto: producto.id_proyecto?.toString() || "",
       stock: producto.stock,
       precio_lista: producto.precio_lista || 0,
     });
@@ -468,6 +470,17 @@ export default function Productos() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.id_proyecto) {
+      toast({
+        title: "Error",
+        description: "El proyecto es obligatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (editingEntity) {
       updateMutation.mutate(formData);
     } else {
@@ -509,6 +522,7 @@ export default function Productos() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead className="font-semibold">Proyecto</TableHead>
               <TableHead className="font-semibold">Nombre</TableHead>
               <TableHead className="font-semibold">Descripción</TableHead>
               <TableHead className="font-semibold">Categoría</TableHead>
@@ -527,6 +541,7 @@ export default function Productos() {
                 key={producto.id} 
                 className={`hover:bg-muted/30 transition-colors ${!producto.activo ? 'opacity-60' : ''}`}
               >
+                <TableCell className="font-medium text-primary">{producto.proyecto_nombre || '-'}</TableCell>
                 <TableCell className="font-medium">{producto.nombre}</TableCell>
                 <TableCell className="max-w-xs truncate">{producto.descripcion || '-'}</TableCell>
                 <TableCell>{producto.categoria_nombre || '-'}</TableCell>
@@ -736,6 +751,19 @@ export default function Productos() {
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                 required
+              />
+            </div>
+
+            {/* Proyecto (obligatorio) */}
+            <div className="space-y-2">
+              <Label htmlFor="id_proyecto">Proyecto *</Label>
+              <Combobox
+                value={formData.id_proyecto}
+                onValueChange={(value) => setFormData({ ...formData, id_proyecto: value })}
+                options={proyectos}
+                placeholder="Buscar proyecto..."
+                emptyText="No se encontraron proyectos"
+                searchPlaceholder="Buscar..."
               />
             </div>
 
