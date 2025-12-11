@@ -75,16 +75,9 @@ const formSchema = z.object({
 }, {
   message: "Si hay porcentaje de mensualidades, el número debe ser mayor a 0",
   path: ["numero_mensualidades"]
-}).refine((data) => {
-  // In precargada mode, a scheme must be selected (but this is only available if product has schemes)
-  if (data.mode === "precargada" && !data.selectedSchemeId) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Debe seleccionar un esquema de pago",
-  path: ["selectedSchemeId"]
 });
+// Note: In precargada mode, scheme selection is now OPTIONAL
+// If no scheme is selected, all schemes will be shown without marking and no bank account section
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -476,15 +469,16 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
         personaId = newPersona.id;
       }
 
-      // Step 2: Get or create payment scheme
-      let schemeId: number;
+      // Step 2: Get or create payment scheme (optional in precargada mode)
+      let schemeId: number | null = null;
+      let clabeData: string | null = null;
       
       if (formValues.mode === "precargada") {
-        // Use selected preloaded scheme
-        if (!formValues.selectedSchemeId) {
-          throw new Error("Debe seleccionar un esquema de pago");
+        // Use selected preloaded scheme if provided
+        if (formValues.selectedSchemeId) {
+          schemeId = formValues.selectedSchemeId;
         }
-        schemeId = formValues.selectedSchemeId;
+        // If no scheme selected, schemeId stays null - all schemes will be shown
       } else {
         // Create manual payment scheme
         const getInitials = (name: string) => {
@@ -519,30 +513,35 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
         schemeId = esquemaPago.id;
       }
 
-      // Step 3: Get CLABE STP using crear_referencia_bancaria
-      console.log('🔍 Llamando crear_referencia_bancaria con id_er_dueno:', selectedProductData.id_entidad_relacionada_dueno);
-      console.log('📦 selectedProductData completo:', selectedProductData);
-      
-      const { data: clabeData, error: clabeError } = await supabase
-        .rpc('crear_referencia_bancaria', {
-          id_er_dueno: selectedProductData.id_entidad_relacionada_dueno
-        });
-      
-      console.log('✅ CLABE generada:', clabeData);
-      console.log('❌ Error CLABE:', clabeError);
-      
-      if (clabeError) {
-        console.error('💥 Error generando CLABE:', clabeError);
-        throw clabeError;
-      }
+      // Step 3: Get CLABE STP ONLY if a scheme is selected
+      if (schemeId) {
+        console.log('🔍 Llamando crear_referencia_bancaria con id_er_dueno:', selectedProductData.id_entidad_relacionada_dueno);
+        console.log('📦 selectedProductData completo:', selectedProductData);
+        
+        const { data: generatedClabe, error: clabeError } = await supabase
+          .rpc('crear_referencia_bancaria', {
+            id_er_dueno: selectedProductData.id_entidad_relacionada_dueno
+          });
+        
+        console.log('✅ CLABE generada:', generatedClabe);
+        console.log('❌ Error CLABE:', clabeError);
+        
+        if (clabeError) {
+          console.error('💥 Error generando CLABE:', clabeError);
+          throw clabeError;
+        }
 
-      if (!clabeData || typeof clabeData !== 'string' || clabeData.length !== 18) {
-        const errorMsg = `CLABE inválida generada: "${clabeData}" (tipo: ${typeof clabeData}, longitud: ${clabeData?.length || 0})`;
-        console.error('⚠️', errorMsg);
-        throw new Error(errorMsg);
-      }
+        if (!generatedClabe || typeof generatedClabe !== 'string' || generatedClabe.length !== 18) {
+          const errorMsg = `CLABE inválida generada: "${generatedClabe}" (tipo: ${typeof generatedClabe}, longitud: ${generatedClabe?.length || 0})`;
+          console.error('⚠️', errorMsg);
+          throw new Error(errorMsg);
+        }
 
-      console.log('✨ CLABE válida, procediendo a crear oferta con:', clabeData);
+        clabeData = generatedClabe;
+        console.log('✨ CLABE válida, procediendo a crear oferta con:', clabeData);
+      } else {
+        console.log('ℹ️ Sin esquema seleccionado - no se genera CLABE');
+      }
 
       // Step 4: Create offer
       const { error: ofertaError } = await supabase
@@ -703,14 +702,14 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                             name="selectedSchemeId"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Seleccionar Esquema *</FormLabel>
+                                <FormLabel>Seleccionar Esquema (Opcional)</FormLabel>
                                 <Select 
-                                  onValueChange={(value) => field.onChange(parseInt(value))} 
-                                  value={field.value?.toString()}
+                                  onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
+                                  value={field.value?.toString() || ""}
                                 >
                                   <FormControl>
                                     <SelectTrigger>
-                                      <SelectValue placeholder="Selecciona un esquema de pago" />
+                                      <SelectValue placeholder="Selecciona un esquema de pago (opcional)" />
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
@@ -730,6 +729,17 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                               </FormItem>
                             )}
                           />
+                          
+                          {/* Disclaimer when no scheme is selected */}
+                          {!form.watch("selectedSchemeId") && (
+                            <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
+                              <CardContent className="p-4">
+                                <p className="text-sm text-amber-800 dark:text-amber-200">
+                                  <strong>Nota:</strong> Si no seleccionas un esquema de pago, la oferta mostrará todos los esquemas disponibles sin marcar ninguno como seleccionado y <strong>no incluirá la sección de cuenta bancaria</strong>.
+                                </p>
+                              </CardContent>
+                            </Card>
+                          )}
                         </div>
                       )}
                     </>
