@@ -249,26 +249,14 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
     ...categoriesData
   ];
 
-  // Get project ID from property details
+  // Get project ID from property details (kept for reference but not used for filtering)
   const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;
 
-  // Fetch products/services by category and project
+  // Fetch products/services by category (products are global, not tied to specific projects)
   const { data: products = [] } = useQuery({
-    queryKey: ['productos-servicios-por-categoria', selectedCategory, projectId],
+    queryKey: ['productos-servicios-por-categoria', selectedCategory],
     queryFn: async (): Promise<any[]> => {
-      if (!selectedCategory || !projectId) return [];
-      
-      // First get entidades_relacionadas IDs for this project
-      const { data: entidadesData, error: entidadesError } = await supabase
-        .from('entidades_relacionadas')
-        .select('id')
-        .eq('id_proyecto', projectId)
-        .eq('activo', true);
-      
-      if (entidadesError) throw entidadesError;
-      if (!entidadesData || entidadesData.length === 0) return [];
-      
-      const entidadIds = entidadesData.map(e => e.id);
+      if (!selectedCategory) return [];
       
       // If "Servicios" category is selected (id = -1)
       if (selectedCategory === -1) {
@@ -276,25 +264,23 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
           .from('productos_servicios')
           .select('id, nombre, precio, es_producto, id_categoria, categorias_producto(tiene_metraje)')
           .eq('es_producto', false)
-          .in('id_entidad_relacionada_dueno', entidadIds)
           .eq('activo', true)
           .order('nombre');
         if (error) throw error;
         return data || [];
       }
       
-      // Otherwise, fetch by category and project
+      // Otherwise, fetch by category
       const { data, error } = await (supabase as any)
         .from('productos_servicios')
         .select('id, nombre, precio, es_producto, id_categoria, categorias_producto(tiene_metraje)')
         .eq('id_categoria', selectedCategory)
-        .in('id_entidad_relacionada_dueno', entidadIds)
         .eq('activo', true)
         .order('nombre');
       if (error) throw error;
       return data || [];
     },
-    enabled: !!selectedCategory && !!projectId,
+    enabled: !!selectedCategory,
   });
 
   // Fetch existing personas for search
