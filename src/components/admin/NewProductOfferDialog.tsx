@@ -249,35 +249,40 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
     ...categoriesData
   ];
 
-  // Fetch products/services by category
+  // Get project ID from property details
+  const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;
+
+  // Fetch products/services by category and project
   const { data: products = [] } = useQuery({
-    queryKey: ['productos-servicios-por-categoria', selectedCategory],
-    queryFn: async () => {
-      if (!selectedCategory) return [];
+    queryKey: ['productos-servicios-por-categoria', selectedCategory, projectId],
+    queryFn: async (): Promise<any[]> => {
+      if (!selectedCategory || !projectId) return [];
       
       // If "Servicios" category is selected (id = -1)
       if (selectedCategory === -1) {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('productos_servicios')
-          .select('*, categorias_producto!fk_prodserv_categoria(tiene_metraje)')
+          .select('id, nombre, precio, es_producto, id_categoria, categorias_producto(tiene_metraje)')
           .eq('es_producto', false)
+          .eq('id_proyecto', Number(projectId))
           .eq('activo', true)
           .order('nombre');
         if (error) throw error;
         return data || [];
       }
       
-      // Otherwise, fetch by category
-      const { data, error } = await supabase
+      // Otherwise, fetch by category and project
+      const { data, error } = await (supabase as any)
         .from('productos_servicios')
-        .select('*, categorias_producto!fk_prodserv_categoria(tiene_metraje)')
+        .select('id, nombre, precio, es_producto, id_categoria, categorias_producto(tiene_metraje)')
         .eq('id_categoria', selectedCategory)
+        .eq('id_proyecto', Number(projectId))
         .eq('activo', true)
         .order('nombre');
       if (error) throw error;
       return data || [];
     },
-    enabled: !!selectedCategory,
+    enabled: !!selectedCategory && !!projectId,
   });
 
   // Fetch existing personas for search
