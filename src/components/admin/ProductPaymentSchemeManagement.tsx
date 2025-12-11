@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { CreditCard, Eye, Edit, Trash2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { NewProductPaymentSchemeDialog } from "./NewProductPaymentSchemeDialog";
 import { EditProductPaymentSchemeDialog } from "./EditProductPaymentSchemeDialog";
@@ -21,6 +21,30 @@ export const ProductPaymentSchemeManagement = ({ productId, productName }: Produ
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
 
+  // Always fetch count for display in the button
+  const { data: schemeCount = 0 } = useQuery({
+    queryKey: ["product-payment-schemes-count", productId, refreshKey],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("esquemas_pago")
+        .select("id", { count: 'exact', head: true })
+        .match({ 
+          id_producto: productId,
+          activo: true,
+          es_manual: false 
+        });
+      
+      if (error) {
+        console.error("Error fetching product payment schemes count:", error);
+        return 0;
+      }
+      
+      return count || 0;
+    },
+    enabled: !!productId && productId > 0,
+  });
+
+  // Fetch full schemes data when dialog is open
   const { data: schemes, isLoading, refetch } = useQuery({
     queryKey: ["product-payment-schemes", productId, refreshKey],
     queryFn: async () => {
@@ -48,6 +72,8 @@ export const ProductPaymentSchemeManagement = ({ productId, productName }: Produ
     setRefreshKey(prev => prev + 1);
     refetch();
   };
+
+  const queryClient = useQueryClient();
 
   const handleDeleteScheme = async (schemeId: number) => {
     try {
@@ -169,8 +195,22 @@ export const ProductPaymentSchemeManagement = ({ productId, productName }: Produ
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 px-2">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-8 px-3 gap-1.5 hover:bg-primary/10"
+        >
           <CreditCard className="h-4 w-4" />
+          <Badge 
+            variant="secondary" 
+            className={`h-5 min-w-[20px] px-1.5 text-xs font-medium ${
+              schemeCount > 0 
+                ? "bg-primary/20 text-primary" 
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {schemeCount}
+          </Badge>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
