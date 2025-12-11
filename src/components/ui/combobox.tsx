@@ -1,20 +1,14 @@
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ComboboxProps {
   value: string;
@@ -42,10 +36,10 @@ export function Combobox({
 
   const selectedOption = options.find((option) => option.value === value);
 
-  // Only show options when user has typed at least 2 characters
+  // Filter options based on search - minimum 2 characters
   const filteredOptions = React.useMemo(() => {
     if (search.length < 2) return [];
-    const searchLower = search.toLowerCase();
+    const searchLower = search.toLowerCase().trim();
     return options.filter(option => 
       option.label.toLowerCase().includes(searchLower)
     );
@@ -55,7 +49,6 @@ export function Combobox({
   const displayLabel = React.useMemo(() => {
     if (!selectedOption) return placeholder;
     const label = selectedOption.label;
-    // Show only name part (before email in parentheses) if too long
     if (label.length > 40) {
       const parenIndex = label.indexOf('(');
       if (parenIndex > 0) {
@@ -65,6 +58,12 @@ export function Combobox({
     }
     return label;
   }, [selectedOption, placeholder]);
+
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue === value ? "" : optionValue);
+    setOpen(false);
+    setSearch("");
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -87,31 +86,38 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput 
-            placeholder={searchPlaceholder} 
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList className="max-h-[300px]">
+        <div className="flex flex-col">
+          {/* Search input */}
+          <div className="flex items-center border-b px-3 py-2">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
+          
+          {/* Options list */}
+          <ScrollArea className="max-h-[300px]">
             {search.length < 2 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 Escribe al menos 2 caracteres para buscar...
               </div>
             ) : filteredOptions.length === 0 ? (
-              <CommandEmpty>{emptyText}</CommandEmpty>
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                {emptyText}
+              </div>
             ) : (
-              <CommandGroup>
+              <div className="p-1">
                 {filteredOptions.map((option) => (
-                  <CommandItem
+                  <div
                     key={option.value}
-                    value={`${option.value}-${option.label}`}
-                    onSelect={() => {
-                      onValueChange(option.value === value ? "" : option.value);
-                      setOpen(false);
-                      setSearch("");
-                    }}
-                    className="text-sm"
+                    onClick={() => handleSelect(option.value)}
+                    className={cn(
+                      "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                      value === option.value && "bg-accent text-accent-foreground"
+                    )}
                   >
                     <Check
                       className={cn(
@@ -120,12 +126,12 @@ export function Combobox({
                       )}
                     />
                     <span className="truncate">{option.label}</span>
-                  </CommandItem>
+                  </div>
                 ))}
-              </CommandGroup>
+              </div>
             )}
-          </CommandList>
-        </Command>
+          </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
