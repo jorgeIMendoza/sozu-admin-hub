@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -264,25 +265,41 @@ export const EditPaymentSchemeDialog = ({ scheme, onSchemeUpdated }: EditPayment
             <FormField
               control={form.control}
               name="porcentaje_descuento_aumento"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Porcentaje Ajuste de Precio (%)
-                    <span className="text-xs text-muted-foreground block mt-1">
-                      Positivo = incremento, Negativo = descuento
-                    </span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="number" 
-                      step="0.01"
-                      placeholder="0.00 (ej: -8 para 8% descuento)" 
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const value = parseFloat(field.value || "0");
+                const isDiscount = value < 0;
+                const isIncrease = value > 0;
+                
+                return (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      Porcentaje Descuento/Aumento (%)
+                      {isDiscount && (
+                        <Badge className="bg-red-500 hover:bg-red-600 text-white text-xs">
+                          Descuento
+                        </Badge>
+                      )}
+                      {isIncrease && (
+                        <Badge className="bg-green-500 hover:bg-green-600 text-white text-xs">
+                          Aumento
+                        </Badge>
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="0" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Usa valores negativos para descuentos (ej: -5 = 5% descuento) y valores positivos para aumentos (ej: 3 = 3% aumento)
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <div className="flex justify-end space-x-2">
