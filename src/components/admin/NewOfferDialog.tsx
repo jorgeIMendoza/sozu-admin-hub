@@ -784,53 +784,65 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
               <>
                 <div className="flex flex-wrap gap-2">
                   {includedProducts.bodegas.map((bodega: any) => {
-                    const precio = bodega.productos_servicios?.precio_lista || 0;
-                    const isIncluded = bodega.es_incluido;
+                    const precioLista = bodega.productos_servicios?.precio_lista || 0;
+                    const m2 = bodega.m2 || 0;
+                    const precioFinal = m2 > 0 ? precioLista * m2 : precioLista;
+                    const isIncludedInPrice = precioFinal === 0;
                     return (
                       <Badge 
                         key={`bodega-${bodega.id}`}
-                        variant={isIncluded ? "default" : "outline"}
+                        variant={isIncludedInPrice ? "default" : "outline"}
                         className={cn(
                           "flex items-center gap-1",
-                          isIncluded ? "bg-amber-500 hover:bg-amber-600" : "border-amber-500 text-amber-700"
+                          isIncludedInPrice ? "bg-amber-500 hover:bg-amber-600" : "border-amber-500 text-amber-700"
                         )}
                       >
                         <Warehouse className="h-3 w-3" />
                         {bodega.nombre}
-                        {isIncluded ? (
+                        {isIncludedInPrice ? (
                           <span className="text-xs ml-1">(incluida)</span>
-                        ) : precio > 0 ? (
-                          <span className="text-xs ml-1">(${precio.toLocaleString()})</span>
-                        ) : null}
+                        ) : (
+                          <span className="text-xs ml-1">(${precioFinal.toLocaleString()})</span>
+                        )}
                       </Badge>
                     );
                   })}
                   {includedProducts.estacionamientos.map((est: any) => {
-                    const precio = est.productos_servicios?.precio_lista || 0;
-                    const isIncluded = est.es_incluido;
+                    const precioLista = est.productos_servicios?.precio_lista || 0;
+                    const m2 = est.m2 || 0;
+                    const precioFinal = m2 > 0 ? precioLista * m2 : precioLista;
+                    const isIncludedInPrice = precioFinal === 0;
                     return (
                       <Badge 
                         key={`est-${est.id}`}
-                        variant={isIncluded ? "default" : "outline"}
+                        variant={isIncludedInPrice ? "default" : "outline"}
                         className={cn(
                           "flex items-center gap-1",
-                          isIncluded ? "bg-blue-500 hover:bg-blue-600" : "border-blue-500 text-blue-700"
+                          isIncludedInPrice ? "bg-blue-500 hover:bg-blue-600" : "border-blue-500 text-blue-700"
                         )}
                       >
                         <Car className="h-3 w-3" />
                         {est.nombre}
-                        {isIncluded ? (
+                        {isIncludedInPrice ? (
                           <span className="text-xs ml-1">(incluido)</span>
-                        ) : precio > 0 ? (
-                          <span className="text-xs ml-1">(${precio.toLocaleString()})</span>
-                        ) : null}
+                        ) : (
+                          <span className="text-xs ml-1">(${precioFinal.toLocaleString()})</span>
+                        )}
                       </Badge>
                     );
                   })}
                 </div>
-                {/* Show disclaimer only if there are products that can generate offers */}
-                {(includedProducts.bodegas.some((b: any) => !b.es_incluido && (b.productos_servicios?.precio_lista || 0) > 0) ||
-                  includedProducts.estacionamientos.some((e: any) => !e.es_incluido && (e.productos_servicios?.precio_lista || 0) > 0)) && (
+                {/* Show disclaimer only if there are products with price > 0 */}
+                {(includedProducts.bodegas.some((b: any) => {
+                  const precio = b.productos_servicios?.precio_lista || 0;
+                  const m2 = b.m2 || 0;
+                  return (m2 > 0 ? precio * m2 : precio) > 0;
+                }) ||
+                  includedProducts.estacionamientos.some((e: any) => {
+                    const precio = e.productos_servicios?.precio_lista || 0;
+                    const m2 = e.m2 || 0;
+                    return (m2 > 0 ? precio * m2 : precio) > 0;
+                  })) && (
                   <p className="text-xs text-muted-foreground mt-2">
                     Los productos con precio pueden generar ofertas adicionales desde sus respectivas páginas.
                   </p>
