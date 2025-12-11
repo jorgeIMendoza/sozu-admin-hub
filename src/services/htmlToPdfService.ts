@@ -203,17 +203,13 @@ class HTMLToPDFService {
         }
       }
       
-      // Fetch payment scheme if selected
-      let paymentScheme = null;
-      if (offerDetails.id_esquema_pago_seleccionado) {
-        const { data: schemeData } = await supabase
-          .from('esquemas_pago')
-          .select('*')
-          .eq('id', offerDetails.id_esquema_pago_seleccionado)
-          .single();
-        
-        paymentScheme = schemeData;
-      }
+      // Fetch all payment schemes for the product
+      const { data: paymentSchemes } = await supabase
+        .from('esquemas_pago')
+        .select('*')
+        .eq('id_producto', offerData.productId)
+        .eq('activo', true)
+        .order('nombre', { ascending: true });
 
       // Fetch creator and lead info
       const [creatorInfo, leadInfo, legalNotices] = await Promise.all([
@@ -238,7 +234,7 @@ class HTMLToPDFService {
         templateOfferData,
         propertyDetails,
         productDetails,
-        paymentScheme,
+        paymentSchemes || [],
         creatorInfo,
         leadInfo,
         legalNotices
@@ -1322,7 +1318,7 @@ class HTMLToPDFService {
     },
     propertyDetails: PropertyDetails,
     productDetails: any,
-    paymentScheme: any,
+    paymentSchemes: PaymentScheme[],
     creatorInfo: any,
     leadInfo: any,
     legalNotices: string[]
@@ -1337,7 +1333,7 @@ class HTMLToPDFService {
         offerData,
         propertyDetails,
         productDetails,
-        paymentScheme,
+        paymentSchemes,
         creatorInfo,
         leadInfo,
         legalNotices
