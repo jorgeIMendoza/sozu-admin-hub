@@ -1546,7 +1546,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-4">
             <p>
-              Esta propiedad tiene {productsWithPriceInfo.total} producto(s) con precio mayor a cero. 
+              Esta propiedad tiene {productsWithPriceInfo.total} producto(s) con costo extra. 
               Se generarán las siguientes ofertas:
             </p>
             
