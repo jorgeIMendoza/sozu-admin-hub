@@ -771,51 +771,57 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
           </p>
           
           {/* Badges for included products */}
-          {includedProducts && (includedProducts.bodegas.length > 0 || includedProducts.estacionamientos.length > 0) && (
-            <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
-              <div className="flex items-center gap-2 mb-2">
-                <Info className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium">Productos asociados a esta propiedad:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {includedProducts.bodegas.map((bodega: any) => (
-                  <Badge 
-                    key={`bodega-${bodega.id}`}
-                    variant={bodega.es_incluido ? "default" : "outline"}
-                    className={cn(
-                      "flex items-center gap-1",
-                      bodega.es_incluido && "bg-amber-500 hover:bg-amber-600"
-                    )}
-                  >
-                    <Warehouse className="h-3 w-3" />
-                    {bodega.nombre}
-                    {bodega.es_incluido && (
-                      <span className="text-xs ml-1">(incluida)</span>
-                    )}
-                  </Badge>
-                ))}
-                {includedProducts.estacionamientos.map((est: any) => (
-                  <Badge 
-                    key={`est-${est.id}`}
-                    variant={est.es_incluido ? "default" : "outline"}
-                    className={cn(
-                      "flex items-center gap-1",
-                      est.es_incluido && "bg-blue-500 hover:bg-blue-600"
-                    )}
-                  >
-                    <Car className="h-3 w-3" />
-                    {est.nombre}
-                    {est.es_incluido && (
-                      <span className="text-xs ml-1">(incluido)</span>
-                    )}
-                  </Badge>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Los productos marcados como "incluidos" generarán ofertas automáticamente.
-              </p>
+          <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-medium">Productos asociados a esta propiedad:</span>
             </div>
-          )}
+            {!includedProducts ? (
+              <p className="text-xs text-muted-foreground">Cargando productos...</p>
+            ) : includedProducts.bodegas.length === 0 && includedProducts.estacionamientos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Esta propiedad no tiene bodegas ni estacionamientos asociados.</p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {includedProducts.bodegas.map((bodega: any) => (
+                    <Badge 
+                      key={`bodega-${bodega.id}`}
+                      variant={bodega.es_incluido ? "default" : "outline"}
+                      className={cn(
+                        "flex items-center gap-1",
+                        bodega.es_incluido && "bg-amber-500 hover:bg-amber-600"
+                      )}
+                    >
+                      <Warehouse className="h-3 w-3" />
+                      {bodega.nombre}
+                      {bodega.es_incluido && (
+                        <span className="text-xs ml-1">(incluida)</span>
+                      )}
+                    </Badge>
+                  ))}
+                  {includedProducts.estacionamientos.map((est: any) => (
+                    <Badge 
+                      key={`est-${est.id}`}
+                      variant={est.es_incluido ? "default" : "outline"}
+                      className={cn(
+                        "flex items-center gap-1",
+                        est.es_incluido && "bg-blue-500 hover:bg-blue-600"
+                      )}
+                    >
+                      <Car className="h-3 w-3" />
+                      {est.nombre}
+                      {est.es_incluido && (
+                        <span className="text-xs ml-1">(incluido)</span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Los productos marcados como "incluidos" generarán ofertas automáticamente.
+                </p>
+              </>
+            )}
+          </div>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
