@@ -4487,55 +4487,10 @@ const Propiedades = () => {
                                     description: `Se asignó el esquema y se generó la CLABE`,
                                   });
                                   
-                                  // Refresh product offers
+                                  // Refresh product offers using the main function
                                   if (selectedPropertyForProductOffers) {
-                                    const { data: updatedOffers } = await supabase
-                                      .from('ofertas')
-                                      .select(`
-                                        id,
-                                        fecha_generacion,
-                                        email_creador,
-                                        id_producto,
-                                        id_esquema_pago_seleccionado,
-                                        clabe_stp_tmp_producto,
-                                        personas!ofertas_id_persona_lead_fkey (
-                                          id,
-                                          nombre_legal,
-                                          email,
-                                          telefono
-                                        ),
-                                        esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey (
-                                          id,
-                                          nombre
-                                        ),
-                                        cuentas_cobranza!cuentas_cobranza_id_oferta_fkey (
-                                          id,
-                                          activo,
-                                          id_producto
-                                        ),
-                                        productos_servicios!ofertas_id_producto_fkey (
-                                          id,
-                                          nombre,
-                                          categorias_producto (nombre)
-                                        )
-                                      `)
-                                      .eq('id_propiedad', selectedPropertyForProductOffers.id)
-                                      .not('id_producto', 'is', null)
-                                      .eq('activo', true)
-                                      .order('fecha_generacion', { ascending: false });
-                                    
-                                    if (updatedOffers) {
-                                      const formattedOffers = updatedOffers.map((o: any) => ({
-                                        ...o,
-                                        lead_name: o.personas?.nombre_legal || 'Sin lead',
-                                        esquema_nombre: o.esquemas_pago?.nombre || null,
-                                        product_name: o.productos_servicios?.nombre || 'Producto',
-                                        product_category: o.productos_servicios?.categorias_producto?.nombre || 'Sin categoría',
-                                        has_active_account: o.cuentas_cobranza?.some((c: any) => c.activo && c.id_producto === o.id_producto) || false,
-                                        has_cancelled_account: o.cuentas_cobranza?.some((c: any) => !c.activo && c.id_producto === o.id_producto) || false
-                                      }));
-                                      setSelectedPropertyProductOffers(formattedOffers);
-                                    }
+                                    const updatedOffers = await fetchPropertyProductOffers(selectedPropertyForProductOffers.id);
+                                    setSelectedPropertyProductOffers(updatedOffers);
                                   }
                                 } catch (error) {
                                   console.error('Error updating scheme:', error);

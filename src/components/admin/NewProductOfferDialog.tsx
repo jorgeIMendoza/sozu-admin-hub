@@ -84,9 +84,10 @@ type FormData = z.infer<typeof formSchema>;
 interface NewProductOfferDialogProps {
   propertyId: number;
   property: any;
+  onSuccess?: () => void;
 }
 
-export function NewProductOfferDialog({ propertyId, property }: NewProductOfferDialogProps) {
+export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewProductOfferDialogProps) {
   const [open, setOpen] = useState(false);
   const [useCurrentBuyer, setUseCurrentBuyer] = useState(true);
   const [showProspectSearch, setShowProspectSearch] = useState(false);
@@ -598,6 +599,9 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       setSelectedProduct(null);
       setSelectedProductData(null);
       setSelectedPerson(null);
+      
+      // Call onSuccess callback to refresh the offers list
+      onSuccess?.();
 
     } catch (error: any) {
       console.error("💥 Error generating offer:", error);
