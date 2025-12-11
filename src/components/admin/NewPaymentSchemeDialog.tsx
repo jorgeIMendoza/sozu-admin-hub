@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -12,20 +12,30 @@ import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
-  porcentaje_enganche: z.string().min(1, "El porcentaje de enganche es requerido"),
-  porcentaje_mensualidades: z.string().min(1, "El porcentaje de mensualidades es requerido"),
-  porcentaje_entrega: z.string().min(1, "El porcentaje de entrega es requerido"),
-  numero_mensualidades: z.string().min(1, "El número de mensualidades es requerido"),
+  porcentaje_enganche: z.string(),
+  porcentaje_mensualidades: z.string(),
+  porcentaje_entrega: z.string(),
+  numero_mensualidades: z.string(),
   porcentaje_descuento_aumento: z.string().default("0"),
 }).refine((data) => {
-  const enganche = parseFloat(data.porcentaje_enganche);
-  const mensualidades = parseFloat(data.porcentaje_mensualidades);
-  const entrega = parseFloat(data.porcentaje_entrega);
+  const enganche = parseFloat(data.porcentaje_enganche) || 0;
+  const mensualidades = parseFloat(data.porcentaje_mensualidades) || 0;
+  const entrega = parseFloat(data.porcentaje_entrega) || 0;
   const total = enganche + mensualidades + entrega;
-  return Math.abs(total - 100) < 0.01; // Allow for small floating point errors
+  return Math.abs(total - 100) < 0.01;
 }, {
-  message: "Los porcentajes de enganche, mensualidades y entrega deben sumar exactamente 100%",
-  path: ["porcentaje_entrega"], // Show error on the last field
+  message: "Los porcentajes deben sumar exactamente 100%",
+  path: ["porcentaje_entrega"],
+}).refine((data) => {
+  const mensualidades = parseFloat(data.porcentaje_mensualidades) || 0;
+  const numMensualidades = parseInt(data.numero_mensualidades) || 0;
+  if (mensualidades === 0) {
+    return numMensualidades === 0;
+  }
+  return numMensualidades >= 1;
+}, {
+  message: "Si el porcentaje de mensualidades es 0, el número de mensualidades debe ser 0. Si es mayor a 0, debe haber al menos 1 mensualidad.",
+  path: ["numero_mensualidades"],
 });
 
 interface NewPaymentSchemeDialogProps {
@@ -109,6 +119,14 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded }: NewPaymentS
   const watchedEnganche = form.watch("porcentaje_enganche");
   const watchedMensualidades = form.watch("porcentaje_mensualidades");
   const remainingPercentage = 100 - (parseFloat(watchedEnganche || "0") + parseFloat(watchedMensualidades || "0"));
+
+  // Auto-set numero_mensualidades to 0 when porcentaje_mensualidades is 0
+  useEffect(() => {
+    const mensualidadesPct = parseFloat(watchedMensualidades || "0");
+    if (mensualidadesPct === 0) {
+      form.setValue("numero_mensualidades", "0");
+    }
+  }, [watchedMensualidades, form]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -221,20 +239,32 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded }: NewPaymentS
               <FormField
                 control={form.control}
                 name="numero_mensualidades"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Mensualidades</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min="1" 
-                        placeholder="12" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const mensualidadesPct = parseFloat(form.watch("porcentaje_mensualidades") || "0");
+                  const isDisabled = mensualidadesPct === 0;
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Número de Mensualidades</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          placeholder={isDisabled ? "0" : "12"} 
+                          disabled={isDisabled}
+                          {...field}
+                          value={isDisabled ? "0" : field.value}
+                          onChange={(e) => {
+                            if (!isDisabled) {
+                              field.onChange(e);
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
 
