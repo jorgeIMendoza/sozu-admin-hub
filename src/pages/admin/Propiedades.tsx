@@ -4447,177 +4447,152 @@ const Propiedades = () => {
                               {offer.esquema_nombre || 'Sin nombre'}
                             </Badge>
                           ) : (
-                            <Popover
-                              open={schemeSelectionOffer?.id === offer.id}
-                              onOpenChange={(open) => {
-                                if (open) {
+                            <Select
+                              value=""
+                              onValueChange={async (schemeId) => {
+                                if (!schemeId) return;
+                                try {
+                                  setIsUpdatingScheme(true);
+                                  
+                                  // Get the product owner entity for CLABE generation
+                                  const { data: productData, error: productError } = await supabase
+                                    .from('productos_servicios')
+                                    .select('id_entidad_relacionada_dueno')
+                                    .eq('id', offer.id_producto)
+                                    .single();
+                                  
+                                  if (productError) throw productError;
+                                  
+                                  // Generate CLABE
+                                  const { data: generatedClabe, error: clabeError } = await supabase
+                                    .rpc('crear_referencia_bancaria', {
+                                      id_er_dueno: productData.id_entidad_relacionada_dueno
+                                    });
+                                  
+                                  if (clabeError) throw clabeError;
+                                  
+                                  // Update offer with scheme and CLABE
+                                  const { error: updateError } = await supabase
+                                    .from('ofertas')
+                                    .update({
+                                      id_esquema_pago_seleccionado: parseInt(schemeId),
+                                      clabe_stp_tmp_producto: generatedClabe
+                                    })
+                                    .eq('id', offer.id);
+                                  
+                                  if (updateError) throw updateError;
+                                  
+                                  toast({
+                                    title: "Esquema asignado",
+                                    description: `Se asignó el esquema y se generó la CLABE`,
+                                  });
+                                  
+                                  // Refresh product offers
+                                  if (selectedPropertyForProductOffers) {
+                                    const { data: updatedOffers } = await supabase
+                                      .from('ofertas')
+                                      .select(`
+                                        id,
+                                        fecha_generacion,
+                                        email_creador,
+                                        id_producto,
+                                        id_esquema_pago_seleccionado,
+                                        clabe_stp_tmp_producto,
+                                        personas!ofertas_id_persona_lead_fkey (
+                                          id,
+                                          nombre_legal,
+                                          email,
+                                          telefono
+                                        ),
+                                        esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey (
+                                          id,
+                                          nombre
+                                        ),
+                                        cuentas_cobranza!cuentas_cobranza_id_oferta_fkey (
+                                          id,
+                                          activo,
+                                          id_producto
+                                        ),
+                                        productos_servicios!ofertas_id_producto_fkey (
+                                          id,
+                                          nombre,
+                                          categorias_producto (nombre)
+                                        )
+                                      `)
+                                      .eq('id_propiedad', selectedPropertyForProductOffers.id)
+                                      .not('id_producto', 'is', null)
+                                      .eq('activo', true)
+                                      .order('fecha_generacion', { ascending: false });
+                                    
+                                    if (updatedOffers) {
+                                      const formattedOffers = updatedOffers.map((o: any) => ({
+                                        ...o,
+                                        lead_name: o.personas?.nombre_legal || 'Sin lead',
+                                        esquema_nombre: o.esquemas_pago?.nombre || null,
+                                        product_name: o.productos_servicios?.nombre || 'Producto',
+                                        product_category: o.productos_servicios?.categorias_producto?.nombre || 'Sin categoría',
+                                        has_active_account: o.cuentas_cobranza?.some((c: any) => c.activo && c.id_producto === o.id_producto) || false,
+                                        has_cancelled_account: o.cuentas_cobranza?.some((c: any) => !c.activo && c.id_producto === o.id_producto) || false
+                                      }));
+                                      setSelectedPropertyProductOffers(formattedOffers);
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error('Error updating scheme:', error);
+                                  toast({
+                                    title: "Error",
+                                    description: "No se pudo asignar el esquema de pago",
+                                    variant: "destructive",
+                                  });
+                                } finally {
+                                  setIsUpdatingScheme(false);
+                                }
+                              }}
+                              onOpenChange={async (open) => {
+                                if (open && offer.id_producto) {
                                   setSchemeSelectionOffer(offer);
                                   setIsLoadingSchemes(true);
-                                  supabase
+                                  const { data, error } = await supabase
                                     .from('esquemas_pago')
                                     .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
                                     .eq('id_producto', offer.id_producto)
                                     .eq('activo', true)
                                     .eq('es_manual', false)
-                                    .order('nombre')
-                                    .then(({ data, error }) => {
-                                      if (!error && data) {
-                                        setProductSchemes(data);
-                                      }
-                                      setIsLoadingSchemes(false);
-                                    });
-                                } else {
-                                  setSchemeSelectionOffer(null);
-                                  setProductSchemes([]);
+                                    .order('nombre');
+                                  if (!error && data) {
+                                    setProductSchemes(data);
+                                  }
+                                  setIsLoadingSchemes(false);
                                 }
                               }}
                             >
-                              <PopoverTrigger asChild>
-                                <Badge 
-                                  variant="outline" 
-                                  className="font-medium bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
-                                >
-                                  Sin esquema
-                                </Badge>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 p-0" align="start">
-                                <div className="p-3 border-b">
-                                  <h4 className="font-semibold text-sm">Seleccionar Esquema de Pago</h4>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Al seleccionar un esquema se generará una CLABE para esta oferta
-                                  </p>
-                                </div>
-                                <div className="max-h-60 overflow-y-auto">
-                                  {isLoadingSchemes ? (
-                                    <div className="p-4 flex items-center justify-center">
-                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                      <span className="text-sm">Cargando esquemas...</span>
-                                    </div>
-                                  ) : productSchemes.length === 0 ? (
-                                    <div className="p-4 text-center text-sm text-muted-foreground">
-                                      No hay esquemas disponibles para este producto
-                                    </div>
-                                  ) : (
-                                    <div className="p-2 space-y-1">
-                                      {productSchemes.map((scheme) => (
-                                        <button
-                                          key={scheme.id}
-                                          className="w-full text-left px-3 py-2 rounded-md hover:bg-accent text-sm transition-colors disabled:opacity-50"
-                                          disabled={isUpdatingScheme}
-                                          onClick={async () => {
-                                            try {
-                                              setIsUpdatingScheme(true);
-                                              
-                                              // Get the product owner entity for CLABE generation
-                                              const { data: productData, error: productError } = await supabase
-                                                .from('productos_servicios')
-                                                .select('id_entidad_relacionada_dueno')
-                                                .eq('id', offer.id_producto)
-                                                .single();
-                                              
-                                              if (productError) throw productError;
-                                              
-                                              // Generate CLABE
-                                              const { data: generatedClabe, error: clabeError } = await supabase
-                                                .rpc('crear_referencia_bancaria', {
-                                                  id_er_dueno: productData.id_entidad_relacionada_dueno
-                                                });
-                                              
-                                              if (clabeError) throw clabeError;
-                                              
-                                              // Update offer with scheme and CLABE
-                                              const { error: updateError } = await supabase
-                                                .from('ofertas')
-                                                .update({
-                                                  id_esquema_pago_seleccionado: scheme.id,
-                                                  clabe_stp_tmp_producto: generatedClabe
-                                                })
-                                                .eq('id', offer.id);
-                                              
-                                              if (updateError) throw updateError;
-                                              
-                                              toast({
-                                                title: "Esquema asignado",
-                                                description: `Se asignó el esquema "${scheme.nombre}" y se generó la CLABE`,
-                                              });
-                                              
-                                              // Close popover and refresh data
-                                              setSchemeSelectionOffer(null);
-                                              setProductSchemes([]);
-                                              
-                                              // Refresh product offers
-                                              if (selectedPropertyForProductOffers) {
-                                                const { data: updatedOffers } = await supabase
-                                                  .from('ofertas')
-                                                  .select(`
-                                                    id,
-                                                    fecha_generacion,
-                                                    email_creador,
-                                                    id_producto,
-                                                    id_esquema_pago_seleccionado,
-                                                    clabe_stp_tmp_producto,
-                                                    personas!ofertas_id_persona_lead_fkey (
-                                                      id,
-                                                      nombre_legal,
-                                                      email,
-                                                      telefono
-                                                    ),
-                                                    esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey (
-                                                      id,
-                                                      nombre
-                                                    ),
-                                                    cuentas_cobranza!cuentas_cobranza_id_oferta_fkey (
-                                                      id,
-                                                      clabe_stp,
-                                                      activo
-                                                    ),
-                                                    productos_servicios!ofertas_id_producto_fkey (
-                                                      id,
-                                                      nombre
-                                                    )
-                                                  `)
-                                                  .eq('id_propiedad', selectedPropertyForProductOffers.id)
-                                                  .not('id_producto', 'is', null)
-                                                  .order('fecha_generacion', { ascending: false });
-                                                
-                                                if (updatedOffers) {
-                                                  const formattedOffers = updatedOffers.map((o: any) => ({
-                                                    ...o,
-                                                    lead_name: o.personas?.nombre_legal,
-                                                    lead_email: o.personas?.email,
-                                                    lead_telefono: o.personas?.telefono,
-                                                    esquema_nombre: o.esquemas_pago?.nombre,
-                                                    cuenta_cobranza_id: o.cuentas_cobranza?.[0]?.id,
-                                                    cuenta_clabe_stp: o.cuentas_cobranza?.[0]?.clabe_stp,
-                                                    cuenta_activo: o.cuentas_cobranza?.[0]?.activo,
-                                                    product_name: o.productos_servicios?.nombre
-                                                  }));
-                                                  setSelectedPropertyProductOffers(formattedOffers);
-                                                }
-                                              }
-                                            } catch (error: any) {
-                                              console.error('Error updating scheme:', error);
-                                              toast({
-                                                title: "Error",
-                                                description: error.message || "No se pudo asignar el esquema",
-                                                variant: "destructive",
-                                              });
-                                            } finally {
-                                              setIsUpdatingScheme(false);
-                                            }
-                                          }}
-                                        >
-                                          <div className="font-medium">{scheme.nombre}</div>
-                                          <div className="text-xs text-muted-foreground mt-0.5">
-                                            Eng: {scheme.porcentaje_enganche}% • Mens: {scheme.porcentaje_mensualidades}% ({scheme.numero_mensualidades}) • Ent: {scheme.porcentaje_entrega}%
-                                          </div>
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
+                              <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/70">
+                                <SelectValue placeholder="Sin esquema" />
+                              </SelectTrigger>
+                              <SelectContent className="z-[200] bg-popover border shadow-lg">
+                                {isLoadingSchemes ? (
+                                  <div className="p-4 flex items-center justify-center">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span className="text-sm">Cargando...</span>
+                                  </div>
+                                ) : productSchemes.length === 0 ? (
+                                  <div className="p-4 text-center text-sm text-muted-foreground">
+                                    No hay esquemas disponibles
+                                  </div>
+                                ) : (
+                                  productSchemes.map((scheme) => (
+                                    <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                                      <div>
+                                        <div className="font-medium">{scheme.nombre}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          Eng: {scheme.porcentaje_enganche}% • Mens: {scheme.porcentaje_mensualidades}% • Ent: {scheme.porcentaje_entrega}%
+                                        </div>
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
                           )}
                         </TableCell>
                         <TableCell>
