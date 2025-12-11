@@ -80,19 +80,37 @@ export default function Productos() {
     },
   });
 
-  // Fetch proyectos for combobox (sin límite)
+  // Fetch proyectos for combobox - paginado para superar límite de 1000
   const { data: proyectos = [] } = useQuery({
-    queryKey: ['proyectos-productos'],
+    queryKey: ['proyectos-productos-all'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('proyectos')
-        .select('id, nombre')
-        .eq('activo', true)
-        .order('nombre')
-        .limit(10000);
-      if (error) throw error;
-      console.log('Total proyectos cargados:', data?.length, 'Ejemplo con DAIKU:', data?.find((p: any) => p.nombre.includes('DAIKU')));
-      return (data || []).map((p: any) => ({
+      const allProyectos: { id: number; nombre: string }[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('proyectos')
+          .select('id, nombre')
+          .eq('activo', true)
+          .order('nombre')
+          .range(from, from + batchSize - 1);
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allProyectos.push(...data);
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      console.log('Total proyectos cargados:', allProyectos.length, 'DAIKU encontrado:', allProyectos.find(p => p.nombre.includes('DAIKU')));
+      
+      return allProyectos.map((p) => ({
         value: p.id.toString(),
         label: p.nombre
       }));
