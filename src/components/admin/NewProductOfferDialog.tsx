@@ -259,7 +259,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       if (selectedCategory === -1) {
         const { data, error } = await supabase
           .from('productos_servicios')
-          .select('*, categorias_producto:id_categoria(tiene_metraje)')
+          .select('*, categorias_producto!fk_prodserv_categoria(tiene_metraje)')
           .eq('es_producto', false)
           .eq('activo', true)
           .order('nombre');
@@ -270,7 +270,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
       // Otherwise, fetch by category
       const { data, error } = await supabase
         .from('productos_servicios')
-        .select('*, categorias_producto:id_categoria(tiene_metraje)')
+        .select('*, categorias_producto!fk_prodserv_categoria(tiene_metraje)')
         .eq('id_categoria', selectedCategory)
         .eq('activo', true)
         .order('nombre');
