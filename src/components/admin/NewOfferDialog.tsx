@@ -316,30 +316,22 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
     },
   });
 
-  // Fetch bodegas and estacionamientos for this property
+  // Fetch bodegas and estacionamientos for this property with product prices
   const { data: includedProducts, isLoading: isLoadingProducts } = useQuery({
     queryKey: ["property-included-products", propertyId],
     queryFn: async () => {
-      console.log("Fetching products for property:", propertyId);
-      
       const [bodegasRes, estacionamientosRes] = await Promise.all([
         supabase
           .from("bodegas")
-          .select("id, nombre, es_incluido, id_producto")
+          .select("id, nombre, es_incluido, m2, productos_servicios!bodegas_id_producto_fkey(precio_lista)")
           .eq("id_propiedad", propertyId)
           .eq("activo", true),
         supabase
           .from("estacionamientos")
-          .select("id, nombre, es_incluido, id_producto")
+          .select("id, nombre, es_incluido, m2, productos_servicios!estacionamientos_id_producto_fkey(precio_lista)")
           .eq("id_propiedad", propertyId)
           .eq("activo", true)
       ]);
-
-      console.log("Bodegas response:", bodegasRes);
-      console.log("Estacionamientos response:", estacionamientosRes);
-
-      if (bodegasRes.error) console.error("Error fetching bodegas:", bodegasRes.error);
-      if (estacionamientosRes.error) console.error("Error fetching estacionamientos:", estacionamientosRes.error);
 
       return {
         bodegas: bodegasRes.data || [],
@@ -791,42 +783,58 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
             ) : (
               <>
                 <div className="flex flex-wrap gap-2">
-                  {includedProducts.bodegas.map((bodega: any) => (
-                    <Badge 
-                      key={`bodega-${bodega.id}`}
-                      variant={bodega.es_incluido ? "default" : "outline"}
-                      className={cn(
-                        "flex items-center gap-1",
-                        bodega.es_incluido && "bg-amber-500 hover:bg-amber-600"
-                      )}
-                    >
-                      <Warehouse className="h-3 w-3" />
-                      {bodega.nombre}
-                      {bodega.es_incluido && (
-                        <span className="text-xs ml-1">(incluida)</span>
-                      )}
-                    </Badge>
-                  ))}
-                  {includedProducts.estacionamientos.map((est: any) => (
-                    <Badge 
-                      key={`est-${est.id}`}
-                      variant={est.es_incluido ? "default" : "outline"}
-                      className={cn(
-                        "flex items-center gap-1",
-                        est.es_incluido && "bg-blue-500 hover:bg-blue-600"
-                      )}
-                    >
-                      <Car className="h-3 w-3" />
-                      {est.nombre}
-                      {est.es_incluido && (
-                        <span className="text-xs ml-1">(incluido)</span>
-                      )}
-                    </Badge>
-                  ))}
+                  {includedProducts.bodegas.map((bodega: any) => {
+                    const precio = bodega.productos_servicios?.precio_lista || 0;
+                    const isIncluded = bodega.es_incluido;
+                    return (
+                      <Badge 
+                        key={`bodega-${bodega.id}`}
+                        variant={isIncluded ? "default" : "outline"}
+                        className={cn(
+                          "flex items-center gap-1",
+                          isIncluded ? "bg-amber-500 hover:bg-amber-600" : "border-amber-500 text-amber-700"
+                        )}
+                      >
+                        <Warehouse className="h-3 w-3" />
+                        {bodega.nombre}
+                        {isIncluded ? (
+                          <span className="text-xs ml-1">(incluida)</span>
+                        ) : precio > 0 ? (
+                          <span className="text-xs ml-1">(${precio.toLocaleString()})</span>
+                        ) : null}
+                      </Badge>
+                    );
+                  })}
+                  {includedProducts.estacionamientos.map((est: any) => {
+                    const precio = est.productos_servicios?.precio_lista || 0;
+                    const isIncluded = est.es_incluido;
+                    return (
+                      <Badge 
+                        key={`est-${est.id}`}
+                        variant={isIncluded ? "default" : "outline"}
+                        className={cn(
+                          "flex items-center gap-1",
+                          isIncluded ? "bg-blue-500 hover:bg-blue-600" : "border-blue-500 text-blue-700"
+                        )}
+                      >
+                        <Car className="h-3 w-3" />
+                        {est.nombre}
+                        {isIncluded ? (
+                          <span className="text-xs ml-1">(incluido)</span>
+                        ) : precio > 0 ? (
+                          <span className="text-xs ml-1">(${precio.toLocaleString()})</span>
+                        ) : null}
+                      </Badge>
+                    );
+                  })}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Los productos marcados como "incluidos" generarán ofertas automáticamente.
-                </p>
+                {/* Show disclaimer only if there are products that can generate offers */}
+                {(includedProducts.bodegas.some((b: any) => !b.es_incluido && (b.productos_servicios?.precio_lista || 0) > 0) ||
+                  includedProducts.estacionamientos.some((e: any) => !e.es_incluido && (e.productos_servicios?.precio_lista || 0) > 0)) && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Los productos con precio pueden generar ofertas adicionales desde sus respectivas páginas.
+                  </p>
+                )}
               </>
             )}
           </div>
