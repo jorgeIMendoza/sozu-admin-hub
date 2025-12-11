@@ -543,8 +543,8 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
         console.log('ℹ️ Sin esquema seleccionado - no se genera CLABE');
       }
 
-      // Step 4: Create offer
-      const { error: ofertaError } = await supabase
+      // Step 4: Create offer and get the created offer ID
+      const { data: ofertaData, error: ofertaError } = await supabase
         .from('ofertas')
         .insert({
           id_persona_lead: personaId,
@@ -553,14 +553,40 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
           id_esquema_pago_seleccionado: schemeId,
           email_creador: profile?.email || '',
           clabe_stp_tmp_producto: clabeData,
-        });
+        })
+        .select()
+        .single();
       
       if (ofertaError) throw ofertaError;
 
       toast({
         title: "Éxito",
-        description: "Oferta de producto/servicio generada correctamente",
+        description: "Oferta de producto/servicio generada correctamente. Descargando PDF...",
       });
+
+      // Generate PDF for the created offer
+      try {
+        const { generateOfferPDF } = await import('@/services/htmlToPdfService');
+        
+        await generateOfferPDF({
+          propertyId: propertyId,
+          offerId: ofertaData.id,
+          propertyNumber: propertyNumber || '',
+          leadName: formValues.razon_social,
+          leadEmail: formValues.email,
+          leadPhone: formValues.telefono,
+          creatorEmail: profile?.email || '',
+          isProductOffer: true,
+          productId: selectedProduct
+        });
+      } catch (pdfError) {
+        console.error('Error generating PDF:', pdfError);
+        toast({
+          title: "Advertencia",
+          description: "La oferta se creó pero no se pudo generar el PDF automáticamente",
+          variant: "default",
+        });
+      }
 
       // Reset and close
       setOpen(false);
