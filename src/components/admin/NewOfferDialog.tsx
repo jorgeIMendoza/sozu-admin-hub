@@ -317,28 +317,36 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   });
 
   // Fetch bodegas and estacionamientos for this property
-  const { data: includedProducts } = useQuery({
+  const { data: includedProducts, isLoading: isLoadingProducts } = useQuery({
     queryKey: ["property-included-products", propertyId],
     queryFn: async () => {
+      console.log("Fetching products for property:", propertyId);
+      
       const [bodegasRes, estacionamientosRes] = await Promise.all([
         supabase
           .from("bodegas")
-          .select("id, nombre, es_incluido, productos_servicios!bodegas_id_producto_fkey(precio)")
+          .select("id, nombre, es_incluido, id_producto")
           .eq("id_propiedad", propertyId)
           .eq("activo", true),
         supabase
           .from("estacionamientos")
-          .select("id, nombre, es_incluido, productos_servicios!estacionamientos_id_producto_fkey(precio)")
+          .select("id, nombre, es_incluido, id_producto")
           .eq("id_propiedad", propertyId)
           .eq("activo", true)
       ]);
+
+      console.log("Bodegas response:", bodegasRes);
+      console.log("Estacionamientos response:", estacionamientosRes);
+
+      if (bodegasRes.error) console.error("Error fetching bodegas:", bodegasRes.error);
+      if (estacionamientosRes.error) console.error("Error fetching estacionamientos:", estacionamientosRes.error);
 
       return {
         bodegas: bodegasRes.data || [],
         estacionamientos: estacionamientosRes.data || []
       };
     },
-    enabled: open,
+    enabled: open && !!propertyId,
   });
 
   // Update form values when project config loads
@@ -776,9 +784,9 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
               <Info className="h-4 w-4 text-blue-500" />
               <span className="text-sm font-medium">Productos asociados a esta propiedad:</span>
             </div>
-            {!includedProducts ? (
+            {isLoadingProducts ? (
               <p className="text-xs text-muted-foreground">Cargando productos...</p>
-            ) : includedProducts.bodegas.length === 0 && includedProducts.estacionamientos.length === 0 ? (
+            ) : !includedProducts || (includedProducts.bodegas.length === 0 && includedProducts.estacionamientos.length === 0) ? (
               <p className="text-xs text-muted-foreground">Esta propiedad no tiene bodegas ni estacionamientos asociados.</p>
             ) : (
               <>
