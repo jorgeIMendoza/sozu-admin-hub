@@ -735,7 +735,7 @@ export function NewProductOfferDialog({ propertyId, property }: NewProductOfferD
                             <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
                               <CardContent className="p-4">
                                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                                  <strong>Nota:</strong> Si no seleccionas un esquema de pago, la oferta mostrará todos los esquemas disponibles sin marcar ninguno como seleccionado y <strong>no incluirá la sección de cuenta bancaria</strong>.
+                                  <strong>Nota:</strong> Si no seleccionas un esquema de pago, la oferta mostrará todos los esquemas disponibles y <strong>no incluirá la sección de cuenta bancaria</strong>.
                                 </p>
                               </CardContent>
                             </Card>
