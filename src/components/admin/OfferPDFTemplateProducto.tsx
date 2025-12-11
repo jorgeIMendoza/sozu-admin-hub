@@ -331,14 +331,15 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
               {displaySchemes.map((scheme) => {
                 const amounts = calculatePaymentAmounts(scheme, productDetails.precio_lista);
                 const hasSavings = amounts.adjustment < 0;
+                const isSelected = offerData.id_esquema_pago_seleccionado === scheme.id;
                 
                 return (
                   <div 
                     key={scheme.id}
                     style={{ 
-                      backgroundColor: '#E8F4E8',
+                      backgroundColor: isSelected ? '#E8F4E8' : '#F5F5F5',
                       padding: '40px',
-                      border: '4px solid #22C55E',
+                      border: isSelected ? '4px solid #22C55E' : '2px solid #D0D0D0',
                       borderRadius: '8px',
                       minWidth: '500px',
                       maxWidth: '700px',
