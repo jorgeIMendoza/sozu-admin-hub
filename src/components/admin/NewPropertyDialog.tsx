@@ -16,6 +16,7 @@ import { PropertyClassificationSection } from "./PropertyClassificationSection";
 import { PropertyDescriptionSection } from "./PropertyDescriptionSection";
 import { PropertyMultimediaSection } from "./PropertyMultimediaSection";
 import { PropertyCharacteristicsSelectionSection } from "./PropertyCharacteristicsSelectionSection";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const formSchema = z.object({
   id_proyecto: z.string().min(1, "El proyecto es requerido"),
@@ -54,6 +55,7 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
   const [youtubeVideos, setYoutubeVideos] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { registrarCreacion } = useActivityLogger();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -220,6 +222,17 @@ export const NewPropertyDialog = ({ onPropertyAdded }: NewPropertyDialogProps) =
       }
 
       onPropertyAdded();
+
+      // Registrar actividad
+      registrarCreacion('propiedad', {
+        id: createdPropertyId,
+        numero_propiedad: values.numero_propiedad,
+        id_proyecto: values.id_proyecto,
+        id_edificio: values.id_edificio,
+        precio_lista: values.precio_lista,
+        multimedia_count: multimediaItems.length,
+        youtube_count: youtubeVideos.length
+      });
 
       toast({
         title: "Propiedad creada exitosamente",

@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PropertyCharacteristicsSection } from "./PropertyCharacteristicsSection";
 import { PropertyYouTubeVideosSection } from "./PropertyYouTubeVideosSection";
 import React from "react";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 // Funciones para formatear moneda
 const formatCurrency = (value: string | number | undefined): string => {
@@ -194,6 +195,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [modeloId, setModeloId] = useState<string | undefined>(undefined);
+  const { registrarActualizacion } = useActivityLogger();
   const [excludedCharacteristicIds, setExcludedCharacteristicIds] = useState<number[]>([]);
   const [formData, setFormData] = useState({
     numero_propiedad: property.numero_propiedad,
@@ -488,6 +490,12 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         title: "✅ Propiedad actualizada exitosamente",
         description: "⚠️ IMPORTANTE: La propiedad pasará a estado DRAFT para que puedas verificar los cambios antes de aprobarla nuevamente.",
       });
+
+      // Registrar actividad
+      registrarActualizacion('propiedad', 
+        { id: property.id, numero_propiedad: property.numero_propiedad },
+        { id: property.id, ...formData }
+      );
 
       onSuccess();
     } catch (error) {

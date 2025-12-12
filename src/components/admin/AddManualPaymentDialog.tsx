@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const formSchema = z.object({
   monto: z.string({
@@ -71,6 +72,7 @@ export function AddManualPaymentDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { registrarPago } = useActivityLogger();
 
   // Fetch payment methods (exclude STP and "Cesión de derechos" for all manual payments)
   const { data: metodosPago } = useQuery({
@@ -256,6 +258,18 @@ export function AddManualPaymentDialog({
       toast({
         title: "Pago agregado",
         description: "El pago manual ha sido registrado exitosamente",
+      });
+
+      // Registrar actividad
+      const metodoPagoNombre = metodosPago?.find(m => m.id === parseInt(form.getValues().id_metodos_pago))?.nombre;
+      registrarPago({
+        id_pago: result.id_pago,
+        id_cuenta_cobranza: cuentaCobranzaId,
+        cuenta_label: cuentaCobranzaLabel,
+        monto: result.monto,
+        metodo_pago: metodoPagoNombre,
+        es_mantenimiento: esMantenimiento,
+        tipo_cuenta: tipoCuenta
       });
       
       // Invalidar queries genéricas
