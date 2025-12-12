@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Shield } from "lucide-react";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface ChangeUserRoleDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ export function ChangeUserRoleDialog({
 }: ChangeUserRoleDialogProps) {
   const [selectedRoleId, setSelectedRoleId] = useState<string>(currentRoleId?.toString() || "");
   const queryClient = useQueryClient();
+  const { registrarActualizacion } = useActivityLogger();
 
   // Fetch roles
   const { data: roles = [] } = useQuery({
@@ -56,9 +58,18 @@ export function ChangeUserRoleDialog({
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       toast.success(`Rol actualizado correctamente para ${userName}`);
+      
+      // Registrar actividad
+      const rolAnterior = roles.find(r => r.id === currentRoleId)?.nombre;
+      const rolNuevo = roles.find(r => r.id === variables.roleId)?.nombre;
+      registrarActualizacion('usuario_rol', 
+        { email: userEmail, rol_id: currentRoleId, rol_nombre: rolAnterior },
+        { email: userEmail, rol_id: variables.roleId, rol_nombre: rolNuevo }
+      );
+      
       onOpenChange(false);
     },
     onError: (error) => {

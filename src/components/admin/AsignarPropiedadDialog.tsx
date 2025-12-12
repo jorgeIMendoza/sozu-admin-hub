@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserCheck, Loader2 } from "lucide-react";
 import { Combobox } from "@/components/ui/combobox";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface AsignarPropiedadDialogProps {
   propertyId: number;
@@ -26,6 +27,7 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
   const [isAssigning, setIsAssigning] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarAsignacion } = useActivityLogger();
 
   // Obtener lista de compradores
   const { data: compradores, isLoading: loadingCompradores } = useQuery({
@@ -85,6 +87,15 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
       toast({
         title: "Propiedad asignada",
         description: `La propiedad ${propertyNumber} ha sido asignada exitosamente`,
+      });
+
+      // Registrar actividad
+      const compradorSeleccionado = compradores?.find((c: any) => c.id.toString() === selectedPersona);
+      registrarAsignacion('propiedad', {
+        id_propiedad: propertyId,
+        numero_propiedad: propertyNumber,
+        id_persona: parseInt(selectedPersona),
+        nombre_comprador: compradorSeleccionado?.nombre_legal
       });
 
       // Refrescar la lista de propiedades

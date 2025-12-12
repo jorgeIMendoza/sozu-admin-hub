@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface DocumentStatusChangeDialogProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export function DocumentStatusChangeDialog({
   const [selectedStatus, setSelectedStatus] = useState<string>(currentStatus.toString());
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
+  const { registrarActualizacion } = useActivityLogger();
 
   const handleConfirm = async () => {
     const newStatusId = parseInt(selectedStatus);
@@ -57,6 +59,15 @@ export function DocumentStatusChangeDialog({
     
     setError("");
     await onConfirm(newStatusId, comment.trim());
+    
+    // Registrar actividad
+    const statusAnterior = statusOptions.find(s => s.id === currentStatus)?.label;
+    const statusNuevo = statusOptions.find(s => s.id === newStatusId)?.label;
+    registrarActualizacion('documento_estatus', 
+      { documento: documentName, estatus_id: currentStatus, estatus: statusAnterior },
+      { documento: documentName, estatus_id: newStatusId, estatus: statusNuevo, comentario: comment.trim() }
+    );
+    
     setComment("");
     setSelectedStatus(currentStatus.toString());
   };

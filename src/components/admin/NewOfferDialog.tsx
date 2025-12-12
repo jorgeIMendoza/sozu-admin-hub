@@ -64,6 +64,7 @@ import { FileText, Check, ChevronsUpDown, UserPlus, Warehouse, Car, Info, AlertT
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const baseProspectSchema = z.object({
   tipo_persona: z.string().min(1, "El tipo de persona es requerido"),
@@ -178,6 +179,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
+  const { registrarGeneracionOferta } = useActivityLogger();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -767,6 +769,18 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       };
     },
     onSuccess: async (result) => {
+      // Registrar actividad de generación de oferta
+      registrarGeneracionOferta({
+        id_oferta: result.offerId,
+        id_propiedad: propertyId,
+        numero_propiedad: propertyNumber,
+        id_persona_lead: result.personId,
+        nombre_lead: result.leadName,
+        email_lead: result.leadEmail,
+        ofertas_productos: result.productOffersResults.created,
+        creador: profile?.email
+      });
+
       // Show main offer success message
       toast({
         title: "Oferta creada",

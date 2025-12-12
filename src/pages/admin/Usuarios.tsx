@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserProjectAccessDialog } from "@/components/admin/UserProjectAccessDialog";
 import { ChangeUserRoleDialog } from "@/components/admin/ChangeUserRoleDialog";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 type Usuario = {
   email: string;
@@ -241,6 +242,7 @@ export default function Usuarios() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { session, profile } = useAuth();
+  const { registrarCreacion, registrarActualizacion, registrarRestauracion } = useActivityLogger();
 
   // Current user's email for highlighting
   const currentUserEmail = profile?.email || session?.user?.email;
@@ -348,8 +350,15 @@ export default function Usuarios() {
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, email) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      
+      // Registrar actividad
+      registrarActualizacion('usuario', 
+        { email, activo: true },
+        { email, activo: false }
+      );
+      
       toast({
         title: "Usuario desactivado",
         description: "El usuario ha sido desactivado correctamente.",
@@ -390,8 +399,15 @@ export default function Usuarios() {
 
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, email) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      
+      // Registrar actividad
+      registrarRestauracion('usuario', 
+        { email, activo: false },
+        { email, activo: true, password_reset: true }
+      );
+      
       toast({
         title: "Usuario activado",
         description: "El usuario ha sido activado con contraseña temporal: Temporal123!",
@@ -423,8 +439,15 @@ export default function Usuarios() {
 
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, email) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      
+      // Registrar actividad
+      registrarActualizacion('usuario_password', 
+        { email },
+        { email, password_reset: true }
+      );
+      
       toast({
         title: "Contraseña Reseteada",
         description: data.message || "La contraseña fue reseteada a Temporal123!",
@@ -483,6 +506,14 @@ export default function Usuarios() {
       toast({
         title: "Usuario Creado",
         description: response.data?.message || "El usuario fue creado exitosamente con contraseña temporal: Temporal123!",
+      });
+
+      // Registrar actividad
+      registrarCreacion('usuario', {
+        email: newUserForm.email,
+        nombre: newUserForm.nombre,
+        rol_id: parseInt(newUserForm.rol_id),
+        id_persona: newUserForm.id_persona ? parseInt(newUserForm.id_persona) : null
       });
 
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });

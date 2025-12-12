@@ -13,6 +13,7 @@ import { PersonForm } from "@/components/admin/PersonForm";
 import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 type Cliente = {
   id: number;
@@ -43,6 +44,7 @@ export default function Clientes() {
   const [clientToRestore, setClientToRestore] = useState<Cliente | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarCreacion, registrarActualizacion, registrarEliminacion, registrarRestauracion } = useActivityLogger();
 
   const { data: activeClientes = [], isLoading: loadingActive } = useQuery({
     queryKey: ['clientes', 'active'],
@@ -213,9 +215,17 @@ export default function Clientes() {
         if (updateError) throw updateError;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
       setIsNewDialogOpen(false);
+      
+      // Registrar actividad
+      registrarCreacion('cliente', {
+        nombre_legal: variables.nombre_legal,
+        email: variables.email,
+        tipo_persona: variables.tipo_persona
+      });
+      
       toast({
         title: "Éxito",
         description: "Cliente creado correctamente.",
@@ -250,8 +260,15 @@ export default function Clientes() {
         if (repError) throw repError;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      
+      // Registrar actividad
+      registrarActualizacion('cliente', 
+        { id: editingClient?.id, nombre_legal: editingClient?.nombre_legal },
+        { id: editingClient?.id, ...variables }
+      );
+      
       setIsEditDialogOpen(false);
       setEditingClient(null);
       toast({
@@ -269,16 +286,25 @@ export default function Clientes() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (cliente: Cliente) => {
       const { error } = await supabase
         .from('personas')
         .update({ activo: false })
-        .eq('id', id);
+        .eq('id', cliente.id);
       
       if (error) throw error;
+      return cliente;
     },
-    onSuccess: () => {
+    onSuccess: (cliente) => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      
+      // Registrar actividad
+      registrarEliminacion('cliente', {
+        id: cliente.id,
+        nombre_legal: cliente.nombre_legal,
+        email: cliente.email
+      });
+      
       toast({
         title: "Éxito",
         description: "Cliente eliminado correctamente.",
@@ -294,16 +320,24 @@ export default function Clientes() {
   });
 
   const restoreMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (cliente: Cliente) => {
       const { error } = await supabase
         .from('personas')
         .update({ activo: true })
-        .eq('id', id);
+        .eq('id', cliente.id);
       
       if (error) throw error;
+      return cliente;
     },
-    onSuccess: () => {
+    onSuccess: (cliente) => {
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      
+      // Registrar actividad
+      registrarRestauracion('cliente', 
+        { id: cliente.id, activo: false },
+        { id: cliente.id, nombre_legal: cliente.nombre_legal, activo: true }
+      );
+      
       toast({
         title: "Éxito",
         description: "Cliente restaurado correctamente.",
@@ -342,7 +376,7 @@ export default function Clientes() {
 
   const handleConfirmDelete = () => {
     if (clientToDelete) {
-      deleteMutation.mutate(clientToDelete.id);
+      deleteMutation.mutate(clientToDelete);
       setDeleteDialogOpen(false);
       setClientToDelete(null);
     }
@@ -355,7 +389,7 @@ export default function Clientes() {
 
   const handleConfirmRestore = () => {
     if (clientToRestore) {
-      restoreMutation.mutate(clientToRestore.id);
+      restoreMutation.mutate(clientToRestore);
       setRestoreDialogOpen(false);
       setClientToRestore(null);
     }
