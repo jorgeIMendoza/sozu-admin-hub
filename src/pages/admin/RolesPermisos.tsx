@@ -470,12 +470,20 @@ export default function RolesPermisos() {
   const selectedRole = roles.find(r => r.id === selectedRoleId);
   const activeRoles = roles.filter(r => r.activo);
   
-  // Filter roles by search term
+  // Filter and sort roles: Super Admin first, then alphabetically
   const filteredRoles = useMemo(() => {
-    if (!searchRoleName.trim()) return activeRoles;
-    return activeRoles.filter(role => 
-      role.nombre.toLowerCase().includes(searchRoleName.toLowerCase())
-    );
+    let filtered = activeRoles;
+    if (searchRoleName.trim()) {
+      filtered = activeRoles.filter(role => 
+        role.nombre.toLowerCase().includes(searchRoleName.toLowerCase())
+      );
+    }
+    // Sort: Super Admin first, then alphabetically
+    return filtered.sort((a, b) => {
+      if (a.id === SUPER_ADMIN_ROLE_ID) return -1;
+      if (b.id === SUPER_ADMIN_ROLE_ID) return 1;
+      return a.nombre.localeCompare(b.nombre, 'es');
+    });
   }, [activeRoles, searchRoleName]);
 
   return (
@@ -537,7 +545,9 @@ export default function RolesPermisos() {
                         className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
                           selectedRoleId === role.id
                             ? 'bg-primary text-primary-foreground'
-                            : 'hover:bg-muted'
+                            : isSuperAdmin 
+                              ? 'bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700'
+                              : 'hover:bg-muted'
                         }`}
                         onClick={() => {
                           setSelectedRoleId(role.id);
@@ -546,11 +556,13 @@ export default function RolesPermisos() {
                       >
                         <div className="flex items-center gap-2">
                           {isSuperAdmin ? (
-                            <Lock className="h-4 w-4" />
+                            <Lock className={`h-4 w-4 ${selectedRoleId !== role.id ? 'text-amber-600 dark:text-amber-400' : ''}`} />
                           ) : (
                             <Shield className="h-4 w-4" />
                           )}
-                          <span className="text-sm font-medium">{role.nombre}</span>
+                          <span className={`text-sm font-medium ${isSuperAdmin && selectedRoleId !== role.id ? 'text-amber-800 dark:text-amber-200' : ''}`}>
+                            {role.nombre}
+                          </span>
                         </div>
                         <div className="flex gap-1">
                           {!isSuperAdmin && (
