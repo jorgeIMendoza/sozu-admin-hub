@@ -4279,6 +4279,8 @@ const Propiedades = () => {
                                 <Select 
                                   value={offer.esquema_id ? offer.esquema_id.toString() : ""}
                                   disabled={
+                                    // Disable if user can't access this offer
+                                    !userCanAccessOffer ||
                                     // Disable if this offer has active account WITH scheme
                                     (isAccountActive && hasPaymentScheme) ||
                                     // Disable if this offer has cancelled account
@@ -4290,7 +4292,9 @@ const Propiedades = () => {
                                 >
                                   <SelectTrigger className="w-48">
                                    <SelectValue placeholder={
-                                     isAccountActive && hasPaymentScheme
+                                     !userCanAccessOffer
+                                       ? "Sin acceso"
+                                       : isAccountActive && hasPaymentScheme
                                        ? "Esquema ya seleccionado"
                                        : isAccountActive && !hasPaymentScheme
                                        ? "Seleccionar esquema de pago"
