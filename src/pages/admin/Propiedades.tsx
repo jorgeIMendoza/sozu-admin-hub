@@ -38,6 +38,7 @@ import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { AsignarPropiedadDialog } from "@/components/admin/AsignarPropiedadDialog";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -235,6 +236,9 @@ const Propiedades = () => {
   
   // Project access control
   const { accessibleProjectIds, hasUnrestrictedAccess, hasNoAccess, isLoading: isLoadingAccess } = useProjectAccess();
+  
+  // Page permissions
+  const { canCreate, canUpdate, canDelete, canGenerateOffer, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/propiedades');
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   
@@ -3258,79 +3262,87 @@ const Propiedades = () => {
                         return (
                           <TableCell key={column.key}>
                     {tabType === "eliminados" ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRestore(property.id)}
-                        className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
-                      >
-                        Restaurar
-                      </Button>
-                    ) : tabType === "draft" ? (
-                      <div className="flex space-x-2">
+                      (canUpdate || isSuperAdmin) && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleApprove(property.id)}
+                          onClick={() => handleRestore(property.id)}
                           className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
                         >
-                          Aprobar
+                          Restaurar
                         </Button>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => setEditingProperty(property)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Editar propiedad</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                              disabled={property.tieneOfertas}
-                              title={property.tieneOfertas ? "No se puede eliminar una propiedad con ofertas asociadas" : "Eliminar propiedad"}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Eliminar propiedad?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                ¿Estás seguro de que deseas eliminar la propiedad {property.numero_propiedad}? Esta acción se puede revertir posteriormente.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(property.id)}
-                                className="bg-red-600 hover:bg-red-700"
+                      )
+                    ) : tabType === "draft" ? (
+                      <div className="flex space-x-2">
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleApprove(property.id)}
+                            className="h-8 px-2 text-xs text-green-600 hover:text-green-700"
+                          >
+                            Aprobar
+                          </Button>
+                        )}
+                        {(canUpdate || isSuperAdmin) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setEditingProperty(property)}
                               >
-                                Eliminar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Editar propiedad</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                disabled={property.tieneOfertas}
+                                title={property.tieneOfertas ? "No se puede eliminar una propiedad con ofertas asociadas" : "Eliminar propiedad"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Eliminar propiedad?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  ¿Estás seguro de que deseas eliminar la propiedad {property.numero_propiedad}? Esta acción se puede revertir posteriormente.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(property.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                      ) : (
                        <div className="flex space-x-2">
-                          {property.disponibilidad === "Disponible" && property.tiene_sozu_como_inmobiliaria && (
+                          {(canGenerateOffer || isSuperAdmin) && property.disponibilidad === "Disponible" && property.tiene_sozu_como_inmobiliaria && (
                             <NewOfferDialog 
                               propertyId={property.id} 
                               propertyNumber={property.numero_propiedad} 
                             />
                           )}
-                          {(property.disponibilidad === "Apartado" || 
+                          {(canGenerateOffer || isSuperAdmin) && (property.disponibilidad === "Apartado" || 
                             property.disponibilidad === "Vendido" || 
                             property.disponibilidad === "En escrituración" ||
                             property.disponibilidad === "Entregado") && (
@@ -3339,7 +3351,7 @@ const Propiedades = () => {
                               property={property}
                             />
                           )}
-                          {(property.disponibilidad === "Disponible" || property.disponibilidad === "Listo") && (
+                          {(canUpdate || isSuperAdmin) && (property.disponibilidad === "Disponible" || property.disponibilidad === "Listo") && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <AsignarPropiedadDialog 
@@ -3352,7 +3364,8 @@ const Propiedades = () => {
                               </TooltipContent>
                             </Tooltip>
                           )}
-                           <Tooltip>
+                          {(canUpdate || isSuperAdmin) && (
+                            <Tooltip>
                              <TooltipTrigger asChild>
                                <Button
                                  variant="ghost"
@@ -3367,6 +3380,8 @@ const Propiedades = () => {
                                <p>Editar propiedad</p>
                              </TooltipContent>
                            </Tooltip>
+                          )}
+                          {(canDelete || isSuperAdmin) && (
                          <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
@@ -3397,6 +3412,7 @@ const Propiedades = () => {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                          )}
                       </div>
                     )}
                   </TableCell>
@@ -3439,15 +3455,19 @@ const Propiedades = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            onClick={() => setBulkUploadOpen(true)}
-            variant="outline"
-            className="gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            Carga Masiva
-          </Button>
-          <NewPropertyDialog onPropertyAdded={handlePropertyAdded} />
+          {(canCreate || isSuperAdmin) && (
+            <>
+              <Button
+                onClick={() => setBulkUploadOpen(true)}
+                variant="outline"
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Carga Masiva
+              </Button>
+              <NewPropertyDialog onPropertyAdded={handlePropertyAdded} />
+            </>
+          )}
         </div>
       </div>
 
