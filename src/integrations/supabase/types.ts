@@ -5077,6 +5077,7 @@ export type Database = {
           fecha_creacion: string | null
           id: number
           nombre: string
+          ver_todos_prospectos_compradores: boolean | null
         }
         Insert: {
           activo?: boolean | null
@@ -5084,6 +5085,7 @@ export type Database = {
           fecha_creacion?: string | null
           id?: never
           nombre: string
+          ver_todos_prospectos_compradores?: boolean | null
         }
         Update: {
           activo?: boolean | null
@@ -5091,6 +5093,7 @@ export type Database = {
           fecha_creacion?: string | null
           id?: never
           nombre?: string
+          ver_todos_prospectos_compradores?: boolean | null
         }
         Relationships: []
       }
@@ -5763,6 +5766,7 @@ export type Database = {
       }
       borrar_sp_esquemas_pago_proyecto: { Args: never; Returns: undefined }
       borrar_sp_vistas: { Args: never; Returns: undefined }
+      can_view_all_prospects: { Args: never; Returns: boolean }
       crear_referencia_bancaria: {
         Args: { id_er_dueno: number }
         Returns: string

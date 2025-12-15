@@ -20,6 +20,7 @@ interface Role {
   id: number;
   nombre: string;
   activo: boolean;
+  ver_todos_prospectos_compradores: boolean;
 }
 
 interface Permiso {
@@ -71,7 +72,7 @@ export default function RolesPermisos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('roles')
-        .select('id, nombre, activo')
+        .select('id, nombre, activo, ver_todos_prospectos_compradores')
         .order('id');
       
       if (error) throw error;
@@ -230,6 +231,28 @@ export default function RolesPermisos() {
     },
     onError: (error) => {
       toast.error(`Error al eliminar el rol: ${error.message}`);
+    },
+  });
+
+  // Update ver_todos_prospectos_compradores mutation
+  const updateVerTodosProspectosMutation = useMutation({
+    mutationFn: async ({ id, value }: { id: number; value: boolean }) => {
+      const { error } = await supabase
+        .from('roles')
+        .update({ 
+          ver_todos_prospectos_compradores: value,
+          fecha_actualizacion: new Date().toISOString() 
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles-management'] });
+      toast.success('Configuración actualizada');
+    },
+    onError: (error) => {
+      toast.error(`Error al actualizar: ${error.message}`);
     },
   });
 
@@ -662,6 +685,31 @@ export default function RolesPermisos() {
                       El rol Super Admin tiene acceso completo al sistema y no puede ser modificado.
                     </AlertDescription>
                   </Alert>
+                )}
+                
+                {/* Special permissions section */}
+                {!isSuperAdminSelected && selectedRole && (
+                  <div className="mb-4 p-4 bg-muted/50 rounded-lg border">
+                    <h4 className="text-sm font-semibold mb-3">Configuración especial</h4>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={selectedRole.ver_todos_prospectos_compradores || false}
+                        onCheckedChange={(checked) => {
+                          updateVerTodosProspectosMutation.mutate({
+                            id: selectedRole.id,
+                            value: checked === true
+                          });
+                        }}
+                        disabled={updateVerTodosProspectosMutation.isPending}
+                      />
+                      <div>
+                        <span className="text-sm font-medium">Ver todos los prospectos/compradores</span>
+                        <p className="text-xs text-muted-foreground">
+                          Permite ver prospectos y compradores creados por otros usuarios
+                        </p>
+                      </div>
+                    </label>
+                  </div>
                 )}
                 <div className="h-[500px] overflow-auto">
                   {/* Menus and submenus - no fixed header */}
