@@ -11,6 +11,7 @@ interface UserProfile {
   debe_cambiar_password: boolean;
   id_persona: number | null;
   activo: boolean;
+  ver_todos_prospectos_compradores: boolean;
 }
 
 interface AuthContextType {

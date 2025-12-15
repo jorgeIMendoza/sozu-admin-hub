@@ -5789,6 +5789,7 @@ export type Database = {
           nombre: string
           rol_id: number
           rol_nombre: string
+          ver_todos_prospectos_compradores: boolean
         }[]
       }
       get_current_user_role: { Args: never; Returns: number }
