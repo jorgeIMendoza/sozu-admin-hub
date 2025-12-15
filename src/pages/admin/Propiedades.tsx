@@ -39,6 +39,7 @@ import { AsignarPropiedadDialog } from "@/components/admin/AsignarPropiedadDialo
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -239,6 +240,21 @@ const Propiedades = () => {
   
   // Page permissions
   const { canCreate, canUpdate, canDelete, canGenerateOffer, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/propiedades');
+  
+  // Auth context for prospect ownership check
+  const { profile } = useAuth();
+  
+  // Check if user can see all prospects or only their own
+  const canSeeAllProspects = profile?.ver_todos_prospectos_compradores || isSuperAdmin;
+  const currentUserPersonaId = profile?.id_persona;
+  
+  // Helper function to check if user can access an offer
+  const canAccessOffer = (offer: any) => {
+    if (canSeeAllProspects) return true;
+    if (!currentUserPersonaId) return false;
+    // User can access if they are the owner of the lead
+    return offer.id_persona_duena_lead === currentUserPersonaId;
+  };
   
   // Check if user has any action permission
   const hasAnyActionPermission = canUpdate || canDelete || canGenerateOffer || isSuperAdmin;
@@ -1965,8 +1981,9 @@ const Propiedades = () => {
         enrichedOffer.cuenta_precio_final = cuentaData.precio_final;
       }
       
-      // Get lead info
+      // Get lead info and id_persona_duena_lead
       if (offer.id_persona_lead) {
+        // First get basic persona info
         const { data: personaData } = await supabase
           .from('personas')
           .select('nombre_legal, email, telefono, rfc')
@@ -1978,6 +1995,19 @@ const Propiedades = () => {
           enrichedOffer.lead_email = personaData.email;
           enrichedOffer.lead_telefono = personaData.telefono;
           enrichedOffer.lead_rfc = personaData.rfc;
+        }
+        
+        // Get id_persona_duena_lead from entidades_relacionadas
+        const { data: erData } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona_duena_lead')
+          .eq('id_persona', offer.id_persona_lead)
+          .in('id_tipo_entidad', [2, 7]) // Comprador o Prospecto
+          .eq('activo', true)
+          .maybeSingle();
+        
+        if (erData) {
+          enrichedOffer.id_persona_duena_lead = erData.id_persona_duena_lead;
         }
       }
       
@@ -4130,9 +4160,15 @@ const Propiedades = () => {
                         const isAccountCancelled = hasAccount && !offer.cuenta_activo;
                        const hasPaymentScheme = !!offer.esquema_id;
                        
+                       // Check if user can access this offer
+                       const userCanAccessOffer = canAccessOffer(offer);
+                       
                        // Determine row color based on status
                        let rowClassName = "";
-                       if (isAccountActive && hasPaymentScheme) {
+                       if (!userCanAccessOffer) {
+                         // Gray with lock for offers the user cannot access
+                         rowClassName = "border-l-4 border-l-gray-400 bg-gray-100/50 dark:bg-gray-800/50 opacity-70";
+                       } else if (isAccountActive && hasPaymentScheme) {
                          // Green: Active account WITH payment scheme selected
                          rowClassName = "border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20";
                        } else if (isAccountActive && !hasPaymentScheme) {
@@ -4149,62 +4185,80 @@ const Propiedades = () => {
                            className={rowClassName}
                          >
                            <TableCell className="font-medium">
-                             <Tooltip>
-                               <TooltipTrigger asChild>
-                                  <Button
-                                    variant="link"
-                                    size="sm"
-                                     onClick={async () => {
-                                       const isCreditCardEnabled = !hasAccount && !hasActiveAccountWithScheme && selectedPropertyForOffers?.disponibilidad === 'Apartado' && offer.esquema_id;
-                                        if (!hasAccount && !hasActiveAccountWithScheme && offer.esquema_id && !isCreditCardEnabled) {
-                                          // Load the specific scheme if not already loaded
-                                          if (!availableSchemes.find(s => s.id === offer.esquema_id)) {
-                                            const { data: schemeData } = await supabase
-                                              .from('esquemas_pago')
-                                              .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
-                                              .eq('id', offer.esquema_id)
-                                              .eq('es_manual', false)
-                                              .single();
-                                           
-                                           if (schemeData) {
-                                             setAvailableSchemes([...availableSchemes, schemeData]);
-                                           }
-                                         }
-                                         setSelectedOfferForAccount({ ...offer, propertyId: selectedPropertyForOffers!.id, isProductOffer: false });
-                                         setConfirmGenerateAccountOpen(true);
-                                       }
-                                     }}
-                                    disabled={
-                                      isAccountCancelled ||
-                                      hasAccount || 
-                                      !offer.esquema_id || 
-                                      hasActiveAccountWithScheme || 
-                                      (!hasAccount && !hasActiveAccountWithScheme && selectedPropertyForOffers?.disponibilidad === 'Apartado' && offer.esquema_id)
-                                    }
-                                    className="p-0 h-auto font-semibold"
-                                  >
-                                    O-{String(offer.id).padStart(6, '0')}
-                                  </Button>
-                               </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    {isAccountCancelled 
-                                      ? "Cuenta cancelada - No se puede generar nueva cuenta"
-                                      : hasAccount
-                                      ? "Esta oferta ya tiene cuenta de cobranza"
-                                      : hasActiveAccountWithScheme
-                                      ? "Ya existe cuenta activa con esquema - No se pueden generar más cuentas"
-                                      : "Generar cuenta de cobranza manualmente"
-                                    }
-                                  </p>
-                                </TooltipContent>
-                             </Tooltip>
+                             {!userCanAccessOffer ? (
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <div className="flex items-center gap-2 text-muted-foreground">
+                                     <Lock className="h-4 w-4" />
+                                     <span>O-{String(offer.id).padStart(6, '0')}</span>
+                                   </div>
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>No tienes acceso a esta oferta - El prospecto no te pertenece</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                   <Button
+                                     variant="link"
+                                     size="sm"
+                                      onClick={async () => {
+                                        const isCreditCardEnabled = !hasAccount && !hasActiveAccountWithScheme && selectedPropertyForOffers?.disponibilidad === 'Apartado' && offer.esquema_id;
+                                         if (!hasAccount && !hasActiveAccountWithScheme && offer.esquema_id && !isCreditCardEnabled) {
+                                           // Load the specific scheme if not already loaded
+                                           if (!availableSchemes.find(s => s.id === offer.esquema_id)) {
+                                             const { data: schemeData } = await supabase
+                                               .from('esquemas_pago')
+                                               .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                               .eq('id', offer.esquema_id)
+                                               .eq('es_manual', false)
+                                               .single();
+                                            
+                                            if (schemeData) {
+                                              setAvailableSchemes([...availableSchemes, schemeData]);
+                                            }
+                                          }
+                                          setSelectedOfferForAccount({ ...offer, propertyId: selectedPropertyForOffers!.id, isProductOffer: false });
+                                          setConfirmGenerateAccountOpen(true);
+                                        }
+                                      }}
+                                     disabled={
+                                       isAccountCancelled ||
+                                       hasAccount || 
+                                       !offer.esquema_id || 
+                                       hasActiveAccountWithScheme || 
+                                       (!hasAccount && !hasActiveAccountWithScheme && selectedPropertyForOffers?.disponibilidad === 'Apartado' && offer.esquema_id)
+                                     }
+                                     className="p-0 h-auto font-semibold"
+                                   >
+                                     O-{String(offer.id).padStart(6, '0')}
+                                   </Button>
+                                </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>
+                                     {isAccountCancelled 
+                                       ? "Cuenta cancelada - No se puede generar nueva cuenta"
+                                       : hasAccount
+                                       ? "Esta oferta ya tiene cuenta de cobranza"
+                                       : hasActiveAccountWithScheme
+                                       ? "Ya existe cuenta activa con esquema - No se pueden generar más cuentas"
+                                       : "Generar cuenta de cobranza manualmente"
+                                     }
+                                   </p>
+                                 </TooltipContent>
+                              </Tooltip>
+                             )}
                            </TableCell>
                           <TableCell>
                             {(offer.agent_name || 'AGENTE POR DEFINIR').toUpperCase()}
                           </TableCell>
                           <TableCell>
-                            {(offer.lead_name || 'N/A').toUpperCase()}
+                            {!userCanAccessOffer ? (
+                              <span className="text-muted-foreground">---</span>
+                            ) : (
+                              (offer.lead_name || 'N/A').toUpperCase()
+                            )}
                           </TableCell>
                           <TableCell>
                             {new Date(offer.fecha_generacion).toLocaleDateString()}
@@ -4308,18 +4362,35 @@ const Propiedades = () => {
                              )}
                           </TableCell>
                            <TableCell>
-                             <Button
-                               variant="outline"
-                               size="icon"
-                               onClick={() => handleDownloadOffer(offer)}
-                               disabled={downloadingOfferId === offer.id}
-                             >
-                               {downloadingOfferId === offer.id ? (
-                                 <Loader2 className="h-4 w-4 animate-spin" />
-                               ) : (
-                                 <Download className="h-4 w-4" />
-                               )}
-                             </Button>
+                             {!userCanAccessOffer ? (
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <Button
+                                     variant="outline"
+                                     size="icon"
+                                     disabled
+                                   >
+                                     <Lock className="h-4 w-4 text-muted-foreground" />
+                                   </Button>
+                                 </TooltipTrigger>
+                                 <TooltipContent>
+                                   <p>No tienes acceso a descargar esta oferta</p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             ) : (
+                               <Button
+                                 variant="outline"
+                                 size="icon"
+                                 onClick={() => handleDownloadOffer(offer)}
+                                 disabled={downloadingOfferId === offer.id}
+                               >
+                                 {downloadingOfferId === offer.id ? (
+                                   <Loader2 className="h-4 w-4 animate-spin" />
+                                 ) : (
+                                   <Download className="h-4 w-4" />
+                                 )}
+                               </Button>
+                             )}
                            </TableCell>
                         </TableRow>
                       );
@@ -4371,6 +4442,9 @@ const Propiedades = () => {
                       const isAccountActive = hasAccount && offer.cuenta_activo;
                       const isAccountCancelled = hasAccount && !offer.cuenta_activo;
                       
+                      // Check if user can access this offer
+                      const userCanAccessOffer = canAccessOffer(offer);
+                      
                       // Check if there's an active account for THIS SPECIFIC product (from another offer)
                       const hasActiveAccountForThisProduct = selectedPropertyProductOffers.some((o: any) => 
                         o.id_producto === offer.id_producto && 
@@ -4380,89 +4454,112 @@ const Propiedades = () => {
                         o.id_esquema_pago_seleccionado
                       );
                       
+                      // Row className based on access
+                      const rowClassName = !userCanAccessOffer 
+                        ? "border-l-4 border-l-gray-400 bg-gray-100/50 dark:bg-gray-800/50 opacity-70" 
+                        : "";
+                      
                       return (
-                         <TableRow key={offer.id}>
+                         <TableRow key={offer.id} className={rowClassName}>
                          <TableCell className="font-medium">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="link"
-                                size="sm"
-                                disabled={isAccountActive || hasActiveAccountForThisProduct}
-                                onClick={async () => {
-                                  // Si tiene cuenta de cobranza, navegar a ella
-                                  if (hasAccount) {
-                                    navigate(`/admin/cuentas-cobranza/${offer.cuenta_cobranza_id}/detalle`);
-                                    return;
-                                  }
-                                  
-                                  // Si no tiene esquema, mostrar mensaje
-                                  if (!offer.id_esquema_pago_seleccionado) {
-                                    toast({
-                                      title: "Sin esquema de pago",
-                                      description: "Esta oferta no tiene un esquema de pago asignado",
-                                      variant: "default",
-                                    });
-                                    return;
-                                  }
-                                  
-                                  // Si hay otra cuenta activa para este mismo producto, no permitir generar
-                                  if (hasActiveAccountForThisProduct) {
-                                    toast({
-                                      title: "No disponible",
-                                      description: `Ya existe una cuenta activa para este mismo producto (${offer.product_name}). Solo puede haber una cuenta activa por producto.`,
-                                      variant: "default",
-                                    });
-                                    return;
-                                  }
-                                  
-                                  // Si tiene esquema y no hay otra cuenta activa para este producto, ofrecer generarla
-                                   if (!hasActiveAccountForThisProduct && offer.id_esquema_pago_seleccionado) {
-                                     // Load the specific scheme if not already loaded
-                                     if (!availableSchemes.find(s => s.id === offer.id_esquema_pago_seleccionado)) {
-                                       const { data: schemeData } = await supabase
-                                         .from('esquemas_pago')
-                                         .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
-                                         .eq('id', offer.id_esquema_pago_seleccionado)
-                                         .eq('es_manual', false)
-                                         .maybeSingle();
-                                      
-                                      if (schemeData) {
-                                        setAvailableSchemes([...availableSchemes, schemeData]);
-                                      }
-                                    }
-                                    setSelectedOfferForAccount({ ...offer, propertyId: selectedPropertyForProductOffers!.id, isProductOffer: true });
-                                    setConfirmGenerateAccountOpen(true);
-                                  }
-                                }}
-                                className="p-0 h-auto font-semibold hover:underline"
-                              >
-                                OP-{String(offer.id).padStart(6, '0')}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>
-                                {isAccountActive
-                                  ? 'Cuenta de cobranza ya generada'
-                                  : hasAccount 
-                                    ? 'Ver detalle de cuenta de cobranza'
-                                    : isAccountCancelled
-                                    ? 'Cuenta cancelada - No se puede generar nueva cuenta'
-                                    : !offer.id_esquema_pago_seleccionado
-                                    ? 'Sin esquema de pago - Selecciona uno primero'
-                                    : hasActiveAccountForThisProduct
-                                    ? `Ya existe cuenta activa para ${offer.product_name} - Solo una cuenta por producto`
-                                    : 'Generar cuenta de cobranza'
-                                }
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
+                          {!userCanAccessOffer ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Lock className="h-4 w-4" />
+                                  <span>OP-{String(offer.id).padStart(6, '0')}</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>No tienes acceso a esta oferta - El prospecto no te pertenece</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                           <Tooltip>
+                             <TooltipTrigger asChild>
+                               <Button
+                                 variant="link"
+                                 size="sm"
+                                 disabled={isAccountActive || hasActiveAccountForThisProduct}
+                                 onClick={async () => {
+                                   // Si tiene cuenta de cobranza, navegar a ella
+                                   if (hasAccount) {
+                                     navigate(`/admin/cuentas-cobranza/${offer.cuenta_cobranza_id}/detalle`);
+                                     return;
+                                   }
+                                   
+                                   // Si no tiene esquema, mostrar mensaje
+                                   if (!offer.id_esquema_pago_seleccionado) {
+                                     toast({
+                                       title: "Sin esquema de pago",
+                                       description: "Esta oferta no tiene un esquema de pago asignado",
+                                       variant: "default",
+                                     });
+                                     return;
+                                   }
+                                   
+                                   // Si hay otra cuenta activa para este mismo producto, no permitir generar
+                                   if (hasActiveAccountForThisProduct) {
+                                     toast({
+                                       title: "No disponible",
+                                       description: `Ya existe una cuenta activa para este mismo producto (${offer.product_name}). Solo puede haber una cuenta activa por producto.`,
+                                       variant: "default",
+                                     });
+                                     return;
+                                   }
+                                   
+                                   // Si tiene esquema y no hay otra cuenta activa para este producto, ofrecer generarla
+                                    if (!hasActiveAccountForThisProduct && offer.id_esquema_pago_seleccionado) {
+                                      // Load the specific scheme if not already loaded
+                                      if (!availableSchemes.find(s => s.id === offer.id_esquema_pago_seleccionado)) {
+                                        const { data: schemeData } = await supabase
+                                          .from('esquemas_pago')
+                                          .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                          .eq('id', offer.id_esquema_pago_seleccionado)
+                                          .eq('es_manual', false)
+                                          .maybeSingle();
+                                       
+                                       if (schemeData) {
+                                         setAvailableSchemes([...availableSchemes, schemeData]);
+                                       }
+                                     }
+                                     setSelectedOfferForAccount({ ...offer, propertyId: selectedPropertyForProductOffers!.id, isProductOffer: true });
+                                     setConfirmGenerateAccountOpen(true);
+                                   }
+                                 }}
+                                 className="p-0 h-auto font-semibold hover:underline"
+                               >
+                                 OP-{String(offer.id).padStart(6, '0')}
+                               </Button>
+                             </TooltipTrigger>
+                             <TooltipContent>
+                               <p>
+                                 {isAccountActive
+                                   ? 'Cuenta de cobranza ya generada'
+                                   : hasAccount 
+                                     ? 'Ver detalle de cuenta de cobranza'
+                                     : isAccountCancelled
+                                     ? 'Cuenta cancelada - No se puede generar nueva cuenta'
+                                     : !offer.id_esquema_pago_seleccionado
+                                     ? 'Sin esquema de pago - Selecciona uno primero'
+                                     : hasActiveAccountForThisProduct
+                                     ? `Ya existe cuenta activa para ${offer.product_name} - Solo una cuenta por producto`
+                                     : 'Generar cuenta de cobranza'
+                                 }
+                               </p>
+                             </TooltipContent>
+                           </Tooltip>
+                          )}
                         </TableCell>
                         <TableCell>
                           {(offer.product_name || 'N/A').toUpperCase()}
                         </TableCell>
                         <TableCell>
-                          {(offer.lead_name || 'N/A').toUpperCase()}
+                          {!userCanAccessOffer ? (
+                            <span className="text-muted-foreground">---</span>
+                          ) : (
+                            (offer.lead_name || 'N/A').toUpperCase()
+                          )}
                         </TableCell>
                         <TableCell>
                           {new Date(offer.fecha_generacion).toLocaleDateString()}

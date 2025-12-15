@@ -5811,6 +5811,7 @@ export type Database = {
           esquema_numero_meses: number
           fecha_generacion: string
           id: number
+          id_persona_duena_lead: number
           id_persona_lead: number
           lead_email: string
           lead_name: string
