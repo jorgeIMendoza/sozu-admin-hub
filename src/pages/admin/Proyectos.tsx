@@ -15,6 +15,7 @@ import { useState, useEffect, useRef } from "react";
 import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
 import { ProjectMultimediaModal } from "@/components/admin/ProjectMultimediaModal";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 // Función para formatear moneda en formato corto (M/K)
 const formatCurrencyShort = (value: number): string => {
@@ -46,6 +47,9 @@ const Proyectos = () => {
   
   // Project access hook
   const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
+  
+  // Page permissions
+  const { canCreate, canUpdate, canDelete, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/proyectos');
   
   // Filtros específicos
   const [nombreFilter, setNombreFilter] = useState("");
@@ -720,7 +724,7 @@ const Proyectos = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {!isDeletedTab && (
+                        {!isDeletedTab && (canUpdate || isSuperAdmin) && (
                           <EditProjectDialog
                             projectId={project.id}
                             onProjectUpdated={handleProjectUpdated}
@@ -731,7 +735,7 @@ const Proyectos = () => {
                             }
                           />
                         )}
-                        {!(project.id_tipo_uso === 9 || project.id_tipo_uso === 10 || project.id_tipo_uso === 11) && (
+                        {(canDelete || isSuperAdmin) && !(project.id_tipo_uso === 9 || project.id_tipo_uso === 10 || project.id_tipo_uso === 11) && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button 
@@ -801,7 +805,7 @@ const Proyectos = () => {
           <h1 className="text-3xl font-bold text-foreground">Proyectos</h1>
           <p className="text-muted-foreground">Gestiona todos los proyectos inmobiliarios</p>
         </div>
-        {hasUnrestrictedAccess && <NewProjectDialog onProjectAdded={handleProjectAdded} />}
+        {(hasUnrestrictedAccess && (canCreate || isSuperAdmin)) && <NewProjectDialog onProjectAdded={handleProjectAdded} />}
       </div>
 
       {hasNoAccess ? (
