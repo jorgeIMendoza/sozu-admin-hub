@@ -51,6 +51,9 @@ const Proyectos = () => {
   // Page permissions
   const { canCreate, canUpdate, canDelete, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/proyectos');
   
+  // Check if user has any action permission
+  const hasAnyActionPermission = canUpdate || canDelete || isSuperAdmin;
+  
   // Filtros específicos
   const [nombreFilter, setNombreFilter] = useState("");
   const [desarrolladorFilter, setDesarrolladorFilter] = useState("");
@@ -604,7 +607,7 @@ const Proyectos = () => {
                 <TableHead>Precio Promedio por M2</TableHead>
                 <TableHead>Multimedia</TableHead>
                 <TableHead>Estatus</TableHead>
-                <TableHead>Acciones</TableHead>
+                {hasAnyActionPermission && <TableHead>Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -722,66 +725,68 @@ const Proyectos = () => {
                         {project.estatus_proyecto?.nombre || "Sin estatus"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {!isDeletedTab && (canUpdate || isSuperAdmin) && (
-                          <EditProjectDialog
-                            projectId={project.id}
-                            onProjectUpdated={handleProjectUpdated}
-                            trigger={
-                              <Button variant="ghost" size="sm">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            }
-                          />
-                        )}
-                        {(canDelete || isSuperAdmin) && !(project.id_tipo_uso === 9 || project.id_tipo_uso === 10 || project.id_tipo_uso === 11) && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className={isDeletedTab ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
-                              disabled={!isDeletedTab && project.edificios && project.edificios.length > 0}
-                              title={isDeletedTab ? "Restaurar proyecto" : "Eliminar proyecto"}
-                            >
-                              {isDeletedTab ? (
-                                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                                  <path d="M8 12l2 2 4-4"/>
-                                </svg>
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                {isDeletedTab ? 'Restaurar Proyecto' : 'Eliminar Proyecto'}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {isDeletedTab
-                                  ? `¿Estás seguro de que deseas restaurar el proyecto "${project.nombre}"?`
-                                  : `¿Estás seguro de que deseas eliminar el proyecto "${project.nombre}"? Esta acción se puede revertir posteriormente.`
-                                }
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => isDeletedTab ? handleProjectRestored(project.id) : handleProjectDeleted(project.id)}
-                                className={isDeletedTab ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                    {hasAnyActionPermission && (
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {!isDeletedTab && (canUpdate || isSuperAdmin) && (
+                            <EditProjectDialog
+                              projectId={project.id}
+                              onProjectUpdated={handleProjectUpdated}
+                              trigger={
+                                <Button variant="ghost" size="sm">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
+                          )}
+                          {(canDelete || isSuperAdmin) && !(project.id_tipo_uso === 9 || project.id_tipo_uso === 10 || project.id_tipo_uso === 11) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className={isDeletedTab ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}
+                                disabled={!isDeletedTab && project.edificios && project.edificios.length > 0}
+                                title={isDeletedTab ? "Restaurar proyecto" : "Eliminar proyecto"}
                               >
-                                {isDeletedTab ? 'Restaurar' : 'Eliminar'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                         </AlertDialog>
-                        )}
-                      </div>
-                    </TableCell>
+                                {isDeletedTab ? (
+                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                                    <path d="M8 12l2 2 4-4"/>
+                                  </svg>
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  {isDeletedTab ? 'Restaurar Proyecto' : 'Eliminar Proyecto'}
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {isDeletedTab
+                                    ? `¿Estás seguro de que deseas restaurar el proyecto "${project.nombre}"?`
+                                    : `¿Estás seguro de que deseas eliminar el proyecto "${project.nombre}"? Esta acción se puede revertir posteriormente.`
+                                  }
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => isDeletedTab ? handleProjectRestored(project.id) : handleProjectDeleted(project.id)}
+                                  className={isDeletedTab ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+                                >
+                                  {isDeletedTab ? 'Restaurar' : 'Eliminar'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                           </AlertDialog>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}

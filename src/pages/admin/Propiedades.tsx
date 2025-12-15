@@ -240,6 +240,9 @@ const Propiedades = () => {
   // Page permissions
   const { canCreate, canUpdate, canDelete, canGenerateOffer, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/propiedades');
   
+  // Check if user has any action permission
+  const hasAnyActionPermission = canUpdate || canDelete || canGenerateOffer || isSuperAdmin;
+  
   const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Initialize search term from URL parameters
@@ -340,7 +343,13 @@ const Propiedades = () => {
     .map(key => COLUMNS_CONFIG.find(col => col.key === key))
     .filter((col): col is ColumnConfig => col !== undefined);
 
-  const isColumnVisible = (key: ColumnKey) => visibleColumns.has(key);
+  const isColumnVisible = (key: ColumnKey) => {
+    // Hide actions column if user has no action permissions
+    if (key === 'acciones' && !hasAnyActionPermission) {
+      return false;
+    }
+    return visibleColumns.has(key);
+  };
 
   const toggleColumn = (key: ColumnKey) => {
     const column = COLUMNS_CONFIG.find(col => col.key === key);
