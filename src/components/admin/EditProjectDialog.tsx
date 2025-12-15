@@ -63,9 +63,12 @@ interface EditProjectDialogProps {
   projectId: number;
   onProjectUpdated: () => void;
   trigger?: React.ReactNode;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 }
 
-export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: EditProjectDialogProps) => {
+export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCreate = true, canUpdate = true, canDelete = true }: EditProjectDialogProps) => {
   const [open, setOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
@@ -770,7 +773,12 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger }: Edit
 
                       {/* Payment Scheme Management Section */}
                       <div className="space-y-3">
-                        <PaymentSchemeManagement projectId={projectId} />
+                        <PaymentSchemeManagement 
+                          projectId={projectId}
+                          canCreate={canCreate}
+                          canUpdate={canUpdate}
+                          canDelete={canDelete}
+                        />
                       </div>
 
                       {/* Amenidades Section - Con separación adicional */}

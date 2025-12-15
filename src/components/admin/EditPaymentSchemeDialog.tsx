@@ -42,9 +42,10 @@ const formSchema = z.object({
 interface EditPaymentSchemeDialogProps {
   scheme: any;
   onSchemeUpdated: () => void;
+  canUpdate?: boolean;
 }
 
-export const EditPaymentSchemeDialog = ({ scheme, onSchemeUpdated }: EditPaymentSchemeDialogProps) => {
+export const EditPaymentSchemeDialog = ({ scheme, onSchemeUpdated, canUpdate = true }: EditPaymentSchemeDialogProps) => {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
@@ -126,7 +127,12 @@ export const EditPaymentSchemeDialog = ({ scheme, onSchemeUpdated }: EditPayment
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+          disabled={!canUpdate}
+        >
           <Edit className="h-4 w-4" />
         </Button>
       </DialogTrigger>

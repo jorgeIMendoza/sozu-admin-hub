@@ -42,9 +42,10 @@ const formSchema = z.object({
 interface NewPaymentSchemeDialogProps {
   projectId: number;
   onSchemeAdded: () => void;
+  canCreate?: boolean;
 }
 
-export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded }: NewPaymentSchemeDialogProps) => {
+export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = true }: NewPaymentSchemeDialogProps) => {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
@@ -132,7 +133,7 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded }: NewPaymentS
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" disabled={!canCreate}>
           <Plus className="h-4 w-4 mr-2" />
           Agregar Esquema de Pago
         </Button>

@@ -748,7 +748,12 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                 {/* Payment Schemes Section */}
                 {createdProjectId ? (
                   <div className="space-y-3">
-                    <PaymentSchemeManagement projectId={createdProjectId} />
+                    <PaymentSchemeManagement 
+                      projectId={createdProjectId}
+                      canCreate={true}
+                      canUpdate={true}
+                      canDelete={true}
+                    />
                   </div>
                 ) : (
                   <PaymentSchemeFormSection

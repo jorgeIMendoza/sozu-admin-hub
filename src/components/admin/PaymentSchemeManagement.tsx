@@ -13,9 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 
 interface PaymentSchemeManagementProps {
   projectId: number;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
 }
 
-export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementProps) => {
+export const PaymentSchemeManagement = ({ projectId, canCreate = true, canUpdate = true, canDelete = true }: PaymentSchemeManagementProps) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
 
@@ -80,6 +83,7 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
             variant="outline"
             size="sm"
             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            disabled={!canDelete}
           >
             <Trash2 className="h-4 w-4 mr-1" />
             Eliminar
@@ -173,10 +177,11 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium">Esquemas de Pago del Proyecto</h3>
-          <NewPaymentSchemeDialog 
-            projectId={projectId} 
-            onSchemeAdded={handleSchemeAdded} 
-          />
+        <NewPaymentSchemeDialog 
+          projectId={projectId} 
+          onSchemeAdded={handleSchemeAdded}
+          canCreate={canCreate}
+        />
         </div>
         <div>Cargando esquemas de pago...</div>
       </div>
@@ -187,10 +192,11 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">Esquemas de Pago del Proyecto</h3>
-        <NewPaymentSchemeDialog 
-          projectId={projectId} 
-          onSchemeAdded={handleSchemeAdded} 
-        />
+      <NewPaymentSchemeDialog 
+        projectId={projectId} 
+        onSchemeAdded={handleSchemeAdded}
+        canCreate={canCreate}
+      />
       </div>
 
       {schemes && schemes.length > 0 ? (
@@ -218,7 +224,8 @@ export const PaymentSchemeManagement = ({ projectId }: PaymentSchemeManagementPr
                       <PaymentSchemeDetailsDialog scheme={scheme} />
                       <EditPaymentSchemeDialog 
                         scheme={scheme} 
-                        onSchemeUpdated={handleSchemeAdded} 
+                        onSchemeUpdated={handleSchemeAdded}
+                        canUpdate={canUpdate}
                       />
                       <DeletePaymentSchemeDialog scheme={scheme} />
                     </div>

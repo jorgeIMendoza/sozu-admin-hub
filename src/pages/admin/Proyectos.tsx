@@ -732,6 +732,9 @@ const Proyectos = () => {
                             <EditProjectDialog
                               projectId={project.id}
                               onProjectUpdated={handleProjectUpdated}
+                              canCreate={canCreate || isSuperAdmin}
+                              canUpdate={canUpdate || isSuperAdmin}
+                              canDelete={canDelete || isSuperAdmin}
                               trigger={
                                 <Button variant="ghost" size="sm">
                                   <Edit className="h-4 w-4" />
