@@ -2915,7 +2915,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       
                       <div className="mt-4">
                       <Button
-                        onClick={() => handleAddComprador}
+                        onClick={handleAddComprador}
                         disabled={addCompradorMutation.isPending || isReadOnly}
                         className="w-full"
                       >
