@@ -2606,6 +2606,56 @@ export default function DetalleCuentaCobranza() {
             <TabsContent value="acuerdos-aplicaciones" className="mt-6">
               {/* Payment scheme selection and agreement details */}
               <div className="space-y-6">
+                {/* Summary Cards for Acuerdos */}
+                {acuerdosPago && acuerdosPago.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Total Acuerdos</p>
+                            <p className="text-xl font-bold">{acuerdosPago.length}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Completados</p>
+                            <p className="text-xl font-bold">{acuerdosPago.filter(a => a.pago_completado).length}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-5 w-5 text-amber-500" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Parciales</p>
+                            <p className="text-xl font-bold">{acuerdosPago.filter(a => !a.pago_completado && (a.aplicaciones || []).filter(app => !app.es_multa).reduce((sum, app) => sum + app.monto, 0) > 0).length}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Sin Pago</p>
+                            <p className="text-xl font-bold">{acuerdosPago.filter(a => !a.pago_completado && (a.aplicaciones || []).filter(app => !app.es_multa).reduce((sum, app) => sum + app.monto, 0) === 0).length}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">Acuerdos de Pago y Aplicaciones</h3>
                   {/* Payment scheme selection when no scheme is selected */}
@@ -3271,6 +3321,55 @@ export default function DetalleCuentaCobranza() {
             </TabsContent>
 
             <TabsContent value="pagos-aplicados" className="mt-6">
+                  {/* Summary Cards for Pagos */}
+                  {pagos && pagos.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Total Pagos</p>
+                              <p className="text-xl font-bold">{pagos.length}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2">
+                            <Banknote className="h-5 w-5 text-green-500" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Monto Total</p>
+                              <p className="text-lg font-bold">{formatCurrency(pagos.reduce((sum, p) => sum + (p.monto || 0), 0))}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      {/* Payment methods breakdown */}
+                      {(() => {
+                        const metodosCount = pagos.reduce((acc, p) => {
+                          const metodo = p.metodos_pago?.nombre || 'Otro';
+                          acc[metodo] = (acc[metodo] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        const topMetodos = Object.entries(metodosCount).sort((a, b) => b[1] - a[1]).slice(0, 2);
+                        return topMetodos.map(([metodo, count], idx) => (
+                          <Card key={metodo}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-2">
+                                <CreditCard className={`h-5 w-5 ${idx === 0 ? 'text-blue-500' : 'text-purple-500'}`} />
+                                <div>
+                                  <p className="text-xs text-muted-foreground">{metodo}</p>
+                                  <p className="text-xl font-bold">{count}</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ));
+                      })()}
+                    </div>
+                  )}
                   {/* Pagos Aplicados Section */}
                   {pagos && pagos.length > 0 ? (
                     <div className="space-y-2">

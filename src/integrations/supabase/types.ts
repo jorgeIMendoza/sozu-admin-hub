@@ -1383,6 +1383,96 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_pagos_stp_cuentas_437_y_445: {
+        Row: {
+          claveRastreo: string | null
+          conceptoPago: string | null
+          created_at: string | null
+          cuentaBeneficiario: number | null
+          cuentaBeneficiario2: string | null
+          cuentaOrdenante: number | null
+          empresa: string | null
+          fechaOperacion: number | null
+          folioCodi: string | null
+          id: number | null
+          institucionBeneficiaria: number | null
+          institucionOrdenante: number | null
+          monto: number | null
+          nombreBeneficiario: string | null
+          nombreBeneficiario2: string | null
+          nombreOrdenante: string | null
+          nueva_cuenta_cobranza: number | null
+          referenciaNumerica: number | null
+          rfcCurpBeneficiario: string | null
+          rfcCurpOrdenante: string | null
+          stp_id: number | null
+          tipoCuentaBeneficiario: number | null
+          tipoCuentaBeneficiario2: string | null
+          tipoCuentaOrdenante: number | null
+          tipoPago: number | null
+          tsLiquidacion: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          claveRastreo?: string | null
+          conceptoPago?: string | null
+          created_at?: string | null
+          cuentaBeneficiario?: number | null
+          cuentaBeneficiario2?: string | null
+          cuentaOrdenante?: number | null
+          empresa?: string | null
+          fechaOperacion?: number | null
+          folioCodi?: string | null
+          id?: number | null
+          institucionBeneficiaria?: number | null
+          institucionOrdenante?: number | null
+          monto?: number | null
+          nombreBeneficiario?: string | null
+          nombreBeneficiario2?: string | null
+          nombreOrdenante?: string | null
+          nueva_cuenta_cobranza?: number | null
+          referenciaNumerica?: number | null
+          rfcCurpBeneficiario?: string | null
+          rfcCurpOrdenante?: string | null
+          stp_id?: number | null
+          tipoCuentaBeneficiario?: number | null
+          tipoCuentaBeneficiario2?: string | null
+          tipoCuentaOrdenante?: number | null
+          tipoPago?: number | null
+          tsLiquidacion?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          claveRastreo?: string | null
+          conceptoPago?: string | null
+          created_at?: string | null
+          cuentaBeneficiario?: number | null
+          cuentaBeneficiario2?: string | null
+          cuentaOrdenante?: number | null
+          empresa?: string | null
+          fechaOperacion?: number | null
+          folioCodi?: string | null
+          id?: number | null
+          institucionBeneficiaria?: number | null
+          institucionOrdenante?: number | null
+          monto?: number | null
+          nombreBeneficiario?: string | null
+          nombreBeneficiario2?: string | null
+          nombreOrdenante?: string | null
+          nueva_cuenta_cobranza?: number | null
+          referenciaNumerica?: number | null
+          rfcCurpBeneficiario?: string | null
+          rfcCurpOrdenante?: string | null
+          stp_id?: number | null
+          tipoCuentaBeneficiario?: number | null
+          tipoCuentaBeneficiario2?: string | null
+          tipoCuentaOrdenante?: number | null
+          tipoPago?: number | null
+          tsLiquidacion?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       borrar_pagos_stp_raw_duplicate: {
         Row: {
           claverastreo: string
