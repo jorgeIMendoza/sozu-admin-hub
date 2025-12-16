@@ -93,9 +93,18 @@ export const BulkUploadBodegasDialog = ({
 
       const result = await response.json();
 
+      if (result.success === false) {
+        toast({
+          title: "Error en el archivo",
+          description: result.mensaje || "El archivo contiene errores. Revisa tu correo para más detalles.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Carga exitosa",
-        description: "El archivo de bodegas se ha procesado correctamente.",
+        description: result.mensaje || "El archivo de bodegas se ha procesado correctamente.",
       });
 
       onSuccess();
