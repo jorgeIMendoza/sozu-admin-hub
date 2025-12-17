@@ -35,6 +35,7 @@ interface OwnerSummary {
   id_entidad: number;
   dueno_nombre: string;
   tipo_entidad: string;
+  id_tipo_entidad: number;
   cuentas_count: number;
   total_colocado: number;
   total_cobrado: number;
@@ -68,6 +69,7 @@ export function ProjectCollectionSummaryDialog({
             er.id as id_entidad,
             p.nombre_legal as dueno_nombre,
             te.nombre as tipo_entidad,
+            er.id_tipo_entidad,
             COUNT(cc.id) as cuentas_count,
             SUM(cc.precio_final) as total_colocado,
             SUM(COALESCE(pagos.total_pagado, 0)) as total_cobrado
@@ -89,7 +91,7 @@ export function ProjectCollectionSummaryDialog({
           WHERE cc.id IN (${cuentaIds.join(',')})
             AND cc.activo = true
             AND o.id_producto IS NULL
-          GROUP BY er.id, p.nombre_legal, te.nombre
+          GROUP BY er.id, p.nombre_legal, te.nombre, er.id_tipo_entidad
           ORDER BY total_colocado DESC
         `,
         max_rows: 100
@@ -102,6 +104,7 @@ export function ProjectCollectionSummaryDialog({
 
       return ((data as unknown) as OwnerSummary[])?.map(row => ({
         ...row,
+        id_tipo_entidad: Number(row.id_tipo_entidad) || 0,
         total_colocado: Number(row.total_colocado) || 0,
         total_cobrado: Number(row.total_cobrado) || 0,
         total_restante: (Number(row.total_colocado) || 0) - (Number(row.total_cobrado) || 0),
@@ -253,9 +256,9 @@ export function ProjectCollectionSummaryDialog({
   // Difference between precio_final and acuerdos_pago totals
   const diferenciaColocado = summaryData ? totalColocado - totalAcuerdos : 0;
 
-  // Filter owners by type
-  const duenos = ownerBreakdown?.filter(o => o.tipo_entidad === 'Dueño' || o.tipo_entidad === 'Propietario') || [];
-  const aportantes = ownerBreakdown?.filter(o => o.tipo_entidad === 'Aportante') || [];
+  // Filter owners by type - id_tipo_entidad: 4 = Dueño Vendedor, 15 = Aportante
+  const duenos = ownerBreakdown?.filter(o => o.id_tipo_entidad === 4) || [];
+  const aportantes = ownerBreakdown?.filter(o => o.id_tipo_entidad === 15) || [];
 
   // If user is Representante de empresa dueña or Desarrollador, filter to only their entities
   const filteredDuenos = (isRepresentanteEmpresaDuena || isDesarrollador) && ownershipEntityIds?.length

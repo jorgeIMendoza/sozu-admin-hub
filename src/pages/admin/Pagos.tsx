@@ -1066,30 +1066,32 @@ export default function Pagos() {
         ownerFilter = `AND prop.id_entidad_relacionada_dueno IN (${ownershipEntityIds.join(',')})`;
       }
 
+      // Use a subquery to first get unique property data, then aggregate by project
       const query = `
+        WITH property_values AS (
+          SELECT DISTINCT ON (prop.id)
+            p.id as id_proyecto,
+            p.nombre as proyecto_nombre,
+            prop.id as prop_id,
+            CASE 
+              WHEN cc.id IS NOT NULL AND cc.activo = true THEN cc.precio_final 
+              ELSE COALESCE(prop.precio_lista, 0) 
+            END as valor_propiedad
+          FROM proyectos p
+          JOIN entidades_relacionadas er ON er.id_proyecto = p.id AND er.activo = true AND er.id_tipo_entidad IN (4, 15)
+          JOIN propiedades prop ON prop.id_entidad_relacionada_dueno = er.id AND prop.activo = true
+          LEFT JOIN ofertas o ON o.id_propiedad = prop.id AND o.activo = true AND o.id_producto IS NULL
+          LEFT JOIN cuentas_cobranza cc ON cc.id_oferta = o.id AND cc.id_cuenta_cobranza_padre IS NULL AND cc.activo = true
+          WHERE p.activo = true ${projectFilter} ${ownerFilter}
+          ORDER BY prop.id, cc.id DESC NULLS LAST
+        )
         SELECT 
-          p.id as id_proyecto,
-          p.nombre as proyecto_nombre,
-          COUNT(DISTINCT prop.id) as total_propiedades,
-          SUM(CASE 
-            WHEN cc.id IS NOT NULL AND cc.activo = true THEN cc.precio_final 
-            ELSE COALESCE(prop.precio_lista, 0) 
-          END) as valor_total_proyecto,
-          SUM(CASE 
-            WHEN cc.id IS NOT NULL AND cc.activo = true THEN cc.precio_final 
-            ELSE 0 
-          END) as valor_con_cuenta,
-          SUM(CASE 
-            WHEN cc.id IS NULL OR cc.activo = false THEN COALESCE(prop.precio_lista, 0)
-            ELSE 0 
-          END) as valor_disponible
-        FROM proyectos p
-        JOIN entidades_relacionadas er ON er.id_proyecto = p.id AND er.activo = true
-        JOIN propiedades prop ON prop.id_entidad_relacionada_dueno = er.id AND prop.activo = true
-        LEFT JOIN ofertas o ON o.id_propiedad = prop.id AND o.activo = true AND o.id_producto IS NULL
-        LEFT JOIN cuentas_cobranza cc ON cc.id_oferta = o.id AND cc.id_cuenta_cobranza_padre IS NULL
-        WHERE p.activo = true ${projectFilter} ${ownerFilter}
-        GROUP BY p.id, p.nombre
+          id_proyecto,
+          proyecto_nombre,
+          COUNT(DISTINCT prop_id) as total_propiedades,
+          SUM(valor_propiedad) as valor_total_proyecto
+        FROM property_values
+        GROUP BY id_proyecto, proyecto_nombre
         ORDER BY valor_total_proyecto DESC
       `;
 
@@ -1106,9 +1108,8 @@ export default function Pagos() {
       const result = (data as Array<{
         id_proyecto: number;
         proyecto_nombre: string;
+        total_propiedades: number;
         valor_total_proyecto: number;
-        valor_con_cuenta: number;
-        valor_disponible: number;
       }>) || [];
 
       // Create a map by project id
@@ -1116,11 +1117,10 @@ export default function Pagos() {
         acc[row.id_proyecto] = {
           nombre: row.proyecto_nombre,
           valorTotal: Number(row.valor_total_proyecto) || 0,
-          valorConCuenta: Number(row.valor_con_cuenta) || 0,
-          valorDisponible: Number(row.valor_disponible) || 0
+          totalPropiedades: Number(row.total_propiedades) || 0
         };
         return acc;
-      }, {} as Record<number, { nombre: string; valorTotal: number; valorConCuenta: number; valorDisponible: number }>);
+      }, {} as Record<number, { nombre: string; valorTotal: number; totalPropiedades: number }>);
     },
     enabled: !isLoadingAccess
   });
@@ -1707,15 +1707,13 @@ export default function Pagos() {
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{formatCurrency(totalMonto)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Propiedades: {formatCurrency(totalMontoPropiedades)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Productos: {formatCurrency(totalMontoProductos)}
-                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  <div className="text-[10px] text-muted-foreground space-y-0.5">
+                    <div>Prop: {formatCurrencyCompact(totalMontoPropiedades)}</div>
+                    <div>Prod: {formatCurrencyCompact(totalMontoProductos)}</div>
+                  </div>
                 </div>
                 
                 {/* Monto Total Cobrado */}
@@ -1730,15 +1728,13 @@ export default function Pagos() {
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{formatCurrency(totalCobrado)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Propiedades: {formatCurrency(totalCobradoPropiedades)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Productos: {formatCurrency(totalCobradoProductos)}
-                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  <div className="text-[10px] text-muted-foreground space-y-0.5">
+                    <div>Prop: <span className="text-green-600">{formatCurrencyCompact(totalCobradoPropiedades)}</span></div>
+                    <div>Prod: <span className="text-green-600">{formatCurrencyCompact(totalCobradoProductos)}</span></div>
+                  </div>
                 </div>
                 
                 {/* Monto Restante */}
@@ -1753,15 +1749,13 @@ export default function Pagos() {
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{formatCurrency(totalMonto - totalCobrado)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Propiedades: {formatCurrency(totalMontoPropiedades - totalCobradoPropiedades)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Productos: {formatCurrency(totalMontoProductos - totalCobradoProductos)}
-                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  <div className="text-[10px] text-muted-foreground space-y-0.5">
+                    <div>Prop: <span className="text-orange-600">{formatCurrencyCompact(totalMontoPropiedades - totalCobradoPropiedades)}</span></div>
+                    <div>Prod: <span className="text-orange-600">{formatCurrencyCompact(totalMontoProductos - totalCobradoProductos)}</span></div>
+                  </div>
                 </div>
               </div>
             </CardContent>
