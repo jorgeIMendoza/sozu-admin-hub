@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/admin/StatCard";
@@ -20,6 +21,8 @@ interface ProjectData {
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  
   // Project access control
   const { 
     accessibleProjectIds, 
@@ -240,31 +243,14 @@ const Dashboard = () => {
   const stats = useMemo(() => {
     const totalProjects = filteredProjects.length;
 
-    // Calculate average price per m2 only for projects with precio_m2_actual > 0
-    const projectsWithPrice = filteredProjects.filter((p: ProjectData) => p.precio_m2_actual > 0);
-    const avgPrice = projectsWithPrice.length > 0
-      ? projectsWithPrice.reduce((sum: number, p: ProjectData) => sum + p.precio_m2_actual, 0) / projectsWithPrice.length
-      : 0;
-
     return [
       {
         title: "Proyectos",
         value: totalProjects.toString(),
         icon: Building2,
-      },
-      {
-        title: "Edificios", 
-        value: totalBuildings.toString(),
-        icon: Home,
-      },
-      {
-        title: "Precio Promedio",
-        value: `${Math.round(avgPrice).toLocaleString('es-MX')}`,
-        subtitle: "MXN por m²",
-        icon: DollarSign,
       }
     ];
-  }, [filteredProjects, totalBuildings]);
+  }, [filteredProjects]);
 
   // Get top 5 projects to display
   const topProjects = useMemo(() => {
@@ -306,7 +292,13 @@ const Dashboard = () => {
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {stats.map((stat, index) => (
-          <StatCard key={index} {...stat} />
+          <div 
+            key={index} 
+            onClick={() => navigate('/admin/proyectos')} 
+            className="cursor-pointer"
+          >
+            <StatCard {...stat} />
+          </div>
         ))}
       </div>
 
@@ -336,16 +328,16 @@ const Dashboard = () => {
                       {project.tiene_disponibles ? 'En venta' : 'Vendido'}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-primary font-semibold">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="text-muted-foreground">
                       <DollarSign className="h-4 w-4 inline mr-1" />
+                      Costo por m²:
+                    </div>
+                    <div className="text-primary font-semibold">
                       {project.precio_m2_actual > 0 
-                        ? `${formatCurrency(project.precio_m2_actual)}/m²`
+                        ? formatCurrency(project.precio_m2_actual)
                         : 'N/A'
                       }
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {project.tipo_uso}
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm">
