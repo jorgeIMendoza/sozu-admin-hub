@@ -42,7 +42,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
     form?.getValues("url_imagen_portada") || ''
   );
 
-  // Fetch existing YouTube videos
+  // Fetch existing YouTube videos (only active ones)
   const { data: youtubeVideos = [] } = useQuery({
     queryKey: ['propertyYoutubeVideos', propertyId],
     queryFn: async () => {
@@ -51,6 +51,7 @@ export const PropertyMultimediaTab = ({ form, propertyId }: PropertyMultimediaTa
         .from('videos_youtube')
         .select('*')
         .eq('id_propiedad', propertyId)
+        .eq('activo', true)
         .order('fecha_creacion', { ascending: false });
       
       if (error) throw error;

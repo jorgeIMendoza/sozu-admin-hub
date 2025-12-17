@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Plus, ExternalLink, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +28,7 @@ export function PropertyYouTubeVideosSection({ propertyId }: PropertyYouTubeVide
         .from('videos_youtube')
         .select('*')
         .eq('id_propiedad', propertyId)
+        .eq('activo', true)
         .order('fecha_creacion', { ascending: false });
       
       if (error) throw error;
@@ -114,9 +114,6 @@ export function PropertyYouTubeVideosSection({ propertyId }: PropertyYouTubeVide
               <p className="font-medium">{video.nombre}</p>
               <p className="text-sm text-muted-foreground">{video.link}</p>
             </div>
-            <Badge variant={video.activo ? "default" : "secondary"}>
-              {video.activo ? "Activo" : "Inactivo"}
-            </Badge>
           </div>
           <div className="flex items-center gap-2">
             <Button
