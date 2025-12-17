@@ -25,6 +25,7 @@ interface Role {
   activo: boolean;
   ver_todos_prospectos_compradores: boolean;
   ver_todos_proyectos_propiedades: boolean;
+  ver_filtros_avanzados_eliminados: boolean;
 }
 
 interface Permiso {
@@ -511,6 +512,28 @@ export default function RolesPermisos() {
         .from('roles')
         .update({ 
           ver_todos_proyectos_propiedades: value,
+          fecha_actualizacion: new Date().toISOString() 
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles-management'] });
+      toast.success('Configuración actualizada');
+    },
+    onError: (error) => {
+      toast.error(`Error al actualizar: ${error.message}`);
+    },
+  });
+
+  // Update ver_filtros_avanzados_eliminados mutation
+  const updateVerFiltrosAvanzadosMutation = useMutation({
+    mutationFn: async ({ id, value }: { id: number; value: boolean }) => {
+      const { error } = await supabase
+        .from('roles')
+        .update({ 
+          ver_filtros_avanzados_eliminados: value,
           fecha_actualizacion: new Date().toISOString() 
         })
         .eq('id', id);
@@ -1080,6 +1103,24 @@ export default function RolesPermisos() {
                       <span className="text-sm font-medium">Ver todos los proyectos/propiedades</span>
                           <p className="text-xs text-muted-foreground">
                             Permite ver todos los proyectos y propiedades sin necesidad de asignación específica
+                          </p>
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <Checkbox
+                          checked={selectedRole.ver_filtros_avanzados_eliminados || false}
+                          onCheckedChange={(checked) => {
+                            updateVerFiltrosAvanzadosMutation.mutate({
+                              id: selectedRole.id,
+                              value: checked === true
+                            });
+                          }}
+                          disabled={updateVerFiltrosAvanzadosMutation.isPending}
+                        />
+                        <div>
+                          <span className="text-sm font-medium">Ver filtros avanzados y pestaña eliminados</span>
+                          <p className="text-xs text-muted-foreground">
+                            Permite ver filtros avanzados (recámaras, baños, área, precio, etc.) y la pestaña de eliminados en propiedades
                           </p>
                         </div>
                       </label>

@@ -255,6 +255,9 @@ const Propiedades = () => {
   const canSeeAllProspects = profile?.ver_todos_prospectos_compradores || isSuperAdmin;
   const currentUserPersonaId = profile?.id_persona;
   
+  // Check if user can see advanced filters and deleted tab
+  const canSeeAdvancedFilters = profile?.ver_filtros_avanzados_eliminados ?? true;
+  
   // Helper function to check if user can access an offer
   const canAccessOffer = (offer: any) => {
     if (canSeeAllProspects) return true;
@@ -3827,215 +3830,229 @@ const Propiedades = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Recámaras</label>
-                <Input
-                  placeholder="Ej: 2, 3..."
-                  value={recamarasFilterInput}
-                  onChange={(e) => setRecamarasFilterInput(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Baños</label>
-                <Input
-                  placeholder="Ej: 1, 2..."
-                  value={banosFilterInput}
-                  onChange={(e) => setBanosFilterInput(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Estatus de Propiedad</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between font-normal"
-                    >
-                      {disponibilidadFilter.length === 0 
-                        ? "Filtrar por estatus..." 
-                        : `${disponibilidadFilter.length} seleccionado${disponibilidadFilter.length > 1 ? 's' : ''}`
-                      }
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar estatus..." />
-                      <CommandEmpty>No se encontró estatus.</CommandEmpty>
-                      <CommandGroup className="max-h-64 overflow-auto">
-                        {filteredAvailabilityOptions?.map((option) => (
-                          <CommandItem
-                            key={option.id}
-                            onSelect={() => {
-                              setDisponibilidadFilter(prev => 
-                                prev.includes(option.nombre)
-                                  ? prev.filter(item => item !== option.nombre)
-                                  : [...prev, option.nombre]
-                              );
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={disponibilidadFilter.includes(option.nombre)}
-                              className="mr-2"
-                            />
-                            {option.nombre}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                      {disponibilidadFilter.length > 0 && (
-                        <div className="border-t p-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDisponibilidadFilter([])}
-                            className="w-full justify-center"
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Limpiar selección
-                          </Button>
-                        </div>
-                      )}
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Bodegas</label>
-                <Select value={bodegasFilter} onValueChange={setBodegasFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por bodegas..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="con_bodegas">Con Bodegas</SelectItem>
-                    <SelectItem value="sin_bodegas">Sin Bodegas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Estacionamientos</label>
-                <Select value={estacionamientosFilter} onValueChange={setEstacionamientosFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por estacionamientos..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="con_estacionamientos">Con Estacionamientos</SelectItem>
-                    <SelectItem value="sin_estacionamientos">Sin Estacionamientos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Tiene Cuenta de Cobranza</label>
-                <Select value={cuentaCobranzaFilter} onValueChange={setCuentaCobranzaFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por cuenta..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="si">Sí</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Área (m²)</label>
-                <div className="flex items-center gap-2 mb-2">
-                  <Input
-                    type="text"
-                    value={areaFilterInput[0]}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      if (val === '') {
-                        setAreaFilterInput([0, areaFilterInput[1]]);
-                      } else {
-                        setAreaFilterInput([Number(val), areaFilterInput[1]]);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
-                      val = Math.max(0, Math.min(500, val));
-                      setAreaFilterInput([val, Math.max(val, areaFilterInput[1])]);
-                    }}
-                    className="w-20 h-8 text-xs"
-                  />
-                  <span className="text-xs text-muted-foreground">-</span>
-                  <Input
-                    type="text"
-                    value={areaFilterInput[1]}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      if (val === '') {
-                        setAreaFilterInput([areaFilterInput[0], 500]);
-                      } else {
-                        setAreaFilterInput([areaFilterInput[0], Number(val)]);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 500;
-                      val = Math.max(0, Math.min(500, val));
-                      setAreaFilterInput([Math.min(areaFilterInput[0], val), val]);
-                    }}
-                    className="w-20 h-8 text-xs"
-                  />
+              {canSeeAdvancedFilters && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Recámaras</label>
+                    <Input
+                      placeholder="Ej: 2, 3..."
+                      value={recamarasFilterInput}
+                      onChange={(e) => setRecamarasFilterInput(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Baños</label>
+                    <Input
+                      placeholder="Ej: 1, 2..."
+                      value={banosFilterInput}
+                      onChange={(e) => setBanosFilterInput(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+              {canSeeAdvancedFilters && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Estatus de Propiedad</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                      >
+                        {disponibilidadFilter.length === 0 
+                          ? "Filtrar por estatus..." 
+                          : `${disponibilidadFilter.length} seleccionado${disponibilidadFilter.length > 1 ? 's' : ''}`
+                        }
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar estatus..." />
+                        <CommandEmpty>No se encontró estatus.</CommandEmpty>
+                        <CommandGroup className="max-h-64 overflow-auto">
+                          {filteredAvailabilityOptions?.map((option) => (
+                            <CommandItem
+                              key={option.id}
+                              onSelect={() => {
+                                setDisponibilidadFilter(prev => 
+                                  prev.includes(option.nombre)
+                                    ? prev.filter(item => item !== option.nombre)
+                                    : [...prev, option.nombre]
+                                );
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={disponibilidadFilter.includes(option.nombre)}
+                                className="mr-2"
+                              />
+                              {option.nombre}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        {disponibilidadFilter.length > 0 && (
+                          <div className="border-t p-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDisponibilidadFilter([])}
+                              className="w-full justify-center"
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Limpiar selección
+                            </Button>
+                          </div>
+                        )}
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <Slider
-                  min={0}
-                  max={500}
-                  step={1}
-                  value={areaFilterInput}
-                  onValueChange={setAreaFilterInput}
-                  className="mt-1"
-                />
-              </div>
-              <div className="min-w-[200px]">
-                <label className="text-sm font-medium mb-2 block whitespace-nowrap">Precio (MXN)</label>
-                <div className="flex items-center gap-2 mb-2">
-                  <Input
-                    type="text"
-                    value={precioFilterInput[0].toLocaleString('es-MX')}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      if (val === '') {
-                        setPrecioFilterInput([0, precioFilterInput[1]]);
-                      } else {
-                        setPrecioFilterInput([Number(val), precioFilterInput[1]]);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
-                      val = Math.max(0, Math.min(100000000, val));
-                      setPrecioFilterInput([val, Math.max(val, precioFilterInput[1])]);
-                    }}
-                    className="w-32 h-8 text-xs"
-                  />
-                  <span className="text-xs text-muted-foreground">-</span>
-                  <Input
-                    type="text"
-                    value={precioFilterInput[1].toLocaleString('es-MX')}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      if (val === '') {
-                        setPrecioFilterInput([precioFilterInput[0], 100000000]);
-                      } else {
-                        setPrecioFilterInput([precioFilterInput[0], Number(val)]);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 100000000;
-                      val = Math.max(0, Math.min(100000000, val));
-                      setPrecioFilterInput([Math.min(precioFilterInput[0], val), val]);
-                    }}
-                    className="w-32 h-8 text-xs"
-                  />
-                </div>
-                <Slider
-                  min={0}
-                  max={100000000}
-                  step={1000000}
-                  value={precioFilterInput}
-                  onValueChange={setPrecioFilterInput}
-                  className="mt-1"
-                />
-              </div>
+              )}
+              {canSeeAdvancedFilters && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Bodegas</label>
+                    <Select value={bodegasFilter} onValueChange={setBodegasFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Filtrar por bodegas..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="con_bodegas">Con Bodegas</SelectItem>
+                        <SelectItem value="sin_bodegas">Sin Bodegas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Estacionamientos</label>
+                    <Select value={estacionamientosFilter} onValueChange={setEstacionamientosFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Filtrar por estacionamientos..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="con_estacionamientos">Con Estacionamientos</SelectItem>
+                        <SelectItem value="sin_estacionamientos">Sin Estacionamientos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tiene Cuenta de Cobranza</label>
+                    <Select value={cuentaCobranzaFilter} onValueChange={setCuentaCobranzaFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Filtrar por cuenta..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="si">Sí</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+              {canSeeAdvancedFilters && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Área (m²)</label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Input
+                        type="text"
+                        value={areaFilterInput[0]}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          if (val === '') {
+                            setAreaFilterInput([0, areaFilterInput[1]]);
+                          } else {
+                            setAreaFilterInput([Number(val), areaFilterInput[1]]);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
+                          val = Math.max(0, Math.min(500, val));
+                          setAreaFilterInput([val, Math.max(val, areaFilterInput[1])]);
+                        }}
+                        className="w-20 h-8 text-xs"
+                      />
+                      <span className="text-xs text-muted-foreground">-</span>
+                      <Input
+                        type="text"
+                        value={areaFilterInput[1]}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          if (val === '') {
+                            setAreaFilterInput([areaFilterInput[0], 500]);
+                          } else {
+                            setAreaFilterInput([areaFilterInput[0], Number(val)]);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 500;
+                          val = Math.max(0, Math.min(500, val));
+                          setAreaFilterInput([Math.min(areaFilterInput[0], val), val]);
+                        }}
+                        className="w-20 h-8 text-xs"
+                      />
+                    </div>
+                    <Slider
+                      min={0}
+                      max={500}
+                      step={1}
+                      value={areaFilterInput}
+                      onValueChange={setAreaFilterInput}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="min-w-[200px]">
+                    <label className="text-sm font-medium mb-2 block whitespace-nowrap">Precio (MXN)</label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Input
+                        type="text"
+                        value={precioFilterInput[0].toLocaleString('es-MX')}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          if (val === '') {
+                            setPrecioFilterInput([0, precioFilterInput[1]]);
+                          } else {
+                            setPrecioFilterInput([Number(val), precioFilterInput[1]]);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
+                          val = Math.max(0, Math.min(100000000, val));
+                          setPrecioFilterInput([val, Math.max(val, precioFilterInput[1])]);
+                        }}
+                        className="w-32 h-8 text-xs"
+                      />
+                      <span className="text-xs text-muted-foreground">-</span>
+                      <Input
+                        type="text"
+                        value={precioFilterInput[1].toLocaleString('es-MX')}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          if (val === '') {
+                            setPrecioFilterInput([precioFilterInput[0], 100000000]);
+                          } else {
+                            setPrecioFilterInput([precioFilterInput[0], Number(val)]);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          let val = Number(e.target.value.replace(/[^0-9]/g, '')) || 100000000;
+                          val = Math.max(0, Math.min(100000000, val));
+                          setPrecioFilterInput([Math.min(precioFilterInput[0], val), val]);
+                        }}
+                        className="w-32 h-8 text-xs"
+                      />
+                    </div>
+                    <Slider
+                      min={0}
+                      max={100000000}
+                      step={1000000}
+                      value={precioFilterInput}
+                      onValueChange={setPrecioFilterInput}
+                      className="mt-1"
+                    />
+                  </div>
+                </>
+              )}
             </div>
             
             {/* Botón para limpiar filtros, ordenar por precio y configurar columnas */}
@@ -4161,16 +4178,18 @@ const Propiedades = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className={`grid w-full ${canSeeAdvancedFilters ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="activos">
                 Activos ({filteredActivosCount})
               </TabsTrigger>
               <TabsTrigger value="draft">
                 Draft ({filteredDraftCount})
               </TabsTrigger>
-              <TabsTrigger value="eliminados">
-                Eliminados ({filteredEliminadosCount})
-              </TabsTrigger>
+              {canSeeAdvancedFilters && (
+                <TabsTrigger value="eliminados">
+                  Eliminados ({filteredEliminadosCount})
+                </TabsTrigger>
+              )}
             </TabsList>
             
             <TabsContent value="activos" className="mt-4">
@@ -4200,10 +4219,12 @@ const Propiedades = () => {
               {renderPagination(currentPageDraft, totalDraftPage, setCurrentPageDraft)}
             </TabsContent>
 
-            <TabsContent value="eliminados" className="mt-4">
-              {renderPropertiesTable(sortedInactiveProperties, "eliminados")}
-              {renderPagination(currentPageDeleted, totalInactivePage, setCurrentPageDeleted)}
-            </TabsContent>
+            {canSeeAdvancedFilters && (
+              <TabsContent value="eliminados" className="mt-4">
+                {renderPropertiesTable(sortedInactiveProperties, "eliminados")}
+                {renderPagination(currentPageDeleted, totalInactivePage, setCurrentPageDeleted)}
+              </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>
