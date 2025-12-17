@@ -1148,11 +1148,33 @@ const Propiedades = () => {
           return { items: [], count: 0, totalPages: 0 };
         }
 
+        // PRE-FILTER: If cuentaCobranzaFilter is set, get property IDs with/without cuentas first
+        let propertyIdsWithCuentas: number[] = [];
+        if (cuentaCobranzaFilter !== "") {
+          const { data: propCuentasData } = await supabase
+            .from('cuentas_cobranza')
+            .select('ofertas!fk_cuentas_cobranza_oferta!inner(id_propiedad)')
+            .eq('activo', true)
+            .is('ofertas.id_producto', null); // Only property accounts
+          
+          propertyIdsWithCuentas = [...new Set(propCuentasData?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [])];
+          
+          if (cuentaCobranzaFilter === "si") {
+            if (propertyIdsWithCuentas.length === 0) {
+              return { properties: [], count: 0, filteredCount: 0 };
+            }
+            query = query.in('id', propertyIdsWithCuentas);
+          } else if (cuentaCobranzaFilter === "no" && propertyIdsWithCuentas.length > 0) {
+            // For 'no', we need to exclude these IDs - but Supabase has limits on NOT IN
+            // We'll handle this in local filtering for now
+          }
+        }
+
         // Determine if we need full fetch for local filtering
         const needsFullFetch =
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
-          cuentaCobranzaFilter !== "" ||
+          (cuentaCobranzaFilter === "no" && propertyIdsWithCuentas.length > 0) || // Need local filter for "no"
           areaFilter[0] !== 0 ||
           areaFilter[1] !== 500 ||
           precioFilter[0] !== 0 ||
@@ -1417,11 +1439,30 @@ const Propiedades = () => {
           return { items: [], count: 0, totalPages: 0 };
         }
 
+        // PRE-FILTER: If cuentaCobranzaFilter is set, get property IDs with/without cuentas first
+        let propertyIdsWithCuentas: number[] = [];
+        if (cuentaCobranzaFilter !== "") {
+          const { data: propCuentasData } = await supabase
+            .from('cuentas_cobranza')
+            .select('ofertas!fk_cuentas_cobranza_oferta!inner(id_propiedad)')
+            .eq('activo', true)
+            .is('ofertas.id_producto', null); // Only property accounts
+          
+          propertyIdsWithCuentas = [...new Set(propCuentasData?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [])];
+          
+          if (cuentaCobranzaFilter === "si") {
+            if (propertyIdsWithCuentas.length === 0) {
+              return { properties: [], count: 0, filteredCount: 0 };
+            }
+            query = query.in('id', propertyIdsWithCuentas);
+          }
+        }
+
         // Determine if we need full fetch for local filtering
         const needsFullFetch =
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
-          cuentaCobranzaFilter !== "" ||
+          (cuentaCobranzaFilter === "no" && propertyIdsWithCuentas.length > 0) ||
           areaFilter[0] !== 0 ||
           areaFilter[1] !== 500 ||
           precioFilter[0] !== 0 ||
@@ -1686,11 +1727,30 @@ const Propiedades = () => {
           return { items: [], count: 0, totalPages: 0 };
         }
 
+        // PRE-FILTER: If cuentaCobranzaFilter is set, get property IDs with/without cuentas first
+        let propertyIdsWithCuentas: number[] = [];
+        if (cuentaCobranzaFilter !== "") {
+          const { data: propCuentasData } = await supabase
+            .from('cuentas_cobranza')
+            .select('ofertas!fk_cuentas_cobranza_oferta!inner(id_propiedad)')
+            .eq('activo', true)
+            .is('ofertas.id_producto', null); // Only property accounts
+          
+          propertyIdsWithCuentas = [...new Set(propCuentasData?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [])];
+          
+          if (cuentaCobranzaFilter === "si") {
+            if (propertyIdsWithCuentas.length === 0) {
+              return { properties: [], count: 0, filteredCount: 0 };
+            }
+            query = query.in('id', propertyIdsWithCuentas);
+          }
+        }
+
         // Determine if we need full fetch for local filtering
         const needsFullFetch =
           bodegasFilter !== "" ||
           estacionamientosFilter !== "" ||
-          cuentaCobranzaFilter !== "" ||
+          (cuentaCobranzaFilter === "no" && propertyIdsWithCuentas.length > 0) ||
           areaFilter[0] !== 0 ||
           areaFilter[1] !== 500 ||
           precioFilter[0] !== 0 ||
