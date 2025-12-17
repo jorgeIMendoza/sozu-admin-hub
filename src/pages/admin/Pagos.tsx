@@ -1069,7 +1069,6 @@ export default function Pagos() {
       let projectFilter = '';
       if (!hasUnrestrictedAccess) {
         if (accessibleProjectIds.length === 0) {
-          // No access to any projects
           return {};
         }
         projectFilter = `AND p.id IN (${accessibleProjectIds.join(',')})`;
@@ -1080,9 +1079,14 @@ export default function Pagos() {
         ownerFilter = `AND prop.id_entidad_relacionada_dueno IN (${ownershipEntityIds.join(',')})`;
       }
 
-      // Use a subquery to first get unique property data, then aggregate by project
+      // Query without CTEs - use subquery in FROM clause
       const query = `
-        WITH property_values AS (
+        SELECT 
+          pv.id_proyecto,
+          pv.proyecto_nombre,
+          COUNT(DISTINCT pv.prop_id) as total_propiedades,
+          SUM(pv.valor_propiedad) as valor_total_proyecto
+        FROM (
           SELECT DISTINCT ON (prop.id)
             p.id as id_proyecto,
             p.nombre as proyecto_nombre,
@@ -1098,14 +1102,8 @@ export default function Pagos() {
           LEFT JOIN cuentas_cobranza cc ON cc.id_oferta = o.id AND cc.id_cuenta_cobranza_padre IS NULL AND cc.activo = true
           WHERE p.activo = true ${projectFilter} ${ownerFilter}
           ORDER BY prop.id, cc.id DESC NULLS LAST
-        )
-        SELECT 
-          id_proyecto,
-          proyecto_nombre,
-          COUNT(DISTINCT prop_id) as total_propiedades,
-          SUM(valor_propiedad) as valor_total_proyecto
-        FROM property_values
-        GROUP BY id_proyecto, proyecto_nombre
+        ) pv
+        GROUP BY pv.id_proyecto, pv.proyecto_nombre
         ORDER BY valor_total_proyecto DESC
       `;
 
@@ -1130,7 +1128,6 @@ export default function Pagos() {
         valor_total_proyecto: number;
       }>) || [];
 
-      // Create a map by project id
       return result.reduce((acc, row) => {
         acc[row.id_proyecto] = {
           nombre: row.proyecto_nombre,

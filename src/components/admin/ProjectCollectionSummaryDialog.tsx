@@ -64,9 +64,19 @@ export function ProjectCollectionSummaryDialog({
     queryFn: async () => {
       if (!cuentaIds.length) return [];
 
+      // Query without CTEs - use subqueries in FROM clause
       const { data, error } = await supabase.rpc('execute_safe_query', {
         query_text: `
-          WITH owner_accounts AS (
+          SELECT 
+            oa.id_entidad,
+            oa.dueno_nombre,
+            oa.tipo_entidad,
+            oa.id_tipo_entidad,
+            COUNT(oa.cuenta_id) as cuentas_count,
+            SUM(oa.precio_final) as total_colocado,
+            SUM(oa.total_pagado) as total_cobrado,
+            COALESCE(oap.valor_proyecto, 0) as valor_proyecto
+          FROM (
             SELECT 
               er.id as id_entidad,
               p.nombre_legal as dueno_nombre,
@@ -83,44 +93,33 @@ export function ProjectCollectionSummaryDialog({
             JOIN tipos_entidad te ON er.id_tipo_entidad = te.id
             LEFT JOIN (
               SELECT 
-                ap.id_cuenta_cobranza,
-                SUM(apl.monto) as total_pagado
-              FROM aplicaciones_pago apl
-              JOIN acuerdos_pago ap ON apl.id_acuerdo_pago = ap.id
-              WHERE apl.activo = true AND apl.es_multa = false AND ap.activo = true
-              GROUP BY ap.id_cuenta_cobranza
+                ap2.id_cuenta_cobranza,
+                SUM(apl2.monto) as total_pagado
+              FROM aplicaciones_pago apl2
+              JOIN acuerdos_pago ap2 ON apl2.id_acuerdo_pago = ap2.id
+              WHERE apl2.activo = true AND apl2.es_multa = false AND ap2.activo = true
+              GROUP BY ap2.id_cuenta_cobranza
             ) pagos ON pagos.id_cuenta_cobranza = cc.id
             WHERE cc.id IN (${cuentaIds.join(',')})
               AND cc.activo = true
               AND o.id_producto IS NULL
-          ),
-          owner_all_properties AS (
+          ) oa
+          LEFT JOIN (
             SELECT 
-              er.id as id_entidad,
+              er2.id as id_entidad,
               SUM(CASE 
-                WHEN cc.id IS NOT NULL AND cc.activo = true THEN cc.precio_final 
-                ELSE COALESCE(prop.precio_lista, 0) 
+                WHEN cc2.id IS NOT NULL AND cc2.activo = true THEN cc2.precio_final 
+                ELSE COALESCE(prop2.precio_lista, 0) 
               END) as valor_proyecto
-            FROM entidades_relacionadas er
-            JOIN propiedades prop ON prop.id_entidad_relacionada_dueno = er.id AND prop.activo = true
-            LEFT JOIN ofertas o ON o.id_propiedad = prop.id AND o.activo = true AND o.id_producto IS NULL
-            LEFT JOIN cuentas_cobranza cc ON cc.id_oferta = o.id AND cc.id_cuenta_cobranza_padre IS NULL
-            WHERE er.id_proyecto = ${projectId}
-              AND er.activo = true
-              AND er.id_tipo_entidad IN (4, 15)
-            GROUP BY er.id
-          )
-          SELECT 
-            oa.id_entidad,
-            oa.dueno_nombre,
-            oa.tipo_entidad,
-            oa.id_tipo_entidad,
-            COUNT(oa.cuenta_id) as cuentas_count,
-            SUM(oa.precio_final) as total_colocado,
-            SUM(oa.total_pagado) as total_cobrado,
-            COALESCE(oap.valor_proyecto, 0) as valor_proyecto
-          FROM owner_accounts oa
-          LEFT JOIN owner_all_properties oap ON oa.id_entidad = oap.id_entidad
+            FROM entidades_relacionadas er2
+            JOIN propiedades prop2 ON prop2.id_entidad_relacionada_dueno = er2.id AND prop2.activo = true
+            LEFT JOIN ofertas o2 ON o2.id_propiedad = prop2.id AND o2.activo = true AND o2.id_producto IS NULL
+            LEFT JOIN cuentas_cobranza cc2 ON cc2.id_oferta = o2.id AND cc2.id_cuenta_cobranza_padre IS NULL
+            WHERE er2.id_proyecto = ${projectId}
+              AND er2.activo = true
+              AND er2.id_tipo_entidad IN (4, 15)
+            GROUP BY er2.id
+          ) oap ON oa.id_entidad = oap.id_entidad
           GROUP BY oa.id_entidad, oa.dueno_nombre, oa.tipo_entidad, oa.id_tipo_entidad, oap.valor_proyecto
           ORDER BY total_colocado DESC
         `,
