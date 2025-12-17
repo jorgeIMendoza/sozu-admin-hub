@@ -44,6 +44,7 @@ const Residentes = lazy(() => import("./pages/admin/Residentes"));
 const Agentes = lazy(() => import("./pages/admin/Agentes"));
 const AdministradoresPersonas = lazy(() => import("./pages/admin/AdministradoresPersonas"));
 const RepresentantesLegales = lazy(() => import("./pages/admin/RepresentantesLegales"));
+const RepresentantesComerciales = lazy(() => import("./pages/admin/RepresentantesComerciales"));
 const Productos = lazy(() => import("./pages/admin/Productos"));
 const Servicios = lazy(() => import("./pages/admin/Servicios"));
 const CategoriasProductos = lazy(() => import("./pages/admin/CategoriasProductos"));
@@ -115,6 +116,7 @@ const App = () => (
                   <Route path="agentes" element={<Agentes />} />
                   <Route path="administradores-personas" element={<AdministradoresPersonas />} />
                   <Route path="representantes-legales" element={<RepresentantesLegales />} />
+                  <Route path="representantes-comerciales" element={<RepresentantesComerciales />} />
                   <Route path="productos" element={<Productos />} />
                   <Route path="servicios" element={<Servicios />} />
                   <Route path="categorias-productos" element={<CategoriasProductos />} />

@@ -113,6 +113,7 @@ const navigationItems: NavigationItem[] = [
       { title: "Agentes", href: "/admin/agentes", icon: Briefcase },
       { title: "Administradores", href: "/admin/administradores-personas", icon: UserCog },
       { title: "Representantes Legales", href: "/admin/representantes-legales", icon: Scale },
+      { title: "Representantes Comerciales", href: "/admin/representantes-comerciales", icon: Briefcase },
     ]
   },
   {
