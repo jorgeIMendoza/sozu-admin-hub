@@ -235,18 +235,18 @@ export default function Inmobiliarias() {
         console.error('Error al crear usuario automático para inmobiliaria:', e);
       }
 
-      // Crear usuario para el representante legal si existe
-      if (representativeId) {
+      // Crear usuario para el representante comercial si existe
+      if (commercialRepresentativeId) {
         try {
-          // Obtener la información del representante legal desde entidades_relacionadas -> personas
-          const { data: repLegalData, error: repLegalError } = await supabase
+          // Obtener la información del representante comercial desde entidades_relacionadas -> personas
+          const { data: repComercialData, error: repComercialError } = await supabase
             .from('entidades_relacionadas')
             .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, email, telefono, clave_pais_telefono)')
-            .eq('id', representativeId)
+            .eq('id', commercialRepresentativeId)
             .single();
           
-          if (!repLegalError && repLegalData?.personas) {
-            const repPersona = repLegalData.personas as any;
+          if (!repComercialError && repComercialData?.personas) {
+            const repPersona = repComercialData.personas as any;
             
             // Verificar si ya existe un usuario con ese email
             const { data: existingUser } = await supabase
@@ -256,12 +256,12 @@ export default function Inmobiliarias() {
               .maybeSingle();
             
             if (!existingUser) {
-              // Crear usuario para el representante legal con rol Agente Inmobiliario (id: 3)
+              // Crear usuario para el representante comercial con rol Inmobiliaria (id: 4)
               const { error: repUserError } = await supabase.functions.invoke('create-user', {
                 body: {
                   email: repPersona.email,
                   nombre: repPersona.nombre_legal,
-                  rol_id: 3, // Agente Inmobiliario
+                  rol_id: 4, // Inmobiliaria
                   id_persona: repPersona.id,
                   telefono: repPersona.telefono || null,
                   clave_pais_telefono: repPersona.clave_pais_telefono || null
@@ -269,12 +269,12 @@ export default function Inmobiliarias() {
               });
               
               if (repUserError) {
-                console.error('Error al crear usuario para representante legal:', repUserError);
+                console.error('Error al crear usuario para representante comercial:', repUserError);
               }
             }
           }
         } catch (e) {
-          console.error('Error al crear usuario para representante legal:', e);
+          console.error('Error al crear usuario para representante comercial:', e);
         }
       }
     },
