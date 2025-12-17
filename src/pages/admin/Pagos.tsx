@@ -1051,6 +1051,80 @@ export default function Pagos() {
     }
   });
 
+  // Query to calculate valor total del proyecto (precio_final of accounts + precio_lista of available properties)
+  const { data: valorProyectosData } = useQuery({
+    queryKey: ["valor-proyectos", accessibleProjectIds, hasUnrestrictedAccess, ownershipEntityIds],
+    queryFn: async () => {
+      // Build WHERE clause based on access
+      let projectFilter = '';
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+        projectFilter = `AND p.id IN (${accessibleProjectIds.join(',')})`;
+      }
+
+      let ownerFilter = '';
+      if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
+        ownerFilter = `AND prop.id_entidad_relacionada_dueno IN (${ownershipEntityIds.join(',')})`;
+      }
+
+      const query = `
+        SELECT 
+          p.id as id_proyecto,
+          p.nombre as proyecto_nombre,
+          COUNT(DISTINCT prop.id) as total_propiedades,
+          SUM(CASE 
+            WHEN cc.id IS NOT NULL AND cc.activo = true THEN cc.precio_final 
+            ELSE COALESCE(prop.precio_lista, 0) 
+          END) as valor_total_proyecto,
+          SUM(CASE 
+            WHEN cc.id IS NOT NULL AND cc.activo = true THEN cc.precio_final 
+            ELSE 0 
+          END) as valor_con_cuenta,
+          SUM(CASE 
+            WHEN cc.id IS NULL OR cc.activo = false THEN COALESCE(prop.precio_lista, 0)
+            ELSE 0 
+          END) as valor_disponible
+        FROM proyectos p
+        JOIN entidades_relacionadas er ON er.id_proyecto = p.id AND er.activo = true
+        JOIN propiedades prop ON prop.id_entidad_relacionada_dueno = er.id AND prop.activo = true
+        LEFT JOIN ofertas o ON o.id_propiedad = prop.id AND o.activo = true AND o.id_producto IS NULL
+        LEFT JOIN cuentas_cobranza cc ON cc.id_oferta = o.id AND cc.id_cuenta_cobranza_padre IS NULL
+        WHERE p.activo = true ${projectFilter} ${ownerFilter}
+        GROUP BY p.id, p.nombre
+        ORDER BY valor_total_proyecto DESC
+      `;
+
+      const { data, error } = await supabase.rpc('execute_safe_query', {
+        query_text: query,
+        max_rows: 1000
+      });
+
+      if (error) {
+        console.error('Error fetching valor proyectos:', error);
+        return {};
+      }
+
+      const result = (data as Array<{
+        id_proyecto: number;
+        proyecto_nombre: string;
+        valor_total_proyecto: number;
+        valor_con_cuenta: number;
+        valor_disponible: number;
+      }>) || [];
+
+      // Create a map by project id
+      return result.reduce((acc, row) => {
+        acc[row.id_proyecto] = {
+          nombre: row.proyecto_nombre,
+          valorTotal: Number(row.valor_total_proyecto) || 0,
+          valorConCuenta: Number(row.valor_con_cuenta) || 0,
+          valorDisponible: Number(row.valor_disponible) || 0
+        };
+        return acc;
+      }, {} as Record<number, { nombre: string; valorTotal: number; valorConCuenta: number; valorDisponible: number }>);
+    },
+    enabled: !isLoadingAccess
+  });
+
   // Filter by active status and project access
   const allCuentasActivas = cuentasCobranza?.filter(cuenta => cuenta.activo) || [];
   const allCuentasCanceladas = cuentasCobranza?.filter(cuenta => !cuenta.activo) || [];
@@ -1190,8 +1264,14 @@ export default function Pagos() {
       restante: data.total - data.cobrado,
       cuentaIds: data.cuentaIds,
       id_proyecto: data.id_proyecto,
-      valorProyecto: data.total // For now, use total colocado as valor proyecto
+      valorProyecto: valorProyectosData?.[data.id_proyecto]?.valorTotal || data.total
     }));
+  
+  // Calculate valor total de todos los proyectos
+  const valorTotalProyectos = useMemo(() => {
+    if (!valorProyectosData) return 0;
+    return Object.values(valorProyectosData).reduce((sum, proj) => sum + proj.valorTotal, 0);
+  }, [valorProyectosData]);
 
   // Promedio de productos (usando cuentas activas)
   const promedioProductos = cuentasProductosActivas.length > 0 ? totalMontoProductos / cuentasProductosActivas.length : 0;
@@ -1587,115 +1667,98 @@ export default function Pagos() {
             </CardContent>
           </Card>
           
-          <Card>
+          {/* Merged Card: Resumen Financiero del Proyecto */}
+          <Card className="col-span-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monto Total Colocado</CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Resumen Financiero</CardTitle>
+              <Scale className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="text-2xl font-bold cursor-help">
-                      {formatCurrencyCompact(totalMonto)}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{formatCurrency(totalMonto)}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help">
-                        Propiedades: <span className="font-medium text-foreground">{formatCurrencyCompact(totalMontoPropiedades)}</span>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{formatCurrency(totalMontoPropiedades)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help">
-                        Productos: <span className="font-medium text-foreground">{formatCurrencyCompact(totalMontoProductos)}</span>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{formatCurrency(totalMontoProductos)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* New Card: Monto Total Cobrado */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monto Total Cobrado</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="text-2xl font-bold text-green-600 cursor-help">
-                      {formatCurrencyCompact(totalCobrado)}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{formatCurrency(totalCobrado)}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="grid grid-cols-2 gap-4 mt-3 text-xs">
-                <div>
-                  <span className="text-muted-foreground block">Propiedades:</span>
+              <div className="grid grid-cols-4 gap-4">
+                {/* Valor del Proyecto */}
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Valor del Proyecto</div>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="font-medium text-green-600 cursor-help">{formatCurrencyCompact(totalCobradoPropiedades)}</span>
+                        <div className="text-xl font-bold text-blue-600 cursor-help">
+                          {formatCurrencyCompact(valorTotalProyectos)}
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>{formatCurrency(totalCobradoPropiedades)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="block text-orange-600 cursor-help">Rest: {formatCurrencyCompact(totalMontoPropiedades - totalCobradoPropiedades)}</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{formatCurrency(totalMontoPropiedades - totalCobradoPropiedades)}</p>
+                        <p>{formatCurrency(valorTotalProyectos)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Propiedades vendidas + disponibles
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                <div>
-                  <span className="text-muted-foreground block">Productos:</span>
+                
+                {/* Monto Total Colocado */}
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Monto Colocado</div>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="font-medium text-green-600 cursor-help">{formatCurrencyCompact(totalCobradoProductos)}</span>
+                        <div className="text-xl font-bold cursor-help">
+                          {formatCurrencyCompact(totalMonto)}
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>{formatCurrency(totalCobradoProductos)}</p>
+                        <p>{formatCurrency(totalMonto)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Propiedades: {formatCurrency(totalMontoPropiedades)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Productos: {formatCurrency(totalMontoProductos)}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                </div>
+                
+                {/* Monto Total Cobrado */}
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Monto Cobrado</div>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="block text-orange-600 cursor-help">Rest: {formatCurrencyCompact(totalMontoProductos - totalCobradoProductos)}</span>
+                        <div className="text-xl font-bold text-green-600 cursor-help">
+                          {formatCurrencyCompact(totalCobrado)}
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>{formatCurrency(totalMontoProductos - totalCobradoProductos)}</p>
+                        <p>{formatCurrency(totalCobrado)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Propiedades: {formatCurrency(totalCobradoPropiedades)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Productos: {formatCurrency(totalCobradoProductos)}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                
+                {/* Monto Restante */}
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Monto Restante</div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="text-xl font-bold text-orange-600 cursor-help">
+                          {formatCurrencyCompact(totalMonto - totalCobrado)}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{formatCurrency(totalMonto - totalCobrado)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Propiedades: {formatCurrency(totalMontoPropiedades - totalCobradoPropiedades)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Productos: {formatCurrency(totalMontoProductos - totalCobradoProductos)}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -1783,7 +1846,21 @@ export default function Pagos() {
                           {item.count} {item.count === 1 ? 'cuenta' : 'cuentas'}
                         </Badge>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground pl-7">
+                      <div className="grid grid-cols-5 gap-2 text-xs text-muted-foreground pl-7">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <span className="block text-muted-foreground">Valor Proy:</span>
+                                <span className="font-semibold text-blue-600">{formatCurrencyCompact(item.valorProyecto)}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{formatCurrency(item.valorProyecto)}</p>
+                              <p className="text-xs text-muted-foreground">Valor total del proyecto</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
