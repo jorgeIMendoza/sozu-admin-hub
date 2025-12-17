@@ -6,7 +6,6 @@ import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 import { Building2, Home, DollarSign, MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 
 interface ProjectData {
@@ -16,8 +15,7 @@ interface ProjectData {
   precio_m2_actual: number;
   tipo_uso: string;
   monto_total: number;
-  monto_propiedades: number;
-  monto_productos: number;
+  metraje_promedio: number;
   tiene_disponibles: boolean;
 }
 
@@ -93,17 +91,17 @@ const Dashboard = () => {
               precio_m2_actual: project.precio_m2_actual || 0,
               tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
               monto_total: 0,
-              monto_propiedades: 0,
-              monto_productos: 0
+              metraje_promedio: 0,
+              tiene_disponibles: false
             };
           }
 
           const entidadIds = entidades.map(e => e.id);
 
-          // Luego las propiedades de esas entidades
+          // Luego las propiedades de esas entidades (incluyendo m2_interiores para calcular promedio)
           const { data: propiedades } = await supabase
             .from('propiedades')
-            .select('id')
+            .select('id, m2_interiores')
             .in('id_entidad_relacionada_dueno', entidadIds);
 
           if (!propiedades || propiedades.length === 0) {
@@ -114,10 +112,15 @@ const Dashboard = () => {
               precio_m2_actual: project.precio_m2_actual || 0,
               tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
               monto_total: 0,
-              monto_propiedades: 0,
-              monto_productos: 0
+              metraje_promedio: 0
             };
           }
+
+          // Calcular metraje promedio
+          const propiedadesConMetraje = propiedades.filter(p => p.m2_interiores && p.m2_interiores > 0);
+          const metraje_promedio = propiedadesConMetraje.length > 0
+            ? propiedadesConMetraje.reduce((sum, p) => sum + (p.m2_interiores || 0), 0) / propiedadesConMetraje.length
+            : 0;
 
           const propiedadIds = propiedades.map(p => p.id);
 
@@ -135,8 +138,7 @@ const Dashboard = () => {
               precio_m2_actual: project.precio_m2_actual || 0,
               tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
               monto_total: 0,
-              monto_propiedades: 0,
-              monto_productos: 0
+              metraje_promedio
             };
           }
 
@@ -185,8 +187,7 @@ const Dashboard = () => {
             precio_m2_actual: project.precio_m2_actual || 0,
             tipo_uso: (project.tipos_uso as any)?.nombre || 'N/A',
             monto_total,
-            monto_propiedades,
-            monto_productos,
+            metraje_promedio,
             tiene_disponibles: (disponibles && disponibles.length > 0) || false
           };
         })
@@ -279,15 +280,6 @@ const Dashboard = () => {
     }).format(amount);
   };
 
-  const formatCompactCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(2)}M`;
-    } else if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(2)}K`;
-    }
-    return formatCurrency(amount);
-  };
-
   // Show no access message if user has no projects assigned
   if (!isLoadingAccess && hasNoAccess) {
     return (
@@ -356,50 +348,16 @@ const Dashboard = () => {
                       {project.tipo_uso}
                     </div>
                   </div>
-                  <div className="pt-2 border-t">
-                    <div className="text-xs text-muted-foreground">Monto Total Colocado</div>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="text-lg font-bold text-foreground cursor-help">
-                            {formatCompactCurrency(project.monto_total)}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{formatCurrency(project.monto_total)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    {/* Desglose Propiedades vs Productos */}
-                    <div className="flex items-center gap-4 mt-2 text-xs">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 cursor-help">
-                              <Home className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">Propiedades:</span>
-                              <span className="font-medium text-foreground">{formatCompactCurrency(project.monto_propiedades)}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{formatCurrency(project.monto_propiedades)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 cursor-help">
-                              <Building2 className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">Productos:</span>
-                              <span className="font-medium text-foreground">{formatCompactCurrency(project.monto_productos)}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{formatCurrency(project.monto_productos)}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="text-muted-foreground">
+                      <Home className="h-4 w-4 inline mr-1" />
+                      Metraje promedio:
+                    </div>
+                    <div className="font-medium">
+                      {project.metraje_promedio > 0 
+                        ? `${project.metraje_promedio.toFixed(0)} m²`
+                        : 'N/A'
+                      }
                     </div>
                   </div>
                 </div>
