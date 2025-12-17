@@ -515,31 +515,18 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
       }
 
       // Step 3: Get CLABE STP ONLY if a scheme is selected
+      // Reutiliza CLABEs existentes de ofertas sin cuenta de cobranza o genera una nueva
       if (schemeId) {
-        console.log('🔍 Llamando crear_referencia_bancaria con id_er_dueno:', selectedProductData.id_entidad_relacionada_dueno);
-        console.log('📦 selectedProductData completo:', selectedProductData);
+        console.log('🔍 Obteniendo CLABE (reutilizada o nueva) para propiedad:', propertyId, 'producto:', selectedProduct);
         
-        const { data: generatedClabe, error: clabeError } = await supabase
-          .rpc('crear_referencia_bancaria', {
-            id_er_dueno: selectedProductData.id_entidad_relacionada_dueno
-          });
+        const { getOrCreateProductClabe } = await import('@/utils/clabeReuseUtils');
+        clabeData = await getOrCreateProductClabe(
+          propertyId,
+          selectedProduct!,
+          selectedProductData.id_entidad_relacionada_dueno
+        );
         
-        console.log('✅ CLABE generada:', generatedClabe);
-        console.log('❌ Error CLABE:', clabeError);
-        
-        if (clabeError) {
-          console.error('💥 Error generando CLABE:', clabeError);
-          throw clabeError;
-        }
-
-        if (!generatedClabe || typeof generatedClabe !== 'string' || generatedClabe.length !== 18) {
-          const errorMsg = `CLABE inválida generada: "${generatedClabe}" (tipo: ${typeof generatedClabe}, longitud: ${generatedClabe?.length || 0})`;
-          console.error('⚠️', errorMsg);
-          throw new Error(errorMsg);
-        }
-
-        clabeData = generatedClabe;
-        console.log('✨ CLABE válida, procediendo a crear oferta con:', clabeData);
+        console.log('✨ CLABE obtenida:', clabeData);
       } else {
         console.log('ℹ️ Sin esquema seleccionado - no se genera CLABE');
       }

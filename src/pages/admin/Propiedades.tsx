@@ -4743,20 +4743,20 @@ const Propiedades = () => {
                                   
                                   if (productError) throw productError;
                                   
-                                  // Generate CLABE
-                                  const { data: generatedClabe, error: clabeError } = await supabase
-                                    .rpc('crear_referencia_bancaria', {
-                                      id_er_dueno: productData.id_entidad_relacionada_dueno
-                                    });
-                                  
-                                  if (clabeError) throw clabeError;
+                                  // Get or reuse CLABE from existing offers without account
+                                  const { getOrCreateProductClabe } = await import('@/utils/clabeReuseUtils');
+                                  const clabeToUse = await getOrCreateProductClabe(
+                                    selectedPropertyForProductOffers!.id,
+                                    offer.id_producto!,
+                                    productData.id_entidad_relacionada_dueno
+                                  );
                                   
                                   // Update offer with scheme and CLABE
                                   const { error: updateError } = await supabase
                                     .from('ofertas')
                                     .update({
                                       id_esquema_pago_seleccionado: parseInt(schemeId),
-                                      clabe_stp_tmp_producto: generatedClabe
+                                      clabe_stp_tmp_producto: clabeToUse
                                     })
                                     .eq('id', offer.id);
                                   
