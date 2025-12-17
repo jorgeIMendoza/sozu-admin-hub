@@ -162,11 +162,20 @@ export const ProjectLegalEntitiesSection = ({
         throw new Error("Faltan datos requeridos");
       }
 
-      // Para proyectos de tipo Productos o Servicios, permitir múltiples entidades del mismo tipo
-      if (!isProductosOrServicios) {
-        // Check if project already has an entity of this type (solo para otros tipos de proyectos)
+      // IDs de tipos de entidad que permiten múltiples entidades
+      const TIPOS_PERMITEN_MULTIPLES = [4, 15]; // 4 = Dueño Vendedor, 15 = Aportante
+      
+      const tipoEntidadSeleccionado = parseInt(selectedEntityTypeId);
+      
+      // Permitir múltiples entidades si:
+      // 1. Es un proyecto de Productos/Servicios, O
+      // 2. El tipo de entidad es Dueño Vendedor (4) o Aportante (15)
+      const permiteMultiples = isProductosOrServicios || TIPOS_PERMITEN_MULTIPLES.includes(tipoEntidadSeleccionado);
+      
+      if (!permiteMultiples) {
+        // Check if project already has an entity of this type
         const existingEntity = projectLegalEntities.find(
-          (entity) => entity.id_tipo_entidad === parseInt(selectedEntityTypeId)
+          (entity) => entity.id_tipo_entidad === tipoEntidadSeleccionado
         );
 
         if (existingEntity) {
