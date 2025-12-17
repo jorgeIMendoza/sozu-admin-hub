@@ -65,6 +65,7 @@ interface CuentaCobranza {
   cash_percentage?: number;
   cash_payments?: CashPayment[];
   id_estatus_disponibilidad?: number;
+  estatus_propiedad?: string;
   collection_id?: number | null;
   total_acuerdos?: number;
   discrepancia?: number;
@@ -86,6 +87,7 @@ export default function Pagos() {
   const [proyectoFilter, setProyectoFilter] = useState("");
   const [noPropiedadFilter, setNoPropiedadFilter] = useState("");
   const [modeloFilter, setModeloFilter] = useState("");
+  const [estatusFilter, setEstatusFilter] = useState<number[]>([]);
   const [cancelDialog, setCancelDialog] = useState<{
     isOpen: boolean;
     cuenta: CuentaCobranza | null;
@@ -163,13 +165,27 @@ export default function Pagos() {
     ownershipEntityIds 
   } = useProjectAccess();
 
+  // Query para obtener estatus de disponibilidad
+  const { data: estatusDisponibilidad } = useQuery({
+    queryKey: ["estatus_disponibilidad"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estatus_disponibilidad')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPageActive(1);
-  }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos]);
+  }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos, estatusFilter]);
   useEffect(() => {
     setCurrentPageCancelled(1);
-  }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos]);
+  }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos, estatusFilter]);
 
   // Helper function to normalize balance and avoid floating point precision issues
   const normalizarSaldo = (saldo: number): number => {
@@ -1204,7 +1220,8 @@ export default function Pagos() {
       const matchesProyecto = proyectoFilter === "" || cuenta.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
       const matchesNoPropiedad = noPropiedadFilter === "" || cuenta.numero_propiedad.toLowerCase().includes(noPropiedadFilter.toLowerCase());
       const matchesModelo = modeloFilter === "" || cuenta.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
-      return matchesSearch && matchesIdCuenta && matchesProducto && matchesCompradores && matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo;
+      const matchesEstatus = estatusFilter.length === 0 || (cuenta.id_estatus_disponibilidad && estatusFilter.includes(cuenta.id_estatus_disponibilidad));
+      return matchesSearch && matchesIdCuenta && matchesProducto && matchesCompradores && matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo && matchesEstatus;
     });
   };
 
@@ -2147,6 +2164,44 @@ export default function Pagos() {
                     <label className="text-sm font-medium mb-2 block">Modelo</label>
                     <Input placeholder="Filtrar por modelo..." value={modeloFilter} onChange={e => setModeloFilter(e.target.value)} />
                   </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Estatus Propiedad</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span className="truncate">
+                            {estatusFilter.length === 0 ? "Todos" : `${estatusFilter.length} seleccionados`}
+                          </span>
+                          <Filter className="h-4 w-4 ml-2 flex-shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 bg-background z-50" align="start">
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Filtrar por Estatus</h4>
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {estatusDisponibilidad?.map((estatus) => (
+                              <div key={estatus.id} className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id={`estatus-${estatus.id}`} 
+                                  checked={estatusFilter.includes(estatus.id)} 
+                                  onCheckedChange={() => {
+                                    setEstatusFilter(prev => 
+                                      prev.includes(estatus.id) 
+                                        ? prev.filter(id => id !== estatus.id) 
+                                        : [...prev, estatus.id]
+                                    );
+                                  }} 
+                                />
+                                <Label htmlFor={`estatus-${estatus.id}`} className="cursor-pointer text-sm">
+                                  {estatus.nombre}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
                 
                 {/* Clear filters button */}
@@ -2161,6 +2216,7 @@ export default function Pagos() {
                   setProyectoFilter("");
                   setNoPropiedadFilter("");
                   setModeloFilter("");
+                  setEstatusFilter([]);
                 }}>
                     Limpiar Filtros
                   </Button>
@@ -2173,7 +2229,7 @@ export default function Pagos() {
                   Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasActivas.length}</span> cuentas
                 </div>}
               {isLoading ? <div className="text-center py-8">Cargando cuentas de cobranza...</div> : filteredCuentas.length === 0 ? <div className="text-center py-8 text-muted-foreground">
-                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza activas"}
+                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza activas"}
                 </div> : <Table>
                   <TableHeader>
                     <TableRow>
@@ -2187,6 +2243,7 @@ export default function Pagos() {
                       <TableHead>Edificio</TableHead>
                       <TableHead>No. Propiedad</TableHead>
                       <TableHead>Modelo</TableHead>
+                      <TableHead>Estatus</TableHead>
                       <TableHead>Metraje</TableHead>
                       <TableHead>Precio/m²</TableHead>
                       <TableHead>Precio Final</TableHead>
@@ -2326,6 +2383,15 @@ export default function Pagos() {
                             </span>
                           </TableCell>
                          <TableCell>{cuenta.modelo}</TableCell>
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad ? (
+                             <Badge variant="outline" className="text-xs">
+                               {estatusDisponibilidad?.find(e => e.id === cuenta.id_estatus_disponibilidad)?.nombre || 'N/A'}
+                             </Badge>
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
+                         </TableCell>
                          <TableCell>
                            {cuenta.tipo === 'Propiedad' && cuenta.metraje ? (
                              <span>{cuenta.metraje.toFixed(2)} m²</span>
@@ -2592,6 +2658,44 @@ export default function Pagos() {
                     <label className="text-sm font-medium mb-2 block">Modelo</label>
                     <Input placeholder="Filtrar por modelo..." value={modeloFilter} onChange={e => setModeloFilter(e.target.value)} />
                   </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Estatus Propiedad</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between font-normal">
+                          <span className="truncate">
+                            {estatusFilter.length === 0 ? "Todos" : `${estatusFilter.length} seleccionados`}
+                          </span>
+                          <Filter className="h-4 w-4 ml-2 flex-shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 bg-background z-50" align="start">
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">Filtrar por Estatus</h4>
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {estatusDisponibilidad?.map((estatus) => (
+                              <div key={estatus.id} className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id={`estatus-canceladas-${estatus.id}`} 
+                                  checked={estatusFilter.includes(estatus.id)} 
+                                  onCheckedChange={() => {
+                                    setEstatusFilter(prev => 
+                                      prev.includes(estatus.id) 
+                                        ? prev.filter(id => id !== estatus.id) 
+                                        : [...prev, estatus.id]
+                                    );
+                                  }} 
+                                />
+                                <Label htmlFor={`estatus-canceladas-${estatus.id}`} className="cursor-pointer text-sm">
+                                  {estatus.nombre}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
                 
                 {/* Clear filters button */}
@@ -2606,6 +2710,7 @@ export default function Pagos() {
                   setProyectoFilter("");
                   setNoPropiedadFilter("");
                   setModeloFilter("");
+                  setEstatusFilter([]);
                 }}>
                     Limpiar Filtros
                   </Button>
@@ -2618,7 +2723,7 @@ export default function Pagos() {
                   Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasCanceladas.length}</span> cuentas
                 </div>}
               {isLoading ? <div className="text-center py-8">Cargando cuentas de cobranza...</div> : filteredCuentas.length === 0 ? <div className="text-center py-8 text-muted-foreground">
-                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza canceladas"}
+                  {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza canceladas"}
                 </div> : <Table>
                   <TableHeader>
                     <TableRow>
@@ -2632,6 +2737,7 @@ export default function Pagos() {
                       <TableHead>Edificio</TableHead>
                       <TableHead>No. Propiedad</TableHead>
                       <TableHead>Modelo</TableHead>
+                      <TableHead>Estatus</TableHead>
                       <TableHead>Precio Final</TableHead>
                       <TableHead>Pagado</TableHead>
                       <TableHead>Restante</TableHead>
@@ -2749,6 +2855,15 @@ export default function Pagos() {
                             </span>
                           </TableCell>
                          <TableCell>{cuenta.modelo}</TableCell>
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad ? (
+                             <Badge variant="outline" className="text-xs">
+                               {estatusDisponibilidad?.find(e => e.id === cuenta.id_estatus_disponibilidad)?.nombre || 'N/A'}
+                             </Badge>
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
+                         </TableCell>
                          <TableCell className="font-semibold text-green-600">
                            <div className="flex items-center justify-end gap-2">
                              <span>{formatCurrency(Number(cuenta.precio_final))}</span>
