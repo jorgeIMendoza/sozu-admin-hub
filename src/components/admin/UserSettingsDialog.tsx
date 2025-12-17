@@ -8,8 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { User, Mail, Shield, Key, Eye, EyeOff, CheckCircle, Building2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { User, Mail, Shield, Key, Eye, EyeOff, CheckCircle, Building2, UserCog } from "lucide-react";
+import { PersonForm } from "./PersonForm";
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -17,8 +18,10 @@ interface UserSettingsDialogProps {
 }
 
 export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogProps) {
-  const { profile, user } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
+  const queryClient = useQueryClient();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,6 +29,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Check if user is super admin (rol_id 1 or 2)
   const isSuperAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
@@ -57,6 +61,28 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
       return proyectos || [];
     },
     enabled: open && !!profile?.email && !isSuperAdmin,
+  });
+
+  // Query for user's persona data
+  const { data: personaData, isLoading: personaLoading } = useQuery({
+    queryKey: ["user_persona_data", profile?.id_persona],
+    queryFn: async () => {
+      if (!profile?.id_persona) return null;
+
+      const { data, error } = await supabase
+        .from('personas')
+        .select('*')
+        .eq('id', profile.id_persona)
+        .single();
+
+      if (error) {
+        console.error('Error fetching persona:', error);
+        return null;
+      }
+
+      return data;
+    },
+    enabled: open && !!profile?.id_persona,
   });
 
   const passwordRequirements = [
@@ -122,6 +148,76 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
     }
   };
 
+  const handleProfileUpdate = async (data: any) => {
+    if (!profile?.id_persona) {
+      toast.error("No se encontró información de persona asociada");
+      return;
+    }
+
+    setIsSavingProfile(true);
+
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .update({
+          nombre_legal: data.nombre_legal,
+          nombre_comercial: data.nombre_comercial,
+          email: data.email,
+          telefono: data.telefono,
+          clave_pais_telefono: data.clave_pais_telefono,
+          curp: data.curp,
+          rfc: data.rfc,
+          uso_cfdi: data.uso_cfdi,
+          regimen: data.regimen,
+          sexo: data.sexo,
+          fecha_nacimiento: data.fecha_nacimiento,
+          id_estado_civil: data.id_estado_civil,
+          ocupacion: data.ocupacion,
+          id_pais_nacimiento: data.id_pais_nacimiento,
+          id_estado_nacimiento: data.id_estado_nacimiento,
+          id_municipio_nacimiento: data.id_municipio_nacimiento,
+          direccion_calle: data.direccion_calle,
+          direccion_num_ext: data.direccion_num_ext,
+          direccion_num_int: data.direccion_num_int,
+          direccion_colonia: data.direccion_colonia,
+          direccion_codigo_postal: data.direccion_codigo_postal,
+          direccion_id_pais: data.direccion_id_pais,
+          direccion_id_estado: data.direccion_id_estado,
+          direccion_id_municipio: data.direccion_id_municipio,
+          direccion_fiscal_calle: data.direccion_fiscal_calle,
+          direccion_fiscal_num_ext: data.direccion_fiscal_num_ext,
+          direccion_fiscal_num_int: data.direccion_fiscal_num_int,
+          direccion_fiscal_colonia: data.direccion_fiscal_colonia,
+          direccion_fiscal_codigo_postal: data.direccion_fiscal_codigo_postal,
+          direccion_fiscal_id_pais: data.direccion_fiscal_id_pais,
+          direccion_fiscal_id_estado: data.direccion_fiscal_id_estado,
+          direccion_fiscal_id_municipio: data.direccion_fiscal_id_municipio,
+          fecha_actualizacion: new Date().toISOString(),
+        })
+        .eq('id', profile.id_persona);
+
+      if (error) throw error;
+
+      // Update usuario name if changed
+      if (data.nombre_legal) {
+        await supabase
+          .from('usuarios')
+          .update({ nombre: data.nombre_legal })
+          .eq('email', profile.email);
+      }
+
+      toast.success("Datos actualizados correctamente");
+      setIsEditingProfile(false);
+      queryClient.invalidateQueries({ queryKey: ["user_persona_data"] });
+      refreshProfile();
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast.error("Error al actualizar los datos: " + error.message);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const resetForm = () => {
     setIsChangingPassword(false);
     setCurrentPassword("");
@@ -144,6 +240,35 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
         return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
   };
+
+  // If editing profile, show PersonForm in a full dialog
+  if (isEditingProfile && personaData) {
+    return (
+      <Dialog open={open} onOpenChange={(newOpen) => {
+        if (!newOpen) {
+          setIsEditingProfile(false);
+        }
+        onOpenChange(newOpen);
+      }}>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar mis datos</DialogTitle>
+            <DialogDescription>
+              Actualiza tu información personal y documentos
+            </DialogDescription>
+          </DialogHeader>
+          <PersonForm
+            initialData={personaData}
+            onSubmit={handleProfileUpdate}
+            onCancel={() => setIsEditingProfile(false)}
+            isLoading={isSavingProfile}
+            entityType="user"
+            fixedEntityType={true}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => {
@@ -226,6 +351,32 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
           </div>
 
           <Separator />
+
+          {/* Edit Profile Section */}
+          {profile?.id_persona && (
+            <>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserCog className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">Mis datos personales</span>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsEditingProfile(true)}
+                    disabled={personaLoading}
+                  >
+                    {personaLoading ? "Cargando..." : "Editar"}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Actualiza tu información personal, dirección, datos fiscales y documentos.
+                </p>
+              </div>
+              <Separator />
+            </>
+          )}
 
           {/* Change Password Section */}
           <div className="space-y-4">
