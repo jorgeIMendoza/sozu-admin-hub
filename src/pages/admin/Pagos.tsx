@@ -1282,11 +1282,18 @@ export default function Pagos() {
       valorProyecto: valorProyectosData?.[data.id_proyecto]?.valorTotal || data.total
     }));
   
-  // Calculate valor total de todos los proyectos
+  // Calculate valor total de todos los proyectos (solo proyectos con cuentas activas)
   const valorTotalProyectos = useMemo(() => {
     if (!valorProyectosData) return 0;
-    return Object.values(valorProyectosData).reduce((sum, proj) => sum + proj.valorTotal, 0);
-  }, [valorProyectosData]);
+    // Obtener los IDs de proyectos que tienen cuentas activas
+    const proyectosConCuentasIds = new Set(
+      Object.values(proyectosDataMap).map(data => data.id_proyecto).filter(id => id > 0)
+    );
+    // Solo sumar valores de proyectos con cuentas activas
+    return Object.entries(valorProyectosData)
+      .filter(([idStr]) => proyectosConCuentasIds.has(parseInt(idStr)))
+      .reduce((sum, [, proj]) => sum + proj.valorTotal, 0);
+  }, [valorProyectosData, proyectosDataMap]);
 
   // Promedio de productos (usando cuentas activas)
   const promedioProductos = cuentasProductosActivas.length > 0 ? totalMontoProductos / cuentasProductosActivas.length : 0;
