@@ -124,7 +124,8 @@ const Proyectos = () => {
           multimedias_proyecto (
             id,
             url,
-            es_imagen
+            es_imagen,
+            activo
           ),
           videos_youtube (
             id,
@@ -246,7 +247,8 @@ const Proyectos = () => {
           multimedias_proyecto (
             id,
             url,
-            es_imagen
+            es_imagen,
+            activo
           ),
           videos_youtube (
             id,
@@ -382,8 +384,8 @@ const Proyectos = () => {
 
   // Helper functions
   const getMultimediaCount = (project: any) => {
-    const images = project.multimedias_proyecto?.filter((m: any) => m.es_imagen) || [];
-    const videos = project.multimedias_proyecto?.filter((m: any) => !m.es_imagen) || [];
+    const images = project.multimedias_proyecto?.filter((m: any) => m.es_imagen && m.activo) || [];
+    const videos = project.multimedias_proyecto?.filter((m: any) => !m.es_imagen && m.activo) || [];
     const youtubeVideos = project.videos_youtube?.filter((v: any) => v.activo) || [];
     return { 
       images: images.length, 
