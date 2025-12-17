@@ -294,7 +294,7 @@ export default function EntidadesLegales() {
                 body: {
                   email: repPersona.email,
                   nombre: repPersona.nombre_legal,
-                  rol_id: 14, // Representante legal
+                  rol_id: 14, // Representante comercial
                   id_persona: repPersona.id,
                   telefono: repPersona.telefono || null,
                   clave_pais_telefono: repPersona.clave_pais_telefono || null
@@ -308,6 +308,48 @@ export default function EntidadesLegales() {
           }
         } catch (e) {
           console.error('Error al crear usuario para representante legal:', e);
+        }
+      }
+
+      // Crear usuario para el representante comercial si se asignó
+      if (commercialRepresentativeId) {
+        try {
+          const { data: repComData, error: repComError } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, email, telefono, clave_pais_telefono)')
+            .eq('id', commercialRepresentativeId)
+            .single();
+          
+          if (!repComError && repComData?.personas) {
+            const repPersona = repComData.personas as any;
+            
+            // Verificar si ya existe un usuario con ese email
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('email')
+              .eq('email', repPersona.email)
+              .maybeSingle();
+            
+            if (!existingUser) {
+              // Crear usuario para el representante comercial con rol Representante comercial (id: 14)
+              const { error: repUserError } = await supabase.functions.invoke('create-user', {
+                body: {
+                  email: repPersona.email,
+                  nombre: repPersona.nombre_legal,
+                  rol_id: 14, // Representante comercial
+                  id_persona: repPersona.id,
+                  telefono: repPersona.telefono || null,
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null
+                }
+              });
+              
+              if (repUserError) {
+                console.error('Error al crear usuario para representante comercial:', repUserError);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error al crear usuario para representante comercial:', e);
         }
       }
     },
@@ -380,12 +422,12 @@ export default function EntidadesLegales() {
               .maybeSingle();
             
             if (!existingUser) {
-              // Crear usuario para el representante legal con rol Representante Legal (id: 14)
+              // Crear usuario para el representante legal con rol Representante comercial (id: 14)
               const { error: repUserError } = await supabase.functions.invoke('create-user', {
                 body: {
                   email: repPersona.email,
                   nombre: repPersona.nombre_legal,
-                  rol_id: 14, // Representante legal
+                  rol_id: 14, // Representante comercial
                   id_persona: repPersona.id,
                   telefono: repPersona.telefono || null,
                   clave_pais_telefono: repPersona.clave_pais_telefono || null
@@ -399,6 +441,48 @@ export default function EntidadesLegales() {
           }
         } catch (e) {
           console.error('Error al crear usuario para representante legal:', e);
+        }
+      }
+
+      // Crear usuario para el representante comercial si se asignó uno nuevo
+      if (commercialRepresentativeId && commercialRepresentativeId !== editingEntity?.id_entidad_relacionada_rep_com) {
+        try {
+          const { data: repComData, error: repComError } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, email, telefono, clave_pais_telefono)')
+            .eq('id', commercialRepresentativeId)
+            .single();
+          
+          if (!repComError && repComData?.personas) {
+            const repPersona = repComData.personas as any;
+            
+            // Verificar si ya existe un usuario con ese email
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('email')
+              .eq('email', repPersona.email)
+              .maybeSingle();
+            
+            if (!existingUser) {
+              // Crear usuario para el representante comercial con rol Representante comercial (id: 14)
+              const { error: repUserError } = await supabase.functions.invoke('create-user', {
+                body: {
+                  email: repPersona.email,
+                  nombre: repPersona.nombre_legal,
+                  rol_id: 14, // Representante comercial
+                  id_persona: repPersona.id,
+                  telefono: repPersona.telefono || null,
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null
+                }
+              });
+              
+              if (repUserError) {
+                console.error('Error al crear usuario para representante comercial:', repUserError);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error al crear usuario para representante comercial:', e);
         }
       }
     },
