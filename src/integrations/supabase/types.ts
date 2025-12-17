@@ -5196,6 +5196,48 @@ export type Database = {
         }
         Relationships: []
       }
+      roles_estatus_disponibilidad: {
+        Row: {
+          activo: boolean
+          fecha_actualizacion: string | null
+          fecha_creacion: string | null
+          id: number
+          id_estatus_disponibilidad: number
+          id_rol: number
+        }
+        Insert: {
+          activo?: boolean
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          id_estatus_disponibilidad: number
+          id_rol: number
+        }
+        Update: {
+          activo?: boolean
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          id_estatus_disponibilidad?: number
+          id_rol?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roles_estatus_disponibilidad_id_estatus_disponibilidad_fkey"
+            columns: ["id_estatus_disponibilidad"]
+            isOneToOne: false
+            referencedRelation: "estatus_disponibilidad"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roles_estatus_disponibilidad_id_rol_fkey"
+            columns: ["id_rol"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submenus: {
         Row: {
           activo: boolean | null

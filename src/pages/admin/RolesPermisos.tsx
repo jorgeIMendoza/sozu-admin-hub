@@ -51,6 +51,170 @@ interface SubmenuPermiso {
 
 const SUPER_ADMIN_ROLE_ID = 1;
 
+// Component for managing availability status permissions per role
+const EstatusDisponibilidadSelector = ({ rolId, isSuperAdmin }: { rolId: number; isSuperAdmin: boolean }) => {
+  const queryClient = useQueryClient();
+
+  // Fetch all active availability statuses
+  const { data: estatusDisponibilidad = [] } = useQuery({
+    queryKey: ['estatus-disponibilidad-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estatus_disponibilidad')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch status permissions for selected role
+  const { data: rolEstatus = [], refetch: refetchRolEstatus } = useQuery({
+    queryKey: ['rol-estatus-disponibilidad', rolId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('roles_estatus_disponibilidad')
+        .select('id_estatus_disponibilidad')
+        .eq('id_rol', rolId)
+        .eq('activo', true);
+      if (error) throw error;
+      return data?.map(r => r.id_estatus_disponibilidad) || [];
+    },
+    enabled: !!rolId && !isSuperAdmin,
+  });
+
+  // Toggle individual status mutation
+  const toggleEstatusMutation = useMutation({
+    mutationFn: async ({ estatusId, isActive }: { estatusId: number; isActive: boolean }) => {
+      if (isActive) {
+        const { error } = await supabase
+          .from('roles_estatus_disponibilidad')
+          .delete()
+          .eq('id_rol', rolId)
+          .eq('id_estatus_disponibilidad', estatusId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('roles_estatus_disponibilidad')
+          .upsert({ 
+            id_rol: rolId, 
+            id_estatus_disponibilidad: estatusId,
+            activo: true
+          }, { 
+            onConflict: 'id_rol,id_estatus_disponibilidad' 
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      refetchRolEstatus();
+      queryClient.invalidateQueries({ queryKey: ['rol-estatus-disponibilidad'] });
+    },
+    onError: (error) => {
+      toast.error(`Error al actualizar estatus: ${error.message}`);
+    },
+  });
+
+  // Select all mutation
+  const selectAllMutation = useMutation({
+    mutationFn: async () => {
+      const inserts = estatusDisponibilidad.map(e => ({
+        id_rol: rolId,
+        id_estatus_disponibilidad: e.id,
+        activo: true
+      }));
+      
+      const { error } = await supabase
+        .from('roles_estatus_disponibilidad')
+        .upsert(inserts, { onConflict: 'id_rol,id_estatus_disponibilidad' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchRolEstatus();
+      toast.success('Todos los estatus seleccionados');
+    },
+    onError: (error) => {
+      toast.error(`Error: ${error.message}`);
+    },
+  });
+
+  // Deselect all mutation
+  const deselectAllMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('roles_estatus_disponibilidad')
+        .delete()
+        .eq('id_rol', rolId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchRolEstatus();
+      toast.success('Todos los estatus deseleccionados');
+    },
+    onError: (error) => {
+      toast.error(`Error: ${error.message}`);
+    },
+  });
+
+  if (isSuperAdmin) return null;
+
+  const hasEstatus = (estatusId: number) => rolEstatus.includes(estatusId);
+  const isLoading = toggleEstatusMutation.isPending || selectAllMutation.isPending || deselectAllMutation.isPending;
+
+  return (
+    <div className="mt-4 pt-4 border-t">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <span className="text-sm font-medium">Estatus de disponibilidad visibles</span>
+          <p className="text-xs text-muted-foreground">
+            Define qué estatus de propiedades puede ver este rol
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => selectAllMutation.mutate()}
+            disabled={isLoading}
+          >
+            Todos
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => deselectAllMutation.mutate()}
+            disabled={isLoading}
+          >
+            Ninguno
+          </Button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 p-3 bg-background rounded-md border">
+        {estatusDisponibilidad.map(estatus => (
+          <label 
+            key={estatus.id} 
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border cursor-pointer hover:bg-muted/50 transition-colors"
+          >
+            <Checkbox
+              checked={hasEstatus(estatus.id)}
+              onCheckedChange={() => toggleEstatusMutation.mutate({ 
+                estatusId: estatus.id, 
+                isActive: hasEstatus(estatus.id)
+              })}
+              disabled={isLoading}
+            />
+            <span className="text-sm">{estatus.nombre}</span>
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground mt-2">
+        Seleccionados: {rolEstatus.length} de {estatusDisponibilidad.length}
+      </p>
+    </div>
+  );
+};
+
 export default function RolesPermisos() {
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [expandedMenus, setExpandedMenus] = useState<Set<number>>(new Set());
@@ -757,12 +921,18 @@ export default function RolesPermisos() {
                           disabled={updateVerTodosProyectosMutation.isPending}
                         />
                         <div>
-                          <span className="text-sm font-medium">Ver todos los proyectos/propiedades</span>
+                      <span className="text-sm font-medium">Ver todos los proyectos/propiedades</span>
                           <p className="text-xs text-muted-foreground">
                             Permite ver todos los proyectos y propiedades sin necesidad de asignación específica
                           </p>
                         </div>
                       </label>
+                      
+                      {/* Estatus de disponibilidad visibles */}
+                      <EstatusDisponibilidadSelector 
+                        rolId={selectedRole.id}
+                        isSuperAdmin={isSuperAdminSelected}
+                      />
                     </div>
                   </div>
                 )}

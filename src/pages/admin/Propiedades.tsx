@@ -998,9 +998,28 @@ const Propiedades = () => {
     return transformedData;
   };
 
+  // Query to fetch allowed availability statuses for current user's role
+  const { data: allowedEstatusNames } = useQuery({
+    queryKey: ['allowed-estatus-names', profile?.rol_id, isSuperAdmin],
+    queryFn: async () => {
+      if (isSuperAdmin) return null; // Super Admin sees all
+      if (!profile?.rol_id) return [];
+      
+      const { data, error } = await supabase
+        .from('roles_estatus_disponibilidad')
+        .select('id_estatus_disponibilidad, estatus_disponibilidad!inner(nombre)')
+        .eq('id_rol', profile.rol_id)
+        .eq('activo', true);
+      
+      if (error) throw error;
+      return data?.map((r: any) => r.estatus_disponibilidad.nombre) || [];
+    },
+    enabled: !!profile?.rol_id,
+  });
+
   // Separate queries for each tab with server-side pagination
   const { data: propiedadesActivasData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
-    queryKey: ['properties-activos', currentPageActive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess],
+    queryKey: ['properties-activos', currentPageActive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames],
     queryFn: async () => {
       try {
         const from = (currentPageActive - 1) * itemsPerPage;
@@ -1106,6 +1125,12 @@ const Propiedades = () => {
         
         if (disponibilidadFilter.length > 0) {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
+        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length > 0) {
+          // Apply role-based status filter if no specific filter selected
+          query = query.in('estatus_disponibilidad.nombre', allowedEstatusNames);
+        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length === 0) {
+          // Role has no allowed statuses - return empty
+          return { items: [], count: 0, totalPages: 0 };
         }
 
         // Determine if we need full fetch for local filtering
@@ -1259,7 +1284,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesDraftData, isLoading: loadingDraft, refetch: refetchDraft } = useQuery({
-    queryKey: ['properties-draft', currentPageDraft, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess],
+    queryKey: ['properties-draft', currentPageDraft, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames],
     queryFn: async () => {
       try {
         const from = (currentPageDraft - 1) * itemsPerPage;
@@ -1364,6 +1389,10 @@ const Propiedades = () => {
         
         if (disponibilidadFilter.length > 0) {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
+        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length > 0) {
+          query = query.in('estatus_disponibilidad.nombre', allowedEstatusNames);
+        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
         }
 
         // Determine if we need full fetch for local filtering
@@ -1517,7 +1546,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesEliminadasData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
-    queryKey: ['properties-eliminados', currentPageDeleted, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess],
+    queryKey: ['properties-eliminados', currentPageDeleted, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames],
     queryFn: async () => {
       try {
         const from = (currentPageDeleted - 1) * itemsPerPage;
@@ -1622,6 +1651,10 @@ const Propiedades = () => {
         
         if (disponibilidadFilter.length > 0) {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
+        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length > 0) {
+          query = query.in('estatus_disponibilidad.nombre', allowedEstatusNames);
+        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
         }
 
         // Determine if we need full fetch for local filtering
@@ -1824,6 +1857,12 @@ const Propiedades = () => {
       return data || [];
     },
   });
+
+  // Filter availability options based on role permissions
+  const filteredAvailabilityOptions = availabilityOptions?.filter(option => {
+    if (isSuperAdmin || allowedEstatusNames === null) return true;
+    return allowedEstatusNames?.includes(option.nombre);
+  }) || [];
 
   // Función para obtener ofertas de una propiedad específica
   const fetchPropertyOffers = async (propertyId: number) => {
@@ -3734,7 +3773,7 @@ const Propiedades = () => {
                       <CommandInput placeholder="Buscar disponibilidad..." />
                       <CommandEmpty>No se encontró disponibilidad.</CommandEmpty>
                       <CommandGroup className="max-h-64 overflow-auto">
-                        {availabilityOptions?.map((option) => (
+                        {filteredAvailabilityOptions?.map((option) => (
                           <CommandItem
                             key={option.id}
                             onSelect={() => {
