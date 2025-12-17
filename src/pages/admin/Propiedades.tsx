@@ -236,7 +236,14 @@ const Propiedades = () => {
   const [activeTab, setActiveTab] = useState("activos");
   
   // Project access control
-  const { accessibleProjectIds, hasUnrestrictedAccess, hasNoAccess, isLoading: isLoadingAccess } = useProjectAccess();
+  const { 
+    accessibleProjectIds, 
+    hasUnrestrictedAccess, 
+    hasNoAccess, 
+    isLoading: isLoadingAccess,
+    isRepresentanteEmpresaDuena,
+    ownershipEntityIds 
+  } = useProjectAccess();
   
   // Page permissions
   const { canCreate, canUpdate, canDelete, canGenerateOffer, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/propiedades');
@@ -1019,7 +1026,7 @@ const Propiedades = () => {
 
   // Separate queries for each tab with server-side pagination
   const { data: propiedadesActivasData, isLoading: loadingActivos, refetch: refetchActivos } = useQuery({
-    queryKey: ['properties-activos', currentPageActive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames],
+    queryKey: ['properties-activos', currentPageActive, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames, isRepresentanteEmpresaDuena, ownershipEntityIds],
     queryFn: async () => {
       try {
         const from = (currentPageActive - 1) * itemsPerPage;
@@ -1098,6 +1105,14 @@ const Propiedades = () => {
           query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
         } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
           // User has no project access - return empty
+          return { items: [], count: 0, totalPages: 0 };
+        }
+        
+        // Filter by ownership for Representante de empresa dueña
+        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
+          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
+        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
+          // User has no ownership entities - return empty
           return { items: [], count: 0, totalPages: 0 };
         }
         
@@ -1284,7 +1299,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesDraftData, isLoading: loadingDraft, refetch: refetchDraft } = useQuery({
-    queryKey: ['properties-draft', currentPageDraft, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames],
+    queryKey: ['properties-draft', currentPageDraft, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames, isRepresentanteEmpresaDuena, ownershipEntityIds],
     queryFn: async () => {
       try {
         const from = (currentPageDraft - 1) * itemsPerPage;
@@ -1362,6 +1377,13 @@ const Propiedades = () => {
         if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
           query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
         } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+        
+        // Filter by ownership for Representante de empresa dueña
+        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
+          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
+        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
           return { items: [], count: 0, totalPages: 0 };
         }
         
@@ -1546,7 +1568,7 @@ const Propiedades = () => {
   });
 
   const { data: propiedadesEliminadasData, isLoading: loadingEliminados, refetch: refetchEliminados } = useQuery({
-    queryKey: ['properties-eliminados', currentPageDeleted, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames],
+    queryKey: ['properties-eliminados', currentPageDeleted, searchTerm, selectedProyectos, selectedModelos, recamarasFilter, banosFilter, disponibilidadFilter, bodegasFilter, estacionamientosFilter, cuentaCobranzaFilter, areaFilter, precioFilter, precioSort, accessibleProjectIds, hasUnrestrictedAccess, allowedEstatusNames, isRepresentanteEmpresaDuena, ownershipEntityIds],
     queryFn: async () => {
       try {
         const from = (currentPageDeleted - 1) * itemsPerPage;
@@ -1624,6 +1646,13 @@ const Propiedades = () => {
         if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
           query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
         } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+        
+        // Filter by ownership for Representante de empresa dueña
+        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
+          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
+        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
           return { items: [], count: 0, totalPages: 0 };
         }
         
