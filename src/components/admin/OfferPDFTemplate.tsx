@@ -197,7 +197,7 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
               </div>
               {propertyDetails.projectData?.mostrar_piso_en_oferta !== false && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Piso:</span>
+                  <span className="text-muted-foreground">Nivel:</span>
                   <span className="font-semibold">{propertyDetails.numero_piso !== null && propertyDetails.numero_piso !== undefined ? propertyDetails.numero_piso : 'N/A'}</span>
                 </div>
               )}

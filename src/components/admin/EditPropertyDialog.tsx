@@ -634,7 +634,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="numero_piso">Número de Piso *</Label>
+                    <Label htmlFor="numero_piso">Nivel *</Label>
                     <Input
                       id="numero_piso"
                       type="text"

@@ -684,6 +684,7 @@ serve(async (req) => {
       numero_propiedad: propiedad.numero_propiedad,
       numero_departamento: propiedad.numero_propiedad, // Alias
       piso: propiedad.numero_piso?.toString() || "",
+      nivel: propiedad.numero_piso?.toString() || "", // Alias
       numero_piso: propiedad.numero_piso?.toString() || "",
       proyecto: proyecto.nombre,
       edificio: edificio.nombre,

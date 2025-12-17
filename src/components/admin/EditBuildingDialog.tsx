@@ -188,7 +188,7 @@ export const EditBuildingDialog = ({ building, projectId, onBuildingUpdated }: E
               name="numero_pisos"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Número de Pisos</FormLabel>
+                  <FormLabel>Número de Niveles</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 

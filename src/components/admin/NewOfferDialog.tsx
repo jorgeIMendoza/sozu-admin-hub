@@ -1520,7 +1520,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                          />
                        </FormControl>
                        <div className="space-y-1 leading-none">
-                         <FormLabel>Mostrar piso</FormLabel>
+                         <FormLabel>Mostrar nivel</FormLabel>
                        </div>
                      </FormItem>
                    )}

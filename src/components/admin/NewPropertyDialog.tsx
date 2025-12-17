@@ -23,7 +23,7 @@ const formSchema = z.object({
   id_edificio: z.string().min(1, "El edificio es requerido"),
   id_modelo: z.string().min(1, "El modelo es requerido"),
   numero_propiedad: z.string().min(1, "El número de propiedad es requerido"),
-  numero_piso: z.string().min(1, "El número de piso es requerido"),
+  numero_piso: z.string().min(1, "El nivel es requerido"),
   m2_interiores: z.string().min(1, "Los metros cuadrados interiores son requeridos"),
   m2_exteriores: z.string().min(1, "Los metros cuadrados exteriores son requeridos"),
   m2_loft: z.string().optional(),

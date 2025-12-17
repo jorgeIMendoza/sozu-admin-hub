@@ -390,7 +390,7 @@ export const PropertyBasicInfoSection = ({
             name="numero_piso"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Número de Piso *</FormLabel>
+                <FormLabel>Nivel *</FormLabel>
                 <FormControl>
                   <Input type="number" placeholder="Ej: 1" {...field} />
                 </FormControl>

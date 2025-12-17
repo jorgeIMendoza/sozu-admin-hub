@@ -158,7 +158,7 @@ const COLUMNS_CONFIG: ColumnConfig[] = [
   { key: 'edificio', label: 'Edificio', required: false, defaultVisible: true },
   { key: 'modelo', label: 'Modelo', required: false, defaultVisible: true },
   { key: 'numero_departamento', label: 'No. Departamento', required: true, defaultVisible: true },
-  { key: 'piso', label: 'Piso', required: false, defaultVisible: false },
+  { key: 'piso', label: 'Nivel', required: false, defaultVisible: false },
   { key: 'vista', label: 'Vista', required: false, defaultVisible: false },
   { key: 'area', label: 'Área', required: false, defaultVisible: true },
   { key: 'configuracion', label: 'Configuración', required: false, defaultVisible: true },

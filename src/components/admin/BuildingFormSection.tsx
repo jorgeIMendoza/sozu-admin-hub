@@ -133,7 +133,7 @@ export const BuildingFormSection = ({ buildings, onBuildingsChange, isNewProject
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Número de Pisos</Label>
+                    <Label className="text-xs">Número de Niveles</Label>
                     <Input
                       placeholder="Ej: 20"
                       value={building.numero_pisos || ""}

@@ -2362,7 +2362,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                         <Input value={propiedadDetalle.numero_propiedad || ''} readOnly />
                       </div>
                       <div>
-                        <Label>Piso</Label>
+                        <Label>Nivel</Label>
                         <Input value={propiedadDetalle.numero_piso || ''} readOnly />
                       </div>
                       <div>

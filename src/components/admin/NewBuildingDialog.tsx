@@ -147,7 +147,7 @@ export const NewBuildingDialog = ({ projectId, onBuildingAdded }: NewBuildingDia
               name="numero_pisos"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Número de Pisos</FormLabel>
+                  <FormLabel>Número de Niveles</FormLabel>
                   <FormControl>
                     <Input placeholder="Ej: 20" {...field} />
                   </FormControl>

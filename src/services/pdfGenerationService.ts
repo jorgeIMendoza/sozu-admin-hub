@@ -389,7 +389,7 @@ export class PDFGenerationService {
       [`Número de Propiedad:`, propertyDetails.numero_propiedad],
       [`Precio de Lista:`, `$${propertyDetails.precio_lista.toLocaleString('es-MX')}`],
       [`Edificio:`, propertyDetails.edificio],
-      [`Piso:`, propertyDetails.numero_piso.toString()],
+      [`Nivel:`, propertyDetails.numero_piso.toString()],
       [`Metros Interiores:`, `${propertyDetails.m2_interiores} m²`],
       [`Modelo:`, propertyDetails.modelo],
       [`Número de Recámaras:`, propertyDetails.recamaras.toString()],

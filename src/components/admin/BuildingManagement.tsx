@@ -249,7 +249,7 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                   {(building.numero_pisos || building.fecha_lanzamiento) && (
                     <div className="text-sm text-muted-foreground space-y-1">
                       {building.numero_pisos && (
-                        <p>Pisos: {building.numero_pisos}</p>
+                        <p>Niveles: {building.numero_pisos}</p>
                       )}
                       {building.fecha_lanzamiento && (
                         <p>Lanzamiento: {new Date(building.fecha_lanzamiento).toLocaleDateString()}</p>

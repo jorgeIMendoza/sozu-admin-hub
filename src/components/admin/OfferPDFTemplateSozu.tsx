@@ -312,7 +312,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                 </div>
                 {propertyDetails.projectData?.mostrar_piso_en_oferta === true && propertyDetails.numero_piso && (
                   <div style={{ marginBottom: '4px' }}>
-                    <span>Piso: </span>
+                    <span>Nivel: </span>
                     <span style={{ fontWeight: '900' }}>{propertyDetails.numero_piso}</span>
                   </div>
                 )}

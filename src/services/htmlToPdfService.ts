@@ -1574,7 +1574,7 @@ class HTMLToPDFService {
               React.createElement('span', {
                 key: 'label',
                 className: 'text-muted-foreground'
-              }, 'Piso:'),
+              }, 'Nivel:'),
               React.createElement('span', {
                 key: 'value',
                 className: 'font-semibold'

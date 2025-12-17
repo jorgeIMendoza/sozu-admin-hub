@@ -140,7 +140,7 @@ export const ProjectDetailsDialog = ({ projectId, projectName }: ProjectDetailsD
                         <CardContent className="p-4">
                           <h4 className="font-semibold">{edificio.nombre}</h4>
                           <div className="text-sm text-muted-foreground space-y-1">
-                            <div>Pisos: {edificio.numero_pisos || "No especificado"}</div>
+                            <div>Niveles: {edificio.numero_pisos || "No especificado"}</div>
                             <div>Lanzamiento: {formatDate(edificio.fecha_lanzamiento)}</div>
                           </div>
                         </CardContent>
