@@ -2165,7 +2165,7 @@ export default function Pagos() {
                     <Input placeholder="Filtrar por modelo..." value={modeloFilter} onChange={e => setModeloFilter(e.target.value)} />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Estatus Propiedad</label>
+                    <label className="text-sm font-medium mb-2 block">Estatus de Propiedad</label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-between font-normal">
@@ -2243,7 +2243,7 @@ export default function Pagos() {
                       <TableHead>Edificio</TableHead>
                       <TableHead>No. Propiedad</TableHead>
                       <TableHead>Modelo</TableHead>
-                      <TableHead>Estatus</TableHead>
+                      <TableHead>Estatus de Propiedad</TableHead>
                       <TableHead>Metraje</TableHead>
                       <TableHead>Precio/m²</TableHead>
                       <TableHead>Precio Final</TableHead>
@@ -2659,7 +2659,7 @@ export default function Pagos() {
                     <Input placeholder="Filtrar por modelo..." value={modeloFilter} onChange={e => setModeloFilter(e.target.value)} />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-2 block">Estatus Propiedad</label>
+                    <label className="text-sm font-medium mb-2 block">Estatus de Propiedad</label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-between font-normal">
@@ -2737,7 +2737,7 @@ export default function Pagos() {
                       <TableHead>Edificio</TableHead>
                       <TableHead>No. Propiedad</TableHead>
                       <TableHead>Modelo</TableHead>
-                      <TableHead>Estatus</TableHead>
+                      <TableHead>Estatus de Propiedad</TableHead>
                       <TableHead>Precio Final</TableHead>
                       <TableHead>Pagado</TableHead>
                       <TableHead>Restante</TableHead>

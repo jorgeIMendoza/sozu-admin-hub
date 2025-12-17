@@ -168,7 +168,7 @@ const COLUMNS_CONFIG: ColumnConfig[] = [
   { key: 'bodegas', label: 'Bodegas', required: false, defaultVisible: true },
   { key: 'ofertas_comerciales', label: 'Ofertas Comerciales', required: false, defaultVisible: false },
   { key: 'ofertas_productos', label: 'Ofertas de Productos', required: false, defaultVisible: false },
-  { key: 'disponibilidad', label: 'Disponibilidad', required: false, defaultVisible: true },
+  { key: 'disponibilidad', label: 'Estatus de Propiedad', required: false, defaultVisible: true },
   { key: 'cuenta_cobranza', label: 'Cuenta de cobranza', required: false, defaultVisible: true },
   { key: 'cuenta_clabe', label: 'Cuenta Clabe', required: false, defaultVisible: false },
   { key: 'precio_final', label: 'Precio Final', required: false, defaultVisible: true },
@@ -3844,7 +3844,7 @@ const Propiedades = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-2 block">Disponibilidad</label>
+                <label className="text-sm font-medium mb-2 block">Estatus de Propiedad</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -3853,15 +3853,15 @@ const Propiedades = () => {
                       className="w-full justify-between font-normal"
                     >
                       {disponibilidadFilter.length === 0 
-                        ? "Filtrar por disponibilidad..." 
+                        ? "Filtrar por estatus..." 
                         : `${disponibilidadFilter.length} seleccionado${disponibilidadFilter.length > 1 ? 's' : ''}`
                       }
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
                     <Command>
-                      <CommandInput placeholder="Buscar disponibilidad..." />
-                      <CommandEmpty>No se encontró disponibilidad.</CommandEmpty>
+                      <CommandInput placeholder="Buscar estatus..." />
+                      <CommandEmpty>No se encontró estatus.</CommandEmpty>
                       <CommandGroup className="max-h-64 overflow-auto">
                         {filteredAvailabilityOptions?.map((option) => (
                           <CommandItem
