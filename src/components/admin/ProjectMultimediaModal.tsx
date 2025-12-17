@@ -117,7 +117,7 @@ export const ProjectMultimediaModal = ({
     </div>
   );
 
-  const totalTabs = [images.length > 0, videos.length > 0, activeYoutubeVideos.length > 0].filter(Boolean).length;
+  
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -139,7 +139,7 @@ export const ProjectMultimediaModal = ({
         </DialogHeader>
         
         <Tabs defaultValue="images" className="w-full">
-          <TabsList className={`grid w-full ${totalTabs === 3 ? 'grid-cols-3' : totalTabs === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="images" className="flex items-center gap-2">
               <Image className="h-4 w-4" />
               Imágenes
