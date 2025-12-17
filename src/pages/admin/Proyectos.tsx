@@ -40,6 +40,7 @@ const Proyectos = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProjectMultimedia, setSelectedProjectMultimedia] = useState<{
     multimedia: any[];
+    youtubeVideos: any[];
     projectName: string;
   } | null>(null);
   
@@ -130,6 +131,7 @@ const Proyectos = () => {
           videos_youtube (
             id,
             nombre,
+            link,
             activo
           ),
           amenidades_proyectos (
@@ -253,6 +255,7 @@ const Proyectos = () => {
           videos_youtube (
             id,
             nombre,
+            link,
             activo
           ),
           amenidades_proyectos (
@@ -696,6 +699,7 @@ const Proyectos = () => {
                             className="flex items-center gap-1 p-1 h-auto"
                             onClick={() => setSelectedProjectMultimedia({
                               multimedia: project.multimedias_proyecto || [],
+                              youtubeVideos: project.videos_youtube || [],
                               projectName: project.nombre
                             })}
                           >
@@ -710,6 +714,7 @@ const Proyectos = () => {
                             className="flex items-center gap-1 p-1 h-auto"
                             onClick={() => setSelectedProjectMultimedia({
                               multimedia: project.multimedias_proyecto || [],
+                              youtubeVideos: project.videos_youtube || [],
                               projectName: project.nombre
                             })}
                           >
@@ -1009,6 +1014,7 @@ const Proyectos = () => {
               isOpen={true}
               onClose={() => setSelectedProjectMultimedia(null)}
               multimedia={selectedProjectMultimedia.multimedia}
+              youtubeVideos={selectedProjectMultimedia.youtubeVideos}
               projectName={selectedProjectMultimedia.projectName}
             />
           )}

@@ -1,19 +1,28 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Image, Video, X } from "lucide-react";
+import { Image, Video, X, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface MultimediaItem {
   id: number;
   url: string;
   es_imagen: boolean;
+  activo?: boolean;
+}
+
+interface YouTubeVideo {
+  id: number;
+  nombre: string;
+  link: string;
+  activo?: boolean;
 }
 
 interface ProjectMultimediaModalProps {
   isOpen: boolean;
   onClose: () => void;
   multimedia: MultimediaItem[];
+  youtubeVideos?: YouTubeVideo[];
   projectName: string;
 }
 
@@ -21,10 +30,21 @@ export const ProjectMultimediaModal = ({
   isOpen, 
   onClose, 
   multimedia, 
+  youtubeVideos = [],
   projectName 
 }: ProjectMultimediaModalProps) => {
-  const images = multimedia.filter(item => item.es_imagen);
-  const videos = multimedia.filter(item => !item.es_imagen);
+  const images = multimedia.filter(item => item.es_imagen && item.activo !== false);
+  const videos = multimedia.filter(item => !item.es_imagen && item.activo !== false);
+  const activeYoutubeVideos = youtubeVideos.filter(v => v.activo !== false);
+
+  const getYouTubeEmbedUrl = (link: string) => {
+    // Handle different YouTube URL formats
+    const videoIdMatch = link.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    if (videoIdMatch) {
+      return `https://www.youtube.com/embed/${videoIdMatch[1]}`;
+    }
+    return link;
+  };
 
   const renderImage = (item: MultimediaItem) => (
     <div key={item.id} className="group relative overflow-hidden rounded-lg border bg-card">
@@ -71,6 +91,34 @@ export const ProjectMultimediaModal = ({
     </div>
   );
 
+  const renderYouTubeVideo = (video: YouTubeVideo) => (
+    <div key={video.id} className="overflow-hidden rounded-lg border bg-card">
+      <div className="aspect-video">
+        <iframe
+          src={getYouTubeEmbedUrl(video.link)}
+          title={video.nombre}
+          className="w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+      <div className="p-3">
+        <p className="text-sm font-medium truncate">{video.nombre}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full mt-2"
+          onClick={() => window.open(video.link, '_blank')}
+        >
+          <Youtube className="h-4 w-4 mr-2" />
+          Ver en YouTube
+        </Button>
+      </div>
+    </div>
+  );
+
+  const totalTabs = [images.length > 0, videos.length > 0, activeYoutubeVideos.length > 0].filter(Boolean).length;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
@@ -91,7 +139,7 @@ export const ProjectMultimediaModal = ({
         </DialogHeader>
         
         <Tabs defaultValue="images" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${totalTabs === 3 ? 'grid-cols-3' : totalTabs === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="images" className="flex items-center gap-2">
               <Image className="h-4 w-4" />
               Imágenes
@@ -101,6 +149,11 @@ export const ProjectMultimediaModal = ({
               <Video className="h-4 w-4" />
               Videos
               <Badge variant="secondary">{videos.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="youtube" className="flex items-center gap-2">
+              <Youtube className="h-4 w-4" />
+              YouTube
+              <Badge variant="secondary">{activeYoutubeVideos.length}</Badge>
             </TabsTrigger>
           </TabsList>
           
@@ -129,6 +182,21 @@ export const ProjectMultimediaModal = ({
                 <div className="text-center py-8">
                   <Video className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No hay videos disponibles</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="youtube" className="mt-6">
+            <div className="max-h-[400px] overflow-y-auto">
+              {activeYoutubeVideos.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeYoutubeVideos.map(renderYouTubeVideo)}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Youtube className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No hay videos de YouTube disponibles</p>
                 </div>
               )}
             </div>
