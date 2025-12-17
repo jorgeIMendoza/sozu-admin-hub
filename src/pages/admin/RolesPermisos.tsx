@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Shield, ChevronDown, ChevronRight, Loader2, Save, Plus, Pencil, Trash2, Search, Lock, XCircle, CheckCircle2, ChevronsUpDown, Check } from "lucide-react";
+import { Shield, ChevronDown, ChevronRight, Loader2, Save, Plus, Pencil, Trash2, Search, Lock, XCircle, CheckCircle2, ChevronsUpDown, Check, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 interface Role {
@@ -269,6 +270,7 @@ export default function RolesPermisos() {
   const [newRoleName, setNewRoleName] = useState("");
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [searchRoleName, setSearchRoleName] = useState("");
+  const [roleTab, setRoleTab] = useState<"activos" | "eliminados">("activos");
   
   const queryClient = useQueryClient();
 
@@ -439,6 +441,44 @@ export default function RolesPermisos() {
     },
     onError: (error) => {
       toast.error(`Error al eliminar el rol: ${error.message}`);
+    },
+  });
+
+  // Reactivate role mutation
+  const reactivateRoleMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase
+        .from('roles')
+        .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles-management'] });
+      toast.success('Rol reactivado correctamente');
+    },
+    onError: (error) => {
+      toast.error(`Error al reactivar el rol: ${error.message}`);
+    },
+  });
+
+  // Query to get users count per role (for delete warning)
+  const { data: usersCountByRole = {} } = useQuery({
+    queryKey: ['users-count-by-role'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('rol_id')
+        .eq('activo', true);
+      
+      if (error) throw error;
+      
+      const counts: Record<number, number> = {};
+      (data || []).forEach((u: { rol_id: number }) => {
+        counts[u.rol_id] = (counts[u.rol_id] || 0) + 1;
+      });
+      return counts;
     },
   });
 
@@ -699,9 +739,10 @@ export default function RolesPermisos() {
 
   const selectedRole = roles.find(r => r.id === selectedRoleId);
   const activeRoles = roles.filter(r => r.activo);
+  const deletedRoles = roles.filter(r => !r.activo);
   
   // Filter and sort roles: Super Admin first, then alphabetically
-  const filteredRoles = useMemo(() => {
+  const filteredActiveRoles = useMemo(() => {
     let filtered = activeRoles;
     if (searchRoleName.trim()) {
       filtered = activeRoles.filter(role => 
@@ -715,6 +756,16 @@ export default function RolesPermisos() {
       return a.nombre.localeCompare(b.nombre, 'es');
     });
   }, [activeRoles, searchRoleName]);
+
+  const filteredDeletedRoles = useMemo(() => {
+    let filtered = deletedRoles;
+    if (searchRoleName.trim()) {
+      filtered = deletedRoles.filter(role => 
+        role.nombre.toLowerCase().includes(searchRoleName.toLowerCase())
+      );
+    }
+    return filtered.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [deletedRoles, searchRoleName]);
 
   return (
     <div className="space-y-6">
@@ -740,9 +791,6 @@ export default function RolesPermisos() {
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Roles</CardTitle>
-            <CardDescription>
-              {activeRoles.length} roles activos
-            </CardDescription>
             {/* Search input */}
             <div className="relative mt-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -755,81 +803,146 @@ export default function RolesPermisos() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[500px]">
-              <div className="space-y-1 p-3">
-                {loadingRoles ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : filteredRoles.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    No se encontraron roles
-                  </div>
-                ) : (
-                  filteredRoles.map((role) => {
-                    const isSuperAdmin = role.id === SUPER_ADMIN_ROLE_ID;
-                    
-                    return (
-                      <div
-                        key={role.id}
-                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
-                          selectedRoleId === role.id
-                            ? 'bg-primary text-primary-foreground'
-                            : isSuperAdmin 
-                              ? 'bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700'
-                              : 'hover:bg-muted'
-                        }`}
-                        onClick={() => {
-                          setSelectedRoleId(role.id);
-                          setPendingChanges(new Map());
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          {isSuperAdmin ? (
-                            <Lock className={`h-4 w-4 ${selectedRoleId !== role.id ? 'text-amber-600 dark:text-amber-400' : ''}`} />
-                          ) : (
-                            <Shield className="h-4 w-4" />
-                          )}
-                          <span className={`text-sm font-medium ${isSuperAdmin && selectedRoleId !== role.id ? 'text-amber-800 dark:text-amber-200' : ''}`}>
-                            {role.nombre}
-                          </span>
-                        </div>
-                        <div className="flex gap-1">
-                          {!isSuperAdmin && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-7 w-7 ${selectedRoleId === role.id ? 'hover:bg-primary-foreground/20' : ''}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingRole(role);
-                                  setIsEditRoleDialogOpen(true);
-                                }}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-7 w-7 ${selectedRoleId === role.id ? 'hover:bg-primary-foreground/20' : 'hover:bg-destructive/10 hover:text-destructive'}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRoleToDelete(role);
-                                  setIsDeleteDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+            <Tabs value={roleTab} onValueChange={(v) => setRoleTab(v as "activos" | "eliminados")} className="w-full">
+              <div className="px-3">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="activos" className="text-xs">
+                    Activos ({activeRoles.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="eliminados" className="text-xs">
+                    Eliminados ({deletedRoles.length})
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            </ScrollArea>
+              
+              <TabsContent value="activos" className="mt-0">
+                <ScrollArea className="h-[450px]">
+                  <div className="space-y-1 p-3">
+                    {loadingRoles ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : filteredActiveRoles.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        No se encontraron roles
+                      </div>
+                    ) : (
+                      filteredActiveRoles.map((role) => {
+                        const isSuperAdmin = role.id === SUPER_ADMIN_ROLE_ID;
+                        
+                        return (
+                          <div
+                            key={role.id}
+                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                              selectedRoleId === role.id
+                                ? 'bg-primary text-primary-foreground'
+                                : isSuperAdmin 
+                                  ? 'bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700'
+                                  : 'hover:bg-muted'
+                            }`}
+                            onClick={() => {
+                              setSelectedRoleId(role.id);
+                              setPendingChanges(new Map());
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isSuperAdmin ? (
+                                <Lock className={`h-4 w-4 ${selectedRoleId !== role.id ? 'text-amber-600 dark:text-amber-400' : ''}`} />
+                              ) : (
+                                <Shield className="h-4 w-4" />
+                              )}
+                              <span className={`text-sm font-medium ${isSuperAdmin && selectedRoleId !== role.id ? 'text-amber-800 dark:text-amber-200' : ''}`}>
+                                {role.nombre}
+                              </span>
+                            </div>
+                            <div className="flex gap-1">
+                              {!isSuperAdmin && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-7 w-7 ${selectedRoleId === role.id ? 'hover:bg-primary-foreground/20' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingRole(role);
+                                      setIsEditRoleDialogOpen(true);
+                                    }}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-7 w-7 ${selectedRoleId === role.id ? 'hover:bg-primary-foreground/20' : 'hover:bg-destructive/10 hover:text-destructive'}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRoleToDelete(role);
+                                      setIsDeleteDialogOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="eliminados" className="mt-0">
+                <ScrollArea className="h-[450px]">
+                  <div className="space-y-1 p-3">
+                    {loadingRoles ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : filteredDeletedRoles.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        No hay roles eliminados
+                      </div>
+                    ) : (
+                      filteredDeletedRoles.map((role) => (
+                        <div
+                          key={role.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 opacity-70"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium text-muted-foreground">
+                              {role.nombre}
+                            </span>
+                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/30"
+                                  onClick={() => reactivateRoleMutation.mutate(role.id)}
+                                  disabled={reactivateRoleMutation.isPending}
+                                >
+                                  {reactivateRoleMutation.isPending ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Reactivar rol</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
@@ -1198,9 +1311,25 @@ export default function RolesPermisos() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar rol?</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Estás seguro de que deseas eliminar el rol "{roleToDelete?.nombre}"? 
-              Esta acción desactivará el rol y todos los usuarios con este rol perderán acceso.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  ¿Estás seguro de que deseas eliminar el rol "{roleToDelete?.nombre}"?
+                </p>
+                {roleToDelete && usersCountByRole[roleToDelete.id] > 0 && (
+                  <Alert variant="destructive">
+                    <AlertDescription className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      <span>
+                        <strong>{usersCountByRole[roleToDelete.id]}</strong> usuario(s) tienen asignado este rol y perderán acceso al sistema.
+                      </span>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <p className="text-sm">
+                  Podrás reactivar el rol desde la pestaña "Eliminados".
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
