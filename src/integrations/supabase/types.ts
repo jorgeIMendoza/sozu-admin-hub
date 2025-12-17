@@ -4257,6 +4257,7 @@ export type Database = {
           folio_mercantil: string | null
           id: number
           id_conyuge: number | null
+          id_entidad_relacionada_rep_com: number | null
           id_entidad_relacionada_rep_leg: number | null
           id_estado_civil: number | null
           id_estado_nacimiento: number | null
@@ -4306,6 +4307,7 @@ export type Database = {
           folio_mercantil?: string | null
           id?: number
           id_conyuge?: number | null
+          id_entidad_relacionada_rep_com?: number | null
           id_entidad_relacionada_rep_leg?: number | null
           id_estado_civil?: number | null
           id_estado_nacimiento?: number | null
@@ -4355,6 +4357,7 @@ export type Database = {
           folio_mercantil?: string | null
           id?: number
           id_conyuge?: number | null
+          id_entidad_relacionada_rep_com?: number | null
           id_entidad_relacionada_rep_leg?: number | null
           id_estado_civil?: number | null
           id_estado_nacimiento?: number | null
@@ -4472,6 +4475,13 @@ export type Database = {
             columns: ["id_conyuge"]
             isOneToOne: false
             referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personas_id_entidad_relacionada_rep_com_fkey"
+            columns: ["id_entidad_relacionada_rep_com"]
+            isOneToOne: false
+            referencedRelation: "entidades_relacionadas"
             referencedColumns: ["id"]
           },
           {
