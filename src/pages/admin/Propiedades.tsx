@@ -3511,6 +3511,7 @@ const Propiedades = () => {
                           )}
                           {(canGenerateOffer || isSuperAdmin) && (property.disponibilidad === "Apartado" || 
                             property.disponibilidad === "Vendido" || 
+                            property.disponibilidad === "Pagada completamente" ||
                             property.disponibilidad === "En escrituración" ||
                             property.disponibilidad === "Entregado") && (
                             <NewProductOfferDialog 
