@@ -12,6 +12,7 @@ interface UserProfile {
   id_persona: number | null;
   activo: boolean;
   ver_todos_prospectos_compradores: boolean;
+  ver_filtros_avanzados_eliminados: boolean;
 }
 
 interface AuthContextType {
