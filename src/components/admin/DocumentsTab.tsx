@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { DeleteConfirmationDialog } from "./DeleteConfirmationDialog";
 
 interface DocumentsTabProps {
   entityId?: number;
@@ -126,6 +127,8 @@ export function DocumentsTab({
     document: null,
     isLoading: false
   });
+  const [documentToDelete, setDocumentToDelete] = useState<Documento | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -481,16 +484,20 @@ export function DocumentsTab({
     });
   };
 
-  const handleDelete = async (documento: Documento) => {
+  const handleDelete = async () => {
+    if (!documentToDelete) return;
+    
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('documentos')
         .update({ activo: false })
-        .eq('id', documento.id);
+        .eq('id', documentToDelete.id);
 
       if (error) throw error;
       
       await loadDocumentos();
+      setDocumentToDelete(null);
       toast({
         title: "Éxito",
         description: "Documento eliminado correctamente",
@@ -501,6 +508,8 @@ export function DocumentsTab({
         title: "Error",
         description: `Error al eliminar el documento: ${error.message}`,
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1281,7 +1290,7 @@ export function DocumentsTab({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => handleDelete(documento)}
+                                        onClick={() => setDocumentToDelete(documento)}
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
@@ -1568,6 +1577,16 @@ export function DocumentsTab({
         currentStatus={statusChangeDialog.document?.id_estatus_verificacion || 1}
         documentName={statusChangeDialog.document?.tipo_documento_nombre || 'Documento'}
         isLoading={statusChangeDialog.isLoading}
+      />
+
+      {/* Delete Document Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={!!documentToDelete}
+        onOpenChange={(open) => !open && setDocumentToDelete(null)}
+        onConfirm={handleDelete}
+        title="¿Eliminar documento?"
+        description={`¿Estás seguro de que deseas eliminar el documento "${documentToDelete?.tipo_documento_nombre || 'seleccionado'}"? Esta acción no se puede deshacer.`}
+        isLoading={isDeleting}
       />
     </div>
   );
