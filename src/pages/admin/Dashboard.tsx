@@ -320,7 +320,7 @@ const Dashboard = () => {
 
       {/* Projects List */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Proyectos Activos</h2>
+        <h2 className="text-xl font-semibold">Proyectos a Comercializar</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {topProjects.map((project: ProjectData) => (
             <Card key={project.id} className="transition-all duration-200 hover:shadow-md">
