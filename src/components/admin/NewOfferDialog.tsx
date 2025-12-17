@@ -713,22 +713,24 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         // Use user-selected scheme or null if "sin seleccionar"
         const selectedSchemeId = schemeSelections[productId];
 
-        // Generate CLABE only if a payment scheme is selected
+        // Generate or reuse CLABE only if a payment scheme is selected
         let clabeData: string | null = null;
         if (selectedSchemeId && productService?.id_entidad_relacionada_dueno) {
-          const { data: generatedClabe, error: clabeError } = await supabase
-            .rpc('crear_referencia_bancaria', {
-              id_er_dueno: productService.id_entidad_relacionada_dueno
-            });
-          
-          if (clabeError) {
+          try {
+            const { getOrCreateProductClabe } = await import('@/utils/clabeReuseUtils');
+            clabeData = await getOrCreateProductClabe(
+              propertyId,
+              productId,
+              productService.id_entidad_relacionada_dueno
+            );
+            console.log(`✅ CLABE obtenida para ${product.nombre}:`, clabeData);
+          } catch (clabeError: any) {
             console.error(`Error generating CLABE for ${product.nombre}:`, clabeError);
             productOffersResults.warnings.push(
               `Error al generar CLABE para ${product.tipo === 'bodega' ? 'bodega' : 'estacionamiento'} "${product.nombre}": ${clabeError.message}`
             );
             continue;
           }
-          clabeData = generatedClabe;
         }
 
         const productOfferData = {
