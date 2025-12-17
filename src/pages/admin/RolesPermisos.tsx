@@ -283,7 +283,7 @@ export default function RolesPermisos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('roles')
-        .select('id, nombre, activo, ver_todos_prospectos_compradores, ver_todos_proyectos_propiedades')
+        .select('id, nombre, activo, ver_todos_prospectos_compradores, ver_todos_proyectos_propiedades, ver_filtros_avanzados_eliminados')
         .order('id');
       
       if (error) throw error;
