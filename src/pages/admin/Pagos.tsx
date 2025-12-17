@@ -203,7 +203,8 @@ export default function Pagos() {
     data: cuentasCobranza,
     isLoading
   } = useQuery({
-    queryKey: ["cuentas_cobranza"],
+    queryKey: ["cuentas_cobranza", estatusDisponibilidad],
+    enabled: !!estatusDisponibilidad,
     queryFn: async () => {
       // Get basic cuenta cobranza data with payment sums (excluding maintenance accounts)
       const selectColumns = `
@@ -1052,6 +1053,9 @@ export default function Pagos() {
           tiene_acuerdos: tieneAcuerdosPorCuenta[cuenta.id],
           tiene_multas_pendientes: multasPendientesPorCuenta[cuenta.id] || false,
           id_estatus_disponibilidad: propiedad?.id_estatus_disponibilidad,
+          estatus_propiedad: propiedad?.id_estatus_disponibilidad 
+            ? estatusDisponibilidad?.find(e => e.id === propiedad.id_estatus_disponibilidad)?.nombre || undefined
+            : undefined,
           collection_id: cuenta.collection_id,
           total_acuerdos: totalAcuerdosPorCuenta[cuenta.id] || 0,
           discrepancia: tieneAcuerdosPorCuenta[cuenta.id] 
@@ -2384,9 +2388,9 @@ export default function Pagos() {
                           </TableCell>
                          <TableCell>{cuenta.modelo}</TableCell>
                          <TableCell>
-                           {cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad ? (
+                           {cuenta.tipo === 'Propiedad' && cuenta.estatus_propiedad ? (
                              <Badge variant="outline" className="text-xs">
-                               {estatusDisponibilidad?.find(e => e.id === cuenta.id_estatus_disponibilidad)?.nombre || 'N/A'}
+                               {cuenta.estatus_propiedad}
                              </Badge>
                            ) : (
                              <span className="text-muted-foreground text-xs">N/A</span>
@@ -2856,9 +2860,9 @@ export default function Pagos() {
                           </TableCell>
                          <TableCell>{cuenta.modelo}</TableCell>
                          <TableCell>
-                           {cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad ? (
+                           {cuenta.tipo === 'Propiedad' && cuenta.estatus_propiedad ? (
                              <Badge variant="outline" className="text-xs">
-                               {estatusDisponibilidad?.find(e => e.id === cuenta.id_estatus_disponibilidad)?.nombre || 'N/A'}
+                               {cuenta.estatus_propiedad}
                              </Badge>
                            ) : (
                              <span className="text-muted-foreground text-xs">N/A</span>
