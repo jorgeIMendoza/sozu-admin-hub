@@ -312,7 +312,7 @@ export function ProjectCollectionSummaryDialog({
               <span className="font-medium text-sm">{owner.dueno_nombre}</span>
               <span className="text-xs text-muted-foreground">{owner.cuentas_count} propiedades vendidas</span>
             </div>
-            <div className="grid grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-5 gap-2 text-xs">
               <div>
                 <span className="text-muted-foreground block">Valor Proy</span>
                 <TooltipProvider>
@@ -353,7 +353,20 @@ export function ProjectCollectionSummaryDialog({
                 </TooltipProvider>
               </div>
               <div>
-                <span className="text-muted-foreground block">Restante</span>
+                <span className="text-muted-foreground block">R. colocar</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="font-semibold text-purple-600 cursor-help">{formatCurrencyCompact(owner.valor_proyecto - owner.total_colocado)}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(owner.valor_proyecto - owner.total_colocado)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">R. cobrar</span>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -388,7 +401,7 @@ export function ProjectCollectionSummaryDialog({
         ) : (
           <div className="space-y-6">
             {/* Resumen General con Valor del Proyecto */}
-            <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+            <div className="grid grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Valor del Proyecto</p>
                 <TooltipProvider>
@@ -429,7 +442,21 @@ export function ProjectCollectionSummaryDialog({
                 </TooltipProvider>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Total Restante</p>
+                <p className="text-xs text-muted-foreground">Rest. por colocar</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-lg font-bold text-purple-600 cursor-help">{formatCurrencyCompact(valorProyecto - totalColocado)}</p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(valorProyecto - totalColocado)}</p>
+                      <p className="text-xs text-muted-foreground">Valor proyecto - Colocado</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Rest. por cobrar</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -437,6 +464,7 @@ export function ProjectCollectionSummaryDialog({
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>{formatCurrency(totalColocado - totalCobrado)}</p>
+                      <p className="text-xs text-muted-foreground">Colocado - Cobrado</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

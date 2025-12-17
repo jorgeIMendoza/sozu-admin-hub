@@ -1759,9 +1759,27 @@ export default function Pagos() {
                   </div>
                 </div>
                 
-                {/* Monto Restante */}
+                {/* Restante por colocar */}
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Monto Restante</div>
+                  <div className="text-xs text-muted-foreground">Restante por colocar</div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="text-xl font-bold text-purple-600 cursor-help">
+                          {formatCurrencyCompact(valorTotalProyectos - totalMonto)}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{formatCurrency(valorTotalProyectos - totalMonto)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Valor proyecto - Colocado</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                
+                {/* Restante por cobrar */}
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Restante por cobrar</div>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1771,6 +1789,7 @@ export default function Pagos() {
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{formatCurrency(totalMonto - totalCobrado)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Colocado - Cobrado</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -1862,7 +1881,7 @@ export default function Pagos() {
                           {item.count} {item.count === 1 ? 'cuenta' : 'cuentas'}
                         </Badge>
                       </div>
-                      <div className="grid grid-cols-5 gap-2 text-xs text-muted-foreground pl-7">
+                      <div className="grid grid-cols-6 gap-2 text-xs text-muted-foreground pl-7">
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1907,12 +1926,27 @@ export default function Pagos() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="cursor-help">
-                                <span className="block text-muted-foreground">Restante:</span>
+                                <span className="block text-muted-foreground">Rest. colocar:</span>
+                                <span className="font-semibold text-purple-600">{formatCurrencyCompact(item.valorProyecto - item.total)}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{formatCurrency(item.valorProyecto - item.total)}</p>
+                              <p className="text-xs text-muted-foreground">Valor proyecto - Colocado</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help">
+                                <span className="block text-muted-foreground">Rest. cobrar:</span>
                                 <span className="font-semibold text-orange-600">{formatCurrencyCompact(item.restante)}</span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{formatCurrency(item.restante)}</p>
+                              <p className="text-xs text-muted-foreground">Colocado - Cobrado</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -1991,7 +2025,7 @@ export default function Pagos() {
 
                   <div className="space-y-2 pb-3 border-b">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Monto Total Restante</span>
+                      <span className="text-sm font-medium">Restante por cobrar</span>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
