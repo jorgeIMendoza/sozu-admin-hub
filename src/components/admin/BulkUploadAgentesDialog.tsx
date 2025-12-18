@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Download, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, Download, CheckCircle, XCircle, AlertCircle, Loader2, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -273,20 +273,52 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
                 </div>
               )}
 
-              {/* Lista de errores de validación */}
+              {/* Lista de errores de validación con emails a quitar */}
               {results.errors && results.errors.length > 0 && (
-                <div className="max-h-48 overflow-y-auto border border-red-200 rounded bg-red-50 dark:bg-red-900/20">
-                  <div className="p-2 bg-red-100 dark:bg-red-900/40 sticky top-0 text-sm font-medium text-red-800 dark:text-red-200">
-                    Errores encontrados ({results.errors.length})
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                      ¿Qué hacer?
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Abre tu archivo CSV, busca y elimina las filas con estos correos, guarda el archivo y vuelve a subirlo.
+                    </p>
                   </div>
-                  <ul className="p-2 space-y-1">
-                    {results.errors.map((err, idx) => (
-                      <li key={idx} className="text-sm text-red-700 dark:text-red-300 flex items-start gap-2">
-                        <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>{err}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  
+                  <div className="border border-destructive/30 rounded bg-destructive/5">
+                    <div className="p-2 bg-destructive/10 flex items-center justify-between sticky top-0">
+                      <span className="text-sm font-medium text-destructive">
+                        Correos a eliminar del CSV ({results.errors.length})
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          const emails = results.errors?.map(err => err.split(':')[0].trim()).join('\n') || '';
+                          navigator.clipboard.writeText(emails);
+                          toast.success('Correos copiados al portapapeles');
+                        }}
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copiar emails
+                      </Button>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto p-2 space-y-2">
+                      {results.errors.map((err, idx) => {
+                        const [email, ...reasonParts] = err.split(':');
+                        const reason = reasonParts.join(':').trim();
+                        return (
+                          <div key={idx} className="p-2 bg-background rounded border text-sm">
+                            <div className="font-mono font-medium text-destructive">{email.trim()}</div>
+                            {reason && (
+                              <div className="text-xs text-muted-foreground mt-1">{reason}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -352,8 +384,22 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={handleClose} disabled={isProcessing}>
-              {results ? 'Cerrar' : 'Cancelar'}
+              {results?.success ? 'Cerrar' : 'Cancelar'}
             </Button>
+            {/* Show retry button when there are validation errors */}
+            {results && !results.success && (
+              <Button 
+                variant="secondary"
+                onClick={() => {
+                  setResults(null);
+                  setFile(null);
+                  setProgress(0);
+                }}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Subir nuevo archivo
+              </Button>
+            )}
             {!results && (
               <Button onClick={handleUpload} disabled={!file || isProcessing}>
                 {isProcessing ? (
