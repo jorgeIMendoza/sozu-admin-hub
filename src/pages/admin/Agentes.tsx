@@ -284,7 +284,7 @@ export default function Agentes() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, inmobiliariaId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, ...cleanPersonData } = personData;
       
       const { error: updateError } = await supabase
         .from('personas')

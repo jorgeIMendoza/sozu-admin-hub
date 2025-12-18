@@ -27,6 +27,7 @@ type Inmobiliaria = {
   representante_legal_nombre?: string;
   representante_comercial_nombre?: string;
   numero_proyectos: number;
+  numero_agentes: number;
   entidad_relacionada_id: number;
   id_tipo_entidad: number;
   url_logo?: string;
@@ -100,6 +101,7 @@ export default function Inmobiliarias() {
     // Get project counts for each inmobiliaria
     const inmobiliariaIds = (data || []).map(item => item.entidades_relacionadas[0]?.id).filter(Boolean);
     let projectCounts: { [key: number]: number } = {};
+    let agentCounts: { [key: number]: number } = {};
     
     if (inmobiliariaIds.length > 0) {
       const { data: projectData, error: projectError } = await supabase
@@ -112,6 +114,23 @@ export default function Inmobiliarias() {
       if (!projectError && projectData) {
         projectCounts = projectData.reduce((acc, item) => {
           acc[item.id] = (acc[item.id] || 0) + 1;
+          return acc;
+        }, {} as { [key: number]: number });
+      }
+
+      // Get agent counts for each inmobiliaria (agents are linked via id_persona_duena_lead)
+      const { data: agentData, error: agentError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_persona_duena_lead')
+        .in('id_persona_duena_lead', inmobiliariaIds)
+        .eq('id_tipo_entidad', 6) // Agentes
+        .eq('activo', true);
+      
+      if (!agentError && agentData) {
+        agentCounts = agentData.reduce((acc, item) => {
+          if (item.id_persona_duena_lead) {
+            acc[item.id_persona_duena_lead] = (acc[item.id_persona_duena_lead] || 0) + 1;
+          }
           return acc;
         }, {} as { [key: number]: number });
       }
@@ -132,6 +151,7 @@ export default function Inmobiliarias() {
       representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
       representante_comercial_nombre: item.representante_comercial?.personas?.nombre_legal,
       numero_proyectos: projectCounts[item.entidades_relacionadas[0]?.id] || 0,
+      numero_agentes: agentCounts[item.entidades_relacionadas[0]?.id] || 0,
       url_logo: item.url_logo,
     })) as Inmobiliaria[];
   };
@@ -632,6 +652,7 @@ export default function Inmobiliarias() {
               <TableHead className="font-semibold text-foreground w-16">Logo</TableHead>
               <TableHead className="font-semibold text-foreground">Nombre Comercial</TableHead>
               <TableHead className="font-semibold text-foreground">Proyectos</TableHead>
+              <TableHead className="font-semibold text-foreground">Agentes</TableHead>
               <TableHead className="font-semibold text-foreground">Email</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground">Rep. Legal</TableHead>
@@ -665,6 +686,9 @@ export default function Inmobiliarias() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.numero_proyectos} proyecto{inmobiliaria.numero_proyectos !== 1 ? 's' : ''}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {inmobiliaria.numero_agentes} agente{inmobiliaria.numero_agentes !== 1 ? 's' : ''}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.email}
