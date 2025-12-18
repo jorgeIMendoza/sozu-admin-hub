@@ -33,6 +33,29 @@ const proyectoMap: Record<string, number> = {
   'DAIKU': 1453,
 };
 
+// Función para convertir errores técnicos a mensajes amigables
+function getErrorMessage(technicalError: string): string {
+  if (technicalError.includes('personas_clave_pais_telefono_fkey')) {
+    return 'Error con el código de país del teléfono';
+  }
+  if (technicalError.includes('personas_email_key') || technicalError.includes('duplicate key')) {
+    return 'Este correo electrónico ya está registrado';
+  }
+  if (technicalError.includes('already been registered')) {
+    return 'Este correo ya tiene una cuenta de usuario';
+  }
+  if (technicalError.includes('foreign key constraint')) {
+    return 'Error de datos relacionados - contacta al administrador';
+  }
+  if (technicalError.includes('violates unique constraint')) {
+    return 'Este registro ya existe en el sistema';
+  }
+  if (technicalError.includes('not-null constraint')) {
+    return 'Faltan datos obligatorios';
+  }
+  return 'Error al procesar el agente - intenta de nuevo';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -114,7 +137,7 @@ Deno.serve(async (req) => {
               nombre_legal: nombre,
               email: email,
               telefono: telefono || null,
-              clave_pais_telefono: '52',
+              clave_pais_telefono: 'MX',
               activo: true,
             })
             .select('id')
@@ -245,9 +268,10 @@ Deno.serve(async (req) => {
         }
 
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-        console.error(`[bulk-create-agents] Error procesando ${email}: ${errorMessage}`);
-        results.push({ email, status: 'error', message: errorMessage });
+        const technicalError = error instanceof Error ? error.message : 'Error desconocido';
+        const friendlyMessage = getErrorMessage(technicalError);
+        console.error(`[bulk-create-agents] Error procesando ${email}: ${technicalError}`);
+        results.push({ email, status: 'error', message: friendlyMessage });
         errors++;
       }
     }
