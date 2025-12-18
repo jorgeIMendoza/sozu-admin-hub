@@ -1,0 +1,300 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Upload, Download, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface BulkUploadAgentesDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+interface AgentRow {
+  nombre: string;
+  telefono: string;
+  email: string;
+  inmobiliaria: string;
+  proyecto: string;
+}
+
+interface ProcessResult {
+  email: string;
+  status: 'created' | 'updated' | 'skipped' | 'error';
+  message: string;
+}
+
+interface UploadResponse {
+  success: boolean;
+  error?: string;
+  summary?: {
+    total: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+  };
+  details?: ProcessResult[];
+}
+
+export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUploadAgentesDialogProps) {
+  const [file, setFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [results, setResults] = useState<UploadResponse | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      if (!selectedFile.name.endsWith('.csv')) {
+        toast.error('Por favor selecciona un archivo CSV');
+        return;
+      }
+      setFile(selectedFile);
+      setResults(null);
+    }
+  };
+
+  const parseCSV = (text: string): AgentRow[] => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const agents: AgentRow[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      if (values.length >= 5) {
+        agents.push({
+          nombre: values[headers.indexOf('nombre')] || values[0],
+          telefono: values[headers.indexOf('telefono')] || values[1],
+          email: values[headers.indexOf('email')] || values[2],
+          inmobiliaria: values[headers.indexOf('inmobiliaria')] || values[3],
+          proyecto: values[headers.indexOf('proyecto')] || values[4],
+        });
+      }
+    }
+
+    return agents;
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      toast.error('Por favor selecciona un archivo');
+      return;
+    }
+
+    setIsProcessing(true);
+    setProgress(10);
+
+    try {
+      const text = await file.text();
+      const agents = parseCSV(text);
+
+      if (agents.length === 0) {
+        toast.error('No se encontraron agentes válidos en el archivo');
+        setIsProcessing(false);
+        return;
+      }
+
+      setProgress(30);
+      console.log(`Procesando ${agents.length} agentes...`);
+
+      const { data, error } = await supabase.functions.invoke('bulk-create-agents', {
+        body: { agents },
+      });
+
+      setProgress(100);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setResults(data as UploadResponse);
+
+      if (data?.success) {
+        toast.success(`Proceso completado: ${data.summary?.created || 0} creados, ${data.summary?.updated || 0} actualizados`);
+        onSuccess();
+      } else {
+        toast.error(data?.error || 'Error procesando agentes');
+      }
+
+    } catch (error) {
+      console.error('Error en carga masiva:', error);
+      toast.error(error instanceof Error ? error.message : 'Error procesando archivo');
+      setResults({ success: false, error: error instanceof Error ? error.message : 'Error desconocido' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const csvContent = 'Nombre,Telefono,Email,Inmobiliaria,Proyecto\nJuan Pérez,3312345678,juan@trust-realestate.mx,TRUST,Vive Daiku';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'template_agentes.csv';
+    link.click();
+  };
+
+  const handleClose = () => {
+    setFile(null);
+    setResults(null);
+    setProgress(0);
+    onClose();
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'created':
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'updated':
+        return <CheckCircle className="w-4 h-4 text-blue-500" />;
+      case 'skipped':
+        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+      case 'error':
+        return <XCircle className="w-4 h-4 text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Carga Masiva de Agentes</DialogTitle>
+          <DialogDescription>
+            Sube un archivo CSV con los datos de los agentes a crear.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Template download */}
+          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+            <span className="text-sm text-muted-foreground">
+              Descarga el template CSV con el formato correcto
+            </span>
+            <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              <Download className="w-4 h-4 mr-2" />
+              Template
+            </Button>
+          </div>
+
+          {/* File input */}
+          <div className="space-y-2">
+            <Label htmlFor="csv-file">Archivo CSV</Label>
+            <Input
+              id="csv-file"
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              disabled={isProcessing}
+            />
+            {file && (
+              <p className="text-sm text-muted-foreground">
+                Archivo seleccionado: {file.name}
+              </p>
+            )}
+          </div>
+
+          {/* Progress bar */}
+          {isProcessing && (
+            <div className="space-y-2">
+              <Progress value={progress} />
+              <p className="text-sm text-muted-foreground text-center">
+                Procesando agentes...
+              </p>
+            </div>
+          )}
+
+          {/* Results */}
+          {results && (
+            <div className="space-y-3">
+              {results.success && results.summary && (
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded">
+                    <div className="text-lg font-bold text-green-600">{results.summary.created}</div>
+                    <div className="text-xs text-muted-foreground">Creados</div>
+                  </div>
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+                    <div className="text-lg font-bold text-blue-600">{results.summary.updated}</div>
+                    <div className="text-xs text-muted-foreground">Actualizados</div>
+                  </div>
+                  <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded">
+                    <div className="text-lg font-bold text-yellow-600">{results.summary.skipped}</div>
+                    <div className="text-xs text-muted-foreground">Omitidos</div>
+                  </div>
+                  <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded">
+                    <div className="text-lg font-bold text-red-600">{results.summary.errors}</div>
+                    <div className="text-xs text-muted-foreground">Errores</div>
+                  </div>
+                </div>
+              )}
+
+              {results.details && results.details.length > 0 && (
+                <div className="max-h-48 overflow-y-auto border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        <th className="p-2 text-left">Email</th>
+                        <th className="p-2 text-left">Estado</th>
+                        <th className="p-2 text-left">Mensaje</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {results.details.map((detail, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2 font-mono text-xs">{detail.email}</td>
+                          <td className="p-2">
+                            <span className="flex items-center gap-1">
+                              {getStatusIcon(detail.status)}
+                              <span className="capitalize">{detail.status}</span>
+                            </span>
+                          </td>
+                          <td className="p-2 text-xs text-muted-foreground">{detail.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {!results.success && results.error && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded text-red-600">
+                  {results.error}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={handleClose} disabled={isProcessing}>
+              {results ? 'Cerrar' : 'Cancelar'}
+            </Button>
+            {!results && (
+              <Button onClick={handleUpload} disabled={!file || isProcessing}>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Cargar Agentes
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

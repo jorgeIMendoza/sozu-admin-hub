@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.reset-user-password]
 verify_jwt = false
+
+[functions.bulk-create-agents]
+verify_jwt = false

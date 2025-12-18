@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";  
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
+import { BulkUploadAgentesDialog } from "@/components/admin/BulkUploadAgentesDialog";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 type Agente = {
   id: number;
@@ -41,8 +43,10 @@ export default function Agentes() {
   const [agenteToDelete, setAgenteToDelete] = useState<Agente | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [agenteToRestore, setAgenteToRestore] = useState<Agente | null>(null);
+  const [isBulkUploadDialogOpen, setIsBulkUploadDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { canCreate } = usePagePermissions('/admin/agentes');
 
   const { data: activeAgentes = [], isLoading: loadingActive } = useQuery({
     queryKey: ['agentes', 'active'],
@@ -550,13 +554,24 @@ export default function Agentes() {
                 Gestiona la información de los agentes
               </p>
             </div>
-            <Button 
-              onClick={() => setIsNewDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Agente
-            </Button>
+            {canCreate && (
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => setIsBulkUploadDialogOpen(true)}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Carga Masiva
+                </Button>
+                <Button 
+                  onClick={() => setIsNewDialogOpen(true)}
+                  className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Agente
+                </Button>
+              </div>
+            )}
           </div>
         </CardHeader>
         
@@ -663,6 +678,16 @@ export default function Agentes() {
         description={`¿Estás seguro de que deseas restaurar al agente "${agenteToRestore?.nombre_legal}"?`}
         isLoading={restoreMutation.isPending}
         actionType="restore"
+      />
+
+      {/* Bulk Upload Dialog */}
+      <BulkUploadAgentesDialog
+        open={isBulkUploadDialogOpen}
+        onClose={() => setIsBulkUploadDialogOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['agentes'] });
+          queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+        }}
       />
     </div>
   );
