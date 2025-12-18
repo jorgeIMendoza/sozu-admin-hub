@@ -76,7 +76,7 @@ export default function Inmobiliarias() {
             nombre_legal
           )
         ),
-        representante_comercial:entidades_relacionadas!fk_personas_entidad_relacionada_rep_com (
+        representante_comercial:entidades_relacionadas!personas_id_entidad_relacionada_rep_com_fkey (
           id,
           personas!entidades_relacionadas_id_persona_fkey (
             id,
