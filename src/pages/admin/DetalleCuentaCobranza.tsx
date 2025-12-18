@@ -2083,18 +2083,21 @@ export default function DetalleCuentaCobranza() {
 
   // Función para confirmar ajustes de aplicaciones
   const handleConfirmAplicacionAdjustments = async () => {
-    if (Object.keys(aplicacionMontoEdit).length === 0) return;
+    if (Object.keys(aplicacionMontoEdit).length === 0 && newPaymentRows.length === 0) return;
 
     setIsSavingAdjustment(true);
     try {
-      // 1. Actualizar los montos de las aplicaciones editadas
-      for (const [aplicacionId, newMonto] of Object.entries(aplicacionMontoEdit)) {
-        const { error: updateError } = await supabase
-          .from('aplicaciones_pago')
-          .update({ monto: newMonto })
-          .eq('id', parseInt(aplicacionId));
+      // 1. Actualizar los montos de los PAGOS editados (keys con formato pago_${id})
+      for (const [key, newMonto] of Object.entries(aplicacionMontoEdit)) {
+        if (key.startsWith('pago_')) {
+          const pagoId = parseInt(key.replace('pago_', ''));
+          const { error: updateError } = await supabase
+            .from('pagos')
+            .update({ monto: newMonto })
+            .eq('id', pagoId);
 
-        if (updateError) throw updateError;
+          if (updateError) throw updateError;
+        }
       }
 
       // 2. Insertar nuevos pagos si los hay
@@ -3645,8 +3648,55 @@ export default function DetalleCuentaCobranza() {
                                     <div className="flex items-center gap-3">
                                       <DollarSign className="h-5 w-5 text-success" />
                                       <div className="flex flex-col">
-                                        <span className="text-sm font-medium">
-                                          Pago de {formatCurrency(pago.monto)}
+                                        <span className="text-sm font-medium flex items-center gap-2">
+                                          Pago de {(canUpdate || isSuperAdmin) && !esCuentaCancelada && !isReadOnly && !isEnDemanda ? (
+                                            aplicacionMontoEdit[`pago_${pago.id}`] !== undefined ? (
+                                              <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <Input
+                                                  type="number"
+                                                  step="0.01"
+                                                  className="h-6 w-28 text-xs"
+                                                  value={aplicacionMontoEdit[`pago_${pago.id}`]}
+                                                  onChange={(e) => {
+                                                    const newValue = parseFloat(e.target.value) || 0;
+                                                    setAplicacionMontoEdit(prev => ({ ...prev, [`pago_${pago.id}`]: newValue }));
+                                                  }}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAplicacionMontoEdit(prev => {
+                                                      const newState = { ...prev };
+                                                      delete newState[`pago_${pago.id}`];
+                                                      return newState;
+                                                    });
+                                                    setOriginalAplicacionMontos(prev => {
+                                                      const newState = { ...prev };
+                                                      delete newState[`pago_${pago.id}`];
+                                                      return newState;
+                                                    });
+                                                  }}
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </Button>
+                                              </span>
+                                            ) : (
+                                              <span 
+                                                className="cursor-pointer hover:underline"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setAplicacionMontoEdit(prev => ({ ...prev, [`pago_${pago.id}`]: pago.monto }));
+                                                  setOriginalAplicacionMontos(prev => ({ ...prev, [`pago_${pago.id}`]: pago.monto }));
+                                                }}
+                                              >
+                                                {formatCurrency(pago.monto)}
+                                              </span>
+                                            )
+                                          ) : formatCurrency(pago.monto)}
                                         </span>
                                         <span className="text-xs text-muted-foreground">
                                           {pago.metodos_pago?.nombre} - {formatDate(pago.fecha_pago)}
@@ -3784,60 +3834,7 @@ export default function DetalleCuentaCobranza() {
                                                   : 'Sin fecha'}
                                               </TableCell>
                                               <TableCell className="font-medium text-xs">
-                                                <div className="flex items-center gap-2">
-                                                  {(canUpdate || isSuperAdmin) && !esCuentaCancelada && !isReadOnly && !isEnDemanda ? (
-                                                    <>
-                                                      {aplicacionMontoEdit[aplicacion.id] !== undefined ? (
-                                                        <div className="flex items-center gap-1">
-                                                          <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            className="h-6 w-24 text-xs"
-                                                            value={aplicacionMontoEdit[aplicacion.id]}
-                                                            onChange={(e) => {
-                                                              const newValue = parseFloat(e.target.value) || 0;
-                                                              setAplicacionMontoEdit(prev => ({ ...prev, [aplicacion.id]: newValue }));
-                                                            }}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                          />
-                                                          <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            className="h-6 w-6 p-0"
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              setAplicacionMontoEdit(prev => {
-                                                                const newState = { ...prev };
-                                                                delete newState[aplicacion.id];
-                                                                return newState;
-                                                              });
-                                                              setOriginalAplicacionMontos(prev => {
-                                                                const newState = { ...prev };
-                                                                delete newState[aplicacion.id];
-                                                                return newState;
-                                                              });
-                                                            }}
-                                                          >
-                                                            <X className="h-3 w-3" />
-                                                          </Button>
-                                                        </div>
-                                                      ) : (
-                                                        <span 
-                                                          className="cursor-pointer hover:underline"
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setAplicacionMontoEdit(prev => ({ ...prev, [aplicacion.id]: aplicacion.monto }));
-                                                            setOriginalAplicacionMontos(prev => ({ ...prev, [aplicacion.id]: aplicacion.monto }));
-                                                          }}
-                                                        >
-                                                          {formatCurrency(aplicacion.monto)}
-                                                        </span>
-                                                      )}
-                                                    </>
-                                                  ) : (
-                                                    <span>{formatCurrency(aplicacion.monto)}</span>
-                                                  )}
-                                                </div>
+                                                {formatCurrency(aplicacion.monto)}
                                               </TableCell>
                                             </TableRow>
                                           );
@@ -3948,8 +3945,8 @@ export default function DetalleCuentaCobranza() {
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="2">Efectivo</SelectItem>
-                                      <SelectItem value="4">Cheque</SelectItem>
+                                      <SelectItem value="1">Efectivo</SelectItem>
+                                      <SelectItem value="2">Cheque</SelectItem>
                                       <SelectItem value="5">Transferencia</SelectItem>
                                       <SelectItem value="7">STP-manual</SelectItem>
                                     </SelectContent>
