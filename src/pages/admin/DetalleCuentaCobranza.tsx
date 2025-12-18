@@ -3893,8 +3893,8 @@ export default function DetalleCuentaCobranza() {
                       </div>
 
                       {/* Botón para agregar nuevos pagos si el ajuste reduce el monto */}
-                      {Object.entries(aplicacionMontoEdit).some(([id, newMonto]) => {
-                        const original = originalAplicacionMontos[parseInt(id)] || 0;
+                      {Object.entries(aplicacionMontoEdit).some(([key, newMonto]) => {
+                        const original = originalAplicacionMontos[key] || 0;
                         return newMonto < original;
                       }) && (
                         <div className="mb-4">
