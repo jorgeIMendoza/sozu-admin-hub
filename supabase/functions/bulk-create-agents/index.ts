@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     if (!agents || !Array.isArray(agents) || agents.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'No se proporcionaron agentes para procesar' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
       validationResults.push(validation);
     }
 
-    // Si hay errores de validación, NO continuar
+    // Si hay errores de validación, retornar con success: false pero status 200
     if (validationErrors.length > 0) {
       console.log(`[bulk-create-agents] VALIDACIÓN FALLIDA: ${validationErrors.length} errores encontrados`);
       return new Response(
@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
             invalid: validationErrors.length,
           }
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -439,7 +439,7 @@ Deno.serve(async (req) => {
           error: getErrorMessage(errorMsg),
           technicalError: errorMsg,
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -448,7 +448,7 @@ Deno.serve(async (req) => {
     console.error(`[bulk-create-agents] Error general: ${errorMessage}`);
     return new Response(
       JSON.stringify({ success: false, error: getErrorMessage(errorMessage) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

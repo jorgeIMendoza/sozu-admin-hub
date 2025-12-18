@@ -109,54 +109,23 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
       setProgress(30);
       console.log(`Procesando ${agents.length} agentes...`);
 
-      const response = await supabase.functions.invoke('bulk-create-agents', {
+      const { data, error } = await supabase.functions.invoke('bulk-create-agents', {
         body: { agents },
       });
 
       setProgress(100);
 
-      // Handle both success and error responses
-      let parsedData: UploadResponse;
-      
-      if (response.data) {
-        // Success response - data is already parsed
-        parsedData = response.data as UploadResponse;
-      } else if (response.error) {
-        // Error response - need to extract JSON from error context
-        console.log('Response error:', response.error);
-        
-        // Try to get the response body from error.context (Response object)
-        // @ts-ignore - context might exist on FunctionsHttpError
-        const errorContext = response.error.context;
-        
-        if (errorContext && typeof errorContext.json === 'function') {
-          // It's a Response object, parse it
-          try {
-            parsedData = await errorContext.json();
-          } catch {
-            parsedData = { success: false, error: response.error.message || 'Error del servidor' };
-          }
-        } else if (typeof response.error === 'object' && 'message' in response.error) {
-          // Try to parse the message as JSON
-          try {
-            parsedData = JSON.parse(response.error.message);
-          } catch {
-            parsedData = { success: false, error: response.error.message };
-          }
-        } else if (typeof response.error === 'string') {
-          try {
-            parsedData = JSON.parse(response.error);
-          } catch {
-            parsedData = { success: false, error: response.error };
-          }
-        } else {
-          parsedData = { success: false, error: 'Error desconocido del servidor' };
-        }
-      } else {
-        parsedData = { success: false, error: 'Respuesta vacía del servidor' };
+      // Ahora todas las respuestas vienen en data (status 200)
+      if (error) {
+        // Error de red o similar
+        console.error('Error en invoke:', error);
+        setResults({ success: false, error: error.message || 'Error de conexión' });
+        toast.error('Error de conexión con el servidor');
+        return;
       }
 
-      console.log('Parsed data:', parsedData);
+      const parsedData = data as UploadResponse;
+      console.log('Respuesta del servidor:', parsedData);
       setResults(parsedData);
 
       if (parsedData.success) {
