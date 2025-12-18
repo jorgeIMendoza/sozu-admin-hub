@@ -115,30 +115,55 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
 
       setProgress(100);
 
-      // Handle both success and error responses (edge function may return 400 with valid JSON)
-      const responseData = response.data || response.error;
-      
-      // If responseData is a string (error message), try to parse it as JSON
+      // Handle both success and error responses
       let parsedData: UploadResponse;
-      if (typeof responseData === 'string') {
-        try {
-          parsedData = JSON.parse(responseData);
-        } catch {
-          parsedData = { success: false, error: responseData };
+      
+      if (response.data) {
+        // Success response - data is already parsed
+        parsedData = response.data as UploadResponse;
+      } else if (response.error) {
+        // Error response - need to extract JSON from error context
+        console.log('Response error:', response.error);
+        
+        // Try to get the response body from error.context (Response object)
+        // @ts-ignore - context might exist on FunctionsHttpError
+        const errorContext = response.error.context;
+        
+        if (errorContext && typeof errorContext.json === 'function') {
+          // It's a Response object, parse it
+          try {
+            parsedData = await errorContext.json();
+          } catch {
+            parsedData = { success: false, error: response.error.message || 'Error del servidor' };
+          }
+        } else if (typeof response.error === 'object' && 'message' in response.error) {
+          // Try to parse the message as JSON
+          try {
+            parsedData = JSON.parse(response.error.message);
+          } catch {
+            parsedData = { success: false, error: response.error.message };
+          }
+        } else if (typeof response.error === 'string') {
+          try {
+            parsedData = JSON.parse(response.error);
+          } catch {
+            parsedData = { success: false, error: response.error };
+          }
+        } else {
+          parsedData = { success: false, error: 'Error desconocido del servidor' };
         }
-      } else if (responseData && typeof responseData === 'object') {
-        parsedData = responseData as UploadResponse;
       } else {
-        parsedData = { success: false, error: 'Respuesta inesperada del servidor' };
+        parsedData = { success: false, error: 'Respuesta vacía del servidor' };
       }
 
+      console.log('Parsed data:', parsedData);
       setResults(parsedData);
 
       if (parsedData.success) {
         toast.success(`Proceso completado: ${parsedData.summary?.created || 0} creados, ${parsedData.summary?.updated || 0} actualizados`);
         onSuccess();
       } else if (parsedData.phase === 'validation') {
-        toast.warning(`Validación fallida: ${parsedData.errors?.length || 0} errores encontrados. No se creó ningún registro.`);
+        toast.warning(`Validación fallida: ${parsedData.errors?.length || 0} errores encontrados`);
       } else if (parsedData.phase === 'execution_rollback') {
         toast.error('Error durante la creación. Todos los cambios fueron revertidos.');
       } else {
