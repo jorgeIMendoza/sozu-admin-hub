@@ -82,6 +82,40 @@ const FacturaCell = ({ propertyId }: { propertyId: number }) => {
   );
 };
 
+// Component to show payment schemes for a project
+const EsquemasPagoCell = ({ projectId }: { projectId: number }) => {
+  const { data: schemes = [], isLoading } = useQuery({
+    queryKey: ['esquemas-pago-proyecto', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('esquemas_pago')
+        .select('id, nombre')
+        .eq('id_proyecto', projectId)
+        .is('id_producto', null)
+        .eq('es_manual', false)
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  if (isLoading) return <span className="text-muted-foreground text-xs">...</span>;
+  if (schemes.length === 0) return <span className="text-muted-foreground text-xs">Sin esquemas</span>;
+
+  return (
+    <div className="flex flex-wrap gap-1 max-w-[200px]">
+      {schemes.map((scheme) => (
+        <Badge key={scheme.id} variant="outline" className="text-xs">
+          {scheme.nombre}
+        </Badge>
+      ))}
+    </div>
+  );
+};
+
 interface Property {
   id: number;
   numero_propiedad: string;
@@ -142,7 +176,7 @@ type ColumnKey =
   | 'proyecto' | 'propietario' | 'edificio' | 'modelo' | 'numero_departamento'
   | 'piso' | 'vista' | 'area' | 'configuracion' | 'precio' | 'precio_m2'
   | 'estacionamientos' | 'bodegas' | 'ofertas_comerciales' | 'ofertas_productos'
-  | 'disponibilidad' | 'cuenta_cobranza' | 'cuenta_clabe' | 'precio_final'
+  | 'esquemas_pago' | 'disponibilidad' | 'cuenta_cobranza' | 'cuenta_clabe' | 'precio_final'
   | 'pagado' | 'restante' | 'estado_pagos' | 'factura' | 'acciones';
 
 interface ColumnConfig {
@@ -168,6 +202,7 @@ const COLUMNS_CONFIG: ColumnConfig[] = [
   { key: 'bodegas', label: 'Bodegas', required: false, defaultVisible: true },
   { key: 'ofertas_comerciales', label: 'Ofertas Comerciales', required: false, defaultVisible: false },
   { key: 'ofertas_productos', label: 'Ofertas de Productos', required: false, defaultVisible: false },
+  { key: 'esquemas_pago', label: 'Esquemas de Pago', required: false, defaultVisible: false },
   { key: 'disponibilidad', label: 'Estatus de Propiedad', required: false, defaultVisible: true },
   { key: 'cuenta_cobranza', label: 'Cuenta de cobranza', required: false, defaultVisible: true },
   { key: 'cuenta_clabe', label: 'Cuenta Clabe', required: false, defaultVisible: false },
@@ -3155,6 +3190,13 @@ const Propiedades = () => {
                                 </Tooltip>
                               </TooltipProvider>
                             )}
+                          </TableCell>
+                        );
+                      
+                      case 'esquemas_pago':
+                        return (
+                          <TableCell key={column.key}>
+                            <EsquemasPagoCell projectId={property.proyecto_id} />
                           </TableCell>
                         );
                       

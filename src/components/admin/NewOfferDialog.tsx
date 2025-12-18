@@ -1090,33 +1090,40 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Mode Selection */}
-            <FormField
-              control={form.control}
-              name="mode"
-              render={({ field }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel>Tipo de Oferta</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      className="flex space-x-6"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="precargada" id="precargada" />
-                        <Label htmlFor="precargada">Precargada</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="manual" id="manual" />
-                        <Label htmlFor="manual">Manual</Label>
-                      </div>
-            </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Mode Selection - Manual only for Agente Interno and Super Administrador */}
+            {(() => {
+              const canUseManualMode = profile?.rol_nombre === 'Agente Interno' || profile?.rol_nombre === 'Super Administrador';
+              return (
+                <FormField
+                  control={form.control}
+                  name="mode"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Tipo de Oferta</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex space-x-6"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="precargada" id="precargada" />
+                            <Label htmlFor="precargada">Precargada</Label>
+                          </div>
+                          {canUseManualMode && (
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="manual" id="manual" />
+                              <Label htmlFor="manual">Manual</Label>
+                            </div>
+                          )}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              );
+            })()}
 
             {/* Manual Payment Scheme Section */}
             {selectedMode === "manual" && (

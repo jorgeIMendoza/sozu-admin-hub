@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, UserPlus } from "lucide-react";
+import { ShoppingCart, UserPlus, AlertCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -671,7 +671,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
                       onClick={() => {
                         setSelectedProduct(null);
                         setSelectedProductData(null);
-                        form.setValue("mode", "manual");
+                        form.setValue("mode", "precargada");
                         form.setValue("selectedSchemeId", undefined);
                       }}
                     >
@@ -681,226 +681,69 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
 
                   <Separator />
 
-                  {/* Step 2: Mode Selection - Only show if product has payment schemes */}
+                  {/* Step 2: Scheme Selection - Only preloaded schemes (no manual option) */}
                   {productPaymentSchemes.length > 0 ? (
-                    <>
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
-                        name="mode"
+                        name="selectedSchemeId"
                         render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel>2. Tipo de Oferta</FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                value={field.value}
-                                className="flex space-x-6"
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="precargada" id="precargada-prod" />
-                                  <Label htmlFor="precargada-prod">Precargada</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="manual" id="manual-prod" />
-                                  <Label htmlFor="manual-prod">Manual</Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
+                          <FormItem>
+                            <FormLabel>2. Seleccionar Esquema de Pago (Opcional)</FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
+                              value={field.value?.toString() || ""}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona un esquema de pago (opcional)" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {productPaymentSchemes.map((scheme: any) => (
+                                  <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                                    <div className="flex flex-col">
+                                      <span>{scheme.nombre}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        Eng: {scheme.porcentaje_enganche}% | Mens: {scheme.porcentaje_mensualidades}% ({scheme.numero_mensualidades}) | Ent: {scheme.porcentaje_entrega}%
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-
-                      {/* Preloaded Scheme Selection */}
-                      {selectedMode === "precargada" && (
-                        <div className="space-y-4">
-                          <FormField
-                            control={form.control}
-                            name="selectedSchemeId"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Seleccionar Esquema (Opcional)</FormLabel>
-                                <Select 
-                                  onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
-                                  value={field.value?.toString() || ""}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Selecciona un esquema de pago (opcional)" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {productPaymentSchemes.map((scheme: any) => (
-                                      <SelectItem key={scheme.id} value={scheme.id.toString()}>
-                                        <div className="flex flex-col">
-                                          <span>{scheme.nombre}</span>
-                                          <span className="text-xs text-muted-foreground">
-                                            Eng: {scheme.porcentaje_enganche}% | Mens: {scheme.porcentaje_mensualidades}% ({scheme.numero_mensualidades}) | Ent: {scheme.porcentaje_entrega}%
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          {/* Disclaimer when no scheme is selected */}
-                          {!form.watch("selectedSchemeId") && (
-                            <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
-                              <CardContent className="p-4">
-                                <p className="text-sm text-amber-800 dark:text-amber-200">
-                                  <strong>Nota:</strong> Si no seleccionas un esquema de pago, la oferta mostrará todos los esquemas disponibles y <strong>no incluirá la sección de cuenta bancaria</strong>.
-                                </p>
-                              </CardContent>
-                            </Card>
-                          )}
-                        </div>
+                      
+                      {/* Disclaimer when no scheme is selected */}
+                      {!form.watch("selectedSchemeId") && (
+                        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-amber-800 dark:text-amber-200">
+                              <strong>Nota:</strong> Si no seleccionas un esquema de pago, la oferta mostrará todos los esquemas disponibles y <strong>no incluirá la sección de cuenta bancaria</strong>.
+                            </p>
+                          </CardContent>
+                        </Card>
                       )}
-                    </>
+                    </div>
                   ) : (
-                    <Card className="border-muted bg-muted/50">
-                      <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">
-                          Este producto no tiene esquemas de pago precargados. Se generará una oferta manual.
-                        </p>
+                    <Card className="border-destructive/50 bg-destructive/10">
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-destructive">
+                            Sin esquemas de pago disponibles
+                          </p>
+                          <p className="text-sm text-destructive/80">
+                            Este producto no tiene esquemas de pago configurados. No es posible generar una oferta.
+                          </p>
+                        </div>
                       </CardContent>
                     </Card>
                   )}
 
-              {/* Manual Scheme - Only show in manual mode */}
-              {selectedMode === "manual" && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Esquema de Pago Personalizado</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="porcentaje_enganche"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Porcentaje Enganche (%) *</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="porcentaje_mensualidades"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Porcentaje Mensualidades (%) *</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="porcentaje_entrega"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Porcentaje Entrega (%) *</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="numero_mensualidades"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Número de Mensualidades *</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              step="1"
-                              placeholder="12"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="porcentaje_descuento_aumento"
-                      render={({ field }) => {
-                        const value = parseFloat(field.value || "0");
-                        const isDiscount = value < 0;
-                        const isIncrease = value > 0;
-                        
-                        return (
-                          <FormItem className="col-span-2">
-                            <FormLabel className="flex items-center gap-2">
-                              Porcentaje Descuento/Aumento (%)
-                              {isDiscount && (
-                                <Badge variant="destructive" className="text-xs">
-                                  Descuento
-                                </Badge>
-                              )}
-                              {isIncrease && (
-                                <Badge variant="default" className="text-xs">
-                                  Aumento
-                                </Badge>
-                              )}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Usa valores negativos para descuentos (ej: -5 = 5% descuento) y valores positivos para aumentos (ej: 3 = 3% aumento)
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
 
                   <Separator />
 
@@ -1141,7 +984,10 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
                   Cancelar
                 </Button>
                 {selectedProductData && (
-                  <Button onClick={handleGenerateOffer} disabled={isGenerating}>
+                  <Button 
+                    onClick={handleGenerateOffer} 
+                    disabled={isGenerating || productPaymentSchemes.length === 0}
+                  >
                     {isGenerating ? "Generando..." : "Generar Oferta"}
                   </Button>
                 )}
