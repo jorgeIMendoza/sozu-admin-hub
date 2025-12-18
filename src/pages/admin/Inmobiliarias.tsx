@@ -100,6 +100,8 @@ export default function Inmobiliarias() {
     
     // Get project counts for each inmobiliaria
     const inmobiliariaIds = (data || []).map(item => item.entidades_relacionadas[0]?.id).filter(Boolean);
+    // Get persona IDs for agent count query (id_persona_duena_lead references personas.id)
+    const inmobiliariaPersonaIds = (data || []).map(item => item.id).filter(Boolean);
     let projectCounts: { [key: number]: number } = {};
     let agentCounts: { [key: number]: number } = {};
     
@@ -118,21 +120,23 @@ export default function Inmobiliarias() {
         }, {} as { [key: number]: number });
       }
 
-      // Get agent counts for each inmobiliaria (agents are linked via id_persona_duena_lead)
-      const { data: agentData, error: agentError } = await supabase
-        .from('entidades_relacionadas')
-        .select('id_persona_duena_lead')
-        .in('id_persona_duena_lead', inmobiliariaIds)
-        .eq('id_tipo_entidad', 6) // Agentes
-        .eq('activo', true);
-      
-      if (!agentError && agentData) {
-        agentCounts = agentData.reduce((acc, item) => {
-          if (item.id_persona_duena_lead) {
-            acc[item.id_persona_duena_lead] = (acc[item.id_persona_duena_lead] || 0) + 1;
-          }
-          return acc;
-        }, {} as { [key: number]: number });
+      // Get agent counts for each inmobiliaria (agents are linked via id_persona_duena_lead which references personas.id)
+      if (inmobiliariaPersonaIds.length > 0) {
+        const { data: agentData, error: agentError } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona_duena_lead')
+          .in('id_persona_duena_lead', inmobiliariaPersonaIds)
+          .eq('id_tipo_entidad', 19) // Agentes (tipo_entidad 19)
+          .eq('activo', true);
+        
+        if (!agentError && agentData) {
+          agentCounts = agentData.reduce((acc, item) => {
+            if (item.id_persona_duena_lead) {
+              acc[item.id_persona_duena_lead] = (acc[item.id_persona_duena_lead] || 0) + 1;
+            }
+            return acc;
+          }, {} as { [key: number]: number });
+        }
       }
     }
     
@@ -151,7 +155,7 @@ export default function Inmobiliarias() {
       representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
       representante_comercial_nombre: item.representante_comercial?.personas?.nombre_legal,
       numero_proyectos: projectCounts[item.entidades_relacionadas[0]?.id] || 0,
-      numero_agentes: agentCounts[item.entidades_relacionadas[0]?.id] || 0,
+      numero_agentes: agentCounts[item.id] || 0, // Use persona id since id_persona_duena_lead references personas.id
       url_logo: item.url_logo,
     })) as Inmobiliaria[];
   };
