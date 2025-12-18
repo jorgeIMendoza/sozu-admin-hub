@@ -210,6 +210,9 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
   // Verificar si el usuario puede editar el estatus de propiedad
   const canEditPropertyStatus = profile?.rol_id === ROL_SUPER_ADMIN || profile?.rol_id === ROL_ADMIN_DATA;
   const allowedStatusIds = [ESTATUS_INVENTARIO, ESTATUS_DISPONIBLE];
+  
+  // Debug log temporal
+  console.log('DEBUG EditPropertyDialog - profile:', profile, 'rol_id:', profile?.rol_id, 'canEditPropertyStatus:', canEditPropertyStatus, 'originalStatusId:', originalStatusId);
   const [formData, setFormData] = useState({
     numero_propiedad: property.numero_propiedad,
     numero_piso: property.numero_piso || '',
@@ -789,25 +792,35 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
 
                   <div className="space-y-2">
                     <Label htmlFor="estatus_disponibilidad">Estatus de propiedad *</Label>
-                    <Combobox
-                      value={formData.id_estatus_disponibilidad}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, id_estatus_disponibilidad: value }))}
-                      options={
-                        canEditPropertyStatus && originalStatusId !== null && allowedStatusIds.includes(originalStatusId)
-                          ? (estatusDisponibilidad?.filter(estatus => allowedStatusIds.includes(estatus.id)).map((estatus) => ({
-                              value: estatus.id.toString(),
-                              label: estatus.nombre,
-                            })) || [])
-                          : (estatusDisponibilidad?.map((estatus) => ({
-                              value: estatus.id.toString(),
-                              label: estatus.nombre,
-                            })) || [])
-                      }
-                      placeholder="Selecciona estatus"
-                      searchPlaceholder="Buscar estatus..."
-                      emptyText="No se encontró el estatus."
-                      disabled={!canEditPropertyStatus || originalStatusId === null || !allowedStatusIds.includes(originalStatusId)}
-                    />
+                    {(() => {
+                      // Determinar si el campo debe estar habilitado
+                      const currentOriginalStatus = originalStatusId;
+                      const isEditableStatus = currentOriginalStatus !== null && allowedStatusIds.includes(currentOriginalStatus);
+                      const shouldBeEnabled = canEditPropertyStatus && isEditableStatus;
+                      
+                      // Filtrar opciones si puede editar y el estatus es editable
+                      const filteredOptions = shouldBeEnabled
+                        ? (estatusDisponibilidad?.filter(estatus => allowedStatusIds.includes(estatus.id)).map((estatus) => ({
+                            value: estatus.id.toString(),
+                            label: estatus.nombre,
+                          })) || [])
+                        : (estatusDisponibilidad?.map((estatus) => ({
+                            value: estatus.id.toString(),
+                            label: estatus.nombre,
+                          })) || []);
+                      
+                      return (
+                        <Combobox
+                          value={formData.id_estatus_disponibilidad}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, id_estatus_disponibilidad: value }))}
+                          options={filteredOptions}
+                          placeholder="Selecciona estatus"
+                          searchPlaceholder="Buscar estatus..."
+                          emptyText="No se encontró el estatus."
+                          disabled={!shouldBeEnabled}
+                        />
+                      );
+                    })()}
                   </div>
 
                 </CardContent>
