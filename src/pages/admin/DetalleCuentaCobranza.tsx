@@ -433,12 +433,15 @@ export default function DetalleCuentaCobranza() {
   // Estado para edición de clave_rastreo
   const [editingClaveRastreo, setEditingClaveRastreo] = useState<{ [pagoId: number]: string }>({});
   const [savingClaveRastreo, setSavingClaveRastreo] = useState<number | null>(null);
-  // Estado para ajuste de montos
+  // Estado para ajuste de montos de pagos
   const [montoAdjustments, setMontoAdjustments] = useState<{ 
     pagoId: number; 
     originalMonto: number; 
     newMonto: number; 
   } | null>(null);
+  // Estado para ajuste de montos de aplicaciones
+  const [aplicacionMontoEdit, setAplicacionMontoEdit] = useState<{ [aplicacionId: number]: number }>({});
+  const [originalAplicacionMontos, setOriginalAplicacionMontos] = useState<{ [aplicacionId: number]: number }>({});
   const [newPaymentRows, setNewPaymentRows] = useState<Array<{
     id: string;
     fecha_pago: string;
@@ -2076,6 +2079,79 @@ export default function DetalleCuentaCobranza() {
     }
   };
 
+  // Función para confirmar ajustes de aplicaciones
+  const handleConfirmAplicacionAdjustments = async () => {
+    if (Object.keys(aplicacionMontoEdit).length === 0) return;
+
+    setIsSavingAdjustment(true);
+    try {
+      // 1. Actualizar los montos de las aplicaciones editadas
+      for (const [aplicacionId, newMonto] of Object.entries(aplicacionMontoEdit)) {
+        const { error: updateError } = await supabase
+          .from('aplicaciones_pago')
+          .update({ monto: newMonto })
+          .eq('id', parseInt(aplicacionId));
+
+        if (updateError) throw updateError;
+      }
+
+      // 2. Insertar nuevos pagos si los hay
+      if (newPaymentRows.length > 0) {
+        const newPayments = newPaymentRows.filter(row => row.monto > 0).map(row => ({
+          id_cuenta_cobranza: cuentaId,
+          fecha_pago: row.fecha_pago,
+          monto: row.monto,
+          id_metodos_pago: row.id_metodos_pago,
+          clave_rastreo: row.clave_rastreo || null,
+          activo: true
+        }));
+
+        if (newPayments.length > 0) {
+          const { error: insertError } = await supabase
+            .from('pagos')
+            .insert(newPayments);
+
+          if (insertError) throw insertError;
+        }
+      }
+
+      // 3. Llamar al webhook para recalcular aplicaciones
+      try {
+        await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_cuenta_cobranza: cuentaId })
+        });
+      } catch (webhookError) {
+        console.error('Error calling adjustment webhook:', webhookError);
+      }
+
+      toast({
+        title: "Ajustes guardados",
+        description: "Los ajustes se han aplicado y las aplicaciones de pago se están recalculando",
+      });
+
+      // Limpiar estados
+      setAplicacionMontoEdit({});
+      setOriginalAplicacionMontos({});
+      setNewPaymentRows([]);
+
+      // Refrescar queries
+      queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
+      queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
+      queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaId] });
+    } catch (error) {
+      console.error("Error saving application adjustments:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar los ajustes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingAdjustment(false);
+    }
+  };
+
   // Multa functions
   const handleNewMulta = (acuerdoId: number) => {
     const acuerdo = acuerdosPago?.find(a => a.id === acuerdoId);
@@ -2244,13 +2320,13 @@ export default function DetalleCuentaCobranza() {
            cuentaDetalle.id_estatus_disponibilidad !== 11 && 
            !esCuentaCancelada &&
            totalPagado < (cuentaDetalle?.precio_final || 0) && (
-            <Button 
+            <Button
               onClick={() => setEnDemandaDialog(true)}
               variant="outline"
               className="border-amber-500 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
             >
               <Scale className="h-4 w-4 mr-2" />
-              En Demanda
+              Poner en Demanda
             </Button>
           )}
           
@@ -3551,7 +3627,8 @@ export default function DetalleCuentaCobranza() {
                         const aplicacionesDelPago = aplicacionesPorPago?.filter(a => a.id_pago === pago.id) || [];
                         const isPagoOpen = openAcuerdos[pago.id];
                         // IDs de métodos que permiten editar clave_rastreo: STP (6), STP-manual (7), Transferencia bancaria (3)
-                        const canEditClaveRastreo = [3, 6, 7].includes(pago.id_metodos_pago) && !pago.clave_rastreo;
+                        // Permitir edición si clave_rastreo es null, undefined, o cadena vacía
+                        const canEditClaveRastreo = [3, 6, 7].includes(pago.id_metodos_pago) && (!pago.clave_rastreo || pago.clave_rastreo.trim() === '');
                         return (
                           <Collapsible 
                             key={pago.id} 
@@ -3704,7 +3781,60 @@ export default function DetalleCuentaCobranza() {
                                                   : 'Sin fecha'}
                                               </TableCell>
                                               <TableCell className="font-medium text-xs">
-                                                {formatCurrency(aplicacion.monto)}
+                                                <div className="flex items-center gap-2">
+                                                  {!esCuentaCancelada && !isReadOnly && !isEnDemanda ? (
+                                                    <>
+                                                      {aplicacionMontoEdit[aplicacion.id] !== undefined ? (
+                                                        <div className="flex items-center gap-1">
+                                                          <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="h-6 w-24 text-xs"
+                                                            value={aplicacionMontoEdit[aplicacion.id]}
+                                                            onChange={(e) => {
+                                                              const newValue = parseFloat(e.target.value) || 0;
+                                                              setAplicacionMontoEdit(prev => ({ ...prev, [aplicacion.id]: newValue }));
+                                                            }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                          />
+                                                          <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-6 w-6 p-0"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              setAplicacionMontoEdit(prev => {
+                                                                const newState = { ...prev };
+                                                                delete newState[aplicacion.id];
+                                                                return newState;
+                                                              });
+                                                              setOriginalAplicacionMontos(prev => {
+                                                                const newState = { ...prev };
+                                                                delete newState[aplicacion.id];
+                                                                return newState;
+                                                              });
+                                                            }}
+                                                          >
+                                                            <X className="h-3 w-3" />
+                                                          </Button>
+                                                        </div>
+                                                      ) : (
+                                                        <span 
+                                                          className="cursor-pointer hover:underline"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAplicacionMontoEdit(prev => ({ ...prev, [aplicacion.id]: aplicacion.monto }));
+                                                            setOriginalAplicacionMontos(prev => ({ ...prev, [aplicacion.id]: aplicacion.monto }));
+                                                          }}
+                                                        >
+                                                          {formatCurrency(aplicacion.monto)}
+                                                        </span>
+                                                      )}
+                                                    </>
+                                                  ) : (
+                                                    <span>{formatCurrency(aplicacion.monto)}</span>
+                                                  )}
+                                                </div>
                                               </TableCell>
                                             </TableRow>
                                           );
@@ -3726,6 +3856,153 @@ export default function DetalleCuentaCobranza() {
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       No hay pagos registrados
+                    </div>
+                  )}
+                  {/* Panel de confirmación de ajustes */}
+                  {Object.keys(aplicacionMontoEdit).length > 0 && (
+                    <div className="mt-4 p-4 border-2 border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-600" />
+                        <span className="font-semibold text-amber-700 dark:text-amber-500">Ajustes pendientes de confirmar</span>
+                      </div>
+                      
+                      <div className="text-sm text-muted-foreground mb-4">
+                        <p className="mb-2">⚠️ Al confirmar estos ajustes, se recalcularán todas las aplicaciones de pago de esta cuenta. Esta acción no se puede deshacer.</p>
+                        <div className="bg-background p-2 rounded text-xs">
+                          <p className="font-medium mb-1">Cambios pendientes:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            {Object.entries(aplicacionMontoEdit).map(([aplicacionId, newMonto]) => {
+                              const originalMonto = originalAplicacionMontos[parseInt(aplicacionId)] || 0;
+                              const diff = newMonto - originalMonto;
+                              return (
+                                <li key={aplicacionId}>
+                                  Aplicación #{aplicacionId}: {formatCurrency(originalMonto)} → {formatCurrency(newMonto)} 
+                                  <span className={diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : ''}>
+                                    {diff > 0 ? ` (+${formatCurrency(diff)})` : diff < 0 ? ` (${formatCurrency(diff)})` : ''}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                            {newPaymentRows.length > 0 && newPaymentRows.map(row => (
+                              <li key={row.id} className="text-green-600">
+                                Nuevo pago: {formatCurrency(row.monto)} - {formatDate(row.fecha_pago)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Botón para agregar nuevos pagos si el ajuste reduce el monto */}
+                      {Object.entries(aplicacionMontoEdit).some(([id, newMonto]) => {
+                        const original = originalAplicacionMontos[parseInt(id)] || 0;
+                        return newMonto < original;
+                      }) && (
+                        <div className="mb-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAddNewPaymentRow}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Agregar pago adicional
+                          </Button>
+                          
+                          {newPaymentRows.length > 0 && (
+                            <div className="mt-2 space-y-2">
+                              {newPaymentRows.map((row) => (
+                                <div key={row.id} className="flex items-center gap-2 p-2 bg-background rounded">
+                                  <Input
+                                    type="date"
+                                    className="h-8 w-36 text-xs"
+                                    value={row.fecha_pago}
+                                    onChange={(e) => {
+                                      setNewPaymentRows(prev => prev.map(r => 
+                                        r.id === row.id ? { ...r, fecha_pago: e.target.value } : r
+                                      ));
+                                    }}
+                                  />
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Monto"
+                                    className="h-8 w-28 text-xs"
+                                    value={row.monto || ''}
+                                    onChange={(e) => {
+                                      setNewPaymentRows(prev => prev.map(r => 
+                                        r.id === row.id ? { ...r, monto: parseFloat(e.target.value) || 0 } : r
+                                      ));
+                                    }}
+                                  />
+                                  <Select
+                                    value={row.id_metodos_pago.toString()}
+                                    onValueChange={(value) => {
+                                      setNewPaymentRows(prev => prev.map(r => 
+                                        r.id === row.id ? { ...r, id_metodos_pago: parseInt(value) } : r
+                                      ));
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 w-32 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="2">Efectivo</SelectItem>
+                                      <SelectItem value="3">Transferencia</SelectItem>
+                                      <SelectItem value="6">STP</SelectItem>
+                                      <SelectItem value="7">STP-manual</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Input
+                                    placeholder="Clave rastreo"
+                                    className="h-8 w-28 text-xs"
+                                    value={row.clave_rastreo}
+                                    onChange={(e) => {
+                                      setNewPaymentRows(prev => prev.map(r => 
+                                        r.id === row.id ? { ...r, clave_rastreo: e.target.value } : r
+                                      ));
+                                    }}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleRemoveNewPaymentRow(row.id)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setAplicacionMontoEdit({});
+                            setOriginalAplicacionMontos({});
+                            setNewPaymentRows([]);
+                          }}
+                          disabled={isSavingAdjustment}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          className="bg-amber-600 hover:bg-amber-700"
+                          onClick={handleConfirmAplicacionAdjustments}
+                          disabled={isSavingAdjustment}
+                        >
+                          {isSavingAdjustment ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Guardando...
+                            </>
+                          ) : (
+                            'Confirmar Ajustes'
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </TabsContent>
