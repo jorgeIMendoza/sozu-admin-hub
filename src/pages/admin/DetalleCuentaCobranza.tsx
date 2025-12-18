@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload, Scale, Gavel } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload, Scale, Gavel, X, Save } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +30,8 @@ import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaD
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AcuerdoPago {
   id: number;
@@ -428,6 +430,24 @@ export default function DetalleCuentaCobranza() {
   const [enDemandaDialog, setEnDemandaDialog] = useState(false);
   const [juicioTerminadoDialog, setJuicioTerminadoDialog] = useState(false);
   const [editCuentaDialog, setEditCuentaDialog] = useState(false);
+  // Estado para edición de clave_rastreo
+  const [editingClaveRastreo, setEditingClaveRastreo] = useState<{ [pagoId: number]: string }>({});
+  const [savingClaveRastreo, setSavingClaveRastreo] = useState<number | null>(null);
+  // Estado para ajuste de montos
+  const [montoAdjustments, setMontoAdjustments] = useState<{ 
+    pagoId: number; 
+    originalMonto: number; 
+    newMonto: number; 
+  } | null>(null);
+  const [newPaymentRows, setNewPaymentRows] = useState<Array<{
+    id: string;
+    fecha_pago: string;
+    monto: number;
+    id_metodos_pago: number;
+    clave_rastreo: string;
+  }>>([]);
+  const [isConfirmingAdjustment, setIsConfirmingAdjustment] = useState(false);
+  const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1001,7 +1021,7 @@ export default function DetalleCuentaCobranza() {
                  descripcion: pago?.descripcion || null
                }
             };
-          }).sort((a, b) => a.pago.id - b.pago.id),
+          }).sort((a, b) => new Date(a.pago.fecha_pago).getTime() - new Date(b.pago.fecha_pago).getTime()),
           multas: multasConEstado.map(m => ({
             id: m.id,
             monto: m.saldoPendiente, // Show pending balance
@@ -1081,6 +1101,7 @@ export default function DetalleCuentaCobranza() {
           id_acuerdo_pago,
           acuerdos_pago!aplicaciones_pago_id_acuerdo_pago_fkey(
             fecha_pago,
+            orden,
             conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)
           )
         `)
@@ -1910,6 +1931,148 @@ export default function DetalleCuentaCobranza() {
       });
     } finally {
       setUploadingEvidence(null);
+    }
+  };
+
+  // Función para guardar clave_rastreo
+  const handleSaveClaveRastreo = async (pagoId: number) => {
+    const claveRastreo = editingClaveRastreo[pagoId]?.trim();
+    if (!claveRastreo) return;
+
+    setSavingClaveRastreo(pagoId);
+    try {
+      const { error } = await supabase
+        .from('pagos')
+        .update({ clave_rastreo: claveRastreo })
+        .eq('id', pagoId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Clave guardada",
+        description: "La clave de rastreo se ha guardado correctamente",
+      });
+
+      // Limpiar el estado de edición
+      setEditingClaveRastreo(prev => {
+        const newState = { ...prev };
+        delete newState[pagoId];
+        return newState;
+      });
+
+      // Refrescar queries
+      queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
+      queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
+    } catch (error) {
+      console.error("Error saving clave_rastreo:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la clave de rastreo",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingClaveRastreo(null);
+    }
+  };
+
+  // Funciones para ajuste de monto
+  const handleStartMontoEdit = (pagoId: number, currentMonto: number) => {
+    setMontoAdjustments({
+      pagoId,
+      originalMonto: currentMonto,
+      newMonto: currentMonto
+    });
+    setNewPaymentRows([]);
+    setIsConfirmingAdjustment(false);
+  };
+
+  const handleCancelMontoEdit = () => {
+    setMontoAdjustments(null);
+    setNewPaymentRows([]);
+    setIsConfirmingAdjustment(false);
+  };
+
+  const handleAddNewPaymentRow = () => {
+    setNewPaymentRows(prev => [...prev, {
+      id: `new-${Date.now()}`,
+      fecha_pago: new Date().toISOString().split('T')[0],
+      monto: 0,
+      id_metodos_pago: 2, // Transferencia bancaria por defecto
+      clave_rastreo: ''
+    }]);
+  };
+
+  const handleRemoveNewPaymentRow = (id: string) => {
+    setNewPaymentRows(prev => prev.filter(row => row.id !== id));
+  };
+
+  const handleConfirmAdjustments = async () => {
+    if (!montoAdjustments) return;
+
+    setIsSavingAdjustment(true);
+    try {
+      // 1. Actualizar el monto del pago existente
+      const { error: updateError } = await supabase
+        .from('pagos')
+        .update({ monto: montoAdjustments.newMonto })
+        .eq('id', montoAdjustments.pagoId);
+
+      if (updateError) throw updateError;
+
+      // 2. Insertar nuevos pagos si los hay
+      if (newPaymentRows.length > 0) {
+        const newPayments = newPaymentRows.filter(row => row.monto > 0).map(row => ({
+          id_cuenta_cobranza: cuentaId,
+          fecha_pago: row.fecha_pago,
+          monto: row.monto,
+          id_metodos_pago: row.id_metodos_pago,
+          clave_rastreo: row.clave_rastreo || null,
+          activo: true
+        }));
+
+        if (newPayments.length > 0) {
+          const { error: insertError } = await supabase
+            .from('pagos')
+            .insert(newPayments);
+
+          if (insertError) throw insertError;
+        }
+      }
+
+      // 3. Llamar al webhook para recalcular aplicaciones
+      try {
+        await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_cuenta_cobranza: cuentaId })
+        });
+      } catch (webhookError) {
+        console.error('Error calling adjustment webhook:', webhookError);
+      }
+
+      toast({
+        title: "Ajustes guardados",
+        description: "Los ajustes se han aplicado y las aplicaciones de pago se están recalculando",
+      });
+
+      // Limpiar estados
+      setMontoAdjustments(null);
+      setNewPaymentRows([]);
+      setIsConfirmingAdjustment(false);
+
+      // Refrescar queries
+      queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
+      queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
+      queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaId] });
+    } catch (error) {
+      console.error("Error saving adjustments:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar los ajustes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingAdjustment(false);
     }
   };
 
@@ -3387,7 +3550,8 @@ export default function DetalleCuentaCobranza() {
                       {pagos.map((pago) => {
                         const aplicacionesDelPago = aplicacionesPorPago?.filter(a => a.id_pago === pago.id) || [];
                         const isPagoOpen = openAcuerdos[pago.id];
-                        
+                        // IDs de métodos que permiten editar clave_rastreo: STP (6), STP-manual (7), Transferencia bancaria (3)
+                        const canEditClaveRastreo = [3, 6, 7].includes(pago.id_metodos_pago) && !pago.clave_rastreo;
                         return (
                           <Collapsible 
                             key={pago.id} 
@@ -3409,11 +3573,30 @@ export default function DetalleCuentaCobranza() {
                                         </span>
                                       </div>
                                     </div>
-                                    {pago.clave_rastreo && (
+                                    {/* Clave rastreo: editable o mostrar */}
+                                    {canEditClaveRastreo && !esCuentaCancelada && !isReadOnly && !isEnDemanda ? (
+                                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <Input
+                                          className="h-7 w-40 text-xs"
+                                          placeholder="Ingrese clave rastreo"
+                                          value={editingClaveRastreo[pago.id] ?? ''}
+                                          onChange={(e) => setEditingClaveRastreo(prev => ({ ...prev, [pago.id]: e.target.value }))}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleSaveClaveRastreo(pago.id);
+                                            }
+                                          }}
+                                          disabled={savingClaveRastreo === pago.id}
+                                        />
+                                        {savingClaveRastreo === pago.id && (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        )}
+                                      </div>
+                                    ) : pago.clave_rastreo ? (
                                       <Badge variant="outline" className="text-xs">
                                         {pago.clave_rastreo}
                                       </Badge>
-                                    )}
+                                    ) : null}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <Badge variant="secondary" className="text-xs">
@@ -3503,21 +3686,29 @@ export default function DetalleCuentaCobranza() {
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                        {aplicacionesDelPago.map((aplicacion) => (
-                                          <TableRow key={aplicacion.id}>
-                                            <TableCell className="text-xs">
-                                              {aplicacion.acuerdos_pago?.conceptos_pago?.nombre || 'Sin concepto'}
-                                            </TableCell>
-                                            <TableCell className="text-xs">
-                                              {aplicacion.acuerdos_pago?.fecha_pago 
-                                                ? formatDate(aplicacion.acuerdos_pago.fecha_pago)
-                                                : 'Sin fecha'}
-                                            </TableCell>
-                                            <TableCell className="font-medium text-xs">
-                                              {formatCurrency(aplicacion.monto)}
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
+                                        {aplicacionesDelPago.map((aplicacion) => {
+                                          const concepto = aplicacion.acuerdos_pago?.conceptos_pago?.nombre || 'Sin concepto';
+                                          const orden = (aplicacion.acuerdos_pago as any)?.orden;
+                                          const conceptoDisplay = concepto.toLowerCase() === 'parcialidad' && orden 
+                                            ? `Parcialidad ${orden}` 
+                                            : concepto;
+                                          
+                                          return (
+                                            <TableRow key={aplicacion.id}>
+                                              <TableCell className="text-xs">
+                                                {conceptoDisplay}
+                                              </TableCell>
+                                              <TableCell className="text-xs">
+                                                {aplicacion.acuerdos_pago?.fecha_pago 
+                                                  ? formatDate(aplicacion.acuerdos_pago.fecha_pago)
+                                                  : 'Sin fecha'}
+                                              </TableCell>
+                                              <TableCell className="font-medium text-xs">
+                                                {formatCurrency(aplicacion.monto)}
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
                                       </TableBody>
                                     </Table>
                                   ) : (
