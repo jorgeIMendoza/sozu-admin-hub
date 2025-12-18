@@ -109,29 +109,47 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
       setProgress(30);
       console.log(`Procesando ${agents.length} agentes...`);
 
-      const { data, error } = await supabase.functions.invoke('bulk-create-agents', {
+      const response = await supabase.functions.invoke('bulk-create-agents', {
         body: { agents },
       });
 
       setProgress(100);
 
-      if (error) {
-        throw new Error(error.message);
+      // Handle both success and error responses (edge function may return 400 with valid JSON)
+      const responseData = response.data || response.error;
+      
+      // If responseData is a string (error message), try to parse it as JSON
+      let parsedData: UploadResponse;
+      if (typeof responseData === 'string') {
+        try {
+          parsedData = JSON.parse(responseData);
+        } catch {
+          parsedData = { success: false, error: responseData };
+        }
+      } else if (responseData && typeof responseData === 'object') {
+        parsedData = responseData as UploadResponse;
+      } else {
+        parsedData = { success: false, error: 'Respuesta inesperada del servidor' };
       }
 
-      setResults(data as UploadResponse);
+      setResults(parsedData);
 
-      if (data?.success) {
-        toast.success(`Proceso completado: ${data.summary?.created || 0} creados, ${data.summary?.updated || 0} actualizados`);
+      if (parsedData.success) {
+        toast.success(`Proceso completado: ${parsedData.summary?.created || 0} creados, ${parsedData.summary?.updated || 0} actualizados`);
         onSuccess();
+      } else if (parsedData.phase === 'validation') {
+        toast.warning(`Validación fallida: ${parsedData.errors?.length || 0} errores encontrados. No se creó ningún registro.`);
+      } else if (parsedData.phase === 'execution_rollback') {
+        toast.error('Error durante la creación. Todos los cambios fueron revertidos.');
       } else {
-        toast.error(data?.error || 'Error procesando agentes');
+        toast.error(parsedData.error || parsedData.message || 'Error procesando agentes');
       }
 
     } catch (error) {
       console.error('Error en carga masiva:', error);
-      toast.error(error instanceof Error ? error.message : 'Error procesando archivo');
-      setResults({ success: false, error: error instanceof Error ? error.message : 'Error desconocido' });
+      const errorMsg = error instanceof Error ? error.message : 'Error procesando archivo';
+      toast.error(errorMsg);
+      setResults({ success: false, error: errorMsg });
     } finally {
       setIsProcessing(false);
     }
