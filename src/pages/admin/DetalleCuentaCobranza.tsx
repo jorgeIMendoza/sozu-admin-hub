@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -453,6 +454,7 @@ export default function DetalleCuentaCobranza() {
   const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { canUpdate, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
 
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
@@ -3628,7 +3630,8 @@ export default function DetalleCuentaCobranza() {
                         const isPagoOpen = openAcuerdos[pago.id];
                         // IDs de métodos que permiten editar clave_rastreo: Transferencia bancaria (5), STP (6), STP-manual (7)
                         // Permitir edición si clave_rastreo es null, undefined, o cadena vacía
-                        const canEditClaveRastreo = [5, 6, 7].includes(pago.id_metodos_pago) && (!pago.clave_rastreo || pago.clave_rastreo.trim() === '');
+                        // Solo usuarios con permiso de actualizar o Super Admin pueden editar
+                        const canEditClaveRastreo = (canUpdate || isSuperAdmin) && [5, 6, 7].includes(pago.id_metodos_pago) && (!pago.clave_rastreo || pago.clave_rastreo.trim() === '');
                         return (
                           <Collapsible 
                             key={pago.id} 
@@ -3782,7 +3785,7 @@ export default function DetalleCuentaCobranza() {
                                               </TableCell>
                                               <TableCell className="font-medium text-xs">
                                                 <div className="flex items-center gap-2">
-                                                  {!esCuentaCancelada && !isReadOnly && !isEnDemanda ? (
+                                                  {(canUpdate || isSuperAdmin) && !esCuentaCancelada && !isReadOnly && !isEnDemanda ? (
                                                     <>
                                                       {aplicacionMontoEdit[aplicacion.id] !== undefined ? (
                                                         <div className="flex items-center gap-1">
