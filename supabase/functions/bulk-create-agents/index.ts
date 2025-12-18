@@ -13,10 +13,26 @@ interface AgentRow {
   proyecto: string;
 }
 
-interface ProcessResult {
+interface ValidationResult {
   email: string;
-  status: 'created' | 'updated' | 'skipped' | 'error';
-  message: string;
+  isValid: boolean;
+  error?: string;
+  personaId?: number;
+  inmobiliariaId?: number;
+  proyectoId?: number;
+  needsPersona?: boolean;
+  needsEntidad?: boolean;
+  needsAuthUser?: boolean;
+  needsUsuario?: boolean;
+  needsAccess?: boolean;
+}
+
+interface CreatedRecord {
+  type: 'persona' | 'entidad' | 'usuario' | 'acceso';
+  id?: number;
+  email?: string;
+  authUserId?: string;
+  proyectoId?: number;
 }
 
 // Mapeo de inmobiliarias por nombre
@@ -33,7 +49,9 @@ const proyectoMap: Record<string, number> = {
   'DAIKU': 1453,
 };
 
-// Función para convertir errores técnicos a mensajes amigables
+// IDs de personas que son inmobiliarias (no deben ser agentes)
+const inmobiliariaPersonaIds = Object.values(inmobiliariaMap);
+
 function getErrorMessage(technicalError: string): string {
   if (technicalError.includes('personas_clave_pais_telefono_fkey')) {
     return 'Error con el código de país del teléfono';
@@ -75,61 +93,174 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log(`[bulk-create-agents] ========== INICIO PROCESO TRANSACCIONAL ==========`);
     console.log(`[bulk-create-agents] Procesando ${agents.length} agentes`);
 
-    const results: ProcessResult[] = [];
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    let errors = 0;
+    // ============================================================
+    // FASE 1: VALIDACIÓN COMPLETA (NO crea nada)
+    // ============================================================
+    console.log(`[bulk-create-agents] FASE 1: Validación...`);
+    
+    const validationResults: ValidationResult[] = [];
+    const validationErrors: string[] = [];
 
     for (const agent of agents) {
       const email = agent.email?.trim().toLowerCase();
       const nombre = agent.nombre?.trim();
-      const telefono = agent.telefono?.trim().replace(/\D/g, '');
       const inmobiliariaNombre = agent.inmobiliaria?.trim().toUpperCase();
       const proyectoNombre = agent.proyecto?.trim().toUpperCase();
 
-      // Validaciones básicas
+      const validation: ValidationResult = { email: email || 'N/A', isValid: true };
+
+      // Validación 1: Email y nombre requeridos
       if (!email || !nombre) {
-        results.push({ email: email || 'N/A', status: 'error', message: 'Email o nombre faltante' });
-        errors++;
+        validation.isValid = false;
+        validation.error = 'Email o nombre faltante';
+        validationErrors.push(`${email || 'N/A'}: Email o nombre faltante`);
+        validationResults.push(validation);
         continue;
       }
 
-      // Obtener id de inmobiliaria
+      // Validación 2: Inmobiliaria reconocida
       const inmobiliariaPersonaId = inmobiliariaMap[inmobiliariaNombre];
       if (!inmobiliariaPersonaId) {
-        results.push({ email, status: 'error', message: `Inmobiliaria no reconocida: ${inmobiliariaNombre}` });
-        errors++;
+        validation.isValid = false;
+        validation.error = `Inmobiliaria no reconocida: ${inmobiliariaNombre}`;
+        validationErrors.push(`${email}: Inmobiliaria no reconocida: ${inmobiliariaNombre}`);
+        validationResults.push(validation);
         continue;
       }
+      validation.inmobiliariaId = inmobiliariaPersonaId;
 
-      // Obtener id de proyecto
+      // Validación 3: Proyecto reconocido
       const proyectoId = proyectoMap[proyectoNombre] || proyectoMap['VIVE DAIKU'];
       if (!proyectoId) {
-        results.push({ email, status: 'error', message: `Proyecto no reconocido: ${proyectoNombre}` });
-        errors++;
+        validation.isValid = false;
+        validation.error = `Proyecto no reconocido: ${proyectoNombre}`;
+        validationErrors.push(`${email}: Proyecto no reconocido: ${proyectoNombre}`);
+        validationResults.push(validation);
         continue;
       }
+      validation.proyectoId = proyectoId;
 
-      try {
-        // 1. Verificar si la persona ya existe
-        const { data: existingPersona } = await supabaseAdmin
-          .from('personas')
-          .select('id, nombre_legal')
-          .eq('email', email)
+      // Validación 4: Verificar que el email NO pertenece a una inmobiliaria
+      const { data: existingPersona } = await supabaseAdmin
+        .from('personas')
+        .select('id, nombre_legal')
+        .eq('email', email)
+        .eq('activo', true)
+        .single();
+
+      if (existingPersona) {
+        validation.personaId = existingPersona.id;
+        
+        // Verificar si es una inmobiliaria (tiene entidad tipo 5)
+        const { data: inmobiliariaEntidad } = await supabaseAdmin
+          .from('entidades_relacionadas')
+          .select('id')
+          .eq('id_persona', existingPersona.id)
+          .eq('id_tipo_entidad', 5) // Inmobiliaria
           .eq('activo', true)
           .single();
 
-        let personaId: number;
-        let isNewPersona = false;
+        if (inmobiliariaEntidad) {
+          validation.isValid = false;
+          validation.error = `Este correo pertenece a una inmobiliaria (${existingPersona.nombre_legal}), no puede ser un agente`;
+          validationErrors.push(`${email}: Este correo pertenece a una inmobiliaria, no puede ser un agente`);
+          validationResults.push(validation);
+          continue;
+        }
 
-        if (existingPersona) {
-          personaId = existingPersona.id;
-          console.log(`[bulk-create-agents] Persona existente: ${email} (id: ${personaId})`);
-        } else {
-          // Crear nueva persona
+        // Verificar si ya es persona dueña de lead (inmobiliaria)
+        if (inmobiliariaPersonaIds.includes(existingPersona.id)) {
+          validation.isValid = false;
+          validation.error = `Este correo pertenece a una inmobiliaria registrada, no puede ser un agente`;
+          validationErrors.push(`${email}: Este correo pertenece a una inmobiliaria registrada, no puede ser un agente`);
+          validationResults.push(validation);
+          continue;
+        }
+
+        validation.needsPersona = false;
+
+        // Verificar si ya tiene entidad de agente
+        const { data: existingEntidad } = await supabaseAdmin
+          .from('entidades_relacionadas')
+          .select('id')
+          .eq('id_persona', existingPersona.id)
+          .eq('id_tipo_entidad', 19)
+          .eq('activo', true)
+          .single();
+        validation.needsEntidad = !existingEntidad;
+
+      } else {
+        validation.needsPersona = true;
+        validation.needsEntidad = true;
+      }
+
+      // Verificar si necesita usuario
+      const { data: existingUsuario } = await supabaseAdmin
+        .from('usuarios')
+        .select('id')
+        .eq('email', email)
+        .single();
+      validation.needsUsuario = !existingUsuario;
+      validation.needsAuthUser = !existingUsuario;
+
+      // Verificar si necesita acceso al proyecto
+      const { data: existingAccess } = await supabaseAdmin
+        .from('proyectos_acceso')
+        .select('id')
+        .eq('usuario_id', email)
+        .eq('proyecto_id', proyectoId)
+        .single();
+      validation.needsAccess = !existingAccess;
+
+      validationResults.push(validation);
+    }
+
+    // Si hay errores de validación, NO continuar
+    if (validationErrors.length > 0) {
+      console.log(`[bulk-create-agents] VALIDACIÓN FALLIDA: ${validationErrors.length} errores encontrados`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          phase: 'validation',
+          message: 'Se encontraron errores de validación. No se creó ningún registro.',
+          errors: validationErrors,
+          summary: {
+            total: agents.length,
+            valid: validationResults.filter(v => v.isValid).length,
+            invalid: validationErrors.length,
+          }
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[bulk-create-agents] Validación exitosa para ${validationResults.length} agentes`);
+
+    // ============================================================
+    // FASE 2: EJECUCIÓN (crear registros con rollback en caso de error)
+    // ============================================================
+    console.log(`[bulk-create-agents] FASE 2: Ejecución...`);
+
+    const createdRecords: CreatedRecord[] = [];
+    const results: { email: string; status: string; message: string }[] = [];
+    let created = 0;
+    let updated = 0;
+
+    try {
+      for (let i = 0; i < agents.length; i++) {
+        const agent = agents[i];
+        const validation = validationResults[i];
+        const email = agent.email?.trim().toLowerCase();
+        const nombre = agent.nombre?.trim();
+        const telefono = agent.telefono?.trim().replace(/\D/g, '');
+
+        let personaId = validation.personaId;
+
+        // 1. Crear persona si es necesario
+        if (validation.needsPersona) {
           const { data: newPersona, error: personaError } = await supabaseAdmin
             .from('personas')
             .insert({
@@ -144,77 +275,61 @@ Deno.serve(async (req) => {
             .single();
 
           if (personaError) {
-            throw new Error(`Error creando persona: ${personaError.message}`);
+            throw new Error(`Error creando persona ${email}: ${personaError.message}`);
           }
 
           personaId = newPersona.id;
-          isNewPersona = true;
-          console.log(`[bulk-create-agents] Nueva persona creada: ${email} (id: ${personaId})`);
+          createdRecords.push({ type: 'persona', id: personaId, email });
+          console.log(`[bulk-create-agents] Persona creada: ${email} (id: ${personaId})`);
         }
 
-        // 2. Verificar/crear entidad relacionada (Agente - tipo 19)
-        const { data: existingEntidad } = await supabaseAdmin
-          .from('entidades_relacionadas')
-          .select('id')
-          .eq('id_persona', personaId)
-          .eq('id_tipo_entidad', 19)
-          .eq('activo', true)
-          .single();
-
-        if (!existingEntidad) {
-          const { error: entidadError } = await supabaseAdmin
+        // 2. Crear entidad relacionada si es necesario
+        if (validation.needsEntidad && personaId) {
+          const { data: newEntidad, error: entidadError } = await supabaseAdmin
             .from('entidades_relacionadas')
             .insert({
               id_persona: personaId,
               id_tipo_entidad: 19, // Agente
-              id_persona_duena_lead: inmobiliariaPersonaId,
+              id_persona_duena_lead: validation.inmobiliariaId,
               activo: true,
-            });
+            })
+            .select('id')
+            .single();
 
           if (entidadError) {
-            console.error(`[bulk-create-agents] Error creando entidad: ${entidadError.message}`);
-          } else {
-            console.log(`[bulk-create-agents] Entidad relacionada creada para persona ${personaId}`);
+            throw new Error(`Error creando entidad para ${email}: ${entidadError.message}`);
           }
+
+          createdRecords.push({ type: 'entidad', id: newEntidad.id, email });
+          console.log(`[bulk-create-agents] Entidad creada para: ${email}`);
         }
 
-        // 3. Verificar si ya existe usuario
-        const { data: existingUsuario } = await supabaseAdmin
-          .from('usuarios')
-          .select('id, auth_user_id')
-          .eq('email', email)
-          .single();
-
-        let authUserId: string | null = null;
-
-        if (existingUsuario) {
-          authUserId = existingUsuario.auth_user_id;
-          console.log(`[bulk-create-agents] Usuario existente: ${email}`);
-        } else {
-          // 4. Crear auth user
+        // 3. Crear auth user y usuario si es necesario
+        if (validation.needsUsuario && personaId) {
+          // Crear auth user
           const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: email,
             password: 'Temporal123!',
             email_confirm: true,
           });
 
-          if (authError) {
-            // Si el usuario ya existe en auth, intentar obtenerlo
-            if (authError.message.includes('already been registered')) {
-              const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
-              const existingAuth = existingAuthUsers?.users?.find(u => u.email === email);
-              if (existingAuth) {
-                authUserId = existingAuth.id;
-              }
-            } else {
-              throw new Error(`Error creando auth user: ${authError.message}`);
-            }
-          } else {
-            authUserId = authUser.user.id;
+          if (authError && !authError.message.includes('already been registered')) {
+            throw new Error(`Error creando auth user para ${email}: ${authError.message}`);
+          }
+
+          let authUserId = authUser?.user?.id;
+
+          // Si ya existía en auth, obtener su ID
+          if (!authUserId) {
+            const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
+            const existingAuth = existingAuthUsers?.users?.find(u => u.email === email);
+            authUserId = existingAuth?.id;
           }
 
           if (authUserId) {
-            // 5. Crear registro en usuarios
+            createdRecords.push({ type: 'usuario', authUserId, email });
+
+            // Crear registro en usuarios
             const { error: usuarioError } = await supabaseAdmin
               .from('usuarios')
               .insert({
@@ -228,74 +343,111 @@ Deno.serve(async (req) => {
               });
 
             if (usuarioError) {
-              console.error(`[bulk-create-agents] Error creando usuario: ${usuarioError.message}`);
-            } else {
-              console.log(`[bulk-create-agents] Usuario creado: ${email}`);
+              throw new Error(`Error creando usuario para ${email}: ${usuarioError.message}`);
             }
+
+            console.log(`[bulk-create-agents] Usuario creado: ${email}`);
           }
         }
 
-        // 6. Crear acceso al proyecto
-        const { data: existingAccess } = await supabaseAdmin
-          .from('proyectos_acceso')
-          .select('id')
-          .eq('usuario_id', email)
-          .eq('proyecto_id', proyectoId)
-          .single();
-
-        if (!existingAccess) {
-          const { error: accessError } = await supabaseAdmin
+        // 4. Crear acceso al proyecto si es necesario
+        if (validation.needsAccess && validation.proyectoId) {
+          const { data: newAccess, error: accessError } = await supabaseAdmin
             .from('proyectos_acceso')
             .insert({
               usuario_id: email,
-              proyecto_id: proyectoId,
+              proyecto_id: validation.proyectoId,
               activo: true,
-            });
+            })
+            .select('id')
+            .single();
 
           if (accessError) {
-            console.error(`[bulk-create-agents] Error asignando proyecto: ${accessError.message}`);
-          } else {
-            console.log(`[bulk-create-agents] Acceso a proyecto asignado: ${email} -> proyecto ${proyectoId}`);
+            throw new Error(`Error asignando proyecto a ${email}: ${accessError.message}`);
           }
+
+          createdRecords.push({ type: 'acceso', id: newAccess.id, email, proyectoId: validation.proyectoId });
+          console.log(`[bulk-create-agents] Acceso creado: ${email} -> proyecto ${validation.proyectoId}`);
         }
 
-        if (isNewPersona) {
+        // Determinar resultado
+        if (validation.needsPersona) {
           results.push({ email, status: 'created', message: 'Agente creado exitosamente' });
           created++;
         } else {
           results.push({ email, status: 'updated', message: 'Agente existente actualizado' });
           updated++;
         }
-
-      } catch (error) {
-        const technicalError = error instanceof Error ? error.message : 'Error desconocido';
-        const friendlyMessage = getErrorMessage(technicalError);
-        console.error(`[bulk-create-agents] Error procesando ${email}: ${technicalError}`);
-        results.push({ email, status: 'error', message: friendlyMessage });
-        errors++;
       }
+
+      console.log(`[bulk-create-agents] ========== PROCESO COMPLETADO EXITOSAMENTE ==========`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          phase: 'completed',
+          summary: {
+            total: agents.length,
+            created,
+            updated,
+            skipped: 0,
+            errors: 0,
+          },
+          details: results,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+    } catch (executionError) {
+      // ============================================================
+      // ROLLBACK: Eliminar todo lo creado
+      // ============================================================
+      console.error(`[bulk-create-agents] ERROR EN EJECUCIÓN - INICIANDO ROLLBACK`);
+      console.error(`[bulk-create-agents] Error: ${executionError}`);
+
+      for (const record of createdRecords.reverse()) {
+        try {
+          if (record.type === 'acceso' && record.id) {
+            await supabaseAdmin.from('proyectos_acceso').delete().eq('id', record.id);
+            console.log(`[bulk-create-agents] ROLLBACK: Eliminado acceso ${record.id}`);
+          }
+          if (record.type === 'usuario' && record.email) {
+            await supabaseAdmin.from('usuarios').delete().eq('email', record.email);
+            console.log(`[bulk-create-agents] ROLLBACK: Eliminado usuario ${record.email}`);
+            // Nota: No eliminamos auth.users para evitar problemas
+          }
+          if (record.type === 'entidad' && record.id) {
+            await supabaseAdmin.from('entidades_relacionadas').delete().eq('id', record.id);
+            console.log(`[bulk-create-agents] ROLLBACK: Eliminada entidad ${record.id}`);
+          }
+          if (record.type === 'persona' && record.id) {
+            await supabaseAdmin.from('personas').delete().eq('id', record.id);
+            console.log(`[bulk-create-agents] ROLLBACK: Eliminada persona ${record.id}`);
+          }
+        } catch (rollbackError) {
+          console.error(`[bulk-create-agents] Error en rollback: ${rollbackError}`);
+        }
+      }
+
+      const errorMsg = executionError instanceof Error ? executionError.message : 'Error desconocido';
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          phase: 'execution_rollback',
+          message: 'Ocurrió un error durante la creación. Se revirtieron todos los cambios. No se creó ningún registro.',
+          error: getErrorMessage(errorMsg),
+          technicalError: errorMsg,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    const summary = {
-      total: agents.length,
-      created,
-      updated,
-      skipped,
-      errors,
-    };
-
-    console.log(`[bulk-create-agents] Resumen: ${JSON.stringify(summary)}`);
-
-    return new Response(
-      JSON.stringify({ success: true, summary, details: results }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
     console.error(`[bulk-create-agents] Error general: ${errorMessage}`);
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ success: false, error: getErrorMessage(errorMessage) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

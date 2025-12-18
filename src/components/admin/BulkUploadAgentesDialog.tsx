@@ -31,12 +31,17 @@ interface ProcessResult {
 interface UploadResponse {
   success: boolean;
   error?: string;
+  phase?: 'validation' | 'execution_rollback' | 'completed';
+  message?: string;
+  errors?: string[];
   summary?: {
     total: number;
     created: number;
     updated: number;
     skipped: number;
     errors: number;
+    valid?: number;
+    invalid?: number;
   };
   details?: ProcessResult[];
 }
@@ -215,6 +220,59 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
           {/* Results */}
           {results && (
             <div className="space-y-3">
+              {/* Mensaje de validación fallida */}
+              {!results.success && results.phase === 'validation' && (
+                <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded border border-amber-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                    <span className="font-medium text-amber-800 dark:text-amber-200">
+                      Errores de validación encontrados
+                    </span>
+                  </div>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                    {results.message || 'No se creó ningún registro. Corrige los errores e intenta de nuevo.'}
+                  </p>
+                  {results.summary && (
+                    <p className="text-xs text-amber-600">
+                      Total: {results.summary.total} | Válidos: {results.summary.valid || 0} | Con errores: {results.summary.invalid || 0}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Mensaje de rollback */}
+              {!results.success && results.phase === 'execution_rollback' && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded border border-red-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <XCircle className="w-5 h-5 text-red-600" />
+                    <span className="font-medium text-red-800 dark:text-red-200">
+                      Error durante la creación - Cambios revertidos
+                    </span>
+                  </div>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {results.message || 'Ocurrió un error. Todos los cambios fueron revertidos. No se creó ningún registro.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Lista de errores de validación */}
+              {results.errors && results.errors.length > 0 && (
+                <div className="max-h-48 overflow-y-auto border border-red-200 rounded bg-red-50 dark:bg-red-900/20">
+                  <div className="p-2 bg-red-100 dark:bg-red-900/40 sticky top-0 text-sm font-medium text-red-800 dark:text-red-200">
+                    Errores encontrados ({results.errors.length})
+                  </div>
+                  <ul className="p-2 space-y-1">
+                    {results.errors.map((err, idx) => (
+                      <li key={idx} className="text-sm text-red-700 dark:text-red-300 flex items-start gap-2">
+                        <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>{err}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Resumen de éxito */}
               {results.success && results.summary && (
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded">
@@ -264,7 +322,8 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
                 </div>
               )}
 
-              {!results.success && results.error && (
+              {/* Error genérico */}
+              {!results.success && !results.phase && results.error && (
                 <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded text-red-600">
                   {results.error}
                 </div>
