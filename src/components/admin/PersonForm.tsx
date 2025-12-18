@@ -9,7 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Upload, CalendarIcon } from "lucide-react";
+import { Camera, Upload, CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -1099,19 +1101,57 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   {entityType === 'agente' && (
                     <div>
                       <Label htmlFor="idInmobiliaria">Inmobiliaria</Label>
-                      <Select value={idInmobiliaria?.toString() || ''} onValueChange={setIdInmobiliaria}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona una inmobiliaria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin inmobiliaria</SelectItem>
-                          {inmobiliarias.map((inmob) => (
-                            <SelectItem key={inmob.id} value={inmob.id.toString()}>
-                              {inmob.nombre_legal}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between font-normal"
+                          >
+                            {idInmobiliaria && idInmobiliaria !== 'none'
+                              ? inmobiliarias.find((inmob) => inmob.id.toString() === idInmobiliaria)?.nombre_legal
+                              : idInmobiliaria === 'none' ? "Sin inmobiliaria" : "Selecciona una inmobiliaria"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0 bg-popover" align="start">
+                          <Command>
+                            <CommandInput placeholder="Buscar inmobiliaria..." />
+                            <CommandList>
+                              <CommandEmpty>No se encontró ninguna inmobiliaria.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="none"
+                                  onSelect={() => setIdInmobiliaria('none')}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      idInmobiliaria === 'none' ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  Sin inmobiliaria
+                                </CommandItem>
+                                {inmobiliarias.map((inmob) => (
+                                  <CommandItem
+                                    key={inmob.id}
+                                    value={inmob.nombre_legal}
+                                    onSelect={() => setIdInmobiliaria(inmob.id.toString())}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        idInmobiliaria === inmob.id.toString() ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {inmob.nombre_legal}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   )}
 
