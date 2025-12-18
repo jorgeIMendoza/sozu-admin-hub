@@ -543,6 +543,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         .from('entidades_relacionadas')
         .select(`
           id,
+          id_persona,
           personas!entidades_relacionadas_id_persona_fkey!inner (
             id,
             nombre_legal,
@@ -557,7 +558,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       
       if (error) throw error;
       return (data || []).map((item: any) => ({
-        id: item.id,
+        id: item.id_persona, // Use persona id for id_persona_duena_lead FK
+        entidad_id: item.id,
         nombre_legal: item.personas.nombre_legal
       }));
     },

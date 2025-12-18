@@ -81,24 +81,22 @@ export default function Agentes() {
       if (error) throw error;
       
       // Get inmobiliaria names for agents that have one
-      const inmobiliariaIds = (data || [])
+      // id_persona_duena_lead references personas.id, not entidades_relacionadas.id
+      const inmobiliariaPersonaIds = (data || [])
         .map((item: any) => item.entidades_relacionadas[0]?.id_persona_duena_lead)
         .filter(Boolean);
       
       let inmobiliariasMap: Record<number, string> = {};
-      if (inmobiliariaIds.length > 0) {
+      if (inmobiliariaPersonaIds.length > 0) {
         const { data: inmobData } = await supabase
-          .from('entidades_relacionadas')
-          .select(`
-            id,
-            personas!entidades_relacionadas_id_persona_fkey (nombre_legal)
-          `)
-          .in('id', inmobiliariaIds)
+          .from('personas')
+          .select('id, nombre_legal')
+          .in('id', inmobiliariaPersonaIds)
           .eq('activo', true);
         
         if (inmobData) {
           inmobiliariasMap = inmobData.reduce((acc: Record<number, string>, item: any) => {
-            acc[item.id] = item.personas?.nombre_legal || '';
+            acc[item.id] = item.nombre_legal || '';
             return acc;
           }, {});
         }
