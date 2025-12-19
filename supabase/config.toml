@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.bulk-create-agents]
 verify_jwt = false
+
+[functions.getProyectosSozu]
+verify_jwt = false
