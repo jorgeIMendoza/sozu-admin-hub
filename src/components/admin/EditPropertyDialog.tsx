@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -728,18 +729,11 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
 
                   <div className="space-y-2">
                     <Label htmlFor="precio_lista">Precio de Lista *</Label>
-                    <Input
+                    <CurrencyInput
                       id="precio_lista"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.precio_lista || ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setFormData(prev => ({ ...prev, precio_lista: value === '' ? 0 : parseFloat(value) }));
-                      }}
-                      placeholder="Ej: 2500000.00"
-                      required
+                      value={Math.round((formData.precio_lista || 0) * 100)}
+                      onChange={(cents) => setFormData(prev => ({ ...prev, precio_lista: cents / 100 }))}
+                      placeholder="0.00"
                     />
                   </div>
 
