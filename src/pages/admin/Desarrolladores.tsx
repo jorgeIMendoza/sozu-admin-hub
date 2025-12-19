@@ -68,14 +68,14 @@ export default function Desarrolladores() {
             padre
           )
         ),
-        representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
+        representante_legal:entidades_relacionadas!personas_id_entidad_relacionada_rep_leg_fkey (
           id,
           personas!entidades_relacionadas_id_persona_fkey (
             id,
             nombre_legal
           )
         ),
-        representante_comercial:entidades_relacionadas!fk_personas_entidad_relacionada_rep_com (
+        representante_comercial:entidades_relacionadas!personas_id_entidad_relacionada_rep_com_fkey (
           id,
           personas!entidades_relacionadas_id_persona_fkey (
             id,
