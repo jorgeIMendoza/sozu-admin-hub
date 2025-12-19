@@ -1615,6 +1615,18 @@ export default function DetalleCuentaCobranza() {
   // Calculate total from acuerdos_pago (sum of monto)
   const totalAcuerdos = acuerdosPago?.reduce((sum, acuerdo) => sum + (acuerdo.monto || 0), 0) || 0;
   
+  // Create a map from acuerdo_pago.id to parcialidad sequential number
+  const parcialidadMap: Record<number, number> = {};
+  if (acuerdosPago) {
+    let parcialidadCount = 0;
+    acuerdosPago.forEach(acuerdo => {
+      if (acuerdo.concepto?.toLowerCase().includes('parcialidad')) {
+        parcialidadCount++;
+        parcialidadMap[acuerdo.id] = parcialidadCount;
+      }
+    });
+  }
+  
   // Calculate discrepancy between precio_final and sum of acuerdos
   const discrepanciaAcuerdos = (cuentaDetalle?.precio_final || 0) - totalAcuerdos;
   const hayDiscrepancia = acuerdosPago && acuerdosPago.length > 0 && Math.abs(discrepanciaAcuerdos) > 0.01;
@@ -3845,9 +3857,10 @@ export default function DetalleCuentaCobranza() {
                                       <TableBody>
                                         {aplicacionesDelPago.map((aplicacion) => {
                                           const concepto = aplicacion.acuerdos_pago?.conceptos_pago?.nombre || 'Sin concepto';
-                                          const orden = (aplicacion.acuerdos_pago as any)?.orden;
-                                          const conceptoDisplay = concepto.toLowerCase() === 'parcialidad' && orden 
-                                            ? `Parcialidad ${orden}` 
+                                          const acuerdoId = aplicacion.id_acuerdo_pago;
+                                          const parcialidadNumber = acuerdoId ? parcialidadMap[acuerdoId] : null;
+                                          const conceptoDisplay = concepto.toLowerCase() === 'parcialidad' && parcialidadNumber 
+                                            ? `Parcialidad ${parcialidadNumber}` 
                                             : concepto;
                                           
                                           return (
