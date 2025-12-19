@@ -108,10 +108,10 @@ export default function RastreoPagosSTP() {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null, includeTime: boolean = true) => {
     if (!dateString) return "-";
     try {
-      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: es });
+      return format(new Date(dateString), includeTime ? "dd/MM/yyyy HH:mm" : "dd/MM/yyyy", { locale: es });
     } catch {
       return dateString;
     }
@@ -293,7 +293,7 @@ export default function RastreoPagosSTP() {
                       <TableCell className="font-mono text-xs max-w-[150px] truncate" title={pago.claverastreo}>
                         {pago.claverastreo}
                       </TableCell>
-                      <TableCell>{formatDate(pago.fecha_operacion)}</TableCell>
+                      <TableCell>{formatDate(pago.fecha_operacion, false)}</TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(pago.monto)}
                       </TableCell>
