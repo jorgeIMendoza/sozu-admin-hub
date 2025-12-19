@@ -50,11 +50,16 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
 
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
       e.preventDefault();
-      const pastedText = e.clipboardData.getData('text');
-      // Extract only digits from pasted content
-      const digits = pastedText.replace(/\D/g, '');
-      if (digits) {
-        const newValue = parseInt(digits, 10);
+      const pastedText = e.clipboardData.getData('text').trim();
+      
+      // Try to parse as a formatted number (e.g., "7,142,580.00" or "7142580.00")
+      const cleanedText = pastedText.replace(/,/g, ''); // Remove thousand separators
+      const parsedNumber = parseFloat(cleanedText);
+      
+      if (!isNaN(parsedNumber)) {
+        // Convert to cents/integer representation
+        const divisor = Math.pow(10, decimals);
+        const newValue = Math.round(parsedNumber * divisor);
         if (newValue <= 99999999999) {
           onChange(newValue);
         }
