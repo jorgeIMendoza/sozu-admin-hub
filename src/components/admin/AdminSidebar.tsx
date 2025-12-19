@@ -158,12 +158,19 @@ const navigationItems: NavigationItem[] = [
     ]
   },
   {
+    title: "Rastreo de Actividades",
+    icon: Activity,
+    children: [
+      { title: "Logs de Actividad", href: "/admin/logs-actividad", icon: Activity },
+      { title: "Rastreo CLABEs STP", href: "/admin/rastreo-clabes-stp", icon: CreditCard },
+    ]
+  },
+  {
     title: "Sistema",
     icon: Settings,
     children: [
       { title: "Usuarios", href: "/admin/usuarios", icon: UserPlus },
       { title: "Roles y Permisos", href: "/admin/roles-permisos", icon: Shield },
-      { title: "Logs de Actividad", href: "/admin/logs-actividad", icon: Activity },
     ]
   },
 ];
@@ -197,8 +204,8 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
         .map(item => {
           if (item.href) {
             // Single item with href - check if allowed
-            // Special case: logs-actividad only for jorge.mendoza@sozu.com
-            if (item.href === '/admin/logs-actividad') {
+            // Special case: Rastreo de Actividades menu items only for jorge.mendoza@sozu.com
+            if (item.href === '/admin/logs-actividad' || item.href === '/admin/rastreo-clabes-stp') {
               return userEmail === LOGS_ALLOWED_EMAIL ? item : null;
             }
             if (isSuperAdmin) return item;
@@ -206,8 +213,8 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
           } else if (item.children) {
             // Group with children - filter children
             const allowedChildren = item.children.filter(child => {
-              // Special case: logs-actividad only for jorge.mendoza@sozu.com
-              if (child.href === '/admin/logs-actividad') {
+              // Special case: Rastreo de Actividades menu items only for jorge.mendoza@sozu.com
+              if (child.href === '/admin/logs-actividad' || child.href === '/admin/rastreo-clabes-stp') {
                 return userEmail === LOGS_ALLOWED_EMAIL;
               }
               if (isSuperAdmin) return true;
