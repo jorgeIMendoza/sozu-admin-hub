@@ -26,6 +26,7 @@ import {
   PaginationPrevious 
 } from "@/components/ui/pagination";
 import { format } from "date-fns";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 type Prospecto = {
   id: number;
@@ -48,6 +49,7 @@ type Prospecto = {
 };
 
 export default function Prospectos() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin } = usePagePermissions('/admin/prospectos');
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");

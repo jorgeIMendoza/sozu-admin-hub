@@ -14,6 +14,7 @@ import { BeneficiariosForm } from "@/components/admin/BeneficiariosForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 type Cliente = {
   id: number;
@@ -29,6 +30,7 @@ type Cliente = {
 };
 
 export default function Clientes() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin } = usePagePermissions('/admin/clientes');
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);

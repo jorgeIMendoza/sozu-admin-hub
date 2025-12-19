@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 type Notario = {
   id: number;
@@ -27,6 +28,7 @@ type Notario = {
 };
 
 export default function Notarios() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin } = usePagePermissions('/admin/notarios');
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);

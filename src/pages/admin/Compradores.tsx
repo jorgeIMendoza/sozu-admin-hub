@@ -15,6 +15,7 @@ import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationD
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 type Comprador = {
   id: number;
@@ -34,6 +35,7 @@ type Comprador = {
 };
 
 export default function Compradores() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin } = usePagePermissions('/admin/compradores');
   const [searchParams] = useSearchParams();
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
