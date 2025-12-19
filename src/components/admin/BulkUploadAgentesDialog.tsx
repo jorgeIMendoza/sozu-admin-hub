@@ -31,6 +31,7 @@ interface ProcessResult {
 interface UploadResponse {
   success: boolean;
   error?: string;
+  technicalError?: string;
   phase?: 'validation' | 'execution_rollback' | 'completed';
   message?: string;
   errors?: string[];
@@ -254,8 +255,8 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
 
               {/* Mensaje de rollback */}
               {!results.success && results.phase === 'execution_rollback' && (
-                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded border border-red-300">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded border border-red-300 space-y-3">
+                  <div className="flex items-center gap-2">
                     <XCircle className="w-5 h-5 text-red-600" />
                     <span className="font-medium text-red-800 dark:text-red-200">
                       Error durante la creación - Cambios revertidos
@@ -264,6 +265,20 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
                   <p className="text-sm text-red-700 dark:text-red-300">
                     {results.message || 'Ocurrió un error. Todos los cambios fueron revertidos. No se creó ningún registro.'}
                   </p>
+                  {results.error && (
+                    <div className="p-2 bg-red-200/50 dark:bg-red-800/30 rounded">
+                      <p className="text-sm font-medium text-red-800 dark:text-red-200">Error:</p>
+                      <p className="text-sm text-red-700 dark:text-red-300">{results.error}</p>
+                    </div>
+                  )}
+                  {results.technicalError && (
+                    <div className="p-2 bg-red-200/50 dark:bg-red-800/30 rounded">
+                      <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">Detalle técnico:</p>
+                      <code className="text-xs text-red-600 dark:text-red-400 break-all block bg-red-100 dark:bg-red-900/50 p-2 rounded">
+                        {results.technicalError}
+                      </code>
+                    </div>
+                  )}
                 </div>
               )}
 
