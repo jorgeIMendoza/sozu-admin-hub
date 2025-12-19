@@ -33,86 +33,88 @@ const SUPER_ADMIN_PERMISSIONS: PagePermissions = {
 };
 
 export function usePagePermissions(pagePath: string) {
-  const { profile } = useAuth();
+  const { profile, permissionVersion } = useAuth();
   const [permissions, setPermissions] = useState<PagePermissions>(DEFAULT_PERMISSIONS);
   const [isLoading, setIsLoading] = useState(true);
 
   // Super Admin has all permissions
   const isSuperAdmin = profile?.rol_nombre === 'Super Administrador';
 
-  useEffect(() => {
-    const fetchPermissions = async () => {
-      if (isSuperAdmin) {
-        setPermissions(SUPER_ADMIN_PERMISSIONS);
-        setIsLoading(false);
-        return;
-      }
+  const fetchPermissions = useCallback(async () => {
+    if (isSuperAdmin) {
+      setPermissions(SUPER_ADMIN_PERMISSIONS);
+      setIsLoading(false);
+      return;
+    }
 
-      if (!profile?.rol_id || !pagePath) {
+    if (!profile?.rol_id || !pagePath) {
+      setPermissions(DEFAULT_PERMISSIONS);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // First get the submenu_id for this path
+      const { data: submenuData, error: submenuError } = await supabase
+        .from('submenus')
+        .select('id')
+        .eq('vista_front_end', pagePath)
+        .eq('activo', true)
+        .single();
+
+      if (submenuError || !submenuData) {
+        console.error('Error fetching submenu:', submenuError);
         setPermissions(DEFAULT_PERMISSIONS);
         setIsLoading(false);
         return;
       }
 
-      try {
-        // First get the submenu_id for this path
-        const { data: submenuData, error: submenuError } = await supabase
-          .from('submenus')
-          .select('id')
-          .eq('vista_front_end', pagePath)
-          .eq('activo', true)
-          .single();
+      // Get all permissions for this submenu and role
+      const { data: permissionsData, error: permissionsError } = await supabase
+        .from('submenus_permisos')
+        .select(`
+          permisos!inner (
+            nombre
+          )
+        `)
+        .eq('submenu_id', submenuData.id)
+        .eq('rol_id', profile.rol_id)
+        .eq('activo', true);
 
-        if (submenuError || !submenuData) {
-          console.error('Error fetching submenu:', submenuError);
-          setPermissions(DEFAULT_PERMISSIONS);
-          setIsLoading(false);
-          return;
-        }
-
-        // Get all permissions for this submenu and role
-        const { data: permissionsData, error: permissionsError } = await supabase
-          .from('submenus_permisos')
-          .select(`
-            permisos!inner (
-              nombre
-            )
-          `)
-          .eq('submenu_id', submenuData.id)
-          .eq('rol_id', profile.rol_id)
-          .eq('activo', true);
-
-        if (permissionsError) {
-          console.error('Error fetching permissions:', permissionsError);
-          setPermissions(DEFAULT_PERMISSIONS);
-          setIsLoading(false);
-          return;
-        }
-
-        // Map permissions
-        const permissionNames = new Set(
-          permissionsData?.map((p: any) => p.permisos?.nombre) || []
-        );
-
-        setPermissions({
-          canRead: permissionNames.has('leer'),
-          canCreate: permissionNames.has('crear'),
-          canUpdate: permissionNames.has('actualizar'),
-          canDelete: permissionNames.has('eliminar'),
-          canApprove: permissionNames.has('aprobar'),
-          canExport: permissionNames.has('exportar'),
-          canGenerateOffer: permissionNames.has('generar_oferta'),
-        });
-      } catch (err) {
-        console.error('Error in fetchPermissions:', err);
+      if (permissionsError) {
+        console.error('Error fetching permissions:', permissionsError);
         setPermissions(DEFAULT_PERMISSIONS);
-      } finally {
         setIsLoading(false);
+        return;
       }
-    };
 
-    fetchPermissions();
+      // Map permissions
+      const permissionNames = new Set(
+        permissionsData?.map((p: any) => p.permisos?.nombre) || []
+      );
+
+      setPermissions({
+        canRead: permissionNames.has('leer'),
+        canCreate: permissionNames.has('crear'),
+        canUpdate: permissionNames.has('actualizar'),
+        canDelete: permissionNames.has('eliminar'),
+        canApprove: permissionNames.has('aprobar'),
+        canExport: permissionNames.has('exportar'),
+        canGenerateOffer: permissionNames.has('generar_oferta'),
+      });
+    } catch (err) {
+      console.error('Error in fetchPermissions:', err);
+      setPermissions(DEFAULT_PERMISSIONS);
+    } finally {
+      setIsLoading(false);
+    }
   }, [profile?.rol_id, pagePath, isSuperAdmin]);
+
+  useEffect(() => {
+    fetchPermissions();
+  }, [fetchPermissions, permissionVersion]);
 
   return {
     ...permissions,

@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect } from 'react';
 
 interface ProjectAccess {
   proyecto_id: number;
@@ -21,7 +22,8 @@ const TIPO_APORTANTE = 15;
 const TIPO_DUENO = 17;
 
 export function useProjectAccess() {
-  const { session, profile, isLoading: isAuthLoading } = useAuth();
+  const { session, profile, isLoading: isAuthLoading, permissionVersion } = useAuth();
+  const queryClient = useQueryClient();
   const userEmail = session?.user?.email;
   const rolId = profile?.rol_id;
   const userPersonaId = profile?.id_persona;
@@ -35,9 +37,18 @@ export function useProjectAccess() {
   const isDesarrollador = rolId === ROL_DESARROLLADOR;
   const hasEntityBasedAccess = isRepresentanteEmpresaDuena || isDesarrollador;
 
+  // Invalidate queries when permissionVersion changes (real-time updates)
+  useEffect(() => {
+    if (permissionVersion > 0) {
+      queryClient.invalidateQueries({ queryKey: ['role-project-config'] });
+      queryClient.invalidateQueries({ queryKey: ['user-project-access'] });
+      queryClient.invalidateQueries({ queryKey: ['user-entity-data'] });
+    }
+  }, [permissionVersion, queryClient]);
+
   // Fetch role configuration to check if ver_todos_proyectos_propiedades is enabled
   const { data: roleConfig, isLoading: isLoadingRoleConfig } = useQuery({
-    queryKey: ['role-project-config', rolId],
+    queryKey: ['role-project-config', rolId, permissionVersion],
     queryFn: async () => {
       if (!rolId) return null;
       const { data, error } = await supabase
@@ -57,7 +68,7 @@ export function useProjectAccess() {
 
   // Fetch the entity that the user represents (for special roles)
   const { data: userEntityData, isLoading: isLoadingUserEntity } = useQuery({
-    queryKey: ['user-entity-data', userPersonaId, hasEntityBasedAccess],
+    queryKey: ['user-entity-data', userPersonaId, hasEntityBasedAccess, permissionVersion],
     queryFn: async () => {
       if (!userPersonaId) return null;
       
@@ -111,7 +122,7 @@ export function useProjectAccess() {
 
   // Fetch user's project access (using email as FK, not UUID)
   const { data: projectAccess, isLoading: isLoadingQuery } = useQuery({
-    queryKey: ['user-project-access', userEmail],
+    queryKey: ['user-project-access', userEmail, permissionVersion],
     queryFn: async () => {
       if (!userEmail) return [];
       
