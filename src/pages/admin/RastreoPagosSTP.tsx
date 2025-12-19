@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, X, RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Search, X, RefreshCw, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -317,8 +318,26 @@ export default function RastreoPagosSTP() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[150px] truncate text-destructive" title={pago.razon_rechazo || ""}>
-                        {pago.razon_rechazo || "-"}
+                      <TableCell>
+                        {pago.razon_rechazo ? (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Eye className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Razón del Rechazo</DialogTitle>
+                              </DialogHeader>
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                {pago.razon_rechazo}
+                              </p>
+                            </DialogContent>
+                          </Dialog>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>{formatDate(pago.fecha_creacion)}</TableCell>
                       <TableCell>
