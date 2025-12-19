@@ -2102,7 +2102,12 @@ const Propiedades = () => {
         id_esquema_pago_seleccionado,
         id_producto,
         clabe_stp_tmp_producto,
-        productos_servicios!ofertas_id_producto_fkey(nombre, precio_lista),
+        productos_servicios!ofertas_id_producto_fkey(
+          nombre, 
+          precio_lista,
+          id_categoria,
+          categorias_producto(tiene_metraje)
+        ),
         esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey(
           nombre,
           porcentaje_descuento_aumento,
@@ -2124,10 +2129,45 @@ const Propiedades = () => {
 
     // Enrich offers with additional data
     const enrichedOffers = await Promise.all((offersData || []).map(async (offer: any) => {
+      const producto = offer.productos_servicios;
+      const tiene_metraje = producto?.categorias_producto?.tiene_metraje || false;
+      
+      // If product has metraje, get it from bodegas or estacionamientos
+      let product_metraje = 0;
+      if (tiene_metraje && offer.id_producto) {
+        // Try to get metraje from bodegas
+        const { data: bodegaData } = await supabase
+          .from('bodegas')
+          .select('m2')
+          .eq('id_producto', offer.id_producto)
+          .eq('id_propiedad', propertyId)
+          .eq('activo', true)
+          .maybeSingle();
+        
+        if (bodegaData?.m2) {
+          product_metraje = bodegaData.m2;
+        } else {
+          // Try estacionamientos
+          const { data: estacionamientoData } = await supabase
+            .from('estacionamientos')
+            .select('m2')
+            .eq('id_producto', offer.id_producto)
+            .eq('id_propiedad', propertyId)
+            .eq('activo', true)
+            .maybeSingle();
+          
+          if (estacionamientoData?.m2) {
+            product_metraje = estacionamientoData.m2;
+          }
+        }
+      }
+      
       let enrichedOffer = {
         ...offer,
-        product_name: offer.productos_servicios?.nombre || 'N/A',
-        product_precio_lista: offer.productos_servicios?.precio_lista || 0,
+        product_name: producto?.nombre || 'N/A',
+        product_precio_lista: producto?.precio_lista || 0,
+        tiene_metraje: tiene_metraje,
+        product_metraje: product_metraje,
         esquema_nombre: offer.esquemas_pago?.nombre || null,
         porcentaje_descuento_aumento: offer.esquemas_pago?.porcentaje_descuento_aumento || 0,
         esquema_porcentaje_enganche: offer.esquemas_pago?.porcentaje_enganche || 0,
@@ -2476,7 +2516,17 @@ const Propiedades = () => {
       // Get precio_lista
       let precio_lista = 0;
       if (isProductOffer) {
-        precio_lista = currentOffer.product_precio_lista || 0;
+        let precio_base = currentOffer.product_precio_lista || 0;
+        
+        // If product has metraje, multiply by the metraje
+        if (currentOffer.tiene_metraje && currentOffer.product_metraje) {
+          console.log('📐 Producto con metraje:', currentOffer.product_metraje, 'm2');
+          console.log('💲 Precio por m2:', precio_base);
+          precio_base = precio_base * currentOffer.product_metraje;
+          console.log('💰 Precio calculado (precio_m2 × metraje):', precio_base);
+        }
+        
+        precio_lista = precio_base;
       } else {
         precio_lista = property?.precio_lista || 0;
       }
