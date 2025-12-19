@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
       // Verificar si necesita acceso al proyecto
       const { data: existingAccess } = await supabaseAdmin
         .from('proyectos_acceso')
-        .select('id')
+        .select('usuario_id, proyecto_id')
         .eq('usuario_id', email)
         .eq('proyecto_id', proyectoId)
         .single();
@@ -352,21 +352,19 @@ Deno.serve(async (req) => {
 
         // 4. Crear acceso al proyecto si es necesario
         if (validation.needsAccess && validation.proyectoId) {
-          const { data: newAccess, error: accessError } = await supabaseAdmin
+          const { error: accessError } = await supabaseAdmin
             .from('proyectos_acceso')
             .insert({
               usuario_id: email,
               proyecto_id: validation.proyectoId,
               activo: true,
-            })
-            .select('id')
-            .single();
+            });
 
           if (accessError) {
             throw new Error(`Error asignando proyecto a ${email}: ${accessError.message}`);
           }
 
-          createdRecords.push({ type: 'acceso', id: newAccess.id, email, proyectoId: validation.proyectoId });
+          createdRecords.push({ type: 'acceso', email, proyectoId: validation.proyectoId });
           console.log(`[bulk-create-agents] Acceso creado: ${email} -> proyecto ${validation.proyectoId}`);
         }
 
@@ -407,9 +405,9 @@ Deno.serve(async (req) => {
 
       for (const record of createdRecords.reverse()) {
         try {
-          if (record.type === 'acceso' && record.id) {
-            await supabaseAdmin.from('proyectos_acceso').delete().eq('id', record.id);
-            console.log(`[bulk-create-agents] ROLLBACK: Eliminado acceso ${record.id}`);
+          if (record.type === 'acceso' && record.email && record.proyectoId) {
+            await supabaseAdmin.from('proyectos_acceso').delete().eq('usuario_id', record.email).eq('proyecto_id', record.proyectoId);
+            console.log(`[bulk-create-agents] ROLLBACK: Eliminado acceso ${record.email} -> ${record.proyectoId}`);
           }
           if (record.type === 'usuario' && record.email) {
             await supabaseAdmin.from('usuarios').delete().eq('email', record.email);
