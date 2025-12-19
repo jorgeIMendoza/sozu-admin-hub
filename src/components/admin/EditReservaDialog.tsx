@@ -39,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const formSchema = z.object({
   fecha_reserva: z.string().min(1, "Seleccione una fecha"),
@@ -64,6 +65,7 @@ export const EditReservaDialog = ({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showReagendarDialog, setShowReagendarDialog] = useState(false);
   const queryClient = useQueryClient();
+  const { registrarActualizacion, registrarCancelacion } = useActivityLogger();
 
   // Obtener datos de la reserva
   const { data: reserva, isLoading } = useQuery({
@@ -142,7 +144,14 @@ export const EditReservaDialog = ({
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
+      // Registrar actualización de reserva
+      await registrarActualizacion('reservas', 
+        { id: reservaId, fecha_reserva: reserva?.fecha_reserva, hora_reserva: reserva?.hora_reserva },
+        { id: reservaId, fecha_reserva: variables.fecha_reserva, hora_reserva: variables.hora_reserva },
+        'actualizar_reserva'
+      );
+      
       queryClient.invalidateQueries({ queryKey: ["reservas"] });
       queryClient.invalidateQueries({ queryKey: ["reserva", reservaId] });
       toast.success("Reserva actualizada exitosamente");
@@ -170,7 +179,16 @@ export const EditReservaDialog = ({
       
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data, variables) => {
+      // Registrar cancelación/reagendación de reserva
+      const esReagendacion = !!variables?.nueva_fecha_reserva;
+      await registrarCancelacion('reservas', {
+        id_reserva: reservaId,
+        tipo: esReagendacion ? 'reagendacion' : 'cancelacion',
+        nueva_fecha_reserva: variables?.nueva_fecha_reserva,
+        nueva_hora_reserva: variables?.nueva_hora_reserva
+      }, esReagendacion ? 'reagendar_reserva' : 'cancelar_reserva');
+      
       queryClient.invalidateQueries({ queryKey: ["reservas"] });
       queryClient.invalidateQueries({ queryKey: ["reserva", reservaId] });
       toast.success(data.message || "Operación exitosa");

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface TipoMulta {
   id: number;
@@ -30,6 +31,7 @@ export function NewMultaDialog({ open, onOpenChange, acuerdoId, cuentaId, acuerd
   const [idTipoMulta, setIdTipoMulta] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarCreacion } = useActivityLogger();
 
   const { data: tiposMulta = [] } = useQuery<TipoMulta[]>({
     queryKey: ["tipos_multa"],
@@ -57,8 +59,18 @@ export function NewMultaDialog({ open, onOpenChange, acuerdoId, cuentaId, acuerd
         });
       
       if (error) throw error;
+      return { monto, descripcion, idTipoMulta };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      // Registrar creación de multa
+      await registrarCreacion('multas', {
+        id_acuerdo_pago: acuerdoId,
+        id_cuenta_cobranza: cuentaId,
+        monto: data.monto,
+        descripcion: data.descripcion,
+        id_tipo_multa: data.idTipoMulta
+      }, 'crear_multa');
+      
       toast({
         title: "Multa agregada",
         description: "La multa ha sido agregada exitosamente",

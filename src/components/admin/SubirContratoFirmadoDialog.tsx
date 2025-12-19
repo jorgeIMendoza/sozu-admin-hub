@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, Loader2, FileCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface SubirContratoFirmadoDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ export function SubirContratoFirmadoDialog({
   onSuccess
 }: SubirContratoFirmadoDialogProps) {
   const { toast } = useToast();
+  const { registrarSubidaDocumento } = useActivityLogger();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [numeroContrato, setNumeroContrato] = useState("");
@@ -103,6 +105,14 @@ export function SubirContratoFirmadoDialog({
         });
 
       if (insertError) throw insertError;
+
+      // Registrar subida de contrato firmado
+      await registrarSubidaDocumento({
+        id_cuenta_cobranza: cuentaCobranzaId,
+        tipo_documento: 'Contrato firmado',
+        numero_contrato: numeroContrato || null,
+        url: publicUrl
+      });
 
       toast({
         title: "✅ Contrato subido exitosamente",

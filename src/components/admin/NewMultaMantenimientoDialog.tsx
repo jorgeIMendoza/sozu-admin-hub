@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface TipoMulta {
   id: number;
@@ -27,6 +28,7 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
   const [idTipoMulta, setIdTipoMulta] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarCreacion } = useActivityLogger();
 
   const { data: tiposMulta = [] } = useQuery<TipoMulta[]>({
     queryKey: ["tipos_multa"],
@@ -87,7 +89,15 @@ export function NewMultaMantenimientoDialog({ open, onOpenChange, cuentaId }: Ne
       
       if (multaError) throw multaError;
     },
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
+      // Registrar creación de multa de mantenimiento
+      await registrarCreacion('multas_mantenimiento', {
+        id_cuenta_cobranza: cuentaId,
+        monto: variables.monto,
+        descripcion: variables.descripcion,
+        id_tipo_multa: variables.idTipoMulta
+      }, 'crear_multa_mantenimiento');
+      
       toast({
         title: "Multa o Pago extra agregado",
         description: "Se ha agregado exitosamente",

@@ -9,6 +9,7 @@ import { AlertTriangle, User, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface TransferPaymentDialogProps {
   isOpen: boolean;
@@ -45,6 +46,7 @@ export function TransferPaymentDialog({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarActualizacion } = useActivityLogger();
 
   useEffect(() => {
     if (isOpen && ultimoPagoSTP?.clave_rastreo) {
@@ -358,6 +360,22 @@ export function TransferPaymentDialog({
           console.error('Error al actualizar acuerdo completado:', updateError);
         }
       }
+
+      // Registrar transferencia en log de actividades
+      await registrarActualizacion('pagos',
+        { 
+          id_pago: ultimoPagoSTP.id,
+          id_cuenta_cobranza_origen: cuentaOrigenId,
+          monto: montoTotalTransferir
+        },
+        {
+          id_pago: ultimoPagoSTP.id,
+          id_cuenta_cobranza_destino: cuentaDestinoId,
+          monto: montoTotalTransferir,
+          clave_rastreo: ultimoPagoSTP.clave_rastreo
+        },
+        'transferir_pago_entre_cuentas'
+      );
 
       toast({
         title: "Transferencia realizada",
