@@ -62,6 +62,7 @@ const RolesPermisos = lazy(() => import("./pages/admin/RolesPermisos"));
 const AccessDenied = lazy(() => import("./pages/admin/AccessDenied"));
 const LogsActividad = lazy(() => import("./pages/admin/LogsActividad"));
 const RastreoClabeSTP = lazy(() => import("./pages/admin/RastreoClabeSTP"));
+const RastreoPagosSTP = lazy(() => import("./pages/admin/RastreoPagosSTP"));
 
 const queryClient = new QueryClient();
 
@@ -144,6 +145,7 @@ const App = () => (
                   <Route path="reportes/discrepancias" element={<ReporteDiscrepancias />} />
                   <Route path="logs-actividad" element={<LogsActividad />} />
                   <Route path="rastreo-clabes-stp" element={<RastreoClabeSTP />} />
+                  <Route path="rastreo-pagos-stp" element={<RastreoPagosSTP />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

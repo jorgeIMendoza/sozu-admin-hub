@@ -163,6 +163,7 @@ const navigationItems: NavigationItem[] = [
     children: [
       { title: "Logs de Actividad", href: "/admin/logs-actividad", icon: Activity },
       { title: "Rastreo CLABEs STP", href: "/admin/rastreo-clabes-stp", icon: CreditCard },
+      { title: "Rastreo Pagos STP", href: "/admin/rastreo-pagos-stp", icon: CreditCard },
     ]
   },
   {
@@ -205,7 +206,7 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
           if (item.href) {
             // Single item with href - check if allowed
             // Special case: Rastreo de Actividades menu items only for jorge.mendoza@sozu.com
-            if (item.href === '/admin/logs-actividad' || item.href === '/admin/rastreo-clabes-stp') {
+            if (item.href === '/admin/logs-actividad' || item.href === '/admin/rastreo-clabes-stp' || item.href === '/admin/rastreo-pagos-stp') {
               return userEmail === LOGS_ALLOWED_EMAIL ? item : null;
             }
             if (isSuperAdmin) return item;
@@ -214,7 +215,7 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
             // Group with children - filter children
             const allowedChildren = item.children.filter(child => {
               // Special case: Rastreo de Actividades menu items only for jorge.mendoza@sozu.com
-              if (child.href === '/admin/logs-actividad' || child.href === '/admin/rastreo-clabes-stp') {
+              if (child.href === '/admin/logs-actividad' || child.href === '/admin/rastreo-clabes-stp' || child.href === '/admin/rastreo-pagos-stp') {
                 return userEmail === LOGS_ALLOWED_EMAIL;
               }
               if (isSuperAdmin) return true;
