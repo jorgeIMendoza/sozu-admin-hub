@@ -411,22 +411,26 @@ export default function Duenos() {
                   <div className="flex items-center justify-center gap-2">
                     {activeTab === 'active' ? (
                       <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(dueno)}
-                          className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(dueno)}
-                          className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(dueno)}
+                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(dueno)}
+                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -437,14 +441,16 @@ export default function Duenos() {
                         </Button>
                       </>
                     ) : (
-                      <Button
-                        variant="ghost"  
-                        size="sm"
-                        onClick={() => handleRestore(dueno)}
-                        className="h-8 w-8 p-0 hover:bg-success/10 hover:text-success"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
+                      (canApprove || isSuperAdmin) && (
+                        <Button
+                          variant="ghost"  
+                          size="sm"
+                          onClick={() => handleRestore(dueno)}
+                          className="h-8 w-8 p-0 hover:bg-success/10 hover:text-success"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )
                     )}
                   </div>
                 </TableCell>
@@ -469,21 +475,25 @@ export default function Duenos() {
                 Gestiona la información de los dueños
               </p>
             </div>
-            <Button 
-              onClick={() => setIsNewDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Dueño
-            </Button>
+            {(canCreate || isSuperAdmin) && (
+              <Button 
+                onClick={() => setIsNewDialogOpen(true)}
+                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Dueño
+              </Button>
+            )}
           </div>
         </CardHeader>
         
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className={`grid w-full ${(canDelete || isSuperAdmin) ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
               <TabsTrigger value="active">Activos ({activeDuenos.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedDuenos.length})</TabsTrigger>
+              {(canDelete || isSuperAdmin) && (
+                <TabsTrigger value="deleted">Eliminados ({deletedDuenos.length})</TabsTrigger>
+              )}
             </TabsList>
             
             <div className="mb-6">

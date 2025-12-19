@@ -281,21 +281,25 @@ export default function RepresentantesComerciales() {
                 Gestiona la información de los representantes comerciales
               </p>
             </div>
-            <Button 
-              onClick={() => setIsNewDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Representante Comercial
-            </Button>
+            {(canCreate || isSuperAdmin) && (
+              <Button 
+                onClick={() => setIsNewDialogOpen(true)}
+                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Representante Comercial
+              </Button>
+            )}
           </div>
         </CardHeader>
         
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className={`grid w-full ${(canDelete || isSuperAdmin) ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
               <TabsTrigger value="active">Activos ({activeRepresentantes.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedRepresentantes.length})</TabsTrigger>
+              {(canDelete || isSuperAdmin) && (
+                <TabsTrigger value="deleted">Eliminados ({deletedRepresentantes.length})</TabsTrigger>
+              )}
             </TabsList>
             
             <div className="mb-6">
@@ -429,31 +433,37 @@ export default function RepresentantesComerciales() {
                   <div className="flex gap-2 justify-end">
                     {activeTab === 'active' ? (
                       <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(representante)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(representante)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(representante)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(representante)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRestore(representante)}
-                        className="text-green-600 hover:text-green-700"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
+                      (canApprove || isSuperAdmin) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRestore(representante)}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )
                     )}
                   </div>
                 </TableCell>

@@ -321,21 +321,25 @@ export default function RepresentantesLegales() {
                 Gestiona la información de los representantes legales
               </p>
             </div>
-            <Button 
-              onClick={() => setIsNewDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Representante Legal
-            </Button>
+            {(canCreate || isSuperAdmin) && (
+              <Button 
+                onClick={() => setIsNewDialogOpen(true)}
+                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Representante Legal
+              </Button>
+            )}
           </div>
         </CardHeader>
         
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className={`grid w-full ${(canDelete || isSuperAdmin) ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
               <TabsTrigger value="active">Activos ({activeRepresentantes.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedRepresentantes.length})</TabsTrigger>
+              {(canDelete || isSuperAdmin) && (
+                <TabsTrigger value="deleted">Eliminados ({deletedRepresentantes.length})</TabsTrigger>
+              )}
             </TabsList>
             
             <div className="mb-6">
@@ -473,34 +477,40 @@ export default function RepresentantesLegales() {
                   <div className="flex gap-2 justify-end">
                     {activeTab === 'active' ? (
                       <>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleEdit(representante)}
-                          className="hover:bg-primary/10 hover:border-primary transition-colors"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDelete(representante)}
-                          disabled={!canDeleteRepresentant(representante.entidad_relacionada_id)}
-                          className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={!canDeleteRepresentant(representante.entidad_relacionada_id) ? "No se puede eliminar: está siendo usado por una entidad legal o cliente persona moral" : "Eliminar representante legal"}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEdit(representante)}
+                            className="hover:bg-primary/10 hover:border-primary transition-colors"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDelete(representante)}
+                            disabled={!canDeleteRepresentant(representante.entidad_relacionada_id)}
+                            className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!canDeleteRepresentant(representante.entidad_relacionada_id) ? "No se puede eliminar: está siendo usado por una entidad legal o cliente persona moral" : "Eliminar representante legal"}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </>
                     ) : (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleRestore(representante)}
-                        className="hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-colors"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </Button>
+                      (canApprove || isSuperAdmin) && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleRestore(representante)}
+                          className="hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-colors"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                      )
                     )}
                   </div>
                 </TableCell>
