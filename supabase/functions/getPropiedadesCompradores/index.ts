@@ -36,182 +36,233 @@ serve(async (req) => {
 
     console.log(`[getPropiedadesCompradores] Fetching data for proyecto: ${idProyecto}`);
 
-    // Execute raw SQL query to get all the data
-    const { data: rawData, error: queryError } = await supabase.rpc('get_propiedades_compradores', {
-      p_id_proyecto: idProyecto
-    });
+    // Step 1: Get edificios for this project
+    const { data: edificios, error: edificiosError } = await supabase
+      .from('edificios')
+      .select('id')
+      .eq('id_proyecto', idProyecto)
+      .eq('activo', true);
 
-    // If the RPC doesn't exist, we'll use multiple queries approach
-    if (queryError && queryError.message.includes('function') && queryError.message.includes('does not exist')) {
-      console.log('[getPropiedadesCompradores] Using multiple queries approach');
-      
-      // Get all cuentas_cobranza with their related data for this project
-      const { data: cuentasData, error: cuentasError } = await supabase
-        .from('cuentas_cobranza')
-        .select(`
-          id,
-          id_oferta,
-          ofertas!inner (
-            id,
-            id_propiedad,
-            id_producto
-          )
-        `)
-        .is('ofertas.id_producto', null);
+    if (edificiosError) {
+      console.error('[getPropiedadesCompradores] Error fetching edificios:', edificiosError);
+      throw edificiosError;
+    }
 
-      if (cuentasError) {
-        console.error('[getPropiedadesCompradores] Error fetching cuentas:', cuentasError);
-        throw cuentasError;
-      }
+    if (!edificios || edificios.length === 0) {
+      console.log('[getPropiedadesCompradores] No edificios found for proyecto:', idProyecto);
+      return new Response(JSON.stringify({ data: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      // Get property IDs from ofertas
-      const propiedadIds = [...new Set(
-        cuentasData?.map(c => (c.ofertas as any)?.id_propiedad).filter(id => id != null) || []
-      )];
+    const edificioIds = edificios.map(e => e.id);
 
-      if (propiedadIds.length === 0) {
-        return new Response(JSON.stringify({ data: [] }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    // Step 2: Get edificios_modelos for these edificios
+    const { data: edificiosModelos, error: emError } = await supabase
+      .from('edificios_modelos')
+      .select('id, id_edificio, id_modelo')
+      .in('id_edificio', edificioIds)
+      .eq('activo', true);
 
-      // Get propiedades with edificio_modelo -> edificio -> proyecto filter
-      const { data: propiedades, error: propError } = await supabase
-        .from('propiedades')
-        .select(`
-          id,
-          numero_propiedad,
-          numero_piso,
-          m2_interiores,
-          m2_exteriores,
-          id_edificio_modelo,
-          id_estatus_disponibilidad,
-          edificios_modelos!inner (
-            id,
-            id_modelo,
-            id_edificio,
-            edificios!inner (
-              id,
-              id_proyecto
-            ),
-            modelos (
-              id,
-              nombre
-            )
-          ),
-          estatus_disponibilidad (
-            id,
-            nombre
-          )
-        `)
-        .in('id', propiedadIds)
-        .eq('edificios_modelos.edificios.id_proyecto', idProyecto);
+    if (emError) {
+      console.error('[getPropiedadesCompradores] Error fetching edificios_modelos:', emError);
+      throw emError;
+    }
 
-      if (propError) {
-        console.error('[getPropiedadesCompradores] Error fetching propiedades:', propError);
-        throw propError;
-      }
+    if (!edificiosModelos || edificiosModelos.length === 0) {
+      console.log('[getPropiedadesCompradores] No edificios_modelos found');
+      return new Response(JSON.stringify({ data: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      if (!propiedades || propiedades.length === 0) {
-        return new Response(JSON.stringify({ data: [] }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    const emIds = edificiosModelos.map(em => em.id);
+    const modeloIds = [...new Set(edificiosModelos.map(em => em.id_modelo).filter(id => id != null))];
 
-      // Get ofertas for these properties
-      const { data: ofertas, error: ofertasError } = await supabase
-        .from('ofertas')
-        .select('id, id_propiedad')
-        .in('id_propiedad', propiedades.map(p => p.id))
-        .is('id_producto', null);
+    // Step 3: Get modelos
+    const { data: modelos, error: modelosError } = await supabase
+      .from('modelos')
+      .select('id, nombre')
+      .in('id', modeloIds)
+      .eq('activo', true);
 
-      if (ofertasError) {
-        console.error('[getPropiedadesCompradores] Error fetching ofertas:', ofertasError);
-        throw ofertasError;
-      }
+    if (modelosError) {
+      console.error('[getPropiedadesCompradores] Error fetching modelos:', modelosError);
+      throw modelosError;
+    }
 
-      const ofertaIds = ofertas?.map(o => o.id) || [];
+    const modelosMap = new Map((modelos || []).map(m => [m.id, m]));
 
-      // Get cuentas_cobranza for these ofertas
-      const { data: cuentas, error: cuentasErr } = await supabase
-        .from('cuentas_cobranza')
-        .select('id, id_oferta')
-        .in('id_oferta', ofertaIds);
+    // Step 4: Get propiedades for these edificios_modelos
+    const { data: propiedades, error: propError } = await supabase
+      .from('propiedades')
+      .select(`
+        id,
+        numero_propiedad,
+        numero_piso,
+        m2_interiores,
+        m2_exteriores,
+        id_edificio_modelo,
+        id_estatus_disponibilidad
+      `)
+      .in('id_edificio_modelo', emIds)
+      .eq('activo', true);
 
-      if (cuentasErr) {
-        console.error('[getPropiedadesCompradores] Error fetching cuentas:', cuentasErr);
-        throw cuentasErr;
-      }
+    if (propError) {
+      console.error('[getPropiedadesCompradores] Error fetching propiedades:', propError);
+      throw propError;
+    }
 
-      const cuentaIds = cuentas?.map(c => c.id) || [];
+    if (!propiedades || propiedades.length === 0) {
+      console.log('[getPropiedadesCompradores] No propiedades found');
+      return new Response(JSON.stringify({ data: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      // Get compradores for these cuentas
-      const { data: compradores, error: compradoresError } = await supabase
-        .from('compradores')
-        .select(`
-          id,
-          id_cuenta_cobranza,
-          id_persona,
-          porcentaje_copropiedad,
-          personas (*)
-        `)
-        .in('id_cuenta_cobranza', cuentaIds);
+    const propiedadIds = propiedades.map(p => p.id);
+    const estatusIds = [...new Set(propiedades.map(p => p.id_estatus_disponibilidad).filter(id => id != null))];
 
-      if (compradoresError) {
-        console.error('[getPropiedadesCompradores] Error fetching compradores:', compradoresError);
-        throw compradoresError;
-      }
+    // Step 5: Get estatus_disponibilidad
+    const { data: estatuses, error: estatusError } = await supabase
+      .from('estatus_disponibilidad')
+      .select('id, nombre')
+      .in('id', estatusIds);
 
-      // Build the response structure
+    if (estatusError) {
+      console.error('[getPropiedadesCompradores] Error fetching estatus:', estatusError);
+    }
+
+    const estatusMap = new Map((estatuses || []).map(e => [e.id, e.nombre]));
+
+    // Step 6: Get ofertas for these properties (where id_producto is null)
+    const { data: ofertas, error: ofertasError } = await supabase
+      .from('ofertas')
+      .select('id, id_propiedad')
+      .in('id_propiedad', propiedadIds)
+      .is('id_producto', null)
+      .eq('activo', true);
+
+    if (ofertasError) {
+      console.error('[getPropiedadesCompradores] Error fetching ofertas:', ofertasError);
+      throw ofertasError;
+    }
+
+    if (!ofertas || ofertas.length === 0) {
+      console.log('[getPropiedadesCompradores] No ofertas found');
+      // Return propiedades with empty compradores
       const result = propiedades.map(prop => {
-        const edificioModelo = prop.edificios_modelos as any;
-        const modelo = edificioModelo?.modelos;
-        const estatusDisp = prop.estatus_disponibilidad as any;
-
-        // Find ofertas for this property
-        const propOfertaIds = ofertas
-          ?.filter(o => o.id_propiedad === prop.id)
-          .map(o => o.id) || [];
-
-        // Find cuentas for these ofertas
-        const propCuentaIds = cuentas
-          ?.filter(c => propOfertaIds.includes(c.id_oferta))
-          .map(c => c.id) || [];
-
-        // Find compradores for these cuentas
-        const propCompradores = compradores
-          ?.filter(c => propCuentaIds.includes(c.id_cuenta_cobranza))
-          .map(c => ({
-            porcentaje_copropiedad: c.porcentaje_copropiedad,
-            ...(c.personas as any)
-          })) || [];
-
+        const em = edificiosModelos.find(e => e.id === prop.id_edificio_modelo);
+        const modelo = em ? modelosMap.get(em.id_modelo) : null;
         return {
           id_propiedad: prop.id,
           nivel: prop.numero_piso,
           numero_propiedad: prop.numero_propiedad,
-          estatus_propiedad: estatusDisp?.nombre || null,
+          estatus_propiedad: estatusMap.get(prop.id_estatus_disponibilidad) || null,
           m2_interiores: prop.m2_interiores,
           m2_exteriores: prop.m2_exteriores,
           id_modelo: modelo?.id || null,
           modelo: modelo?.nombre || null,
-          compradores: propCompradores
+          compradores: []
         };
       });
-
-      console.log(`[getPropiedadesCompradores] Found ${result.length} propiedades for proyecto ${idProyecto}`);
-
       return new Response(JSON.stringify({ data: result }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (queryError) {
-      console.error('[getPropiedadesCompradores] Error:', queryError);
-      throw queryError;
+    const ofertaIds = ofertas.map(o => o.id);
+
+    // Step 7: Get cuentas_cobranza for these ofertas
+    const { data: cuentas, error: cuentasError } = await supabase
+      .from('cuentas_cobranza')
+      .select('id, id_oferta')
+      .in('id_oferta', ofertaIds)
+      .eq('activo', true);
+
+    if (cuentasError) {
+      console.error('[getPropiedadesCompradores] Error fetching cuentas:', cuentasError);
+      throw cuentasError;
     }
 
-    return new Response(JSON.stringify({ data: rawData }), {
+    const cuentaIds = (cuentas || []).map(c => c.id);
+
+    // Step 8: Get compradores for these cuentas
+    let compradores: any[] = [];
+    if (cuentaIds.length > 0) {
+      const { data: compradoresData, error: compradoresError } = await supabase
+        .from('compradores')
+        .select('id, id_cuenta_cobranza, id_persona, porcentaje_copropiedad')
+        .in('id_cuenta_cobranza', cuentaIds)
+        .eq('activo', true);
+
+      if (compradoresError) {
+        console.error('[getPropiedadesCompradores] Error fetching compradores:', compradoresError);
+        throw compradoresError;
+      }
+      compradores = compradoresData || [];
+    }
+
+    // Step 9: Get personas for these compradores
+    const personaIds = [...new Set(compradores.map(c => c.id_persona).filter(id => id != null))];
+    let personas: any[] = [];
+    if (personaIds.length > 0) {
+      const { data: personasData, error: personasError } = await supabase
+        .from('personas')
+        .select('*')
+        .in('id', personaIds);
+
+      if (personasError) {
+        console.error('[getPropiedadesCompradores] Error fetching personas:', personasError);
+        throw personasError;
+      }
+      personas = personasData || [];
+    }
+
+    const personasMap = new Map(personas.map(p => [p.id, p]));
+
+    // Build the response structure
+    const result = propiedades.map(prop => {
+      const em = edificiosModelos.find(e => e.id === prop.id_edificio_modelo);
+      const modelo = em ? modelosMap.get(em.id_modelo) : null;
+
+      // Find ofertas for this property
+      const propOfertaIds = ofertas
+        .filter(o => o.id_propiedad === prop.id)
+        .map(o => o.id);
+
+      // Find cuentas for these ofertas
+      const propCuentaIds = (cuentas || [])
+        .filter(c => propOfertaIds.includes(c.id_oferta))
+        .map(c => c.id);
+
+      // Find compradores for these cuentas
+      const propCompradores = compradores
+        .filter(c => propCuentaIds.includes(c.id_cuenta_cobranza))
+        .map(c => {
+          const persona = personasMap.get(c.id_persona);
+          return {
+            porcentaje_copropiedad: c.porcentaje_copropiedad,
+            ...persona
+          };
+        });
+
+      return {
+        id_propiedad: prop.id,
+        nivel: prop.numero_piso,
+        numero_propiedad: prop.numero_propiedad,
+        estatus_propiedad: estatusMap.get(prop.id_estatus_disponibilidad) || null,
+        m2_interiores: prop.m2_interiores,
+        m2_exteriores: prop.m2_exteriores,
+        id_modelo: modelo?.id || null,
+        modelo: modelo?.nombre || null,
+        compradores: propCompradores
+      };
+    });
+
+    console.log(`[getPropiedadesCompradores] Found ${result.length} propiedades for proyecto ${idProyecto}`);
+
+    return new Response(JSON.stringify({ data: result }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
