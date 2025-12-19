@@ -542,32 +542,38 @@ export default function Notarias() {
                   <div className="flex justify-end space-x-2">
                     {notario.activo ? (
                       <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(notario)}
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(notario)}
-                          className="hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(notario)}
+                            className="hover:bg-blue-50 hover:text-blue-600"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(notario)}
+                            className="hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRestore(notario)}
-                        className="hover:bg-green-50 hover:text-green-600"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
+                      (canApprove || isSuperAdmin) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRestore(notario)}
+                          className="hover:bg-green-50 hover:text-green-600"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )
                     )}
                   </div>
                 </TableCell>
@@ -654,21 +660,25 @@ export default function Notarias() {
                 Gestiona la información de los notarios
               </p>
             </div>
-            <Button 
-              onClick={() => setIsNewDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Notario
-            </Button>
+            {(canCreate || isSuperAdmin) && (
+              <Button 
+                onClick={() => setIsNewDialogOpen(true)}
+                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Notario
+              </Button>
+            )}
           </div>
         </CardHeader>
         
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className={`grid w-full ${(canDelete || isSuperAdmin) ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
               <TabsTrigger value="active">Activos ({activeNotarios.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedNotarios.length})</TabsTrigger>
+              {(canDelete || isSuperAdmin) && (
+                <TabsTrigger value="deleted">Eliminados ({deletedNotarios.length})</TabsTrigger>
+              )}
             </TabsList>
             
             <div className="mb-6">
