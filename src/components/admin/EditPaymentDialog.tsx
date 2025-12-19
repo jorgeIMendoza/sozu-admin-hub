@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface EditPaymentDialogProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ export function EditPaymentDialog({
 }: EditPaymentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarActualizacion } = useActivityLogger();
+  const originalPaymentRef = useRef<any>(null);
   
   const [formData, setFormData] = useState({
     monto: "",
@@ -79,9 +82,19 @@ export function EditPaymentDialog({
     },
   });
 
-  // Populate form with payment data
+  // Populate form with payment data and store original
   useEffect(() => {
     if (paymentData) {
+      // Store original payment data for logging
+      originalPaymentRef.current = {
+        id: paymentData.id,
+        monto: paymentData.monto,
+        fecha_pago: paymentData.fecha_pago,
+        id_metodos_pago: paymentData.id_metodos_pago,
+        clave_rastreo: paymentData.clave_rastreo,
+        descripcion: paymentData.descripcion
+      };
+      
       setFormData({
         monto: paymentData.monto?.toString() || "",
         fecha_pago: paymentData.fecha_pago || "",
@@ -123,8 +136,26 @@ export function EditPaymentDialog({
         .eq("activo", true);
 
       if (updateApplicationsError) throw updateApplicationsError;
+      
+      return { paymentId, monto };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      // Registrar la actualización en el log de actividades
+      if (originalPaymentRef.current) {
+        await registrarActualizacion('pagos', 
+          originalPaymentRef.current,
+          {
+            id: data.paymentId,
+            monto: parseFloat(formData.monto),
+            fecha_pago: formData.fecha_pago,
+            id_metodos_pago: parseInt(formData.id_metodos_pago),
+            clave_rastreo: formData.clave_rastreo || null,
+            descripcion: formData.descripcion || null
+          },
+          'editar_pago'
+        );
+      }
+      
       toast({
         title: "Pago actualizado",
         description: "El pago ha sido actualizado correctamente",

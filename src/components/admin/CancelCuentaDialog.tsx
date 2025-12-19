@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, Upload } from "lucide-react";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface Comprador {
   id: number;
@@ -62,6 +63,7 @@ export function CancelCuentaDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMontoCobro, setErrorMontoCobro] = useState<string>("");
   const { toast } = useToast();
+  const { registrarCancelacion } = useActivityLogger();
 
   const montoCobrolNumber = parseFloat(montoCobro) || 0;
   const porcentajePrecioFinal = precioFinal > 0 ? (montoCobrolNumber / precioFinal * 100).toFixed(2) : "0";
@@ -421,6 +423,19 @@ export function CancelCuentaDialog({
           throw new Error(`Error al llamar al webhook: ${errorText}`);
         }
       }
+
+      // Registrar la cancelación en el log de actividades
+      await registrarCancelacion('cuentas_cobranza', {
+        id_cuenta_cobranza: cuentaId,
+        tipo_cancelacion: tipoCancelacion === "1" ? "Cesión de derechos" : "Rescisión de contrato",
+        monto_cobro_cancelacion: montoCobrolNumber,
+        url_evidencia: urlEvidencia,
+        precio_final: precioFinal,
+        total_pagado: totalPagado,
+        clabe_stp_original: clabeStpOriginal,
+        tipo_cuenta: tipoCuenta,
+        id_oferta: idOferta
+      }, 'cancelar_cuenta_cobranza');
 
       toast({
         title: "Éxito",
