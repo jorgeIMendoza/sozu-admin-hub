@@ -19,32 +19,42 @@ serve(async (req) => {
 
     console.log('[getProyectosSozu] Fetching proyectos...');
 
-    // Query proyectos with the specified conditions
+    // Step 1: Get project IDs from entidades_relacionadas where id_tipo_entidad = 5
+    const { data: entidades, error: entidadesError } = await supabase
+      .from('entidades_relacionadas')
+      .select('id_proyecto')
+      .eq('id_tipo_entidad', 5)
+      .eq('activo', true);
+
+    if (entidadesError) {
+      console.error('[getProyectosSozu] Error fetching entidades:', entidadesError);
+      throw entidadesError;
+    }
+
+    // Get unique project IDs
+    const proyectoIds = [...new Set(entidades?.map(e => e.id_proyecto) || [])];
+    
+    if (proyectoIds.length === 0) {
+      console.log('[getProyectosSozu] No proyectos found with id_tipo_entidad = 5');
+      return new Response(JSON.stringify([]), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Step 2: Get proyectos that match the criteria
     const { data: proyectos, error } = await supabase
       .from('proyectos')
-      .select(`
-        id,
-        nombre,
-        direccion,
-        fecha_entrega,
-        entidades_relacionadas!inner(id_tipo_entidad)
-      `)
+      .select('id, nombre, direccion, fecha_entrega')
       .eq('activo', true)
       .eq('id_estatus_proyecto', 13)
-      .eq('entidades_relacionadas.id_tipo_entidad', 5);
+      .in('id', proyectoIds);
 
     if (error) {
-      console.error('[getProyectosSozu] Error:', error);
+      console.error('[getProyectosSozu] Error fetching proyectos:', error);
       throw error;
     }
 
-    // Transform the response to match the expected format
-    const result = proyectos?.map(p => ({
-      id: p.id,
-      nombre: p.nombre,
-      direccion: p.direccion,
-      fecha_entrega: p.fecha_entrega
-    })) || [];
+    const result = proyectos || [];
 
     console.log(`[getProyectosSozu] Found ${result.length} proyectos`);
 
