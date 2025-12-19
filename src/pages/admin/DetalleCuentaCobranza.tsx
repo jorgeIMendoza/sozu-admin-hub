@@ -2315,7 +2315,7 @@ export default function DetalleCuentaCobranza() {
             </Badge>
           </div>
         ) : (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex flex-col items-start gap-3">
             {/* Grupo de acciones de pago */}
             <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border/50">
               <Button 
@@ -2354,7 +2354,7 @@ export default function DetalleCuentaCobranza() {
                 Editar Cuenta
               </Button>
               
-              {/* Botón En Demanda */}
+              {/* Botón Poner en Demanda */}
               {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
                cuentaDetalle.id_estatus_disponibilidad !== 11 && 
                totalPagado < (cuentaDetalle?.precio_final || 0) && (
@@ -2367,7 +2367,7 @@ export default function DetalleCuentaCobranza() {
                     className="h-9 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                   >
                     <Scale className="h-4 w-4 mr-2" />
-                    En Demanda
+                    Poner en demanda
                   </Button>
                 </>
               )}
