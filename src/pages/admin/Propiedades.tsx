@@ -40,6 +40,7 @@ import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { NoProjectAccess } from "@/components/admin/NoProjectAccess";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -282,6 +283,9 @@ const Propiedades = () => {
   
   // Page permissions
   const { canCreate, canUpdate, canDelete, canGenerateOffer, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/propiedades');
+  
+  // Activity logger
+  const { registrarAprobacion, registrarEliminacion } = useActivityLogger();
   
   // Auth context for prospect ownership check
   const { profile } = useAuth();
@@ -2642,6 +2646,12 @@ const Propiedades = () => {
 
       if (error) throw error;
 
+      // Registrar eliminación en log de actividades
+      await registrarEliminacion('propiedades', {
+        id_propiedad: propertyId,
+        tipo: 'individual'
+      }, 'eliminar_propiedad');
+
       toast({
         title: "Propiedad eliminada",
         description: "La propiedad se ha marcado como inactiva correctamente.",
@@ -2694,6 +2704,12 @@ const Propiedades = () => {
 
       if (error) throw error;
 
+      // Registrar aprobación en log de actividades
+      await registrarAprobacion('propiedades', {
+        id_propiedad: propertyId,
+        tipo: 'individual'
+      }, 'aprobar_propiedad');
+
       toast({
         title: "Propiedad aprobada",
         description: "La propiedad se ha aprobado correctamente.",
@@ -2721,6 +2737,13 @@ const Propiedades = () => {
         .in('id', selectedProperties);
 
       if (error) throw error;
+
+      // Registrar aprobación masiva en log de actividades
+      await registrarAprobacion('propiedades', {
+        ids_propiedades: selectedProperties,
+        cantidad: selectedProperties.length,
+        tipo: 'masivo'
+      }, 'aprobar_propiedades_masivo');
 
       toast({
         title: "Propiedades aprobadas",
@@ -2750,6 +2773,12 @@ const Propiedades = () => {
 
       if (error) throw error;
 
+      // Registrar eliminación masiva en log de actividades
+      await registrarEliminacion('propiedades', {
+        ids_propiedades: selectedProperties,
+        cantidad: selectedProperties.length
+      }, 'eliminar_propiedades_masivo');
+
       toast({
         title: "Propiedades eliminadas",
         description: `${selectedProperties.length} propiedades han sido eliminadas correctamente.`,
@@ -2778,6 +2807,13 @@ const Propiedades = () => {
         .in('id', propertyIds);
 
       if (error) throw error;
+
+      // Registrar aprobación masiva en log de actividades
+      await registrarAprobacion('propiedades', {
+        ids_propiedades: propertyIds,
+        cantidad: propertyIds.length,
+        tipo: 'todas_visibles'
+      }, 'aprobar_propiedades_todas_visibles');
 
       toast({
         title: "Propiedades aprobadas",

@@ -12,10 +12,12 @@ import { ChevronDown, ChevronRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 export default function AprobacionComisiones() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarAprobacion } = useActivityLogger();
   const [filtroGeneral, setFiltroGeneral] = useState("");
   const [expandedCuentas, setExpandedCuentas] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState("pendientes");
@@ -40,9 +42,18 @@ export default function AprobacionComisiones() {
         .eq("activo", true);
       
       if (error) throw error;
+      return { email, idCuenta };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["aprobacion-comisiones"] });
+      
+      // Registrar la aprobación en el log de actividades
+      await registrarAprobacion('comisionistas', {
+        email_comisionista: data.email,
+        id_cuenta_cobranza: data.idCuenta,
+        tipo: 'individual'
+      }, 'aprobar_comision');
+      
       toast({
         title: "Comisionista aprobado",
         description: "La comisión ha sido aprobada exitosamente"
@@ -68,9 +79,17 @@ export default function AprobacionComisiones() {
         .eq("aprobada", false);
       
       if (error) throw error;
+      return idCuenta;
     },
-    onSuccess: () => {
+    onSuccess: async (idCuenta) => {
       queryClient.invalidateQueries({ queryKey: ["aprobacion-comisiones"] });
+      
+      // Registrar la aprobación masiva en el log de actividades
+      await registrarAprobacion('comisionistas', {
+        id_cuenta_cobranza: idCuenta,
+        tipo: 'masivo'
+      }, 'aprobar_comisiones_masivo');
+      
       toast({
         title: "Comisionistas aprobados",
         description: "Todas las comisiones han sido aprobadas exitosamente"
