@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,9 @@ interface Proyecto {
 }
 
 export default function Modelos() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin, isLoading: permissionsLoading } = 
+    usePagePermissions('/admin/modelos');
+  
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"active" | "deleted">("active");
@@ -71,6 +75,8 @@ export default function Modelos() {
   
   // Project access control
   const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
+  
+  const showDeletedTab = canDelete || isSuperAdmin;
 
   useEffect(() => {
     if (!isLoadingAccess) {
@@ -427,14 +433,18 @@ export default function Modelos() {
               </PopoverContent>
             </Popover>
           </div>
-          <NewModeloDialog onModeloAdded={handleModeloAdded} proyectos={proyectos} />
+          {(canCreate || isSuperAdmin) && (
+            <NewModeloDialog onModeloAdded={handleModeloAdded} proyectos={proyectos} />
+          )}
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "active" | "deleted")}>
         <TabsList>
           <TabsTrigger value="active">Modelos Activos ({totalActivosCount})</TabsTrigger>
-          <TabsTrigger value="deleted">Modelos Eliminados ({totalEliminadosCount})</TabsTrigger>
+          {showDeletedTab && (
+            <TabsTrigger value="deleted">Modelos Eliminados ({totalEliminadosCount})</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="active">
@@ -522,29 +532,35 @@ export default function Modelos() {
                                     <TableCell>{modelo.numero_medio_bano || "-"}</TableCell>
                                     <TableCell>
                                       <div className="flex items-center space-x-2">
-                                        <EditModeloDialog 
-                                          modelo={modelo} 
-                                          onModeloUpdated={handleModeloUpdated}
-                                          proyectos={proyectos}
-                                        />
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm"
-                                          onClick={() => {
-                                            setSelectedModelForMultimedia(modelo);
-                                            setIsMultimediaDialogOpen(true);
-                                          }}
-                                          title="Gestionar multimedia"
-                                        >
-                                          🎥
-                                        </Button>
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm"
-                                          onClick={() => setModeloToDelete(modelo)}
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {(canUpdate || isSuperAdmin) && (
+                                          <EditModeloDialog 
+                                            modelo={modelo} 
+                                            onModeloUpdated={handleModeloUpdated}
+                                            proyectos={proyectos}
+                                          />
+                                        )}
+                                        {(canUpdate || isSuperAdmin) && (
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            onClick={() => {
+                                              setSelectedModelForMultimedia(modelo);
+                                              setIsMultimediaDialogOpen(true);
+                                            }}
+                                            title="Gestionar multimedia"
+                                          >
+                                            🎥
+                                          </Button>
+                                        )}
+                                        {(canDelete || isSuperAdmin) && (
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            onClick={() => setModeloToDelete(modelo)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>
@@ -703,13 +719,15 @@ export default function Modelos() {
                                     <TableCell>{modelo.numero_completo_banos || "-"}</TableCell>
                                     <TableCell>{modelo.numero_medio_bano || "-"}</TableCell>
                                     <TableCell>
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                        onClick={() => handleRestoreModelo(modelo)}
-                                      >
-                                        Restaurar
-                                      </Button>
+                                      {(canApprove || isSuperAdmin) && (
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => handleRestoreModelo(modelo)}
+                                        >
+                                          Restaurar
+                                        </Button>
+                                      )}
                                     </TableCell>
                                   </TableRow>
                                 ))}

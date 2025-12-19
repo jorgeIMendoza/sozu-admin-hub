@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit, Trash2, RotateCcw, Wrench } from "lucide-react";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +32,9 @@ type Servicio = {
 };
 
 export default function Servicios() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin, isLoading: permissionsLoading } = 
+    usePagePermissions('/admin/servicios');
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [currentPageActive, setCurrentPageActive] = useState(1);
@@ -52,6 +56,8 @@ export default function Servicios() {
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const showDeletedTab = canDelete || isSuperAdmin;
   
   const itemsPerPage = 20;
   const currentPage = activeTab === 'active' ? currentPageActive : currentPageDeleted;
@@ -490,32 +496,38 @@ export default function Servicios() {
                   <div className="flex justify-end space-x-2">
                     {servicio.activo ? (
                       <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(servicio)}
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(servicio)}
-                          className="hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(servicio)}
+                            className="hover:bg-blue-50 hover:text-blue-600"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(servicio)}
+                            className="hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRestore(servicio)}
-                        className="hover:bg-green-50 hover:text-green-600"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
+                      (canApprove || isSuperAdmin) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRestore(servicio)}
+                          className="hover:bg-green-50 hover:text-green-600"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )
                     )}
                   </div>
                 </TableCell>
@@ -600,13 +612,15 @@ export default function Servicios() {
           <h1 className="text-3xl font-bold text-foreground">Servicios</h1>
           <p className="text-muted-foreground">Gestiona los servicios del sistema</p>
         </div>
-        <Button onClick={() => {
-          resetForm();
-          setIsNewDialogOpen(true);
-        }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Servicio
-        </Button>
+        {(canCreate || isSuperAdmin) && (
+          <Button onClick={() => {
+            resetForm();
+            setIsNewDialogOpen(true);
+          }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Servicio
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -624,9 +638,11 @@ export default function Servicios() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className={`grid w-full ${showDeletedTab ? 'grid-cols-2' : 'grid-cols-1'} mb-4`}>
               <TabsTrigger value="active">Activos ({totalActivosCount})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({totalEliminadosCount})</TabsTrigger>
+              {showDeletedTab && (
+                <TabsTrigger value="deleted">Eliminados ({totalEliminadosCount})</TabsTrigger>
+              )}
             </TabsList>
             
             <TabsContent value="active">

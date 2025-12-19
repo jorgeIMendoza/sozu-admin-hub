@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +58,9 @@ const vistaFormSchema = z.object({
 });
 
 export default function Vistas() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin, isLoading: permissionsLoading } = 
+    usePagePermissions('/admin/vistas');
+  
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,6 +81,8 @@ export default function Vistas() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  const showDeletedTab = canDelete || isSuperAdmin;
   
   // Project access control
   const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
@@ -529,13 +535,14 @@ export default function Vistas() {
             Administra las vistas disponibles para las propiedades
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva Vista
-            </Button>
-          </DialogTrigger>
+        {(canCreate || isSuperAdmin) && (
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva Vista
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Crear Nueva Vista</DialogTitle>
@@ -618,16 +625,19 @@ export default function Vistas() {
             </Form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className={`grid w-full ${showDeletedTab ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <TabsTrigger value="activos">
             Vistas Activas ({activosCount})
           </TabsTrigger>
-          <TabsTrigger value="eliminados">
-            Vistas Eliminadas ({eliminadosCount})
-          </TabsTrigger>
+          {showDeletedTab && (
+            <TabsTrigger value="eliminados">
+              Vistas Eliminadas ({eliminadosCount})
+            </TabsTrigger>
+          )}
         </TabsList>
         
         <TabsContent value={activeTab}>
@@ -789,29 +799,35 @@ export default function Vistas() {
                                           <div className="flex items-center justify-end space-x-2">
                                             {activeTab === "activos" ? (
                                               <>
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={() => openEditDialog(vista)}
-                                                >
-                                                  <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={() => openDeleteDialog(vista)}
-                                                >
-                                                  <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                {(canUpdate || isSuperAdmin) && (
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => openEditDialog(vista)}
+                                                  >
+                                                    <Edit className="h-4 w-4" />
+                                                  </Button>
+                                                )}
+                                                {(canDelete || isSuperAdmin) && (
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => openDeleteDialog(vista)}
+                                                  >
+                                                    <Trash2 className="h-4 w-4" />
+                                                  </Button>
+                                                )}
                                               </>
                                             ) : (
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => openRestoreDialog(vista)}
-                                              >
-                                                <RotateCcw className="h-4 w-4" />
-                                              </Button>
+                                              (canApprove || isSuperAdmin) && (
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={() => openRestoreDialog(vista)}
+                                                >
+                                                  <RotateCcw className="h-4 w-4" />
+                                                </Button>
+                                              )
                                             )}
                                           </div>
                                         </TableCell>

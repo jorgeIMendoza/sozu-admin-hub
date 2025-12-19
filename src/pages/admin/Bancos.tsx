@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit, Trash2, RotateCcw, Building } from "lucide-react";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,9 @@ type Banco = {
 };
 
 export default function Bancos() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin, isLoading: permissionsLoading } = 
+    usePagePermissions('/admin/bancos');
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,6 +37,8 @@ export default function Bancos() {
   const [formData, setFormData] = useState({ nombre: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const showDeletedTab = canDelete || isSuperAdmin;
   
   const itemsPerPage = 10;
 
@@ -279,32 +285,38 @@ export default function Bancos() {
                   <div className="flex justify-end space-x-2">
                     {banco.activo ? (
                       <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(banco)}
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(banco)}
-                          className="hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(banco)}
+                            className="hover:bg-blue-50 hover:text-blue-600"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(banco)}
+                            className="hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRestore(banco)}
-                        className="hover:bg-green-50 hover:text-green-600"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
+                      (canApprove || isSuperAdmin) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRestore(banco)}
+                          className="hover:bg-green-50 hover:text-green-600"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )
                     )}
                   </div>
                 </TableCell>
@@ -391,24 +403,28 @@ export default function Bancos() {
                 Gestiona la información de los bancos
               </p>
             </div>
-            <Button 
-              onClick={() => {
-                setFormData({ nombre: "" });
-                setIsNewDialogOpen(true);
-              }}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Banco
-            </Button>
+            {(canCreate || isSuperAdmin) && (
+              <Button 
+                onClick={() => {
+                  setFormData({ nombre: "" });
+                  setIsNewDialogOpen(true);
+                }}
+                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Banco
+              </Button>
+            )}
           </div>
         </CardHeader>
         
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className={`grid w-full ${showDeletedTab ? 'grid-cols-2' : 'grid-cols-1'} mb-6`}>
               <TabsTrigger value="active">Activos ({activeBancos.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedBancos.length})</TabsTrigger>
+              {showDeletedTab && (
+                <TabsTrigger value="deleted">Eliminados ({deletedBancos.length})</TabsTrigger>
+              )}
             </TabsList>
             
             <div className="mb-6">

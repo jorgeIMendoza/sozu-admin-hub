@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit, Trash2, RotateCcw, FolderOpen } from "lucide-react";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,9 @@ type Categoria = {
 };
 
 export default function CategoriasProductos() {
+  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin, isLoading: permissionsLoading } = 
+    usePagePermissions('/admin/categorias-productos');
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,6 +41,8 @@ export default function CategoriasProductos() {
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const showDeletedTab = canDelete || isSuperAdmin;
   
   const itemsPerPage = 10;
 
@@ -333,32 +339,38 @@ export default function CategoriasProductos() {
                   <div className="flex justify-end space-x-2">
                     {categoria.activo ? (
                       <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(categoria)}
-                          className="hover:bg-blue-50 hover:text-blue-600"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(categoria)}
-                          className="hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(categoria)}
+                            className="hover:bg-blue-50 hover:text-blue-600"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(categoria)}
+                            className="hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRestore(categoria)}
-                        className="hover:bg-green-50 hover:text-green-600"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
+                      (canApprove || isSuperAdmin) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRestore(categoria)}
+                          className="hover:bg-green-50 hover:text-green-600"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )
                     )}
                   </div>
                 </TableCell>
@@ -439,13 +451,15 @@ export default function CategoriasProductos() {
           <h1 className="text-3xl font-bold text-foreground">Categorías de Productos</h1>
           <p className="text-muted-foreground">Gestiona las categorías de productos y servicios</p>
         </div>
-        <Button onClick={() => {
-          resetForm();
-          setIsNewDialogOpen(true);
-        }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Categoría
-        </Button>
+        {(canCreate || isSuperAdmin) && (
+          <Button onClick={() => {
+            resetForm();
+            setIsNewDialogOpen(true);
+          }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Categoría
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -463,9 +477,11 @@ export default function CategoriasProductos() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className={`grid w-full ${showDeletedTab ? 'grid-cols-2' : 'grid-cols-1'} mb-4`}>
               <TabsTrigger value="active">Activas ({activeCategorias.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminadas ({deletedCategorias.length})</TabsTrigger>
+              {showDeletedTab && (
+                <TabsTrigger value="deleted">Eliminadas ({deletedCategorias.length})</TabsTrigger>
+              )}
             </TabsList>
             
             <TabsContent value="active">
