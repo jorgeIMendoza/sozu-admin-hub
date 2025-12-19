@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -29,12 +29,34 @@ export default function ChangePassword() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { updatePassword, profile, signOut } = useAuth();
+  const { updatePassword, profile, signOut, session, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  // If no session, redirect to login - user needs to login with temp password first
+  useEffect(() => {
+    if (!authLoading && !session) {
+      navigate('/auth/login', { replace: true });
+    }
+  }, [authLoading, session, navigate]);
+
   // If user doesn't need to change password, redirect
-  if (profile && !profile.debe_cambiar_password) {
-    navigate('/admin', { replace: true });
+  useEffect(() => {
+    if (!authLoading && session && profile && !profile.debe_cambiar_password) {
+      navigate('/admin', { replace: true });
+    }
+  }, [authLoading, session, profile, navigate]);
+
+  // Show loading while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render if no session
+  if (!session) {
     return null;
   }
 
