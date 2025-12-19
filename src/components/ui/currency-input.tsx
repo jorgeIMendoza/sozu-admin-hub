@@ -27,6 +27,11 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
         return;
       }
 
+      // Allow Ctrl+V, Ctrl+C, Ctrl+A, Cmd+V, Cmd+C, Cmd+A (for paste/copy/select all)
+      if ((e.ctrlKey || e.metaKey) && ['v', 'c', 'a', 'x'].includes(key.toLowerCase())) {
+        return; // Let the paste event handle it
+      }
+
       // Prevent default for all other keys
       e.preventDefault();
 
