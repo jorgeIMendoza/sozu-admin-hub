@@ -815,16 +815,22 @@ export default function Usuarios() {
                 Rol *
                 {isFieldsLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
               </Label>
-              <Combobox
+              <Select
                 value={newUserForm.rol_id}
                 onValueChange={(value) => setNewUserForm(prev => ({ ...prev, rol_id: value }))}
-                options={roleOptions}
-                placeholder="Seleccionar rol..."
-                searchPlaceholder="Buscar rol..."
-                emptyText="No se encontraron roles"
                 disabled={isFieldsLocked}
-                className={isFieldsLocked ? "bg-muted" : ""}
-              />
+              >
+                <SelectTrigger className={isFieldsLocked ? "bg-muted" : ""}>
+                  <SelectValue placeholder="Seleccionar rol..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id.toString()}>
+                      {role.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {isFieldsLocked && (
                 <p className="text-xs text-muted-foreground">
                   El rol se asigna automáticamente según el tipo de persona seleccionada.
