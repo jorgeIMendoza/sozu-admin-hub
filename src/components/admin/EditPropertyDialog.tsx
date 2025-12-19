@@ -730,12 +730,15 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Label htmlFor="precio_lista">Precio de Lista *</Label>
                     <Input
                       id="precio_lista"
-                      value={formatCurrency(formData.precio_lista)}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.precio_lista || ''}
                       onChange={(e) => {
-                        const parsed = parseCurrency(e.target.value);
-                        setFormData(prev => ({ ...prev, precio_lista: parsed }));
+                        const value = e.target.value;
+                        setFormData(prev => ({ ...prev, precio_lista: value === '' ? 0 : parseFloat(value) }));
                       }}
-                      placeholder="Ej: 2,500,000.00"
+                      placeholder="Ej: 2500000.00"
                       required
                     />
                   </div>
@@ -744,12 +747,15 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Label htmlFor="monto_apartado">Monto Apartado (Opcional)</Label>
                     <Input
                       id="monto_apartado"
-                      value={formatCurrency(formData.monto_apartado)}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.monto_apartado || ''}
                       onChange={(e) => {
-                        const parsed = parseCurrency(e.target.value);
-                        setFormData(prev => ({ ...prev, monto_apartado: parsed }));
+                        const value = e.target.value;
+                        setFormData(prev => ({ ...prev, monto_apartado: value === '' ? 0 : parseFloat(value) }));
                       }}
-                      placeholder="Ej: 50,000.00"
+                      placeholder="Ej: 50000.00"
                     />
                   </div>
                 </CardContent>
