@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, UserPlus, AlertCircle } from "lucide-react";
+import { ShoppingCart, UserPlus, AlertCircle, Info } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -125,6 +125,44 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
 
   const selectedPersonType = form.watch("tipo_persona");
   const selectedMode = form.watch("mode");
+  
+  // Watch percentage fields for manual mode
+  const watchedEnganche = form.watch("porcentaje_enganche");
+  const watchedMensualidades = form.watch("porcentaje_mensualidades");
+  const watchedEntrega = form.watch("porcentaje_entrega");
+  const watchedNumeroMensualidades = form.watch("numero_mensualidades");
+  const watchedDescuentoAumento = form.watch("porcentaje_descuento_aumento");
+  
+  // Calculate remaining percentage
+  const remainingPercentage = 100 - (parseFloat(watchedEnganche || "0") + parseFloat(watchedMensualidades || "0"));
+
+  // Calculate manual scheme amounts for preview
+  const manualSchemeCalculations = useMemo(() => {
+    const basePrice = parseFloat(selectedProductData?.precio_lista || "0");
+    const descuentoAumento = parseFloat(watchedDescuentoAumento || "0");
+    const precioAjustado = basePrice * (1 + descuentoAumento / 100);
+    
+    const enganchePct = parseFloat(watchedEnganche || "0");
+    const mensualidadesPct = parseFloat(watchedMensualidades || "0");
+    const entregaPct = parseFloat(watchedEntrega || "0");
+    const numMensualidades = parseInt(watchedNumeroMensualidades || "0");
+    
+    const montoEnganche = precioAjustado * (enganchePct / 100);
+    const montoMensualidades = precioAjustado * (mensualidadesPct / 100);
+    const montoEntrega = precioAjustado * (entregaPct / 100);
+    const montoPorMensualidad = numMensualidades > 0 ? montoMensualidades / numMensualidades : 0;
+    
+    return {
+      precioOriginal: basePrice,
+      precioAjustado,
+      diferencia: precioAjustado - basePrice,
+      montoEnganche,
+      montoMensualidades,
+      montoEntrega,
+      montoPorMensualidad,
+      numMensualidades
+    };
+  }, [selectedProductData?.precio_lista, watchedEnganche, watchedMensualidades, watchedEntrega, watchedNumeroMensualidades, watchedDescuentoAumento]);
 
   // Reset form and states when dialog opens
   useEffect(() => {
@@ -681,74 +719,293 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
 
                   <Separator />
 
-                  {/* Step 2: Scheme Selection - Only preloaded schemes (no manual option) */}
-                  {productPaymentSchemes.length > 0 ? (
-                    <div className="space-y-4">
+                  {/* Step 2: Mode Selection and Scheme */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">2. Esquema de Pago</h3>
+                    
+                    {/* Mode selector - only show if there are preloaded schemes OR user can use manual */}
+                    {(productPaymentSchemes.length > 0 || profile?.rol_nombre === 'Super Administrador' || profile?.rol_nombre === 'Agente Interno') && (
                       <FormField
                         control={form.control}
-                        name="selectedSchemeId"
+                        name="mode"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>2. Seleccionar Esquema de Pago (Opcional)</FormLabel>
-                            <Select 
-                              onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
-                              value={field.value?.toString() || ""}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecciona un esquema de pago (opcional)" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {productPaymentSchemes.map((scheme: any) => (
-                                  <SelectItem key={scheme.id} value={scheme.id.toString()}>
-                                    <div className="flex flex-col">
-                                      <span>{scheme.nombre}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        Eng: {scheme.porcentaje_enganche}% | Mens: {scheme.porcentaje_mensualidades}% ({scheme.numero_mensualidades}) | Ent: {scheme.porcentaje_entrega}%
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          <FormItem className="space-y-3">
+                            <FormLabel>Tipo de Oferta</FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                value={field.value}
+                                className="flex space-x-6"
+                              >
+                                {productPaymentSchemes.length > 0 && (
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="precargada" id="prod-precargada" />
+                                    <Label htmlFor="prod-precargada">Precargada</Label>
+                                  </div>
+                                )}
+                                {(profile?.rol_nombre === 'Super Administrador' || profile?.rol_nombre === 'Agente Interno') && (
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="manual" id="prod-manual" />
+                                    <Label htmlFor="prod-manual">Manual</Label>
+                                  </div>
+                                )}
+                              </RadioGroup>
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
-                      {/* Disclaimer when no scheme is selected */}
-                      {!form.watch("selectedSchemeId") && (
-                        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
-                          <CardContent className="p-4">
-                            <p className="text-sm text-amber-800 dark:text-amber-200">
-                              <strong>Nota:</strong> Si no seleccionas un esquema de pago, la oferta mostrará todos los esquemas disponibles y <strong>no incluirá la sección de cuenta bancaria</strong>.
-                            </p>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
-                  ) : (
-                    <Card className="border-destructive/50 bg-destructive/10">
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
-                        <div>
-                          <p className="font-medium text-destructive">
-                            Sin esquemas de pago disponibles
-                          </p>
-                          <p className="text-sm text-destructive/80">
-                            Este producto no tiene esquemas de pago configurados. No es posible generar una oferta.
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                    )}
 
+                    {/* Preloaded scheme selector */}
+                    {selectedMode === "precargada" && productPaymentSchemes.length > 0 && (
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="selectedSchemeId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Seleccionar Esquema de Pago (Opcional)</FormLabel>
+                              <Select 
+                                onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
+                                value={field.value?.toString() || ""}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona un esquema de pago (opcional)" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {productPaymentSchemes.map((scheme: any) => (
+                                    <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                                      <div className="flex flex-col">
+                                        <span>{scheme.nombre}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          Eng: {scheme.porcentaje_enganche}% | Mens: {scheme.porcentaje_mensualidades}% ({scheme.numero_mensualidades}) | Ent: {scheme.porcentaje_entrega}%
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        {!form.watch("selectedSchemeId") && (
+                          <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
+                            <CardContent className="p-4">
+                              <p className="text-sm text-amber-800 dark:text-amber-200">
+                                <strong>Nota:</strong> Si no seleccionas un esquema de pago, la oferta mostrará todos los esquemas disponibles.
+                              </p>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </>
+                    )}
+
+                    {/* Manual scheme fields */}
+                    {selectedMode === "manual" && (
+                      <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="porcentaje_enganche"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Porcentaje Enganche (%) *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="porcentaje_mensualidades"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Porcentaje Mensualidades (%) *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="porcentaje_entrega"
+                            render={({ field }) => {
+                              const maxAllowed = Math.max(0, remainingPercentage);
+                              const currentValue = parseFloat(field.value || "0");
+                              const isExceeding = currentValue > maxAllowed + 0.01;
+                              
+                              return (
+                                <FormItem>
+                                  <FormLabel>
+                                    Porcentaje Entrega (%) *
+                                    {remainingPercentage !== 100 && (
+                                      <span className={`text-sm ml-1 ${isExceeding ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                        (Restante: {remainingPercentage.toFixed(2)}%)
+                                      </span>
+                                    )}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number" 
+                                      step="0.01" 
+                                      max={maxAllowed}
+                                      placeholder="0.00" 
+                                      className={isExceeding ? 'border-destructive' : ''}
+                                      {...field}
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        const clampedValue = Math.min(val, maxAllowed);
+                                        field.onChange(clampedValue.toString());
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="numero_mensualidades"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Número de Mensualidades *</FormLabel>
+                                <FormControl>
+                                  <Input type="number" placeholder="12" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="porcentaje_descuento_aumento"
+                          render={({ field }) => {
+                            const value = parseFloat(field.value || "0");
+                            const isDiscount = value < 0;
+                            const isIncrease = value > 0;
+                            
+                            return (
+                              <FormItem>
+                                <FormLabel className="flex items-center gap-2">
+                                  Porcentaje Descuento/Aumento (%)
+                                  {isDiscount && (
+                                    <Badge variant="destructive" className="text-xs">Descuento</Badge>
+                                  )}
+                                  {isIncrease && (
+                                    <Badge variant="default" className="text-xs">Aumento</Badge>
+                                  )}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" placeholder="0" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Valores negativos = descuento, positivos = aumento
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
+                        />
+
+                        {/* Manual scheme preview */}
+                        {manualSchemeCalculations.precioOriginal > 0 && (parseFloat(watchedEnganche || "0") > 0 || parseFloat(watchedMensualidades || "0") > 0 || parseFloat(watchedEntrega || "0") > 0) && (
+                          <div className="mt-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                              <Info className="h-4 w-4 text-primary" />
+                              Vista previa del esquema de pago
+                            </h4>
+                            
+                            {manualSchemeCalculations.diferencia !== 0 && (
+                              <div className="mb-3 pb-3 border-b border-primary/20">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Precio original:</span>
+                                  <span>${manualSchemeCalculations.precioOriginal.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className={manualSchemeCalculations.diferencia < 0 ? "text-green-600" : "text-amber-600"}>
+                                    {manualSchemeCalculations.diferencia < 0 ? "Descuento:" : "Aumento:"}
+                                  </span>
+                                  <span className={manualSchemeCalculations.diferencia < 0 ? "text-green-600" : "text-amber-600"}>
+                                    {manualSchemeCalculations.diferencia < 0 ? "-" : "+"}${Math.abs(manualSchemeCalculations.diferencia).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm font-semibold mt-1">
+                                  <span>Precio ajustado:</span>
+                                  <span className="text-primary">${manualSchemeCalculations.precioAjustado.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="space-y-2 text-sm">
+                              {parseFloat(watchedEnganche || "0") > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Enganche ({watchedEnganche}%):</span>
+                                  <span className="font-medium">${manualSchemeCalculations.montoEnganche.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {parseFloat(watchedMensualidades || "0") > 0 && (
+                                <>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Mensualidades ({watchedMensualidades}%):</span>
+                                    <span className="font-medium">${manualSchemeCalculations.montoMensualidades.toLocaleString()}</span>
+                                  </div>
+                                  {manualSchemeCalculations.numMensualidades > 0 && (
+                                    <div className="flex justify-between pl-4 text-xs">
+                                      <span className="text-muted-foreground">{manualSchemeCalculations.numMensualidades} pagos de:</span>
+                                      <span>${manualSchemeCalculations.montoPorMensualidad.toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {parseFloat(watchedEntrega || "0") > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Entrega ({watchedEntrega}%):</span>
+                                  <span className="font-medium">${manualSchemeCalculations.montoEntrega.toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Show error if no schemes and manual not available */}
+                    {productPaymentSchemes.length === 0 && selectedMode === "precargada" && (
+                      <Card className="border-destructive/50 bg-destructive/10">
+                        <CardContent className="p-4 flex items-center gap-3">
+                          <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                          <div>
+                            <p className="font-medium text-destructive">
+                              Sin esquemas de pago disponibles
+                            </p>
+                            <p className="text-sm text-destructive/80">
+                              Este producto no tiene esquemas de pago configurados. Usa el modo Manual para crear uno.
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
 
                   <Separator />
 
                   {/* Comprador Section Title */}
-                  <h3 className="text-lg font-semibold">{productPaymentSchemes.length > 0 ? '3' : '2'}. Datos del Comprador</h3>
+                  <h3 className="text-lg font-semibold">3. Datos del Comprador</h3>
                 </>
               )}
 

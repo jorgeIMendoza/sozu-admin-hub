@@ -1282,22 +1282,44 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                     <FormField
                       control={form.control}
                       name="porcentaje_entrega"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Porcentaje Entrega (%) *
-                            {selectedMode === "manual" && remainingPercentage !== 100 && (
-                              <span className="text-sm text-muted-foreground ml-1">
-                                (Restante: {remainingPercentage.toFixed(2)}%)
-                              </span>
+                      render={({ field }) => {
+                        const maxAllowed = Math.max(0, 100 - parseFloat(watchedEnganche || "0") - parseFloat(watchedMensualidades || "0"));
+                        const currentValue = parseFloat(field.value || "0");
+                        const isExceeding = currentValue > maxAllowed + 0.01;
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>
+                              Porcentaje Entrega (%) *
+                              {selectedMode === "manual" && remainingPercentage !== 100 && (
+                                <span className={`text-sm ml-1 ${isExceeding ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                  (Restante: {remainingPercentage.toFixed(2)}%)
+                                </span>
+                              )}
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                max={maxAllowed}
+                                placeholder="0.00" 
+                                className={isExceeding ? 'border-destructive' : ''}
+                                {...field}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  // Clamp value to max allowed
+                                  const clampedValue = Math.min(val, maxAllowed);
+                                  field.onChange(clampedValue.toString());
+                                }}
+                              />
+                            </FormControl>
+                            {isExceeding && (
+                              <p className="text-xs text-destructive">El porcentaje no puede exceder {maxAllowed.toFixed(2)}%</p>
                             )}
-                          </FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
 
                     <FormField
