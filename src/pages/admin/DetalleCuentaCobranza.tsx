@@ -2315,70 +2315,79 @@ export default function DetalleCuentaCobranza() {
             </Badge>
           </div>
         ) : (
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Botón Editar Cuenta */}
-            <Button 
-              onClick={() => setEditCuentaDialog(true)}
-              variant="outline"
-              size="sm"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Editar Cuenta
-            </Button>
-            
-            {/* Separador visual */}
-            <div className="hidden sm:block h-6 w-px bg-border" />
-            
-            {/* Botón En Demanda - solo para propiedades no pagadas completamente, que no están en demanda ni canceladas */}
-            {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
-             cuentaDetalle.id_estatus_disponibilidad !== 11 && 
-             totalPagado < (cuentaDetalle?.precio_final || 0) && (
-              <Button
-                onClick={() => setEnDemandaDialog(true)}
-                variant="outline"
-                size="sm"
-                className="border-amber-500 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-              >
-                <Scale className="h-4 w-4 mr-2" />
-                Poner en Demanda
-              </Button>
-            )}
-            
-            {/* Botón Juicio Terminado - solo cuando está en demanda */}
-            {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
-             cuentaDetalle.id_estatus_disponibilidad === 11 && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            {/* Grupo de acciones de cuenta */}
+            <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border/50">
               <Button 
-                onClick={() => setJuicioTerminadoDialog(true)}
+                onClick={() => setEditCuentaDialog(true)}
+                variant="ghost"
                 size="sm"
-                className="bg-green-600 hover:bg-green-700"
+                className="h-9"
               >
-                <Gavel className="h-4 w-4 mr-2" />
-                Juicio Terminado
+                <Edit className="h-4 w-4 mr-2" />
+                Editar Cuenta
               </Button>
-            )}
-            
-            <Button 
-              onClick={() => setTransferDialog({ isOpen: true })}
-              disabled={!ultimoPagoSTP || isReadOnly || isEnDemanda}
-              variant="outline"
-              size="sm"
-            >
-              <ArrowRight className="h-4 w-4 mr-2" />
-              Transferir entre cuentas
-            </Button>
-            
-            {/* Separador visual */}
-            <div className="hidden sm:block h-6 w-px bg-border" />
-            
-            <Button 
-              onClick={() => setManualPaymentDialog(true)}
-              disabled={totalPagado >= (cuentaDetalle?.precio_final || 0) || isReadOnly || isEnDemanda}
-              size="sm"
-              className="bg-primary hover:bg-primary/90"
-            >
-              <CreditCard className="h-4 w-4 mr-2" />
-              Agregar pago manual
-            </Button>
+              
+              {/* Botón En Demanda */}
+              {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
+               cuentaDetalle.id_estatus_disponibilidad !== 11 && 
+               totalPagado < (cuentaDetalle?.precio_final || 0) && (
+                <>
+                  <div className="h-5 w-px bg-border" />
+                  <Button
+                    onClick={() => setEnDemandaDialog(true)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                  >
+                    <Scale className="h-4 w-4 mr-2" />
+                    En Demanda
+                  </Button>
+                </>
+              )}
+              
+              {/* Botón Juicio Terminado */}
+              {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
+               cuentaDetalle.id_estatus_disponibilidad === 11 && (
+                <>
+                  <div className="h-5 w-px bg-border" />
+                  <Button 
+                    onClick={() => setJuicioTerminadoDialog(true)}
+                    size="sm"
+                    className="h-9 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Gavel className="h-4 w-4 mr-2" />
+                    Juicio Terminado
+                  </Button>
+                </>
+              )}
+            </div>
+
+            {/* Grupo de acciones de pago */}
+            <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border/50">
+              <Button 
+                onClick={() => setTransferDialog({ isOpen: true })}
+                disabled={!ultimoPagoSTP || isReadOnly || isEnDemanda}
+                variant="ghost"
+                size="sm"
+                className="h-9"
+              >
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Transferir
+              </Button>
+              
+              <div className="h-5 w-px bg-border" />
+              
+              <Button 
+                onClick={() => setManualPaymentDialog(true)}
+                disabled={totalPagado >= (cuentaDetalle?.precio_final || 0) || isReadOnly || isEnDemanda}
+                size="sm"
+                className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Agregar Pago
+              </Button>
+            </div>
           </div>
         )}
       </div>
