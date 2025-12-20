@@ -5000,42 +5000,6 @@ export type Database = {
           },
         ]
       }
-      queries_reportes: {
-        Row: {
-          activo: boolean | null
-          descripcion: string | null
-          fecha_actualizacion: string | null
-          fecha_creacion: string
-          filtros: Json | null
-          id: number
-          nombre_reporte: string | null
-          query: string | null
-          url_reporte: string | null
-        }
-        Insert: {
-          activo?: boolean | null
-          descripcion?: string | null
-          fecha_actualizacion?: string | null
-          fecha_creacion?: string
-          filtros?: Json | null
-          id?: number
-          nombre_reporte?: string | null
-          query?: string | null
-          url_reporte?: string | null
-        }
-        Update: {
-          activo?: boolean | null
-          descripcion?: string | null
-          fecha_actualizacion?: string | null
-          fecha_creacion?: string
-          filtros?: Json | null
-          id?: number
-          nombre_reporte?: string | null
-          query?: string | null
-          url_reporte?: string | null
-        }
-        Relationships: []
-      }
       regimen: {
         Row: {
           activo: boolean | null
