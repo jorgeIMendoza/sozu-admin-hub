@@ -580,8 +580,22 @@ const Propiedades = () => {
         query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
       }
 
+      // Para búsqueda por nombre de proyecto, primero obtener IDs de proyectos
       if (searchTerm) {
-        query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+        const { data: matchingProyectos } = await supabase
+          .from('proyectos')
+          .select('id')
+          .ilike('nombre', `%${searchTerm}%`)
+          .eq('activo', true);
+        
+        const proyectoIds = matchingProyectos?.map(p => p.id) || [];
+        
+        if (proyectoIds.length > 0) {
+          query = query.in('edificios_modelos.edificios.proyectos.id', proyectoIds);
+        } else {
+          // Si no hay proyectos que coincidan, buscar por numero_propiedad o clabe
+          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
+        }
       }
 
       // Ejecutar query - obtener hasta 5000 registros para exportación
@@ -4135,6 +4149,10 @@ const Propiedades = () => {
         </div>
         <div className="flex gap-2">
           {hasActiveFilters && (
+            activeTab === "activos" ? filteredActivosCount > 0 :
+            activeTab === "draft" ? filteredDraftCount > 0 :
+            filteredEliminadosCount > 0
+          ) && (
             <Button
               variant="outline"
               className="gap-2"

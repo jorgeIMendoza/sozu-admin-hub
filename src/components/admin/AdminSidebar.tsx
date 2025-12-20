@@ -287,11 +287,11 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
       
       {/* Sidebar */}
       <div className={cn(
-        "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+        "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar text-sidebar-foreground border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">S</span>
@@ -310,8 +310,9 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
           </button>
         </div>
 
-        {/* Navigation */}
-        <ScrollArea className="flex-1 px-4">
+        {/* Navigation - con scroll */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full px-4">
           {isLoadingPermissions ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -376,7 +377,8 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
               ))}
             </nav>
           )}
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
         {/* User Profile */}
         <div className="p-4 border-t border-border">
