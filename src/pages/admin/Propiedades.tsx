@@ -580,18 +580,55 @@ const Propiedades = () => {
         query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
       }
 
-      // Para búsqueda por nombre de proyecto, primero obtener IDs de proyectos
+      // Para búsqueda por nombre de proyecto, obtener IDs de edificios_modelos
       if (searchTerm) {
+        // Primero buscar proyectos que coincidan
         const { data: matchingProyectos } = await supabase
           .from('proyectos')
           .select('id')
           .ilike('nombre', `%${searchTerm}%`)
           .eq('activo', true);
         
-        const proyectoIds = matchingProyectos?.map(p => p.id) || [];
-        
-        if (proyectoIds.length > 0) {
-          query = query.in('edificios_modelos.edificios.proyectos.id', proyectoIds);
+        if (matchingProyectos && matchingProyectos.length > 0) {
+          const proyectoIds = matchingProyectos.map(p => p.id);
+          
+          // Obtener edificios de esos proyectos
+          const { data: matchingEdificios } = await supabase
+            .from('edificios')
+            .select('id')
+            .in('id_proyecto', proyectoIds)
+            .eq('activo', true);
+          
+          if (matchingEdificios && matchingEdificios.length > 0) {
+            const edificioIds = matchingEdificios.map(e => e.id);
+            
+            // Obtener edificios_modelos de esos edificios
+            const { data: matchingEdificiosModelos } = await supabase
+              .from('edificios_modelos')
+              .select('id')
+              .in('id_edificio', edificioIds)
+              .eq('activo', true);
+            
+            if (matchingEdificiosModelos && matchingEdificiosModelos.length > 0) {
+              const edificioModeloIds = matchingEdificiosModelos.map(em => em.id);
+              query = query.in('id_edificio_modelo', edificioModeloIds);
+            } else {
+              // No hay edificios_modelos que coincidan
+              toast({
+                title: "Sin datos",
+                description: "No hay propiedades para exportar con los filtros actuales.",
+                variant: "destructive",
+              });
+              return;
+            }
+          } else {
+            toast({
+              title: "Sin datos",
+              description: "No hay propiedades para exportar con los filtros actuales.",
+              variant: "destructive",
+            });
+            return;
+          }
         } else {
           // Si no hay proyectos que coincidan, buscar por numero_propiedad o clabe
           query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
