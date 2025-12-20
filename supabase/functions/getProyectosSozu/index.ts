@@ -77,12 +77,18 @@ serve(async (req) => {
       });
     }
 
-    // Step 2: Get proyectos that match the criteria
+    // Step 2: Get proyectos that match the criteria (without status filter)
     const { data: proyectos, error } = await supabase
       .from('proyectos')
-      .select('id, nombre, direccion, fecha_entrega')
+      .select(`
+        id, 
+        nombre, 
+        direccion, 
+        fecha_entrega,
+        id_estatus_proyecto,
+        estatus_proyecto:id_estatus_proyecto (id, nombre)
+      `)
       .eq('activo', true)
-      .eq('id_estatus_proyecto', 13)
       .in('id', proyectoIds);
 
     if (error) {
