@@ -170,16 +170,6 @@ const navigationItems: NavigationItem[] = [
     ]
   },
   {
-    title: "Configuraciones/Logs",
-    icon: Activity,
-    children: [
-      { title: "Logs de Actividad", href: "/admin/logs-actividad", icon: Activity },
-      { title: "Rastreo CLABEs STP", href: "/admin/rastreo-clabes-stp", icon: CreditCard },
-      { title: "Rastreo Pagos STP", href: "/admin/rastreo-pagos-stp", icon: CreditCard },
-      { title: "Configuración Reportes", href: "/admin/configuracion-reportes", icon: Cog },
-    ]
-  },
-  {
     title: "Sistema",
     icon: Settings,
     children: [
@@ -188,6 +178,18 @@ const navigationItems: NavigationItem[] = [
     ]
   },
 ];
+
+// Este menú siempre va al final, sin importar qué otros menús se agreguen
+const logsMenuItem: NavigationItem = {
+  title: "Configuraciones/Logs",
+  icon: Activity,
+  children: [
+    { title: "Logs de Actividad", href: "/admin/logs-actividad", icon: Activity },
+    { title: "Rastreo CLABEs STP", href: "/admin/rastreo-clabes-stp", icon: CreditCard },
+    { title: "Rastreo Pagos STP", href: "/admin/rastreo-pagos-stp", icon: CreditCard },
+    { title: "Configuración Reportes", href: "/admin/configuracion-reportes", icon: Cog },
+  ]
+};
 
 export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps) => {
   const { profile, signOut } = useAuth();
@@ -218,19 +220,11 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
         .map(item => {
           if (item.href) {
             // Single item with href - check if allowed
-            // Special case: Rastreo de Actividades menu items only for jorge.mendoza@sozu.com
-            if (item.href === '/admin/logs-actividad' || item.href === '/admin/rastreo-clabes-stp' || item.href === '/admin/rastreo-pagos-stp') {
-              return userEmail === LOGS_ALLOWED_EMAIL ? item : null;
-            }
             if (isSuperAdmin) return item;
             return isPathAllowed(item.href) ? item : null;
           } else if (item.children) {
             // Group with children - filter children
             const allowedChildren = item.children.filter(child => {
-              // Special case: Rastreo de Actividades menu items only for jorge.mendoza@sozu.com
-              if (child.href === '/admin/logs-actividad' || child.href === '/admin/rastreo-clabes-stp' || child.href === '/admin/rastreo-pagos-stp') {
-                return userEmail === LOGS_ALLOWED_EMAIL;
-              }
               if (isSuperAdmin) return true;
               return isPathAllowed(child.href);
             });
@@ -246,8 +240,22 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
         .filter(Boolean) as NavigationItem[];
     };
 
-    return filterItems(navigationItems);
-  }, [isPathAllowed, isSuperAdmin]);
+    const filteredMain = filterItems(navigationItems);
+    
+    // Filtrar el menú de logs (solo para jorge.mendoza@sozu.com)
+    if (userEmail === LOGS_ALLOWED_EMAIL) {
+      const filteredLogsChildren = logsMenuItem.children?.filter(child => {
+        if (isSuperAdmin) return true;
+        return isPathAllowed(child.href);
+      }) || [];
+      
+      if (filteredLogsChildren.length > 0) {
+        filteredMain.push({ ...logsMenuItem, children: filteredLogsChildren });
+      }
+    }
+    
+    return filteredMain;
+  }, [isPathAllowed, isSuperAdmin, userEmail]);
 
   // Auto-expand the group that contains the current path
   const getInitialExpandedGroups = () => {
