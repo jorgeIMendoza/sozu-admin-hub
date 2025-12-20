@@ -545,19 +545,21 @@ const Propiedades = () => {
         query = query.eq('activo', false);
       }
 
-      // Aplicar búsqueda - primero encontrar edificios_modelos que coincidan
+      // Aplicar búsqueda - buscar por proyecto, edificio, propietario, o número de propiedad
       if (searchTerm) {
-        // Find property IDs by project name
+        // Collect all property IDs that match the search term
+        let matchingPropertyIds: number[] = [];
+        let hasProjectMatch = false;
+        
+        // 1. Find by project name
         const { data: matchingProyectos } = await supabase
           .from('proyectos')
           .select('id')
           .ilike('nombre', `%${searchTerm}%`)
           .eq('activo', true);
         
-        const proyectoIds = matchingProyectos?.map((p: any) => p.id) || [];
-        
-        // If we found matching projects, get their edificios_modelos
-        if (proyectoIds.length > 0) {
+        if (matchingProyectos && matchingProyectos.length > 0) {
+          const proyectoIds = matchingProyectos.map((p: any) => p.id);
           const { data: matchingEdificios } = await supabase
             .from('edificios')
             .select('id')
@@ -566,7 +568,6 @@ const Propiedades = () => {
           
           if (matchingEdificios && matchingEdificios.length > 0) {
             const edificioIds = matchingEdificios.map(e => e.id);
-            
             const { data: matchingEdificiosModelos } = await supabase
               .from('edificios_modelos')
               .select('id')
@@ -576,17 +577,40 @@ const Propiedades = () => {
             if (matchingEdificiosModelos && matchingEdificiosModelos.length > 0) {
               const edificioModeloIds = matchingEdificiosModelos.map(em => em.id);
               query = query.in('id_edificio_modelo', edificioModeloIds);
+              hasProjectMatch = true;
+            }
+          }
+        }
+        
+        // 2. Find by owner/propietario name (entidades_relacionadas -> personas)
+        if (!hasProjectMatch) {
+          const { data: matchingPropietarios } = await supabase
+            .from('personas')
+            .select('id')
+            .ilike('nombre_legal', `%${searchTerm}%`)
+            .eq('activo', true);
+          
+          if (matchingPropietarios && matchingPropietarios.length > 0) {
+            const personaIds = matchingPropietarios.map((p: any) => p.id);
+            
+            // Find entidades_relacionadas for these personas (type = dueño, which is typically id_tipo_entidad = 1 or similar)
+            const { data: matchingEntidades } = await supabase
+              .from('entidades_relacionadas')
+              .select('id')
+              .in('id_persona', personaIds)
+              .eq('activo', true);
+            
+            if (matchingEntidades && matchingEntidades.length > 0) {
+              const entidadIds = matchingEntidades.map((e: any) => e.id);
+              query = query.in('id_entidad_relacionada_dueno', entidadIds);
             } else {
-              // No matching edificios_modelos - but try direct property search
+              // No matching entidades - try direct property search
               query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
             }
           } else {
-            // No matching edificios - but try direct property search
+            // No matching personas - try direct property search
             query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
           }
-        } else {
-          // No matching projects - search by property number or clabe
-          query = query.or(`numero_propiedad.ilike.%${searchTerm}%,clabe_stp_tmp_apartado.ilike.%${searchTerm}%`);
         }
       }
 
