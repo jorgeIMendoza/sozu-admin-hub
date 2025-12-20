@@ -17,7 +17,29 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('[getProyectosSozu] Fetching proyectos...');
+    // Get id_proyecto from query params or body
+    let idProyecto: number | null = null;
+    
+    // Check query params first
+    const url = new URL(req.url);
+    const idProyectoParam = url.searchParams.get('id_proyecto');
+    if (idProyectoParam) {
+      idProyecto = parseInt(idProyectoParam, 10);
+    }
+    
+    // If not in query params, check body (for POST requests)
+    if (!idProyecto && req.method === 'POST') {
+      try {
+        const body = await req.json();
+        if (body.id_proyecto) {
+          idProyecto = parseInt(body.id_proyecto, 10);
+        }
+      } catch {
+        // Body might be empty or not JSON
+      }
+    }
+
+    console.log('[getProyectosSozu] id_proyecto:', idProyecto);
 
     // Step 1: Get project IDs from entidades_relacionadas where id_tipo_entidad = 5
     const { data: entidades, error: entidadesError } = await supabase
@@ -32,9 +54,21 @@ serve(async (req) => {
     }
 
     // Get unique project IDs, filtering out nulls
-    const proyectoIds = [...new Set(
+    let proyectoIds = [...new Set(
       entidades?.map(e => e.id_proyecto).filter(id => id !== null && id !== undefined) || []
     )];
+
+    // If id_proyecto is provided, filter to only include that project if it's in the list
+    if (idProyecto) {
+      if (proyectoIds.includes(idProyecto)) {
+        proyectoIds = [idProyecto];
+      } else {
+        console.log('[getProyectosSozu] id_proyecto not found in Sozu projects');
+        return new Response(JSON.stringify([]), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
     
     if (proyectoIds.length === 0) {
       console.log('[getProyectosSozu] No proyectos found with id_tipo_entidad = 5');
