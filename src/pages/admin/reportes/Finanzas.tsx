@@ -29,6 +29,7 @@ interface Reporte {
   descripcion: string | null;
   filtros_configuracion: FiltroConfig[];
   nombre_archivo: string;
+  activo: boolean;
 }
 
 export default function ReportesFinanzas() {
@@ -51,9 +52,9 @@ export default function ReportesFinanzas() {
 
       const { data, error } = await supabase
         .from('reportes')
-        .select('id, nombre, descripcion, filtros_configuracion, nombre_archivo')
+        .select('id, nombre, descripcion, filtros_configuracion, nombre_archivo, activo')
         .eq('id_submenu', submenu.id)
-        .eq('activo', true)
+        .order('activo', { ascending: false }) // Active reports first
         .order('nombre');
 
       if (error) throw error;
@@ -74,8 +75,9 @@ export default function ReportesFinanzas() {
     );
   }, [reportes, searchTerm]);
 
-  const handleSelectReporte = (reporteId: string) => {
-    navigate(`/admin/reportes/ver/${reporteId}?return=/admin/reportes/finanzas`);
+  const handleSelectReporte = (reporte: Reporte) => {
+    if (!reporte.activo) return; // Prevent navigation for inactive reports
+    navigate(`/admin/reportes/ver/${reporte.id}?return=/admin/reportes/finanzas`);
   };
 
   if (permissionsLoading || isLoading) {
@@ -131,14 +133,28 @@ export default function ReportesFinanzas() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Card
-                          className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-                          onClick={() => handleSelectReporte(reporte.id.toString())}
+                          className={cn(
+                            "transition-all",
+                            reporte.activo 
+                              ? "cursor-pointer hover:shadow-md hover:border-primary/50" 
+                              : "opacity-50 cursor-not-allowed"
+                          )}
+                          onClick={() => handleSelectReporte(reporte)}
                         >
                           <CardContent className="p-4">
                             <div className="flex items-start gap-2">
-                              <FileSpreadsheet className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <FileSpreadsheet className={cn(
+                                "h-5 w-5 shrink-0 mt-0.5",
+                                reporte.activo ? "text-primary" : "text-muted-foreground"
+                              )} />
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-medium text-sm line-clamp-2">{reporte.nombre}</h3>
+                                <h3 className={cn(
+                                  "font-medium text-sm line-clamp-2",
+                                  !reporte.activo && "text-muted-foreground"
+                                )}>
+                                  {reporte.nombre}
+                                  {!reporte.activo && <span className="ml-2 text-xs">(Inactivo)</span>}
+                                </h3>
                                 {reporte.descripcion && (
                                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                                     {reporte.descripcion}
@@ -153,6 +169,9 @@ export default function ReportesFinanzas() {
                         <p className="font-medium">{reporte.nombre}</p>
                         {reporte.descripcion && (
                           <p className="text-xs text-muted-foreground mt-1">{reporte.descripcion}</p>
+                        )}
+                        {!reporte.activo && (
+                          <p className="text-xs text-orange-500 mt-1">Este reporte está inactivo</p>
                         )}
                       </TooltipContent>
                     </Tooltip>
