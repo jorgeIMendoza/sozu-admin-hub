@@ -196,18 +196,28 @@ export default function ConfiguracionReportes() {
       // Reemplazar placeholders sueltos :nombre_filtro con valores de prueba
       // Para que el query sea sintácticamente válido durante la validación
       cleanQuery = cleanQuery.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, '1');
-      // Limpiar posibles comas o AND/OR sobrantes por placeholders removidos
-      cleanQuery = cleanQuery.replace(/,\s*,/g, ',');
+      
+      // Limpiar sintaxis SQL rota después de remover placeholders
       cleanQuery = cleanQuery.replace(/WHERE\s+AND/gi, 'WHERE');
       cleanQuery = cleanQuery.replace(/WHERE\s+OR/gi, 'WHERE');
       cleanQuery = cleanQuery.replace(/AND\s+AND/gi, 'AND');
       cleanQuery = cleanQuery.replace(/OR\s+OR/gi, 'OR');
-      cleanQuery = cleanQuery.replace(/WHERE\s*$/gi, '');
+      cleanQuery = cleanQuery.replace(/AND\s+ORDER/gi, 'ORDER');
+      cleanQuery = cleanQuery.replace(/AND\s+GROUP/gi, 'GROUP');
+      cleanQuery = cleanQuery.replace(/AND\s+LIMIT/gi, 'LIMIT');
       cleanQuery = cleanQuery.replace(/AND\s*$/gi, '');
       cleanQuery = cleanQuery.replace(/OR\s*$/gi, '');
+      cleanQuery = cleanQuery.replace(/WHERE\s*$/gi, '');
+      cleanQuery = cleanQuery.replace(/WHERE\s+ORDER/gi, 'ORDER');
+      cleanQuery = cleanQuery.replace(/WHERE\s+GROUP/gi, 'GROUP');
+      cleanQuery = cleanQuery.replace(/WHERE\s+LIMIT/gi, 'LIMIT');
+      
+      // Limpiar espacios extra
+      cleanQuery = cleanQuery.replace(/\s+/g, ' ').trim();
+      
       // Agregar LIMIT 1 para validación rápida
       if (!cleanQuery.toLowerCase().includes('limit')) {
-        cleanQuery = cleanQuery.trim().replace(/;?\s*$/, '') + ' LIMIT 1';
+        cleanQuery = cleanQuery.replace(/;?\s*$/, '') + ' LIMIT 1';
       }
 
       const { data, error } = await supabase.rpc('execute_safe_query', {
