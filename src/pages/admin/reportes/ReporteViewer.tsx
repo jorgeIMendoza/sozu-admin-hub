@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { cn } from "@/lib/utils";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 
 interface FiltroConfig {
   nombre: string;
@@ -298,7 +298,18 @@ export default function ReporteViewer() {
     return { totals, numericColumns, totalRows: fullData.length };
   }, [fullData, columns]);
 
-  // Prepare chart data
+  // Ordered columns for charts (matching report column order)
+  const orderedChartColumns = [
+    'precio_final',
+    'monto_durante_obra',
+    'monto_a_la_entrega',
+    'pagado_durante_obra',
+    'pagado_a_la_entrega',
+    'restante_durante_obra',
+    'restante_a_la_entrega'
+  ];
+
+  // Prepare chart data for line chart
   const chartData = useMemo(() => {
     if (!previewData || previewData.length === 0 || columns.length === 0) return [];
 
@@ -309,30 +320,41 @@ export default function ReporteViewer() {
       col.toLowerCase().includes('nombre')
     ) || columns[0];
 
-    // Find numeric columns for the chart
-    const numericColumns = columns.filter(col => {
-      const firstValue = previewData[0][col];
-      return typeof firstValue === 'number' && !col.toLowerCase().includes('id');
-    }).slice(0, 6); // Limit to 6 columns for the line chart
+    // Filter to available numeric columns in preferred order
+    const availableOrderedColumns = orderedChartColumns.filter(col => columns.includes(col));
 
     return previewData.slice(0, 20).map(row => {
       const item: Record<string, unknown> = { name: String(row[labelColumn]).substring(0, 20) };
-      numericColumns.forEach(col => {
+      availableOrderedColumns.forEach(col => {
         item[col] = Number(row[col]) || 0;
       });
       return item;
     });
   }, [previewData, columns]);
 
-  // Colors for chart lines - 6 distinct colors
-  const chartColors = [
-    'hsl(var(--primary))', 
-    '#2563eb', // blue
-    '#16a34a', // green  
-    '#f97316', // orange
-    '#dc2626', // red
-    '#8b5cf6'  // purple
-  ];
+  // Prepare bar chart data for totals
+  const barChartData = useMemo(() => {
+    if (!summaryData) return [];
+
+    const availableOrderedColumns = orderedChartColumns.filter(col => summaryData.numericColumns.includes(col));
+
+    return availableOrderedColumns.map(col => ({
+      name: col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: summaryData.totals[col] || 0,
+      key: col
+    }));
+  }, [summaryData]);
+
+  // Colors for chart lines - matching column order
+  const chartColorMap: Record<string, string> = {
+    'precio_final': 'hsl(var(--primary))',
+    'monto_durante_obra': '#16a34a', // green
+    'monto_a_la_entrega': '#2563eb', // blue
+    'pagado_durante_obra': '#f97316', // orange
+    'pagado_a_la_entrega': '#dc2626', // red
+    'restante_durante_obra': '#8b5cf6', // purple
+    'restante_a_la_entrega': '#06b6d4'  // cyan
+  };
 
   const handleFilterChange = (filterName: string, value: string) => {
     const newFiltros = { ...filtros, [filterName]: value };
@@ -692,7 +714,7 @@ export default function ReporteViewer() {
                     {/* Main summary: Precio Final */}
                     {summaryData.numericColumns.includes('precio_final') && (
                       <div className="mb-6 p-4 bg-background rounded-lg border">
-                        <p className="text-sm text-muted-foreground mb-1">Precio Final Total</p>
+                        <p className="text-sm text-muted-foreground mb-1">Suma Total de Precio Final</p>
                         <p className="text-2xl font-bold text-primary">
                           {formatCurrencyCompact(summaryData.totals['precio_final'])}
                         </p>
@@ -813,54 +835,97 @@ export default function ReporteViewer() {
                 </Alert>
               </div>
             ) : viewMode === 'chart' ? (
-              // Chart View - Line Chart for financial trends
-              <div className="h-[500px] p-4">
-                {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis 
-                        dataKey="name" 
-                        angle={-45} 
-                        textAnchor="end" 
-                        height={80}
-                        interval={0}
-                        tick={{ fontSize: 10 }}
-                        className="fill-muted-foreground"
-                      />
-                      <YAxis 
-                        tickFormatter={(value) => formatCurrencyCompact(value)}
-                        className="fill-muted-foreground"
-                        width={100}
-                      />
-                      <RechartsTooltip 
-                        formatter={(value: number) => formatCurrencyCompact(value)}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--background))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                      {summaryData?.numericColumns.slice(0, 6).map((col, idx) => (
-                        <Line 
-                          key={col} 
-                          type="monotone"
-                          dataKey={col} 
-                          stroke={chartColors[idx % chartColors.length]} 
-                          strokeWidth={2}
-                          dot={{ fill: chartColors[idx % chartColors.length], r: 4 }}
-                          activeDot={{ r: 6 }}
-                          name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              // Chart View - Two charts: Line Chart + Bar Chart for totals
+              <div className="space-y-8 p-4">
+                {/* Line Chart - Trends per property */}
+                <div className="h-[400px]">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Tendencia por Registro</h4>
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis 
+                          dataKey="name" 
+                          tick={false}
+                          axisLine={false}
+                          height={10}
                         />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">No hay datos numéricos para graficar</p>
-                  </div>
-                )}
+                        <YAxis 
+                          tickFormatter={(value) => formatCurrencyCompact(value)}
+                          className="fill-muted-foreground"
+                          width={100}
+                        />
+                        <RechartsTooltip 
+                          formatter={(value: number) => formatCurrencyCompact(value)}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                        {orderedChartColumns.filter(col => columns.includes(col)).map((col) => (
+                          <Line 
+                            key={col} 
+                            type="monotone"
+                            dataKey={col} 
+                            stroke={chartColorMap[col] || '#888'} 
+                            strokeWidth={2}
+                            dot={false}
+                            name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">No hay datos numéricos para graficar</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bar Chart - Totals */}
+                <div className="h-[350px]">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Totales por Concepto</h4>
+                  {barChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis 
+                          dataKey="name" 
+                          angle={-30}
+                          textAnchor="end"
+                          height={100}
+                          interval={0}
+                          tick={{ fontSize: 11 }}
+                          className="fill-muted-foreground"
+                        />
+                        <YAxis 
+                          tickFormatter={(value) => formatCurrencyCompact(value)}
+                          className="fill-muted-foreground"
+                          width={100}
+                        />
+                        <RechartsTooltip 
+                          formatter={(value: number) => formatCurrencyCompact(value)}
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Bar 
+                          dataKey="value" 
+                          radius={[4, 4, 0, 0]}
+                          fill="hsl(var(--primary))"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">No hay datos para la gráfica de barras</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : previewData && previewData.length > 0 ? (
               <ScrollArea className="h-[500px]">
