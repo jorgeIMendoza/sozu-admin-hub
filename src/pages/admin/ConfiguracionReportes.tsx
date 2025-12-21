@@ -73,6 +73,7 @@ export default function ConfiguracionReportes() {
     nombre_archivo: "",
     id_submenu: "",
     activo: true,
+    prendido: true,
   });
 
   // Fetch reports (including inactive for the deleted tab)
@@ -127,6 +128,7 @@ export default function ConfiguracionReportes() {
       nombre_archivo: "",
       id_submenu: "",
       activo: true,
+      prendido: true,
     });
     setEditingReporte(null);
     setQueryValidation(null);
@@ -143,6 +145,7 @@ export default function ConfiguracionReportes() {
         nombre_archivo: reporte.nombre_archivo,
         id_submenu: reporte.id_submenu?.toString() || "",
         activo: reporte.activo,
+        prendido: reporte.prendido,
       });
       // Si ya existe el reporte, asumimos que el query es válido
       setQueryValidation({ valid: true, message: "Query existente" });
@@ -303,6 +306,7 @@ export default function ConfiguracionReportes() {
         nombre_archivo: formData.nombre_archivo,
         id_submenu: formData.id_submenu ? parseInt(formData.id_submenu) : null,
         activo: formData.activo,
+        prendido: formData.prendido,
       };
 
       if (editingReporte) {
@@ -653,6 +657,40 @@ export default function ConfiguracionReportes() {
             </DialogTitle>
           </DialogHeader>
           
+          {/* Power Switch - Estilo Apagador */}
+          <div className="flex items-center justify-center py-4 border-b">
+            <div 
+              className={`relative cursor-pointer transition-all duration-300 rounded-full p-1 ${
+                formData.prendido 
+                  ? 'bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)]' 
+                  : 'bg-muted shadow-inner'
+              }`}
+              onClick={() => setFormData({ ...formData, prendido: !formData.prendido })}
+            >
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
+                formData.prendido 
+                  ? 'bg-green-400 text-white' 
+                  : 'bg-muted-foreground/20 text-muted-foreground'
+              }`}>
+                <Power className={`h-8 w-8 transition-all duration-300 ${
+                  formData.prendido ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : ''
+                }`} />
+              </div>
+            </div>
+            <div className="ml-4 text-center">
+              <p className={`text-lg font-semibold transition-colors ${
+                formData.prendido ? 'text-green-600' : 'text-muted-foreground'
+              }`}>
+                {formData.prendido ? 'Prendido' : 'Apagado'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formData.prendido 
+                  ? 'El reporte está visible en el menú' 
+                  : 'El reporte está oculto del menú'}
+              </p>
+            </div>
+          </div>
+          
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -903,33 +941,23 @@ export default function ConfiguracionReportes() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="submenu">Submenú</Label>
-                <Select
-                  value={formData.id_submenu}
-                  onValueChange={(value) => setFormData({ ...formData, id_submenu: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar submenú..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {submenus.map((submenu) => (
-                      <SelectItem key={submenu.id} value={submenu.id.toString()}>
-                        {submenu.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2 pt-6">
-                <Switch
-                  id="activo"
-                  checked={formData.activo}
-                  onCheckedChange={(checked) => setFormData({ ...formData, activo: checked })}
-                />
-                <Label htmlFor="activo">Activo</Label>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="submenu">Submenú</Label>
+              <Select
+                value={formData.id_submenu}
+                onValueChange={(value) => setFormData({ ...formData, id_submenu: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar submenú..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {submenus.map((submenu) => (
+                    <SelectItem key={submenu.id} value={submenu.id.toString()}>
+                      {submenu.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
