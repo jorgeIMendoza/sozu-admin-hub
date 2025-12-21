@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { cn } from "@/lib/utils";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell, AreaChart, Area, LabelList } from 'recharts';
 
 interface FiltroConfig {
   nombre: string;
@@ -1192,8 +1192,8 @@ export default function ReporteViewer() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="stacked-bar">📊 Barras Apiladas</SelectItem>
-                            <SelectItem value="area">📈 Área Apilada</SelectItem>
+                            <SelectItem value="stacked-bar">📊 Barras</SelectItem>
+                            <SelectItem value="area">📈 Área</SelectItem>
                             <SelectItem value="bullet">🎯 Progreso Simple</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1240,12 +1240,26 @@ export default function ReporteViewer() {
                                 <Bar dataKey="pagado_durante_obra" stackId="a" fill={progressColors.pagado_durante_obra} name="Pagado Durante Obra" />
                                 <Bar dataKey="pagado_a_la_entrega" stackId="a" fill={progressColors.pagado_a_la_entrega} name="Pagado A la Entrega" />
                                 <Bar dataKey="restante_durante_obra" stackId="a" fill={progressColors.restante_durante_obra} name="Restante Durante Obra" />
-                                <Bar dataKey="restante_a_la_entrega" stackId="a" fill={progressColors.restante_a_la_entrega} name="Restante A la Entrega" radius={[0, 4, 4, 0]} />
+                                <Bar dataKey="restante_a_la_entrega" stackId="a" fill={progressColors.restante_a_la_entrega} name="Restante A la Entrega" radius={[0, 4, 4, 0]}>
+                                  <LabelList 
+                                    dataKey="precio_final" 
+                                    position="right" 
+                                    formatter={(value: number) => formatCurrencyCompact(value)}
+                                    style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
+                                  />
+                                </Bar>
                               </>
                             ) : (
                               <>
                                 <Bar dataKey="pagado_total" stackId="a" fill={progressColors.pagado_total} name="Pagado" />
-                                <Bar dataKey="restante_total" stackId="a" fill={progressColors.restante_total} name="Restante" radius={[0, 4, 4, 0]} />
+                                <Bar dataKey="restante_total" stackId="a" fill={progressColors.restante_total} name="Restante" radius={[0, 4, 4, 0]}>
+                                  <LabelList 
+                                    dataKey="precio_final" 
+                                    position="right" 
+                                    formatter={(value: number) => formatCurrencyCompact(value)}
+                                    style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
+                                  />
+                                </Bar>
                               </>
                             )}
                           </BarChart>
@@ -1292,12 +1306,26 @@ export default function ReporteViewer() {
                                   <Bar dataKey="pagado_durante_obra" stackId="a" fill={progressColors.pagado_durante_obra} name="Pagado Durante Obra" />
                                   <Bar dataKey="pagado_a_la_entrega" stackId="a" fill={progressColors.pagado_a_la_entrega} name="Pagado A la Entrega" />
                                   <Bar dataKey="restante_durante_obra" stackId="a" fill={progressColors.restante_durante_obra} name="Restante Durante Obra" />
-                                  <Bar dataKey="restante_a_la_entrega" stackId="a" fill={progressColors.restante_a_la_entrega} name="Restante A la Entrega" radius={[4, 4, 0, 0]} />
+                                  <Bar dataKey="restante_a_la_entrega" stackId="a" fill={progressColors.restante_a_la_entrega} name="Restante A la Entrega" radius={[4, 4, 0, 0]}>
+                                    <LabelList 
+                                      dataKey="precio_final" 
+                                      position="top" 
+                                      formatter={(value: number) => formatCurrencyCompact(value)}
+                                      style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
+                                    />
+                                  </Bar>
                                 </>
                               ) : (
                                 <>
                                   <Bar dataKey="pagado_total" stackId="a" fill={progressColors.pagado_total} name="Pagado" />
-                                  <Bar dataKey="restante_total" stackId="a" fill={progressColors.restante_total} name="Restante" radius={[4, 4, 0, 0]} />
+                                  <Bar dataKey="restante_total" stackId="a" fill={progressColors.restante_total} name="Restante" radius={[4, 4, 0, 0]}>
+                                    <LabelList 
+                                      dataKey="precio_final" 
+                                      position="top" 
+                                      formatter={(value: number) => formatCurrencyCompact(value)}
+                                      style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
+                                    />
+                                  </Bar>
                                 </>
                               )}
                             </BarChart>
@@ -1342,12 +1370,26 @@ export default function ReporteViewer() {
                                   <Area type="monotone" dataKey="pagado_durante_obra" stackId="1" stroke={progressColors.pagado_durante_obra} fill={progressColors.pagado_durante_obra} fillOpacity={0.8} name="Pagado Durante Obra" />
                                   <Area type="monotone" dataKey="pagado_a_la_entrega" stackId="1" stroke={progressColors.pagado_a_la_entrega} fill={progressColors.pagado_a_la_entrega} fillOpacity={0.8} name="Pagado A la Entrega" />
                                   <Area type="monotone" dataKey="restante_durante_obra" stackId="1" stroke={progressColors.restante_durante_obra} fill={progressColors.restante_durante_obra} fillOpacity={0.6} name="Restante Durante Obra" />
-                                  <Area type="monotone" dataKey="restante_a_la_entrega" stackId="1" stroke={progressColors.restante_a_la_entrega} fill={progressColors.restante_a_la_entrega} fillOpacity={0.6} name="Restante A la Entrega" />
+                                  <Area type="monotone" dataKey="restante_a_la_entrega" stackId="1" stroke={progressColors.restante_a_la_entrega} fill={progressColors.restante_a_la_entrega} fillOpacity={0.6} name="Restante A la Entrega">
+                                    <LabelList 
+                                      dataKey="precio_final" 
+                                      position="top" 
+                                      formatter={(value: number) => formatCurrencyCompact(value)}
+                                      style={{ fontSize: 9, fill: 'hsl(var(--foreground))' }}
+                                    />
+                                  </Area>
                                 </>
                               ) : (
                                 <>
                                   <Area type="monotone" dataKey="pagado_total" stackId="1" stroke={progressColors.pagado_total} fill={progressColors.pagado_total} fillOpacity={0.8} name="Pagado" />
-                                  <Area type="monotone" dataKey="restante_total" stackId="1" stroke={progressColors.restante_total} fill={progressColors.restante_total} fillOpacity={0.6} name="Restante" />
+                                  <Area type="monotone" dataKey="restante_total" stackId="1" stroke={progressColors.restante_total} fill={progressColors.restante_total} fillOpacity={0.6} name="Restante">
+                                    <LabelList 
+                                      dataKey="precio_final" 
+                                      position="top" 
+                                      formatter={(value: number) => formatCurrencyCompact(value)}
+                                      style={{ fontSize: 9, fill: 'hsl(var(--foreground))' }}
+                                    />
+                                  </Area>
                                 </>
                               )}
                             </AreaChart>
