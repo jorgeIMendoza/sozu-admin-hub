@@ -76,6 +76,22 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
     }
   }
 
+  // Clean up SQL syntax after removing placeholders
+  // Remove orphaned AND/OR at the end of WHERE clauses
+  processedQuery = processedQuery.replace(/WHERE\s+AND/gi, 'WHERE');
+  processedQuery = processedQuery.replace(/WHERE\s+OR/gi, 'WHERE');
+  processedQuery = processedQuery.replace(/AND\s+AND/gi, 'AND');
+  processedQuery = processedQuery.replace(/OR\s+OR/gi, 'OR');
+  processedQuery = processedQuery.replace(/AND\s+ORDER/gi, 'ORDER');
+  processedQuery = processedQuery.replace(/AND\s+GROUP/gi, 'GROUP');
+  processedQuery = processedQuery.replace(/AND\s+LIMIT/gi, 'LIMIT');
+  processedQuery = processedQuery.replace(/AND\s*$/gi, '');
+  processedQuery = processedQuery.replace(/OR\s*$/gi, '');
+  processedQuery = processedQuery.replace(/WHERE\s*$/gi, '');
+  processedQuery = processedQuery.replace(/WHERE\s+ORDER/gi, 'ORDER');
+  processedQuery = processedQuery.replace(/WHERE\s+GROUP/gi, 'GROUP');
+  processedQuery = processedQuery.replace(/WHERE\s+LIMIT/gi, 'LIMIT');
+  
   // Clean up any extra whitespace
   processedQuery = processedQuery.replace(/\s+/g, ' ').trim();
 
@@ -431,13 +447,8 @@ export default function ReporteViewer() {
     return String(value);
   };
 
-  if (permissionsLoading || isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[calc(100vh-120px)]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // Show loading state only for the content area, not the whole page
+  const isInitialLoading = permissionsLoading || isLoading;
 
   if (!reporte) {
     return (
@@ -459,22 +470,40 @@ export default function ReporteViewer() {
 
   return (
     <div className="h-full min-h-[calc(100vh-120px)] flex flex-col p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate(returnPath)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileSpreadsheet className="h-6 w-6" />
-              {reporte.nombre}
-            </h1>
-            {reporte.descripcion && (
-              <p className="text-muted-foreground">{reporte.descripcion}</p>
-            )}
-          </div>
+      {isInitialLoading ? (
+        <div className="flex items-center justify-center flex-1">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : !reporte ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Reporte no encontrado.</p>
+            <div className="flex justify-center mt-4">
+              <Button variant="outline" onClick={() => navigate(returnPath)}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="icon" onClick={() => navigate(returnPath)}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  <FileSpreadsheet className="h-6 w-6" />
+                  {reporte.nombre}
+                </h1>
+                {reporte.descripcion && (
+                  <p className="text-muted-foreground">{reporte.descripcion}</p>
+                )}
+              </div>
+            </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -625,6 +654,8 @@ export default function ReporteViewer() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }
