@@ -657,36 +657,30 @@ export default function ConfiguracionReportes() {
             </DialogTitle>
           </DialogHeader>
           
-          {/* Power Switch - Estilo Apagador */}
-          <div className="flex items-center justify-center py-4 border-b">
-            <div 
-              className={`relative cursor-pointer transition-all duration-300 rounded-full p-1 ${
-                formData.prendido 
-                  ? 'bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.5)]' 
-                  : 'bg-muted shadow-inner'
-              }`}
-              onClick={() => setFormData({ ...formData, prendido: !formData.prendido })}
-            >
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${
-                formData.prendido 
-                  ? 'bg-green-400 text-white' 
-                  : 'bg-muted-foreground/20 text-muted-foreground'
-              }`}>
-                <Power className={`h-8 w-8 transition-all duration-300 ${
-                  formData.prendido ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : ''
-                }`} />
-              </div>
+          {/* Power Switch - Compacto */}
+          <div 
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 border ${
+              formData.prendido 
+                ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' 
+                : 'bg-muted/50 border-border'
+            }`}
+            onClick={() => setFormData({ ...formData, prendido: !formData.prendido })}
+          >
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+              formData.prendido 
+                ? 'bg-green-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.4)]' 
+                : 'bg-muted-foreground/20 text-muted-foreground'
+            }`}>
+              <Power className="h-4 w-4" />
             </div>
-            <div className="ml-4 text-center">
-              <p className={`text-lg font-semibold transition-colors ${
-                formData.prendido ? 'text-green-600' : 'text-muted-foreground'
+            <div>
+              <p className={`text-sm font-medium ${
+                formData.prendido ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
               }`}>
                 {formData.prendido ? 'Prendido' : 'Apagado'}
               </p>
               <p className="text-xs text-muted-foreground">
-                {formData.prendido 
-                  ? 'El reporte está visible en el menú' 
-                  : 'El reporte está oculto del menú'}
+                {formData.prendido ? 'Visible en menú' : 'Oculto del menú'}
               </p>
             </div>
           </div>
