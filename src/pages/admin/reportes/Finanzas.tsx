@@ -210,15 +210,15 @@ export default function ReportesFinanzas() {
     if (filtro.tipo === 'select') {
       return (
         <Select
-          value={filtros[filtro.nombre] || ""}
-          onValueChange={(value) => handleFilterChange(filtro.nombre, value)}
+          value={filtros[filtro.nombre] || "__all__"}
+          onValueChange={(value) => handleFilterChange(filtro.nombre, value === "__all__" ? "" : value)}
           disabled={isDisabled}
         >
           <SelectTrigger className={cn(isDisabled && "opacity-50")}>
             <SelectValue placeholder={isDisabled ? `Selecciona ${selectedReporte?.filtros_configuracion.find(f => f.nombre === filtro.depende_de)?.label || 'el filtro anterior'} primero` : `Seleccionar ${filtro.label.toLowerCase()}...`} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="__all__">Todos</SelectItem>
             {(filterOptions[filtro.nombre] || []).map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
