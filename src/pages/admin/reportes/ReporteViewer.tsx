@@ -148,7 +148,7 @@ export default function ReporteViewer() {
   const [chartRecordLimit, setChartRecordLimit] = useState<number | 'all'>(50);
   const [summaryOpen, setSummaryOpen] = useState(true);
   const [progressChartType, setProgressChartType] = useState<'stacked-bar' | 'area' | 'bullet'>('stacked-bar');
-
+  const [aggregateProjects, setAggregateProjects] = useState(true); // true = show as single bar, false = separate by project
   // Fetch Real Estate projects IDs
   const { data: realEstateProjectIds = [] } = useQuery({
     queryKey: ['real-estate-projects'],
@@ -518,6 +518,54 @@ export default function ReporteViewer() {
     // Sort by percentage paid (descending) - most paid first
     return result.sort((a, b) => b.porcentaje_pagado - a.porcentaje_pagado);
   }, [fullData, columns]);
+
+  // Aggregated progress data (single bar combining all projects)
+  const aggregatedProgressData = useMemo(() => {
+    if (!progressChartData || progressChartData.length === 0) return [];
+    
+    const totals = progressChartData.reduce((acc, p) => ({
+      proyecto: 'Total General',
+      precio_final: acc.precio_final + p.precio_final,
+      pagado_durante_obra: acc.pagado_durante_obra + p.pagado_durante_obra,
+      pagado_a_la_entrega: acc.pagado_a_la_entrega + p.pagado_a_la_entrega,
+      restante_durante_obra: acc.restante_durante_obra + p.restante_durante_obra,
+      restante_a_la_entrega: acc.restante_a_la_entrega + p.restante_a_la_entrega,
+      pagado_total: acc.pagado_total + p.pagado_total,
+      restante_total: acc.restante_total + p.restante_total,
+    }), {
+      proyecto: 'Total General',
+      precio_final: 0,
+      pagado_durante_obra: 0,
+      pagado_a_la_entrega: 0,
+      restante_durante_obra: 0,
+      restante_a_la_entrega: 0,
+      pagado_total: 0,
+      restante_total: 0,
+    });
+
+    const porcentaje_pagado = totals.precio_final > 0 ? (totals.pagado_total / totals.precio_final) * 100 : 0;
+    const pct_pagado_durante_obra = totals.precio_final > 0 ? (totals.pagado_durante_obra / totals.precio_final) * 100 : 0;
+    const pct_pagado_a_la_entrega = totals.precio_final > 0 ? (totals.pagado_a_la_entrega / totals.precio_final) * 100 : 0;
+    const pct_restante_durante_obra = totals.precio_final > 0 ? (totals.restante_durante_obra / totals.precio_final) * 100 : 0;
+    const pct_restante_a_la_entrega = totals.precio_final > 0 ? (totals.restante_a_la_entrega / totals.precio_final) * 100 : 0;
+    const pct_pagado_total = totals.precio_final > 0 ? (totals.pagado_total / totals.precio_final) * 100 : 0;
+    const pct_restante_total = totals.precio_final > 0 ? (totals.restante_total / totals.precio_final) * 100 : 0;
+
+    return [{
+      ...totals,
+      porcentaje_pagado,
+      pct_pagado_durante_obra,
+      pct_pagado_a_la_entrega,
+      pct_restante_durante_obra,
+      pct_restante_a_la_entrega,
+      pct_pagado_total,
+      pct_restante_total,
+      label_total: formatCurrencyCompact(totals.precio_final),
+    }];
+  }, [progressChartData]);
+
+  // Use aggregated or separated data based on toggle
+  const displayProgressData = aggregateProjects ? aggregatedProgressData : progressChartData;
 
   // Colors for progress chart
   const progressColors = {
@@ -1254,34 +1302,50 @@ export default function ReporteViewer() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        <h4 className="text-sm font-medium text-muted-foreground">Progreso de Cobranza por Proyecto</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          Progreso de Cobranza {aggregateProjects ? '(Total)' : 'por Proyecto'}
+                        </h4>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Tipo de gráfica:</span>
-                        <Select 
-                          value={progressChartType} 
-                          onValueChange={(val) => setProgressChartType(val as 'stacked-bar' | 'area' | 'bullet')}
-                        >
-                          <SelectTrigger className="w-[160px] h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="stacked-bar">📊 Barras</SelectItem>
-                            <SelectItem value="area">📈 Área</SelectItem>
-                            <SelectItem value="bullet">🎯 Progreso Simple</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="flex items-center gap-4">
+                        {/* Aggregate toggle - only for bar and area charts */}
+                        {(progressChartType === 'stacked-bar' || progressChartType === 'area') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAggregateProjects(!aggregateProjects)}
+                            className="h-8 text-xs gap-1"
+                          >
+                            {aggregateProjects ? '📊 Separar por Proyecto' : '📦 Aglomerar Todo'}
+                          </Button>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Tipo de gráfica:</span>
+                          <Select 
+                            value={progressChartType} 
+                            onValueChange={(val) => setProgressChartType(val as 'stacked-bar' | 'area' | 'bullet')}
+                          >
+                            <SelectTrigger className="w-[160px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="stacked-bar">📊 Barras</SelectItem>
+                              <SelectItem value="area">📈 Área</SelectItem>
+                              <SelectItem value="bullet">🎯 Progreso Simple</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
 
                     {/* Stacked Horizontal Bar Chart */}
                     {progressChartType === 'stacked-bar' && (
-                      <div style={{ height: Math.max(300, progressChartData.length * 70) }}>
+                      <div style={{ height: aggregateProjects ? 150 : Math.max(300, displayProgressData.length * 80) }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart 
-                            data={progressChartData} 
+                            data={displayProgressData} 
                             layout="vertical"
                             margin={{ top: 20, right: 220, left: 120, bottom: 20 }}
+                            barSize={aggregateProjects ? 50 : 30}
                           >
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={true} vertical={false} />
                             <XAxis 
@@ -1316,7 +1380,7 @@ export default function ReporteViewer() {
                                 borderRadius: '8px'
                               }}
                               labelFormatter={(label) => {
-                                const project = progressChartData.find(p => p.proyecto === label);
+                                const project = displayProgressData.find(p => p.proyecto === label);
                                 return project ? `${label} (${project.porcentaje_pagado.toFixed(1)}% pagado)` : label;
                               }}
                             />
@@ -1345,7 +1409,7 @@ export default function ReporteViewer() {
                                       const numH = Number(height);
                                       const numIndex = Number(index);
                                       if (isNaN(numX) || isNaN(numY) || isNaN(numW) || isNaN(numH) || isNaN(numIndex)) return null;
-                                      const data = progressChartData[numIndex];
+                                      const data = displayProgressData[numIndex];
                                       if (!data) return null;
                                       const startX = numX + numW + 5;
                                       const centerY = numY + numH / 2;
@@ -1400,11 +1464,11 @@ export default function ReporteViewer() {
                     {/* Stacked Area Chart */}
                     {progressChartType === 'area' && (
                       <div className="h-[350px]">
-                        {progressChartData.length === 1 ? (
-                          // Single project: Show as stacked bar since area needs 2+ points
+                        {displayProgressData.length === 1 ? (
+                          // Single project/aggregated: Show as stacked bar since area needs 2+ points
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart 
-                              data={progressChartData} 
+                              data={displayProgressData} 
                               margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                             >
                               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -1437,7 +1501,7 @@ export default function ReporteViewer() {
                                   borderRadius: '8px'
                                 }}
                                 labelFormatter={(label) => {
-                                  const project = progressChartData.find(p => p.proyecto === label);
+                                  const project = displayProgressData.find(p => p.proyecto === label);
                                   return project ? `${label} (${project.porcentaje_pagado.toFixed(1)}% pagado)` : label;
                                 }}
                               />
@@ -1475,7 +1539,7 @@ export default function ReporteViewer() {
                           // Multiple projects: Show area chart
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart 
-                              data={progressChartData} 
+                              data={displayProgressData} 
                               margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                             >
                               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -1512,7 +1576,7 @@ export default function ReporteViewer() {
                                   borderRadius: '8px'
                                 }}
                                 labelFormatter={(label) => {
-                                  const project = progressChartData.find(p => p.proyecto === label);
+                                  const project = displayProgressData.find(p => p.proyecto === label);
                                   return project ? `${label} (${project.porcentaje_pagado.toFixed(1)}% pagado)` : label;
                                 }}
                               />
