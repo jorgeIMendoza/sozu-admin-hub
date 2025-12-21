@@ -76,8 +76,10 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
     }
   }
 
-  // Clean up SQL syntax after removing placeholders
-  // Remove orphaned AND/OR at the end of WHERE clauses
+  // FIRST: Normalize all whitespace (including newlines) to single spaces
+  processedQuery = processedQuery.replace(/\s+/g, ' ').trim();
+
+  // THEN: Clean up SQL syntax after removing placeholders
   processedQuery = processedQuery.replace(/WHERE\s+AND/gi, 'WHERE');
   processedQuery = processedQuery.replace(/WHERE\s+OR/gi, 'WHERE');
   processedQuery = processedQuery.replace(/AND\s+AND/gi, 'AND');
@@ -85,15 +87,13 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
   processedQuery = processedQuery.replace(/AND\s+ORDER/gi, 'ORDER');
   processedQuery = processedQuery.replace(/AND\s+GROUP/gi, 'GROUP');
   processedQuery = processedQuery.replace(/AND\s+LIMIT/gi, 'LIMIT');
-  processedQuery = processedQuery.replace(/AND\s*$/gi, '');
-  processedQuery = processedQuery.replace(/OR\s*$/gi, '');
-  processedQuery = processedQuery.replace(/WHERE\s*$/gi, '');
   processedQuery = processedQuery.replace(/WHERE\s+ORDER/gi, 'ORDER');
   processedQuery = processedQuery.replace(/WHERE\s+GROUP/gi, 'GROUP');
   processedQuery = processedQuery.replace(/WHERE\s+LIMIT/gi, 'LIMIT');
-  
-  // Clean up any extra whitespace
-  processedQuery = processedQuery.replace(/\s+/g, ' ').trim();
+  processedQuery = processedQuery.replace(/\s+AND\s*$/gi, '');
+  processedQuery = processedQuery.replace(/\s+OR\s*$/gi, '');
+  processedQuery = processedQuery.replace(/\s+WHERE\s*$/gi, '');
+  processedQuery = processedQuery.trim();
 
   return processedQuery;
 }
@@ -449,24 +449,6 @@ export default function ReporteViewer() {
 
   // Show loading state only for the content area, not the whole page
   const isInitialLoading = permissionsLoading || isLoading;
-
-  if (!reporte) {
-    return (
-      <div className="p-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Reporte no encontrado.</p>
-            <div className="flex justify-center mt-4">
-              <Button variant="outline" onClick={() => navigate(returnPath)}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="h-full min-h-[calc(100vh-120px)] flex flex-col p-6">

@@ -194,10 +194,12 @@ export default function ConfiguracionReportes() {
       // Remover bloques completos con placeholders como {{AND id = :id_filtro}}
       cleanQuery = cleanQuery.replace(/\{\{[^}]+\}\}/g, '');
       // Reemplazar placeholders sueltos :nombre_filtro con valores de prueba
-      // Para que el query sea sintácticamente válido durante la validación
       cleanQuery = cleanQuery.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, '1');
       
-      // Limpiar sintaxis SQL rota después de remover placeholders
+      // PRIMERO: Normalizar todos los espacios en blanco (incluyendo saltos de línea) a un solo espacio
+      cleanQuery = cleanQuery.replace(/\s+/g, ' ').trim();
+      
+      // DESPUÉS: Limpiar sintaxis SQL rota
       cleanQuery = cleanQuery.replace(/WHERE\s+AND/gi, 'WHERE');
       cleanQuery = cleanQuery.replace(/WHERE\s+OR/gi, 'WHERE');
       cleanQuery = cleanQuery.replace(/AND\s+AND/gi, 'AND');
@@ -205,15 +207,13 @@ export default function ConfiguracionReportes() {
       cleanQuery = cleanQuery.replace(/AND\s+ORDER/gi, 'ORDER');
       cleanQuery = cleanQuery.replace(/AND\s+GROUP/gi, 'GROUP');
       cleanQuery = cleanQuery.replace(/AND\s+LIMIT/gi, 'LIMIT');
-      cleanQuery = cleanQuery.replace(/AND\s*$/gi, '');
-      cleanQuery = cleanQuery.replace(/OR\s*$/gi, '');
-      cleanQuery = cleanQuery.replace(/WHERE\s*$/gi, '');
       cleanQuery = cleanQuery.replace(/WHERE\s+ORDER/gi, 'ORDER');
       cleanQuery = cleanQuery.replace(/WHERE\s+GROUP/gi, 'GROUP');
       cleanQuery = cleanQuery.replace(/WHERE\s+LIMIT/gi, 'LIMIT');
-      
-      // Limpiar espacios extra
-      cleanQuery = cleanQuery.replace(/\s+/g, ' ').trim();
+      cleanQuery = cleanQuery.replace(/\s+AND\s*$/gi, '');
+      cleanQuery = cleanQuery.replace(/\s+OR\s*$/gi, '');
+      cleanQuery = cleanQuery.replace(/\s+WHERE\s*$/gi, '');
+      cleanQuery = cleanQuery.trim();
       
       // Agregar LIMIT 1 para validación rápida
       if (!cleanQuery.toLowerCase().includes('limit')) {
