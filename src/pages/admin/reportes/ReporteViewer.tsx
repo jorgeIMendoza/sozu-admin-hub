@@ -46,7 +46,7 @@ interface Reporte {
   query_sql: string;
 }
 
-// Apply filters to query
+// Apply filters to query - supports both single values and comma-separated multiple values (for IN clauses)
 function applyFiltersToQuery(querySql: string, filtros: Record<string, string>): string {
   let processedQuery = querySql;
 
@@ -70,9 +70,20 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
       const filterValue = filtros[filterName];
 
       if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
-        // Replace the placeholder with the actual condition
-        const replacedCondition = condition.replace(`:${filterName}`, String(filterValue));
-        processedQuery = processedQuery.replace(fullMatch, replacedCondition);
+        // Check if this is a multi-value (comma-separated) for IN clause
+        if (filterValue.includes(',')) {
+          // Convert "1,2,3" to "(1,2,3)" for IN clause
+          const inValues = filterValue.split(',').map(v => v.trim()).join(',');
+          // Replace = :param with IN (values)
+          let replacedCondition = condition.replace(`= :${filterName}`, `IN (${inValues})`);
+          // Also handle cases without space before =
+          replacedCondition = replacedCondition.replace(`=:${filterName}`, `IN (${inValues})`);
+          processedQuery = processedQuery.replace(fullMatch, replacedCondition);
+        } else {
+          // Single value - use as before
+          const replacedCondition = condition.replace(`:${filterName}`, String(filterValue));
+          processedQuery = processedQuery.replace(fullMatch, replacedCondition);
+        }
       } else {
         // Remove the placeholder entirely if no filter value
         processedQuery = processedQuery.replace(fullMatch, '');
@@ -652,6 +663,58 @@ export default function ReporteViewer() {
 
   const renderFilterInput = (filtro: FiltroConfig) => {
     const isDisabled = filtro.depende_de && !filtros[filtro.depende_de];
+
+    // Multiselect for proyecto filter
+    if (filtro.tipo === 'select' && filtro.nombre === 'id_proyecto') {
+      const selectedValues = filtros[filtro.nombre] ? filtros[filtro.nombre].split(',') : [];
+      const options = filterOptions[filtro.nombre] || [];
+      
+      return (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn("w-full justify-start text-left font-normal", isDisabled && "opacity-50")}
+              disabled={isDisabled}
+            >
+              {selectedValues.length > 0 
+                ? selectedValues.length === 1 
+                  ? options.find(o => o.value === selectedValues[0])?.label || 'Seleccionar...'
+                  : `${selectedValues.length} proyectos seleccionados`
+                : 'Todos los proyectos'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-2" align="start">
+            <div className="space-y-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-left"
+                onClick={() => handleFilterChange(filtro.nombre, '')}
+              >
+                Todos
+              </Button>
+              {options.map((opt) => (
+                <Button
+                  key={opt.value}
+                  variant={selectedValues.includes(opt.value) ? "secondary" : "ghost"}
+                  size="sm"
+                  className="w-full justify-start text-left"
+                  onClick={() => {
+                    const newSelected = selectedValues.includes(opt.value)
+                      ? selectedValues.filter(v => v !== opt.value)
+                      : [...selectedValues, opt.value];
+                    handleFilterChange(filtro.nombre, newSelected.join(','));
+                  }}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      );
+    }
 
     if (filtro.tipo === 'select') {
       return (
@@ -1298,17 +1361,18 @@ export default function ReporteViewer() {
 
                 {/* Progress Chart - By Project */}
                 {progressChartData.length > 0 && (
-                  <div className="h-auto min-h-[400px]">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="h-auto min-h-[400px] mt-6">
+                    <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        <h4 className="text-sm font-medium text-muted-foreground">
+                        <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                        <h4 className="text-base font-semibold text-foreground">
                           Progreso de Cobranza {aggregateProjects ? '(Total)' : 'por Proyecto'}
                         </h4>
                       </div>
                       <div className="flex items-center gap-4">
-                        {/* Aggregate toggle - only for bar and area charts */}
-                        {(progressChartType === 'stacked-bar' || progressChartType === 'area') && (
+                        {/* Aggregate toggle - only show if more than 1 project and no single project filter */}
+                        {(progressChartType === 'stacked-bar' || progressChartType === 'area') && 
+                         progressChartData.length > 1 && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1339,13 +1403,13 @@ export default function ReporteViewer() {
 
                     {/* Stacked Horizontal Bar Chart */}
                     {progressChartType === 'stacked-bar' && (
-                      <div style={{ height: aggregateProjects ? 150 : Math.max(300, displayProgressData.length * 80) }}>
+                      <div style={{ height: aggregateProjects ? 200 : Math.max(350, displayProgressData.length * 90) }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart 
                             data={displayProgressData} 
                             layout="vertical"
-                            margin={{ top: 20, right: 220, left: 120, bottom: 20 }}
-                            barSize={aggregateProjects ? 50 : 30}
+                            margin={{ top: 30, right: 250, left: 130, bottom: 30 }}
+                            barSize={aggregateProjects ? 60 : 40}
                           >
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={true} vertical={false} />
                             <XAxis 
@@ -1356,8 +1420,8 @@ export default function ReporteViewer() {
                             <YAxis 
                               type="category"
                               dataKey="proyecto"
-                              tick={{ fontSize: 11 }}
-                              width={110}
+                              tick={{ fontSize: 12 }}
+                              width={120}
                               className="fill-muted-foreground"
                             />
                             <RechartsTooltip 
@@ -1388,16 +1452,16 @@ export default function ReporteViewer() {
                             {columns.includes('pagado_durante_obra') ? (
                               <>
                                 <Bar dataKey="pagado_durante_obra" stackId="a" fill={progressColors.pagado_durante_obra} name="Pagado Durante Obra">
-                                  <LabelList dataKey="pct_pagado_durante_obra" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 8, fill: '#fff', fontWeight: 'bold' }} />
+                                  <LabelList dataKey="pct_pagado_durante_obra" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 11, fill: '#fff', fontWeight: 'bold' }} />
                                 </Bar>
                                 <Bar dataKey="pagado_a_la_entrega" stackId="a" fill={progressColors.pagado_a_la_entrega} name="Pagado A la Entrega">
-                                  <LabelList dataKey="pct_pagado_a_la_entrega" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 8, fill: '#fff', fontWeight: 'bold' }} />
+                                  <LabelList dataKey="pct_pagado_a_la_entrega" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 11, fill: '#fff', fontWeight: 'bold' }} />
                                 </Bar>
                                 <Bar dataKey="restante_durante_obra" stackId="a" fill={progressColors.restante_durante_obra} name="Restante Durante Obra">
-                                  <LabelList dataKey="pct_restante_durante_obra" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 8, fill: '#fff', fontWeight: 'bold' }} />
+                                  <LabelList dataKey="pct_restante_durante_obra" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 11, fill: '#fff', fontWeight: 'bold' }} />
                                 </Bar>
                                 <Bar dataKey="restante_a_la_entrega" stackId="a" fill={progressColors.restante_a_la_entrega} name="Restante A la Entrega" radius={[0, 4, 4, 0]}>
-                                  <LabelList dataKey="pct_restante_a_la_entrega" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 8, fill: '#fff', fontWeight: 'bold' }} />
+                                  <LabelList dataKey="pct_restante_a_la_entrega" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 11, fill: '#fff', fontWeight: 'bold' }} />
                                   <LabelList 
                                     position="right"
                                     content={(props) => {
@@ -1411,7 +1475,7 @@ export default function ReporteViewer() {
                                       if (isNaN(numX) || isNaN(numY) || isNaN(numW) || isNaN(numH) || isNaN(numIndex)) return null;
                                       const data = displayProgressData[numIndex];
                                       if (!data) return null;
-                                      const startX = numX + numW + 5;
+                                      const startX = numX + numW + 8;
                                       const centerY = numY + numH / 2;
                                       // Calculate totals for durante obra and a la entrega
                                       const duranteObra = data.pagado_durante_obra + data.restante_durante_obra;
@@ -1421,22 +1485,22 @@ export default function ReporteViewer() {
                                       return (
                                         <g>
                                           {/* Total amount */}
-                                          <text x={startX} y={centerY} fontSize={10} fill="hsl(var(--foreground))" fontWeight="bold" dominantBaseline="middle">
+                                          <text x={startX} y={centerY} fontSize={12} fill="hsl(var(--foreground))" fontWeight="bold" dominantBaseline="middle">
                                             {formatCurrencyCompact(data.precio_final)}
                                           </text>
                                           {/* Brace */}
                                           <path 
-                                            d={`M${startX + 55} ${centerY - 12} Q${startX + 62} ${centerY - 12} ${startX + 62} ${centerY} Q${startX + 62} ${centerY + 12} ${startX + 55} ${centerY + 12}`}
+                                            d={`M${startX + 65} ${centerY - 14} Q${startX + 74} ${centerY - 14} ${startX + 74} ${centerY} Q${startX + 74} ${centerY + 14} ${startX + 65} ${centerY + 14}`}
                                             stroke="hsl(var(--muted-foreground))"
-                                            strokeWidth={1}
+                                            strokeWidth={1.5}
                                             fill="none"
                                           />
                                           {/* Durante Obra line */}
-                                          <text x={startX + 68} y={centerY - 8} fontSize={8} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
+                                          <text x={startX + 82} y={centerY - 9} fontSize={10} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
                                             D.Obra: {formatCurrencyCompact(duranteObra)} ({pctDurante.toFixed(0)}%)
                                           </text>
                                           {/* A la Entrega line */}
-                                          <text x={startX + 68} y={centerY + 8} fontSize={8} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
+                                          <text x={startX + 82} y={centerY + 9} fontSize={10} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
                                             Entrega: {formatCurrencyCompact(entrega)} ({pctEntrega.toFixed(0)}%)
                                           </text>
                                         </g>
@@ -1448,11 +1512,11 @@ export default function ReporteViewer() {
                             ) : (
                               <>
                                 <Bar dataKey="pagado_total" stackId="a" fill={progressColors.pagado_total} name="Pagado">
-                                  <LabelList dataKey="pct_pagado_total" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 8, fill: '#fff', fontWeight: 'bold' }} />
+                                  <LabelList dataKey="pct_pagado_total" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 11, fill: '#fff', fontWeight: 'bold' }} />
                                 </Bar>
                                 <Bar dataKey="restante_total" stackId="a" fill={progressColors.restante_total} name="Restante" radius={[0, 4, 4, 0]}>
-                                  <LabelList dataKey="pct_restante_total" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 8, fill: '#fff', fontWeight: 'bold' }} />
-                                  <LabelList dataKey="label_total" position="right" style={{ fontSize: 9, fill: 'hsl(var(--foreground))' }} />
+                                  <LabelList dataKey="pct_restante_total" position="center" formatter={(v: number) => v > 5 ? `${v.toFixed(0)}%` : ''} style={{ fontSize: 11, fill: '#fff', fontWeight: 'bold' }} />
+                                  <LabelList dataKey="label_total" position="right" style={{ fontSize: 11, fill: 'hsl(var(--foreground))' }} />
                                 </Bar>
                               </>
                             )}
