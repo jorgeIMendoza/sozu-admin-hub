@@ -371,15 +371,6 @@ export default function ReportesInventarios() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5" />
-            Seleccionar Reporte
-          </CardTitle>
-          <CardDescription>
-            Elige el reporte de inventario que deseas generar
-          </CardDescription>
-        </CardHeader>
         <CardContent className="space-y-6">
           {/* Search Input */}
           <div className="relative">
