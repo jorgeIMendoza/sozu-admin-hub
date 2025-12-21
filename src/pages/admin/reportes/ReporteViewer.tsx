@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, Loader2, FileSpreadsheet, CalendarIcon, Table, BarChart3 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, FileSpreadsheet, CalendarIcon, Table as TableIcon, BarChart3, RefreshCw, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
@@ -39,6 +42,44 @@ interface Reporte {
   descripcion: string | null;
   filtros_configuracion: FiltroConfig[];
   nombre_archivo: string;
+  query_sql: string;
+}
+
+// Apply filters to query
+function applyFiltersToQuery(querySql: string, filtros: Record<string, string>): string {
+  let processedQuery = querySql;
+
+  // Find all placeholders in format {{AND condition}}
+  const placeholderRegex = /\{\{([^}]+)\}\}/g;
+  let match;
+  const matches: { fullMatch: string; condition: string }[] = [];
+
+  while ((match = placeholderRegex.exec(querySql)) !== null) {
+    matches.push({ fullMatch: match[0], condition: match[1] });
+  }
+
+  for (const { fullMatch, condition } of matches) {
+    // Extract the filter name from the condition (e.g., :id_proyecto)
+    const filterNameMatch = condition.match(/:(\w+)/);
+    if (filterNameMatch) {
+      const filterName = filterNameMatch[1];
+      const filterValue = filtros[filterName];
+
+      if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
+        // Replace the placeholder with the actual condition
+        const replacedCondition = condition.replace(`:${filterName}`, String(filterValue));
+        processedQuery = processedQuery.replace(fullMatch, replacedCondition);
+      } else {
+        // Remove the placeholder entirely if no filter value
+        processedQuery = processedQuery.replace(fullMatch, '');
+      }
+    }
+  }
+
+  // Clean up any extra whitespace
+  processedQuery = processedQuery.replace(/\s+/g, ' ').trim();
+
+  return processedQuery;
 }
 
 export default function ReporteViewer() {
@@ -61,7 +102,7 @@ export default function ReporteViewer() {
       const { data, error } = await supabase
         .from('entidades_relacionadas')
         .select('id_proyecto, personas!entidades_relacionadas_id_persona_fkey(nombre_legal)')
-        .eq('id_tipo_entidad', 5) // Tipo Inmobiliaria
+        .eq('id_tipo_entidad', 5)
         .ilike('personas.nombre_legal', '%Real Estate Ventures%');
 
       if (error) throw error;
@@ -69,7 +110,7 @@ export default function ReporteViewer() {
     }
   });
 
-  // Fetch the report
+  // Fetch the report with query_sql
   const { data: reporte, isLoading } = useQuery({
     queryKey: ['reporte', id],
     queryFn: async () => {
@@ -77,7 +118,7 @@ export default function ReporteViewer() {
 
       const { data, error } = await supabase
         .from('reportes')
-        .select('id, nombre, descripcion, filtros_configuracion, nombre_archivo')
+        .select('id, nombre, descripcion, filtros_configuracion, nombre_archivo, query_sql')
         .eq('id', parseInt(id))
         .single();
 
@@ -90,6 +131,31 @@ export default function ReporteViewer() {
     enabled: !!id,
   });
 
+  // Fetch preview data
+  const { data: previewData, isLoading: isLoadingPreview, error: previewError, refetch: refetchPreview } = useQuery({
+    queryKey: ['reporte-preview', id, filtros],
+    queryFn: async () => {
+      if (!reporte?.query_sql) return [];
+
+      const processedQuery = applyFiltersToQuery(reporte.query_sql, filtros);
+      
+      // Add LIMIT for preview
+      let previewQuery = processedQuery;
+      if (!previewQuery.toLowerCase().includes('limit')) {
+        previewQuery = previewQuery.replace(/;?\s*$/, '') + ' LIMIT 100';
+      }
+
+      const { data, error } = await supabase.rpc('execute_safe_query', {
+        query_text: previewQuery,
+        max_rows: 100
+      });
+
+      if (error) throw error;
+      return (data as Record<string, unknown>[]) || [];
+    },
+    enabled: !!reporte?.query_sql,
+  });
+
   // Fetch options for select filters
   const { data: filterOptions = {} } = useQuery({
     queryKey: ['filter-options-viewer', id, filtros, realEstateProjectIds],
@@ -99,17 +165,14 @@ export default function ReporteViewer() {
       const options: Record<string, { value: string; label: string }[]> = {};
 
       for (const filtro of reporte.filtros_configuracion) {
-        // Skip daterange and non-select types
         if (filtro.tipo === 'daterange' || filtro.tipo === 'date' || filtro.tipo === 'text') continue;
 
-        // Skip dependent filters if parent is not selected
         if (filtro.depende_de && !filtros[filtro.depende_de]) {
           options[filtro.nombre] = [];
           continue;
         }
 
         if (filtro.tipo === 'select' && filtro.query_opciones && filtro.depende_de) {
-          // Dynamic query for dependent filter
           const parentValue = filtros[filtro.depende_de];
           if (parentValue) {
             const query = filtro.query_opciones.replace(`:${filtro.depende_de}`, parentValue);
@@ -120,7 +183,6 @@ export default function ReporteViewer() {
             }));
           }
         } else if (filtro.tipo === 'select' && filtro.tabla) {
-          // Special handling for proyectos - filter by Real Estate
           if (filtro.tabla === 'proyectos' && realEstateProjectIds.length > 0) {
             const { data } = await supabase
               .from('proyectos')
@@ -158,7 +220,6 @@ export default function ReporteViewer() {
   const handleFilterChange = (filterName: string, value: string) => {
     const newFiltros = { ...filtros, [filterName]: value };
     
-    // Reset dependent filters when parent changes
     if (reporte) {
       reporte.filtros_configuracion.forEach(f => {
         if (f.depende_de === filterName) {
@@ -186,7 +247,6 @@ export default function ReporteViewer() {
         throw new Error(response.error.message);
       }
 
-      // Create download link
       const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -338,7 +398,6 @@ export default function ReporteViewer() {
       );
     }
 
-    // text type
     return (
       <Input
         type="text"
@@ -348,6 +407,28 @@ export default function ReporteViewer() {
         placeholder={filtro.placeholder || `Ingresa ${filtro.label.toLowerCase()}...`}
       />
     );
+  };
+
+  // Get columns from preview data
+  const columns = previewData && previewData.length > 0 
+    ? Object.keys(previewData[0]) 
+    : [];
+
+  // Format cell value for display
+  const formatCellValue = (value: unknown): string => {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'number') {
+      // Format as currency if it looks like money
+      if (value >= 1000) {
+        return new Intl.NumberFormat('es-MX', { 
+          style: 'currency', 
+          currency: 'MXN',
+          minimumFractionDigits: 2 
+        }).format(value);
+      }
+      return value.toLocaleString('es-MX');
+    }
+    return String(value);
   };
 
   if (permissionsLoading || isLoading) {
@@ -394,25 +475,36 @@ export default function ReporteViewer() {
             )}
           </div>
         </div>
-        {(canExport || isSuperAdmin) && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={handleExport}
-            disabled={isExporting}
+            variant="outline"
+            onClick={() => refetchPreview()}
+            disabled={isLoadingPreview}
             className="gap-2"
           >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
-            Exportar a Excel
+            <RefreshCw className={cn("h-4 w-4", isLoadingPreview && "animate-spin")} />
+            Actualizar
           </Button>
-        )}
+          {(canExport || isSuperAdmin) && (
+            <Button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="gap-2"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Exportar a Excel
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Content */}
-      <Card className="flex-1">
-        <CardHeader>
+      <Card className="flex-1 flex flex-col">
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle>Configuración del Reporte</CardTitle>
             <div className="flex items-center gap-2">
@@ -423,7 +515,7 @@ export default function ReporteViewer() {
                 onClick={() => setViewMode('table')}
                 className="gap-2"
               >
-                <Table className="h-4 w-4" />
+                <TableIcon className="h-4 w-4" />
                 Tabla
               </Button>
               <Button
@@ -438,7 +530,7 @@ export default function ReporteViewer() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="flex-1 flex flex-col space-y-4">
           {/* Dynamic Filters */}
           {reporte.filtros_configuracion.length > 0 && (
             <div className="space-y-4">
@@ -474,13 +566,63 @@ export default function ReporteViewer() {
           )}
 
           {/* Preview Area */}
-          <div className="border rounded-lg p-8 min-h-[400px] flex items-center justify-center bg-muted/30">
-            <div className="text-center text-muted-foreground">
-              <FileSpreadsheet className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">Vista previa del reporte</p>
-              <p className="text-sm">Aplica los filtros y exporta el reporte a Excel</p>
-            </div>
+          <div className="flex-1 border rounded-lg overflow-hidden">
+            {isLoadingPreview ? (
+              <div className="flex items-center justify-center h-full min-h-[300px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : previewError ? (
+              <div className="p-4">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Error al cargar los datos: {(previewError as Error).message}
+                  </AlertDescription>
+                </Alert>
+              </div>
+            ) : previewData && previewData.length > 0 ? (
+              <ScrollArea className="h-[500px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {columns.map((col) => (
+                        <TableHead key={col} className="whitespace-nowrap font-semibold">
+                          {col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewData.map((row, idx) => (
+                      <TableRow key={idx}>
+                        {columns.map((col) => (
+                          <TableCell key={col} className="whitespace-nowrap">
+                            {formatCellValue(row[col])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            ) : (
+              <div className="flex items-center justify-center h-full min-h-[300px] bg-muted/30">
+                <div className="text-center text-muted-foreground">
+                  <FileSpreadsheet className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Sin datos</p>
+                  <p className="text-sm">No se encontraron registros con los filtros aplicados</p>
+                </div>
+              </div>
+            )}
           </div>
+          
+          {/* Row count */}
+          {previewData && previewData.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Mostrando {previewData.length} registro{previewData.length !== 1 ? 's' : ''} (máximo 100 en preview)
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
