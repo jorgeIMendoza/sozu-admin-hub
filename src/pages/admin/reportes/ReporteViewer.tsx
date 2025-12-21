@@ -1370,9 +1370,8 @@ export default function ReporteViewer() {
                         </h4>
                       </div>
                       <div className="flex items-center gap-4">
-                        {/* Aggregate toggle - only show if more than 1 project and no single project filter */}
-                        {(progressChartType === 'stacked-bar' || progressChartType === 'area') && 
-                         progressChartData.length > 1 && (
+                        {/* Aggregate toggle - only show if more than 1 project */}
+                        {progressChartData.length > 1 && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1403,13 +1402,13 @@ export default function ReporteViewer() {
 
                     {/* Stacked Horizontal Bar Chart */}
                     {progressChartType === 'stacked-bar' && (
-                      <div style={{ height: aggregateProjects ? 200 : Math.max(350, displayProgressData.length * 90) }}>
+                      <div style={{ height: aggregateProjects ? 180 : Math.max(400, displayProgressData.length * 120) }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart 
                             data={displayProgressData} 
                             layout="vertical"
-                            margin={{ top: 30, right: 250, left: 130, bottom: 30 }}
-                            barSize={aggregateProjects ? 60 : 40}
+                            margin={{ top: 30, right: 280, left: 140, bottom: 30 }}
+                            barSize={aggregateProjects ? 80 : 55}
                           >
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={true} vertical={false} />
                             <XAxis 
@@ -1475,7 +1474,7 @@ export default function ReporteViewer() {
                                       if (isNaN(numX) || isNaN(numY) || isNaN(numW) || isNaN(numH) || isNaN(numIndex)) return null;
                                       const data = displayProgressData[numIndex];
                                       if (!data) return null;
-                                      const startX = numX + numW + 8;
+                                      const startX = numX + numW + 12;
                                       const centerY = numY + numH / 2;
                                       // Calculate totals for durante obra and a la entrega
                                       const duranteObra = data.pagado_durante_obra + data.restante_durante_obra;
@@ -1485,22 +1484,22 @@ export default function ReporteViewer() {
                                       return (
                                         <g>
                                           {/* Total amount */}
-                                          <text x={startX} y={centerY} fontSize={12} fill="hsl(var(--foreground))" fontWeight="bold" dominantBaseline="middle">
+                                          <text x={startX} y={centerY} fontSize={13} fill="hsl(var(--foreground))" fontWeight="bold" dominantBaseline="middle">
                                             {formatCurrencyCompact(data.precio_final)}
                                           </text>
                                           {/* Brace */}
                                           <path 
-                                            d={`M${startX + 65} ${centerY - 14} Q${startX + 74} ${centerY - 14} ${startX + 74} ${centerY} Q${startX + 74} ${centerY + 14} ${startX + 65} ${centerY + 14}`}
+                                            d={`M${startX + 75} ${centerY - 18} Q${startX + 86} ${centerY - 18} ${startX + 86} ${centerY} Q${startX + 86} ${centerY + 18} ${startX + 75} ${centerY + 18}`}
                                             stroke="hsl(var(--muted-foreground))"
                                             strokeWidth={1.5}
                                             fill="none"
                                           />
                                           {/* Durante Obra line */}
-                                          <text x={startX + 82} y={centerY - 9} fontSize={10} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
+                                          <text x={startX + 95} y={centerY - 10} fontSize={11} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
                                             D.Obra: {formatCurrencyCompact(duranteObra)} ({pctDurante.toFixed(0)}%)
                                           </text>
                                           {/* A la Entrega line */}
-                                          <text x={startX + 82} y={centerY + 9} fontSize={10} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
+                                          <text x={startX + 95} y={centerY + 10} fontSize={11} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
                                             Entrega: {formatCurrencyCompact(entrega)} ({pctEntrega.toFixed(0)}%)
                                           </text>
                                         </g>
@@ -1680,18 +1679,22 @@ export default function ReporteViewer() {
 
                     {/* Bullet/Progress Chart */}
                     {progressChartType === 'bullet' && (
-                      <div className="space-y-4 p-4 bg-muted/20 rounded-lg">
-                        {progressChartData.map((project, index) => (
-                          <div key={project.proyecto} className="space-y-1">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="font-medium truncate max-w-[200px]" title={project.proyecto}>
+                      <div className="space-y-8 p-6 bg-muted/20 rounded-lg">
+                        {displayProgressData.map((project, index) => (
+                          <div key={project.proyecto} className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-base truncate max-w-[250px]" title={project.proyecto}>
                                 {project.proyecto}
                               </span>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span>Pagado: {formatCurrencyCompact(project.pagado_total)}</span>
-                                <span>Total: {formatCurrencyCompact(project.precio_final)}</span>
+                              <div className="flex items-center gap-6 text-sm">
+                                <span className="text-muted-foreground">
+                                  Pagado: <span className="font-semibold text-foreground">{formatCurrencyCompact(project.pagado_total)}</span>
+                                </span>
+                                <span className="text-muted-foreground">
+                                  Total: <span className="font-semibold text-foreground">{formatCurrencyCompact(project.precio_final)}</span>
+                                </span>
                                 <span className={cn(
-                                  "font-bold min-w-[60px] text-right",
+                                  "font-bold text-lg min-w-[70px] text-right",
                                   project.porcentaje_pagado >= 90 ? "text-green-600" :
                                   project.porcentaje_pagado >= 50 ? "text-blue-600" :
                                   project.porcentaje_pagado >= 25 ? "text-orange-500" : "text-red-500"
@@ -1700,7 +1703,7 @@ export default function ReporteViewer() {
                                 </span>
                               </div>
                             </div>
-                            <div className="relative h-6 bg-muted rounded-full overflow-hidden">
+                            <div className="relative h-10 bg-muted rounded-full overflow-hidden">
                               {/* Background track */}
                               <div className="absolute inset-0 bg-gradient-to-r from-muted to-muted/50" />
                               
@@ -1722,7 +1725,7 @@ export default function ReporteViewer() {
                               {/* Percentage label inside bar */}
                               {project.porcentaje_pagado > 15 && (
                                 <div 
-                                  className="absolute h-full flex items-center px-2 text-xs font-bold text-white"
+                                  className="absolute h-full flex items-center px-3 text-sm font-bold text-white"
                                   style={{ width: `${Math.min(project.porcentaje_pagado, 100)}%`, justifyContent: 'flex-end' }}
                                 >
                                   {project.porcentaje_pagado.toFixed(0)}%
@@ -1733,21 +1736,21 @@ export default function ReporteViewer() {
                         ))}
                         
                         {/* Legend for bullet chart */}
-                        <div className="flex items-center justify-center gap-6 pt-4 border-t mt-4 text-xs">
+                        <div className="flex items-center justify-center gap-8 pt-6 border-t mt-6 text-sm">
                           <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-green-500 to-green-400" />
+                            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-green-500 to-green-400" />
                             <span>≥90% Pagado</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
+                            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
                             <span>50-89%</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-400" />
+                            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-orange-500 to-orange-400" />
                             <span>25-49%</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-red-500 to-red-400" />
+                            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-red-500 to-red-400" />
                             <span>&lt;25%</span>
                           </div>
                         </div>
