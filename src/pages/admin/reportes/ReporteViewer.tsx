@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, Loader2, FileSpreadsheet, CalendarIcon, Table as TableIcon, BarChart3, RefreshCw, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, Loader2, FileSpreadsheet, CalendarIcon, Table as TableIcon, BarChart3, RefreshCw, AlertCircle, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { cn } from "@/lib/utils";
-import { Info } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface FiltroConfig {
   nombre: string;
@@ -113,6 +114,7 @@ export default function ReporteViewer() {
   const [filtros, setFiltros] = useState<Record<string, string>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
+  const [summaryOpen, setSummaryOpen] = useState(true);
 
   // Fetch Real Estate projects IDs
   const { data: realEstateProjectIds = [] } = useQuery({
@@ -191,16 +193,23 @@ export default function ReporteViewer() {
           continue;
         }
 
-        if (filtro.tipo === 'select' && filtro.query_opciones && filtro.depende_de) {
-          const parentValue = filtros[filtro.depende_de];
-          if (parentValue) {
-            const query = filtro.query_opciones.replace(`:${filtro.depende_de}`, parentValue);
-            const { data } = await supabase.rpc('execute_safe_query', { query_text: query });
-            options[filtro.nombre] = ((data as unknown as Record<string, unknown>[]) || []).map((item) => ({
-              value: String(item.id),
-              label: String(item.nombre_legal || item.nombre),
-            }));
+        // Handle query_opciones - works with or without depende_de
+        if (filtro.tipo === 'select' && filtro.query_opciones) {
+          let query = filtro.query_opciones;
+          
+          // Replace parent value if depende_de exists
+          if (filtro.depende_de) {
+            const parentValue = filtros[filtro.depende_de];
+            if (parentValue) {
+              query = query.replace(`:${filtro.depende_de}`, parentValue);
+            }
           }
+          
+          const { data } = await supabase.rpc('execute_safe_query', { query_text: query });
+          options[filtro.nombre] = ((data as unknown as Record<string, unknown>[]) || []).map((item) => ({
+            value: String(item.id),
+            label: String(item.nombre_legal || item.nombre),
+          }));
         } else if (filtro.tipo === 'select' && filtro.tabla) {
           if (filtro.tabla === 'proyectos' && realEstateProjectIds.length > 0) {
             const { data } = await supabase
@@ -235,6 +244,57 @@ export default function ReporteViewer() {
     },
     enabled: !!reporte && realEstateProjectIds.length >= 0,
   });
+
+  // Get columns from preview data - moved before useMemos that depend on it
+  const columns = useMemo(() => {
+    return previewData && previewData.length > 0 ? Object.keys(previewData[0]) : [];
+  }, [previewData]);
+
+  // Calculate summary data from preview
+  const summaryData = useMemo(() => {
+    if (!previewData || previewData.length === 0 || columns.length === 0) return null;
+
+    const numericColumns = columns.filter(col => {
+      const firstValue = previewData[0][col];
+      return typeof firstValue === 'number' && !col.toLowerCase().includes('id');
+    });
+
+    const totals: Record<string, number> = {};
+    numericColumns.forEach(col => {
+      totals[col] = previewData.reduce((sum, row) => sum + (Number(row[col]) || 0), 0);
+    });
+
+    return { totals, numericColumns };
+  }, [previewData, columns]);
+
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    if (!previewData || previewData.length === 0 || columns.length === 0) return [];
+
+    // Find a good label column (proyecto, propiedad, etc.)
+    const labelColumn = columns.find(col => 
+      col.toLowerCase().includes('proyecto') || 
+      col.toLowerCase().includes('propiedad') ||
+      col.toLowerCase().includes('nombre')
+    ) || columns[0];
+
+    // Find numeric columns for the chart
+    const numericColumns = columns.filter(col => {
+      const firstValue = previewData[0][col];
+      return typeof firstValue === 'number' && !col.toLowerCase().includes('id');
+    }).slice(0, 4); // Limit to 4 columns for readability
+
+    return previewData.slice(0, 20).map(row => {
+      const item: Record<string, unknown> = { name: String(row[labelColumn]).substring(0, 20) };
+      numericColumns.forEach(col => {
+        item[col] = Number(row[col]) || 0;
+      });
+      return item;
+    });
+  }, [previewData, columns]);
+
+  // Colors for chart bars
+  const chartColors = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
 
   const handleFilterChange = (filterName: string, value: string) => {
     const newFiltros = { ...filtros, [filterName]: value };
@@ -428,10 +488,6 @@ export default function ReporteViewer() {
     );
   };
 
-  // Get columns from preview data
-  const columns = previewData && previewData.length > 0 
-    ? Object.keys(previewData[0]) 
-    : [];
 
   // Format cell value for display
   const formatCellValue = (value: unknown): string => {
@@ -579,6 +635,110 @@ export default function ReporteViewer() {
             </div>
           )}
 
+          {/* Summary Section - Collapsible */}
+          {previewData && previewData.length > 0 && summaryData && (
+            <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
+              <div className="border rounded-lg bg-muted/30">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full flex items-center justify-between p-4 h-auto">
+                    <span className="text-base font-semibold">Resumen de Cobranza</span>
+                    {summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4">
+                    {/* Top summary cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+                      {summaryData.numericColumns.slice(0, 5).map((col, idx) => {
+                        const colors = ['text-primary', 'text-blue-600', 'text-green-600', 'text-orange-500', 'text-red-500'];
+                        return (
+                          <div key={col} className="text-center">
+                            <p className="text-xs text-muted-foreground mb-1">
+                              {col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </p>
+                            <p className={cn("text-lg font-bold", colors[idx % colors.length])}>
+                              {new Intl.NumberFormat('es-MX', { 
+                                style: 'currency', 
+                                currency: 'MXN',
+                                notation: summaryData.totals[col] >= 1000000 ? 'compact' : 'standard',
+                                maximumFractionDigits: 2 
+                              }).format(summaryData.totals[col])}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Breakdown sections */}
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Durante Obra section */}
+                      {summaryData.numericColumns.some(col => col.toLowerCase().includes('durante_obra')) && (
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm border-b pb-1">Desglose por Etapa - Durante la Obra</h4>
+                          <p className="text-xs text-muted-foreground">(Apartado + Enganche + Pagos Especiales + Parcialidades)</p>
+                          <div className="grid grid-cols-2 gap-4">
+                            {summaryData.numericColumns
+                              .filter(col => col.toLowerCase().includes('durante_obra'))
+                              .map(col => (
+                                <div key={col}>
+                                  <p className="text-xs text-muted-foreground">
+                                    {col.replace(/_/g, ' ').replace(/durante obra/i, '').replace(/\b\w/g, l => l.toUpperCase()).trim() || 'Monto'}
+                                  </p>
+                                  <p className={cn(
+                                    "text-lg font-bold",
+                                    col.includes('pagado') ? 'text-green-600' : 
+                                    col.includes('restante') ? 'text-orange-500' : 'text-primary'
+                                  )}>
+                                    {new Intl.NumberFormat('es-MX', { 
+                                      style: 'currency', 
+                                      currency: 'MXN',
+                                      notation: summaryData.totals[col] >= 1000000 ? 'compact' : 'standard',
+                                      maximumFractionDigits: 2 
+                                    }).format(summaryData.totals[col])}
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* A la Entrega section */}
+                      {summaryData.numericColumns.some(col => col.toLowerCase().includes('entrega')) && (
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm border-b pb-1">Desglose por Etapa - A la Entrega</h4>
+                          <p className="text-xs text-muted-foreground">(Pago a Contra Entrega)</p>
+                          <div className="grid grid-cols-2 gap-4">
+                            {summaryData.numericColumns
+                              .filter(col => col.toLowerCase().includes('entrega'))
+                              .map(col => (
+                                <div key={col}>
+                                  <p className="text-xs text-muted-foreground">
+                                    {col.replace(/_/g, ' ').replace(/a la entrega/i, '').replace(/\b\w/g, l => l.toUpperCase()).trim() || 'Monto'}
+                                  </p>
+                                  <p className={cn(
+                                    "text-lg font-bold",
+                                    col.includes('pagado') ? 'text-green-600' : 
+                                    col.includes('restante') ? 'text-red-500' : 'text-primary'
+                                  )}>
+                                    {new Intl.NumberFormat('es-MX', { 
+                                      style: 'currency', 
+                                      currency: 'MXN',
+                                      notation: summaryData.totals[col] >= 1000000 ? 'compact' : 'standard',
+                                      maximumFractionDigits: 2 
+                                    }).format(summaryData.totals[col])}
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          )}
+
           {/* Preview Area */}
           <div className="flex-1 border rounded-lg overflow-hidden">
             {isLoadingPreview ? (
@@ -593,6 +753,61 @@ export default function ReporteViewer() {
                     Error al cargar los datos: {(previewError as Error).message}
                   </AlertDescription>
                 </Alert>
+              </div>
+            ) : viewMode === 'chart' ? (
+              // Chart View
+              <div className="h-[500px] p-4">
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="name" 
+                        angle={-45} 
+                        textAnchor="end" 
+                        height={80}
+                        tick={{ fontSize: 11 }}
+                        className="fill-muted-foreground"
+                      />
+                      <YAxis 
+                        tickFormatter={(value) => 
+                          new Intl.NumberFormat('es-MX', { 
+                            notation: 'compact', 
+                            compactDisplay: 'short' 
+                          }).format(value)
+                        }
+                        className="fill-muted-foreground"
+                      />
+                      <RechartsTooltip 
+                        formatter={(value: number) => 
+                          new Intl.NumberFormat('es-MX', { 
+                            style: 'currency', 
+                            currency: 'MXN' 
+                          }).format(value)
+                        }
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Legend />
+                      {summaryData?.numericColumns.slice(0, 4).map((col, idx) => (
+                        <Bar 
+                          key={col} 
+                          dataKey={col} 
+                          fill={chartColors[idx]} 
+                          name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No hay datos numéricos para graficar</p>
+                  </div>
+                )}
               </div>
             ) : previewData && previewData.length > 0 ? (
               <ScrollArea className="h-[500px]">
