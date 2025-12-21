@@ -1423,13 +1423,13 @@ export default function ReporteViewer() {
                           </div>
                         </div>
 
-                        <div style={{ height: aggregateProjects ? 140 : Math.max(300, displayProgressData.length * 100) }}>
+                        <div style={{ height: aggregateProjects ? 120 : Math.max(280, displayProgressData.length * 90) }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart 
                               data={displayProgressData} 
                               layout="vertical"
-                              margin={{ top: 10, right: 280, left: 100, bottom: 10 }}
-                              barSize={aggregateProjects ? 60 : 45}
+                              margin={{ top: 10, right: 220, left: 80, bottom: 10 }}
+                              barSize={aggregateProjects ? 50 : 40}
                             >
                               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={true} vertical={false} />
                               <XAxis 
@@ -1502,19 +1502,19 @@ export default function ReporteViewer() {
                                         const pctEntrega = data.precio_final > 0 ? (entrega / data.precio_final * 100) : 0;
                                         return (
                                           <g>
-                                            <text x={startX} y={centerY} fontSize={12} fill="hsl(var(--foreground))" fontWeight="bold" dominantBaseline="middle">
+                                            <text x={startX} y={centerY} fontSize={11} fill="hsl(var(--foreground))" fontWeight="bold" dominantBaseline="middle">
                                               {formatCurrencyCompact(data.precio_final)}
                                             </text>
                                             <path 
-                                              d={`M${startX + 70} ${centerY - 14} Q${startX + 80} ${centerY - 14} ${startX + 80} ${centerY} Q${startX + 80} ${centerY + 14} ${startX + 70} ${centerY + 14}`}
+                                              d={`M${startX + 62} ${centerY - 12} Q${startX + 70} ${centerY - 12} ${startX + 70} ${centerY} Q${startX + 70} ${centerY + 12} ${startX + 62} ${centerY + 12}`}
                                               stroke="hsl(var(--muted-foreground))"
-                                              strokeWidth={1.5}
+                                              strokeWidth={1}
                                               fill="none"
                                             />
-                                            <text x={startX + 88} y={centerY - 8} fontSize={10} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
+                                            <text x={startX + 76} y={centerY - 7} fontSize={9} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
                                               D.Obra: {formatCurrencyCompact(duranteObra)} ({pctDurante.toFixed(0)}%)
                                             </text>
-                                            <text x={startX + 88} y={centerY + 8} fontSize={10} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
+                                            <text x={startX + 76} y={centerY + 7} fontSize={9} fill="hsl(var(--muted-foreground))" dominantBaseline="middle">
                                               Entrega: {formatCurrencyCompact(entrega)} ({pctEntrega.toFixed(0)}%)
                                             </text>
                                           </g>
