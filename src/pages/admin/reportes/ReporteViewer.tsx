@@ -102,6 +102,21 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
   return processedQuery;
 }
 
+// Format currency with proper symbol position: $1.45 M instead of 1.45 M$
+function formatCurrencyCompact(value: number): string {
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(2)} M`;
+  } else if (value >= 1000) {
+    return `$${(value / 1000).toFixed(2)} K`;
+  } else {
+    return new Intl.NumberFormat('es-MX', { 
+      style: 'currency', 
+      currency: 'MXN',
+      minimumFractionDigits: 2 
+    }).format(value);
+  }
+}
+
 export default function ReporteViewer() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -152,23 +167,17 @@ export default function ReporteViewer() {
     enabled: !!id,
   });
 
-  // Fetch preview data
-  const { data: previewData, isLoading: isLoadingPreview, error: previewError, refetch: refetchPreview } = useQuery({
-    queryKey: ['reporte-preview', id, filtros],
+  // Fetch ALL data for summary (no limit)
+  const { data: fullData, isLoading: isLoadingFullData, error: fullDataError, refetch: refetchPreview } = useQuery({
+    queryKey: ['reporte-full-data', id, filtros],
     queryFn: async () => {
       if (!reporte?.query_sql) return [];
 
       const processedQuery = applyFiltersToQuery(reporte.query_sql, filtros);
-      
-      // Add LIMIT for preview
-      let previewQuery = processedQuery;
-      if (!previewQuery.toLowerCase().includes('limit')) {
-        previewQuery = previewQuery.replace(/;?\s*$/, '') + ' LIMIT 100';
-      }
 
       const { data, error } = await supabase.rpc('execute_safe_query', {
-        query_text: previewQuery,
-        max_rows: 100
+        query_text: processedQuery,
+        max_rows: 50000 // Higher limit for full data
       });
 
       if (error) throw error;
@@ -176,6 +185,14 @@ export default function ReporteViewer() {
     },
     enabled: !!reporte?.query_sql,
   });
+
+  // Preview data is just the first 100 rows for table display
+  const previewData = useMemo(() => {
+    return fullData?.slice(0, 100) || [];
+  }, [fullData]);
+
+  const isLoadingPreview = isLoadingFullData;
+  const previewError = fullDataError;
 
   // Fetch options for select filters
   const { data: filterOptions = {} } = useQuery({
@@ -250,22 +267,22 @@ export default function ReporteViewer() {
     return previewData && previewData.length > 0 ? Object.keys(previewData[0]) : [];
   }, [previewData]);
 
-  // Calculate summary data from preview
+  // Calculate summary data from FULL data (not just preview)
   const summaryData = useMemo(() => {
-    if (!previewData || previewData.length === 0 || columns.length === 0) return null;
+    if (!fullData || fullData.length === 0 || columns.length === 0) return null;
 
     const numericColumns = columns.filter(col => {
-      const firstValue = previewData[0][col];
+      const firstValue = fullData[0][col];
       return typeof firstValue === 'number' && !col.toLowerCase().includes('id');
     });
 
     const totals: Record<string, number> = {};
     numericColumns.forEach(col => {
-      totals[col] = previewData.reduce((sum, row) => sum + (Number(row[col]) || 0), 0);
+      totals[col] = fullData.reduce((sum, row) => sum + (Number(row[col]) || 0), 0);
     });
 
-    return { totals, numericColumns };
-  }, [previewData, columns]);
+    return { totals, numericColumns, totalRows: fullData.length };
+  }, [fullData, columns]);
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -642,7 +659,10 @@ export default function ReporteViewer() {
               <div className="border rounded-lg bg-muted/30">
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" className="w-full flex items-center justify-between p-4 h-auto">
-                    <span className="text-base font-semibold">Resumen de Cobranza</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-semibold">Resumen de Cobranza</span>
+                      <span className="text-xs text-muted-foreground">({summaryData.totalRows} registros)</span>
+                    </div>
                     {summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                 </CollapsibleTrigger>
@@ -658,12 +678,7 @@ export default function ReporteViewer() {
                               {col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                             </p>
                             <p className={cn("text-lg font-bold", colors[idx % colors.length])}>
-                              {new Intl.NumberFormat('es-MX', { 
-                                style: 'currency', 
-                                currency: 'MXN',
-                                notation: summaryData.totals[col] >= 1000000 ? 'compact' : 'standard',
-                                maximumFractionDigits: 2 
-                              }).format(summaryData.totals[col])}
+                              {formatCurrencyCompact(summaryData.totals[col])}
                             </p>
                           </div>
                         );
@@ -674,63 +689,87 @@ export default function ReporteViewer() {
                     <div className="grid md:grid-cols-2 gap-6">
                       {/* Durante Obra section */}
                       {summaryData.numericColumns.some(col => col.toLowerCase().includes('durante_obra')) && (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <h4 className="font-semibold text-sm border-b pb-1">Desglose por Etapa - Durante la Obra</h4>
                           <p className="text-xs text-muted-foreground">(Apartado + Enganche + Pagos Especiales + Parcialidades + Cesión de derechos)</p>
                           <div className="grid grid-cols-2 gap-4">
+                            {/* Monto */}
                             {summaryData.numericColumns
-                              .filter(col => col.toLowerCase().includes('durante_obra'))
+                              .filter(col => col.toLowerCase().includes('monto_durante_obra'))
                               .map(col => (
                                 <div key={col}>
-                                  <p className="text-xs text-muted-foreground">
-                                    {col.replace(/_/g, ' ').replace(/durante obra/i, '').replace(/\b\w/g, l => l.toUpperCase()).trim() || 'Monto'}
+                                  <p className="text-xs text-muted-foreground">Monto</p>
+                                  <p className="text-lg font-bold text-primary">
+                                    {formatCurrencyCompact(summaryData.totals[col])}
                                   </p>
-                                  <p className={cn(
-                                    "text-lg font-bold",
-                                    col.includes('pagado') ? 'text-green-600' : 
-                                    col.includes('restante') ? 'text-orange-500' : 'text-primary'
-                                  )}>
-                                    {new Intl.NumberFormat('es-MX', { 
-                                      style: 'currency', 
-                                      currency: 'MXN',
-                                      notation: summaryData.totals[col] >= 1000000 ? 'compact' : 'standard',
-                                      maximumFractionDigits: 2 
-                                    }).format(summaryData.totals[col])}
+                                </div>
+                              ))}
+                            {/* Pagado */}
+                            {summaryData.numericColumns
+                              .filter(col => col.toLowerCase().includes('pagado_durante_obra'))
+                              .map(col => (
+                                <div key={col}>
+                                  <p className="text-xs text-muted-foreground">Pagado</p>
+                                  <p className="text-lg font-bold text-green-600">
+                                    {formatCurrencyCompact(summaryData.totals[col])}
                                   </p>
                                 </div>
                               ))}
                           </div>
+                          {/* Restante */}
+                          {summaryData.numericColumns
+                            .filter(col => col.toLowerCase().includes('restante_durante_obra'))
+                            .map(col => (
+                              <div key={col}>
+                                <p className="text-xs text-muted-foreground">Restante</p>
+                                <p className="text-lg font-bold text-orange-500">
+                                  {formatCurrencyCompact(summaryData.totals[col])}
+                                </p>
+                              </div>
+                            ))}
                         </div>
                       )}
 
                       {/* A la Entrega section */}
-                      {summaryData.numericColumns.some(col => col.toLowerCase().includes('entrega')) && (
-                        <div className="space-y-2">
+                      {summaryData.numericColumns.some(col => col.toLowerCase().includes('entrega') && !col.toLowerCase().includes('durante')) && (
+                        <div className="space-y-3">
                           <h4 className="font-semibold text-sm border-b pb-1">Desglose por Etapa - A la Entrega</h4>
                           <p className="text-xs text-muted-foreground">(Pago a Contra Entrega)</p>
                           <div className="grid grid-cols-2 gap-4">
+                            {/* Monto */}
                             {summaryData.numericColumns
-                              .filter(col => col.toLowerCase().includes('entrega'))
+                              .filter(col => col.toLowerCase().includes('monto_a_la_entrega'))
                               .map(col => (
                                 <div key={col}>
-                                  <p className="text-xs text-muted-foreground">
-                                    {col.replace(/_/g, ' ').replace(/a la entrega/i, '').replace(/\b\w/g, l => l.toUpperCase()).trim() || 'Monto'}
+                                  <p className="text-xs text-muted-foreground">Monto</p>
+                                  <p className="text-lg font-bold text-primary">
+                                    {formatCurrencyCompact(summaryData.totals[col])}
                                   </p>
-                                  <p className={cn(
-                                    "text-lg font-bold",
-                                    col.includes('pagado') ? 'text-green-600' : 
-                                    col.includes('restante') ? 'text-red-500' : 'text-primary'
-                                  )}>
-                                    {new Intl.NumberFormat('es-MX', { 
-                                      style: 'currency', 
-                                      currency: 'MXN',
-                                      notation: summaryData.totals[col] >= 1000000 ? 'compact' : 'standard',
-                                      maximumFractionDigits: 2 
-                                    }).format(summaryData.totals[col])}
+                                </div>
+                              ))}
+                            {/* Pagado */}
+                            {summaryData.numericColumns
+                              .filter(col => col.toLowerCase().includes('pagado_a_la_entrega'))
+                              .map(col => (
+                                <div key={col}>
+                                  <p className="text-xs text-muted-foreground">Pagado</p>
+                                  <p className="text-lg font-bold text-green-600">
+                                    {formatCurrencyCompact(summaryData.totals[col])}
                                   </p>
                                 </div>
                               ))}
                           </div>
+                          {/* Restante */}
+                          {summaryData.numericColumns
+                            .filter(col => col.toLowerCase().includes('restante_a_la_entrega'))
+                            .map(col => (
+                              <div key={col}>
+                                <p className="text-xs text-muted-foreground">Restante</p>
+                                <p className="text-lg font-bold text-red-500">
+                                  {formatCurrencyCompact(summaryData.totals[col])}
+                                </p>
+                              </div>
+                            ))}
                         </div>
                       )}
                     </div>

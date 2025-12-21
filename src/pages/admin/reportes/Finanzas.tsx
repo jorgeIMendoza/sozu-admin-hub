@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { FileSpreadsheet, Loader2, DollarSign, Search, Check } from "lucide-react";
+import { FileSpreadsheet, Loader2, DollarSign, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -125,29 +126,38 @@ export default function ReportesFinanzas() {
           {/* Report Cards Grid */}
           {filteredReportes.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredReportes.map((reporte) => (
-                <Card
-                  key={reporte.id}
-                  className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-                  onClick={() => handleSelectReporte(reporte.id.toString())}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <FileSpreadsheet className="h-4 w-4 text-primary shrink-0" />
-                          <h3 className="font-medium text-sm truncate">{reporte.nombre}</h3>
-                        </div>
+                {filteredReportes.map((reporte) => (
+                  <TooltipProvider key={reporte.id}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Card
+                          className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+                          onClick={() => handleSelectReporte(reporte.id.toString())}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-2">
+                              <FileSpreadsheet className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium text-sm line-clamp-2">{reporte.nombre}</h3>
+                                {reporte.descripcion && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                    {reporte.descripcion}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="font-medium">{reporte.nombre}</p>
                         {reporte.descripcion && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {reporte.descripcion}
-                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">{reporte.descripcion}</p>
                         )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
             </div>
           ) : reportes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
