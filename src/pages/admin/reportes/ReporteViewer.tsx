@@ -313,18 +313,28 @@ export default function ReporteViewer() {
   const chartData = useMemo(() => {
     if (!previewData || previewData.length === 0 || columns.length === 0) return [];
 
-    // Find a good label column (proyecto, propiedad, etc.)
-    const labelColumn = columns.find(col => 
-      col.toLowerCase().includes('proyecto') || 
-      col.toLowerCase().includes('propiedad') ||
-      col.toLowerCase().includes('nombre')
-    ) || columns[0];
+    // Find label columns
+    const projectColumn = columns.find(col => col.toLowerCase().includes('proyecto'));
+    const deptColumn = columns.find(col => 
+      col.toLowerCase().includes('numero_departamento') || 
+      col.toLowerCase().includes('numero departamento') ||
+      col.toLowerCase().includes('departamento')
+    );
 
     // Filter to available numeric columns in preferred order
     const availableOrderedColumns = orderedChartColumns.filter(col => columns.includes(col));
 
     return previewData.slice(0, 20).map(row => {
-      const item: Record<string, unknown> = { name: String(row[labelColumn]).substring(0, 20) };
+      const proyecto = projectColumn ? String(row[projectColumn]) : '';
+      const depto = deptColumn ? String(row[deptColumn]) : '';
+      const fullLabel = depto ? `${proyecto} - Depto ${depto}` : proyecto;
+      
+      const item: Record<string, unknown> = { 
+        name: proyecto.substring(0, 15),
+        fullName: fullLabel,
+        proyecto: proyecto,
+        departamento: depto
+      };
       availableOrderedColumns.forEach(col => {
         item[col] = Number(row[col]) || 0;
       });
@@ -870,6 +880,12 @@ export default function ReporteViewer() {
                         />
                         <RechartsTooltip 
                           formatter={(value: number) => formatCurrencyCompact(value)}
+                          labelFormatter={(label, payload) => {
+                            if (payload && payload.length > 0 && payload[0].payload) {
+                              return payload[0].payload.fullName || label;
+                            }
+                            return label;
+                          }}
                           contentStyle={{ 
                             backgroundColor: 'hsl(var(--background))', 
                             border: '1px solid hsl(var(--border))',
