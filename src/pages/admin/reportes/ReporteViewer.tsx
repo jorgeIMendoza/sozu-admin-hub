@@ -210,13 +210,19 @@ export default function ReporteViewer() {
   const isLoadingPreview = isLoadingFullData;
   const previewError = fullDataError;
 
-  // Handle refresh - invalidate and refetch queries
+  // Handle refresh - invalidate and refetch all report-related queries
   const handleRefresh = useCallback(async () => {
-    // Invalidate both the report definition and full data queries
-    await queryClient.invalidateQueries({ queryKey: ['reporte', id] });
-    await queryClient.invalidateQueries({ queryKey: ['reporte-full-data', id, filtros] });
-    await queryClient.invalidateQueries({ queryKey: ['filter-options-viewer', id] });
-  }, [queryClient, id, filtros]);
+    // Invalidate all queries related to this report (using partial match)
+    await queryClient.invalidateQueries({ 
+      predicate: (query) => {
+        const key = query.queryKey;
+        if (!Array.isArray(key)) return false;
+        return key[0] === 'reporte' || 
+               key[0] === 'reporte-full-data' || 
+               key[0] === 'filter-options-viewer';
+      }
+    });
+  }, [queryClient]);
 
   // Fetch options for select filters
   const { data: filterOptions = {} } = useQuery({
@@ -286,53 +292,36 @@ export default function ReporteViewer() {
     enabled: !!reporte && realEstateProjectIds.length >= 0,
   });
 
-  // Extract column order from SQL query to maintain correct order
-  const extractColumnsFromQuery = useCallback((querySql: string): string[] => {
-    // Match SELECT ... FROM pattern and extract column aliases
-    const selectMatch = querySql.match(/SELECT\s+([\s\S]+?)\s+FROM/i);
-    if (!selectMatch) return [];
-    
-    const selectClause = selectMatch[1];
-    const columns: string[] = [];
-    
-    // Split by comma, but handle nested functions with commas
-    let depth = 0;
-    let current = '';
-    
-    for (const char of selectClause) {
-      if (char === '(' || char === '[') depth++;
-      else if (char === ')' || char === ']') depth--;
-      else if (char === ',' && depth === 0) {
-        columns.push(current.trim());
-        current = '';
-        continue;
-      }
-      current += char;
-    }
-    if (current.trim()) columns.push(current.trim());
-    
-    // Extract alias from each column (AS xxx or last word)
-    return columns.map(col => {
-      const asMatch = col.match(/\sAS\s+["']?(\w+)["']?\s*$/i);
-      if (asMatch) return asMatch[1];
-      // If no AS, use the column name (last identifier)
-      const lastWord = col.split(/\s+/).pop() || '';
-      return lastWord.replace(/['"]/g, '');
-    }).filter(col => col.length > 0);
-  }, []);
+  // Define preferred column order for known reports
+  const preferredColumnOrder = useMemo(() => [
+    // Products report columns
+    'proyecto', 'categoria', 'producto', 'compradores', 'precio_final', 'pagado', 'restante',
+    // Properties report columns  
+    'numero_departamento', 'monto_durante_obra', 'monto_a_la_entrega',
+    'pagado_durante_obra', 'pagado_a_la_entrega', 'restante_durante_obra', 'restante_a_la_entrega'
+  ], []);
 
-  // Get columns from SQL query to maintain order, fallback to Object.keys
+  // Get columns from preview data with preferred ordering
   const columns = useMemo(() => {
-    if (reporte?.query_sql) {
-      const sqlColumns = extractColumnsFromQuery(reporte.query_sql);
-      if (sqlColumns.length > 0) {
-        // Only include columns that actually exist in the data
-        const dataKeys = previewData && previewData.length > 0 ? Object.keys(previewData[0]) : [];
-        return sqlColumns.filter(col => dataKeys.includes(col));
-      }
-    }
-    return previewData && previewData.length > 0 ? Object.keys(previewData[0]) : [];
-  }, [reporte?.query_sql, previewData, extractColumnsFromQuery]);
+    if (!previewData || previewData.length === 0) return [];
+    
+    const dataKeys = Object.keys(previewData[0]);
+    
+    // Sort columns based on preferred order, keeping unknown columns at the end
+    return dataKeys.sort((a, b) => {
+      const aIndex = preferredColumnOrder.indexOf(a);
+      const bIndex = preferredColumnOrder.indexOf(b);
+      
+      // Both in preferred order - sort by preference
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      // Only a is in preferred order - a comes first
+      if (aIndex !== -1) return -1;
+      // Only b is in preferred order - b comes first
+      if (bIndex !== -1) return 1;
+      // Neither in preferred order - keep original order
+      return 0;
+    });
+  }, [previewData, preferredColumnOrder]);
 
   // Calculate summary data from FULL data (not just preview)
   const summaryData = useMemo(() => {
