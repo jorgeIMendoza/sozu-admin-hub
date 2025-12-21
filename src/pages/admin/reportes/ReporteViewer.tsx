@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { cn } from "@/lib/utils";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface FiltroConfig {
   nombre: string;
@@ -102,18 +102,32 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
   return processedQuery;
 }
 
-// Format currency with proper symbol position: $1.45 M instead of 1.45 M$
+// Format currency with proper symbol position and comma separators: $1,453.92 M
 function formatCurrencyCompact(value: number): string {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(2)} M`;
-  } else if (value >= 1000) {
-    return `$${(value / 1000).toFixed(2)} K`;
+  // Handle edge cases
+  let cleanValue = +value.toFixed(2);
+  if (Math.abs(cleanValue) < 0.01) cleanValue = 0;
+  
+  if (Math.abs(cleanValue) >= 1000000) {
+    const millions = cleanValue / 1000000;
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(millions);
+    return `$${formatted} M`;
+  } else if (Math.abs(cleanValue) >= 1000) {
+    const thousands = cleanValue / 1000;
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(thousands);
+    return `$${formatted} K`;
   } else {
     return new Intl.NumberFormat('es-MX', { 
       style: 'currency', 
       currency: 'MXN',
       minimumFractionDigits: 2 
-    }).format(value);
+    }).format(cleanValue);
   }
 }
 
@@ -299,7 +313,7 @@ export default function ReporteViewer() {
     const numericColumns = columns.filter(col => {
       const firstValue = previewData[0][col];
       return typeof firstValue === 'number' && !col.toLowerCase().includes('id');
-    }).slice(0, 4); // Limit to 4 columns for readability
+    }).slice(0, 6); // Limit to 6 columns for the line chart
 
     return previewData.slice(0, 20).map(row => {
       const item: Record<string, unknown> = { name: String(row[labelColumn]).substring(0, 20) };
@@ -310,8 +324,15 @@ export default function ReporteViewer() {
     });
   }, [previewData, columns]);
 
-  // Colors for chart bars
-  const chartColors = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
+  // Colors for chart lines - 6 distinct colors
+  const chartColors = [
+    'hsl(var(--primary))', 
+    '#2563eb', // blue
+    '#16a34a', // green  
+    '#f97316', // orange
+    '#dc2626', // red
+    '#8b5cf6'  // purple
+  ];
 
   const handleFilterChange = (filterName: string, value: string) => {
     const newFiltros = { ...filtros, [filterName]: value };
@@ -795,12 +816,12 @@ export default function ReporteViewer() {
                 </Alert>
               </div>
             ) : viewMode === 'chart' ? (
-              // Chart View - Stacked Bar Chart (like reference image)
+              // Chart View - Line Chart for financial trends
               <div className="h-[500px] p-4">
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis 
                         dataKey="name" 
                         angle={-45} 
@@ -811,21 +832,12 @@ export default function ReporteViewer() {
                         className="fill-muted-foreground"
                       />
                       <YAxis 
-                        tickFormatter={(value) => 
-                          new Intl.NumberFormat('es-MX', { 
-                            notation: 'compact', 
-                            compactDisplay: 'short' 
-                          }).format(value)
-                        }
+                        tickFormatter={(value) => formatCurrencyCompact(value)}
                         className="fill-muted-foreground"
+                        width={100}
                       />
                       <RechartsTooltip 
-                        formatter={(value: number) => 
-                          new Intl.NumberFormat('es-MX', { 
-                            style: 'currency', 
-                            currency: 'MXN' 
-                          }).format(value)
-                        }
+                        formatter={(value: number) => formatCurrencyCompact(value)}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))', 
                           border: '1px solid hsl(var(--border))',
@@ -833,16 +845,19 @@ export default function ReporteViewer() {
                         }}
                       />
                       <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                      {summaryData?.numericColumns.slice(0, 4).map((col, idx) => (
-                        <Bar 
+                      {summaryData?.numericColumns.slice(0, 6).map((col, idx) => (
+                        <Line 
                           key={col} 
+                          type="monotone"
                           dataKey={col} 
-                          stackId="a"
-                          fill={chartColors[idx]} 
+                          stroke={chartColors[idx % chartColors.length]} 
+                          strokeWidth={2}
+                          dot={{ fill: chartColors[idx % chartColors.length], r: 4 }}
+                          activeDot={{ r: 6 }}
                           name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         />
                       ))}
-                    </BarChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full">
