@@ -191,12 +191,16 @@ export default function ConfiguracionReportes() {
     try {
       // Limpiar los placeholders de filtros para la validación
       let cleanQuery = formData.query_sql;
+      
+      // PRIMERO: Eliminar comentarios SQL (-- hasta fin de línea)
+      cleanQuery = cleanQuery.replace(/--.*$/gm, '');
+      
       // Remover bloques completos con placeholders como {{AND id = :id_filtro}}
       cleanQuery = cleanQuery.replace(/\{\{[^}]+\}\}/g, '');
       // Reemplazar placeholders sueltos :nombre_filtro con valores de prueba
       cleanQuery = cleanQuery.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, '1');
       
-      // PRIMERO: Normalizar todos los espacios en blanco (incluyendo saltos de línea) a un solo espacio
+      // Normalizar todos los espacios en blanco (incluyendo saltos de línea) a un solo espacio
       cleanQuery = cleanQuery.replace(/\s+/g, ' ').trim();
       
       // DESPUÉS: Limpiar sintaxis SQL rota

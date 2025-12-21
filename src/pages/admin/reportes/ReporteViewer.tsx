@@ -49,6 +49,9 @@ interface Reporte {
 function applyFiltersToQuery(querySql: string, filtros: Record<string, string>): string {
   let processedQuery = querySql;
 
+  // FIRST: Remove SQL comments (-- until end of line) BEFORE normalizing whitespace
+  processedQuery = processedQuery.replace(/--.*$/gm, '');
+
   // Find all placeholders in format {{AND condition}}
   const placeholderRegex = /\{\{([^}]+)\}\}/g;
   let match;
@@ -76,7 +79,7 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
     }
   }
 
-  // FIRST: Normalize all whitespace (including newlines) to single spaces
+  // Normalize all whitespace (including newlines) to single spaces
   processedQuery = processedQuery.replace(/\s+/g, ' ').trim();
 
   // THEN: Clean up SQL syntax after removing placeholders
