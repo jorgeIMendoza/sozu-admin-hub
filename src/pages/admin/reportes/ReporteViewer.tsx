@@ -315,10 +315,11 @@ export default function ReporteViewer() {
 
     setIsExporting(true);
     try {
+      // Export ALL data without filters (different from properties page)
       const response = await supabase.functions.invoke('exportar-reporte', {
         body: {
           id_reporte: reporte.id,
-          filtros,
+          filtros: {}, // Always export all data, no filters
         },
       });
 
@@ -339,10 +340,10 @@ export default function ReporteViewer() {
       await registrarExportacion('reportes', {
         id_reporte: reporte.id,
         nombre_reporte: reporte.nombre,
-        filtros_aplicados: filtros,
+        filtros_aplicados: {},
       });
 
-      toast({ title: "Éxito", description: "Reporte exportado correctamente" });
+      toast({ title: "Éxito", description: "Reporte exportado correctamente (todos los datos)" });
     } catch (error) {
       console.error('Export error:', error);
       toast({
@@ -537,11 +538,11 @@ export default function ReporteViewer() {
               </Button>
               <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
-                  <FileSpreadsheet className="h-6 w-6" />
-                  {reporte.nombre}
+                  <FileSpreadsheet className="h-6 w-6 flex-shrink-0" />
+                  <span className="truncate max-w-md">{reporte.nombre}</span>
                 </h1>
                 {reporte.descripcion && (
-                  <p className="text-muted-foreground">{reporte.descripcion}</p>
+                  <p className="text-muted-foreground text-sm">{reporte.descripcion}</p>
                 )}
               </div>
             </div>
@@ -675,7 +676,7 @@ export default function ReporteViewer() {
                       {summaryData.numericColumns.some(col => col.toLowerCase().includes('durante_obra')) && (
                         <div className="space-y-2">
                           <h4 className="font-semibold text-sm border-b pb-1">Desglose por Etapa - Durante la Obra</h4>
-                          <p className="text-xs text-muted-foreground">(Apartado + Enganche + Pagos Especiales + Parcialidades)</p>
+                          <p className="text-xs text-muted-foreground">(Apartado + Enganche + Pagos Especiales + Parcialidades + Cesión de derechos)</p>
                           <div className="grid grid-cols-2 gap-4">
                             {summaryData.numericColumns
                               .filter(col => col.toLowerCase().includes('durante_obra'))
@@ -755,18 +756,19 @@ export default function ReporteViewer() {
                 </Alert>
               </div>
             ) : viewMode === 'chart' ? (
-              // Chart View
+              // Chart View - Stacked Bar Chart (like reference image)
               <div className="h-[500px] p-4">
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                       <XAxis 
                         dataKey="name" 
                         angle={-45} 
                         textAnchor="end" 
                         height={80}
-                        tick={{ fontSize: 11 }}
+                        interval={0}
+                        tick={{ fontSize: 10 }}
                         className="fill-muted-foreground"
                       />
                       <YAxis 
@@ -791,14 +793,14 @@ export default function ReporteViewer() {
                           borderRadius: '8px'
                         }}
                       />
-                      <Legend />
+                      <Legend wrapperStyle={{ paddingTop: '10px' }} />
                       {summaryData?.numericColumns.slice(0, 4).map((col, idx) => (
                         <Bar 
                           key={col} 
                           dataKey={col} 
+                          stackId="a"
                           fill={chartColors[idx]} 
                           name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          radius={[4, 4, 0, 0]}
                         />
                       ))}
                     </BarChart>
