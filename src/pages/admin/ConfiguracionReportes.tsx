@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Edit, Trash2, FileText, Check, X, PlayCircle, Loader2, CheckCircle2, XCircle, HelpCircle, RotateCcw } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Check, X, PlayCircle, Loader2, CheckCircle2, XCircle, HelpCircle, RotateCcw, Power } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,7 @@ interface Reporte {
   nombre_archivo: string;
   id_submenu: number | null;
   activo: boolean;
+  prendido: boolean;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }
@@ -400,6 +401,38 @@ export default function ConfiguracionReportes() {
     }
   };
 
+  const handleTogglePrendido = async (reporte: Reporte) => {
+    try {
+      const newPrendido = !reporte.prendido;
+      const { error } = await supabase
+        .from('reportes')
+        .update({ prendido: newPrendido })
+        .eq('id', reporte.id);
+
+      if (error) throw error;
+
+      await registrarActualizacion('reportes', null, { 
+        id_reporte: reporte.id, 
+        nombre: reporte.nombre,
+        prendido: newPrendido
+      }, newPrendido ? 'prender_reporte' : 'apagar_reporte');
+
+      toast({ 
+        title: "Éxito", 
+        description: `Reporte ${newPrendido ? 'prendido' : 'apagado'} correctamente` 
+      });
+      queryClient.invalidateQueries({ queryKey: ['reportes-config'] });
+      queryClient.invalidateQueries({ queryKey: ['reportes-finanzas'] });
+    } catch (error) {
+      console.error('Error toggling report:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo cambiar el estado del reporte",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (permissionsLoading || isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -428,7 +461,7 @@ export default function ConfiguracionReportes() {
           <TableHead>Descripción</TableHead>
           <TableHead>Archivo</TableHead>
           <TableHead>Submenú</TableHead>
-          {!isDeletedTab && <TableHead>Activo</TableHead>}
+          {!isDeletedTab && <TableHead>Estatus</TableHead>}
           <TableHead className="text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>
@@ -454,13 +487,13 @@ export default function ConfiguracionReportes() {
             </TableCell>
             {!isDeletedTab && (
               <TableCell>
-                {reporte.activo ? (
+                {reporte.prendido ? (
                   <Badge variant="default" className="bg-green-600">
-                    <Check className="h-3 w-3 mr-1" /> Activo
+                    <Check className="h-3 w-3 mr-1" /> Prendido
                   </Badge>
                 ) : (
                   <Badge variant="secondary">
-                    <X className="h-3 w-3 mr-1" /> Inactivo
+                    <X className="h-3 w-3 mr-1" /> Apagado
                   </Badge>
                 )}
               </TableCell>
@@ -489,6 +522,23 @@ export default function ConfiguracionReportes() {
                 ) : (
                   // Botones normales para reportes activos
                   <>
+                    {(canUpdate || isSuperAdmin) && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTogglePrendido(reporte)}
+                              className={reporte.prendido ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"}
+                            >
+                              <Power className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{reporte.prendido ? 'Apagar reporte' : 'Prender reporte'}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                     {(canUpdate || isSuperAdmin) && (
                       <TooltipProvider>
                         <Tooltip>

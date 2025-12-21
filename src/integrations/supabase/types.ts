@@ -5038,6 +5038,7 @@ export type Database = {
           id_submenu: number | null
           nombre: string
           nombre_archivo: string
+          prendido: boolean
           query_sql: string
         }
         Insert: {
@@ -5050,6 +5051,7 @@ export type Database = {
           id_submenu?: number | null
           nombre: string
           nombre_archivo: string
+          prendido?: boolean
           query_sql: string
         }
         Update: {
@@ -5062,6 +5064,7 @@ export type Database = {
           id_submenu?: number | null
           nombre?: string
           nombre_archivo?: string
+          prendido?: boolean
           query_sql?: string
         }
         Relationships: [

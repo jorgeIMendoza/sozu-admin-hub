@@ -30,6 +30,7 @@ interface Reporte {
   filtros_configuracion: FiltroConfig[];
   nombre_archivo: string;
   activo: boolean;
+  prendido: boolean;
 }
 
 export default function ReportesFinanzas() {
@@ -52,9 +53,9 @@ export default function ReportesFinanzas() {
 
       const { data, error } = await supabase
         .from('reportes')
-        .select('id, nombre, descripcion, filtros_configuracion, nombre_archivo, activo')
+        .select('id, nombre, descripcion, filtros_configuracion, nombre_archivo, activo, prendido')
         .eq('id_submenu', submenu.id)
-        .order('activo', { ascending: false }) // Active reports first
+        .eq('activo', true) // Only show non-deleted reports
         .order('nombre');
 
       if (error) throw error;
@@ -76,7 +77,7 @@ export default function ReportesFinanzas() {
   }, [reportes, searchTerm]);
 
   const handleSelectReporte = (reporte: Reporte) => {
-    if (!reporte.activo) return; // Prevent navigation for inactive reports
+    if (!reporte.prendido) return; // Prevent navigation for disabled reports
     navigate(`/admin/reportes/ver/${reporte.id}?return=/admin/reportes/finanzas`);
   };
 
@@ -135,7 +136,7 @@ export default function ReportesFinanzas() {
                         <Card
                           className={cn(
                             "transition-all",
-                            reporte.activo 
+                            reporte.prendido 
                               ? "cursor-pointer hover:shadow-md hover:border-primary/50" 
                               : "opacity-50 cursor-not-allowed"
                           )}
@@ -145,15 +146,15 @@ export default function ReportesFinanzas() {
                             <div className="flex items-start gap-2">
                               <FileSpreadsheet className={cn(
                                 "h-5 w-5 shrink-0 mt-0.5",
-                                reporte.activo ? "text-primary" : "text-muted-foreground"
+                                reporte.prendido ? "text-primary" : "text-muted-foreground"
                               )} />
                               <div className="flex-1 min-w-0">
                                 <h3 className={cn(
                                   "font-medium text-sm line-clamp-2",
-                                  !reporte.activo && "text-muted-foreground"
+                                  !reporte.prendido && "text-muted-foreground"
                                 )}>
                                   {reporte.nombre}
-                                  {!reporte.activo && <span className="ml-2 text-xs">(Inactivo)</span>}
+                                  {!reporte.prendido && <span className="ml-2 text-xs">(Apagado)</span>}
                                 </h3>
                                 {reporte.descripcion && (
                                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -170,8 +171,8 @@ export default function ReportesFinanzas() {
                         {reporte.descripcion && (
                           <p className="text-xs text-muted-foreground mt-1">{reporte.descripcion}</p>
                         )}
-                        {!reporte.activo && (
-                          <p className="text-xs text-orange-500 mt-1">Este reporte está inactivo</p>
+                        {!reporte.prendido && (
+                          <p className="text-xs text-orange-500 mt-1">Este reporte está apagado</p>
                         )}
                       </TooltipContent>
                     </Tooltip>
