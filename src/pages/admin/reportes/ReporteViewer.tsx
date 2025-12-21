@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { cn } from "@/lib/utils";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell } from 'recharts';
 
 interface FiltroConfig {
   nombre: string;
@@ -332,16 +332,28 @@ export default function ReporteViewer() {
     });
   }, [previewData, columns]);
 
-  // Prepare bar chart data for totals
+  // Prepare bar chart data for totals with individual colors
   const barChartData = useMemo(() => {
     if (!summaryData) return [];
 
     const availableOrderedColumns = orderedChartColumns.filter(col => summaryData.numericColumns.includes(col));
 
+    // Color scheme: blues for "durante obra", greens for "a la entrega"
+    const barColorMap: Record<string, string> = {
+      'precio_final': '#6366f1', // indigo
+      'monto_durante_obra': '#3b82f6', // blue
+      'monto_a_la_entrega': '#22c55e', // green
+      'pagado_durante_obra': '#60a5fa', // lighter blue
+      'pagado_a_la_entrega': '#4ade80', // lighter green
+      'restante_durante_obra': '#1d4ed8', // darker blue
+      'restante_a_la_entrega': '#15803d'  // darker green
+    };
+
     return availableOrderedColumns.map(col => ({
       name: col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
       value: summaryData.totals[col] || 0,
-      key: col
+      key: col,
+      fill: barColorMap[col] || '#888'
     }));
   }, [summaryData]);
 
@@ -839,7 +851,7 @@ export default function ReporteViewer() {
               <div className="space-y-8 p-4">
                 {/* Line Chart - Trends per property */}
                 <div className="h-[400px]">
-                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Tendencia por Registro</h4>
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Tendencia por Desglose de Pagos</h4>
                   {chartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -847,8 +859,9 @@ export default function ReporteViewer() {
                         <XAxis 
                           dataKey="name" 
                           tick={false}
-                          axisLine={false}
-                          height={10}
+                          axisLine={true}
+                          tickLine={false}
+                          height={20}
                         />
                         <YAxis 
                           tickFormatter={(value) => formatCurrencyCompact(value)}
@@ -916,8 +929,11 @@ export default function ReporteViewer() {
                         <Bar 
                           dataKey="value" 
                           radius={[4, 4, 0, 0]}
-                          fill="hsl(var(--primary))"
-                        />
+                        >
+                          {barChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
