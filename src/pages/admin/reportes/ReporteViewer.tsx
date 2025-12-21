@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Download, Loader2, FileSpreadsheet, CalendarIcon, Table as TableIcon, BarChart3, RefreshCw, AlertCircle, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -137,6 +137,7 @@ export default function ReporteViewer() {
   const navigate = useNavigate();
   const returnPath = searchParams.get('return') || '/admin/reportes/finanzas';
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { canExport, isSuperAdmin, isLoading: permissionsLoading } = usePagePermissions(returnPath);
   const { registrarExportacion } = useActivityLogger();
 
@@ -208,6 +209,12 @@ export default function ReporteViewer() {
 
   const isLoadingPreview = isLoadingFullData;
   const previewError = fullDataError;
+
+  // Handle refresh - invalidate and refetch queries
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['reporte-full-data', id, filtros] });
+    await refetchPreview();
+  }, [queryClient, id, filtros, refetchPreview]);
 
   // Fetch options for select filters
   const { data: filterOptions = {} } = useQuery({
@@ -643,7 +650,7 @@ export default function ReporteViewer() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => refetchPreview()}
+            onClick={handleRefresh}
             disabled={isLoadingPreview}
             className="gap-2"
           >
