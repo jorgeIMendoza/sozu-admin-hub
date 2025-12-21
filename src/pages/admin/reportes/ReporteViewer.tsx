@@ -1246,7 +1246,7 @@ export default function ReporteViewer() {
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-medium text-muted-foreground">Tendencia por Desglose de Pagos</h4>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Mostrar:</span>
+                      <span className="text-xs text-muted-foreground">Zoom (datos visibles):</span>
                       <Select 
                         value={String(chartRecordLimit)} 
                         onValueChange={(val) => setChartRecordLimit(val === 'all' ? 'all' : Number(val))}
@@ -1259,25 +1259,28 @@ export default function ReporteViewer() {
                           <SelectItem value="20">20</SelectItem>
                           <SelectItem value="50">50</SelectItem>
                           <SelectItem value="100">100</SelectItem>
-                          <SelectItem value="all">Todos ({chartData.length})</SelectItem>
+                          <SelectItem value="all">Todos</SelectItem>
                         </SelectContent>
                       </Select>
+                      <span className="text-xs text-muted-foreground">({chartData.length} total)</span>
                     </div>
                   </div>
                   {chartData.length > 0 ? (
                     (() => {
-                      const displayedData = chartRecordLimit === 'all' ? chartData : chartData.slice(0, chartRecordLimit);
-                      const dataCount = displayedData.length;
-                      const minWidthPerItem = 60; // pixels per data point
-                      const calculatedWidth = Math.max(dataCount * minWidthPerItem, 800);
-                      const needsScroll = calculatedWidth > 800;
+                      // Zoom level determines how many items fit in the visible viewport
+                      const zoomLevel = chartRecordLimit === 'all' ? chartData.length : chartRecordLimit;
+                      const totalDataPoints = chartData.length;
+                      const viewportWidth = 800; // approximate visible width in pixels
+                      const widthPerItem = viewportWidth / zoomLevel;
+                      const totalChartWidth = totalDataPoints * widthPerItem;
+                      const needsScroll = totalChartWidth > viewportWidth;
                       
                       return (
-                        <div className={needsScroll ? "overflow-x-auto" : ""} style={{ height: '100%' }}>
-                          <div style={{ width: needsScroll ? `${calculatedWidth}px` : '100%', height: '100%' }}>
+                        <div className="overflow-x-auto" style={{ height: 'calc(100% - 30px)' }}>
+                          <div style={{ width: needsScroll ? `${totalChartWidth}px` : '100%', height: '100%', minHeight: '320px' }}>
                             <ResponsiveContainer width="100%" height="100%">
                               <LineChart 
-                                data={displayedData} 
+                                data={chartData} 
                                 margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                               >
                                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
