@@ -590,15 +590,37 @@ export default function ReporteViewer() {
 
   // Colors for chart lines - matching column order
   const chartColorMap: Record<string, string> = {
-    'precio_final': 'hsl(var(--primary))',
-    'pagado': '#16a34a',            // green - simple products
-    'restante': '#f97316',          // orange - simple products
-    'monto_durante_obra': '#3b82f6', // blue
-    'monto_a_la_entrega': '#22c55e', // green
-    'pagado_durante_obra': '#60a5fa', // lighter blue
-    'pagado_a_la_entrega': '#4ade80', // lighter green
-    'restante_durante_obra': '#8b5cf6', // purple
-    'restante_a_la_entrega': '#06b6d4'  // cyan
+    'precio_final': '#6b7280',       // gray
+    'pagado': '#16a34a',             // green - simple products
+    'restante': '#dc2626',           // red - simple products
+    'monto_durante_obra': '#1e40af', // dark blue
+    'monto_a_la_entrega': '#3b82f6', // light blue
+    'pagado_durante_obra': '#166534', // dark green
+    'pagado_a_la_entrega': '#22c55e', // light green
+    'restante_durante_obra': '#991b1b', // dark red
+    'restante_a_la_entrega': '#ef4444'  // light red
+  };
+
+  // Stroke width for lines
+  const chartStrokeWidth: Record<string, number> = {
+    'precio_final': 3,
+    'monto_durante_obra': 2,
+    'monto_a_la_entrega': 2,
+    'pagado_durante_obra': 2,
+    'pagado_a_la_entrega': 2,
+    'restante_durante_obra': 2,
+    'restante_a_la_entrega': 2,
+  };
+
+  // Stroke dash array for lines (solid, dashed, dotted)
+  const chartStrokeDash: Record<string, string> = {
+    'precio_final': '0',              // solid
+    'monto_durante_obra': '0',        // solid
+    'monto_a_la_entrega': '0',        // solid
+    'pagado_durante_obra': '8 4',     // dashed
+    'pagado_a_la_entrega': '8 4',     // dashed
+    'restante_durante_obra': '2 2',   // dotted
+    'restante_a_la_entrega': '2 2',   // dotted
   };
 
   const handleFilterChange = (filterName: string, value: string) => {
@@ -1283,7 +1305,8 @@ export default function ReporteViewer() {
                             type="monotone"
                             dataKey={col} 
                             stroke={chartColorMap[col] || '#888'} 
-                            strokeWidth={2}
+                            strokeWidth={chartStrokeWidth[col] || 2}
+                            strokeDasharray={chartStrokeDash[col] || '0'}
                             dot={false}
                             name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           />
@@ -1298,7 +1321,7 @@ export default function ReporteViewer() {
                 </div>
 
                 {/* Bar Chart - Totals */}
-                <div className="h-[350px] mt-8">
+                <div className="h-[350px] mt-16">
                   <h4 className="text-sm font-medium mb-2 text-muted-foreground">Totales por Desglose de Pagos</h4>
                   {barChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
