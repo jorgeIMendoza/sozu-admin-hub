@@ -143,6 +143,7 @@ export default function ReporteViewer() {
 
   const [filtros, setFiltros] = useState<Record<string, string>>({});
   const [isExporting, setIsExporting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
   const [chartRecordLimit, setChartRecordLimit] = useState<number | 'all'>(50);
   const [summaryOpen, setSummaryOpen] = useState(true);
@@ -212,13 +213,16 @@ export default function ReporteViewer() {
 
   // Handle refresh - invalidate and refetch all report-related queries
   const handleRefresh = useCallback(async () => {
-    // Invalidate all queries related to this report
-    await queryClient.invalidateQueries({ queryKey: ['reporte', id] });
-    await queryClient.invalidateQueries({ queryKey: ['reporte-full-data'] });
-    await queryClient.invalidateQueries({ queryKey: ['filter-options-viewer'] });
-    // Force refetch
-    await refetchPreview();
-  }, [queryClient, id, refetchPreview]);
+    setIsRefreshing(true);
+    try {
+      // Remove queries from cache completely
+      queryClient.removeQueries({ queryKey: ['reporte-full-data', id, filtros] });
+      // Refetch fresh data
+      await refetchPreview();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient, id, filtros, refetchPreview]);
 
   // Fetch options for select filters
   const { data: filterOptions = {} } = useQuery({
@@ -687,11 +691,11 @@ export default function ReporteViewer() {
           <Button
             variant="outline"
             onClick={handleRefresh}
-            disabled={isLoadingPreview}
+            disabled={isRefreshing || isLoadingPreview}
             className="gap-2"
           >
-            <RefreshCw className={cn("h-4 w-4", isLoadingPreview && "animate-spin")} />
-            Actualizar
+            <RefreshCw className={cn("h-4 w-4", (isRefreshing || isLoadingPreview) && "animate-spin")} />
+            {isRefreshing ? 'Actualizando...' : 'Actualizar'}
           </Button>
           {(canExport || isSuperAdmin) && (
             <Button
@@ -1006,6 +1010,7 @@ export default function ReporteViewer() {
                           tickFormatter={(value) => formatCurrencyCompact(value)}
                           className="fill-muted-foreground"
                           width={100}
+                          domain={[0, 'auto']}
                         />
                         <RechartsTooltip 
                           formatter={(value: number) => formatCurrencyCompact(value)}
@@ -1062,6 +1067,7 @@ export default function ReporteViewer() {
                           tickFormatter={(value) => formatCurrencyCompact(value)}
                           className="fill-muted-foreground"
                           width={100}
+                          domain={[0, 'auto']}
                         />
                         <RechartsTooltip 
                           formatter={(value: number) => formatCurrencyCompact(value)}
