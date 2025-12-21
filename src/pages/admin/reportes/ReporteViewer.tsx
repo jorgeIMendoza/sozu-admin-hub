@@ -1265,54 +1265,68 @@ export default function ReporteViewer() {
                     </div>
                   </div>
                   {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart 
-                        data={chartRecordLimit === 'all' ? chartData : chartData.slice(0, chartRecordLimit)} 
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis 
-                          dataKey="name" 
-                          tick={false}
-                          axisLine={true}
-                          tickLine={false}
-                          height={20}
-                        />
-                        <YAxis 
-                          tickFormatter={(value) => formatCurrencyCompact(value)}
-                          className="fill-muted-foreground"
-                          width={100}
-                          domain={[0, 'auto']}
-                        />
-                        <RechartsTooltip 
-                          formatter={(value: number) => formatCurrencyCompact(value)}
-                          labelFormatter={(label, payload) => {
-                            if (payload && payload.length > 0 && payload[0].payload) {
-                              return payload[0].payload.fullName || label;
-                            }
-                            return label;
-                          }}
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                        {orderedChartColumns.filter(col => columns.includes(col)).map((col) => (
-                          <Line 
-                            key={col} 
-                            type="monotone"
-                            dataKey={col} 
-                            stroke={chartColorMap[col] || '#888'} 
-                            strokeWidth={chartStrokeWidth[col] || 2}
-                            strokeDasharray={chartStrokeDash[col] || '0'}
-                            dot={false}
-                            name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          />
-                        ))}
-                      </LineChart>
-                    </ResponsiveContainer>
+                    (() => {
+                      const displayedData = chartRecordLimit === 'all' ? chartData : chartData.slice(0, chartRecordLimit);
+                      const dataCount = displayedData.length;
+                      const minWidthPerItem = 60; // pixels per data point
+                      const calculatedWidth = Math.max(dataCount * minWidthPerItem, 800);
+                      const needsScroll = calculatedWidth > 800;
+                      
+                      return (
+                        <div className={needsScroll ? "overflow-x-auto" : ""} style={{ height: '100%' }}>
+                          <div style={{ width: needsScroll ? `${calculatedWidth}px` : '100%', height: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart 
+                                data={displayedData} 
+                                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                <XAxis 
+                                  dataKey="name" 
+                                  tick={false}
+                                  axisLine={true}
+                                  tickLine={false}
+                                  height={20}
+                                />
+                                <YAxis 
+                                  tickFormatter={(value) => formatCurrencyCompact(value)}
+                                  className="fill-muted-foreground"
+                                  width={100}
+                                  domain={[0, 'auto']}
+                                />
+                                <RechartsTooltip 
+                                  formatter={(value: number) => formatCurrencyCompact(value)}
+                                  labelFormatter={(label, payload) => {
+                                    if (payload && payload.length > 0 && payload[0].payload) {
+                                      return payload[0].payload.fullName || label;
+                                    }
+                                    return label;
+                                  }}
+                                  contentStyle={{ 
+                                    backgroundColor: 'hsl(var(--background))', 
+                                    border: '1px solid hsl(var(--border))',
+                                    borderRadius: '8px'
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                                {orderedChartColumns.filter(col => columns.includes(col)).map((col) => (
+                                  <Line 
+                                    key={col} 
+                                    type="monotone"
+                                    dataKey={col} 
+                                    stroke={chartColorMap[col] || '#888'} 
+                                    strokeWidth={chartStrokeWidth[col] || 2}
+                                    strokeDasharray={chartStrokeDash[col] || '0'}
+                                    dot={false}
+                                    name={col.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      );
+                    })()
                   ) : (
                     <div className="flex items-center justify-center h-full">
                       <p className="text-muted-foreground">No hay datos numéricos para graficar</p>
@@ -1321,7 +1335,7 @@ export default function ReporteViewer() {
                 </div>
 
                 {/* Bar Chart - Totals */}
-                <div className="h-[350px] mt-16">
+                <div className="h-[350px] mt-24">
                   <h4 className="text-sm font-medium mb-2 text-muted-foreground">Totales por Desglose de Pagos</h4>
                   {barChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
