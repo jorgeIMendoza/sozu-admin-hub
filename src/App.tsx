@@ -66,6 +66,7 @@ const RastreoPagosSTP = lazy(() => import("./pages/admin/RastreoPagosSTP"));
 const ConfiguracionReportes = lazy(() => import("./pages/admin/ConfiguracionReportes"));
 const ReportesInventarios = lazy(() => import("./pages/admin/reportes/Inventarios"));
 const ReportesFinanzas = lazy(() => import("./pages/admin/reportes/Finanzas"));
+const ReporteViewer = lazy(() => import("./pages/admin/reportes/ReporteViewer"));
 
 const queryClient = new QueryClient();
 
@@ -152,6 +153,7 @@ const App = () => (
                   <Route path="configuracion-reportes" element={<ConfiguracionReportes />} />
                   <Route path="reportes/inventarios" element={<ReportesInventarios />} />
                   <Route path="reportes/finanzas" element={<ReportesFinanzas />} />
+                  <Route path="reportes/ver/:id" element={<ReporteViewer />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
