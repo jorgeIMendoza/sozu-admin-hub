@@ -191,8 +191,20 @@ export default function ConfiguracionReportes() {
     try {
       // Limpiar los placeholders de filtros para la validación
       let cleanQuery = formData.query_sql;
-      // Remover placeholders como {{AND id = :id_filtro}}
+      // Remover bloques completos con placeholders como {{AND id = :id_filtro}}
       cleanQuery = cleanQuery.replace(/\{\{[^}]+\}\}/g, '');
+      // Reemplazar placeholders sueltos :nombre_filtro con valores de prueba
+      // Para que el query sea sintácticamente válido durante la validación
+      cleanQuery = cleanQuery.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, '1');
+      // Limpiar posibles comas o AND/OR sobrantes por placeholders removidos
+      cleanQuery = cleanQuery.replace(/,\s*,/g, ',');
+      cleanQuery = cleanQuery.replace(/WHERE\s+AND/gi, 'WHERE');
+      cleanQuery = cleanQuery.replace(/WHERE\s+OR/gi, 'WHERE');
+      cleanQuery = cleanQuery.replace(/AND\s+AND/gi, 'AND');
+      cleanQuery = cleanQuery.replace(/OR\s+OR/gi, 'OR');
+      cleanQuery = cleanQuery.replace(/WHERE\s*$/gi, '');
+      cleanQuery = cleanQuery.replace(/AND\s*$/gi, '');
+      cleanQuery = cleanQuery.replace(/OR\s*$/gi, '');
       // Agregar LIMIT 1 para validación rápida
       if (!cleanQuery.toLowerCase().includes('limit')) {
         cleanQuery = cleanQuery.trim().replace(/;?\s*$/, '') + ' LIMIT 1';
