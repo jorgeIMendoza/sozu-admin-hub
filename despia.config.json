@@ -1,0 +1,56 @@
+{
+  "appName": "SOZU Admin",
+  "bundleId": "com.sozu.admin",
+  "version": "1.0.0",
+  "buildNumber": "1",
+  "description": "Panel de administración para gestión de proyectos inmobiliarios SOZU. Gestiona propiedades, compradores, pagos y reportes en tiempo real.",
+  "author": "SOZU",
+  "authorEmail": "contacto@sozu.mx",
+  "websiteUrl": "https://ab9b7437-5cc9-433a-a80b-a84179ac6c3e.lovableproject.com",
+  "privacyPolicyUrl": "https://sozu.mx/privacy",
+  "termsOfServiceUrl": "https://sozu.mx/terms",
+  "icons": {
+    "ios": "despia/app-icon-1024.png",
+    "android": "despia/app-icon-1024.png",
+    "favicon": "favicon-light.png"
+  },
+  "splash": {
+    "image": "despia/splash-screen.gif",
+    "backgroundColor": "#ffffff",
+    "darkBackgroundColor": "#0a0a0a",
+    "showSpinner": false,
+    "spinnerColor": "#2e9a6d"
+  },
+  "theme": {
+    "primaryColor": "#2e9a6d",
+    "statusBarStyle": "auto",
+    "navigationBarColor": "#ffffff",
+    "darkNavigationBarColor": "#0a0a0a"
+  },
+  "capabilities": {
+    "pushNotifications": true,
+    "backgroundFetch": true,
+    "camera": false,
+    "photoLibrary": false,
+    "location": false,
+    "biometrics": false
+  },
+  "ios": {
+    "minimumVersion": "14.0",
+    "supportedOrientations": ["portrait", "landscape"],
+    "requiresFullScreen": false,
+    "statusBarHidden": false,
+    "appStoreCategory": "Business",
+    "appStoreSubcategory": "Productivity"
+  },
+  "android": {
+    "minimumSdkVersion": 24,
+    "targetSdkVersion": 34,
+    "supportedOrientations": ["portrait", "landscape"],
+    "permissions": []
+  },
+  "build": {
+    "sourceDirectory": "dist",
+    "outputDirectory": "native-builds"
+  }
+}

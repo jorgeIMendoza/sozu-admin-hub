@@ -6,7 +6,9 @@
     <link rel="icon" type="image/png" href="/favicon-light.png" media="(prefers-color-scheme: light)">
     <link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)">
     <link rel="icon" type="image/png" href="/favicon-light.png">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Viewport optimizado para safe areas (notch iPhone, Android cutouts) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     
     <!-- Preconnect to external origins -->
     <link rel="preconnect" href="https://tzmhgfjmddkfyffkkmto.supabase.co" crossorigin />
@@ -15,15 +17,35 @@
     <!-- Optimize CSS loading -->
     <link rel="preload" href="/src/index.css" as="style" fetchpriority="high" />
     
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#ffffff" />
+    <!-- PWA & Native App Meta Tags -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SOZU Admin" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="SOZU Admin" />
+    <meta name="msapplication-TileColor" content="#2e9a6d" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    
+    <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" href="/app-icon.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/app-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/app-icon.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/app-icon.png" />
+    
+    <!-- App Store Smart Banner (descomentar cuando tengas el ID de App Store) -->
+    <!-- <meta name="apple-itunes-app" content="app-id=YOUR_APP_STORE_ID, app-argument=sozu://"> -->
+    
+    <!-- Despia Native App Detection -->
+    <meta name="despia-app" content="com.sozu.admin" />
+    <meta name="despia-version" content="1.0.0" />
+    
+    <!-- Prevent automatic phone/email detection -->
+    <meta name="format-detection" content="telephone=no, email=no, address=no" />
     
     <title>SOZU Admin - Panel de Administración</title>
-    <meta name="description" content="Panel de administración para gestión de proyectos inmobiliarios SOZU" />
+    <meta name="description" content="Panel de administración para gestión de proyectos inmobiliarios SOZU. Gestiona propiedades, compradores, pagos y reportes en tiempo real." />
     <meta name="author" content="SOZU Admin" />
 
     <meta property="og:title" content="SOZU Admin - Panel de Administración" />
