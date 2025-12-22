@@ -76,7 +76,79 @@ export function useProjectAccess() {
     queryFn: async () => {
       if (!userPersonaId) return null;
       
-      // Get the persona to find which entity they represent
+      // For "Representante de empresa dueña" role, we need to find:
+      // 1. The commercial rep entity (entidades_relacionadas tipo 21) for this user's persona
+      // 2. The legal entities that have this commercial rep assigned (personas.id_entidad_relacionada_rep_com)
+      // 3. The owner entities (tipo 4, 15, 17) for those legal entities
+      
+      if (isRepresentanteEmpresaDuena) {
+        // Step 1: Find the commercial rep entity for this user's persona
+        const { data: comercialEntity, error: comError } = await supabase
+          .from('entidades_relacionadas')
+          .select('id')
+          .eq('id_persona', userPersonaId)
+          .eq('id_tipo_entidad', 21) // Representante Comercial
+          .eq('activo', true)
+          .maybeSingle();
+        
+        if (comError || !comercialEntity) {
+          // Fallback: try the old method (user's persona has rep_leg or rep_com directly)
+          const { data: persona, error } = await supabase
+            .from('personas')
+            .select('id_entidad_relacionada_rep_leg, id_entidad_relacionada_rep_com')
+            .eq('id', userPersonaId)
+            .single();
+          
+          if (error) throw error;
+          
+          const entityId = persona?.id_entidad_relacionada_rep_leg || persona?.id_entidad_relacionada_rep_com;
+          if (!entityId) return null;
+          
+          // Get entity relations for this entity
+          const { data: entityRelations, error: relError } = await supabase
+            .from('entidades_relacionadas')
+            .select('id, id_proyecto, id_tipo_entidad, id_persona')
+            .eq('id_persona', entityId)
+            .eq('activo', true);
+          
+          if (relError) throw relError;
+          
+          return {
+            entityId,
+            entityRelations: entityRelations || []
+          };
+        }
+        
+        // Step 2: Find legal entities that have this commercial rep assigned
+        const { data: legalEntities, error: legalError } = await supabase
+          .from('personas')
+          .select('id, nombre_legal')
+          .eq('id_entidad_relacionada_rep_com', comercialEntity.id)
+          .eq('activo', true);
+        
+        if (legalError) throw legalError;
+        if (!legalEntities || legalEntities.length === 0) return null;
+        
+        const legalEntityIds = legalEntities.map(le => le.id);
+        
+        // Step 3: Get owner entities for these legal entities
+        const { data: ownerEntities, error: ownerError } = await supabase
+          .from('entidades_relacionadas')
+          .select('id, id_proyecto, id_tipo_entidad, id_persona')
+          .in('id_persona', legalEntityIds)
+          .in('id_tipo_entidad', [TIPO_DUENO_VENDEDOR, TIPO_APORTANTE, TIPO_DUENO])
+          .eq('activo', true);
+        
+        if (ownerError) throw ownerError;
+        
+        return {
+          entityId: legalEntityIds[0], // Primary entity
+          entityRelations: ownerEntities || [],
+          legalEntityIds
+        };
+      }
+      
+      // For Desarrollador role, use the old method
       const { data: persona, error } = await supabase
         .from('personas')
         .select('id_entidad_relacionada_rep_leg, id_entidad_relacionada_rep_com')
@@ -85,13 +157,11 @@ export function useProjectAccess() {
       
       if (error) throw error;
       
-      // The user represents an entity via rep_leg or rep_com
       const entityId = persona?.id_entidad_relacionada_rep_leg || persona?.id_entidad_relacionada_rep_com;
       
       if (!entityId) return null;
       
       // Get all entidades_relacionadas entries for this entity
-      // This gives us the entity's roles in different projects
       const { data: entityRelations, error: relError } = await supabase
         .from('entidades_relacionadas')
         .select('id, id_proyecto, id_tipo_entidad, id_persona')
