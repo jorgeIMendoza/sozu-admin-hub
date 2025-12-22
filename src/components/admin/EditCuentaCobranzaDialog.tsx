@@ -4460,20 +4460,24 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
                       {/* Usuario seleccionado + Porcentaje + Monto en la misma fila */}
                       {selectedUsuario && (
-                        <div className="grid grid-cols-3 gap-4 items-end">
-                          <div className="flex items-center justify-between p-2 bg-accent/50 rounded-md h-10">
-                            <p className="text-sm font-medium truncate">{selectedUsuario.nombre || selectedUsuario.email}</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2"
-                              onClick={() => {
-                                setSelectedUsuario(null);
-                                setSearchUsuario('');
-                              }}
-                            >
-                              Cambiar
-                            </Button>
+                        <div className="grid grid-cols-3 gap-4 items-start">
+                          <div className="space-y-1">
+                            <Label className="text-xs invisible">Usuario</Label>
+                            <div className="flex items-center justify-between p-2 bg-accent/50 rounded-md h-10">
+                              <p className="text-sm font-medium truncate">{selectedUsuario.nombre || selectedUsuario.email}</p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2"
+                                onClick={() => {
+                                  setSelectedUsuario(null);
+                                  setSearchUsuario('');
+                                }}
+                              >
+                                Cambiar
+                              </Button>
+                            </div>
+                            <p className="text-xs text-transparent">-</p>
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Porcentaje de Comisión (%)</Label>
