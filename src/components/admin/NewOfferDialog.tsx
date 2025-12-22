@@ -1173,9 +1173,9 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Mode Selection - Manual only for Agente Interno and Super Administrador */}
+            {/* Mode Selection - Manual available for all roles except Agente Inmobiliario */}
             {(() => {
-              const canUseManualMode = profile?.rol_nombre === 'Agente Interno' || profile?.rol_nombre === 'Super Administrador';
+              const canUseManualMode = profile?.rol_nombre !== 'Agente Inmobiliario';
               return (
                 <FormField
                   control={form.control}

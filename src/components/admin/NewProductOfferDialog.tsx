@@ -743,7 +743,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
                                     <Label htmlFor="prod-precargada">Precargada</Label>
                                   </div>
                                 )}
-                                {(profile?.rol_nombre === 'Super Administrador' || profile?.rol_nombre === 'Agente Interno') && (
+                                {profile?.rol_nombre !== 'Agente Inmobiliario' && (
                                   <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="manual" id="prod-manual" />
                                     <Label htmlFor="prod-manual">Manual</Label>
