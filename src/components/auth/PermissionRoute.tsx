@@ -56,6 +56,7 @@ function getBasePath(fullPath: string): string {
     /^(\/admin\/cuentas-cobranza)\/\d+\/detalle$/,
     /^(\/admin\/cuentas-mantenimiento)\/\d+\/detalle$/,
     /^(\/admin\/usuarios)\/nuevo$/,
+    /^(\/admin\/reportes\/ver)\/\d+$/,
   ];
   
   for (const pattern of nestedPatterns) {

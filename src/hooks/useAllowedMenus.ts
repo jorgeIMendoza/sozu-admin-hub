@@ -118,6 +118,17 @@ export function useAllowedMenus() {
     if (isSuperAdmin || allowedPaths.has('*')) {
       return true;
     }
+    
+    // Caso especial: /admin/reportes/ver requiere acceso a cualquier submenu de reportes
+    if (path === '/admin/reportes/ver' || path.startsWith('/admin/reportes/ver/')) {
+      for (const allowedPath of allowedPaths) {
+        if (allowedPath.includes('/reportes/') || allowedPath.includes('/configuracion-reportes')) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
     return allowedPaths.has(path);
   };
 
