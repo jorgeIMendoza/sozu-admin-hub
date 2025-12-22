@@ -158,7 +158,8 @@ function UsersTable({
                         userName={usuario.nombre || 'Sin nombre'}
                         userEmail={usuario.email}
                         userRole={usuario.roles?.nombre}
-                        userRoleId={usuario.rol_id}
+                        userRoleId={usuario.rol_id ?? undefined}
+                        userPersonaId={usuario.id_persona ?? undefined}
                       />
                     )}
                     {!isCurrentUser && (

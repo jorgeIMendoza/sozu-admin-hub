@@ -20,6 +20,7 @@ interface UserProjectAccessDialogProps {
   userEmail: string;
   userRole?: string;
   userRoleId?: number;
+  userPersonaId?: number;
 }
 
 interface Proyecto {
@@ -47,7 +48,7 @@ interface EntidadDueno {
   } | null;
 }
 
-export function UserProjectAccessDialog({ userId, userName, userEmail, userRole, userRoleId }: UserProjectAccessDialogProps) {
+export function UserProjectAccessDialog({ userId, userName, userEmail, userRole, userRoleId, userPersonaId }: UserProjectAccessDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
   // Map: projectId -> ownerId (null means all owners)
@@ -78,6 +79,58 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
 
   const hasUnrestrictedProjectAccess = roleConfig?.ver_todos_proyectos_propiedades || false;
   const hasVerTodosDuenos = roleConfig?.ver_todos_duenos ?? true; // Default to true if not set
+
+  // Fetch the legal entity associated with this user (if they're a commercial representative)
+  // This finds legal entities that have this user's persona as their commercial representative
+  const { data: linkedLegalEntity, isLoading: loadingLinkedEntity } = useQuery({
+    queryKey: ['user-linked-legal-entity', userPersonaId],
+    queryFn: async () => {
+      if (!userPersonaId) return null;
+      
+      // First, find the entidad_relacionada for this persona as commercial rep (tipo 21)
+      const { data: comercialEntity, error: comercialError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id')
+        .eq('id_persona', userPersonaId)
+        .eq('id_tipo_entidad', 21) // Representante Comercial
+        .eq('activo', true)
+        .maybeSingle();
+      
+      if (comercialError || !comercialEntity) return null;
+      
+      // Then, find legal entities (personas) that have this commercial rep assigned
+      const { data: legalEntityPersona, error: legalError } = await supabase
+        .from('personas')
+        .select('id, nombre_legal')
+        .eq('id_entidad_relacionada_rep_com', comercialEntity.id)
+        .eq('activo', true)
+        .maybeSingle();
+      
+      if (legalError || !legalEntityPersona) return null;
+      
+      // Finally, get the entidades_relacionadas (Dueño) entries for this legal entity
+      const { data: ownerEntities, error: ownerError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id, id_proyecto')
+        .eq('id_persona', legalEntityPersona.id)
+        .in('id_tipo_entidad', [4, 15]) // Dueño Vendedor, Aportante
+        .eq('activo', true);
+      
+      if (ownerError) return null;
+      
+      return {
+        personaId: legalEntityPersona.id,
+        nombreLegal: legalEntityPersona.nombre_legal,
+        ownerEntityIds: ownerEntities?.map(e => e.id) || [],
+        // Map project to owner entity for auto-selection
+        projectToOwnerMap: ownerEntities?.reduce((acc, e) => {
+          if (e.id_proyecto) acc[e.id_proyecto] = e.id;
+          return acc;
+        }, {} as Record<number, number>) || {}
+      };
+    },
+    enabled: open && !!userPersonaId && !hasVerTodosDuenos,
+  });
 
   // Fetch all active projects (paginating to get all)
   const { data: proyectos, isLoading: loadingProyectos } = useQuery({
@@ -152,11 +205,18 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
     enabled: open && !hasVerTodosDuenos && selectedProjects.length > 0,
   });
 
-  // Group owners by project
+  // Group owners by project - filter by linked legal entity if user is a commercial rep
   const ownersByProject = useMemo(() => {
     const map: Record<number, EntidadDueno[]> = {};
     if (duenosData) {
       for (const dueno of duenosData) {
+        // If user has a linked legal entity, only show that entity's owners
+        if (linkedLegalEntity && linkedLegalEntity.ownerEntityIds.length > 0) {
+          if (!linkedLegalEntity.ownerEntityIds.includes(dueno.id)) {
+            continue; // Skip owners not linked to the user's legal entity
+          }
+        }
+        
         if (!map[dueno.id_proyecto]) {
           map[dueno.id_proyecto] = [];
         }
@@ -164,7 +224,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
       }
     }
     return map;
-  }, [duenosData]);
+  }, [duenosData, linkedLegalEntity]);
 
   // Update selected projects and owner selections when data loads
   useEffect(() => {
@@ -177,6 +237,25 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
       setOwnerSelections(selections);
     }
   }, [userAccess]);
+
+  // Auto-select the linked legal entity's owner for each project when user is a commercial rep
+  useEffect(() => {
+    if (linkedLegalEntity && linkedLegalEntity.projectToOwnerMap && selectedProjects.length > 0) {
+      setOwnerSelections(prev => {
+        const updated = { ...prev };
+        for (const projectId of selectedProjects) {
+          // If no owner is selected yet and there's a linked owner for this project, auto-select it
+          if (updated[projectId] === undefined || updated[projectId] === null) {
+            const linkedOwnerId = linkedLegalEntity.projectToOwnerMap[projectId];
+            if (linkedOwnerId) {
+              updated[projectId] = linkedOwnerId;
+            }
+          }
+        }
+        return updated;
+      });
+    }
+  }, [linkedLegalEntity, selectedProjects]);
 
   // Reset search and filter when dialog closes
   useEffect(() => {
@@ -306,7 +385,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
     saveAccessMutation.mutate(selectedProjects);
   };
 
-  const isLoading = loadingProyectos || loadingAccess || loadingRoleConfig;
+  const isLoading = loadingProyectos || loadingAccess || loadingRoleConfig || loadingLinkedEntity;
 
   // Don't show button for Super Admins
   if (isSuperAdmin) {
@@ -369,8 +448,17 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
               <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
                 <Users className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
-                  Este rol requiere seleccionar un dueño específico para cada proyecto. 
-                  Si no se selecciona, el usuario verá todos los dueños del proyecto.
+                  {linkedLegalEntity ? (
+                    <>
+                      Este usuario está vinculado a <strong>{linkedLegalEntity.nombreLegal}</strong>. 
+                      Solo podrá ver datos de esta entidad en los proyectos asignados.
+                    </>
+                  ) : (
+                    <>
+                      Este rol requiere seleccionar un dueño específico para cada proyecto. 
+                      Si no se selecciona, el usuario verá todos los dueños del proyecto.
+                    </>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
@@ -439,32 +527,43 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
                       {/* Owner selector - shown when role doesn't have ver_todos_duenos */}
                       {showOwnerSelector && (
                         <div className="ml-6 mt-2">
-                          <Select
-                            value={ownerSelections[proyecto.id]?.toString() ?? 'all'}
-                            onValueChange={(value) => handleOwnerChange(proyecto.id, value)}
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <Users className="h-3 w-3 mr-1" />
-                              <SelectValue placeholder="Seleccionar dueño" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">
-                                <span className="flex items-center gap-1">
-                                  Todos los dueños
-                                </span>
-                              </SelectItem>
-                              {projectOwners.map((dueno) => (
-                                <SelectItem key={dueno.id} value={dueno.id.toString()}>
-                                  {dueno.persona?.nombre_legal || `Entidad ${dueno.id}`}
-                                </SelectItem>
-                              ))}
-                              {projectOwners.length === 0 && !loadingDuenos && (
-                                <SelectItem value="all" disabled>
-                                  No hay dueños en este proyecto
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
+                          {/* If user has linked legal entity and only one owner, show as readonly */}
+                          {linkedLegalEntity && projectOwners.length === 1 ? (
+                            <div className="h-8 px-3 flex items-center text-xs bg-muted rounded-md border">
+                              <Users className="h-3 w-3 mr-2 text-muted-foreground" />
+                              <span>{projectOwners[0]?.persona?.nombre_legal || 'Entidad vinculada'}</span>
+                            </div>
+                          ) : (
+                            <Select
+                              value={ownerSelections[proyecto.id]?.toString() ?? 'all'}
+                              onValueChange={(value) => handleOwnerChange(proyecto.id, value)}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <Users className="h-3 w-3 mr-1" />
+                                <SelectValue placeholder="Seleccionar dueño" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {/* Only show "Todos los dueños" option if there's no linked legal entity */}
+                                {!linkedLegalEntity && (
+                                  <SelectItem value="all">
+                                    <span className="flex items-center gap-1">
+                                      Todos los dueños
+                                    </span>
+                                  </SelectItem>
+                                )}
+                                {projectOwners.map((dueno) => (
+                                  <SelectItem key={dueno.id} value={dueno.id.toString()}>
+                                    {dueno.persona?.nombre_legal || `Entidad ${dueno.id}`}
+                                  </SelectItem>
+                                ))}
+                                {projectOwners.length === 0 && !loadingDuenos && (
+                                  <SelectItem value="all" disabled>
+                                    No hay dueños en este proyecto
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          )}
                         </div>
                       )}
                     </div>
