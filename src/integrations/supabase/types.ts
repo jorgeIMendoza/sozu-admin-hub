@@ -4966,6 +4966,7 @@ export type Database = {
           activo: boolean | null
           fecha_actualizacion: string | null
           fecha_creacion: string | null
+          id_entidad_relacionada_dueno: number | null
           proyecto_id: number
           usuario_id: string
         }
@@ -4973,6 +4974,7 @@ export type Database = {
           activo?: boolean | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
+          id_entidad_relacionada_dueno?: number | null
           proyecto_id: number
           usuario_id: string
         }
@@ -4980,6 +4982,7 @@ export type Database = {
           activo?: boolean | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
+          id_entidad_relacionada_dueno?: number | null
           proyecto_id?: number
           usuario_id?: string
         }
@@ -4990,6 +4993,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "usuarios"
             referencedColumns: ["email"]
+          },
+          {
+            foreignKeyName: "proyectos_acceso_id_entidad_relacionada_dueno_fkey"
+            columns: ["id_entidad_relacionada_dueno"]
+            isOneToOne: false
+            referencedRelation: "entidades_relacionadas"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "proyectos_acceso_proyecto_id_fkey"
@@ -5198,6 +5208,7 @@ export type Database = {
           id: number
           nombre: string
           ver_filtros_avanzados_eliminados: boolean
+          ver_todos_duenos: boolean
           ver_todos_prospectos_compradores: boolean | null
           ver_todos_proyectos_propiedades: boolean | null
         }
@@ -5208,6 +5219,7 @@ export type Database = {
           id?: never
           nombre: string
           ver_filtros_avanzados_eliminados?: boolean
+          ver_todos_duenos?: boolean
           ver_todos_prospectos_compradores?: boolean | null
           ver_todos_proyectos_propiedades?: boolean | null
         }
@@ -5218,6 +5230,7 @@ export type Database = {
           id?: never
           nombre?: string
           ver_filtros_avanzados_eliminados?: boolean
+          ver_todos_duenos?: boolean
           ver_todos_prospectos_compradores?: boolean | null
           ver_todos_proyectos_propiedades?: boolean | null
         }
