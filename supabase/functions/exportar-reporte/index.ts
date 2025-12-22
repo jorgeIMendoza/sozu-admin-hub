@@ -35,6 +35,15 @@ function generateCSV(data: Record<string, unknown>[]): string {
   return csvRows.join('\n');
 }
 
+// Remove SQL comments from query
+function removeComments(query: string): string {
+  // Remove single-line comments (-- ...) but preserve newlines
+  let cleaned = query.replace(/--[^\n\r]*/g, '');
+  // Remove block comments (/* ... */)
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+  return cleaned;
+}
+
 // Apply filters to query by replacing placeholders
 function applyFiltersToQuery(querySql: string, filtros: Record<string, unknown>): string {
   let processedQuery = querySql;
@@ -63,6 +72,9 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, unknown>)
       }
     }
   }
+
+  // Remove SQL comments BEFORE collapsing whitespace (to avoid -- comments eating the rest of the line)
+  processedQuery = removeComments(processedQuery);
 
   // Clean up any extra whitespace
   processedQuery = processedQuery.replace(/\s+/g, ' ').trim();
