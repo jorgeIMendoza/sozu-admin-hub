@@ -20,14 +20,12 @@ serve(async (req) => {
     // Get id_proyecto from query params or body
     let idProyecto: number | null = null;
     
-    // Check query params first
     const url = new URL(req.url);
     const idProyectoParam = url.searchParams.get('id_proyecto');
     if (idProyectoParam) {
       idProyecto = parseInt(idProyectoParam, 10);
     }
     
-    // If not in query params, check body (for POST requests)
     if (!idProyecto && req.method === 'POST') {
       try {
         const body = await req.json();
@@ -41,7 +39,7 @@ serve(async (req) => {
 
     console.log('[getProyectosSozu] id_proyecto:', idProyecto);
 
-    // Step 1: Get project IDs from entidades_relacionadas where id_tipo_entidad = 5
+    // Step 1: Get project IDs from entidades_relacionadas where id_tipo_entidad = 5 (Inmobiliaria)
     const { data: entidades, error: entidadesError } = await supabase
       .from('entidades_relacionadas')
       .select('id_proyecto')
@@ -64,7 +62,7 @@ serve(async (req) => {
         proyectoIds = [idProyecto];
       } else {
         console.log('[getProyectosSozu] id_proyecto not found in Sozu projects');
-        return new Response(JSON.stringify([]), {
+        return new Response(JSON.stringify({ proyectos: [] }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -72,18 +70,23 @@ serve(async (req) => {
     
     if (proyectoIds.length === 0) {
       console.log('[getProyectosSozu] No proyectos found with id_tipo_entidad = 5');
-      return new Response(JSON.stringify([]), {
+      return new Response(JSON.stringify({ proyectos: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Step 2: Get proyectos that match the criteria (without status filter)
-    const { data: proyectos, error } = await supabase
+    // Step 2: Get proyectos with all required fields
+    const { data: proyectos, error: proyectosError } = await supabase
       .from('proyectos')
       .select(`
         id, 
         nombre, 
+        descripcion,
         direccion, 
+        latitud,
+        longitud,
+        url_logo,
+        url_imagen_portada,
         fecha_entrega,
         id_estatus_proyecto,
         estatus_proyecto:id_estatus_proyecto (id, nombre)
@@ -91,16 +94,107 @@ serve(async (req) => {
       .eq('activo', true)
       .in('id', proyectoIds);
 
-    if (error) {
-      console.error('[getProyectosSozu] Error fetching proyectos:', error);
-      throw error;
+    if (proyectosError) {
+      console.error('[getProyectosSozu] Error fetching proyectos:', proyectosError);
+      throw proyectosError;
     }
 
-    const result = proyectos || [];
+    // Step 3: Get edificios for all projects
+    const { data: edificios, error: edificiosError } = await supabase
+      .from('edificios')
+      .select('id, id_proyecto, nombre, numero_pisos, fecha_lanzamiento')
+      .eq('activo', true)
+      .in('id_proyecto', proyectoIds);
 
-    console.log(`[getProyectosSozu] Found ${result.length} proyectos`);
+    if (edificiosError) {
+      console.error('[getProyectosSozu] Error fetching edificios:', edificiosError);
+      throw edificiosError;
+    }
 
-    return new Response(JSON.stringify(result), {
+    const edificioIds = edificios?.map(e => e.id) || [];
+
+    // Step 4: Get edificios_modelos for all edificios
+    let edificiosModelos: any[] = [];
+    if (edificioIds.length > 0) {
+      const { data: em, error: emError } = await supabase
+        .from('edificios_modelos')
+        .select('id_edificio, id_modelo')
+        .eq('activo', true)
+        .in('id_edificio', edificioIds);
+
+      if (emError) {
+        console.error('[getProyectosSozu] Error fetching edificios_modelos:', emError);
+        throw emError;
+      }
+      edificiosModelos = em || [];
+    }
+
+    const modeloIds = [...new Set(edificiosModelos.map(em => em.id_modelo).filter(id => id !== null))];
+
+    // Step 5: Get modelos with required fields
+    let modelos: any[] = [];
+    if (modeloIds.length > 0) {
+      const { data: m, error: modelosError } = await supabase
+        .from('modelos')
+        .select('id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano')
+        .eq('activo', true)
+        .in('id', modeloIds);
+
+      if (modelosError) {
+        console.error('[getProyectosSozu] Error fetching modelos:', modelosError);
+        throw modelosError;
+      }
+      modelos = m || [];
+    }
+
+    // Step 6: Build the nested response structure
+    const result = (proyectos || []).map(proyecto => {
+      // Get edificios for this project
+      const proyectoEdificios = (edificios || [])
+        .filter(e => e.id_proyecto === proyecto.id)
+        .map(edificio => {
+          // Get modelo IDs for this edificio
+          const edificioModeloIds = edificiosModelos
+            .filter(em => em.id_edificio === edificio.id)
+            .map(em => em.id_modelo);
+          
+          // Get modelos for this edificio
+          const edificioModelos = modelos.filter(m => edificioModeloIds.includes(m.id));
+          
+          return {
+            id: edificio.id,
+            nombre: edificio.nombre,
+            numero_pisos: edificio.numero_pisos,
+            fecha_lanzamiento: edificio.fecha_lanzamiento,
+            modelos: edificioModelos.map(m => ({
+              id: m.id,
+              nombre: m.nombre,
+              descripcion: m.descripcion,
+              numero_recamaras: m.numero_recamaras,
+              numero_completo_banos: m.numero_completo_banos,
+              numero_medio_bano: m.numero_medio_bano
+            }))
+          };
+        });
+
+      return {
+        id: proyecto.id,
+        nombre: proyecto.nombre,
+        descripcion: proyecto.descripcion,
+        direccion: proyecto.direccion,
+        latitud: proyecto.latitud,
+        longitud: proyecto.longitud,
+        url_logo: proyecto.url_logo,
+        url_imagen_portada: proyecto.url_imagen_portada,
+        fecha_entrega: proyecto.fecha_entrega,
+        estatus_proyecto: proyecto.estatus_proyecto,
+        edificios: proyectoEdificios
+      };
+    });
+
+    console.log(`[getProyectosSozu] Found ${result.length} proyectos with edificios and modelos`);
+
+    return new Response(JSON.stringify({ proyectos: result }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
