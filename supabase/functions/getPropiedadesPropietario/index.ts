@@ -21,9 +21,9 @@ const PERSONA_FIELDS = [
   'direccion_fiscal_num_int',
   'direccion_fiscal_colonia',
   'direccion_fiscal_codigo_postal',
-  'direccion_fiscal_municipio',
-  'direccion_fiscal_estado',
-  'direccion_fiscal_pais',
+  'direccion_fiscal_id_municipio',
+  'direccion_fiscal_id_estado',
+  'direccion_fiscal_id_pais',
   'regimen',
   'uso_cfdi'
 ];
