@@ -175,7 +175,7 @@ export function useProjectAccess() {
         entityRelations: entityRelations || []
       };
     },
-    enabled: !!userPersonaId && hasEntityBasedAccess && !hasUnrestrictedAccess && !isAuthLoading,
+    enabled: !!userPersonaId && hasEntityBasedAccess && !hasUnrestrictedAccess && !isAuthLoading && !isLoadingRoleConfig,
   });
 
   // Get ownership entity IDs (for Representante de empresa dueña)

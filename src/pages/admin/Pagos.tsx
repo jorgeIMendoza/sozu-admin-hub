@@ -26,6 +26,7 @@ import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { EstadoCuentaService } from "@/services/estadoCuentaService";
 import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 interface Comprador {
   nombre_legal: string;
   rfc: string | null;
@@ -165,7 +166,8 @@ export default function Pagos() {
     ownershipEntityIds 
   } = useProjectAccess();
 
-  // Query para obtener estatus de disponibilidad
+  // Page permissions
+  const { canCreate, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
   const { data: estatusDisponibilidad } = useQuery({
     queryKey: ["estatus_disponibilidad"],
     queryFn: async () => {
@@ -1634,18 +1636,20 @@ export default function Pagos() {
             Listado de cuentas de cobranza registradas en el sistema
           </p>
         </div>
-        <div>
-          <input type="file" id="cep-upload" accept=".zip" className="hidden" onChange={handleCepUpload} disabled={uploadingCep} />
-          <Button onClick={() => document.getElementById('cep-upload')?.click()} disabled={uploadingCep}>
-            {uploadingCep ? <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Subiendo...
-              </> : <>
-                <Upload className="mr-2 h-4 w-4" />
-                Subir Cep's
-              </>}
-          </Button>
-        </div>
+        {(canCreate || isSuperAdmin) && (
+          <div>
+            <input type="file" id="cep-upload" accept=".zip" className="hidden" onChange={handleCepUpload} disabled={uploadingCep} />
+            <Button onClick={() => document.getElementById('cep-upload')?.click()} disabled={uploadingCep}>
+              {uploadingCep ? <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Subiendo...
+                </> : <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Subir Cep's
+                </>}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Sección de estadísticas contraíble */}
