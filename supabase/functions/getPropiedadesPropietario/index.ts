@@ -174,10 +174,10 @@ serve(async (req) => {
       throw entidadesError;
     }
 
-    // 7. Fetch ofertas for the properties (propiedades)
+    // 7. Fetch ofertas for the properties (propiedades) - include id_producto to distinguish main vs product offers
     const { data: ofertas, error: ofertasError } = await supabase
       .from('ofertas')
-      .select('id, id_propiedad')
+      .select('id, id_propiedad, id_producto')
       .in('id_propiedad', propiedadIds)
       .eq('activo', true);
 
@@ -215,14 +215,14 @@ serve(async (req) => {
     }
 
     // 10. Fetch ofertas de productos (muebles) asociadas a las propiedades
-    // Primero obtenemos las ofertas de productos que tienen categoria muebles
+    // Especificamos el FK explícito para evitar ambigüedad
     const { data: ofertasProductoMuebles, error: ofertasProductoError } = await supabase
       .from('ofertas')
       .select(`
         id,
         id_propiedad,
         id_producto,
-        productos_servicios!inner (
+        productos_servicios!fk_ofertas_producto!inner (
           id,
           id_categoria
         )
@@ -290,13 +290,15 @@ serve(async (req) => {
     const entidadMap = new Map(entidadesRelacionadas?.map(er => [er.id, er]) || []);
     const personasMap = new Map(personas?.map(p => [p.id, p]) || []);
 
-    // Create oferta -> propiedad mapping
+    // Create oferta -> propiedad mapping and oferta -> id_producto mapping
     const ofertaPropiedadMap = new Map(ofertas?.map(o => [o.id, o.id_propiedad]) || []);
+    const ofertaProductoMap = new Map(ofertas?.map(o => [o.id, o.id_producto]) || []);
     
     // Create cuenta -> oferta mapping
     const cuentaOfertaMap = new Map(cuentasCobranza?.map(c => [c.id, c.id_oferta]) || []);
 
-    // Group compradores by propiedad
+    // Group compradores by propiedad, deduplicating by id_persona
+    // Prefer the main property account (id_producto IS NULL) over product accounts
     const compradoresByPropiedad = new Map<number, any[]>();
     for (const comp of compradores || []) {
       const ofertaId = cuentaOfertaMap.get(comp.id_cuenta_cobranza);
@@ -306,7 +308,25 @@ serve(async (req) => {
           if (!compradoresByPropiedad.has(propiedadId)) {
             compradoresByPropiedad.set(propiedadId, []);
           }
-          compradoresByPropiedad.get(propiedadId)!.push(comp);
+          
+          const existingCompradores = compradoresByPropiedad.get(propiedadId)!;
+          const existingIndex = existingCompradores.findIndex(c => c.id_persona === comp.id_persona);
+          
+          if (existingIndex === -1) {
+            // New persona - add it with oferta info
+            existingCompradores.push({ ...comp, _ofertaId: ofertaId });
+          } else {
+            // Persona already exists - prefer the one from main property account (id_producto IS NULL)
+            const currentIdProducto = ofertaProductoMap.get(ofertaId);
+            const existingOfertaId = existingCompradores[existingIndex]._ofertaId;
+            const existingIdProducto = ofertaProductoMap.get(existingOfertaId);
+            
+            // If current is main property (no product) and existing is product, replace
+            if (currentIdProducto === null && existingIdProducto !== null) {
+              existingCompradores[existingIndex] = { ...comp, _ofertaId: ofertaId };
+            }
+            // Otherwise keep existing (first main property wins, or first product if no main)
+          }
         }
       }
     }
