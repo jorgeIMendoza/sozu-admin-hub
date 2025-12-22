@@ -31,6 +31,7 @@ interface FiltroConfig {
   campo_valor?: string;
   campo_label?: string;
   opciones?: string[];
+  opciones_estaticas?: { id: string; nombre: string }[];
   requerido?: boolean;
   depende_de?: string;
   query_opciones?: string;
@@ -294,6 +295,12 @@ export default function ReporteViewer() {
           } else {
             options[filtro.nombre] = [];
           }
+        } else if (filtro.tipo === 'select' && filtro.opciones_estaticas) {
+          // Handle static options defined in filtros_configuracion
+          options[filtro.nombre] = filtro.opciones_estaticas.map(opt => ({ 
+            value: opt.id, 
+            label: opt.nombre 
+          }));
         } else if (filtro.tipo === 'select' && filtro.opciones) {
           options[filtro.nombre] = filtro.opciones.map(opt => ({ value: opt, label: opt }));
         }
