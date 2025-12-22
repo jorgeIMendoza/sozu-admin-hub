@@ -1,14 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 interface ProjectAccess {
   proyecto_id: number;
+  id_entidad_relacionada_dueno: number | null;
 }
 
 interface RoleConfig {
   ver_todos_proyectos_propiedades: boolean;
+  ver_todos_duenos: boolean;
 }
 
 // Role IDs for special access control
@@ -42,18 +44,19 @@ export function useProjectAccess() {
     if (permissionVersion > 0) {
       queryClient.invalidateQueries({ queryKey: ['role-project-config'] });
       queryClient.invalidateQueries({ queryKey: ['user-project-access'] });
+      queryClient.invalidateQueries({ queryKey: ['user-project-access-with-owner'] });
       queryClient.invalidateQueries({ queryKey: ['user-entity-data'] });
     }
   }, [permissionVersion, queryClient]);
 
-  // Fetch role configuration to check if ver_todos_proyectos_propiedades is enabled
+  // Fetch role configuration to check if ver_todos_proyectos_propiedades and ver_todos_duenos are enabled
   const { data: roleConfig, isLoading: isLoadingRoleConfig } = useQuery({
     queryKey: ['role-project-config', rolId, permissionVersion],
     queryFn: async () => {
       if (!rolId) return null;
       const { data, error } = await supabase
         .from('roles')
-        .select('ver_todos_proyectos_propiedades')
+        .select('ver_todos_proyectos_propiedades, ver_todos_duenos')
         .eq('id', rolId)
         .single();
       
@@ -64,6 +67,7 @@ export function useProjectAccess() {
   });
 
   const hasVerTodosProyectos = roleConfig?.ver_todos_proyectos_propiedades || false;
+  const hasVerTodosDuenos = roleConfig?.ver_todos_duenos ?? true; // Default to true
   const hasUnrestrictedAccess = isSuperAdmin || isAdminProyecto || hasVerTodosProyectos;
 
   // Fetch the entity that the user represents (for special roles)
@@ -120,15 +124,15 @@ export function useProjectAccess() {
         .map(er => er.id_proyecto!)
     : [];
 
-  // Fetch user's project access (using email as FK, not UUID)
-  const { data: projectAccess, isLoading: isLoadingQuery } = useQuery({
-    queryKey: ['user-project-access', userEmail, permissionVersion],
+  // Fetch user's project access with owner information
+  const { data: projectAccessData, isLoading: isLoadingQuery } = useQuery({
+    queryKey: ['user-project-access-with-owner', userEmail, permissionVersion],
     queryFn: async () => {
       if (!userEmail) return [];
       
       const { data, error } = await supabase
         .from('proyectos_acceso')
-        .select('proyecto_id')
+        .select('proyecto_id, id_entidad_relacionada_dueno')
         .eq('usuario_id', userEmail)
         .eq('activo', true);
       
@@ -139,18 +143,61 @@ export function useProjectAccess() {
   });
 
   // Get list of accessible project IDs
-  let accessibleProjectIds = projectAccess?.map(a => a.proyecto_id) || [];
+  let accessibleProjectIds = projectAccessData?.map(a => a.proyecto_id) || [];
   
   // For Desarrollador role, further filter to only projects where they're the developer
   if (isDesarrollador && developerProjectIds.length > 0) {
     accessibleProjectIds = accessibleProjectIds.filter(pid => developerProjectIds.includes(pid));
   }
 
+  // Build owner access map: projectId -> ownerId (null means all owners)
+  const ownerAccessMap = useMemo(() => {
+    const map: Record<number, number | null> = {};
+    if (projectAccessData) {
+      for (const access of projectAccessData) {
+        map[access.proyecto_id] = access.id_entidad_relacionada_dueno;
+      }
+    }
+    return map;
+  }, [projectAccessData]);
+
   // Helper function to check if user has access to a specific project
   const hasAccessToProject = (projectId: number): boolean => {
     if (hasUnrestrictedAccess) return true;
-    if (!projectAccess || projectAccess.length === 0) return false;
+    if (!projectAccessData || projectAccessData.length === 0) return false;
     return accessibleProjectIds.includes(projectId);
+  };
+
+  // Helper function to check if user has access to a specific owner within a project
+  const hasAccessToOwner = (projectId: number, ownerId: number): boolean => {
+    // Super admin, admin proyecto, or role with ver_todos_duenos sees all owners
+    if (hasUnrestrictedAccess || hasVerTodosDuenos) return true;
+    
+    // Check if user has access to this project
+    if (!hasAccessToProject(projectId)) return false;
+    
+    // Get the owner restriction for this project
+    const restrictedOwnerId = ownerAccessMap[projectId];
+    
+    // If null, user can see all owners of this project
+    if (restrictedOwnerId === null || restrictedOwnerId === undefined) return true;
+    
+    // Otherwise, only allow access to the specific owner
+    return restrictedOwnerId === ownerId;
+  };
+
+  // Helper function to get the owner IDs the user can access for a project
+  const getAccessibleOwnerIds = (projectId: number): number[] | null => {
+    // null means all owners are accessible
+    if (hasUnrestrictedAccess || hasVerTodosDuenos) return null;
+    
+    const restrictedOwnerId = ownerAccessMap[projectId];
+    
+    // If no restriction, return null (all owners)
+    if (restrictedOwnerId === null || restrictedOwnerId === undefined) return null;
+    
+    // Otherwise return the single accessible owner
+    return [restrictedOwnerId];
   };
 
   // Helper function to filter an array of items by project ID
@@ -158,7 +205,7 @@ export function useProjectAccess() {
     items: T[]
   ): T[] => {
     if (hasUnrestrictedAccess) return items;
-    if (!projectAccess || projectAccess.length === 0) return [];
+    if (!projectAccessData || projectAccessData.length === 0) return [];
     
     return items.filter(item => {
       const projectId = item.id_proyecto || item.proyecto_id;
@@ -166,10 +213,44 @@ export function useProjectAccess() {
     });
   };
 
+  // Helper function to filter items by both project and owner
+  const filterByProjectAndOwnerAccess = <T extends { 
+    id_proyecto?: number; 
+    proyecto_id?: number;
+    id_entidad_relacionada_dueno?: number;
+  }>(
+    items: T[]
+  ): T[] => {
+    if (hasUnrestrictedAccess && hasVerTodosDuenos) return items;
+    
+    return items.filter(item => {
+      const projectId = item.id_proyecto || item.proyecto_id;
+      if (!projectId) return false;
+      
+      // First check project access
+      if (!hasUnrestrictedAccess && !accessibleProjectIds.includes(projectId)) {
+        return false;
+      }
+      
+      // Then check owner access if the role requires it
+      if (!hasVerTodosDuenos && item.id_entidad_relacionada_dueno) {
+        return hasAccessToOwner(projectId, item.id_entidad_relacionada_dueno);
+      }
+      
+      return true;
+    });
+  };
+
   // Get a filter clause for Supabase queries
   const getProjectFilter = () => {
     if (hasUnrestrictedAccess) return null;
     return accessibleProjectIds;
+  };
+
+  // Get owner filter for a specific project
+  const getOwnerFilter = (projectId: number): number | null => {
+    if (hasUnrestrictedAccess || hasVerTodosDuenos) return null;
+    return ownerAccessMap[projectId] ?? null;
   };
 
   // Loading = auth loading OR role config loading OR query loading OR entity loading
@@ -180,15 +261,21 @@ export function useProjectAccess() {
   return {
     accessibleProjectIds,
     hasAccessToProject,
+    hasAccessToOwner,
+    getAccessibleOwnerIds,
     filterByProjectAccess,
+    filterByProjectAndOwnerAccess,
     getProjectFilter,
+    getOwnerFilter,
     hasUnrestrictedAccess,
+    hasVerTodosDuenos,
+    ownerAccessMap,
     isLoading,
     hasNoAccess: !isAuthLoading && !isLoadingRoleConfig && !hasUnrestrictedAccess && !isLoadingQuery && accessibleProjectIds.length === 0,
-    // New properties for entity-based access control
+    // Properties for entity-based access control
     isRepresentanteEmpresaDuena,
     isDesarrollador,
-    ownershipEntityIds, // Use to filter properties by id_entidad_relacionada_dueno for Representante de empresa dueña
+    ownershipEntityIds,
     userEntityId: userEntityData?.entityId || null,
   };
 }

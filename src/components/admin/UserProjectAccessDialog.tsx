@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Building2, Loader2, Search, Filter, AlertTriangle } from 'lucide-react';
+import { Building2, Loader2, Search, Filter, AlertTriangle, Users } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Toggle } from '@/components/ui/toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface UserProjectAccessDialogProps {
   userId: string;
@@ -28,15 +29,29 @@ interface Proyecto {
 
 interface ProyectoAcceso {
   proyecto_id: number;
+  id_entidad_relacionada_dueno: number | null;
 }
 
 interface RoleConfig {
   ver_todos_proyectos_propiedades: boolean;
+  ver_todos_duenos: boolean;
+}
+
+interface EntidadDueno {
+  id: number;
+  id_proyecto: number;
+  id_tipo_entidad: number;
+  persona: {
+    id: number;
+    nombre_legal: string;
+  } | null;
 }
 
 export function UserProjectAccessDialog({ userId, userName, userEmail, userRole, userRoleId }: UserProjectAccessDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
+  // Map: projectId -> ownerId (null means all owners)
+  const [ownerSelections, setOwnerSelections] = useState<Record<number, number | null>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const queryClient = useQueryClient();
@@ -44,14 +59,14 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
   // Check if user is Super Admin
   const isSuperAdmin = userRole === 'Super Administrador';
 
-  // Fetch role configuration to check if ver_todos_proyectos_propiedades is enabled
+  // Fetch role configuration to check if ver_todos_proyectos_propiedades and ver_todos_duenos are enabled
   const { data: roleConfig, isLoading: loadingRoleConfig } = useQuery({
-    queryKey: ['role-config', userRoleId],
+    queryKey: ['role-config-full', userRoleId],
     queryFn: async () => {
       if (!userRoleId) return null;
       const { data, error } = await supabase
         .from('roles')
-        .select('ver_todos_proyectos_propiedades')
+        .select('ver_todos_proyectos_propiedades, ver_todos_duenos')
         .eq('id', userRoleId)
         .single();
       
@@ -62,12 +77,12 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
   });
 
   const hasUnrestrictedProjectAccess = roleConfig?.ver_todos_proyectos_propiedades || false;
+  const hasVerTodosDuenos = roleConfig?.ver_todos_duenos ?? true; // Default to true if not set
 
   // Fetch all active projects (paginating to get all)
   const { data: proyectos, isLoading: loadingProyectos } = useQuery({
     queryKey: ['proyectos-list'],
     queryFn: async () => {
-      // Fetch all projects using pagination to bypass the 1000 limit
       const allProjects: Proyecto[] = [];
       let from = 0;
       const pageSize = 1000;
@@ -97,13 +112,13 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
     enabled: open && !isSuperAdmin && !hasUnrestrictedProjectAccess,
   });
 
-  // Fetch user's current project access (using email as FK, not UUID)
+  // Fetch user's current project access (including owner selection)
   const { data: userAccess, isLoading: loadingAccess } = useQuery({
-    queryKey: ['user-project-access', userEmail],
+    queryKey: ['user-project-access-with-owner', userEmail],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('proyectos_acceso')
-        .select('proyecto_id')
+        .select('proyecto_id, id_entidad_relacionada_dueno')
         .eq('usuario_id', userEmail)
         .eq('activo', true);
       
@@ -113,10 +128,53 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
     enabled: open && !isSuperAdmin && !!userEmail && !hasUnrestrictedProjectAccess,
   });
 
-  // Update selected projects when data loads
+  // Fetch owners (Dueño Vendedor = 4, Aportante = 15) for selected projects
+  const { data: duenosData, isLoading: loadingDuenos } = useQuery({
+    queryKey: ['project-owners', selectedProjects],
+    queryFn: async () => {
+      if (selectedProjects.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('entidades_relacionadas')
+        .select(`
+          id,
+          id_proyecto,
+          id_tipo_entidad,
+          persona:personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal)
+        `)
+        .in('id_proyecto', selectedProjects)
+        .in('id_tipo_entidad', [4, 15]) // Dueño Vendedor, Aportante
+        .eq('activo', true);
+      
+      if (error) throw error;
+      return data as unknown as EntidadDueno[];
+    },
+    enabled: open && !hasVerTodosDuenos && selectedProjects.length > 0,
+  });
+
+  // Group owners by project
+  const ownersByProject = useMemo(() => {
+    const map: Record<number, EntidadDueno[]> = {};
+    if (duenosData) {
+      for (const dueno of duenosData) {
+        if (!map[dueno.id_proyecto]) {
+          map[dueno.id_proyecto] = [];
+        }
+        map[dueno.id_proyecto].push(dueno);
+      }
+    }
+    return map;
+  }, [duenosData]);
+
+  // Update selected projects and owner selections when data loads
   useEffect(() => {
     if (userAccess) {
       setSelectedProjects(userAccess.map(a => a.proyecto_id));
+      const selections: Record<number, number | null> = {};
+      for (const access of userAccess) {
+        selections[access.proyecto_id] = access.id_entidad_relacionada_dueno;
+      }
+      setOwnerSelections(selections);
     }
   }, [userAccess]);
 
@@ -150,7 +208,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
     return filtered;
   }, [proyectos, searchTerm, showOnlySelected, selectedProjects]);
 
-  // Mutation to save access (using email as FK, not UUID)
+  // Mutation to save access (including owner selection)
   const saveAccessMutation = useMutation({
     mutationFn: async (projectIds: number[]) => {
       // First, deactivate all current access
@@ -163,33 +221,36 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
 
       // Then, upsert the new access
       if (projectIds.length > 0) {
-        const accessRecords = projectIds.map(projectId => ({
-          usuario_id: userEmail,
-          proyecto_id: projectId,
-          activo: true,
-          fecha_actualizacion: new Date().toISOString(),
-        }));
-
-        // For each project, try to update existing or insert new
-        for (const record of accessRecords) {
+        for (const projectId of projectIds) {
+          const ownerId = ownerSelections[projectId] ?? null;
+          
           const { data: existing } = await supabase
             .from('proyectos_acceso')
             .select('usuario_id')
             .eq('usuario_id', userEmail)
-            .eq('proyecto_id', record.proyecto_id)
+            .eq('proyecto_id', projectId)
             .maybeSingle();
 
           if (existing) {
             const { error } = await supabase
               .from('proyectos_acceso')
-              .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
+              .update({ 
+                activo: true, 
+                fecha_actualizacion: new Date().toISOString(),
+                id_entidad_relacionada_dueno: ownerId
+              })
               .eq('usuario_id', userEmail)
-              .eq('proyecto_id', record.proyecto_id);
+              .eq('proyecto_id', projectId);
             if (error) throw error;
           } else {
             const { error } = await supabase
               .from('proyectos_acceso')
-              .insert(record);
+              .insert({
+                usuario_id: userEmail,
+                proyecto_id: projectId,
+                activo: true,
+                id_entidad_relacionada_dueno: ownerId,
+              });
             if (error) throw error;
           }
         }
@@ -197,6 +258,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
     },
     onSuccess: () => {
       toast.success('Accesos actualizados correctamente');
+      queryClient.invalidateQueries({ queryKey: ['user-project-access-with-owner', userEmail] });
       queryClient.invalidateQueries({ queryKey: ['user-project-access', userEmail] });
       setOpen(false);
     },
@@ -207,11 +269,26 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
   });
 
   const handleProjectToggle = (projectId: number) => {
-    setSelectedProjects(prev => 
-      prev.includes(projectId)
-        ? prev.filter(id => id !== projectId)
-        : [...prev, projectId]
-    );
+    setSelectedProjects(prev => {
+      if (prev.includes(projectId)) {
+        // Remove project - also remove owner selection
+        setOwnerSelections(prevOwners => {
+          const { [projectId]: _, ...rest } = prevOwners;
+          return rest;
+        });
+        return prev.filter(id => id !== projectId);
+      } else {
+        return [...prev, projectId];
+      }
+    });
+  };
+
+  const handleOwnerChange = (projectId: number, ownerIdStr: string) => {
+    const ownerId = ownerIdStr === 'all' ? null : parseInt(ownerIdStr);
+    setOwnerSelections(prev => ({
+      ...prev,
+      [projectId]: ownerId
+    }));
   };
 
   const handleSelectAll = () => {
@@ -222,6 +299,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
 
   const handleDeselectAll = () => {
     setSelectedProjects([]);
+    setOwnerSelections({});
   };
 
   const handleSave = () => {
@@ -248,7 +326,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
           <span className="sr-only md:not-sr-only md:inline text-xs">Proyectos</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
@@ -257,6 +335,9 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
           <p className="text-sm text-muted-foreground">
             {userName} ({userEmail})
           </p>
+          {userRole && (
+            <Badge variant="outline" className="w-fit">{userRole}</Badge>
+          )}
         </DialogHeader>
 
         {isLoading ? (
@@ -283,6 +364,17 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Info alert when role requires owner selection */}
+            {!hasVerTodosDuenos && (
+              <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+                <Users className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
+                  Este rol requiere seleccionar un dueño específico para cada proyecto. 
+                  Si no se selecciona, el usuario verá todos los dueños del proyecto.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Search input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -313,29 +405,68 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
               </Toggle>
             </div>
 
-            <ScrollArea className="h-[280px] border rounded-md p-3">
+            <ScrollArea className="h-[320px] border rounded-md p-3">
               <div className="space-y-2">
                 {filteredProyectos.map((proyecto) => {
                   const isSelected = selectedProjects.includes(proyecto.id);
+                  const projectOwners = ownersByProject[proyecto.id] || [];
+                  const showOwnerSelector = isSelected && !hasVerTodosDuenos;
+                  
                   return (
                     <div 
                       key={proyecto.id} 
-                      className={`flex items-center space-x-2 p-2 rounded-md cursor-pointer transition-colors ${
+                      className={`p-2 rounded-md transition-colors ${
                         isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'
                       }`}
-                      onClick={() => handleProjectToggle(proyecto.id)}
                     >
-                      <Checkbox
-                        id={`project-${proyecto.id}`}
-                        checked={isSelected}
-                        onCheckedChange={() => handleProjectToggle(proyecto.id)}
-                      />
-                      <Label 
-                        htmlFor={`project-${proyecto.id}`}
-                        className="text-sm cursor-pointer flex-1"
+                      <div 
+                        className="flex items-center space-x-2 cursor-pointer"
+                        onClick={() => handleProjectToggle(proyecto.id)}
                       >
-                        {proyecto.nombre}
-                      </Label>
+                        <Checkbox
+                          id={`project-${proyecto.id}`}
+                          checked={isSelected}
+                          onCheckedChange={() => handleProjectToggle(proyecto.id)}
+                        />
+                        <Label 
+                          htmlFor={`project-${proyecto.id}`}
+                          className="text-sm cursor-pointer flex-1"
+                        >
+                          {proyecto.nombre}
+                        </Label>
+                      </div>
+                      
+                      {/* Owner selector - shown when role doesn't have ver_todos_duenos */}
+                      {showOwnerSelector && (
+                        <div className="ml-6 mt-2">
+                          <Select
+                            value={ownerSelections[proyecto.id]?.toString() ?? 'all'}
+                            onValueChange={(value) => handleOwnerChange(proyecto.id, value)}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <Users className="h-3 w-3 mr-1" />
+                              <SelectValue placeholder="Seleccionar dueño" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">
+                                <span className="flex items-center gap-1">
+                                  Todos los dueños
+                                </span>
+                              </SelectItem>
+                              {projectOwners.map((dueno) => (
+                                <SelectItem key={dueno.id} value={dueno.id.toString()}>
+                                  {dueno.persona?.nombre_legal || `Entidad ${dueno.id}`}
+                                </SelectItem>
+                              ))}
+                              {projectOwners.length === 0 && !loadingDuenos && (
+                                <SelectItem value="all" disabled>
+                                  No hay dueños en este proyecto
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
