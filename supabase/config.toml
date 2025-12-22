@@ -27,7 +27,7 @@ verify_jwt = false
 [functions.getProyectosSozu]
 verify_jwt = false
 
-[functions.getPropiedadesCompradores]
+[functions.getPropiedadesPropietario]
 verify_jwt = false
 
 [functions.exportar-reporte]
