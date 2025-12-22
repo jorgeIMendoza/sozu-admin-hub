@@ -1401,6 +1401,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   });
 
   // Query for searching usuarios
+  // Query for searching usuarios - includes Super Admin (1), Admin Proyecto (2), Agente Inmobiliario (3), Agente Interno (9), Admin Data (10)
   const { data: usuarios } = useQuery({
     queryKey: ["usuarios_search", searchUsuario],
     queryFn: async () => {
@@ -1412,6 +1413,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       const { data } = await supabase
         .from('usuarios')
         .select('email, nombre')
+        .in('rol_id', [1, 2, 3, 9, 10]) // Super Admin, Admin Proyecto, Agente Inmobiliario, Agente Interno, Admin Data
         .or(`email.ilike.%${searchUsuario}%,nombre.ilike.%${searchUsuario}%`)
         .not('email', 'in', existingEmails.length > 0 ? `(${existingEmails.map(e => `"${e}"`).join(',')})` : '("")')
         .limit(10);
@@ -4426,97 +4428,103 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   {!isReadOnly && (
                     <div className="p-4 border rounded-lg space-y-4 bg-muted/30">
                       <h4 className="font-medium">Agregar Comisionista</h4>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-1 space-y-2">
-                          <Label>Buscar Usuario</Label>
-                          <div className="relative">
-                            <Input
-                              placeholder="Buscar por email o nombre..."
-                              value={searchUsuario}
-                              onChange={(e) => setSearchUsuario(e.target.value)}
-                            />
-                            {usuarios && usuarios.length > 0 && searchUsuario && !selectedUsuario && (
-                              <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
-                                {usuarios.map((usuario) => (
-                                   <div
-                                     key={usuario.email}
-                                     className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                     onClick={() => {
-                                       setSelectedUsuario(usuario);
-                                       setSearchUsuario('');
-                                     }}
-                                   >
-                                     <p className="font-medium">{usuario.nombre || usuario.email}</p>
-                                     <p className="text-sm text-muted-foreground">{usuario.email}</p>
-                                   </div>
-                                ))}
-                              </div>
-                            )}
-                           </div>
-                           {selectedUsuario && (
-                             <div className="flex items-center justify-between p-2 bg-accent/50 rounded-md">
-                               <p className="text-sm font-medium">{selectedUsuario.nombre || selectedUsuario.email}</p>
-                               <Button
-                                 variant="ghost"
-                                 size="sm"
-                                 onClick={() => {
-                                   setSelectedUsuario(null);
-                                   setSearchUsuario('');
-                                 }}
-                               >
-                                 Cambiar
-                               </Button>
-                             </div>
-                           )}
-                         </div>
-                        <div className="space-y-2">
-                          <Label>Porcentaje de Comisión (%)</Label>
+                      
+                      {/* Campo de búsqueda solo */}
+                      <div className="space-y-2">
+                        <Label>Buscar Usuario</Label>
+                        <div className="relative">
                           <Input
-                            type="number"
-                            min="0.0001"
-                            max={porcentajeComision}
-                            step="0.0001"
-                            placeholder="0.0000"
-                            value={porcentajeComisionista}
-                            onChange={(e) => {
-                              const inputValue = e.target.value;
-                              
-                              // Validar máximo 4 decimales
-                              if (inputValue.includes('.')) {
-                                const [, decimals] = inputValue.split('.');
-                                if (decimals && decimals.length > 4) {
-                                  return;
-                                }
-                              }
-                              
-                              const value = parseFloat(inputValue);
-                              if (value > porcentajeComision) {
-                                toast.error(`El porcentaje no puede ser mayor al ${porcentajeComision}% de comisión por venta`);
-                                return;
-                              }
-                              setPorcentajeComisionista(inputValue);
-                            }}
+                            placeholder="Buscar por email o nombre..."
+                            value={searchUsuario}
+                            onChange={(e) => setSearchUsuario(e.target.value)}
                           />
-                          <p className="text-xs text-muted-foreground">Máximo: {porcentajeComision}% (hasta 4 decimales)</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Monto</Label>
-                          <Input
-                            value={cuentaDetalle?.precio_final && porcentajeComisionista ? 
-                              new Intl.NumberFormat('es-MX', { 
-                                style: 'currency', 
-                                currency: 'MXN' 
-                              }).format(((cuentaDetalle.precio_final * parseFloat(porcentajeComisionista)) / 100) * (esComisionEfectivo ? 1 : (ivaIncluido ? 1.16 : 1)))
-                              : '$0.00'
-                            }
-                            readOnly
-                            className="bg-muted"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            {esComisionEfectivo ? 'Sin IVA (Efectivo)' : (ivaIncluido ? 'Incluye IVA (16%)' : 'Sin IVA')}
-                          </p>
+                          {usuarios && usuarios.length > 0 && searchUsuario && !selectedUsuario && (
+                            <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
+                              {usuarios.map((usuario) => (
+                                <div
+                                  key={usuario.email}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    setSelectedUsuario(usuario);
+                                    setSearchUsuario('');
+                                  }}
+                                >
+                                  <p className="font-medium">{usuario.nombre || usuario.email}</p>
+                                  <p className="text-sm text-muted-foreground">{usuario.email}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
+
+                      {/* Usuario seleccionado + Porcentaje + Monto en la misma fila */}
+                      {selectedUsuario && (
+                        <div className="grid grid-cols-3 gap-4 items-end">
+                          <div className="flex items-center justify-between p-2 bg-accent/50 rounded-md h-10">
+                            <p className="text-sm font-medium truncate">{selectedUsuario.nombre || selectedUsuario.email}</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2"
+                              onClick={() => {
+                                setSelectedUsuario(null);
+                                setSearchUsuario('');
+                              }}
+                            >
+                              Cambiar
+                            </Button>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Porcentaje de Comisión (%)</Label>
+                            <Input
+                              type="number"
+                              min="0.0001"
+                              max={porcentajeComision}
+                              step="0.0001"
+                              placeholder="0.0000"
+                              value={porcentajeComisionista}
+                              onChange={(e) => {
+                                const inputValue = e.target.value;
+                                
+                                // Validar máximo 4 decimales
+                                if (inputValue.includes('.')) {
+                                  const [, decimals] = inputValue.split('.');
+                                  if (decimals && decimals.length > 4) {
+                                    return;
+                                  }
+                                }
+                                
+                                const value = parseFloat(inputValue);
+                                if (value > porcentajeComision) {
+                                  toast.error(`El porcentaje no puede ser mayor al ${porcentajeComision}% de comisión por venta`);
+                                  return;
+                                }
+                                setPorcentajeComisionista(inputValue);
+                              }}
+                            />
+                            <p className="text-xs text-muted-foreground">Máximo: {porcentajeComision}% (hasta 4 decimales)</p>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Monto</Label>
+                            <Input
+                              value={cuentaDetalle?.precio_final && porcentajeComisionista ? 
+                                new Intl.NumberFormat('es-MX', { 
+                                  style: 'currency', 
+                                  currency: 'MXN' 
+                                }).format(((cuentaDetalle.precio_final * parseFloat(porcentajeComisionista)) / 100) * (esComisionEfectivo ? 1 : (ivaIncluido ? 1.16 : 1)))
+                                : '$0.00'
+                              }
+                              readOnly
+                              className="bg-muted"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              {esComisionEfectivo ? 'Sin IVA (Efectivo)' : (ivaIncluido ? 'Incluye IVA (16%)' : 'Sin IVA')}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       <Button 
                         onClick={handleAddComisionista}
                         disabled={!selectedUsuario || !porcentajeComisionista || addComisionistaMutation.isPending}
