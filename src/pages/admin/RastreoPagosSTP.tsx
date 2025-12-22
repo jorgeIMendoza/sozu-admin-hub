@@ -27,6 +27,7 @@ interface PagoSTP {
   fecha_creacion: string;
   id_tipo_pago: number;
   tipo_pago_nombre?: string;
+  tipo_real?: string; // Determined by cuenta_cobranza -> oferta relationship
 }
 
 const TIPOS_PAGO: Record<number, string> = {
@@ -88,7 +89,43 @@ export default function RastreoPagosSTP() {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as PagoSTP[];
+      
+      // Get unique CLABEs to determine real payment type from cuentas_cobranza
+      const clabes = [...new Set((data || []).map(p => p.cuenta_beneficiario))];
+      
+      // Query cuentas_cobranza to get oferta info for each CLABE
+      const { data: cuentasData } = await supabase
+        .from("cuentas_cobranza")
+        .select(`
+          clabe_stp,
+          ofertas!fk_ccob_oferta (
+            id_propiedad,
+            id_producto
+          )
+        `)
+        .in("clabe_stp", clabes)
+        .eq("activo", true);
+      
+      // Create a map of CLABE -> type
+      const clabeTypeMap: Record<string, string> = {};
+      if (cuentasData) {
+        for (const cuenta of cuentasData) {
+          if (cuenta.clabe_stp) {
+            const oferta = cuenta.ofertas as { id_propiedad: number | null; id_producto: number | null } | null;
+            if (oferta?.id_propiedad && !oferta?.id_producto) {
+              clabeTypeMap[cuenta.clabe_stp] = "Propiedades";
+            } else if (oferta?.id_producto) {
+              clabeTypeMap[cuenta.clabe_stp] = "Productos/Servicios";
+            }
+          }
+        }
+      }
+      
+      // Enrich pagos with real type
+      return (data || []).map(pago => ({
+        ...pago,
+        tipo_real: clabeTypeMap[pago.cuenta_beneficiario] || TIPOS_PAGO[pago.id_tipo_pago] || `Tipo ${pago.id_tipo_pago}`
+      })) as PagoSTP[];
     },
   });
 
@@ -391,7 +428,7 @@ export default function RastreoPagosSTP() {
                       <TableCell>{formatDate(pago.fecha_creacion)}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {TIPOS_PAGO[pago.id_tipo_pago] || `Tipo ${pago.id_tipo_pago}`}
+                          {pago.tipo_real || TIPOS_PAGO[pago.id_tipo_pago] || `Tipo ${pago.id_tipo_pago}`}
                         </Badge>
                       </TableCell>
                     </TableRow>
