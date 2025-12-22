@@ -117,7 +117,7 @@ serve(async (req) => {
     // 4. Fetch propiedades
     const { data: propiedades, error: propiedadesError } = await supabase
       .from('propiedades')
-      .select('id, numero_propiedad, numero_piso, m2_interiores, m2_exteriores, id_edificio_modelo, id_estatus_disponibilidad, id_entidad_relacionada_dueno')
+      .select('id, numero_propiedad, numero_piso, m2_interiores, m2_exteriores, id_edificio_modelo, id_estatus_disponibilidad, id_entidad_relacionada_dueno, id_tipo_propiedad')
       .in('id_edificio_modelo', edificioModeloIds)
       .eq('activo', true);
 
@@ -131,6 +131,7 @@ serve(async (req) => {
     const propiedadIds = propiedades?.map(p => p.id) || [];
     const estatusIds = [...new Set(propiedades?.map(p => p.id_estatus_disponibilidad).filter(Boolean) || [])];
     const entidadDuenoIds = [...new Set(propiedades?.map(p => p.id_entidad_relacionada_dueno).filter(Boolean) || [])];
+    const tipoPropiedadIds = [...new Set(propiedades?.map(p => p.id_tipo_propiedad).filter(Boolean) || [])];
 
     // 5. Fetch estatus_disponibilidad
     const { data: estatusDisponibilidad, error: estatusError } = await supabase
@@ -141,6 +142,21 @@ serve(async (req) => {
     if (estatusError) {
       console.error('Error fetching estatus_disponibilidad:', estatusError);
       throw estatusError;
+    }
+
+    // 5.1 Fetch tipos_propiedad
+    let tiposPropiedad: any[] = [];
+    if (tipoPropiedadIds.length > 0) {
+      const { data: tiposPropiedadData, error: tiposError } = await supabase
+        .from('tipos_propiedad')
+        .select('id, nombre')
+        .in('id', tipoPropiedadIds);
+
+      if (tiposError) {
+        console.error('Error fetching tipos_propiedad:', tiposError);
+        throw tiposError;
+      }
+      tiposPropiedad = tiposPropiedadData || [];
     }
 
     // 6. Fetch entidades_relacionadas for owners
@@ -222,6 +238,7 @@ serve(async (req) => {
     const edificioModeloMap = new Map(edificiosModelos?.map(em => [em.id, em]) || []);
     const modeloMap = new Map(modelos?.map(m => [m.id, m]) || []);
     const estatusMap = new Map(estatusDisponibilidad?.map(e => [e.id, e]) || []);
+    const tipoPropiedadMap = new Map(tiposPropiedad?.map(t => [t.id, t]) || []);
     const entidadMap = new Map(entidadesRelacionadas?.map(er => [er.id, er]) || []);
     const personasMap = new Map(personas?.map(p => [p.id, p]) || []);
 
@@ -278,10 +295,14 @@ serve(async (req) => {
         }
       }
 
+      const tipoPropiedad = tipoPropiedadMap.get(prop.id_tipo_propiedad);
+
       return {
         id_propiedad: prop.id,
         nivel: prop.numero_piso,
         numero_propiedad: prop.numero_propiedad,
+        id_tipo_propiedad: prop.id_tipo_propiedad || null,
+        tipo_propiedad: tipoPropiedad?.nombre || null,
         estatus_propiedad: estatus?.nombre || null,
         m2_interiores: prop.m2_interiores,
         m2_exteriores: prop.m2_exteriores,
