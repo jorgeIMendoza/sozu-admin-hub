@@ -375,8 +375,8 @@ export default function EntidadesLegales() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      // Extract entity type and representatives from personData
-      const { entityType, representativeId, commercialRepresentativeId, ...cleanPersonData } = personData;
+      // Extract entity type, representatives, and frontend-only fields from personData
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
       
       // First, update the basic person data
       const { error: updateError } = await supabase
