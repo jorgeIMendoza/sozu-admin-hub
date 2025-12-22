@@ -186,7 +186,7 @@ serve(async (req) => {
     // 9. Fetch compradores
     const { data: compradores, error: compradoresError } = await supabase
       .from('compradores')
-      .select('id, id_cuenta_cobranza, id_persona, porcentaje_copropiedad')
+      .select('id_cuenta_cobranza, id_persona, porcentaje_copropiedad')
       .in('id_cuenta_cobranza', cuentaIds)
       .eq('activo', true);
 
