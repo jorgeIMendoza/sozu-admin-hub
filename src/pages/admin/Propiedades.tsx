@@ -1276,7 +1276,7 @@ const Propiedades = () => {
     }
 
     // Transform the data with counts
-    const transformedData = data?.map((property: any) => {
+    const transformedData = enrichedData?.map((property: any) => {
       // Get clabe_stp from ACTIVE cuentas_cobranza if available (only property offers, not products)
       const cuentaCobranzaData = property.ofertas
         ?.filter((oferta: any) => oferta.id_producto === null)
