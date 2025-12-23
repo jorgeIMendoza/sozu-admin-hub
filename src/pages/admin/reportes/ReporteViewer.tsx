@@ -544,7 +544,7 @@ export default function ReporteViewer() {
     'monto_total_a_pagar', 'monto_total_pagado',
     // Reporte Mensual de Pagos columns
     'numero_departamento', 'tipo', 'nombre_producto', 'numero_cuenta', 'fecha_pago',
-    'metodo_pago', 'cuenta_clabe', 'concepto_pago', 'monto_pago', 'compradores',
+    'metodo_pago', 'clave_rastreo', 'cuenta_clabe', 'concepto_pago', 'monto_pago', 'compradores',
   ], []);
 
   // Calculate Cartera Vencida chart data
@@ -3091,6 +3091,42 @@ export default function ReporteViewer() {
             ) : isPagosMensualesReport && previewData && previewData.length > 0 ? (
               // Special view for "Reporte Mensual de Pagos"
               <div className="space-y-6">
+                {/* Summary Cards for Pagos Mensuales */}
+                {fullData && fullData.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-200/50">
+                      <CardContent className="p-4">
+                        <div className="text-sm text-muted-foreground">Total de Pagos</div>
+                        <div className="text-2xl font-bold text-blue-600">{fullData.length}</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-200/50">
+                      <CardContent className="p-4">
+                        <div className="text-sm text-muted-foreground">Monto Total</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {formatCurrencyCompact(fullData.reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-200/50">
+                      <CardContent className="p-4">
+                        <div className="text-sm text-muted-foreground">Pagos Propiedades</div>
+                        <div className="text-2xl font-bold text-purple-600">
+                          {formatCurrencyCompact(fullData.filter(r => r.tipo === 'propiedad').reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-200/50">
+                      <CardContent className="p-4">
+                        <div className="text-sm text-muted-foreground">Pagos Productos</div>
+                        <div className="text-2xl font-bold text-orange-600">
+                          {formatCurrencyCompact(fullData.filter(r => r.tipo === 'producto').reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
                 {/* Conditional: Show Table OR Chart based on viewMode */}
                 {viewMode === 'table' ? (
                   /* Table view for Pagos Mensuales */
@@ -3105,6 +3141,7 @@ export default function ReporteViewer() {
                           <TableHead className="font-semibold min-w-[120px]">Num. Cuenta</TableHead>
                           <TableHead className="font-semibold min-w-[100px]">Fecha Pago</TableHead>
                           <TableHead className="font-semibold min-w-[120px]">Método Pago</TableHead>
+                          <TableHead className="font-semibold min-w-[180px]">Clave Rastreo</TableHead>
                           <TableHead className="font-semibold min-w-[180px]">Cuenta CLABE</TableHead>
                           <TableHead className="font-semibold min-w-[150px]">Concepto</TableHead>
                           <TableHead className="font-semibold min-w-[120px] text-right">Monto</TableHead>
@@ -3130,6 +3167,7 @@ export default function ReporteViewer() {
                             <TableCell>{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
                             <TableCell>{formatCellValue(row.fecha_pago, 'fecha_pago')}</TableCell>
                             <TableCell>{String(row.metodo_pago || '-')}</TableCell>
+                            <TableCell className="font-mono text-xs">{String(row.clave_rastreo || '-')}</TableCell>
                             <TableCell className="font-mono text-xs">{String(row.cuenta_clabe || '-')}</TableCell>
                             <TableCell>{String(row.concepto_pago || '-')}</TableCell>
                             <TableCell className="text-right font-medium">{formatCellValue(row.monto_pago, 'monto_pago')}</TableCell>
@@ -3150,7 +3188,7 @@ export default function ReporteViewer() {
                       {pagosMensualesChartData.length > 0 ? (
                         <div className="h-[400px]">
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={pagosMensualesChartData} layout="vertical" margin={{ left: 100 }}>
+                            <BarChart data={pagosMensualesChartData} layout="vertical" margin={{ left: 100, right: 80 }}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis 
                                 type="number" 
@@ -3162,14 +3200,14 @@ export default function ReporteViewer() {
                                 width={90}
                               />
                               <RechartsTooltip 
-                                formatter={(value: number, name: string) => [formatCurrencyCompact(value), 'Monto']}
+                                formatter={(value: number) => [formatCurrencyCompact(value), 'Monto']}
                                 contentStyle={{ 
                                   backgroundColor: 'hsl(var(--background))', 
                                   border: '1px solid hsl(var(--border))',
                                   borderRadius: '8px'
                                 }}
                               />
-                              <Bar dataKey="value" name="Monto">
+                              <Bar dataKey="value" name="Monto" radius={[0, 4, 4, 0]}>
                                 {pagosMensualesChartData.map((entry, index) => (
                                   <Cell key={`cell-${index}`} fill={entry.fill} />
                                 ))}
@@ -3177,6 +3215,7 @@ export default function ReporteViewer() {
                                   dataKey="value" 
                                   position="right" 
                                   formatter={(value: number) => formatCurrencyCompact(value)}
+                                  style={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
                                 />
                               </Bar>
                             </BarChart>

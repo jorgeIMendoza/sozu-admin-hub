@@ -263,6 +263,7 @@ serve(async (req) => {
           'Número de Cuenta': row.numero_cuenta,
           'Fecha Pago': row.fecha_pago,
           'Método de Pago': row.metodo_pago,
+          'Clave Rastreo': row.clave_rastreo,
           'Cuenta CLABE': row.cuenta_clabe,
           'Concepto de Pago': row.concepto_pago,
           'Monto del Pago': row.monto_pago,
