@@ -442,8 +442,8 @@ export default function ReporteViewer() {
   // Check if this is the "Pagos actuales y futuros" pivot report
   const isPagosFuturosReport = reporte?.id === 4;
 
-  // Check if this is the "Cartera Vencida" report
-  const isCarteraVencidaReport = reporte?.nombre_archivo === 'cartera_vencida';
+  // Check if this is the "Cartera Vencida" report (use both id and nombre_archivo for robustness)
+  const isCarteraVencidaReport = reporte?.id === 5 || reporte?.nombre_archivo === 'cartera_vencida';
 
   // Define preferred column order for known reports
   const preferredColumnOrder = useMemo(() => [
@@ -463,27 +463,34 @@ export default function ReporteViewer() {
 
   // Calculate Cartera Vencida chart data
   const carteraVencidaChartData = useMemo(() => {
-    if (!isCarteraVencidaReport || !fullData || fullData.length === 0) return [];
+    if (!isCarteraVencidaReport) return [];
     
-    const totalPagado = fullData.reduce((sum, row) => sum + (Number(row.monto_pagado) || 0), 0);
-    const totalRestante = fullData.reduce((sum, row) => sum + (Number(row.monto_restante) || 0), 0);
+    // Use fullData if available, otherwise fall back to previewData
+    const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
+    if (!dataSource || dataSource.length === 0) return [];
+    
+    const totalPagado = dataSource.reduce((sum, row) => sum + (Number(row.monto_pagado) || 0), 0);
+    const totalRestante = dataSource.reduce((sum, row) => sum + (Number(row.monto_restante) || 0), 0);
     const total = totalPagado + totalRestante;
+    
+    // Debug log
+    console.log('[CarteraVencida Chart]', { totalPagado, totalRestante, total, rowCount: dataSource.length });
     
     return [
       { 
-        name: 'Pagado', 
+        name: 'Monto Pagado', 
         value: totalPagado, 
         percentage: total > 0 ? ((totalPagado / total) * 100).toFixed(1) : '0',
-        fill: '#22c55e' // green
+        fill: 'hsl(142, 76%, 36%)' // green using HSL
       },
       { 
-        name: 'Restante', 
+        name: 'Monto Restante', 
         value: totalRestante, 
         percentage: total > 0 ? ((totalRestante / total) * 100).toFixed(1) : '0',
-        fill: '#ef4444' // red
+        fill: 'hsl(0, 84%, 60%)' // red using HSL
       }
     ];
-  }, [isCarteraVencidaReport, fullData]);
+  }, [isCarteraVencidaReport, fullData, previewData]);
 
   // Get columns from preview data with preferred ordering
   const columns = useMemo(() => {
@@ -2233,41 +2240,54 @@ export default function ReporteViewer() {
                       <CardTitle className="text-base">Distribución de Cartera Vencida</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-4">
-                      <div className="h-[400px] flex items-center justify-center">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={carteraVencidaChartData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={80}
-                              outerRadius={140}
-                              paddingAngle={2}
-                              dataKey="value"
-                              label={({ name, percentage, value }) => `${name}: ${formatCurrencyCompact(value)} (${percentage}%)`}
-                              labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
-                            >
-                              {carteraVencidaChartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <RechartsTooltip 
-                              formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
-                              contentStyle={{ 
-                                backgroundColor: 'hsl(var(--background))', 
-                                border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px'
-                              }}
-                            />
-                            <Legend 
-                              formatter={(value, entry) => {
-                                const item = carteraVencidaChartData.find(d => d.name === value);
-                                return `${value}: ${formatCurrencyCompact(item?.value || 0)} (${item?.percentage}%)`;
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
+                      {carteraVencidaChartData.length > 0 && carteraVencidaChartData.some(d => d.value > 0) ? (
+                        <div className="h-[400px] flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={carteraVencidaChartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={140}
+                                paddingAngle={2}
+                                dataKey="value"
+                                label={({ name, percentage, value }) => `${name}: ${formatCurrencyCompact(value)} (${percentage}%)`}
+                                labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                              >
+                                {carteraVencidaChartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip 
+                                formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
+                                contentStyle={{ 
+                                  backgroundColor: 'hsl(var(--background))', 
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '8px'
+                                }}
+                              />
+                              <Legend 
+                                formatter={(value, entry) => {
+                                  const item = carteraVencidaChartData.find(d => d.name === value);
+                                  return `${value}: ${formatCurrencyCompact(item?.value || 0)} (${item?.percentage}%)`;
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                          {isLoadingFullData ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              <span>Cargando datos de la gráfica...</span>
+                            </div>
+                          ) : (
+                            <span>No hay datos disponibles para mostrar la gráfica. Intente aplicar filtros.</span>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
