@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PersonForm } from "./PersonForm";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface RepresentanteLegalSelectorProps {
   value: string;
@@ -41,7 +41,7 @@ export function RepresentanteLegalSelector({
 }: RepresentanteLegalSelectorProps) {
   const [open, setOpen] = useState(false);
   const [isNewRepDialogOpen, setIsNewRepDialogOpen] = useState(false);
-  const { toast } = useToast();
+  // Using sonner toast imported at line 27
   const queryClient = useQueryClient();
 
   const { data: representantesLegales = [], isLoading } = useQuery({
@@ -106,16 +106,18 @@ export function RepresentanteLegalSelector({
       setIsNewRepDialogOpen(false);
       // Auto-select the new representative
       onValueChange(data.entidadId.toString());
-      toast({
-        title: "Éxito",
-        description: "Representante legal creado y seleccionado correctamente.",
-      });
+      toast.success("Representante legal creado y seleccionado correctamente.");
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Error al crear el representante legal: ${error.message}`,
-        variant: "destructive",
+      let errorMessage = `Error al crear el representante legal: ${error.message}`;
+      
+      // Manejar error de email duplicado
+      if (error.code === '23505' && error.message?.includes('personas_email_key')) {
+        errorMessage = "El correo electrónico ya está registrado. Por favor, use un correo diferente.";
+      }
+      
+      toast.error(errorMessage, {
+        duration: 10000,
       });
     },
   });
