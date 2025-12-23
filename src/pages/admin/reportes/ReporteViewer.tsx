@@ -2289,6 +2289,7 @@ export default function ReporteViewer() {
                           <TableHead className="font-semibold min-w-[100px]">Tipo</TableHead>
                           <TableHead className="font-semibold min-w-[120px]">Categoría</TableHead>
                           <TableHead className="font-semibold min-w-[150px]">Producto</TableHead>
+                          <TableHead className="font-semibold min-w-[130px]">Última Fecha Pago</TableHead>
                           <TableHead className="text-right font-semibold min-w-[160px] text-blue-600">Monto a Pagar a la Fecha</TableHead>
                           <TableHead className="text-right font-semibold min-w-[160px] text-green-600">Monto Pagado a la Fecha</TableHead>
                           <TableHead className="text-right font-semibold min-w-[170px] text-red-500">Monto Pendiente a la Fecha</TableHead>
@@ -2305,6 +2306,7 @@ export default function ReporteViewer() {
                             <TableCell>{String(row.tipo || '-')}</TableCell>
                             <TableCell>{String(row.categoria || '-')}</TableCell>
                             <TableCell>{String(row.nombre_producto || '-')}</TableCell>
+                            <TableCell>{formatCellValue(row.ultima_fecha_pago, 'ultima_fecha_pago')}</TableCell>
                             <TableCell className="text-right font-mono">{formatCellValue(row.monto_a_pagar, 'monto_a_pagar')}</TableCell>
                             <TableCell className="text-right font-mono text-green-600">{formatCellValue(row.monto_pagado, 'monto_pagado')}</TableCell>
                             <TableCell className="text-right font-mono text-red-500">{formatCellValue(row.monto_restante, 'monto_restante')}</TableCell>
@@ -2312,7 +2314,7 @@ export default function ReporteViewer() {
                         ))}
                         {/* Total Row */}
                         <TableRow className="bg-muted/50 font-bold">
-                          <TableCell colSpan={8} className="font-bold">Total</TableCell>
+                          <TableCell colSpan={9} className="font-bold">Total</TableCell>
                           <TableCell className="text-right font-mono font-bold">
                             {formatCellValue((fullData || []).reduce((sum, row) => sum + (Number(row.monto_a_pagar) || 0), 0), 'monto_a_pagar')}
                           </TableCell>
