@@ -323,17 +323,20 @@ export default function Compradores() {
       });
     },
     onError: (error: any) => {
+      let errorTitle = "Error";
       let errorMessage = `Error al crear el comprador: ${error.message}`;
       
       // Manejar error de email duplicado
       if (error.code === '23505' && error.message?.includes('personas_email_key')) {
+        errorTitle = "Email duplicado";
         errorMessage = "El correo electrónico ingresado ya está registrado en el sistema. Por favor, utilice un correo diferente o busque al comprador existente.";
       }
       
       toast({
-        title: "Error",
+        title: errorTitle,
         description: errorMessage,
         variant: "destructive",
+        duration: 10000, // 10 segundos para que sea más visible
       });
     },
   });
