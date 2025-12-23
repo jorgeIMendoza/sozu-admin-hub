@@ -2194,44 +2194,44 @@ export default function ReporteViewer() {
                       <CardTitle className="text-base">Proyección de Cobros por Mes</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-4">
-                      <div style={{ width: '100%', height: 400 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart 
-                            data={previewData.map(row => ({
-                              mes: row.es_mes_actual === true ? "Mes actual" : String(row.mes),
-                              por_cobrar: Number(row.monto_por_cobrar) || 0,
-                              cobrado: Number(row.monto_cobrado) || 0,
-                              restante: Number(row.monto_faltante) || 0
-                            }))} 
-                            margin={{ top: 20, right: 30, left: 60, bottom: 60 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                              dataKey="mes" 
-                              tick={{ fontSize: 11 }} 
-                              angle={-45}
-                              textAnchor="end"
-                              interval={0}
-                            />
-                            <YAxis 
-                              tickFormatter={(value) => formatCurrencyCompact(value)} 
-                              tick={{ fontSize: 11 }} 
-                            />
-                            <RechartsTooltip 
-                              formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
-                              contentStyle={{ 
-                                backgroundColor: 'white', 
-                                border: '1px solid #ccc',
-                                borderRadius: '8px'
-                              }}
-                            />
-                            <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                            <Bar dataKey="por_cobrar" fill="#3b82f6" name="Por Cobrar" />
-                            <Bar dataKey="cobrado" fill="#22c55e" name="Cobrado" />
-                            <Bar dataKey="restante" fill="#f97316" name="Restante" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                      <BarChart 
+                        width={800}
+                        height={400}
+                        data={previewData.map(row => ({
+                          mes: row.es_mes_actual === true ? "Mes actual" : String(row.mes),
+                          por_cobrar: Number(row.monto_por_cobrar) || 0,
+                          cobrado: Number(row.monto_cobrado) || 0,
+                          restante: Number(row.monto_faltante) || 0
+                        }))} 
+                        margin={{ top: 20, right: 30, left: 60, bottom: 80 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis 
+                          dataKey="mes" 
+                          tick={{ fontSize: 11, fill: '#374151' }} 
+                          angle={-45}
+                          textAnchor="end"
+                          interval={0}
+                          height={80}
+                        />
+                        <YAxis 
+                          tickFormatter={(value) => formatCurrencyCompact(value)} 
+                          tick={{ fontSize: 11, fill: '#374151' }} 
+                        />
+                        <RechartsTooltip 
+                          formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                          }}
+                        />
+                        <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                        <Bar dataKey="por_cobrar" fill="#3b82f6" name="Por Cobrar" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="cobrado" fill="#22c55e" name="Cobrado" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="restante" fill="#f97316" name="Restante" radius={[4, 4, 0, 0]} />
+                      </BarChart>
                     </CardContent>
                   </Card>
                 )}
