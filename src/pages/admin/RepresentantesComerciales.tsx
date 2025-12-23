@@ -114,7 +114,7 @@ export default function RepresentantesComerciales() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
       
       const { data: personResult, error: personError } = await supabase
         .from('personas')
@@ -154,7 +154,7 @@ export default function RepresentantesComerciales() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
       
       const { error } = await supabase
         .from('personas')

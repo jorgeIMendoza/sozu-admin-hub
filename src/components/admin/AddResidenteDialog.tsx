@@ -157,7 +157,7 @@ export const AddResidenteDialog = ({
       }
 
       // 2. Crear la persona - Eliminar campos que no existen en la tabla personas
-      const { entityType, representativeId, pendingDocuments, tempBankAccounts, tempBeneficiaries, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, pendingDocuments, tempBankAccounts, tempBeneficiaries, ...cleanPersonData } = personData;
       
       const { data: persona, error: personaError } = await supabase
         .from("personas")

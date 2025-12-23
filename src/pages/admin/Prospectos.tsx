@@ -459,7 +459,7 @@ export default function Prospectos() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, pendingDocuments, id_proyecto, id_persona_duena_lead, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, id_proyecto, id_persona_duena_lead, ...cleanPersonData } = personData;
       
       // Obtener id_persona del usuario actual si no es admin
       let finalIdPersonaDuenaLead = id_persona_duena_lead ? parseInt(id_persona_duena_lead) : null;
@@ -571,7 +571,7 @@ export default function Prospectos() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, id_proyecto, id_persona_duena_lead, id, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, id_proyecto, id_persona_duena_lead, id, ...cleanPersonData } = personData;
       
       // Solo actualizar la tabla personas cuando se edita desde el diálogo
       if (editingProspecto) {
