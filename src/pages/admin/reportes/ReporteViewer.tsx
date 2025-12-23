@@ -544,7 +544,7 @@ export default function ReporteViewer() {
     'monto_total_a_pagar', 'monto_total_pagado',
     // Reporte Mensual de Pagos columns
     'numero_departamento', 'tipo', 'nombre_producto', 'numero_cuenta', 'fecha_pago',
-    'metodo_pago', 'cuenta_clave', 'concepto_pago', 'monto_pago', 'compradores',
+    'metodo_pago', 'cuenta_clabe', 'concepto_pago', 'monto_pago', 'compradores',
   ], []);
 
   // Calculate Cartera Vencida chart data
@@ -3091,51 +3091,6 @@ export default function ReporteViewer() {
             ) : isPagosMensualesReport && previewData && previewData.length > 0 ? (
               // Special view for "Reporte Mensual de Pagos"
               <div className="space-y-6">
-                {/* Summary Section */}
-                <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
-                  <div className="border rounded-lg overflow-hidden">
-                    <CollapsibleTrigger className="w-full px-4 py-3 bg-muted/50 hover:bg-muted/70 flex items-center justify-between transition-colors">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Resumen de Pagos del Mes</span>
-                        <span className="text-sm text-muted-foreground">({fullData?.length || previewData?.length || 0} pagos)</span>
-                      </div>
-                      {summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="p-4 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {/* Total Pagos */}
-                          <div className="space-y-2 p-4 bg-background rounded-lg border">
-                            <h4 className="font-semibold text-sm border-b pb-2 text-blue-600">Total de Pagos</h4>
-                            <p className="text-2xl font-bold text-blue-600">
-                              {fullData?.length || previewData?.length || 0}
-                            </p>
-                            <p className="text-xs text-muted-foreground">Número de pagos registrados</p>
-                          </div>
-
-                          {/* Monto Total */}
-                          <div className="space-y-2 p-4 bg-background rounded-lg border">
-                            <h4 className="font-semibold text-sm border-b pb-2 text-green-600">Monto Total</h4>
-                            <p className="text-2xl font-bold text-green-600">
-                              {formatCurrencyCompact((fullData || previewData || []).reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
-                            </p>
-                            <p className="text-xs text-muted-foreground">Suma de todos los pagos</p>
-                          </div>
-
-                          {/* Métodos de Pago */}
-                          <div className="space-y-2 p-4 bg-background rounded-lg border">
-                            <h4 className="font-semibold text-sm border-b pb-2 text-purple-600">Métodos de Pago</h4>
-                            <p className="text-2xl font-bold text-purple-600">
-                              {new Set((fullData || previewData || []).map(row => row.metodo_pago)).size}
-                            </p>
-                            <p className="text-xs text-muted-foreground">Diferentes métodos utilizados</p>
-                          </div>
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
-
                 {/* Conditional: Show Table OR Chart based on viewMode */}
                 {viewMode === 'table' ? (
                   /* Table view for Pagos Mensuales */
@@ -3150,7 +3105,7 @@ export default function ReporteViewer() {
                           <TableHead className="font-semibold min-w-[120px]">Num. Cuenta</TableHead>
                           <TableHead className="font-semibold min-w-[100px]">Fecha Pago</TableHead>
                           <TableHead className="font-semibold min-w-[120px]">Método Pago</TableHead>
-                          <TableHead className="font-semibold min-w-[150px]">Cuenta Clave</TableHead>
+                          <TableHead className="font-semibold min-w-[180px]">Cuenta CLABE</TableHead>
                           <TableHead className="font-semibold min-w-[150px]">Concepto</TableHead>
                           <TableHead className="font-semibold min-w-[120px] text-right">Monto</TableHead>
                           <TableHead className="font-semibold min-w-[200px]">Compradores</TableHead>
@@ -3164,8 +3119,8 @@ export default function ReporteViewer() {
                             <TableCell>
                               <span className={cn(
                                 "px-2 py-1 rounded-full text-xs font-medium",
-                                row.tipo === 'Propiedad' ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" : 
-                                row.tipo === 'Producto' ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" : 
+                                row.tipo === 'propiedad' ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" : 
+                                row.tipo === 'producto' ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" : 
                                 "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
                               )}>
                                 {String(row.tipo || '-')}
@@ -3175,7 +3130,7 @@ export default function ReporteViewer() {
                             <TableCell>{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
                             <TableCell>{formatCellValue(row.fecha_pago, 'fecha_pago')}</TableCell>
                             <TableCell>{String(row.metodo_pago || '-')}</TableCell>
-                            <TableCell className="font-mono text-xs">{String(row.cuenta_clave || '-')}</TableCell>
+                            <TableCell className="font-mono text-xs">{String(row.cuenta_clabe || '-')}</TableCell>
                             <TableCell>{String(row.concepto_pago || '-')}</TableCell>
                             <TableCell className="text-right font-medium">{formatCellValue(row.monto_pago, 'monto_pago')}</TableCell>
                             <TableCell>{String(row.compradores || '-')}</TableCell>
@@ -3186,45 +3141,45 @@ export default function ReporteViewer() {
                     <ScrollBar orientation="horizontal" />
                   </ScrollArea>
                 ) : (
-                  /* Chart view for Pagos Mensuales - Pie chart by payment method */
+                  /* Chart view for Pagos Mensuales - Bar chart by payment method */
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Distribución por Método de Pago</CardTitle>
+                      <CardTitle className="text-lg">Pagos por Método de Pago</CardTitle>
                     </CardHeader>
                     <CardContent>
                       {pagosMensualesChartData.length > 0 ? (
                         <div className="h-[400px]">
                           <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={pagosMensualesChartData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                outerRadius={150}
-                                fill="#8884d8"
-                                dataKey="value"
-                                label={({ name, percentage }) => `${name}: ${percentage}%`}
-                              >
-                                {pagosMensualesChartData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                                ))}
-                              </Pie>
+                            <BarChart data={pagosMensualesChartData} layout="vertical" margin={{ left: 100 }}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                type="number" 
+                                tickFormatter={(value) => formatCurrencyCompact(value)}
+                              />
+                              <YAxis 
+                                type="category" 
+                                dataKey="name" 
+                                width={90}
+                              />
                               <RechartsTooltip 
-                                formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
+                                formatter={(value: number, name: string) => [formatCurrencyCompact(value), 'Monto']}
                                 contentStyle={{ 
                                   backgroundColor: 'hsl(var(--background))', 
                                   border: '1px solid hsl(var(--border))',
                                   borderRadius: '8px'
                                 }}
                               />
-                              <Legend 
-                                formatter={(value, entry) => {
-                                  const item = pagosMensualesChartData.find(d => d.name === value);
-                                  return `${value}: ${formatCurrencyCompact(item?.value || 0)} (${item?.percentage}%)`;
-                                }}
-                              />
-                            </PieChart>
+                              <Bar dataKey="value" name="Monto">
+                                {pagosMensualesChartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                                ))}
+                                <LabelList 
+                                  dataKey="value" 
+                                  position="right" 
+                                  formatter={(value: number) => formatCurrencyCompact(value)}
+                                />
+                              </Bar>
+                            </BarChart>
                           </ResponsiveContainer>
                         </div>
                       ) : (
