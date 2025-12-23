@@ -184,6 +184,7 @@ export default function ReporteViewer() {
   const [aggregateProjects, setAggregateProjects] = useState(true); // true = show as single bar, false = separate by project
   const [hasReportAccess, setHasReportAccess] = useState<boolean | null>(null);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
   
   // State for cuenta de cobranza dialog
   const [selectedCuentaId, setSelectedCuentaId] = useState<number | null>(null);
@@ -655,12 +656,35 @@ export default function ReporteViewer() {
     return result;
   }, [isLiquidadosReport, fullData, previewData]);
 
-  // Calculate Pagos Mensuales chart data (pie chart showing distribution by método de pago)
+  // Get unique payment methods for filter (for Pagos Mensuales report)
+  const availableMetodosPago = useMemo(() => {
+    if (!isPagosMensualesReport) return [];
+    
+    const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
+    if (!dataSource || dataSource.length === 0) return [];
+    
+    const uniqueMetodos = [...new Set(dataSource.map(row => String(row.metodo_pago || 'Sin especificar')))];
+    return uniqueMetodos.sort();
+  }, [isPagosMensualesReport, fullData, previewData]);
+
+  // Filter data by metodo_pago for Pagos Mensuales report
+  const filteredPagosMensualesData = useMemo(() => {
+    if (!isPagosMensualesReport) return fullData || [];
+    
+    const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
+    if (!dataSource || dataSource.length === 0) return [];
+    
+    if (!metodoPagoFilter) return dataSource;
+    
+    return dataSource.filter(row => String(row.metodo_pago || 'Sin especificar') === metodoPagoFilter);
+  }, [isPagosMensualesReport, fullData, previewData, metodoPagoFilter]);
+
+  // Calculate Pagos Mensuales chart data (bar chart showing distribution by método de pago)
   const pagosMensualesChartData = useMemo(() => {
     if (!isPagosMensualesReport) return [];
     
-    // Use fullData if available, otherwise fall back to previewData
-    const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
+    // Use filteredPagosMensualesData for chart
+    const dataSource = filteredPagosMensualesData;
     if (!dataSource || dataSource.length === 0) return [];
     
     // Group by método de pago
@@ -673,7 +697,7 @@ export default function ReporteViewer() {
     
     const total = Object.values(groupedByMetodo).reduce((sum, val) => sum + val, 0);
     
-    // Color palette for pie chart
+    // Color palette for bar chart
     const colors = [
       'hsl(217, 91%, 60%)', // blue
       'hsl(142, 76%, 36%)', // green
@@ -688,13 +712,15 @@ export default function ReporteViewer() {
     // Debug log
     console.log('[PagosMensuales Chart]', { groupedByMetodo, total, rowCount: dataSource.length });
     
-    return Object.entries(groupedByMetodo).map(([metodo, monto], index) => ({
-      name: metodo,
-      value: monto,
-      percentage: total > 0 ? ((monto / total) * 100).toFixed(1) : '0',
-      fill: colors[index % colors.length]
-    }));
-  }, [isPagosMensualesReport, fullData, previewData]);
+    return Object.entries(groupedByMetodo)
+      .sort((a, b) => b[1] - a[1]) // Sort by amount descending
+      .map(([metodo, monto], index) => ({
+        name: metodo,
+        value: monto,
+        percentage: total > 0 ? ((monto / total) * 100).toFixed(1) : '0',
+        fill: colors[index % colors.length]
+      }));
+  }, [isPagosMensualesReport, filteredPagosMensualesData]);
 
   // Get columns from preview data with preferred ordering
   const columns = useMemo(() => {
@@ -1541,8 +1567,36 @@ export default function ReporteViewer() {
             </div>
           )}
 
-          {/* Summary Section - Collapsible - NOT for Pagos Futuros report (ID 4), Cartera Vencida, Contraentrega, or Liquidados (they have their own summary) */}
-          {previewData && previewData.length > 0 && summaryData && !isPagosFuturosReport && !isCarteraVencidaReport && !isContraentregaReport && !isLiquidadosReport && (
+          {/* Dynamic Filter for Pagos Mensuales - Payment Method */}
+          {isPagosMensualesReport && availableMetodosPago.length > 0 && (
+            <div className="space-y-4">
+              <Label className="text-base font-semibold">Filtros</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="metodo_pago">Método de Pago</Label>
+                  <Select
+                    value={metodoPagoFilter}
+                    onValueChange={setMetodoPagoFilter}
+                  >
+                    <SelectTrigger id="metodo_pago">
+                      <SelectValue placeholder="Todos los métodos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todos los métodos</SelectItem>
+                      {availableMetodosPago.map((metodo) => (
+                        <SelectItem key={metodo} value={metodo}>
+                          {metodo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Summary Section - Collapsible - NOT for Pagos Futuros report (ID 4), Cartera Vencida, Contraentrega, Liquidados, or Pagos Mensuales (they have their own summary) */}
+          {previewData && previewData.length > 0 && summaryData && !isPagosFuturosReport && !isCarteraVencidaReport && !isContraentregaReport && !isLiquidadosReport && !isPagosMensualesReport && (
             <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
               <div className="border rounded-lg bg-muted/30">
                 <CollapsibleTrigger asChild>
@@ -3092,19 +3146,19 @@ export default function ReporteViewer() {
               // Special view for "Reporte Mensual de Pagos"
               <div className="space-y-6">
                 {/* Summary Cards for Pagos Mensuales */}
-                {fullData && fullData.length > 0 && (
+                {filteredPagosMensualesData && filteredPagosMensualesData.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-200/50">
                       <CardContent className="p-4">
                         <div className="text-sm text-muted-foreground">Total de Pagos</div>
-                        <div className="text-2xl font-bold text-blue-600">{fullData.length}</div>
+                        <div className="text-2xl font-bold text-blue-600">{filteredPagosMensualesData.length}</div>
                       </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-200/50">
                       <CardContent className="p-4">
                         <div className="text-sm text-muted-foreground">Monto Total</div>
                         <div className="text-2xl font-bold text-green-600">
-                          {formatCurrencyCompact(fullData.reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
+                          {formatCurrencyCompact(filteredPagosMensualesData.reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
                         </div>
                       </CardContent>
                     </Card>
@@ -3112,7 +3166,7 @@ export default function ReporteViewer() {
                       <CardContent className="p-4">
                         <div className="text-sm text-muted-foreground">Pagos Propiedades</div>
                         <div className="text-2xl font-bold text-purple-600">
-                          {formatCurrencyCompact(fullData.filter(r => r.tipo === 'propiedad').reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
+                          {formatCurrencyCompact(filteredPagosMensualesData.filter(r => r.tipo === 'propiedad').reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
                         </div>
                       </CardContent>
                     </Card>
@@ -3120,7 +3174,7 @@ export default function ReporteViewer() {
                       <CardContent className="p-4">
                         <div className="text-sm text-muted-foreground">Pagos Productos</div>
                         <div className="text-2xl font-bold text-orange-600">
-                          {formatCurrencyCompact(fullData.filter(r => r.tipo === 'producto').reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
+                          {formatCurrencyCompact(filteredPagosMensualesData.filter(r => r.tipo === 'producto').reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
                         </div>
                       </CardContent>
                     </Card>
@@ -3149,7 +3203,7 @@ export default function ReporteViewer() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {previewData.map((row, idx) => (
+                        {filteredPagosMensualesData.slice(0, 100).map((row, idx) => (
                           <TableRow key={idx} className="hover:bg-muted/30">
                             <TableCell>{String(row.proyecto || '-')}</TableCell>
                             <TableCell>{String(row.numero_departamento || '-')}</TableCell>
