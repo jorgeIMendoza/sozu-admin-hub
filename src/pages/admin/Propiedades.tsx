@@ -4783,13 +4783,19 @@ const Propiedades = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className={`grid w-full ${canSeeAdvancedFilters ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <TabsList className={`grid w-full ${
+              canSeeAdvancedFilters 
+                ? ((canUpdate || isSuperAdmin) ? 'grid-cols-3' : 'grid-cols-2')
+                : ((canUpdate || isSuperAdmin) ? 'grid-cols-2' : 'grid-cols-1')
+            }`}>
               <TabsTrigger value="activos">
                 Activos ({filteredActivosCount})
               </TabsTrigger>
-              <TabsTrigger value="draft">
-                Draft ({filteredDraftCount})
-              </TabsTrigger>
+              {(canUpdate || isSuperAdmin) && (
+                <TabsTrigger value="draft">
+                  Draft ({filteredDraftCount})
+                </TabsTrigger>
+              )}
               {canSeeAdvancedFilters && (
                 <TabsTrigger value="eliminados">
                   Eliminados ({filteredEliminadosCount})
