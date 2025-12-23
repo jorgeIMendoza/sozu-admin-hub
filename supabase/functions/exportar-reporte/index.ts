@@ -210,6 +210,7 @@ serve(async (req) => {
           'numero_departamento': row.numero_departamento,
           'numero_cuenta': row.numero_cuenta,
           'fecha_compra': row.fecha_compra,
+          'monto_pagado_total': row.monto_pagado_total,
           'fecha_pago_contraentrega': row.fecha_pago_contraentrega,
           'monto_contraentrega': row.monto_contraentrega,
           'monto_pagado_contraentrega': row.monto_pagado_contraentrega,
