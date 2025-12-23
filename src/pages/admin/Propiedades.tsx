@@ -969,45 +969,98 @@ const Propiedades = () => {
 
   // Shared data enrichment function
   const enrichPropertiesData = async (data: any[]) => {
+    if (!data || data.length === 0) return [];
+    
     // Get property IDs to filter queries
     const propertyIds = data.map(p => p.id);
     
-    // Get parking counts - ONLY for current page properties
-    const { data: estacionamientosData, error: estacionamientosError } = await supabase
-      .from('estacionamientos')
-      .select('id_propiedad')
-      .in('id_propiedad', propertyIds)
-      .eq('activo', true);
+    // Fetch all related data in parallel for efficiency
+    const [
+      estacionamientosResult,
+      bodegasResult,
+      edificiosModelosResult,
+      entidadesResult,
+      vistasResult,
+      estatusResult,
+      ofertasResult
+    ] = await Promise.all([
+      // Parking counts
+      supabase.from('estacionamientos').select('id_propiedad').in('id_propiedad', propertyIds).eq('activo', true),
+      // Storage counts
+      supabase.from('bodegas').select('id_propiedad').in('id_propiedad', propertyIds).eq('activo', true),
+      // Edificios, modelos, proyectos
+      supabase.from('edificios_modelos')
+        .select('id, id_modelo, modelos!inner(nombre, numero_recamaras, numero_completo_banos, numero_medio_bano), edificios!inner(nombre, id_proyecto, proyectos!inner(id, nombre))')
+        .in('id', [...new Set(data.map(p => p.id_edificio_modelo).filter(Boolean))]),
+      // Owner entities
+      supabase.from('entidades_relacionadas')
+        .select('id, personas!inner(nombre_legal)')
+        .in('id', [...new Set(data.map(p => p.id_entidad_relacionada_dueno).filter(Boolean))]),
+      // Views
+      supabase.from('vistas')
+        .select('id, nombre')
+        .in('id', [...new Set(data.map(p => p.id_vista).filter(Boolean))]),
+      // Availability status
+      supabase.from('estatus_disponibilidad')
+        .select('id, nombre')
+        .in('id', [...new Set(data.map(p => p.id_estatus_disponibilidad).filter(Boolean))]),
+      // Offers with cuentas
+      supabase.from('ofertas')
+        .select('id, id_propiedad, id_producto, activo, cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)')
+        .in('id_propiedad', propertyIds)
+        .eq('activo', true)
+    ]);
 
-    if (estacionamientosError) {
-      console.error('Error fetching estacionamientos:', estacionamientosError);
-    }
-
-    // Get storage counts - ONLY for current page properties
-    const { data: bodegasData, error: bodegasError } = await supabase
-      .from('bodegas')
-      .select('id_propiedad')
-      .in('id_propiedad', propertyIds)
-      .eq('activo', true);
-
-    if (bodegasError) {
-      console.error('Error fetching bodegas:', bodegasError);
-    }
-
-    // Create count maps
-    const estacionamientosCounts = (estacionamientosData || []).reduce((acc: any, item: any) => {
+    // Create maps for quick lookup
+    const estacionamientosCounts = (estacionamientosResult.data || []).reduce((acc: any, item: any) => {
       acc[item.id_propiedad] = (acc[item.id_propiedad] || 0) + 1;
       return acc;
     }, {});
 
-    const bodegasCounts = (bodegasData || []).reduce((acc: any, item: any) => {
+    const bodegasCounts = (bodegasResult.data || []).reduce((acc: any, item: any) => {
       acc[item.id_propiedad] = (acc[item.id_propiedad] || 0) + 1;
       return acc;
     }, {});
     
+    const edificiosModelosMap = (edificiosModelosResult.data || []).reduce((acc: any, em: any) => {
+      acc[em.id] = em;
+      return acc;
+    }, {});
+    
+    const entidadesMap = (entidadesResult.data || []).reduce((acc: any, er: any) => {
+      acc[er.id] = er;
+      return acc;
+    }, {});
+    
+    const vistasMap = (vistasResult.data || []).reduce((acc: any, v: any) => {
+      acc[v.id] = v;
+      return acc;
+    }, {});
+    
+    const estatusMap = (estatusResult.data || []).reduce((acc: any, e: any) => {
+      acc[e.id] = e;
+      return acc;
+    }, {});
+    
+    // Group ofertas by property
+    const ofertasMap = (ofertasResult.data || []).reduce((acc: any, o: any) => {
+      if (!acc[o.id_propiedad]) acc[o.id_propiedad] = [];
+      acc[o.id_propiedad].push(o);
+      return acc;
+    }, {});
+    
+    // Enrich each property with related data
+    const enrichedData = data.map(property => ({
+      ...property,
+      edificios_modelos: edificiosModelosMap[property.id_edificio_modelo] || null,
+      entidades_relacionadas: entidadesMap[property.id_entidad_relacionada_dueno] || null,
+      vistas: vistasMap[property.id_vista] || null,
+      estatus_disponibilidad: estatusMap[property.id_estatus_disponibilidad] || null,
+      ofertas: ofertasMap[property.id] || []
+    }));
+    
     // Get active cuentas_cobranza ONLY for properties on the current page
-    // This avoids the 1000-row limit issue when fetching acuerdos_pago and aplicaciones_pago
-    const ofertaIdsCurrentPage = data?.flatMap((property: any) => 
+    const ofertaIdsCurrentPage = enrichedData.flatMap((property: any) => 
       (property.ofertas || [])
         .filter((o: any) => o.activo && o.id_producto === null)
         .map((o: any) => o.id)
@@ -1443,38 +1496,11 @@ const Propiedades = () => {
             monto_apartado_pagando,
             clabe_stp_tmp_apartado,
             id_entidad_relacionada_dueno,
+            id_estatus_disponibilidad,
             activo,
             es_aprobado,
-            edificios_modelos!propiedades_id_edificio_modelo_fkey(
-              edificios!edificios_modelos_id_edificio_fkey(
-                nombre,
-                proyectos!edificios_id_proyecto_fkey(
-                  id, 
-                  nombre,
-                  entidades_relacionadas!entidades_relacionadas_id_proyecto_fkey(
-                    id_tipo_entidad,
-                    personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
-                  )
-                )
-              ),
-              modelos!edificios_modelos_id_modelo_fkey(
-                nombre,
-                numero_recamaras,
-                numero_completo_banos,
-                numero_medio_bano
-              )
-            ),
-            entidades_relacionadas(
-              personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
-            ),
-            vistas(nombre),
-            estatus_disponibilidad(id, nombre),
-            ofertas!ofertas_id_propiedad_fkey(
-              id,
-              id_producto,
-              activo,
-              cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)
-            )
+            id_edificio_modelo,
+            id_vista
           `, { count: 'exact' })
           .eq('activo', true)
           .eq('es_aprobado', true);
@@ -1829,38 +1855,11 @@ const Propiedades = () => {
             monto_apartado_pagando,
             clabe_stp_tmp_apartado,
             id_entidad_relacionada_dueno,
+            id_estatus_disponibilidad,
             activo,
             es_aprobado,
-            edificios_modelos!propiedades_id_edificio_modelo_fkey(
-              edificios!edificios_modelos_id_edificio_fkey(
-                nombre,
-                proyectos!edificios_id_proyecto_fkey(
-                  id, 
-                  nombre,
-                  entidades_relacionadas!entidades_relacionadas_id_proyecto_fkey(
-                    id_tipo_entidad,
-                    personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
-                  )
-                )
-              ),
-              modelos!edificios_modelos_id_modelo_fkey(
-                nombre,
-                numero_recamaras,
-                numero_completo_banos,
-                numero_medio_bano
-              )
-            ),
-            entidades_relacionadas(
-              personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
-            ),
-            vistas(nombre),
-            estatus_disponibilidad(id, nombre),
-            ofertas!ofertas_id_propiedad_fkey(
-              id,
-              id_producto,
-              activo,
-              cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)
-            )
+            id_edificio_modelo,
+            id_vista
           `, { count: 'exact' })
           .eq('activo', true)
           .eq('es_aprobado', false);
@@ -2210,38 +2209,11 @@ const Propiedades = () => {
             monto_apartado_pagando,
             clabe_stp_tmp_apartado,
             id_entidad_relacionada_dueno,
+            id_estatus_disponibilidad,
             activo,
             es_aprobado,
-            edificios_modelos!propiedades_id_edificio_modelo_fkey(
-              edificios!edificios_modelos_id_edificio_fkey(
-                nombre,
-                proyectos!edificios_id_proyecto_fkey(
-                  id, 
-                  nombre,
-                  entidades_relacionadas!entidades_relacionadas_id_proyecto_fkey(
-                    id_tipo_entidad,
-                    personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
-                  )
-                )
-              ),
-              modelos!edificios_modelos_id_modelo_fkey(
-                nombre,
-                numero_recamaras,
-                numero_completo_banos,
-                numero_medio_bano
-              )
-            ),
-            entidades_relacionadas(
-              personas!entidades_relacionadas_id_persona_fkey(nombre_legal)
-            ),
-            vistas(nombre),
-            estatus_disponibilidad(id, nombre),
-            ofertas!ofertas_id_propiedad_fkey(
-              id,
-              id_producto,
-              activo,
-              cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)
-            )
+            id_edificio_modelo,
+            id_vista
           `, { count: 'exact' })
           .eq('activo', false)
           .eq('es_aprobado', false);
