@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, Loader2, FileSpreadsheet, CalendarIcon, Table as TableIcon, BarChart3, RefreshCw, AlertCircle, ChevronDown, ChevronUp, Info, TrendingUp, Lock } from "lucide-react";
+import { ArrowLeft, Download, Loader2, FileSpreadsheet, CalendarIcon, Table as TableIcon, BarChart3, RefreshCw, AlertCircle, ChevronDown, ChevronUp, Info, TrendingUp, Lock, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { cn } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell, AreaChart, Area, LabelList, PieChart, Pie } from 'recharts';
+import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
 
 interface FiltroConfig {
   nombre: string;
@@ -183,6 +184,13 @@ export default function ReporteViewer() {
   const [aggregateProjects, setAggregateProjects] = useState(true); // true = show as single bar, false = separate by project
   const [hasReportAccess, setHasReportAccess] = useState<boolean | null>(null);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  
+  // State for cuenta de cobranza dialog
+  const [selectedCuentaId, setSelectedCuentaId] = useState<number | null>(null);
+  const [showCuentaDialog, setShowCuentaDialog] = useState(false);
+  
+  // Check permission for cuentas de cobranza
+  const { canRead: canReadCuentasCobranza } = usePagePermissions('/admin/cuentas-cobranza');
 
   // Check if user has access to this specific report
   useEffect(() => {
@@ -1092,6 +1100,56 @@ export default function ReporteViewer() {
     );
   };
 
+  // Extract cuenta ID from formatted string (CC-000001 -> 1, CCP-000123 -> 123)
+  const extractCuentaId = (formattedId: string): number | null => {
+    if (!formattedId || formattedId === '-') return null;
+    // Match CC-XXXXXX or CCP-XXXXXX format
+    const match = formattedId.match(/^(?:CC|CCP)-(\d+)$/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    // Try to parse as plain number if not formatted
+    const plainNumber = parseInt(formattedId, 10);
+    return isNaN(plainNumber) ? null : plainNumber;
+  };
+
+  // Handle cuenta click - open dialog
+  const handleCuentaClick = (cuentaId: number) => {
+    setSelectedCuentaId(cuentaId);
+    setShowCuentaDialog(true);
+  };
+
+  // Render clickable cuenta cell
+  const renderCuentaCell = (value: unknown, columnName: string): React.ReactNode => {
+    const cuentaColumns = ['numero_cuenta', 'id_cuenta', 'id_cuenta_cobranza', 'cuenta'];
+    const isAccountColumn = cuentaColumns.some(col => columnName.toLowerCase().includes(col));
+    
+    if (!isAccountColumn) {
+      return formatCellValue(value, columnName);
+    }
+    
+    const displayValue = String(value || '-');
+    const cuentaId = extractCuentaId(displayValue);
+    
+    // If user has permission and we have a valid cuenta ID, make it clickable
+    if (canReadCuentasCobranza && cuentaId) {
+      return (
+        <Button
+          variant="link"
+          className="p-0 h-auto font-mono text-sm text-primary hover:text-primary/80 underline-offset-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCuentaClick(cuentaId);
+          }}
+        >
+          {displayValue}
+          <ExternalLink className="h-3 w-3 ml-1" />
+        </Button>
+      );
+    }
+    
+    return displayValue;
+  };
 
   // Format cell value for display
   const formatCellValue = (value: unknown, columnName?: string): string => {
@@ -2220,7 +2278,7 @@ export default function ReporteViewer() {
                             <TableCell>{String(row.dueno || '-')}</TableCell>
                             <TableCell className="max-w-[200px] truncate" title={String(row.compradores || '')}>{String(row.compradores || '-')}</TableCell>
                             <TableCell>{String(row.numero_departamento || '-')}</TableCell>
-                            <TableCell className="font-mono text-sm">{String(row.numero_cuenta || '-')}</TableCell>
+                            <TableCell className="font-mono text-sm">{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
                             <TableCell>{String(row.tipo || '-')}</TableCell>
                             <TableCell>{String(row.categoria || '-')}</TableCell>
                             <TableCell>{String(row.nombre_producto || '-')}</TableCell>
@@ -2488,7 +2546,7 @@ export default function ReporteViewer() {
                       <TableRow key={idx}>
                         {columns.map((col) => (
                           <TableCell key={col} className="whitespace-nowrap">
-                            {formatCellValue(row[col], col)}
+                            {renderCuentaCell(row[col], col)}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -2517,6 +2575,21 @@ export default function ReporteViewer() {
         </CardContent>
       </Card>
         </>
+      )}
+      
+      {/* EditCuentaCobranzaDialog for viewing cuenta details */}
+      {showCuentaDialog && selectedCuentaId && (
+        <EditCuentaCobranzaDialog
+          cuenta={{ id: selectedCuentaId, precio_final: 0 }}
+          onClose={() => {
+            setShowCuentaDialog(false);
+            setSelectedCuentaId(null);
+          }}
+          onUpdate={() => {
+            // Refresh report data if needed
+            queryClient.invalidateQueries({ queryKey: ['reporte-full-data', id, filtros] });
+          }}
+        />
       )}
     </div>
   );
