@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -75,7 +75,7 @@ export default function Compradores() {
   const [compradorToDelete, setCompradorToDelete] = useState<Comprador | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [compradorToRestore, setCompradorToRestore] = useState<Comprador | null>(null);
-  const { toast } = useToast();
+  // Using sonner toast imported at line 9
   const queryClient = useQueryClient();
 
   const { data: activeCompradoresData, isLoading: loadingActive } = useQuery({
@@ -317,25 +317,17 @@ export default function Compradores() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compradores'] });
       setIsNewDialogOpen(false);
-      toast({
-        title: "Éxito",
-        description: "Comprador creado correctamente.",
-      });
+      toast.success("Comprador creado correctamente.");
     },
     onError: (error: any) => {
-      let errorTitle = "Error";
       let errorMessage = `Error al crear el comprador: ${error.message}`;
       
       // Manejar error de email duplicado
       if (error.code === '23505' && error.message?.includes('personas_email_key')) {
-        errorTitle = "Email duplicado";
         errorMessage = "El correo electrónico ingresado ya está registrado en el sistema. Por favor, utilice un correo diferente o busque al comprador existente.";
       }
       
-      toast({
-        title: errorTitle,
-        description: errorMessage,
-        variant: "destructive",
+      toast.error(errorMessage, {
         duration: 10000, // 10 segundos para que sea más visible
       });
     },
@@ -381,17 +373,10 @@ export default function Compradores() {
       queryClient.invalidateQueries({ queryKey: ['compradores'] });
       setIsEditDialogOpen(false);
       setEditingComprador(null);
-      toast({
-        title: "Éxito",
-        description: "Comprador actualizado correctamente.",
-      });
+      toast.success("Comprador actualizado correctamente.");
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Error al actualizar el comprador: ${error.message}`,
-        variant: "destructive",
-      });
+      toast.error(`Error al actualizar el comprador: ${error.message}`);
     },
   });
 
@@ -406,17 +391,10 @@ export default function Compradores() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compradores'] });
-      toast({
-        title: "Éxito",
-        description: "Comprador eliminado correctamente.",
-      });
+      toast.success("Comprador eliminado correctamente.");
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Error al eliminar el comprador: ${error.message}`,
-        variant: "destructive",
-      });
+      toast.error(`Error al eliminar el comprador: ${error.message}`);
     },
   });
 
@@ -431,17 +409,10 @@ export default function Compradores() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compradores'] });
-      toast({
-        title: "Éxito",
-        description: "Comprador restaurado correctamente.",
-      });
+      toast.success("Comprador restaurado correctamente.");
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Error al restaurar el comprador: ${error.message}`,
-        variant: "destructive",
-      });
+      toast.error(`Error al restaurar el comprador: ${error.message}`);
     },
   });
 
@@ -480,18 +451,15 @@ export default function Compradores() {
         ? `✅ ${cambiosRealizados.length} propiedad(es) actualizadas a Escrituración`
         : 'ℹ️ No se cumplieron las condiciones en ninguna propiedad';
       
-      toast({
-        title: cambiosRealizados.length > 0 ? "Éxito" : "Información",
-        description: mensaje,
-      });
+      if (cambiosRealizados.length > 0) {
+        toast.success(mensaje);
+      } else {
+        toast.info(mensaje);
+      }
       queryClient.invalidateQueries({ queryKey: ['compradores'] });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Error al verificar estatus: ${error.message}`,
-        variant: "destructive",
-      });
+      toast.error(`Error al verificar estatus: ${error.message}`);
     },
   });
 
@@ -505,11 +473,7 @@ export default function Compradores() {
       .single();
     
     if (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo cargar la información completa del comprador",
-        variant: "destructive",
-      });
+      toast.error("No se pudo cargar la información completa del comprador");
       return;
     }
     
