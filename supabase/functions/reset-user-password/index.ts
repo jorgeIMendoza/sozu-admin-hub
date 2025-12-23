@@ -19,11 +19,16 @@ Deno.serve(async (req) => {
     // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header provided');
       return new Response(
         JSON.stringify({ error: 'No authorization header provided' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Extract the JWT token from the Authorization header
+    const token = authHeader.replace('Bearer ', '');
+    console.log('Token received, length:', token.length);
 
     // Initialize Supabase admin client
     const supabaseAdmin = createClient(
@@ -37,18 +42,46 @@ Deno.serve(async (req) => {
       }
     );
 
-    // Extract the JWT token from the Authorization header
-    const token = authHeader.replace('Bearer ', '');
+    // Get the requesting user using the admin client with token
+    // Using admin.getUserById after decoding the JWT manually
+    let requestingUserId: string;
+    
+    try {
+      // Decode JWT to get user ID (JWT structure: header.payload.signature)
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        throw new Error('Invalid token format');
+      }
+      
+      // Decode the payload (base64url)
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      requestingUserId = payload.sub;
+      
+      if (!requestingUserId) {
+        throw new Error('No user ID in token');
+      }
+      
+      console.log('Decoded user ID from token:', requestingUserId);
+    } catch (decodeError) {
+      console.error('Error decoding token:', decodeError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid token format' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Get the requesting user using the token directly
-    const { data: { user: requestingUser }, error: userError } = await supabaseAdmin.auth.getUser(token);
-    if (userError || !requestingUser) {
-      console.error('Error getting requesting user:', userError);
+    // Verify the user exists using admin API
+    const { data: requestingUserAuth, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(requestingUserId);
+    if (authUserError || !requestingUserAuth?.user) {
+      console.error('Error verifying user:', authUserError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized - invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const requestingUser = requestingUserAuth.user;
+    console.log('Verified requesting user:', requestingUser.email);
 
     // Check if requesting user is a Super Administrator
     const { data: requestingUserData, error: requestingUserError } = await supabaseAdmin
@@ -66,6 +99,8 @@ Deno.serve(async (req) => {
     }
 
     const rolNombre = (requestingUserData.roles as any)?.nombre;
+    console.log('User role:', rolNombre);
+    
     if (rolNombre !== 'Super Administrador') {
       return new Response(
         JSON.stringify({ error: 'Solo los Super Administradores pueden resetear contraseñas' }),
