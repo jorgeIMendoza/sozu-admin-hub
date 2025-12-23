@@ -663,7 +663,8 @@ export default function ReporteViewer() {
     const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
     if (!dataSource || dataSource.length === 0) return [];
     
-    const uniqueMetodos = [...new Set(dataSource.map(row => String(row.metodo_pago || 'Sin especificar')))];
+    const uniqueMetodos = [...new Set(dataSource.map(row => String(row.metodo_pago || 'Sin especificar')))]
+      .filter(m => m.trim() !== ''); // Filter out empty strings
     return uniqueMetodos.sort();
   }, [isPagosMensualesReport, fullData, previewData]);
 
@@ -674,7 +675,7 @@ export default function ReporteViewer() {
     const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
     if (!dataSource || dataSource.length === 0) return [];
     
-    if (!metodoPagoFilter) return dataSource;
+    if (!metodoPagoFilter || metodoPagoFilter === 'all') return dataSource;
     
     return dataSource.filter(row => String(row.metodo_pago || 'Sin especificar') === metodoPagoFilter);
   }, [isPagosMensualesReport, fullData, previewData, metodoPagoFilter]);
@@ -1582,7 +1583,7 @@ export default function ReporteViewer() {
                       <SelectValue placeholder="Todos los métodos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos los métodos</SelectItem>
+                      <SelectItem value="all">Todos los métodos</SelectItem>
                       {availableMetodosPago.map((metodo) => (
                         <SelectItem key={metodo} value={metodo}>
                           {metodo}
