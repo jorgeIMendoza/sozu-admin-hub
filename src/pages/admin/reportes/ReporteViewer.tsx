@@ -50,6 +50,9 @@ interface Reporte {
 }
 
 // Apply filters to query - supports both single values and comma-separated multiple values (for IN clauses)
+// List of filters that require string quoting (non-numeric values)
+const STRING_FILTERS = ['tipo'];
+
 function applyFiltersToQuery(querySql: string, filtros: Record<string, string>): string {
   let processedQuery = querySql;
 
@@ -73,18 +76,25 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, string>):
       const filterValue = filtros[filterName];
 
       if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
+        // Check if this filter requires string quoting
+        const needsQuotes = STRING_FILTERS.includes(filterName);
+        
         // Check if this is a multi-value (comma-separated) for IN clause
         if (filterValue.includes(',')) {
           // Convert "1,2,3" to "(1,2,3)" for IN clause
-          const inValues = filterValue.split(',').map(v => v.trim()).join(',');
+          const inValues = filterValue.split(',').map(v => {
+            const trimmed = v.trim();
+            return needsQuotes ? `'${trimmed}'` : trimmed;
+          }).join(',');
           // Replace = :param with IN (values)
           let replacedCondition = condition.replace(`= :${filterName}`, `IN (${inValues})`);
           // Also handle cases without space before =
           replacedCondition = replacedCondition.replace(`=:${filterName}`, `IN (${inValues})`);
           processedQuery = processedQuery.replace(fullMatch, replacedCondition);
         } else {
-          // Single value - use as before
-          const replacedCondition = condition.replace(`:${filterName}`, String(filterValue));
+          // Single value - wrap in quotes if needed
+          const quotedValue = needsQuotes ? `'${filterValue}'` : String(filterValue);
+          const replacedCondition = condition.replace(`:${filterName}`, quotedValue);
           processedQuery = processedQuery.replace(fullMatch, replacedCondition);
         }
       } else {
@@ -2183,37 +2193,42 @@ export default function ReporteViewer() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">Proyección de Cobros por Mes</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="h-[400px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart 
-                            data={previewData.map(row => ({
-                              ...row,
-                              mes: row.es_mes_actual === true ? "Mes actual" : row.mes,
-                              monto_por_cobrar: Number(row.monto_por_cobrar) || 0,
-                              monto_cobrado: Number(row.monto_cobrado) || 0,
-                              monto_faltante: Number(row.monto_faltante) || 0
-                            }))} 
-                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                            <XAxis dataKey="mes" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                            <YAxis tickFormatter={(value) => formatCurrencyCompact(value)} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                            <RechartsTooltip 
-                              formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
-                              contentStyle={{ 
-                                backgroundColor: 'hsl(var(--background))', 
-                                border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px'
-                              }}
-                            />
-                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                            <Bar dataKey="monto_por_cobrar" fill="#3b82f6" name="Por Cobrar" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="monto_cobrado" fill="#22c55e" name="Cobrado" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="monto_faltante" fill="#f97316" name="Restante" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                    <CardContent className="pt-4">
+                      <ResponsiveContainer width="100%" height={400}>
+                        <BarChart 
+                          data={previewData.map(row => ({
+                            mes: row.es_mes_actual === true ? "Mes actual" : String(row.mes),
+                            monto_por_cobrar: parseFloat(String(row.monto_por_cobrar)) || 0,
+                            monto_cobrado: parseFloat(String(row.monto_cobrado)) || 0,
+                            monto_faltante: parseFloat(String(row.monto_faltante)) || 0
+                          }))} 
+                          margin={{ top: 20, right: 30, left: 60, bottom: 20 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis 
+                            dataKey="mes" 
+                            tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} 
+                            axisLine={{ stroke: 'hsl(var(--border))' }}
+                          />
+                          <YAxis 
+                            tickFormatter={(value) => formatCurrencyCompact(value)} 
+                            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} 
+                            axisLine={{ stroke: 'hsl(var(--border))' }}
+                          />
+                          <RechartsTooltip 
+                            formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                          <Bar dataKey="monto_por_cobrar" fill="#3b82f6" name="Por Cobrar" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="monto_cobrado" fill="#22c55e" name="Cobrado" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="monto_faltante" fill="#f97316" name="Restante" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </CardContent>
                   </Card>
                 )}

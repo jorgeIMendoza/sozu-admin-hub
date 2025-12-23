@@ -44,6 +44,9 @@ function removeComments(query: string): string {
   return cleaned;
 }
 
+// List of filters that require string quoting (non-numeric values)
+const STRING_FILTERS = ['tipo'];
+
 // Apply filters to query by replacing placeholders
 function applyFiltersToQuery(querySql: string, filtros: Record<string, unknown>): string {
   let processedQuery = querySql;
@@ -51,11 +54,13 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, unknown>)
   // Find all placeholders in format {{AND condition}}
   const placeholderRegex = /\{\{([^}]+)\}\}/g;
   let match;
+  const matches: { fullMatch: string; condition: string }[] = [];
 
   while ((match = placeholderRegex.exec(querySql)) !== null) {
-    const fullMatch = match[0];
-    const condition = match[1];
+    matches.push({ fullMatch: match[0], condition: match[1] });
+  }
 
+  for (const { fullMatch, condition } of matches) {
     // Extract the filter name from the condition (e.g., :id_proyecto)
     const filterNameMatch = condition.match(/:(\w+)/);
     if (filterNameMatch) {
@@ -63,9 +68,25 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, unknown>)
       const filterValue = filtros[filterName];
 
       if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
-        // Replace the placeholder with the actual condition
-        let replacedCondition = condition.replace(`:${filterName}`, String(filterValue));
-        processedQuery = processedQuery.replace(fullMatch, replacedCondition);
+        // Check if this filter requires string quoting
+        const needsQuotes = STRING_FILTERS.includes(filterName);
+        const valueStr = String(filterValue);
+        
+        // Check if this is a multi-value (comma-separated) for IN clause
+        if (valueStr.includes(',')) {
+          const inValues = valueStr.split(',').map(v => {
+            const trimmed = v.trim();
+            return needsQuotes ? `'${trimmed}'` : trimmed;
+          }).join(',');
+          let replacedCondition = condition.replace(`= :${filterName}`, `IN (${inValues})`);
+          replacedCondition = replacedCondition.replace(`=:${filterName}`, `IN (${inValues})`);
+          processedQuery = processedQuery.replace(fullMatch, replacedCondition);
+        } else {
+          // Single value - wrap in quotes if needed
+          const quotedValue = needsQuotes ? `'${valueStr}'` : valueStr;
+          const replacedCondition = condition.replace(`:${filterName}`, quotedValue);
+          processedQuery = processedQuery.replace(fullMatch, replacedCondition);
+        }
       } else {
         // Remove the placeholder entirely if no filter value
         processedQuery = processedQuery.replace(fullMatch, '');
