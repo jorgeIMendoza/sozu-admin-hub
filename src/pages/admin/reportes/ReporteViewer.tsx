@@ -2260,8 +2260,6 @@ export default function ReporteViewer() {
                                 outerRadius={140}
                                 paddingAngle={2}
                                 dataKey="value"
-                                label={({ name, percentage, value }) => `${name}: ${formatCurrencyCompact(value)} (${percentage}%)`}
-                                labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                               >
                                 {carteraVencidaChartData.map((entry, index) => (
                                   <Cell key={`cell-${index}`} fill={entry.fill} />
