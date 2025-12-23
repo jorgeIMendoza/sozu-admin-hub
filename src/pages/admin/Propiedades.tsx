@@ -988,9 +988,9 @@ const Propiedades = () => {
       supabase.from('estacionamientos').select('id_propiedad').in('id_propiedad', propertyIds).eq('activo', true).limit(10000),
       // Storage counts
       supabase.from('bodegas').select('id_propiedad').in('id_propiedad', propertyIds).eq('activo', true).limit(10000),
-      // Edificios, modelos, proyectos - CRITICAL: must set limit > 1000 to get all records
+      // Edificios, modelos, proyectos - CRITICAL: specify FK explicitly to avoid PGRST201 error
       supabase.from('edificios_modelos')
-        .select('id, id_modelo, modelos(nombre, numero_recamaras, numero_completo_banos, numero_medio_bano), edificios(nombre, id_proyecto, proyectos(id, nombre))')
+        .select('id, id_modelo, modelos!edificios_modelos_id_modelo_fkey(nombre, numero_recamaras, numero_completo_banos, numero_medio_bano), edificios!edificios_modelos_id_edificio_fkey(nombre, id_proyecto, proyectos(id, nombre))')
         .in('id', [...new Set(data.map(p => p.id_edificio_modelo).filter(Boolean))])
         .limit(10000),
       // Owner entities - add limit
