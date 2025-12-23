@@ -187,6 +187,18 @@ serve(async (req) => {
       fileName = reporte.nombre_archivo || 'reporte';
 
       console.log('[exportar-reporte] Query returned', queryResult.length, 'rows');
+
+      // Special transformation for Report ID 4 (Pagos actuales y futuros)
+      // Transform column names to match frontend display
+      if (id_reporte === 4) {
+        queryResult = queryResult.map((row: Record<string, unknown>) => ({
+          'Mes': row.es_mes_actual === true ? 'Mes actual' : row.mes,
+          'Monto Por Cobrar': row.monto_por_cobrar,
+          'Monto Cobrado': row.monto_cobrado,
+          'Restante Por Cobrar': row.monto_faltante,
+        }));
+        console.log('[exportar-reporte] Transformed Report 4 columns');
+      }
     } else {
       return new Response(
         JSON.stringify({ error: 'Se requiere id_reporte o data_directa' }),
