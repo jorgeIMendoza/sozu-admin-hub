@@ -175,61 +175,33 @@ export function JuicioTerminadoDialog({
   };
 
   const agregarPagoPenalizacion = async () => {
-    // Obtener acuerdos con sus aplicaciones
-    const { data: acuerdosConAplicacion } = await supabase
+    // Obtener el último acuerdo activo de la cuenta (sin importar si tiene aplicaciones)
+    const { data: ultimoAcuerdo, error: acuerdoError } = await supabase
       .from('acuerdos_pago')
-      .select(`
-        id,
-        orden,
-        aplicaciones_pago(id)
-      `)
+      .select('id, orden, monto')
       .eq('id_cuenta_cobranza', cuentaCobranzaId)
       .eq('activo', true)
-      .order('orden', { ascending: false });
+      .order('orden', { ascending: false })
+      .limit(1)
+      .single();
 
-    // Filtrar los que tienen aplicaciones
-    const acuerdosConPago = acuerdosConAplicacion?.filter(a => 
-      a.aplicaciones_pago && a.aplicaciones_pago.length > 0
-    ) || [];
-    
-    const ultimoOrden = acuerdosConPago.length > 0 ? acuerdosConPago[0].orden : 0;
-    const nuevoOrden = ultimoOrden + 1;
+    if (acuerdoError || !ultimoAcuerdo) {
+      throw new Error('No se encontró un acuerdo de pago activo para vincular la penalización');
+    }
 
-    // Insertar Pago de penalización - concepto 8
-    const { error: penError } = await supabase
-      .from('acuerdos_pago')
+    // Insertar la multa en la tabla multas, vinculada al último acuerdo
+    const { error: multaError } = await supabase
+      .from('multas')
       .insert({
-        id_cuenta_cobranza: cuentaCobranzaId,
-        id_concepto: 8, // Pago de penalización
+        id_acuerdo_pago: ultimoAcuerdo.id,
         monto: montoCancelacion,
-        orden: nuevoOrden,
-        pago_completado: false,
+        descripcion: descripcion, // Usar la descripción del juicio
+        id_tipo_multa: 3, // Penalización
+        es_pagada: false,
         activo: true
       });
 
-    if (penError) throw penError;
-
-    // Obtener todos los acuerdos futuros (después del nuevo) y reordenarlos
-    const { data: acuerdosFuturos } = await supabase
-      .from('acuerdos_pago')
-      .select('id, orden')
-      .eq('id_cuenta_cobranza', cuentaCobranzaId)
-      .eq('activo', true)
-      .gt('orden', ultimoOrden)
-      .neq('id_concepto', 8) // Excluir el recién insertado
-      .order('orden', { ascending: true });
-
-    // Reordenar los futuros
-    if (acuerdosFuturos && acuerdosFuturos.length > 0) {
-      let ordenActual = nuevoOrden + 1;
-      for (const acuerdo of acuerdosFuturos) {
-        await supabase
-          .from('acuerdos_pago')
-          .update({ orden: ordenActual, fecha_actualizacion: new Date().toISOString() })
-          .eq('id', acuerdo.id);
-        ordenActual++;
-      }
-    }
+    if (multaError) throw multaError;
   };
 
   const handleConfirm = async () => {
