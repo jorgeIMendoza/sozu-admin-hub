@@ -1027,10 +1027,20 @@ const Propiedades = () => {
       return acc;
     }, {});
     
+    // DEBUG: Log edificios_modelos result
+    console.log('[DEBUG] edificiosModelosResult.data count:', edificiosModelosResult.data?.length || 0);
+    console.log('[DEBUG] edificiosModelosResult.data sample:', edificiosModelosResult.data?.slice(0, 3));
+    console.log('[DEBUG] edificiosModelosResult.error:', edificiosModelosResult.error);
+    
     const edificiosModelosMap = (edificiosModelosResult.data || []).reduce((acc: any, em: any) => {
       acc[em.id] = em;
       return acc;
     }, {});
+    
+    // DEBUG: Log some ids we're looking for
+    const sampleEmIds = [...new Set(data.map(p => p.id_edificio_modelo).filter(Boolean))].slice(0, 5);
+    console.log('[DEBUG] Sample id_edificio_modelo from properties:', sampleEmIds);
+    console.log('[DEBUG] edificiosModelosMap has these ids?', sampleEmIds.map(id => ({ id, exists: !!edificiosModelosMap[id] })));
     
     const entidadesMap = (entidadesResult.data || []).reduce((acc: any, er: any) => {
       acc[er.id] = er;
