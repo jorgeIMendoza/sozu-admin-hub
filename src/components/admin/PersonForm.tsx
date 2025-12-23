@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Camera, Upload, CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -147,7 +147,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     porcentaje_participacion: string;
   }>>([]);
   
-  const { toast } = useToast();
+  // Using sonner toast imported at line 11
 
   const handleCreatePerson = async () => {
     try {
@@ -185,17 +185,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         tipo_persona: person.tipo_persona
       });
 
-      toast({
-        title: "Éxito",
-        description: "Persona creada exitosamente",
-      });
+      toast.success("Persona creada exitosamente");
     } catch (error) {
       console.error('Error creating person:', error);
-      toast({
-        title: "Error",
-        description: "Error al crear la persona: " + (error as Error).message,
-        variant: "destructive",
-      });
+      toast.error("Error al crear la persona: " + (error as Error).message);
     }
   };
 
@@ -657,24 +650,17 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Evitar que el evento burbujee al formulario padre
     
     // Basic validation
     if (!nombre.trim() || !email.trim() || !telefono.trim()) {
-      toast({
-        title: "Error",
-        description: "Por favor completa todos los campos requeridos (nombre, email y teléfono).",
-        variant: "destructive",
-      });
+      toast.error("Por favor completa todos los campos requeridos (nombre, email y teléfono).");
       return;
     }
 
     // RFC validation - required for comprador when restrictToBasicTab is true
     if (restrictToBasicTab && entityType === 'comprador' && !rfc.trim()) {
-      toast({
-        title: "Error",
-        description: "El RFC es obligatorio para compradores.",
-        variant: "destructive",
-      });
+      toast.error("El RFC es obligatorio para compradores.");
       return;
     }
 
@@ -682,64 +668,40 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     if (rfc.trim()) {
       const rfcRegex = /^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$/;
       if (!rfcRegex.test(rfc.trim().toUpperCase())) {
-        toast({
-          title: "Error",
-          description: "El RFC no tiene un formato válido.",
-          variant: "destructive",
-        });
+        toast.error("El RFC no tiene un formato válido.");
         return;
       }
     }
 
     // Validate entity type for legal entities
     if (entityType === 'legal' && !idTipoEntidad) {
-      toast({
-        title: "Error",
-        description: "Por favor selecciona un tipo de entidad legal.",
-        variant: "destructive",
-      });
+      toast.error("Por favor selecciona un tipo de entidad legal.");
       return;
     }
 
     if (telefono.length !== 10) {
-      toast({
-        title: "Error", 
-        description: "El teléfono debe tener exactamente 10 dígitos.",
-        variant: "destructive",
-      });
+      toast.error("El teléfono debe tener exactamente 10 dígitos.");
       return;
     }
 
     // RFC validation
     const rfcRegex = /^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$/;
     if (rfc.trim() && !rfcRegex.test(rfc.trim().toUpperCase())) {
-      toast({
-        title: "Error",
-        description: "El RFC no tiene un formato válido.",
-        variant: "destructive",
-      });
+      toast.error("El RFC no tiene un formato válido.");
       return;
     }
 
     // CURP validation (only if CURP is provided)
     const curpRegex = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{2}$/;
     if (curp.trim() && !curpRegex.test(curp.trim().toUpperCase())) {
-      toast({
-        title: "Error",
-        description: "La CURP no tiene un formato válido.",
-        variant: "destructive",
-      });
+      toast.error("La CURP no tiene un formato válido.");
       return;
     }
 
     // Validation for spouse selection (solo para personas físicas)
     if (tipoPersona === 'pf' && (idEstadoCivil === '2' || idEstadoCivil === 2)) {
       if (!idConyuge) {
-        toast({
-          title: "Error",
-          description: "Debes seleccionar un cónyuge cuando el estado civil es 'Casado(a) bienes mancomunados'.",
-          variant: "destructive",
-        });
+        toast.error("Debes seleccionar un cónyuge cuando el estado civil es 'Casado(a) bienes mancomunados'.");
         return;
       }
     }
@@ -747,11 +709,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     // Validation for legal representative (mandatory for Inmobiliarias)
     if (entityType === 'inmobiliaria') {
       if (!idRepresentanteLegal || idRepresentanteLegal === 'none') {
-        toast({
-          title: "Error",
-          description: "Debes seleccionar un Representante Legal para la Inmobiliaria.",
-          variant: "destructive",
-        });
+        toast.error("Debes seleccionar un Representante Legal para la Inmobiliaria.");
         return;
       }
     }
@@ -834,20 +792,12 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
           .eq('id', parseInt(idConyuge));
         
         if (spouseError) {
-          toast({
-            title: "Error",
-            description: "Error al actualizar el cónyuge: " + spouseError.message,
-            variant: "destructive",
-          });
+          toast.error("Error al actualizar el cónyuge: " + spouseError.message);
           return;
         }
       } catch (error) {
         console.error('Error updating spouse:', error);
-        toast({
-          title: "Error",
-          description: "Error al actualizar el cónyuge.",
-          variant: "destructive",
-        });
+        toast.error("Error al actualizar el cónyuge.");
         return;
       }
     }
@@ -1983,10 +1933,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   pendingDocuments={pendingDocuments}
                   onPendingDocumentsChange={setPendingDocuments}
                   onDocumentAdded={() => {
-                    toast({
-                      title: "Documento agregado",
-                      description: "El documento se ha agregado correctamente."
-                    });
+                    toast.success("El documento se ha agregado correctamente.");
                   }}
                 />
                    </div>
