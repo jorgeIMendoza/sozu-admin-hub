@@ -471,7 +471,7 @@ export default function ReporteViewer() {
     // Pagos actuales y futuros report columns
     'mes', 'monto_por_cobrar', 'monto_cobrado', 'monto_faltante',
     // Cartera Vencida report columns
-    'monto_a_pagar', 'monto_pagado', 'monto_restante',
+    'ultima_fecha_pago', 'monto_a_pagar', 'monto_pagado', 'monto_restante',
   ], []);
 
   // Calculate Cartera Vencida chart data
