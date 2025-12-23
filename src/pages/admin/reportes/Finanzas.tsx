@@ -42,9 +42,9 @@ export default function ReportesFinanzas() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch accessible report IDs for the current user's role
-  const { data: accessibleReportIds = [], isLoading: isLoadingAccessible } = useQuery({
+  const { data: accessibleReportIds = [], isLoading: isLoadingAccessible } = useQuery<number[]>({
     queryKey: ['accessible-report-ids', profile?.rol_id, isSuperAdmin],
-    queryFn: async () => {
+    queryFn: async (): Promise<number[]> => {
       // Super Admin can access all reports
       if (isSuperAdmin) {
         const { data } = await supabase
@@ -60,7 +60,11 @@ export default function ReportesFinanzas() {
         console.error('Error fetching accessible reports:', error);
         return [];
       }
-      return data || [];
+      // Map the result to array of numbers (the RPC returns {reporte_id: number}[])
+      if (Array.isArray(data)) {
+        return data.map((item: { reporte_id: number }) => item.reporte_id);
+      }
+      return [];
     },
     enabled: !!profile?.rol_id || isSuperAdmin,
   });

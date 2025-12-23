@@ -6001,7 +6001,12 @@ export type Database = {
         Args: { max_rows?: number; query_text: string }
         Returns: Json
       }
-      get_accessible_report_ids: { Args: never; Returns: number[] }
+      get_accessible_report_ids: {
+        Args: never
+        Returns: {
+          reporte_id: number
+        }[]
+      }
       get_current_user_persona_id: { Args: never; Returns: number }
       get_current_user_profile: {
         Args: never

@@ -56,6 +56,216 @@ interface SubmenuPermiso {
 
 const SUPER_ADMIN_ROLE_ID = 1;
 
+// Component for managing report access per role
+const ReportesSelector = ({ rolId, isSuperAdmin }: { rolId: number; isSuperAdmin: boolean }) => {
+  const queryClient = useQueryClient();
+
+  // Fetch all active reports
+  const { data: reportes = [] } = useQuery({
+    queryKey: ['reportes-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reportes')
+        .select('id, nombre, descripcion')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch report permissions for selected role
+  const { data: rolReportes = [], refetch: refetchRolReportes } = useQuery({
+    queryKey: ['rol-reportes', rolId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('roles_reportes')
+        .select('reporte_id')
+        .eq('rol_id', rolId)
+        .eq('activo', true);
+      if (error) throw error;
+      return data?.map(r => r.reporte_id) || [];
+    },
+    enabled: !!rolId && !isSuperAdmin,
+  });
+
+  // Toggle individual report mutation
+  const toggleReporteMutation = useMutation({
+    mutationFn: async ({ reporteId, isActive }: { reporteId: number; isActive: boolean }) => {
+      if (isActive) {
+        const { error } = await supabase
+          .from('roles_reportes')
+          .delete()
+          .eq('rol_id', rolId)
+          .eq('reporte_id', reporteId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('roles_reportes')
+          .upsert({ 
+            rol_id: rolId, 
+            reporte_id: reporteId,
+            activo: true
+          }, { 
+            onConflict: 'rol_id,reporte_id' 
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      refetchRolReportes();
+      queryClient.invalidateQueries({ queryKey: ['rol-reportes'] });
+    },
+    onError: (error) => {
+      toast.error(`Error al actualizar reporte: ${error.message}`);
+    },
+  });
+
+  // Select all mutation
+  const selectAllMutation = useMutation({
+    mutationFn: async () => {
+      const inserts = reportes.map(r => ({
+        rol_id: rolId,
+        reporte_id: r.id,
+        activo: true
+      }));
+      
+      const { error } = await supabase
+        .from('roles_reportes')
+        .upsert(inserts, { onConflict: 'rol_id,reporte_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchRolReportes();
+      toast.success('Todos los reportes seleccionados');
+    },
+    onError: (error) => {
+      toast.error(`Error: ${error.message}`);
+    },
+  });
+
+  // Deselect all mutation
+  const deselectAllMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('roles_reportes')
+        .delete()
+        .eq('rol_id', rolId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchRolReportes();
+      toast.success('Todos los reportes deseleccionados');
+    },
+    onError: (error) => {
+      toast.error(`Error: ${error.message}`);
+    },
+  });
+
+  if (isSuperAdmin) return null;
+
+  const hasReporte = (reporteId: number) => rolReportes.includes(reporteId);
+  const isLoading = toggleReporteMutation.isPending || selectAllMutation.isPending || deselectAllMutation.isPending;
+
+  const [open, setOpen] = useState(false);
+
+  const selectedLabels = reportes
+    .filter(r => rolReportes.includes(r.id))
+    .map(r => r.nombre);
+
+  const displayText = selectedLabels.length === 0
+    ? "Seleccionar reportes..."
+    : selectedLabels.length === reportes.length
+    ? "Todos los reportes"
+    : `${selectedLabels.length} reportes seleccionados`;
+
+  return (
+    <div className="mt-4 pt-4 border-t">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <span className="text-sm font-medium">Reportes accesibles</span>
+          <p className="text-xs text-muted-foreground">
+            Define qué reportes puede ver este rol
+          </p>
+        </div>
+      </div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+            disabled={isLoading}
+          >
+            <span className="truncate">{displayText}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+          <div className="flex flex-col">
+            {/* Quick actions */}
+            <div className="flex border-b px-2 py-2 gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex-1 h-8"
+                onClick={() => selectAllMutation.mutate()}
+                disabled={isLoading}
+              >
+                Seleccionar todos
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex-1 h-8"
+                onClick={() => deselectAllMutation.mutate()}
+                disabled={isLoading}
+              >
+                Quitar todos
+              </Button>
+            </div>
+            {/* Options list */}
+            <ScrollArea className="max-h-[320px]">
+              <div className="p-1">
+                {reportes.map((reporte) => (
+                  <div
+                    key={reporte.id}
+                    onClick={() => toggleReporteMutation.mutate({ 
+                      reporteId: reporte.id, 
+                      isActive: hasReporte(reporte.id)
+                    })}
+                    className={cn(
+                      "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                      hasReporte(reporte.id) && "bg-accent/50"
+                    )}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4 shrink-0",
+                        hasReporte(reporte.id) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <div className="flex flex-col">
+                      <span>{reporte.nombre}</span>
+                      {reporte.descripcion && (
+                        <span className="text-xs text-muted-foreground">{reporte.descripcion}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </PopoverContent>
+      </Popover>
+      <p className="text-xs text-muted-foreground mt-2">
+        Seleccionados: {rolReportes.length} de {reportes.length}
+      </p>
+    </div>
+  );
+};
+
 // Component for managing availability status permissions per role
 const EstatusDisponibilidadSelector = ({ rolId, isSuperAdmin }: { rolId: number; isSuperAdmin: boolean }) => {
   const queryClient = useQueryClient();
@@ -1168,6 +1378,12 @@ export default function RolesPermisos() {
                       
                       {/* Estatus de disponibilidad visibles */}
                       <EstatusDisponibilidadSelector 
+                        rolId={selectedRole.id}
+                        isSuperAdmin={isSuperAdminSelected}
+                      />
+                      
+                      {/* Reportes accesibles */}
+                      <ReportesSelector 
                         rolId={selectedRole.id}
                         isSuperAdmin={isSuperAdminSelected}
                       />
