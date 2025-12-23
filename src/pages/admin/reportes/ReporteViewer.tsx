@@ -547,7 +547,7 @@ export default function ReporteViewer() {
     ];
   }, [isContraentregaReport, fullData, previewData]);
 
-  // Calculate Liquidados chart data (pie chart showing total pagado vs total a pagar)
+  // Calculate Liquidados chart data (pie chart showing distribution by tipo: Propiedad vs Producto)
   const liquidadosChartData = useMemo(() => {
     if (!isLiquidadosReport) return [];
     
@@ -555,26 +555,41 @@ export default function ReporteViewer() {
     const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
     if (!dataSource || dataSource.length === 0) return [];
     
-    const totalAPagar = dataSource.reduce((sum, row) => sum + (Number(row.monto_total_a_pagar) || 0), 0);
-    const totalPagado = dataSource.reduce((sum, row) => sum + (Number(row.monto_total_pagado) || 0), 0);
+    // Group by tipo (Propiedad vs Producto)
+    const propiedadTotal = dataSource
+      .filter(row => row.tipo === 'Propiedad')
+      .reduce((sum, row) => sum + (Number(row.monto_total_pagado) || 0), 0);
+    
+    const productoTotal = dataSource
+      .filter(row => row.tipo === 'Producto')
+      .reduce((sum, row) => sum + (Number(row.monto_total_pagado) || 0), 0);
+    
+    const total = propiedadTotal + productoTotal;
     
     // Debug log
-    console.log('[Liquidados Chart]', { totalAPagar, totalPagado, rowCount: dataSource.length });
+    console.log('[Liquidados Chart]', { propiedadTotal, productoTotal, total, rowCount: dataSource.length });
     
-    return [
-      { 
-        name: 'Monto Total Pagado', 
-        value: totalPagado, 
-        percentage: totalAPagar > 0 ? ((totalPagado / totalAPagar) * 100).toFixed(1) : '0',
-        fill: 'hsl(142, 76%, 36%)' // green using HSL
-      },
-      { 
-        name: 'Monto Total a Pagar', 
-        value: totalAPagar, 
-        percentage: '100',
-        fill: 'hsl(217, 91%, 60%)' // blue using HSL
-      }
-    ];
+    const result = [];
+    
+    if (propiedadTotal > 0) {
+      result.push({ 
+        name: 'Propiedades', 
+        value: propiedadTotal, 
+        percentage: total > 0 ? ((propiedadTotal / total) * 100).toFixed(1) : '0',
+        fill: 'hsl(217, 91%, 60%)' // blue
+      });
+    }
+    
+    if (productoTotal > 0) {
+      result.push({ 
+        name: 'Productos', 
+        value: productoTotal, 
+        percentage: total > 0 ? ((productoTotal / total) * 100).toFixed(1) : '0',
+        fill: 'hsl(142, 76%, 36%)' // green
+      });
+    }
+    
+    return result;
   }, [isLiquidadosReport, fullData, previewData]);
 
   // Get columns from preview data with preferred ordering
@@ -1422,8 +1437,8 @@ export default function ReporteViewer() {
             </div>
           )}
 
-          {/* Summary Section - Collapsible - NOT for Pagos Futuros report (ID 4), Cartera Vencida, or Contraentrega (they have their own summary) */}
-          {previewData && previewData.length > 0 && summaryData && !isPagosFuturosReport && !isCarteraVencidaReport && !isContraentregaReport && (
+          {/* Summary Section - Collapsible - NOT for Pagos Futuros report (ID 4), Cartera Vencida, Contraentrega, or Liquidados (they have their own summary) */}
+          {previewData && previewData.length > 0 && summaryData && !isPagosFuturosReport && !isCarteraVencidaReport && !isContraentregaReport && !isLiquidadosReport && (
             <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
               <div className="border rounded-lg bg-muted/30">
                 <CollapsibleTrigger asChild>
@@ -2876,6 +2891,8 @@ export default function ReporteViewer() {
                           <TableHead className="font-semibold min-w-[200px]">Compradores</TableHead>
                           <TableHead className="font-semibold min-w-[100px]">Num. Depto</TableHead>
                           <TableHead className="font-semibold min-w-[120px]">Num. Cuenta</TableHead>
+                          <TableHead className="font-semibold min-w-[100px]">Tipo</TableHead>
+                          <TableHead className="font-semibold min-w-[120px]">Estatus Propiedad</TableHead>
                           <TableHead className="font-semibold min-w-[120px]">Fecha Compra</TableHead>
                           <TableHead className="text-right font-semibold min-w-[150px] text-blue-600">Monto Total a Pagar</TableHead>
                           <TableHead className="text-right font-semibold min-w-[150px] text-green-600">Monto Total Pagado</TableHead>
@@ -2889,6 +2906,8 @@ export default function ReporteViewer() {
                             <TableCell className="max-w-[200px] truncate" title={String(row.compradores || '')}>{String(row.compradores || '-')}</TableCell>
                             <TableCell>{String(row.numero_departamento || '-')}</TableCell>
                             <TableCell className="font-mono text-sm">{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
+                            <TableCell>{String(row.tipo || '-')}</TableCell>
+                            <TableCell>{String(row.estatus_propiedad || '-')}</TableCell>
                             <TableCell>{formatCellValue(row.fecha_compra, 'fecha_compra')}</TableCell>
                             <TableCell className="text-right font-mono text-blue-600">{formatCellValue(row.monto_total_a_pagar, 'monto_total_a_pagar')}</TableCell>
                             <TableCell className="text-right font-mono text-green-600">{formatCellValue(row.monto_total_pagado, 'monto_total_pagado')}</TableCell>
@@ -2896,7 +2915,7 @@ export default function ReporteViewer() {
                         ))}
                         {/* Total Row */}
                         <TableRow className="bg-muted/50 font-bold">
-                          <TableCell colSpan={6} className="font-bold">Total</TableCell>
+                          <TableCell colSpan={8} className="font-bold">Total</TableCell>
                           <TableCell className="text-right font-mono font-bold text-blue-600">
                             {formatCellValue((fullData || []).reduce((sum, row) => sum + (Number(row.monto_total_a_pagar) || 0), 0), 'monto_total_a_pagar')}
                           </TableCell>
@@ -2912,7 +2931,7 @@ export default function ReporteViewer() {
                   /* Chart View - Pie chart */
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Distribución de Montos Liquidados</CardTitle>
+                      <CardTitle className="text-base">Distribución por Tipo (Propiedades vs Productos)</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-4">
                       {liquidadosChartData.length > 0 && liquidadosChartData.some(d => d.value > 0) ? (
