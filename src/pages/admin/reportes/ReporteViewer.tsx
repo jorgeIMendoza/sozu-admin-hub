@@ -308,6 +308,10 @@ export default function ReporteViewer() {
       if (!reporte?.query_sql) return [];
 
       const processedQuery = applyFiltersToQuery(reporte.query_sql, filtros);
+      
+      // Debug log to verify filters are being applied correctly
+      console.log('[ReporteViewer] Executing query with filters:', JSON.stringify(filtros));
+      console.log('[ReporteViewer] Processed query (first 500 chars):', processedQuery.substring(0, 500));
 
       const { data, error } = await supabase.rpc('execute_safe_query', {
         query_text: processedQuery,
@@ -315,6 +319,7 @@ export default function ReporteViewer() {
       });
 
       if (error) throw error;
+      console.log('[ReporteViewer] Query returned', (data as unknown[])?.length || 0, 'rows');
       return (data as Record<string, unknown>[]) || [];
     },
     enabled: !!reporte?.query_sql,
