@@ -1154,6 +1154,25 @@ export default function ReporteViewer() {
   // Format cell value for display
   const formatCellValue = (value: unknown, columnName?: string): string => {
     if (value === null || value === undefined) return '-';
+    
+    // Check if the column name suggests it's a date value
+    const dateColumns = ['fecha', 'date', 'ultima_fecha'];
+    const isDateColumn = columnName ? 
+      dateColumns.some(col => columnName.toLowerCase().includes(col)) : 
+      false;
+    
+    // Format as date if it's a date column and looks like a date string
+    if (isDateColumn && typeof value === 'string') {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return format(date, 'dd/MM/yyyy', { locale: es });
+        }
+      } catch {
+        // Fall through to string conversion
+      }
+    }
+    
     if (typeof value === 'number') {
       // Check if the column name suggests it's a monetary value
       const monetaryColumns = ['monto', 'precio', 'pagado', 'restante', 'cobrar', 'pagar', 'total', 'pendiente'];
