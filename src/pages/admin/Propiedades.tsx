@@ -1038,9 +1038,9 @@ const Propiedades = () => {
         .select('id, id_modelo, modelos!edificios_modelos_id_modelo_fkey(nombre, numero_recamaras, numero_completo_banos, numero_medio_bano), edificios!edificios_modelos_id_edificio_fkey(nombre, id_proyecto, proyectos!edificios_id_proyecto_fkey(id, nombre))')
         .in('id', [...new Set(data.map(p => p.id_edificio_modelo).filter(Boolean))])
         .limit(10000),
-      // Owner entities - add limit
+      // Owner entities - CRITICAL: specify FK explicitly to avoid PGRST201 errors
       supabase.from('entidades_relacionadas')
-        .select('id, personas(nombre_legal)')
+        .select('id, personas!entidades_relacionadas_id_persona_fkey(nombre_legal)')
         .in('id', [...new Set(data.map(p => p.id_entidad_relacionada_dueno).filter(Boolean))])
         .limit(1000),
       // Views
@@ -1086,6 +1086,11 @@ const Propiedades = () => {
     const sampleEmIds = [...new Set(data.map(p => p.id_edificio_modelo).filter(Boolean))].slice(0, 5);
     console.log('[DEBUG] Sample id_edificio_modelo from properties:', sampleEmIds);
     console.log('[DEBUG] edificiosModelosMap has these ids?', sampleEmIds.map(id => ({ id, exists: !!edificiosModelosMap[id] })));
+    
+    // DEBUG: Log entidades result
+    console.log('[DEBUG] entidadesResult.data count:', entidadesResult.data?.length || 0);
+    console.log('[DEBUG] entidadesResult.data sample:', entidadesResult.data?.slice(0, 3));
+    console.log('[DEBUG] entidadesResult.error:', entidadesResult.error);
     
     const entidadesMap = (entidadesResult.data || []).reduce((acc: any, er: any) => {
       acc[er.id] = er;
