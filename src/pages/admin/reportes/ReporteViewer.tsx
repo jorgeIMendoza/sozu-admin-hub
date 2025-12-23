@@ -429,6 +429,9 @@ export default function ReporteViewer() {
     enabled: !!reporte && realEstateProjectIds.length >= 0,
   });
 
+  // Check if this is the "Pagos actuales y futuros" pivot report
+  const isPagosFuturosReport = reporte?.id === 4;
+
   // Define preferred column order for known reports
   const preferredColumnOrder = useMemo(() => [
     // Unified report columns - exact order requested
@@ -439,6 +442,8 @@ export default function ReporteViewer() {
     'restante_durante_obra', 'restante_a_la_entrega',
     // Simple products report columns
     'pagado', 'restante',
+    // Pagos actuales y futuros report columns
+    'mes', 'monto_por_cobrar', 'monto_cobrado', 'monto_faltante',
   ], []);
 
   // Get columns from preview data with preferred ordering
@@ -2052,6 +2057,132 @@ export default function ReporteViewer() {
                     )}
                   </div>
                 )}
+              </div>
+            ) : isPagosFuturosReport && previewData && previewData.length > 0 ? (
+              // Special pivot view for "Pagos actuales y futuros" report
+              <div className="space-y-6">
+                {/* Pivot Table - Months as columns */}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold min-w-[280px]">Concepto</TableHead>
+                        {previewData.map((row, idx) => (
+                          <TableHead key={idx} className="text-center font-semibold min-w-[140px]">
+                            {String(row.mes)}
+                          </TableHead>
+                        ))}
+                        <TableHead className="text-center font-semibold min-w-[160px] bg-primary/10">
+                          Total
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {/* Row 1: Monto por cobrar del mes */}
+                      <TableRow className="hover:bg-muted/30">
+                        <TableCell className="font-medium text-blue-600">
+                          Monto por cobrar del mes
+                        </TableCell>
+                        {previewData.map((row, idx) => (
+                          <TableCell key={idx} className="text-center font-mono">
+                            {formatCellValue(row.monto_por_cobrar)}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-center font-mono font-bold bg-primary/5">
+                          {formatCellValue(previewData.reduce((sum, row) => sum + (Number(row.monto_por_cobrar) || 0), 0))}
+                        </TableCell>
+                      </TableRow>
+                      
+                      {/* Row 2: Monto cobrado a la fecha de consulta */}
+                      <TableRow className="hover:bg-muted/30">
+                        <TableCell className="font-medium text-green-600">
+                          Monto cobrado a la fecha de consulta
+                        </TableCell>
+                        {previewData.map((row, idx) => (
+                          <TableCell key={idx} className="text-center font-mono text-green-600">
+                            {formatCellValue(row.monto_cobrado)}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-center font-mono font-bold text-green-600 bg-primary/5">
+                          {formatCellValue(previewData.reduce((sum, row) => sum + (Number(row.monto_cobrado) || 0), 0))}
+                        </TableCell>
+                      </TableRow>
+                      
+                      {/* Row 3: Monto por cobrar faltante del mes */}
+                      <TableRow className="hover:bg-muted/30">
+                        <TableCell className="font-medium text-orange-500">
+                          Monto por cobrar faltante del mes
+                        </TableCell>
+                        {previewData.map((row, idx) => (
+                          <TableCell key={idx} className="text-center font-mono text-orange-500">
+                            {formatCellValue(row.monto_faltante)}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-center font-mono font-bold text-orange-500 bg-primary/5">
+                          {formatCellValue(previewData.reduce((sum, row) => sum + (Number(row.monto_faltante) || 0), 0))}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                    <CardContent className="pt-4">
+                      <p className="text-sm text-muted-foreground mb-1">Total por Cobrar (5 meses)</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {formatCurrencyCompact(previewData.reduce((sum, row) => sum + (Number(row.monto_por_cobrar) || 0), 0))}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                    <CardContent className="pt-4">
+                      <p className="text-sm text-muted-foreground mb-1">Total Cobrado</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {formatCurrencyCompact(previewData.reduce((sum, row) => sum + (Number(row.monto_cobrado) || 0), 0))}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
+                    <CardContent className="pt-4">
+                      <p className="text-sm text-muted-foreground mb-1">Total Faltante</p>
+                      <p className="text-2xl font-bold text-orange-500">
+                        {formatCurrencyCompact(previewData.reduce((sum, row) => sum + (Number(row.monto_faltante) || 0), 0))}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Bar Chart for visualization */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Proyección de Cobros por Mes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={previewData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="mes" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                          <YAxis tickFormatter={(value) => formatCurrencyCompact(value)} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                          <RechartsTooltip 
+                            formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))', 
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px'
+                            }}
+                          />
+                          <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                          <Bar dataKey="monto_por_cobrar" fill="#3b82f6" name="Por Cobrar" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="monto_cobrado" fill="#22c55e" name="Cobrado" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="monto_faltante" fill="#f97316" name="Faltante" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             ) : previewData && previewData.length > 0 ? (
               <ScrollArea className="h-[500px]">
