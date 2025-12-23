@@ -752,7 +752,11 @@ export default function ReporteViewer() {
         if (accessibleProjectIds.length > 0) {
           exportFilters['id_proyecto'] = accessibleProjectIds.join(',');
         }
-        // Lock owner filter
+        // Lock owner filter using id_persona (for id_dueno filter in query)
+        if (ownershipPersonaIds.length > 0) {
+          exportFilters['id_dueno'] = ownershipPersonaIds.join(',');
+        }
+        // Also keep id_entidad_relacionada_dueno for backwards compatibility
         if (ownershipEntityIds.length > 0) {
           exportFilters['id_entidad_relacionada_dueno'] = ownershipEntityIds.join(',');
         }
