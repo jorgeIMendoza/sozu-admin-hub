@@ -4160,6 +4160,7 @@ export default function DetalleCuentaCobranza() {
         onClose={() => setJuicioTerminadoDialog(false)}
         cuentaCobranzaId={cuentaId}
         propiedadId={cuentaDetalle?.id_propiedad}
+        totalPagado={totalPagado}
       />
 
       {editCuentaDialog && cuentaDetalle && (
