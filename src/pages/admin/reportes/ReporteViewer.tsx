@@ -176,7 +176,8 @@ export default function ReporteViewer() {
   // Check if user has access to this specific report
   useEffect(() => {
     const checkReportAccess = async () => {
-      if (!id || !profile?.rol_id) return;
+      // Wait for permissions to load before checking access
+      if (!id || permissionsLoading) return;
       
       // Super Admin has access to everything
       if (isSuperAdmin) {
@@ -205,7 +206,7 @@ export default function ReporteViewer() {
     };
     
     checkReportAccess();
-  }, [id, profile?.rol_id, isSuperAdmin]);
+  }, [id, permissionsLoading, isSuperAdmin]);
 
   // Fetch owner entity info for locked filter display
   const { data: ownerEntityInfo } = useQuery({
