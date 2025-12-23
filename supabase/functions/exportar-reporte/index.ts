@@ -252,6 +252,24 @@ serve(async (req) => {
         }));
         console.log('[exportar-reporte] Transformed Cartera Vencida columns');
       }
+
+      // Special transformation for Reporte Mensual de Pagos
+      if (reporte.nombre_archivo === 'reporte_mensual_pagos') {
+        queryResult = queryResult.map((row: Record<string, unknown>) => ({
+          'Proyecto': row.proyecto,
+          'Número de Departamento': row.numero_departamento,
+          'Tipo': row.tipo,
+          'Nombre de Producto': row.nombre_producto,
+          'Número de Cuenta': row.numero_cuenta,
+          'Fecha Pago': row.fecha_pago,
+          'Método de Pago': row.metodo_pago,
+          'Cuenta Clave': row.cuenta_clave,
+          'Concepto de Pago': row.concepto_pago,
+          'Monto del Pago': row.monto_pago,
+          'Compradores': row.compradores,
+        }));
+        console.log('[exportar-reporte] Transformed Reporte Mensual de Pagos columns');
+      }
     } else {
       return new Response(
         JSON.stringify({ error: 'Se requiere id_reporte o data_directa' }),

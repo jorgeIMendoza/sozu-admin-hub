@@ -521,6 +521,9 @@ export default function ReporteViewer() {
   // Check if this is the "Completamente liquidados" report
   const isLiquidadosReport = reporte?.id === 7 || reporte?.nombre_archivo === 'completamente_liquidados';
 
+  // Check if this is the "Reporte Mensual de Pagos" report
+  const isPagosMensualesReport = reporte?.id === 8 || reporte?.nombre_archivo === 'reporte_mensual_pagos';
+
   // Define preferred column order for known reports
   const preferredColumnOrder = useMemo(() => [
     // Unified report columns - exact order requested
@@ -539,6 +542,9 @@ export default function ReporteViewer() {
     'fecha_compra', 'fecha_pago_contraentrega', 'monto_pagado_total', 'monto_contraentrega', 'monto_pagado_contraentrega',
     // Completamente liquidados columns
     'monto_total_a_pagar', 'monto_total_pagado',
+    // Reporte Mensual de Pagos columns
+    'numero_departamento', 'tipo', 'nombre_producto', 'numero_cuenta', 'fecha_pago',
+    'metodo_pago', 'cuenta_clave', 'concepto_pago', 'monto_pago', 'compradores',
   ], []);
 
   // Calculate Cartera Vencida chart data
@@ -648,6 +654,47 @@ export default function ReporteViewer() {
     
     return result;
   }, [isLiquidadosReport, fullData, previewData]);
+
+  // Calculate Pagos Mensuales chart data (pie chart showing distribution by método de pago)
+  const pagosMensualesChartData = useMemo(() => {
+    if (!isPagosMensualesReport) return [];
+    
+    // Use fullData if available, otherwise fall back to previewData
+    const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
+    if (!dataSource || dataSource.length === 0) return [];
+    
+    // Group by método de pago
+    const groupedByMetodo: Record<string, number> = {};
+    dataSource.forEach(row => {
+      const metodo = String(row.metodo_pago || 'Sin especificar');
+      const monto = Number(row.monto_pago) || 0;
+      groupedByMetodo[metodo] = (groupedByMetodo[metodo] || 0) + monto;
+    });
+    
+    const total = Object.values(groupedByMetodo).reduce((sum, val) => sum + val, 0);
+    
+    // Color palette for pie chart
+    const colors = [
+      'hsl(217, 91%, 60%)', // blue
+      'hsl(142, 76%, 36%)', // green
+      'hsl(25, 95%, 53%)',  // orange
+      'hsl(280, 87%, 65%)', // purple
+      'hsl(0, 84%, 60%)',   // red
+      'hsl(174, 72%, 45%)', // teal
+      'hsl(47, 92%, 50%)',  // yellow
+      'hsl(340, 82%, 52%)', // pink
+    ];
+    
+    // Debug log
+    console.log('[PagosMensuales Chart]', { groupedByMetodo, total, rowCount: dataSource.length });
+    
+    return Object.entries(groupedByMetodo).map(([metodo, monto], index) => ({
+      name: metodo,
+      value: monto,
+      percentage: total > 0 ? ((monto / total) * 100).toFixed(1) : '0',
+      fill: colors[index % colors.length]
+    }));
+  }, [isPagosMensualesReport, fullData, previewData]);
 
   // Get columns from preview data with preferred ordering
   const columns = useMemo(() => {
@@ -3034,6 +3081,161 @@ export default function ReporteViewer() {
                             </div>
                           ) : (
                             <span>No hay datos disponibles para mostrar la gráfica. Intente aplicar filtros.</span>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : isPagosMensualesReport && previewData && previewData.length > 0 ? (
+              // Special view for "Reporte Mensual de Pagos"
+              <div className="space-y-6">
+                {/* Summary Section */}
+                <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
+                  <div className="border rounded-lg overflow-hidden">
+                    <CollapsibleTrigger className="w-full px-4 py-3 bg-muted/50 hover:bg-muted/70 flex items-center justify-between transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Resumen de Pagos del Mes</span>
+                        <span className="text-sm text-muted-foreground">({fullData?.length || previewData?.length || 0} pagos)</span>
+                      </div>
+                      {summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Total Pagos */}
+                          <div className="space-y-2 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-blue-600">Total de Pagos</h4>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {fullData?.length || previewData?.length || 0}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Número de pagos registrados</p>
+                          </div>
+
+                          {/* Monto Total */}
+                          <div className="space-y-2 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-green-600">Monto Total</h4>
+                            <p className="text-2xl font-bold text-green-600">
+                              {formatCurrencyCompact((fullData || previewData || []).reduce((sum, row) => sum + (Number(row.monto_pago) || 0), 0))}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Suma de todos los pagos</p>
+                          </div>
+
+                          {/* Métodos de Pago */}
+                          <div className="space-y-2 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-purple-600">Métodos de Pago</h4>
+                            <p className="text-2xl font-bold text-purple-600">
+                              {new Set((fullData || previewData || []).map(row => row.metodo_pago)).size}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Diferentes métodos utilizados</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+
+                {/* Conditional: Show Table OR Chart based on viewMode */}
+                {viewMode === 'table' ? (
+                  /* Table view for Pagos Mensuales */
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold min-w-[150px]">Proyecto</TableHead>
+                          <TableHead className="font-semibold min-w-[100px]">Num. Depto</TableHead>
+                          <TableHead className="font-semibold min-w-[100px]">Tipo</TableHead>
+                          <TableHead className="font-semibold min-w-[150px]">Nombre Producto</TableHead>
+                          <TableHead className="font-semibold min-w-[120px]">Num. Cuenta</TableHead>
+                          <TableHead className="font-semibold min-w-[100px]">Fecha Pago</TableHead>
+                          <TableHead className="font-semibold min-w-[120px]">Método Pago</TableHead>
+                          <TableHead className="font-semibold min-w-[150px]">Cuenta Clave</TableHead>
+                          <TableHead className="font-semibold min-w-[150px]">Concepto</TableHead>
+                          <TableHead className="font-semibold min-w-[120px] text-right">Monto</TableHead>
+                          <TableHead className="font-semibold min-w-[200px]">Compradores</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewData.map((row, idx) => (
+                          <TableRow key={idx} className="hover:bg-muted/30">
+                            <TableCell>{String(row.proyecto || '-')}</TableCell>
+                            <TableCell>{String(row.numero_departamento || '-')}</TableCell>
+                            <TableCell>
+                              <span className={cn(
+                                "px-2 py-1 rounded-full text-xs font-medium",
+                                row.tipo === 'Propiedad' ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" : 
+                                row.tipo === 'Producto' ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" : 
+                                "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                              )}>
+                                {String(row.tipo || '-')}
+                              </span>
+                            </TableCell>
+                            <TableCell>{String(row.nombre_producto || '-')}</TableCell>
+                            <TableCell>{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
+                            <TableCell>{formatCellValue(row.fecha_pago, 'fecha_pago')}</TableCell>
+                            <TableCell>{String(row.metodo_pago || '-')}</TableCell>
+                            <TableCell className="font-mono text-xs">{String(row.cuenta_clave || '-')}</TableCell>
+                            <TableCell>{String(row.concepto_pago || '-')}</TableCell>
+                            <TableCell className="text-right font-medium">{formatCellValue(row.monto_pago, 'monto_pago')}</TableCell>
+                            <TableCell>{String(row.compradores || '-')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                ) : (
+                  /* Chart view for Pagos Mensuales - Pie chart by payment method */
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Distribución por Método de Pago</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {pagosMensualesChartData.length > 0 ? (
+                        <div className="h-[400px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pagosMensualesChartData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={150}
+                                fill="#8884d8"
+                                dataKey="value"
+                                label={({ name, percentage }) => `${name}: ${percentage}%`}
+                              >
+                                {pagosMensualesChartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip 
+                                formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
+                                contentStyle={{ 
+                                  backgroundColor: 'hsl(var(--background))', 
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '8px'
+                                }}
+                              />
+                              <Legend 
+                                formatter={(value, entry) => {
+                                  const item = pagosMensualesChartData.find(d => d.name === value);
+                                  return `${value}: ${formatCurrencyCompact(item?.value || 0)} (${item?.percentage}%)`;
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                          {isLoadingFullData ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              <span>Cargando datos de la gráfica...</span>
+                            </div>
+                          ) : (
+                            <span>No hay datos disponibles para mostrar la gráfica.</span>
                           )}
                         </div>
                       )}
