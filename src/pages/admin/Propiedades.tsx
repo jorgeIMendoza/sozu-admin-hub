@@ -1527,10 +1527,8 @@ const Propiedades = () => {
         } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length > 0) {
           // Apply role-based status filter if no specific filter selected
           query = query.in('estatus_disponibilidad.nombre', allowedEstatusNames);
-        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length === 0) {
-          // Role has no allowed statuses - return empty
-          return { items: [], count: 0, totalPages: 0 };
         }
+        // Note: If allowedEstatusNames is empty or null, no status filter is applied (show all)
 
         // PRE-FILTER: If cuentaCobranzaFilter is set, get property IDs with/without cuentas first
         let propertyIdsWithCuentas: number[] = [];
@@ -1863,9 +1861,8 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length > 0) {
           query = query.in('estatus_disponibilidad.nombre', allowedEstatusNames);
-        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length === 0) {
-          return { items: [], count: 0, totalPages: 0 };
         }
+        // Note: If allowedEstatusNames is empty or null, no status filter is applied (show all)
 
         // PRE-FILTER: If cuentaCobranzaFilter is set, get property IDs with/without cuentas first
         let propertyIdsWithCuentas: number[] = [];
@@ -2195,9 +2192,8 @@ const Propiedades = () => {
           query = query.in('estatus_disponibilidad.nombre', disponibilidadFilter);
         } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length > 0) {
           query = query.in('estatus_disponibilidad.nombre', allowedEstatusNames);
-        } else if (!isSuperAdmin && allowedEstatusNames && allowedEstatusNames.length === 0) {
-          return { items: [], count: 0, totalPages: 0 };
         }
+        // Note: If allowedEstatusNames is empty or null, no status filter is applied (show all)
 
         // PRE-FILTER: If cuentaCobranzaFilter is set, get property IDs with/without cuentas first
         let propertyIdsWithCuentas: number[] = [];
