@@ -1526,7 +1526,7 @@ const Propiedades = () => {
           
           const propertyIdsFromCuentas = matchingCuentas?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [];
           
-          // Find property IDs by project name
+          // Find edificio_modelo IDs by project name
           const { data: matchingProyectos } = await supabase
             .from('proyectos')
             .select('id')
@@ -1535,7 +1535,7 @@ const Propiedades = () => {
           
           const proyectoIds = matchingProyectos?.map((p: any) => p.id) || [];
           
-          // Find property IDs by building name
+          // Find edificio_modelo IDs by building name
           const { data: matchingEdificios } = await supabase
             .from('edificios')
             .select('id')
@@ -1543,6 +1543,26 @@ const Propiedades = () => {
             .eq('activo', true);
           
           const edificioIds = matchingEdificios?.map((e: any) => e.id) || [];
+          
+          // Get edificio_modelo IDs for matching projects and buildings
+          let edificioModeloIdsFromSearch: number[] = [];
+          if (proyectoIds.length > 0 || edificioIds.length > 0) {
+            let emQuery = supabase.from('edificios').select('id').eq('activo', true);
+            if (proyectoIds.length > 0) {
+              emQuery = emQuery.in('id_proyecto', proyectoIds);
+            }
+            const { data: edificiosFromProjects } = await emQuery;
+            const allEdificioIds = [...new Set([...edificioIds, ...(edificiosFromProjects?.map(e => e.id) || [])])];
+            
+            if (allEdificioIds.length > 0) {
+              const { data: matchingEMs } = await supabase
+                .from('edificios_modelos')
+                .select('id')
+                .in('id_edificio', allEdificioIds)
+                .eq('activo', true);
+              edificioModeloIdsFromSearch = matchingEMs?.map(em => em.id) || [];
+            }
+          }
           
           // Find property IDs by owner name (propietario)
           const { data: matchingPropietarios } = await supabase
@@ -1553,22 +1573,15 @@ const Propiedades = () => {
           
           const propietarioEntityIds = matchingPropietarios?.map((p: any) => p.id) || [];
           
-          // Combine all IDs from different searches
-          const allMatchingIds = [...new Set([...propertyIdsFromCuentas])];
-          
           // Build OR query including all search criteria
           let orConditions = [`numero_propiedad.ilike.%${searchTerm}%`, `clabe_stp_tmp_apartado.ilike.%${searchTerm}%`];
           
-          if (allMatchingIds.length > 0) {
-            orConditions.push(`id.in.(${allMatchingIds.join(',')})`);
+          if (propertyIdsFromCuentas.length > 0) {
+            orConditions.push(`id.in.(${propertyIdsFromCuentas.join(',')})`);
           }
           
-          if (proyectoIds.length > 0) {
-            orConditions.push(`edificios_modelos.edificios.proyectos.id.in.(${proyectoIds.join(',')})`);
-          }
-          
-          if (edificioIds.length > 0) {
-            orConditions.push(`edificios_modelos.edificios.id.in.(${edificioIds.join(',')})`);
+          if (edificioModeloIdsFromSearch.length > 0) {
+            orConditions.push(`id_edificio_modelo.in.(${edificioModeloIdsFromSearch.join(',')})`);
           }
           
           if (propietarioEntityIds.length > 0) {
@@ -1580,26 +1593,63 @@ const Propiedades = () => {
         
         // Note: Project access and ownership filters already applied early (lines 1424-1437)
         
-        if (selectedProyectos.length > 0) {
-          query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
-        }
-        
-        if (selectedModelos.length > 0) {
-          query = query.in('edificios_modelos.modelos.id', selectedModelos);
-        }
-        
-        if (recamarasFilter) {
-          const recamaras = parseInt(recamarasFilter);
-          if (!isNaN(recamaras)) {
-            query = query.eq('edificios_modelos.modelos.numero_recamaras', recamaras);
+        // Pre-compute edificio_modelo IDs for project/model/recamaras/banos filters
+        if (selectedProyectos.length > 0 || selectedModelos.length > 0 || recamarasFilter || banosFilter) {
+          // Step 1: Get edificio IDs from selected projects
+          let edificioIdsForFilter: number[] = [];
+          if (selectedProyectos.length > 0) {
+            const { data: edificiosFromProjects } = await supabase
+              .from('edificios')
+              .select('id')
+              .in('id_proyecto', selectedProyectos)
+              .eq('activo', true);
+            edificioIdsForFilter = edificiosFromProjects?.map(e => e.id) || [];
+            if (edificioIdsForFilter.length === 0) {
+              return { items: [], count: 0, totalPages: 0 };
+            }
           }
-        }
-        
-        if (banosFilter) {
-          const banos = parseInt(banosFilter);
-          if (!isNaN(banos)) {
-            query = query.eq('edificios_modelos.modelos.numero_completo_banos', banos);
+          
+          // Step 2: Build modelo filter query
+          let modeloQuery = supabase.from('modelos').select('id').eq('activo', true);
+          if (selectedModelos.length > 0) {
+            modeloQuery = modeloQuery.in('id', selectedModelos);
           }
+          if (recamarasFilter) {
+            const recamaras = parseInt(recamarasFilter);
+            if (!isNaN(recamaras)) {
+              modeloQuery = modeloQuery.eq('numero_recamaras', recamaras);
+            }
+          }
+          if (banosFilter) {
+            const banos = parseInt(banosFilter);
+            if (!isNaN(banos)) {
+              modeloQuery = modeloQuery.eq('numero_completo_banos', banos);
+            }
+          }
+          
+          const { data: matchingModelos } = await modeloQuery;
+          const modeloIdsForFilter = matchingModelos?.map(m => m.id) || [];
+          
+          // Step 3: Get edificios_modelos that match both filters
+          let emQuery = supabase.from('edificios_modelos').select('id').eq('activo', true);
+          if (edificioIdsForFilter.length > 0) {
+            emQuery = emQuery.in('id_edificio', edificioIdsForFilter);
+          }
+          if (selectedModelos.length > 0 || recamarasFilter || banosFilter) {
+            if (modeloIdsForFilter.length === 0) {
+              return { items: [], count: 0, totalPages: 0 };
+            }
+            emQuery = emQuery.in('id_modelo', modeloIdsForFilter);
+          }
+          
+          const { data: matchingEMs } = await emQuery;
+          const emIdsForFilter = matchingEMs?.map(em => em.id) || [];
+          
+          if (emIdsForFilter.length === 0) {
+            return { items: [], count: 0, totalPages: 0 };
+          }
+          
+          query = query.in('id_edificio_modelo', emIdsForFilter);
         }
         
         if (disponibilidadFilter.length > 0) {
@@ -1884,7 +1934,7 @@ const Propiedades = () => {
           
           const propertyIdsFromCuentas = matchingCuentas?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [];
           
-          // Find property IDs by project name
+          // Find edificio_modelo IDs by project name
           const { data: matchingProyectos } = await supabase
             .from('proyectos')
             .select('id')
@@ -1893,7 +1943,7 @@ const Propiedades = () => {
           
           const proyectoIds = matchingProyectos?.map((p: any) => p.id) || [];
           
-          // Find property IDs by building name
+          // Find edificio_modelo IDs by building name
           const { data: matchingEdificios } = await supabase
             .from('edificios')
             .select('id')
@@ -1901,6 +1951,26 @@ const Propiedades = () => {
             .eq('activo', true);
           
           const edificioIds = matchingEdificios?.map((e: any) => e.id) || [];
+          
+          // Get edificio_modelo IDs for matching projects and buildings
+          let edificioModeloIdsFromSearch: number[] = [];
+          if (proyectoIds.length > 0 || edificioIds.length > 0) {
+            let emQuery = supabase.from('edificios').select('id').eq('activo', true);
+            if (proyectoIds.length > 0) {
+              emQuery = emQuery.in('id_proyecto', proyectoIds);
+            }
+            const { data: edificiosFromProjects } = await emQuery;
+            const allEdificioIds = [...new Set([...edificioIds, ...(edificiosFromProjects?.map(e => e.id) || [])])];
+            
+            if (allEdificioIds.length > 0) {
+              const { data: matchingEMs } = await supabase
+                .from('edificios_modelos')
+                .select('id')
+                .in('id_edificio', allEdificioIds)
+                .eq('activo', true);
+              edificioModeloIdsFromSearch = matchingEMs?.map(em => em.id) || [];
+            }
+          }
           
           // Find property IDs by owner name (propietario)
           const { data: matchingPropietarios } = await supabase
@@ -1911,22 +1981,15 @@ const Propiedades = () => {
           
           const propietarioEntityIds = matchingPropietarios?.map((p: any) => p.id) || [];
           
-          // Combine all IDs from different searches
-          const allMatchingIds = [...new Set([...propertyIdsFromCuentas])];
-          
           // Build OR query including all search criteria
           let orConditions = [`numero_propiedad.ilike.%${searchTerm}%`, `clabe_stp_tmp_apartado.ilike.%${searchTerm}%`];
           
-          if (allMatchingIds.length > 0) {
-            orConditions.push(`id.in.(${allMatchingIds.join(',')})`);
+          if (propertyIdsFromCuentas.length > 0) {
+            orConditions.push(`id.in.(${propertyIdsFromCuentas.join(',')})`);
           }
           
-          if (proyectoIds.length > 0) {
-            orConditions.push(`edificios_modelos.edificios.proyectos.id.in.(${proyectoIds.join(',')})`);
-          }
-          
-          if (edificioIds.length > 0) {
-            orConditions.push(`edificios_modelos.edificios.id.in.(${edificioIds.join(',')})`);
+          if (edificioModeloIdsFromSearch.length > 0) {
+            orConditions.push(`id_edificio_modelo.in.(${edificioModeloIdsFromSearch.join(',')})`);
           }
           
           if (propietarioEntityIds.length > 0) {
@@ -1938,26 +2001,63 @@ const Propiedades = () => {
         
         // Note: Project access and ownership filters already applied early
         
-        if (selectedProyectos.length > 0) {
-          query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
-        }
-        
-        if (selectedModelos.length > 0) {
-          query = query.in('edificios_modelos.modelos.id', selectedModelos);
-        }
-        
-        if (recamarasFilter) {
-          const recamaras = parseInt(recamarasFilter);
-          if (!isNaN(recamaras)) {
-            query = query.eq('edificios_modelos.modelos.numero_recamaras', recamaras);
+        // Pre-compute edificio_modelo IDs for project/model/recamaras/banos filters
+        if (selectedProyectos.length > 0 || selectedModelos.length > 0 || recamarasFilter || banosFilter) {
+          // Step 1: Get edificio IDs from selected projects
+          let edificioIdsForFilter: number[] = [];
+          if (selectedProyectos.length > 0) {
+            const { data: edificiosFromProjects } = await supabase
+              .from('edificios')
+              .select('id')
+              .in('id_proyecto', selectedProyectos)
+              .eq('activo', true);
+            edificioIdsForFilter = edificiosFromProjects?.map(e => e.id) || [];
+            if (edificioIdsForFilter.length === 0) {
+              return { items: [], count: 0, totalPages: 0 };
+            }
           }
-        }
-        
-        if (banosFilter) {
-          const banos = parseInt(banosFilter);
-          if (!isNaN(banos)) {
-            query = query.eq('edificios_modelos.modelos.numero_completo_banos', banos);
+          
+          // Step 2: Build modelo filter query
+          let modeloQuery = supabase.from('modelos').select('id').eq('activo', true);
+          if (selectedModelos.length > 0) {
+            modeloQuery = modeloQuery.in('id', selectedModelos);
           }
+          if (recamarasFilter) {
+            const recamaras = parseInt(recamarasFilter);
+            if (!isNaN(recamaras)) {
+              modeloQuery = modeloQuery.eq('numero_recamaras', recamaras);
+            }
+          }
+          if (banosFilter) {
+            const banos = parseInt(banosFilter);
+            if (!isNaN(banos)) {
+              modeloQuery = modeloQuery.eq('numero_completo_banos', banos);
+            }
+          }
+          
+          const { data: matchingModelos } = await modeloQuery;
+          const modeloIdsForFilter = matchingModelos?.map(m => m.id) || [];
+          
+          // Step 3: Get edificios_modelos that match both filters
+          let emQuery = supabase.from('edificios_modelos').select('id').eq('activo', true);
+          if (edificioIdsForFilter.length > 0) {
+            emQuery = emQuery.in('id_edificio', edificioIdsForFilter);
+          }
+          if (selectedModelos.length > 0 || recamarasFilter || banosFilter) {
+            if (modeloIdsForFilter.length === 0) {
+              return { items: [], count: 0, totalPages: 0 };
+            }
+            emQuery = emQuery.in('id_modelo', modeloIdsForFilter);
+          }
+          
+          const { data: matchingEMs } = await emQuery;
+          const emIdsForFilter = matchingEMs?.map(em => em.id) || [];
+          
+          if (emIdsForFilter.length === 0) {
+            return { items: [], count: 0, totalPages: 0 };
+          }
+          
+          query = query.in('id_edificio_modelo', emIdsForFilter);
         }
         
         if (disponibilidadFilter.length > 0) {
@@ -2238,7 +2338,7 @@ const Propiedades = () => {
           
           const propertyIdsFromCuentas = matchingCuentas?.map((c: any) => c.ofertas?.id_propiedad).filter(Boolean) || [];
           
-          // Find property IDs by project name
+          // Find edificio_modelo IDs by project name
           const { data: matchingProyectos } = await supabase
             .from('proyectos')
             .select('id')
@@ -2247,7 +2347,7 @@ const Propiedades = () => {
           
           const proyectoIds = matchingProyectos?.map((p: any) => p.id) || [];
           
-          // Find property IDs by building name
+          // Find edificio_modelo IDs by building name
           const { data: matchingEdificios } = await supabase
             .from('edificios')
             .select('id')
@@ -2255,6 +2355,26 @@ const Propiedades = () => {
             .eq('activo', true);
           
           const edificioIds = matchingEdificios?.map((e: any) => e.id) || [];
+          
+          // Get edificio_modelo IDs for matching projects and buildings
+          let edificioModeloIdsFromSearch: number[] = [];
+          if (proyectoIds.length > 0 || edificioIds.length > 0) {
+            let emQuery = supabase.from('edificios').select('id').eq('activo', true);
+            if (proyectoIds.length > 0) {
+              emQuery = emQuery.in('id_proyecto', proyectoIds);
+            }
+            const { data: edificiosFromProjects } = await emQuery;
+            const allEdificioIds = [...new Set([...edificioIds, ...(edificiosFromProjects?.map(e => e.id) || [])])];
+            
+            if (allEdificioIds.length > 0) {
+              const { data: matchingEMs } = await supabase
+                .from('edificios_modelos')
+                .select('id')
+                .in('id_edificio', allEdificioIds)
+                .eq('activo', true);
+              edificioModeloIdsFromSearch = matchingEMs?.map(em => em.id) || [];
+            }
+          }
           
           // Find property IDs by owner name (propietario)
           const { data: matchingPropietarios } = await supabase
@@ -2265,22 +2385,15 @@ const Propiedades = () => {
           
           const propietarioEntityIds = matchingPropietarios?.map((p: any) => p.id) || [];
           
-          // Combine all IDs from different searches
-          const allMatchingIds = [...new Set([...propertyIdsFromCuentas])];
-          
           // Build OR query including all search criteria
           let orConditions = [`numero_propiedad.ilike.%${searchTerm}%`, `clabe_stp_tmp_apartado.ilike.%${searchTerm}%`];
           
-          if (allMatchingIds.length > 0) {
-            orConditions.push(`id.in.(${allMatchingIds.join(',')})`);
+          if (propertyIdsFromCuentas.length > 0) {
+            orConditions.push(`id.in.(${propertyIdsFromCuentas.join(',')})`);
           }
           
-          if (proyectoIds.length > 0) {
-            orConditions.push(`edificios_modelos.edificios.proyectos.id.in.(${proyectoIds.join(',')})`);
-          }
-          
-          if (edificioIds.length > 0) {
-            orConditions.push(`edificios_modelos.edificios.id.in.(${edificioIds.join(',')})`);
+          if (edificioModeloIdsFromSearch.length > 0) {
+            orConditions.push(`id_edificio_modelo.in.(${edificioModeloIdsFromSearch.join(',')})`);
           }
           
           if (propietarioEntityIds.length > 0) {
@@ -2292,26 +2405,63 @@ const Propiedades = () => {
         
         // Note: Project access and ownership filters already applied early
         
-        if (selectedProyectos.length > 0) {
-          query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
-        }
-        
-        if (selectedModelos.length > 0) {
-          query = query.in('edificios_modelos.modelos.id', selectedModelos);
-        }
-        
-        if (recamarasFilter) {
-          const recamaras = parseInt(recamarasFilter);
-          if (!isNaN(recamaras)) {
-            query = query.eq('edificios_modelos.modelos.numero_recamaras', recamaras);
+        // Pre-compute edificio_modelo IDs for project/model/recamaras/banos filters
+        if (selectedProyectos.length > 0 || selectedModelos.length > 0 || recamarasFilter || banosFilter) {
+          // Step 1: Get edificio IDs from selected projects
+          let edificioIdsForFilter: number[] = [];
+          if (selectedProyectos.length > 0) {
+            const { data: edificiosFromProjects } = await supabase
+              .from('edificios')
+              .select('id')
+              .in('id_proyecto', selectedProyectos)
+              .eq('activo', true);
+            edificioIdsForFilter = edificiosFromProjects?.map(e => e.id) || [];
+            if (edificioIdsForFilter.length === 0) {
+              return { items: [], count: 0, totalPages: 0 };
+            }
           }
-        }
-        
-        if (banosFilter) {
-          const banos = parseInt(banosFilter);
-          if (!isNaN(banos)) {
-            query = query.eq('edificios_modelos.modelos.numero_completo_banos', banos);
+          
+          // Step 2: Build modelo filter query
+          let modeloQuery = supabase.from('modelos').select('id').eq('activo', true);
+          if (selectedModelos.length > 0) {
+            modeloQuery = modeloQuery.in('id', selectedModelos);
           }
+          if (recamarasFilter) {
+            const recamaras = parseInt(recamarasFilter);
+            if (!isNaN(recamaras)) {
+              modeloQuery = modeloQuery.eq('numero_recamaras', recamaras);
+            }
+          }
+          if (banosFilter) {
+            const banos = parseInt(banosFilter);
+            if (!isNaN(banos)) {
+              modeloQuery = modeloQuery.eq('numero_completo_banos', banos);
+            }
+          }
+          
+          const { data: matchingModelos } = await modeloQuery;
+          const modeloIdsForFilter = matchingModelos?.map(m => m.id) || [];
+          
+          // Step 3: Get edificios_modelos that match both filters
+          let emQuery = supabase.from('edificios_modelos').select('id').eq('activo', true);
+          if (edificioIdsForFilter.length > 0) {
+            emQuery = emQuery.in('id_edificio', edificioIdsForFilter);
+          }
+          if (selectedModelos.length > 0 || recamarasFilter || banosFilter) {
+            if (modeloIdsForFilter.length === 0) {
+              return { items: [], count: 0, totalPages: 0 };
+            }
+            emQuery = emQuery.in('id_modelo', modeloIdsForFilter);
+          }
+          
+          const { data: matchingEMs } = await emQuery;
+          const emIdsForFilter = matchingEMs?.map(em => em.id) || [];
+          
+          if (emIdsForFilter.length === 0) {
+            return { items: [], count: 0, totalPages: 0 };
+          }
+          
+          query = query.in('id_edificio_modelo', emIdsForFilter);
         }
         
         if (disponibilidadFilter.length > 0) {
