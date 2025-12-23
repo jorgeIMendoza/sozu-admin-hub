@@ -3182,115 +3182,112 @@ export default function ReporteViewer() {
                   </div>
                 )}
 
-                {/* Conditional: Show Table OR Chart based on viewMode */}
-                {viewMode === 'table' ? (
-                  /* Table view for Pagos Mensuales */
-                  <ScrollArea className="h-[500px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="font-semibold min-w-[150px]">Proyecto</TableHead>
-                          <TableHead className="font-semibold min-w-[100px]">Num. Depto</TableHead>
-                          <TableHead className="font-semibold min-w-[100px]">Tipo</TableHead>
-                          <TableHead className="font-semibold min-w-[150px]">Nombre Producto</TableHead>
-                          <TableHead className="font-semibold min-w-[120px]">Num. Cuenta</TableHead>
-                          <TableHead className="font-semibold min-w-[100px]">Fecha Pago</TableHead>
-                          <TableHead className="font-semibold min-w-[120px]">Método Pago</TableHead>
-                          <TableHead className="font-semibold min-w-[180px]">Clave Rastreo</TableHead>
-                          <TableHead className="font-semibold min-w-[180px]">Cuenta CLABE</TableHead>
-                          <TableHead className="font-semibold min-w-[150px]">Concepto</TableHead>
-                          <TableHead className="font-semibold min-w-[120px] text-right">Monto</TableHead>
-                          <TableHead className="font-semibold min-w-[200px]">Compradores</TableHead>
+                {/* Bar Chart - Always visible for Pagos Mensuales */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Pagos por Método de Pago</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {pagosMensualesChartData.length > 0 ? (
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={pagosMensualesChartData} layout="vertical" margin={{ left: 120, right: 80 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              type="number" 
+                              tickFormatter={(value) => formatCurrencyCompact(value)}
+                            />
+                            <YAxis 
+                              type="category" 
+                              dataKey="name" 
+                              width={110}
+                            />
+                            <RechartsTooltip 
+                              formatter={(value: number) => [formatCurrencyCompact(value), 'Monto']}
+                              contentStyle={{ 
+                                backgroundColor: 'hsl(var(--background))', 
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '8px'
+                              }}
+                            />
+                            <Bar dataKey="value" name="Monto" radius={[0, 4, 4, 0]}>
+                              {pagosMensualesChartData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              ))}
+                              <LabelList 
+                                dataKey="value" 
+                                position="right" 
+                                formatter={(value: number) => formatCurrencyCompact(value)}
+                                style={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                        {isLoadingFullData ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>Cargando datos de la gráfica...</span>
+                          </div>
+                        ) : (
+                          <span>No hay datos disponibles para mostrar la gráfica.</span>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Table view for Pagos Mensuales */}
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold min-w-[150px]">Proyecto</TableHead>
+                        <TableHead className="font-semibold min-w-[100px]">Num. Depto</TableHead>
+                        <TableHead className="font-semibold min-w-[100px]">Tipo</TableHead>
+                        <TableHead className="font-semibold min-w-[150px]">Nombre Producto</TableHead>
+                        <TableHead className="font-semibold min-w-[120px]">Num. Cuenta</TableHead>
+                        <TableHead className="font-semibold min-w-[100px]">Fecha Pago</TableHead>
+                        <TableHead className="font-semibold min-w-[120px]">Método Pago</TableHead>
+                        <TableHead className="font-semibold min-w-[180px]">Clave Rastreo</TableHead>
+                        <TableHead className="font-semibold min-w-[180px]">Cuenta CLABE</TableHead>
+                        <TableHead className="font-semibold min-w-[150px]">Concepto</TableHead>
+                        <TableHead className="font-semibold min-w-[120px] text-right">Monto</TableHead>
+                        <TableHead className="font-semibold min-w-[200px]">Compradores</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPagosMensualesData.slice(0, 100).map((row, idx) => (
+                        <TableRow key={idx} className="hover:bg-muted/30">
+                          <TableCell>{String(row.proyecto || '-')}</TableCell>
+                          <TableCell>{String(row.numero_departamento || '-')}</TableCell>
+                          <TableCell>
+                            <span className={cn(
+                              "px-2 py-1 rounded-full text-xs font-medium",
+                              row.tipo === 'propiedad' ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" : 
+                              row.tipo === 'producto' ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" : 
+                              "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                            )}>
+                              {String(row.tipo || '-')}
+                            </span>
+                          </TableCell>
+                          <TableCell>{String(row.nombre_producto || '-')}</TableCell>
+                          <TableCell>{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
+                          <TableCell>{formatCellValue(row.fecha_pago, 'fecha_pago')}</TableCell>
+                          <TableCell>{String(row.metodo_pago || '-')}</TableCell>
+                          <TableCell className="font-mono text-xs">{String(row.clave_rastreo || '-')}</TableCell>
+                          <TableCell className="font-mono text-xs">{String(row.cuenta_clabe || '-')}</TableCell>
+                          <TableCell>{String(row.concepto_pago || '-')}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCellValue(row.monto_pago, 'monto_pago')}</TableCell>
+                          <TableCell>{String(row.compradores || '-')}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredPagosMensualesData.slice(0, 100).map((row, idx) => (
-                          <TableRow key={idx} className="hover:bg-muted/30">
-                            <TableCell>{String(row.proyecto || '-')}</TableCell>
-                            <TableCell>{String(row.numero_departamento || '-')}</TableCell>
-                            <TableCell>
-                              <span className={cn(
-                                "px-2 py-1 rounded-full text-xs font-medium",
-                                row.tipo === 'propiedad' ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" : 
-                                row.tipo === 'producto' ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300" : 
-                                "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                              )}>
-                                {String(row.tipo || '-')}
-                              </span>
-                            </TableCell>
-                            <TableCell>{String(row.nombre_producto || '-')}</TableCell>
-                            <TableCell>{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
-                            <TableCell>{formatCellValue(row.fecha_pago, 'fecha_pago')}</TableCell>
-                            <TableCell>{String(row.metodo_pago || '-')}</TableCell>
-                            <TableCell className="font-mono text-xs">{String(row.clave_rastreo || '-')}</TableCell>
-                            <TableCell className="font-mono text-xs">{String(row.cuenta_clabe || '-')}</TableCell>
-                            <TableCell>{String(row.concepto_pago || '-')}</TableCell>
-                            <TableCell className="text-right font-medium">{formatCellValue(row.monto_pago, 'monto_pago')}</TableCell>
-                            <TableCell>{String(row.compradores || '-')}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
-                ) : (
-                  /* Chart view for Pagos Mensuales - Bar chart by payment method */
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Pagos por Método de Pago</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {pagosMensualesChartData.length > 0 ? (
-                        <div className="h-[400px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={pagosMensualesChartData} layout="vertical" margin={{ left: 100, right: 80 }}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis 
-                                type="number" 
-                                tickFormatter={(value) => formatCurrencyCompact(value)}
-                              />
-                              <YAxis 
-                                type="category" 
-                                dataKey="name" 
-                                width={90}
-                              />
-                              <RechartsTooltip 
-                                formatter={(value: number) => [formatCurrencyCompact(value), 'Monto']}
-                                contentStyle={{ 
-                                  backgroundColor: 'hsl(var(--background))', 
-                                  border: '1px solid hsl(var(--border))',
-                                  borderRadius: '8px'
-                                }}
-                              />
-                              <Bar dataKey="value" name="Monto" radius={[0, 4, 4, 0]}>
-                                {pagosMensualesChartData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                                ))}
-                                <LabelList 
-                                  dataKey="value" 
-                                  position="right" 
-                                  formatter={(value: number) => formatCurrencyCompact(value)}
-                                  style={{ fontSize: 12, fill: 'hsl(var(--foreground))' }}
-                                />
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      ) : (
-                        <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-                          {isLoadingFullData ? (
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                              <span>Cargando datos de la gráfica...</span>
-                            </div>
-                          ) : (
-                            <span>No hay datos disponibles para mostrar la gráfica.</span>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
               </div>
             ) : previewData && previewData.length > 0 ? (
               <ScrollArea className="h-[500px]">
