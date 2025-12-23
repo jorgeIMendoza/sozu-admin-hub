@@ -73,7 +73,7 @@ export function RepresentanteLegalSelector({
 
   const createRepresentanteMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
       
       // Create person record
       const { data: personResult, error: personError } = await supabase
