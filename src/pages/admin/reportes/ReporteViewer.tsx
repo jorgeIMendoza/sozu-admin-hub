@@ -2061,97 +2061,119 @@ export default function ReporteViewer() {
             ) : isPagosFuturosReport && previewData && previewData.length > 0 ? (
               // Special pivot view for "Pagos actuales y futuros" report
               <div className="space-y-6">
+                {/* Resumen de Cobranza */}
+                <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
+                  <div className="border rounded-lg overflow-hidden">
+                    <CollapsibleTrigger className="w-full px-4 py-3 bg-muted/50 hover:bg-muted/70 flex items-center justify-between transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Resumen de Cobranza</span>
+                        <span className="text-sm text-muted-foreground">({previewData.length} registros)</span>
+                      </div>
+                      {summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Monto por Cobrar */}
+                          <div className="space-y-4 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-blue-600">Monto por Cobrar</h4>
+                            <div>
+                              <p className="text-xl font-bold text-blue-600">
+                                {formatCurrencyCompact(previewData.reduce((sum, row) => sum + (Number(row.monto_por_cobrar) || 0), 0))}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Total (5 meses)</p>
+                            </div>
+                          </div>
+
+                          {/* Pagado */}
+                          <div className="space-y-4 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-green-600">Pagado</h4>
+                            {(() => {
+                              const totalPorCobrar = previewData.reduce((sum, row) => sum + (Number(row.monto_por_cobrar) || 0), 0);
+                              const totalCobrado = previewData.reduce((sum, row) => sum + (Number(row.monto_cobrado) || 0), 0);
+                              const porcentaje = totalPorCobrar > 0 ? (totalCobrado / totalPorCobrar * 100) : 0;
+                              return (
+                                <div>
+                                  <p className="text-xl font-bold text-green-600">
+                                    {formatCurrencyCompact(totalCobrado)}
+                                    <span className="text-sm font-normal text-muted-foreground ml-2">({porcentaje.toFixed(1)}%)</span>
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Total cobrado</p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Restante por Cobrar */}
+                          <div className="space-y-4 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-orange-500">Restante por Cobrar</h4>
+                            {(() => {
+                              const totalPorCobrar = previewData.reduce((sum, row) => sum + (Number(row.monto_por_cobrar) || 0), 0);
+                              const totalFaltante = previewData.reduce((sum, row) => sum + (Number(row.monto_faltante) || 0), 0);
+                              const porcentaje = totalPorCobrar > 0 ? (totalFaltante / totalPorCobrar * 100) : 0;
+                              return (
+                                <div>
+                                  <p className="text-xl font-bold text-orange-500">
+                                    {formatCurrencyCompact(totalFaltante)}
+                                    <span className="text-sm font-normal text-muted-foreground ml-2">({porcentaje.toFixed(1)}%)</span>
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Total faltante</p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+
                 {/* Pivot Table - Months as columns */}
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold min-w-[280px]">Concepto</TableHead>
-                        {previewData.map((row, idx) => (
-                          <TableHead key={idx} className="text-center font-semibold min-w-[140px]">
-                            {String(row.mes)}
-                          </TableHead>
-                        ))}
-                        <TableHead className="text-center font-semibold min-w-[160px] bg-primary/10">
-                          Total
-                        </TableHead>
+                        <TableHead className="font-semibold min-w-[200px]">Mes</TableHead>
+                        <TableHead className="text-center font-semibold min-w-[160px] text-blue-600">Monto Por Cobrar</TableHead>
+                        <TableHead className="text-center font-semibold min-w-[160px] text-green-600">Monto Cobrado</TableHead>
+                        <TableHead className="text-center font-semibold min-w-[160px] text-orange-500">Monto Faltante</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {/* Row 1: Monto por cobrar del mes */}
-                      <TableRow className="hover:bg-muted/30">
-                        <TableCell className="font-medium text-blue-600">
-                          Monto por cobrar del mes
-                        </TableCell>
-                        {previewData.map((row, idx) => (
-                          <TableCell key={idx} className="text-center font-mono">
-                            {formatCellValue(row.monto_por_cobrar)}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-center font-mono font-bold bg-primary/5">
+                      {previewData.map((row, idx) => {
+                        const esMesActual = row.es_mes_actual === true;
+                        return (
+                          <TableRow key={idx} className={cn("hover:bg-muted/30", esMesActual && "bg-primary/10")}>
+                            <TableCell className={cn("font-medium", esMesActual && "text-primary font-bold")}>
+                              {esMesActual ? "Mes actual" : String(row.mes)}
+                            </TableCell>
+                            <TableCell className="text-center font-mono">
+                              {formatCellValue(row.monto_por_cobrar)}
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-green-600">
+                              {formatCellValue(row.monto_cobrado)}
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-orange-500">
+                              {formatCellValue(row.monto_faltante)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {/* Total Row */}
+                      <TableRow className="bg-muted/50 font-bold">
+                        <TableCell className="font-bold">Total</TableCell>
+                        <TableCell className="text-center font-mono font-bold">
                           {formatCellValue(previewData.reduce((sum, row) => sum + (Number(row.monto_por_cobrar) || 0), 0))}
                         </TableCell>
-                      </TableRow>
-                      
-                      {/* Row 2: Monto cobrado a la fecha de consulta */}
-                      <TableRow className="hover:bg-muted/30">
-                        <TableCell className="font-medium text-green-600">
-                          Monto cobrado a la fecha de consulta
-                        </TableCell>
-                        {previewData.map((row, idx) => (
-                          <TableCell key={idx} className="text-center font-mono text-green-600">
-                            {formatCellValue(row.monto_cobrado)}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-center font-mono font-bold text-green-600 bg-primary/5">
+                        <TableCell className="text-center font-mono font-bold text-green-600">
                           {formatCellValue(previewData.reduce((sum, row) => sum + (Number(row.monto_cobrado) || 0), 0))}
                         </TableCell>
-                      </TableRow>
-                      
-                      {/* Row 3: Monto por cobrar faltante del mes */}
-                      <TableRow className="hover:bg-muted/30">
-                        <TableCell className="font-medium text-orange-500">
-                          Monto por cobrar faltante del mes
-                        </TableCell>
-                        {previewData.map((row, idx) => (
-                          <TableCell key={idx} className="text-center font-mono text-orange-500">
-                            {formatCellValue(row.monto_faltante)}
-                          </TableCell>
-                        ))}
-                        <TableCell className="text-center font-mono font-bold text-orange-500 bg-primary/5">
+                        <TableCell className="text-center font-mono font-bold text-orange-500">
                           {formatCellValue(previewData.reduce((sum, row) => sum + (Number(row.monto_faltante) || 0), 0))}
                         </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-                    <CardContent className="pt-4">
-                      <p className="text-sm text-muted-foreground mb-1">Total por Cobrar (5 meses)</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {formatCurrencyCompact(previewData.reduce((sum, row) => sum + (Number(row.monto_por_cobrar) || 0), 0))}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
-                    <CardContent className="pt-4">
-                      <p className="text-sm text-muted-foreground mb-1">Total Cobrado</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {formatCurrencyCompact(previewData.reduce((sum, row) => sum + (Number(row.monto_cobrado) || 0), 0))}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
-                    <CardContent className="pt-4">
-                      <p className="text-sm text-muted-foreground mb-1">Total Faltante</p>
-                      <p className="text-2xl font-bold text-orange-500">
-                        {formatCurrencyCompact(previewData.reduce((sum, row) => sum + (Number(row.monto_faltante) || 0), 0))}
-                      </p>
-                    </CardContent>
-                  </Card>
                 </div>
 
                 {/* Bar Chart for visualization */}
@@ -2162,7 +2184,13 @@ export default function ReporteViewer() {
                   <CardContent>
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={previewData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <BarChart 
+                          data={previewData.map(row => ({
+                            ...row,
+                            mes: row.es_mes_actual ? "Mes actual" : row.mes
+                          }))} 
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                           <XAxis dataKey="mes" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
                           <YAxis tickFormatter={(value) => formatCurrencyCompact(value)} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
