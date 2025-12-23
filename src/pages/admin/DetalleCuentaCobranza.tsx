@@ -454,7 +454,7 @@ export default function DetalleCuentaCobranza() {
   const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canUpdate, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
+  const { canUpdate, canDelete, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
 
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
@@ -3367,8 +3367,8 @@ export default function DetalleCuentaCobranza() {
                                                 </Tooltip>
                                               )}
                                               
-                                              {/* CEP Button - Only for STP and STP-manual payments */}
-                                              {(aplicacion.pago.id_metodos_pago === 6 || aplicacion.pago.id_metodos_pago === 7) && (
+                                              {/* CEP Button - Only for STP and STP-manual payments, requires update permission */}
+                                              {(aplicacion.pago.id_metodos_pago === 6 || aplicacion.pago.id_metodos_pago === 7) && (canUpdate || isSuperAdmin) && (
                                                 <Tooltip>
                                                   <TooltipTrigger asChild>
                                                     <Button
@@ -3434,26 +3434,29 @@ export default function DetalleCuentaCobranza() {
                                                 </Tooltip>
                                               )}
                                               
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <Button
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    className="h-6 w-6"
-                                                    onClick={() => handleDeletePayment({
-                                                      id: aplicacion.id,
-                                                      monto: aplicacion.monto,
-                                                      conceptoNombre: conceptoDisplay
-                                                    })}
-                                                    disabled={deletePaymentMutation.isPending || isStpPayment || esCuentaCancelada || isReadOnly || isEnDemanda}
-                                                  >
-                                                    <Trash2 className="h-3 w-3" />
-                                                  </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p>{isStpPayment ? "No se pueden eliminar pagos STP" : "Eliminar Pago"}</p>
-                                                </TooltipContent>
-                                              </Tooltip>
+                                              {/* Delete Button - requires delete permission */}
+                                              {(canDelete || isSuperAdmin) && (
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button
+                                                      variant="destructive"
+                                                      size="icon"
+                                                      className="h-6 w-6"
+                                                      onClick={() => handleDeletePayment({
+                                                        id: aplicacion.id,
+                                                        monto: aplicacion.monto,
+                                                        conceptoNombre: conceptoDisplay
+                                                      })}
+                                                      disabled={deletePaymentMutation.isPending || isStpPayment || esCuentaCancelada || isReadOnly || isEnDemanda}
+                                                    >
+                                                      <Trash2 className="h-3 w-3" />
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p>{isStpPayment ? "No se pueden eliminar pagos STP" : "Eliminar Pago"}</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              )}
                                             </div>
                                           </TooltipProvider>
                                         </TableCell>
@@ -3799,47 +3802,50 @@ export default function DetalleCuentaCobranza() {
                                             </Tooltip>
                                           </TooltipProvider>
                                         )}
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <label htmlFor={`evidence-upload-${pago.id}`}>
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-8 w-8 p-0"
-                                                  asChild
-                                                  disabled={uploadingEvidence === pago.id}
-                                                >
-                                                  <span>
-                                                    {uploadingEvidence === pago.id ? (
-                                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                      <Upload className="h-4 w-4" />
-                                                    )}
-                                                  </span>
-                                                </Button>
-                                                <input
-                                                  id={`evidence-upload-${pago.id}`}
-                                                  type="file"
-                                                  className="hidden"
-                                                  accept=".pdf,.jpg,.jpeg,.png"
-                                                  onChange={(e) => {
-                                                    const file = e.target.files?.[0];
-                                                    if (file) {
-                                                      e.stopPropagation();
-                                                      handleUploadEvidence(pago.id, file);
-                                                    }
-                                                    e.target.value = '';
-                                                  }}
-                                                  onClick={(e) => e.stopPropagation()}
-                                                />
-                                              </label>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>{pago.url_recibo ? "Actualizar evidencia" : "Subir evidencia de pago"}</p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
+                                        {/* Upload evidence button - requires update permission */}
+                                        {(canUpdate || isSuperAdmin) && (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <label htmlFor={`evidence-upload-${pago.id}`}>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0"
+                                                    asChild
+                                                    disabled={uploadingEvidence === pago.id}
+                                                  >
+                                                    <span>
+                                                      {uploadingEvidence === pago.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                      ) : (
+                                                        <Upload className="h-4 w-4" />
+                                                      )}
+                                                    </span>
+                                                  </Button>
+                                                  <input
+                                                    id={`evidence-upload-${pago.id}`}
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                    onChange={(e) => {
+                                                      const file = e.target.files?.[0];
+                                                      if (file) {
+                                                        e.stopPropagation();
+                                                        handleUploadEvidence(pago.id, file);
+                                                      }
+                                                      e.target.value = '';
+                                                    }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  />
+                                                </label>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p>{pago.url_recibo ? "Actualizar evidencia" : "Subir evidencia de pago"}</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        )}
                                       </>
                                     )}
                                     {isPagoOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
