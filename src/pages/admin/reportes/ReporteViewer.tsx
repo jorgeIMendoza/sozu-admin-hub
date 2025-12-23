@@ -1082,18 +1082,24 @@ export default function ReporteViewer() {
 
 
   // Format cell value for display
-  const formatCellValue = (value: unknown): string => {
+  const formatCellValue = (value: unknown, columnName?: string): string => {
     if (value === null || value === undefined) return '-';
     if (typeof value === 'number') {
-      // Format as currency if it looks like money
-      if (value >= 1000) {
+      // Check if the column name suggests it's a monetary value
+      const monetaryColumns = ['monto', 'precio', 'pagado', 'restante', 'cobrar', 'pagar', 'total'];
+      const isMonetary = columnName ? 
+        monetaryColumns.some(col => columnName.toLowerCase().includes(col)) : 
+        false;
+      
+      // Format as currency if it's a monetary column OR if value is >= 1000
+      if (isMonetary || value >= 1000 || (value > 0 && value < 1000 && columnName?.toLowerCase().includes('monto'))) {
         return new Intl.NumberFormat('es-MX', { 
           style: 'currency', 
           currency: 'MXN',
           minimumFractionDigits: 2 
         }).format(value);
       }
-      return value.toLocaleString('es-MX');
+      return value.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     return String(value);
   };
@@ -1243,8 +1249,8 @@ export default function ReporteViewer() {
             </div>
           )}
 
-          {/* Summary Section - Collapsible - NOT for Pagos Futuros report (ID 4) which has its own summary */}
-          {previewData && previewData.length > 0 && summaryData && !isPagosFuturosReport && (
+          {/* Summary Section - Collapsible - NOT for Pagos Futuros report (ID 4) or Cartera Vencida (has its own summary) */}
+          {previewData && previewData.length > 0 && summaryData && !isPagosFuturosReport && !isCarteraVencidaReport && (
             <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
               <div className="border rounded-lg bg-muted/30">
                 <CollapsibleTrigger asChild>
@@ -2451,7 +2457,7 @@ export default function ReporteViewer() {
                       <TableRow key={idx}>
                         {columns.map((col) => (
                           <TableCell key={col} className="whitespace-nowrap">
-                            {formatCellValue(row[col])}
+                            {formatCellValue(row[col], col)}
                           </TableCell>
                         ))}
                       </TableRow>
