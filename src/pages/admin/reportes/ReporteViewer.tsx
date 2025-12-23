@@ -458,6 +458,9 @@ export default function ReporteViewer() {
   // Check if this is the "Cartera Vencida" report (use both id and nombre_archivo for robustness)
   const isCarteraVencidaReport = reporte?.id === 5 || reporte?.nombre_archivo === 'cartera_vencida';
 
+  // Check if this is the "Solo resta pagos a contraentrega" report
+  const isContraentregaReport = reporte?.id === 6 || reporte?.nombre_archivo === 'solo_falta_pagos_contraentrega';
+
   // Define preferred column order for known reports
   const preferredColumnOrder = useMemo(() => [
     // Unified report columns - exact order requested
@@ -472,6 +475,8 @@ export default function ReporteViewer() {
     'mes', 'monto_por_cobrar', 'monto_cobrado', 'monto_faltante',
     // Cartera Vencida report columns
     'ultima_fecha_pago', 'monto_a_pagar', 'monto_pagado', 'monto_restante',
+    // Solo resta pagos a contraentrega columns
+    'fecha_compra', 'fecha_pago_contraentrega', 'monto_pagado_total', 'monto_contraentrega', 'monto_pagado_contraentrega',
   ], []);
 
   // Calculate Cartera Vencida chart data
@@ -501,6 +506,38 @@ export default function ReporteViewer() {
         value: totalRestante, 
         percentage: total > 0 ? ((totalRestante / total) * 100).toFixed(1) : '0',
         fill: 'hsl(0, 84%, 60%)' // red using HSL
+      }
+    ];
+  }, [isCarteraVencidaReport, fullData, previewData]);
+
+  // Calculate Contraentrega chart data (pie chart showing pagado vs pendiente)
+  const contraentregaChartData = useMemo(() => {
+    if (!isContraentregaReport) return [];
+    
+    // Use fullData if available, otherwise fall back to previewData
+    const dataSource = fullData && fullData.length > 0 ? fullData : previewData;
+    if (!dataSource || dataSource.length === 0) return [];
+    
+    const totalContraentrega = dataSource.reduce((sum, row) => sum + (Number(row.monto_contraentrega) || 0), 0);
+    const totalPagadoContraentrega = dataSource.reduce((sum, row) => sum + (Number(row.monto_pagado_contraentrega) || 0), 0);
+    const totalPendienteContraentrega = totalContraentrega - totalPagadoContraentrega;
+    const total = totalContraentrega;
+    
+    // Debug log
+    console.log('[Contraentrega Chart]', { totalContraentrega, totalPagadoContraentrega, totalPendienteContraentrega, rowCount: dataSource.length });
+    
+    return [
+      { 
+        name: 'Pagado a Contraentrega', 
+        value: totalPagadoContraentrega, 
+        percentage: total > 0 ? ((totalPagadoContraentrega / total) * 100).toFixed(1) : '0',
+        fill: 'hsl(142, 76%, 36%)' // green using HSL
+      },
+      { 
+        name: 'Pendiente a Contraentrega', 
+        value: totalPendienteContraentrega, 
+        percentage: total > 0 ? ((totalPendienteContraentrega / total) * 100).toFixed(1) : '0',
+        fill: 'hsl(25, 95%, 53%)' // orange using HSL
       }
     ];
   }, [isCarteraVencidaReport, fullData, previewData]);
@@ -2550,6 +2587,185 @@ export default function ReporteViewer() {
                         <Bar dataKey="cobrado" fill="#22c55e" name="Cobrado" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="restante" fill="#f97316" name="Restante" radius={[4, 4, 0, 0]} />
                       </BarChart>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : isContraentregaReport && previewData && previewData.length > 0 ? (
+              // Special view for "Solo resta pagos a contraentrega" report
+              <div className="space-y-6">
+                {/* Summary Section */}
+                <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
+                  <div className="border rounded-lg overflow-hidden">
+                    <CollapsibleTrigger className="w-full px-4 py-3 bg-muted/50 hover:bg-muted/70 flex items-center justify-between transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">Resumen de Pagos a Contraentrega</span>
+                        <span className="text-sm text-muted-foreground">({fullData?.length || 0} cuentas)</span>
+                      </div>
+                      {summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Monto Total Contraentrega */}
+                          <div className="space-y-4 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-blue-600">Monto Total a Contraentrega</h4>
+                            <div>
+                              <p className="text-xl font-bold text-blue-600">
+                                {formatCurrencyCompact((fullData || []).reduce((sum, row) => sum + (Number(row.monto_contraentrega) || 0), 0))}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Total a pagar a la entrega</p>
+                            </div>
+                          </div>
+
+                          {/* Monto Pagado Contraentrega */}
+                          <div className="space-y-4 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-green-600">Pagado a Contraentrega</h4>
+                            {(() => {
+                              const totalContraentrega = (fullData || []).reduce((sum, row) => sum + (Number(row.monto_contraentrega) || 0), 0);
+                              const totalPagado = (fullData || []).reduce((sum, row) => sum + (Number(row.monto_pagado_contraentrega) || 0), 0);
+                              const porcentaje = totalContraentrega > 0 ? (totalPagado / totalContraentrega * 100) : 0;
+                              return (
+                                <div>
+                                  <p className="text-xl font-bold text-green-600">
+                                    {formatCurrencyCompact(totalPagado)}
+                                    <span className="text-sm font-normal text-muted-foreground ml-2">({porcentaje.toFixed(1)}%)</span>
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Total abonado a contraentrega</p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Monto Pendiente Contraentrega */}
+                          <div className="space-y-4 p-4 bg-background rounded-lg border">
+                            <h4 className="font-semibold text-sm border-b pb-2 text-orange-500">Pendiente a Contraentrega</h4>
+                            {(() => {
+                              const totalContraentrega = (fullData || []).reduce((sum, row) => sum + (Number(row.monto_contraentrega) || 0), 0);
+                              const totalPagado = (fullData || []).reduce((sum, row) => sum + (Number(row.monto_pagado_contraentrega) || 0), 0);
+                              const totalPendiente = totalContraentrega - totalPagado;
+                              const porcentaje = totalContraentrega > 0 ? (totalPendiente / totalContraentrega * 100) : 0;
+                              return (
+                                <div>
+                                  <p className="text-xl font-bold text-orange-500">
+                                    {formatCurrencyCompact(totalPendiente)}
+                                    <span className="text-sm font-normal text-muted-foreground ml-2">({porcentaje.toFixed(1)}%)</span>
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Total pendiente a contraentrega</p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+
+                {/* Conditional: Show Table OR Chart based on viewMode */}
+                {viewMode === 'table' ? (
+                  /* Table view for Contraentrega */
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold min-w-[150px]">Proyecto</TableHead>
+                          <TableHead className="font-semibold min-w-[150px]">Dueño</TableHead>
+                          <TableHead className="font-semibold min-w-[200px]">Compradores</TableHead>
+                          <TableHead className="font-semibold min-w-[100px]">Num. Depto</TableHead>
+                          <TableHead className="font-semibold min-w-[120px]">Num. Cuenta</TableHead>
+                          <TableHead className="font-semibold min-w-[120px]">Fecha Compra</TableHead>
+                          <TableHead className="font-semibold min-w-[150px]">Fecha Pago Contraentrega</TableHead>
+                          <TableHead className="text-right font-semibold min-w-[150px] text-blue-600">Monto Pagado Total</TableHead>
+                          <TableHead className="text-right font-semibold min-w-[150px] text-orange-500">Monto Contraentrega</TableHead>
+                          <TableHead className="text-right font-semibold min-w-[170px] text-green-600">Pagado Contraentrega</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewData.map((row, idx) => (
+                          <TableRow key={idx} className="hover:bg-muted/30">
+                            <TableCell className="font-medium">{String(row.proyecto || '-')}</TableCell>
+                            <TableCell>{String(row.dueno || '-')}</TableCell>
+                            <TableCell className="max-w-[200px] truncate" title={String(row.compradores || '')}>{String(row.compradores || '-')}</TableCell>
+                            <TableCell>{String(row.numero_departamento || '-')}</TableCell>
+                            <TableCell className="font-mono text-sm">{renderCuentaCell(row.numero_cuenta, 'numero_cuenta')}</TableCell>
+                            <TableCell>{formatCellValue(row.fecha_compra, 'fecha_compra')}</TableCell>
+                            <TableCell>{formatCellValue(row.fecha_pago_contraentrega, 'fecha_pago_contraentrega')}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCellValue(row.monto_pagado_total, 'monto_pagado_total')}</TableCell>
+                            <TableCell className="text-right font-mono text-orange-500">{formatCellValue(row.monto_contraentrega, 'monto_contraentrega')}</TableCell>
+                            <TableCell className="text-right font-mono text-green-600">{formatCellValue(row.monto_pagado_contraentrega, 'monto_pagado_contraentrega')}</TableCell>
+                          </TableRow>
+                        ))}
+                        {/* Total Row */}
+                        <TableRow className="bg-muted/50 font-bold">
+                          <TableCell colSpan={7} className="font-bold">Total</TableCell>
+                          <TableCell className="text-right font-mono font-bold">
+                            {formatCellValue((fullData || []).reduce((sum, row) => sum + (Number(row.monto_pagado_total) || 0), 0), 'monto_pagado_total')}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-orange-500">
+                            {formatCellValue((fullData || []).reduce((sum, row) => sum + (Number(row.monto_contraentrega) || 0), 0), 'monto_contraentrega')}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-green-600">
+                            {formatCellValue((fullData || []).reduce((sum, row) => sum + (Number(row.monto_pagado_contraentrega) || 0), 0), 'monto_pagado_contraentrega')}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                ) : (
+                  /* Chart View - Pie chart */
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Distribución de Pagos a Contraentrega</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      {contraentregaChartData.length > 0 && contraentregaChartData.some(d => d.value > 0) ? (
+                        <div className="h-[400px] flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={contraentregaChartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={80}
+                                outerRadius={140}
+                                paddingAngle={2}
+                                dataKey="value"
+                              >
+                                {contraentregaChartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip 
+                                formatter={(value: number, name: string) => [formatCurrencyCompact(value), name]}
+                                contentStyle={{ 
+                                  backgroundColor: 'hsl(var(--background))', 
+                                  border: '1px solid hsl(var(--border))',
+                                  borderRadius: '8px'
+                                }}
+                              />
+                              <Legend 
+                                formatter={(value, entry) => {
+                                  const item = contraentregaChartData.find(d => d.name === value);
+                                  return `${value}: ${formatCurrencyCompact(item?.value || 0)} (${item?.percentage}%)`;
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                          {isLoadingFullData ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              <span>Cargando datos de la gráfica...</span>
+                            </div>
+                          ) : (
+                            <span>No hay datos disponibles para mostrar la gráfica. Intente aplicar filtros.</span>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
