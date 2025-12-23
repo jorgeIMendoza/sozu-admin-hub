@@ -211,7 +211,7 @@ serve(async (req) => {
           'Tipo': row.tipo,
           'Categoría': row.categoria,
           'Nombre de Producto': row.nombre_producto,
-          'Fecha Pago Máxima Vencida': row.fecha_pago_maxima_vencida,
+          'Última Fecha Pago': row.ultima_fecha_pago,
           'Monto a Pagar': row.monto_a_pagar,
           'Monto Pagado': row.monto_pagado,
           'Monto Restante': row.monto_restante,
