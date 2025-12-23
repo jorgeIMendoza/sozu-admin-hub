@@ -226,7 +226,7 @@ const EstatusDisponibilidadSelector = ({ rolId, isSuperAdmin }: { rolId: number;
               </Button>
             </div>
             {/* Options list */}
-            <ScrollArea className="max-h-[200px]">
+            <ScrollArea className="max-h-[320px]">
               <div className="p-1">
                 {estatusDisponibilidad.map((estatus) => (
                   <div

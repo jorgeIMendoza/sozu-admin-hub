@@ -1421,6 +1421,20 @@ const Propiedades = () => {
           .eq('activo', true)
           .eq('es_aprobado', true);
 
+        // EARLY FILTER: Apply ownership filter first to reduce dataset size
+        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
+          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
+        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+
+        // EARLY FILTER: Apply project access filter
+        if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+          query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
+        } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+
         // Apply filters on server-side
         if (searchTerm) {
           // Find property IDs that have cuentas_cobranza with matching clabe_stp
@@ -1484,21 +1498,7 @@ const Propiedades = () => {
           query = query.or(orConditions.join(','));
         }
         
-        // CRITICAL: Filter by accessible projects for users without unrestricted access
-        if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
-          query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
-        } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
-          // User has no project access - return empty
-          return { items: [], count: 0, totalPages: 0 };
-        }
-        
-        // Filter by ownership for Representante de empresa dueña
-        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
-          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
-        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
-          // User has no ownership entities - return empty
-          return { items: [], count: 0, totalPages: 0 };
-        }
+        // Note: Project access and ownership filters already applied early (lines 1424-1437)
         
         if (selectedProyectos.length > 0) {
           query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
@@ -1758,6 +1758,20 @@ const Propiedades = () => {
           .eq('activo', true)
           .eq('es_aprobado', false);
 
+        // EARLY FILTER: Apply ownership filter first to reduce dataset size
+        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
+          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
+        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+
+        // EARLY FILTER: Apply project access filter
+        if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+          query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
+        } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+
         // Apply filters on server-side
         if (searchTerm) {
           // Find property IDs that have cuentas_cobranza with matching clabe_stp
@@ -1821,19 +1835,7 @@ const Propiedades = () => {
           query = query.or(orConditions.join(','));
         }
         
-        // CRITICAL: Filter by accessible projects for users without unrestricted access
-        if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
-          query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
-        } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
-          return { items: [], count: 0, totalPages: 0 };
-        }
-        
-        // Filter by ownership for Representante de empresa dueña
-        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
-          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
-        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
-          return { items: [], count: 0, totalPages: 0 };
-        }
+        // Note: Project access and ownership filters already applied early
         
         if (selectedProyectos.length > 0) {
           query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
@@ -2089,6 +2091,20 @@ const Propiedades = () => {
           .eq('activo', false)
           .eq('es_aprobado', false);
 
+        // EARLY FILTER: Apply ownership filter first to reduce dataset size
+        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
+          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
+        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+
+        // EARLY FILTER: Apply project access filter
+        if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+          query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
+        } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+          return { items: [], count: 0, totalPages: 0 };
+        }
+
         // Apply filters on server-side
         if (searchTerm) {
           // Find property IDs that have cuentas_cobranza with matching clabe_stp
@@ -2152,19 +2168,7 @@ const Propiedades = () => {
           query = query.or(orConditions.join(','));
         }
         
-        // CRITICAL: Filter by accessible projects for users without unrestricted access
-        if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
-          query = query.in('edificios_modelos.edificios.proyectos.id', accessibleProjectIds);
-        } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
-          return { items: [], count: 0, totalPages: 0 };
-        }
-        
-        // Filter by ownership for Representante de empresa dueña
-        if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
-          query = query.in('id_entidad_relacionada_dueno', ownershipEntityIds);
-        } else if (isRepresentanteEmpresaDuena && ownershipEntityIds.length === 0) {
-          return { items: [], count: 0, totalPages: 0 };
-        }
+        // Note: Project access and ownership filters already applied early
         
         if (selectedProyectos.length > 0) {
           query = query.in('edificios_modelos.edificios.proyectos.id', selectedProyectos);
