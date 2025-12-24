@@ -92,9 +92,17 @@ function applyFiltersToQuery(querySql: string, filtros: Record<string, unknown>)
         
         // If condition starts with AND but we haven't added WHERE yet, convert to WHERE
         if (replacedCondition.trim().toUpperCase().startsWith('AND ') && !hasWhereClause) {
-          // Check if the original query already has a WHERE clause before this placeholder
+          // For CTEs, we need to check if there's a WHERE in the MAIN query part (after the last CTE)
           const beforePlaceholder = processedQuery.substring(0, processedQuery.indexOf(fullMatch));
-          if (!beforePlaceholder.toUpperCase().includes(' WHERE ')) {
+          
+          // Find the position of the main query (after "combined" or after the last ")" before ORDER BY)
+          const combinedIndex = beforePlaceholder.toUpperCase().lastIndexOf('COMBINED');
+          const mainQueryPart = combinedIndex > -1 
+            ? beforePlaceholder.substring(combinedIndex)
+            : beforePlaceholder;
+          
+          // Check if there's a WHERE in the main query part (not inside CTEs)
+          if (!mainQueryPart.toUpperCase().includes(' WHERE ')) {
             replacedCondition = 'WHERE ' + replacedCondition.trim().substring(4);
           }
         }
