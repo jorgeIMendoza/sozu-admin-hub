@@ -53,7 +53,7 @@ interface Reporte {
 
 // Apply filters to query - supports both single values and comma-separated multiple values (for IN clauses)
 // List of filters that require string quoting (non-numeric values)
-const STRING_FILTERS = ['tipo'];
+const STRING_FILTERS = ['tipo', 'mes_pago'];
 
 function applyFiltersToQuery(querySql: string, filtros: Record<string, string>): string {
   let processedQuery = querySql;
