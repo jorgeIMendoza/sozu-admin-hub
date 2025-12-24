@@ -1071,6 +1071,12 @@ const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
         if (mesPagoFilter) {
           exportFilters['mes_pago'] = format(mesPagoFilter, 'yyyy-MM-01');
         }
+        // IMPORTANT: Also apply owner filters for restricted users (Representante de empresa dueña)
+        if (isRepresentanteEmpresaDuena) {
+          if (ownershipPersonaIds.length > 0) {
+            exportFilters['id_dueno'] = ownershipPersonaIds.join(',');
+          }
+        }
       } else {
         // For other reports, apply all filters as before
         exportFilters = { ...filtros };
