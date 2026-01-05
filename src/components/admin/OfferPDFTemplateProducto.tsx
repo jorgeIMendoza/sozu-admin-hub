@@ -138,8 +138,14 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
       };
     };
 
-    // Filter out manual schemes for display
-    const displaySchemes = paymentSchemes.filter(scheme => !scheme.es_manual);
+    // Get the selected scheme
+    const selectedScheme = paymentSchemes.find(scheme => scheme.id === offerData.id_esquema_pago_seleccionado);
+    
+    // If selected scheme is manual, show only that scheme
+    // Otherwise, filter out manual schemes and show all non-manual schemes
+    const displaySchemes = selectedScheme?.es_manual 
+      ? [selectedScheme] 
+      : paymentSchemes.filter(scheme => !scheme.es_manual);
 
     return (
       <div 
