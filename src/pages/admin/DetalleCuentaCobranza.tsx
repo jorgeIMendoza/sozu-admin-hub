@@ -24,6 +24,7 @@ import { EditPaymentDialog } from "@/components/admin/EditPaymentDialog";
 import { TransferPaymentDialog } from "@/components/admin/TransferPaymentDialog";
 import { formatCuentaCobranzaId, formatOfertaId } from "@/utils/cuentaCobranzaUtils";
 import { ReciboPagoService } from "@/services/reciboPagoService";
+import { EstadoCuentaService } from "@/services/estadoCuentaService";
 import { EnDemandaDialog } from "@/components/admin/EnDemandaDialog";
 import { JuicioTerminadoDialog } from "@/components/admin/JuicioTerminadoDialog";
 import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
@@ -431,6 +432,7 @@ export default function DetalleCuentaCobranza() {
   const [enDemandaDialog, setEnDemandaDialog] = useState(false);
   const [juicioTerminadoDialog, setJuicioTerminadoDialog] = useState(false);
   const [editCuentaDialog, setEditCuentaDialog] = useState(false);
+  const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState(false);
   // Estado para edición de clave_rastreo
   const [editingClaveRastreo, setEditingClaveRastreo] = useState<{ [pagoId: number]: string }>({});
   const [savingClaveRastreo, setSavingClaveRastreo] = useState<number | null>(null);
@@ -2356,21 +2358,62 @@ export default function DetalleCuentaCobranza() {
             </div>
             )}
 
-            {/* Grupo de acciones de cuenta - solo visible con permiso de actualización */}
-            {(canUpdate || isSuperAdmin) && (
+            {/* Grupo de acciones de cuenta */}
             <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border/50">
               <Button 
-                onClick={() => setEditCuentaDialog(true)}
+                onClick={async () => {
+                  if (!id) return;
+                  try {
+                    setIsGeneratingEstadoCuenta(true);
+                    const service = new EstadoCuentaService();
+                    await service.generateEstadoCuenta({
+                      id_cuenta: parseInt(id)
+                    });
+                    toast({
+                      title: "Estado de cuenta generado",
+                      description: "El PDF se ha descargado exitosamente."
+                    });
+                  } catch (error) {
+                    console.error("Error generating estado de cuenta:", error);
+                    toast({
+                      title: "Error",
+                      description: "No se pudo generar el estado de cuenta.",
+                      variant: "destructive"
+                    });
+                  } finally {
+                    setIsGeneratingEstadoCuenta(false);
+                  }
+                }}
                 variant="ghost"
                 size="sm"
                 className="h-9"
+                disabled={isGeneratingEstadoCuenta}
               >
-                <Edit className="h-4 w-4 mr-2" />
-                Editar Cuenta
+                {isGeneratingEstadoCuenta ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                Estado de Cuenta
               </Button>
               
+              {(canUpdate || isSuperAdmin) && (
+              <>
+                <div className="h-5 w-px bg-border" />
+                <Button 
+                  onClick={() => setEditCuentaDialog(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="h-9"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar Cuenta
+                </Button>
+              </>
+              )}
+              
               {/* Botón Poner en Demanda */}
-              {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
+              {(canUpdate || isSuperAdmin) && cuentaDetalle.tipo_cuenta === 'Propiedad' && 
                cuentaDetalle.id_estatus_disponibilidad !== 11 && 
                totalPagado < (cuentaDetalle?.precio_final || 0) && (
                 <>
@@ -2388,7 +2431,7 @@ export default function DetalleCuentaCobranza() {
               )}
               
               {/* Botón Juicio Terminado */}
-              {cuentaDetalle.tipo_cuenta === 'Propiedad' && 
+              {(canUpdate || isSuperAdmin) && cuentaDetalle.tipo_cuenta === 'Propiedad' && 
                cuentaDetalle.id_estatus_disponibilidad === 11 && (
                 <>
                   <div className="h-5 w-px bg-border" />
@@ -2403,7 +2446,6 @@ export default function DetalleCuentaCobranza() {
                 </>
               )}
             </div>
-            )}
           </div>
         )}
       </div>
