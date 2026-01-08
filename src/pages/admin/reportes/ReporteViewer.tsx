@@ -430,15 +430,30 @@ const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
         if (filtro.tipo === 'select' && filtro.query_opciones) {
           let query = filtro.query_opciones;
           
-          // Replace parent value if depende_de exists
-          if (filtro.depende_de) {
-            const parentValue = filtros[filtro.depende_de];
-            if (parentValue) {
-              // Check if query uses IN(:placeholder) pattern - values should remain as-is
-              // For simple = :placeholder pattern, also just replace directly
-              // Both patterns work since the value is already comma-separated for IN()
-              query = query.replace(`:${filtro.depende_de}`, parentValue);
+          // Replace any filter placeholders in the query (e.g., :id_proyecto)
+          // This allows dynamic filtering of options based on other selected filters
+          for (const [filterName, filterValue] of Object.entries(filtros)) {
+            if (filterValue && query.includes(`:${filterName}`)) {
+              // Handle multi-value (comma-separated) for IN clause
+              if (filterValue.includes(',')) {
+                const inValues = filterValue.split(',').map(v => v.trim()).join(',');
+                // Replace IN(:param) with IN(values)
+                query = query.replace(`IN (:${filterName})`, `IN (${inValues})`);
+                query = query.replace(`IN(:${filterName})`, `IN (${inValues})`);
+                // Also replace = :param with IN (values) for flexibility
+                query = query.replace(`= :${filterName}`, `IN (${inValues})`);
+              } else {
+                query = query.replace(`:${filterName}`, filterValue);
+              }
             }
+          }
+          
+          // If query still has unreplaced placeholders, skip execution (would fail)
+          // Only check for actual :placeholder patterns, not ::type casts
+          const hasUnreplacedPlaceholders = /(?<!:):\w+(?!\w*::)/.test(query.replace(/::\w+/g, ''));
+          if (hasUnreplacedPlaceholders) {
+            options[filtro.nombre] = [];
+            continue;
           }
           
           const { data } = await supabase.rpc('execute_safe_query', { query_text: query });
