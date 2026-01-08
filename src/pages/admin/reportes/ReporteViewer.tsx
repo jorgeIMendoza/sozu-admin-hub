@@ -434,6 +434,9 @@ const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
           if (filtro.depende_de) {
             const parentValue = filtros[filtro.depende_de];
             if (parentValue) {
+              // Check if query uses IN(:placeholder) pattern - values should remain as-is
+              // For simple = :placeholder pattern, also just replace directly
+              // Both patterns work since the value is already comma-separated for IN()
               query = query.replace(`:${filtro.depende_de}`, parentValue);
             }
           }
