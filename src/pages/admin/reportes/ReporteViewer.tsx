@@ -310,6 +310,7 @@ const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
       } as Reporte;
     },
     enabled: !!id,
+    staleTime: 0, // Always fetch fresh data to get latest filter configurations
   });
 
   // Fetch ALL data for summary (no limit)
