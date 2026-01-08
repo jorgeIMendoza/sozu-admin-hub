@@ -438,24 +438,27 @@ const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
           // This allows dynamic filtering of options based on other selected filters
           for (const [filterName, filterValue] of Object.entries(filtros)) {
             if (filterValue && query.includes(`:${filterName}`)) {
+              // Replace ALL occurrences of the placeholder using a global regex
+              const placeholderRegex = new RegExp(`:${filterName}\\b`, 'g');
+              
               // Handle multi-value (comma-separated) for IN clause
               if (filterValue.includes(',')) {
                 const inValues = filterValue.split(',').map(v => v.trim()).join(',');
-                // Replace IN(:param) with IN(values)
-                query = query.replace(`IN (:${filterName})`, `IN (${inValues})`);
-                query = query.replace(`IN(:${filterName})`, `IN (${inValues})`);
-                // Also replace = :param with IN (values) for flexibility
-                query = query.replace(`= :${filterName}`, `IN (${inValues})`);
+                query = query.replace(placeholderRegex, `(${inValues})`);
               } else {
-                query = query.replace(`:${filterName}`, filterValue);
+                query = query.replace(placeholderRegex, filterValue);
               }
             }
           }
           
+          console.log('[FilterOptions] Final query for', filtro.nombre, ':', query);
+          
           // If query still has unreplaced placeholders, skip execution (would fail)
-          // Only check for actual :placeholder patterns, not ::type casts
-          const hasUnreplacedPlaceholders = /(?<!:):\w+(?!\w*::)/.test(query.replace(/::\w+/g, ''));
+          // Match :word that is NOT preceded by another colon (to avoid ::type casts)
+          const unreplacedMatches = query.match(/(?<![:])(:\w+)/g);
+          const hasUnreplacedPlaceholders = unreplacedMatches && unreplacedMatches.some(m => !m.startsWith('::'));
           if (hasUnreplacedPlaceholders) {
+            console.log('[FilterOptions] Skipping query due to unreplaced placeholders:', unreplacedMatches);
             options[filtro.nombre] = [];
             continue;
           }
