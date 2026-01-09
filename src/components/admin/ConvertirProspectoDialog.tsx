@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface Prospecto {
   id: number;
@@ -29,6 +30,7 @@ export function ConvertirProspectoDialog({ open, onOpenChange }: ConvertirProspe
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProspecto, setSelectedProspecto] = useState<Prospecto | null>(null);
   const queryClient = useQueryClient();
+  const { registrarCreacion } = useActivityLogger();
 
   // Buscar prospectos (id_tipo_entidad = 7)
   const { data: prospectos, isLoading } = useQuery({
@@ -118,12 +120,34 @@ export function ConvertirProspectoDialog({ open, onOpenChange }: ConvertirProspe
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await registrarCreacion(
+        'entidad_relacionada',
+        {
+          id_persona: selectedProspecto?.id,
+          nombre: selectedProspecto?.nombre_legal,
+          email: selectedProspecto?.email,
+          tipo_conversion: 'prospecto_a_comprador',
+          id_tipo_entidad_anterior: 7,
+          id_tipo_entidad_nuevo: 2,
+        },
+        'convertir_prospecto_a_comprador'
+      );
       queryClient.invalidateQueries({ queryKey: ['compradores'] });
       toast.success(`${selectedProspecto?.nombre_legal} convertido a comprador exitosamente`);
       handleClose();
     },
-    onError: (error: any) => {
+    onError: async (error: any) => {
+      await registrarCreacion(
+        'entidad_relacionada',
+        {
+          id_persona: selectedProspecto?.id,
+          nombre: selectedProspecto?.nombre_legal,
+        },
+        'convertir_prospecto_a_comprador',
+        'error',
+        error.message
+      );
       toast.error(`Error al convertir: ${error.message}`);
     },
   });

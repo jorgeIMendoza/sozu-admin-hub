@@ -11,6 +11,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface BulkUploadEstacionamientosDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export const BulkUploadEstacionamientosDialog = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
+  const { registrarCreacion } = useActivityLogger();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -94,6 +96,17 @@ export const BulkUploadEstacionamientosDialog = ({
       const result = await response.json();
 
       if (result.success === false) {
+        await registrarCreacion(
+          'estacionamientos',
+          {
+            nombre_archivo: file.name,
+            tamano_kb: (file.size / 1024).toFixed(1),
+            mensaje_servidor: result.mensaje,
+          },
+          'carga_masiva_estacionamientos',
+          'error',
+          result.mensaje
+        );
         toast({
           title: "Error en el archivo",
           description: result.mensaje || "El archivo contiene errores. Revisa tu correo para más detalles.",
@@ -101,6 +114,16 @@ export const BulkUploadEstacionamientosDialog = ({
         });
         return;
       }
+
+      await registrarCreacion(
+        'estacionamientos',
+        {
+          nombre_archivo: file.name,
+          tamano_kb: (file.size / 1024).toFixed(1),
+          mensaje_servidor: result.mensaje,
+        },
+        'carga_masiva_estacionamientos'
+      );
 
       toast({
         title: "Carga exitosa",

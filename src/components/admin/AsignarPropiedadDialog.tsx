@@ -101,12 +101,12 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
 
       // Registrar actividad
       const compradorSeleccionado = compradores?.find((c: any) => c.id.toString() === selectedPersona);
-      registrarAsignacion('propiedad', {
+      await registrarAsignacion('propiedad', {
         id_propiedad: propertyId,
         numero_propiedad: propertyNumber,
         id_persona: parseInt(selectedPersona),
         nombre_comprador: compradorSeleccionado?.nombre_legal
-      });
+      }, 'asignar_propiedad_a_comprador');
 
       // Refrescar la lista de propiedades
       queryClient.invalidateQueries({ queryKey: ['properties-detailed-with-payment-dates'] });

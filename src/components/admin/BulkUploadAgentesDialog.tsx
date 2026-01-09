@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, Download, CheckCircle, XCircle, AlertCircle, Loader2, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface BulkUploadAgentesDialogProps {
   open: boolean;
@@ -51,6 +52,7 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const { registrarCreacion } = useActivityLogger();
   const [results, setResults] = useState<UploadResponse | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,13 +132,53 @@ export function BulkUploadAgentesDialog({ open, onClose, onSuccess }: BulkUpload
       setResults(parsedData);
 
       if (parsedData.success) {
+        await registrarCreacion(
+          'agentes',
+          {
+            nombre_archivo: file.name,
+            tamano_kb: (file.size / 1024).toFixed(1),
+            total: parsedData.summary?.total,
+            creados: parsedData.summary?.created,
+            actualizados: parsedData.summary?.updated,
+            omitidos: parsedData.summary?.skipped,
+          },
+          'carga_masiva_agentes'
+        );
         toast.success(`Proceso completado: ${parsedData.summary?.created || 0} creados, ${parsedData.summary?.updated || 0} actualizados`);
         onSuccess();
       } else if (parsedData.phase === 'validation') {
+        await registrarCreacion(
+          'agentes',
+          {
+            nombre_archivo: file.name,
+            errores: parsedData.errors?.length || 0,
+          },
+          'carga_masiva_agentes',
+          'error',
+          'Errores de validación'
+        );
         toast.warning(`Validación fallida: ${parsedData.errors?.length || 0} errores encontrados`);
       } else if (parsedData.phase === 'execution_rollback') {
+        await registrarCreacion(
+          'agentes',
+          {
+            nombre_archivo: file.name,
+          },
+          'carga_masiva_agentes',
+          'error',
+          'Rollback ejecutado'
+        );
         toast.error('Error durante la creación. Todos los cambios fueron revertidos.');
       } else {
+        await registrarCreacion(
+          'agentes',
+          {
+            nombre_archivo: file.name,
+          },
+          'carga_masiva_agentes',
+          'error',
+          parsedData.error || parsedData.message
+        );
         toast.error(parsedData.error || parsedData.message || 'Error procesando agentes');
       }
 
