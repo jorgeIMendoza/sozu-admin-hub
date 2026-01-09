@@ -1338,6 +1338,45 @@ export type Database = {
           },
         ]
       }
+      borrar_pagos_error: {
+        Row: {
+          clave_rastreo: string | null
+          cuenta_stp: string | null
+          id: number
+          monto: number | null
+        }
+        Insert: {
+          clave_rastreo?: string | null
+          cuenta_stp?: string | null
+          id?: number
+          monto?: number | null
+        }
+        Update: {
+          clave_rastreo?: string | null
+          cuenta_stp?: string | null
+          id?: number
+          monto?: number | null
+        }
+        Relationships: []
+      }
+      borrar_pagos_error_cc: {
+        Row: {
+          cuenta_stp: string
+          id: number
+          id_cuenta_cobranza: number
+        }
+        Insert: {
+          cuenta_stp: string
+          id?: number
+          id_cuenta_cobranza: number
+        }
+        Update: {
+          cuenta_stp?: string
+          id?: number
+          id_cuenta_cobranza?: number
+        }
+        Relationships: []
+      }
       borrar_pagos_stagin: {
         Row: {
           clave_rastreo: string | null
@@ -5867,6 +5906,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_id_tipo_pago: {
+        Row: {
+          case: number | null
+        }
+        Insert: {
+          case?: number | null
+        }
+        Update: {
+          case?: number | null
+        }
+        Relationships: []
       }
       videos_youtube: {
         Row: {
