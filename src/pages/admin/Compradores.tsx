@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, CreditCard, UserX, HeartHandshake, RefreshCw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, CreditCard, UserX, HeartHandshake, RefreshCw, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { ConvertirProspectoDialog } from "@/components/admin/ConvertirProspectoDialog";
 
 type Comprador = {
   id: number;
@@ -75,6 +76,7 @@ export default function Compradores() {
   const [compradorToDelete, setCompradorToDelete] = useState<Comprador | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [compradorToRestore, setCompradorToRestore] = useState<Comprador | null>(null);
+  const [isConvertirDialogOpen, setIsConvertirDialogOpen] = useState(false);
   // Using sonner toast imported at line 9
   const queryClient = useQueryClient();
 
@@ -705,6 +707,16 @@ export default function Compradores() {
                 Nuevo Comprador
               </Button>
             )}
+            {(canCreate || isSuperAdmin) && (
+              <Button 
+                variant="outline"
+                onClick={() => setIsConvertirDialogOpen(true)}
+                className="border-primary text-primary hover:bg-primary/10 font-semibold px-6"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Convertir a Comprador
+              </Button>
+            )}
           </div>
         </CardHeader>
         
@@ -916,6 +928,12 @@ export default function Compradores() {
         description={`¿Estás seguro de que deseas restaurar al comprador "${compradorToRestore?.nombre_legal}"?`}
         isLoading={restoreMutation.isPending}
         actionType="restore"
+      />
+
+      {/* Convertir Prospecto Dialog */}
+      <ConvertirProspectoDialog
+        open={isConvertirDialogOpen}
+        onOpenChange={setIsConvertirDialogOpen}
       />
     </div>
   );
