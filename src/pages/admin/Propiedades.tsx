@@ -2877,7 +2877,7 @@ const Propiedades = () => {
           nombre, 
           precio_lista,
           id_categoria,
-          categorias_producto!productos_servicios_id_categoria_producto_fkey(tiene_metraje)
+          categorias_producto!fk_prodserv_categoria(tiene_metraje)
         ),
         esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey(
           nombre,
