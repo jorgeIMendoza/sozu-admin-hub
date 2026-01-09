@@ -719,7 +719,7 @@ export function CancelCuentaDialog({
               {convenioLoading ? (
                 <p className="text-sm text-muted-foreground">Buscando documento...</p>
               ) : convenioDocumento ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-3 p-3 bg-background rounded-md border">
                     <FileText className="h-8 w-8 text-muted-foreground" />
                     <div className="flex-1">
@@ -729,30 +729,6 @@ export function CancelCuentaDialog({
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {convenioDocumento.id_estatus_verificacion === 1 && (
-                        <Badge variant="secondary" className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          Pendiente
-                        </Badge>
-                      )}
-                      {convenioDocumento.id_estatus_verificacion === 2 && (
-                        <Badge variant="default" className="flex items-center gap-1 bg-green-600">
-                          <CheckCircle className="h-3 w-3" />
-                          Validado
-                        </Badge>
-                      )}
-                      {convenioDocumento.id_estatus_verificacion === 3 && (
-                        <Badge variant="destructive" className="flex items-center gap-1">
-                          <XCircle className="h-3 w-3" />
-                          Rechazado
-                        </Badge>
-                      )}
-                      {convenioDocumento.id_estatus_verificacion === 4 && (
-                        <Badge variant="outline" className="flex items-center gap-1 text-orange-600 border-orange-600">
-                          <AlertCircle className="h-3 w-3" />
-                          Expirado
-                        </Badge>
-                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -762,6 +738,74 @@ export function CancelCuentaDialog({
                         Ver
                       </Button>
                     </div>
+                  </div>
+                  
+                  {/* Selector de estatus */}
+                  <div className="space-y-2">
+                    <Label>Estatus del documento</Label>
+                    <Select
+                      value={String(convenioDocumento.id_estatus_verificacion)}
+                      onValueChange={async (value) => {
+                        const nuevoEstatus = parseInt(value);
+                        try {
+                          const { error } = await supabase
+                            .from('documentos')
+                            .update({ 
+                              id_estatus_verificacion: nuevoEstatus,
+                              fecha_actualizacion: new Date().toISOString()
+                            })
+                            .eq('id', convenioDocumento.id);
+
+                          if (error) throw error;
+
+                          setConvenioDocumento({
+                            ...convenioDocumento,
+                            id_estatus_verificacion: nuevoEstatus
+                          });
+
+                          toast({
+                            title: "Éxito",
+                            description: "Estatus actualizado correctamente"
+                          });
+                        } catch (err: any) {
+                          toast({
+                            title: "Error",
+                            description: "No se pudo actualizar el estatus",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            Pendiente
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="2">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            Validado
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="3">
+                          <div className="flex items-center gap-2">
+                            <XCircle className="h-4 w-4 text-destructive" />
+                            Rechazado
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="4">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-orange-600" />
+                            Expirado
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               ) : (
