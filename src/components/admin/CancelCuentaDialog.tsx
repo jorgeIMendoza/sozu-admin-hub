@@ -7,11 +7,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Plus, Trash2, Upload, FileText, ExternalLink, AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Comprador {
   id: number;
@@ -34,6 +36,13 @@ interface MetodoPago {
 interface TipoCancelacion {
   id: number;
   nombre: string;
+}
+
+interface ConvenioDocumento {
+  id: number;
+  url: string;
+  id_estatus_verificacion: number;
+  fecha_creacion: string;
 }
 
 interface CancelCuentaDialogProps {
@@ -68,8 +77,14 @@ export function CancelCuentaDialog({
   const [nuevoCompradorId, setNuevoCompradorId] = useState<string>("");
   const [pagosNuevos, setPagosNuevos] = useState<PagoNuevo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [convenioDocumento, setConvenioDocumento] = useState<ConvenioDocumento | null>(null);
+  const [convenioLoading, setConvenioLoading] = useState(false);
+  const [convenioFile, setConvenioFile] = useState<File | null>(null);
   const { toast } = useToast();
   const { registrarCancelacion } = useActivityLogger();
+
+  // ID del tipo de documento "Convenio de terminación de contrato"
+  const ID_TIPO_CONVENIO = 39;
 
   // Cálculos
   const montoDevolucion = totalPagado - montoCancelacion;
@@ -84,6 +99,13 @@ export function CancelCuentaDialog({
     }
   }, [isOpen, tipoCancelacion]);
 
+  // Buscar convenio cuando se selecciona tipo 6 (incumplimiento de contrato)
+  useEffect(() => {
+    if (isOpen && tipoCancelacion === "6") {
+      fetchConvenioDocumento();
+    }
+  }, [isOpen, tipoCancelacion]);
+
   // Reset on close
   useEffect(() => {
     if (!isOpen) {
@@ -92,8 +114,34 @@ export function CancelCuentaDialog({
       setEvidenciaFile(null);
       setNuevoCompradorId("");
       setPagosNuevos([]);
+      setConvenioDocumento(null);
+      setConvenioFile(null);
     }
   }, [isOpen]);
+
+  const fetchConvenioDocumento = async () => {
+    setConvenioLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('documentos')
+        .select('id, url, id_estatus_verificacion, fecha_creacion')
+        .eq('id_cuenta_cobranza', cuentaId)
+        .eq('id_tipo_documento', ID_TIPO_CONVENIO)
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error al buscar convenio:', error);
+        return;
+      }
+
+      setConvenioDocumento(data);
+    } catch (err) {
+      console.error('Error al buscar convenio:', err);
+    } finally {
+      setConvenioLoading(false);
+    }
+  };
 
   const fetchTiposCancelacion = async () => {
     // Para Propiedad: 1 (Cesión), 4, 5, 6
@@ -228,6 +276,13 @@ export function CancelCuentaDialog({
       return `El monto por cancelación no puede exceder lo pagado ($${formatCurrency(totalPagado)})`;
     }
 
+    // Para tipo 6 (incumplimiento de contrato) se requiere convenio
+    if (tipoCancelacion === "6") {
+      if (!convenioDocumento && !convenioFile) {
+        return "Debe subir el Convenio de terminación de contrato para poder cancelar por incumplimiento";
+      }
+    }
+
     // Para tipos 4, 5, 6 se requiere evidencia
     if (['4', '5', '6'].includes(tipoCancelacion) && !evidenciaFile) {
       return "La evidencia es obligatoria";
@@ -263,6 +318,34 @@ export function CancelCuentaDialog({
       .getPublicUrl(fileName);
 
     return publicUrl;
+  };
+
+  const subirConvenio = async (): Promise<void> => {
+    if (!convenioFile) return;
+
+    const fileName = `convenio_terminacion_${cuentaId}_${Date.now()}.pdf`;
+    const { data, error } = await supabase.storage
+      .from('documentos')
+      .upload(fileName, convenioFile);
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('documentos')
+      .getPublicUrl(fileName);
+
+    // Insertar registro en documentos
+    const { error: dbError } = await supabase
+      .from('documentos')
+      .insert({
+        id_cuenta_cobranza: cuentaId,
+        id_tipo_documento: ID_TIPO_CONVENIO,
+        url: publicUrl,
+        id_estatus_verificacion: 1, // Pendiente
+        activo: true
+      });
+
+    if (dbError) throw dbError;
   };
 
   const agregarPagosCancelacionYDevolucion = async () => {
@@ -362,6 +445,11 @@ export function CancelCuentaDialog({
     setIsLoading(true);
     try {
       const urlEvidencia = await subirEvidencia();
+
+      // Si es tipo 6 y hay convenio nuevo, subirlo
+      if (tipoCancelacion === "6" && convenioFile) {
+        await subirConvenio();
+      }
 
       // Tipos 4, 5, 6 - Cancelación normal con pagos de cancelación/devolución
       if (['4', '5', '6'].includes(tipoCancelacion)) {
@@ -617,6 +705,108 @@ export function CancelCuentaDialog({
                 onChange={(value) => setMontoCancelacion(value / 100)}
                 placeholder="0.00"
               />
+            </div>
+          )}
+
+          {/* Sección Convenio de Terminación - Solo para tipo 6 (incumplimiento) */}
+          {tipoCancelacion === "6" && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <Label className="font-semibold">Convenio de Terminación de Contrato *</Label>
+              </div>
+
+              {convenioLoading ? (
+                <p className="text-sm text-muted-foreground">Buscando documento...</p>
+              ) : convenioDocumento ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 p-3 bg-background rounded-md border">
+                    <FileText className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Convenio de terminación de contrato</p>
+                      <p className="text-xs text-muted-foreground">
+                        Subido el {new Date(convenioDocumento.fecha_creacion).toLocaleDateString('es-MX')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {convenioDocumento.id_estatus_verificacion === 1 && (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Pendiente
+                        </Badge>
+                      )}
+                      {convenioDocumento.id_estatus_verificacion === 2 && (
+                        <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+                          <CheckCircle className="h-3 w-3" />
+                          Validado
+                        </Badge>
+                      )}
+                      {convenioDocumento.id_estatus_verificacion === 3 && (
+                        <Badge variant="destructive" className="flex items-center gap-1">
+                          <XCircle className="h-3 w-3" />
+                          Rechazado
+                        </Badge>
+                      )}
+                      {convenioDocumento.id_estatus_verificacion === 4 && (
+                        <Badge variant="outline" className="flex items-center gap-1 text-orange-600 border-orange-600">
+                          <AlertCircle className="h-3 w-3" />
+                          Expirado
+                        </Badge>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(convenioDocumento.url, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        Ver
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No existe el convenio de terminación de contrato. Es obligatorio subir este documento para poder confirmar la cancelación.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="space-y-2">
+                    <Label>Subir Convenio de Terminación (PDF) *</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.type !== 'application/pdf') {
+                              toast({
+                                title: "Error",
+                                description: "Solo se permiten archivos PDF para el convenio",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            setConvenioFile(file);
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      {convenioFile && (
+                        <Button variant="outline" size="sm" onClick={() => setConvenioFile(null)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {convenioFile && (
+                      <p className="text-sm text-muted-foreground">{convenioFile.name}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
