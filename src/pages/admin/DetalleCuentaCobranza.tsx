@@ -42,6 +42,7 @@ interface AcuerdoPago {
   fecha_pago: string | null;
   pago_completado: boolean;
   concepto: string;
+  id_concepto: number;
   aplicaciones: AplicacionPago[];
   multas: Multa[];
 }
@@ -104,6 +105,9 @@ interface CuentaDetalle {
     m2?: number;
     tipo?: string;
   };
+  // Campos de cancelación
+  monto_cobro_cancelacion?: number | null;
+  id_tipo_cancelacion?: number | null;
 }
 
 interface OfferData {
@@ -474,7 +478,9 @@ export default function DetalleCuentaCobranza() {
           id_oferta,
           activo,
           valor_uma,
-          collection_id
+          collection_id,
+          monto_cobro_cancelacion,
+          id_tipo_cancelacion
         `)
         .eq('id', cuentaId)
         .maybeSingle();
@@ -647,7 +653,10 @@ export default function DetalleCuentaCobranza() {
         id_propiedad: oferta?.propiedades?.id || undefined,
         metraje,
         precio_por_m2,
-        detalles_producto: detallesProducto
+        detalles_producto: detallesProducto,
+        // Campos de cancelación
+        monto_cobro_cancelacion: cuenta.monto_cobro_cancelacion || undefined,
+        id_tipo_cancelacion: cuenta.id_tipo_cancelacion || undefined
       };
 
       return detalle;
@@ -1007,6 +1016,7 @@ export default function DetalleCuentaCobranza() {
           fecha_pago: acuerdo.fecha_pago,
           pago_completado: acuerdo.pago_completado,
           concepto: concepto?.nombre || 'Sin concepto',
+          id_concepto: acuerdo.id_concepto,
           aplicaciones: pagosNormales.map(a => {
             const pago = pagos.find(p => p.id === a.id_pago);
             const metodoPago = metodosPago.find(m => m.id === pago?.id_metodos_pago);
@@ -1610,12 +1620,23 @@ export default function DetalleCuentaCobranza() {
     }));
   };
 
+  // Conceptos de cancelación (7 = Pago por cancelación, 9 = Devolución de pago)
+  const CONCEPTOS_CANCELACION = [7, 9];
+  
   const totalPagado = acuerdosPago?.reduce((sum, acuerdo) => 
     sum + (acuerdo.aplicaciones || []).reduce((appSum, app) => appSum + (app?.monto || 0), 0), 0
   ) || 0;
 
-  // Calculate total from acuerdos_pago (sum of monto)
-  const totalAcuerdos = acuerdosPago?.reduce((sum, acuerdo) => sum + (acuerdo.monto || 0), 0) || 0;
+  // Calculate total from acuerdos_pago (sum of monto) - EXCLUYENDO conceptos de cancelación
+  const totalAcuerdos = acuerdosPago?.reduce((sum, acuerdo) => {
+    // Excluir conceptos 7 y 9 del cálculo
+    if (CONCEPTOS_CANCELACION.includes(acuerdo.id_concepto)) return sum;
+    return sum + (acuerdo.monto || 0);
+  }, 0) || 0;
+  
+  // Calcular montos de cancelación
+  const montoPagoCancelacion = acuerdosPago?.find(a => a.id_concepto === 7)?.monto || 0;
+  const montoDevolucionCliente = acuerdosPago?.find(a => a.id_concepto === 9)?.monto || 0;
   
   // Create a map from acuerdo_pago.id to parcialidad sequential number
   const parcialidadMap: Record<number, number> = {};
@@ -2513,220 +2534,260 @@ export default function DetalleCuentaCobranza() {
           </CardContent>
         </Card>
 
-        {cuentaDetalle.precio_final > 0 && (
-          <Card className={haySobrepago ? "border-orange-500" : ""}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {haySobrepago ? "Sobrepago detectado" : "Saldo Pendiente"}
-              </CardTitle>
-              {haySobrepago ? (
-                <AlertTriangle className="h-4 w-4 text-orange-500" />
-              ) : (
-                <DollarSign className="h-4 w-4 text-warning" />
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${haySobrepago ? "text-orange-500" : "text-warning"}`}>
-                {formatCurrency(haySobrepago ? montoSobrepago : totalPendiente)}
-              </div>
-              
-              {haySobrepago ? (
-                <>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Hay un excedente de pagos
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 w-full"
-                    onClick={() => setTransferDialog({ isOpen: true })}
-                    disabled={!ultimoPagoSTP || !cuentaDetalle.activo || isReadOnly || isEnDemanda}
-                  >
-                    <ArrowRight className="h-4 w-4 mr-2" />
-                    Transferir sobrepago
-                  </Button>
-                </>
-              ) : (
-                <>
+        {/* Cards para cuentas canceladas */}
+        {esCuentaCancelada ? (
+          <>
+            {/* Card Pago por cancelación */}
+            <Card className="border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-red-700 dark:text-red-400">Pago por cancelación</CardTitle>
+                <Banknote className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {formatCurrency(montoPagoCancelacion)}
+                </div>
+                <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">
+                  Cobro aplicado por cancelación
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Card Devolución al cliente */}
+            <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-400">Devolución al cliente</CardTitle>
+                <ArrowRight className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                  {formatCurrency(montoDevolucionCliente)}
+                </div>
+                <p className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">
+                  Monto a devolver al comprador
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            {/* Cards normales para cuentas activas */}
+            {cuentaDetalle.precio_final > 0 && (
+              <Card className={haySobrepago ? "border-orange-500" : ""}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {haySobrepago ? "Sobrepago detectado" : "Saldo Pendiente"}
+                  </CardTitle>
+                  {haySobrepago ? (
+                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  ) : (
+                    <DollarSign className="h-4 w-4 text-warning" />
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${haySobrepago ? "text-orange-500" : "text-warning"}`}>
+                    {formatCurrency(haySobrepago ? montoSobrepago : totalPendiente)}
+                  </div>
+                  
+                  {haySobrepago ? (
+                    <>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Hay un excedente de pagos
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 w-full"
+                        onClick={() => setTransferDialog({ isOpen: true })}
+                        disabled={!ultimoPagoSTP || !cuentaDetalle.activo || isReadOnly || isEnDemanda}
+                      >
+                        <ArrowRight className="h-4 w-4 mr-2" />
+                        Transferir sobrepago
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          {((totalPendiente / (cuentaDetalle.precio_final || 1)) * 100).toFixed(1)}% restante
+                        </p>
+                        {totalPendiente === 0 && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Cuenta completamente pagada</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                      
+                      {/* Breakdown for property accounts only */}
+                      {pendingBalanceBreakdown && (
+                        <div className="mt-3 pt-3 border-t space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Durante obra:</span>
+                            <span className="font-medium">{formatCurrency(pendingBalanceBreakdown.duranteObra)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">A la entrega:</span>
+                            <span className="font-medium">{formatCurrency(pendingBalanceBreakdown.aLaEntrega)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Parcialidades restantes:</span>
+                            <span className="font-medium">{pendingBalanceBreakdown.parcialidadesRestantes}</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Cash payments card for property accounts only */}
+            {cuentaDetalle.tipo_cuenta === 'Propiedad' && cashPaymentsData && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      {((totalPendiente / (cuentaDetalle.precio_final || 1)) * 100).toFixed(1)}% restante
-                    </p>
-                    {totalPendiente === 0 && (
+                    <CardTitle className="text-sm font-medium">Pago en efectivo</CardTitle>
+                    <div className="flex items-center gap-1">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
-                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <Home className="h-4 w-4 text-muted-foreground" />
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Cuenta completamente pagada</p>
+                            <p>Propiedad: {formatCurrency(cashPaymentsData.pagosPropiedadEfectivo)}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    )}
-                  </div>
-                  
-                  {/* Breakdown for property accounts only */}
-                  {pendingBalanceBreakdown && (
-                    <div className="mt-3 pt-3 border-t space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground">Durante obra:</span>
-                        <span className="font-medium">{formatCurrency(pendingBalanceBreakdown.duranteObra)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground">A la entrega:</span>
-                        <span className="font-medium">{formatCurrency(pendingBalanceBreakdown.aLaEntrega)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground">Parcialidades restantes:</span>
-                        <span className="font-medium">{pendingBalanceBreakdown.parcialidadesRestantes}</span>
-                      </div>
+                      {cashPaymentsData.tieneEstacionamientos && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Car className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Estacionamiento: {formatCurrency(cashPaymentsData.pagosEstacionamientosEfectivo)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {cashPaymentsData.tieneBodegas && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Warehouse className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Bodega: {formatCurrency(cashPaymentsData.pagosBodegasEfectivo)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                  </div>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Límite:</span>
+                    <span className="font-medium">{formatCurrency(cashPaymentsData.limiteEfectivo)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Pagado:</span>
+                    <span className="font-medium">{formatCurrency(cashPaymentsData.pagadoEfectivo)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Aún permitido:</span>
+                    <span className="font-medium">{formatCurrency(cashPaymentsData.restanteEfectivo)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Cash payments card for property accounts only */}
-        {cuentaDetalle.tipo_cuenta === 'Propiedad' && cashPaymentsData && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Pago en efectivo</CardTitle>
-                <div className="flex items-center gap-1">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Home className="h-4 w-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Propiedad: {formatCurrency(cashPaymentsData.pagosPropiedadEfectivo)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  {cashPaymentsData.tieneEstacionamientos && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Car className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Estacionamiento: {formatCurrency(cashPaymentsData.pagosEstacionamientosEfectivo)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {cashPaymentsData.tieneBodegas && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Warehouse className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Bodega: {formatCurrency(cashPaymentsData.pagosBodegasEfectivo)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-              </div>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Límite:</span>
-                <span className="font-medium">{formatCurrency(cashPaymentsData.limiteEfectivo)}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Pagado:</span>
-                <span className="font-medium">{formatCurrency(cashPaymentsData.pagadoEfectivo)}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Aún permitido:</span>
-                <span className="font-medium">{formatCurrency(cashPaymentsData.restanteEfectivo)}</span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Escrituracion value card for property accounts only */}
-        {cuentaDetalle.tipo_cuenta === 'Propiedad' && escrituracionData && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Valor de escrituración</CardTitle>
-                <div className="flex items-center gap-1">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Home className="h-4 w-4 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Propiedad: {formatCurrency(escrituracionData.precioPropiedad)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  {escrituracionData.tieneEstacionamientos && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Car className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Estacionamiento: {formatCurrency(escrituracionData.precioEstacionamientos)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {escrituracionData.tieneEstacionamientosIncluidos && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Car className="h-4 w-4 text-green-500" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Estacionamiento: Incluido</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {escrituracionData.tieneBodegas && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Warehouse className="h-4 w-4 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Bodega: {formatCurrency(escrituracionData.precioBodegas)}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  {escrituracionData.tieneBodegasIncluidas && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Warehouse className="h-4 w-4 text-green-500" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Bodega: Incluido</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-              </div>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{formatCurrency(escrituracionData.totalEscrituracion)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Suma de precio final de propiedad, bodegas y estacionamientos
-              </p>
-            </CardContent>
-          </Card>
+            {/* Escrituracion value card for property accounts only */}
+            {cuentaDetalle.tipo_cuenta === 'Propiedad' && escrituracionData && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm font-medium">Valor de escrituración</CardTitle>
+                    <div className="flex items-center gap-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Home className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Propiedad: {formatCurrency(escrituracionData.precioPropiedad)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      {escrituracionData.tieneEstacionamientos && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Car className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Estacionamiento: {formatCurrency(escrituracionData.precioEstacionamientos)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {escrituracionData.tieneEstacionamientosIncluidos && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Car className="h-4 w-4 text-green-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Estacionamiento: Incluido</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {escrituracionData.tieneBodegas && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Warehouse className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Bodega: {formatCurrency(escrituracionData.precioBodegas)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {escrituracionData.tieneBodegasIncluidas && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Warehouse className="h-4 w-4 text-green-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Bodega: Incluido</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  </div>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-purple-600">{formatCurrency(escrituracionData.totalEscrituracion)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Suma de precio final de propiedad, bodegas y estacionamientos
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
 
