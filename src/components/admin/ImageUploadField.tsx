@@ -1,8 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, X } from "lucide-react";
+import { Upload, X, ExternalLink, ImageOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +14,7 @@ interface ImageUploadFieldProps {
 
 export function ImageUploadField({ label, value, onChange, accept = "image/*" }: ImageUploadFieldProps) {
   const [uploading, setUploading] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,6 +54,7 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
   };
 
   const clearImage = () => {
+    setImageError(false);
     onChange("");
   };
 
@@ -70,11 +71,29 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
       {value ? (
         <div className="space-y-2">
           <div className="relative inline-block">
-            <img 
-              src={value} 
-              alt={label} 
-              className="max-w-32 max-h-32 object-contain border rounded-md"
-            />
+            {imageError ? (
+              <div className="flex flex-col items-center justify-center max-w-32 max-h-32 min-w-24 min-h-24 border rounded-md bg-muted p-2">
+                <ImageOff className="h-8 w-8 text-muted-foreground mb-1" />
+                <span className="text-xs text-muted-foreground text-center">Vista previa no disponible</span>
+                <a 
+                  href={value} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary flex items-center gap-1 mt-1 hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Ver archivo
+                </a>
+              </div>
+            ) : (
+              <img 
+                src={value} 
+                alt={label} 
+                className="max-w-32 max-h-32 object-contain border rounded-md"
+                onError={() => setImageError(true)}
+                onLoad={() => setImageError(false)}
+              />
+            )}
             <Button
               type="button"
               variant="destructive"
