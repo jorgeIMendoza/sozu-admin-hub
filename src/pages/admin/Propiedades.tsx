@@ -331,7 +331,7 @@ const Propiedades = () => {
   const { canCreate, canUpdate, canDelete, canGenerateOffer, isLoading: isLoadingPermissions, isSuperAdmin } = usePagePermissions('/admin/propiedades');
   
   // Activity logger
-  const { registrarAprobacion, registrarEliminacion } = useActivityLogger();
+  const { registrarAprobacion, registrarEliminacion, registrarCreacion } = useActivityLogger();
   
   // Auth context for prospect ownership check
   const { profile } = useAuth();
@@ -3418,6 +3418,39 @@ const Propiedades = () => {
         throw new Error('Error al generar cuenta de cobranza');
       }
 
+      const responseData = await response.json().catch(() => ({}));
+
+      // Si es oferta de propiedad (no producto), actualizar estatus a "Apartado" (4)
+      if (!isProductOffer && propertyId) {
+        const { error: updateError } = await supabase
+          .from('propiedades')
+          .update({ 
+            id_estatus_disponibilidad: 4, // Apartado
+            fecha_actualizacion: new Date().toISOString()
+          })
+          .eq('id', propertyId);
+
+        if (updateError) {
+          console.error('Error actualizando estatus de propiedad:', updateError);
+        } else {
+          console.log('✅ Propiedad actualizada a estatus Apartado (4)');
+        }
+      }
+
+      // Registrar en log de actividad
+      await registrarCreacion(
+        'cuenta_cobranza',
+        {
+          id_oferta: offerId,
+          id_propiedad: propertyId,
+          id_persona_lead: currentOffer.id_persona_lead,
+          precio_final: precio_final,
+          tipo: isProductOffer ? 'producto' : 'propiedad',
+          respuesta_servidor: responseData,
+        },
+        'generar_cuenta_cobranza_manual'
+      );
+
       toast({
         title: "Éxito",
         description: "Cuenta de cobranza generada correctamente",
@@ -3430,12 +3463,28 @@ const Propiedades = () => {
         const updatedProductOffers = await fetchPropertyProductOffers(selectedPropertyId);
         setSelectedPropertyProductOffers(updatedProductOffers);
       }
+
+      // Refrescar datos de propiedades para ver el nuevo estatus
+      refetchActivos();
       
       // Close confirmation dialog
       setConfirmGenerateAccountOpen(false);
       setSelectedOfferForAccount(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating collection account:', error);
+      
+      // Registrar error en log de actividad
+      await registrarCreacion(
+        'cuenta_cobranza',
+        {
+          id_oferta: offerId,
+          id_propiedad: propertyId,
+        },
+        'generar_cuenta_cobranza_manual',
+        'error',
+        error.message
+      );
+
       toast({
         title: "Error",
         description: "No se pudo generar la cuenta de cobranza",
