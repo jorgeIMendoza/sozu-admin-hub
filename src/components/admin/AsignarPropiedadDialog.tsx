@@ -29,30 +29,40 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
   const queryClient = useQueryClient();
   const { registrarAsignacion } = useActivityLogger();
 
-  // Obtener lista de compradores
+  // Obtener lista de compradores - consultando desde entidades_relacionadas para evitar límite de 1000
   const { data: compradores, isLoading: loadingCompradores } = useQuery({
     queryKey: ['compradores-asignar'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('personas')
+        .from('entidades_relacionadas')
         .select(`
-          id,
-          nombre_legal,
-          rfc,
-          curp,
-          entidades_relacionadas!entidades_relacionadas_id_persona_fkey(
-            id_tipo_entidad
+          id_persona,
+          personas!entidades_relacionadas_id_persona_fkey(
+            id,
+            nombre_legal,
+            rfc,
+            curp,
+            activo
           )
         `)
-        .eq('activo', true)
-        .order('nombre_legal');
+        .eq('id_tipo_entidad', 2) // Solo compradores
+        .eq('activo', true);
 
       if (error) throw error;
 
-      // Filtrar solo compradores (id_tipo_entidad = 2)
-      return (data || []).filter((persona: any) => 
-        persona.entidades_relacionadas?.some((er: any) => er.id_tipo_entidad === 2)
-      );
+      // Filtrar personas activas, mapear y eliminar duplicados
+      const uniqueCompradores = (data || [])
+        .filter((er: any) => er.personas?.activo === true)
+        .map((er: any) => ({
+          id: er.personas.id,
+          nombre_legal: er.personas.nombre_legal,
+          rfc: er.personas.rfc,
+          curp: er.personas.curp
+        }))
+        .filter((v: any, i: number, a: any[]) => a.findIndex(t => t.id === v.id) === i)
+        .sort((a: any, b: any) => a.nombre_legal.localeCompare(b.nombre_legal));
+
+      return uniqueCompradores;
     },
     enabled: open,
   });
