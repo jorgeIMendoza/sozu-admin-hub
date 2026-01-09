@@ -3328,6 +3328,40 @@ export default function DetalleCuentaCobranza() {
                 // Check if has any fines (multas)
                 const tieneMultas = acuerdo.multas && acuerdo.multas.length > 0;
                 
+                // Check if this is a cancellation concept (7 = Pago por cancelación, 9 = Devolución)
+                const esConceptoCancelacion = [7, 9].includes(acuerdo.id_concepto);
+                
+                // For cancellation concepts, render non-collapsible row with different style
+                if (esConceptoCancelacion) {
+                  return (
+                    <div key={acuerdo.id} className="border rounded-lg bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                      <div className="w-full p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0 w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                              {acuerdo.orden}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-amber-700 dark:text-amber-300">{conceptoDisplay}</span>
+                            </div>
+                          </div>
+                          <span className="text-xs text-amber-600 dark:text-amber-400">
+                            {porcentaje}% - Sin fecha
+                          </span>
+                          <Badge className="text-xs bg-amber-500 hover:bg-amber-500 text-white">
+                            Pagado
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                            {formatCurrency(acuerdo.monto)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
                 return (
                   <Collapsible key={acuerdo.id} open={isOpen} onOpenChange={() => toggleAcuerdo(acuerdo.id)}>
                     <div className="border rounded-lg">
