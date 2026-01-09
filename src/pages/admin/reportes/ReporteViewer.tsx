@@ -431,7 +431,7 @@ const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
         }
 
         // Handle query_opciones - works with or without depende_de
-        if (filtro.tipo === 'select' && filtro.query_opciones) {
+        if ((filtro.tipo === 'select' || filtro.tipo === 'multiselect') && filtro.query_opciones) {
           let query = filtro.query_opciones;
           
           // Replace any filter placeholders in the query (e.g., :id_proyecto)
@@ -1182,6 +1182,60 @@ const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
           <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium truncate">{displayName}</span>
         </div>
+      );
+    }
+
+    // Generic multiselect filter handler
+    if (filtro.tipo === 'multiselect') {
+      const selectedValues = filtros[filtro.nombre] ? filtros[filtro.nombre].split(',') : [];
+      const options = filterOptions[filtro.nombre] || [];
+      
+      return (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn("w-full justify-start text-left font-normal", isDisabled && "opacity-50")}
+              disabled={isDisabled}
+            >
+              {selectedValues.length > 0 
+                ? selectedValues.length === 1 
+                  ? options.find(o => o.value === selectedValues[0])?.label || 'Seleccionar...'
+                  : `${selectedValues.length} seleccionados`
+                : `Todos`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-2" align="start">
+            <ScrollArea className="max-h-[300px]">
+              <div className="space-y-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-left"
+                  onClick={() => handleFilterChange(filtro.nombre, '')}
+                >
+                  Todos
+                </Button>
+                {options.map((opt) => (
+                  <Button
+                    key={opt.value}
+                    variant={selectedValues.includes(opt.value) ? "secondary" : "ghost"}
+                    size="sm"
+                    className="w-full justify-start text-left"
+                    onClick={() => {
+                      const newSelected = selectedValues.includes(opt.value)
+                        ? selectedValues.filter(v => v !== opt.value)
+                        : [...selectedValues, opt.value];
+                      handleFilterChange(filtro.nombre, newSelected.join(','));
+                    }}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
       );
     }
 
