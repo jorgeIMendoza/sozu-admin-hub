@@ -332,9 +332,9 @@ export class EstadoCuentaMantenimientoService {
     pdf.setTextColor(primaryColor);
     pdf.setFont("helvetica", "bold");
     pdf.text("Acuerdos de Pago - Últimos 12 Meses", margin, y);
-    y += 3;
+    y += 6;
     drawLine(y);
-    y += 5;
+    y += 8;
 
     // Table header
     const acuerdosCols = [
@@ -348,7 +348,7 @@ export class EstadoCuentaMantenimientoService {
 
     let colX = margin;
     pdf.setFillColor("#f8f9fa");
-    pdf.rect(margin, y - 1, contentWidth, 7, "F");
+    pdf.rect(margin, y - 2, contentWidth, 8, "F");
     
     pdf.setFontSize(7);
     pdf.setTextColor("#555555");
@@ -356,17 +356,17 @@ export class EstadoCuentaMantenimientoService {
     
     acuerdosCols.forEach((col) => {
       if (col.align === "right") {
-        pdf.text(col.title.toUpperCase(), colX + col.width - 1, y + 4, { align: "right" });
+        pdf.text(col.title.toUpperCase(), colX + col.width - 1, y + 3, { align: "right" });
       } else if (col.align === "center") {
-        pdf.text(col.title.toUpperCase(), colX + col.width / 2, y + 4, { align: "center" });
+        pdf.text(col.title.toUpperCase(), colX + col.width / 2, y + 3, { align: "center" });
       } else {
-        pdf.text(col.title.toUpperCase(), colX + 1, y + 4);
+        pdf.text(col.title.toUpperCase(), colX + 1, y + 3);
       }
       colX += col.width;
     });
 
-    y += 10;
-    drawLine(y - 2);
+    y += 14;
+    drawLine(y - 4);
 
     // Table rows
     pdf.setFont("helvetica", "normal");
