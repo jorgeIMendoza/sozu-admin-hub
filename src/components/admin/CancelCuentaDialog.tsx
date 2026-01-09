@@ -362,7 +362,7 @@ export function CancelCuentaDialog({
       .limit(1);
 
     const ultimoOrden = ultimoAcuerdo?.[0]?.orden || 0;
-    const nuevoOrden = ultimoOrden + 1;
+    let nuevoOrden = ultimoOrden + 1;
 
     // Insertar Pago por cancelación (positivo) - concepto 7
     if (montoCancelacion > 0) {
@@ -378,6 +378,7 @@ export function CancelCuentaDialog({
         });
 
       if (pagoCanError) throw pagoCanError;
+      nuevoOrden++; // Incrementar solo si se insertó
     }
 
     // Insertar Devolución de pago - concepto 9
@@ -390,7 +391,7 @@ export function CancelCuentaDialog({
           id_cuenta_cobranza: cuentaId,
           id_concepto: 9, // Devolución de pago
           monto: montoDevolucion, // Positivo (el concepto indica que es devolución)
-          orden: nuevoOrden + 1,
+          orden: nuevoOrden,
           pago_completado: true,
           activo: true
         });
