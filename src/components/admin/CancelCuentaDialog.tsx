@@ -349,15 +349,14 @@ export function CancelCuentaDialog({
   };
 
   const agregarPagosCancelacionYDevolucion = async () => {
-    // Obtener el último orden de acuerdo_pago que tenga aplicación
+    // Obtener el último orden de acuerdo_pago con pago completado (excluir conceptos de cancelación)
     const { data: ultimoAcuerdo, error: acuerdoError } = await supabase
       .from('acuerdos_pago')
-      .select(`
-        orden,
-        aplicaciones_pago!inner(id)
-      `)
+      .select('orden, id_concepto')
       .eq('id_cuenta_cobranza', cuentaId)
       .eq('activo', true)
+      .eq('pago_completado', true)
+      .not('id_concepto', 'in', '(7,9)') // Excluir conceptos de cancelación
       .order('orden', { ascending: false })
       .limit(1);
 
