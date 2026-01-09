@@ -11,12 +11,14 @@ interface CheckEscrituracionResponse {
   message: string;
   conditions_met: {
     estatus_valido: boolean;
+    cuenta_pagada: boolean;
     todos_documentos_verificados: boolean;
     tiene_compradores: boolean;
   };
   id_propiedad?: number;
   estatus_actual?: number;
   documentos_pendientes?: number;
+  saldo_pendiente?: number;
 }
 
 Deno.serve(async (req) => {
@@ -72,6 +74,7 @@ Deno.serve(async (req) => {
           message: `La propiedad debe estar en estatus Vendido (5) o Pagada completamente (9). Estatus actual: ${estatusActual}`,
           conditions_met: {
             estatus_valido: false,
+            cuenta_pagada: false,
             todos_documentos_verificados: false,
             tiene_compradores: false
           },
@@ -81,6 +84,46 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // 2.5 Validar que la cuenta esté completamente pagada
+    // Excluir conceptos de cancelación (7 = Pago por cancelación, 9 = Devolución de pago)
+    const { data: acuerdosPendientes, error: acuerdosError } = await supabase
+      .from('acuerdos_pago')
+      .select('id, monto, pago_completado, id_concepto')
+      .eq('id_cuenta_cobranza', id_cuenta_cobranza)
+      .eq('activo', true)
+      .eq('pago_completado', false)
+      .not('id_concepto', 'in', '(7,9)'); // Excluir conceptos de cancelación
+
+    if (acuerdosError) {
+      console.error('[check-escrituracion] Error verificando pagos pendientes:', acuerdosError);
+      throw new Error('Error al verificar pagos pendientes');
+    }
+
+    if (acuerdosPendientes && acuerdosPendientes.length > 0) {
+      const saldoPendiente = acuerdosPendientes.reduce((sum, a) => sum + Number(a.monto), 0);
+      console.log(`[check-escrituracion] Cuenta tiene ${acuerdosPendientes.length} acuerdos pendientes. Saldo: $${saldoPendiente.toLocaleString()}`);
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          status_changed: false,
+          message: `La cuenta tiene pagos pendientes. Saldo: $${saldoPendiente.toLocaleString()}`,
+          conditions_met: {
+            estatus_valido: true,
+            cuenta_pagada: false,
+            todos_documentos_verificados: false,
+            tiene_compradores: false
+          },
+          id_propiedad: idPropiedad,
+          estatus_actual: estatusActual,
+          saldo_pendiente: saldoPendiente
+        } as CheckEscrituracionResponse),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('[check-escrituracion] ✅ Cuenta completamente pagada');
 
     // 3. Obtener todos los compradores activos de esta cuenta
     const { data: compradores, error: compradoresError } = await supabase
@@ -103,6 +146,7 @@ Deno.serve(async (req) => {
           message: 'No hay compradores activos en esta cuenta',
           conditions_met: {
             estatus_valido: true,
+            cuenta_pagada: true,
             todos_documentos_verificados: false,
             tiene_compradores: false
           },
@@ -167,6 +211,7 @@ Deno.serve(async (req) => {
           message: `Faltan ${pendientes} documento(s) por verificar`,
           conditions_met: {
             estatus_valido: true,
+            cuenta_pagada: true,
             todos_documentos_verificados: false,
             tiene_compradores: true
           },
@@ -203,6 +248,7 @@ Deno.serve(async (req) => {
         message: 'La propiedad ha sido actualizada a estatus Escrituración',
         conditions_met: {
           estatus_valido: true,
+          cuenta_pagada: true,
           todos_documentos_verificados: true,
           tiene_compradores: true
         },
@@ -221,6 +267,7 @@ Deno.serve(async (req) => {
         message: error.message || 'Error al verificar estatus de escrituración',
         conditions_met: {
           estatus_valido: false,
+          cuenta_pagada: false,
           todos_documentos_verificados: false,
           tiene_compradores: false
         }
