@@ -597,7 +597,7 @@ export function CancelCuentaDialog({
               <div className="space-y-2">
                 <Label>Monto por Cancelación (se queda en Sozu) *</Label>
                 <CurrencyInput
-                  value={montoCancelacion}
+                  value={Math.round(montoCancelacion * 100)}
                   onChange={(value) => setMontoCancelacion(value / 100)}
                   placeholder="0.00"
                 />
