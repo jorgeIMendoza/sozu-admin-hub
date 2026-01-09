@@ -854,10 +854,10 @@ export function CancelCuentaDialog({
             </div>
           )}
 
-          {/* Evidencia */}
+          {/* Evidencia de pago */}
           <div className="space-y-2">
             <Label>
-              Evidencia (PDF o Imagen) {isTipoNormal ? "*" : "(opcional)"}
+              Evidencia de pago (PDF o Imagen) {isTipoNormal ? "*" : "(opcional)"}
             </Label>
             <div className="flex items-center gap-2">
               <Input
@@ -1022,7 +1022,16 @@ export function CancelCuentaDialog({
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button onClick={handleGuardar} disabled={isLoading || !tipoCancelacion}>
+          <Button 
+            onClick={handleGuardar} 
+            disabled={
+              isLoading || 
+              !tipoCancelacion || 
+              (tipoCancelacion === "6" && (!convenioDocumento || convenioDocumento.id_estatus_verificacion !== 2) && !convenioFile) ||
+              (tipoCancelacion === "6" && convenioDocumento && convenioDocumento.id_estatus_verificacion !== 2) ||
+              (isTipoNormal && !evidenciaFile)
+            }
+          >
             {isLoading ? "Guardando..." : "Confirmar Cancelación"}
           </Button>
         </DialogFooter>
