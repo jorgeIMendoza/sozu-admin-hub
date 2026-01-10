@@ -5242,6 +5242,7 @@ export type Database = {
       roles: {
         Row: {
           activo: boolean | null
+          es_rol_interno: boolean
           fecha_actualizacion: string | null
           fecha_creacion: string | null
           id: number
@@ -5253,6 +5254,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean | null
+          es_rol_interno?: boolean
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id?: never
@@ -5264,6 +5266,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean | null
+          es_rol_interno?: boolean
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id?: never

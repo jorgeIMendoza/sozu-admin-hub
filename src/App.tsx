@@ -28,6 +28,7 @@ const Bodegas = lazy(() => import("./pages/admin/Bodegas"));
 const Pagos = lazy(() => import("./pages/admin/Pagos"));
 const DetalleCuentaCobranza = lazy(() => import("./pages/admin/DetalleCuentaCobranza"));
 const Usuarios = lazy(() => import("./pages/admin/Usuarios"));
+const UsuariosDirectivos = lazy(() => import("./pages/admin/UsuariosDirectivos"));
 const NuevoUsuario = lazy(() => import("./pages/admin/NuevoUsuario"));
 const EntidadesLegales = lazy(() => import("./pages/admin/EntidadesLegales"));
 const Desarrolladores = lazy(() => import("./pages/admin/Desarrolladores"));
@@ -107,6 +108,7 @@ const App = () => (
                   <Route path="propiedades" element={<Propiedades />} />
                   <Route path="usuarios" element={<Usuarios />} />
                   <Route path="usuarios/nuevo" element={<NuevoUsuario />} />
+                  <Route path="usuarios-directivos" element={<UsuariosDirectivos />} />
                   <Route path="roles-permisos" element={<RolesPermisos />} />
                   <Route path="entidades-legales" element={<EntidadesLegales />} />
                   <Route path="desarrolladores" element={<Desarrolladores />} />

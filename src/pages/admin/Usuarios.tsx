@@ -276,14 +276,15 @@ export default function Usuarios() {
     },
   });
 
-  // Fetch roles
+  // Fetch roles (excluding internal roles)
   const { data: roles = [] } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('roles')
-        .select('id, nombre')
+        .select('id, nombre, es_rol_interno')
         .eq('activo', true)
+        .eq('es_rol_interno', false)
         .order('nombre', { ascending: true });
       
       if (error) throw error;
