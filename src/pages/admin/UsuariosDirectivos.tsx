@@ -47,6 +47,7 @@ export default function UsuariosDirectivos() {
   const [selectedUserAuthId, setSelectedUserAuthId] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
+  const [projectSearch, setProjectSearch] = useState("");
   const [newUserForm, setNewUserForm] = useState({
     email: "",
     nombre: "",
@@ -81,15 +82,15 @@ export default function UsuariosDirectivos() {
     },
   });
 
-  // Fetch projects associated with Real Estate Ventures (id_persona = 1809, tipo_entidad = 5)
+  // Fetch projects associated with Real Estate Ventures (id_persona = 186, tipo_entidad = 5)
   const { data: proyectosRealEstate = [] } = useQuery({
     queryKey: ['proyectos-real-estate'],
     queryFn: async () => {
-      // Get project IDs from entidades_relacionadas where id_persona = 1809 (Real Estate Ventures) and tipo_entidad = 5 (Inmobiliaria)
+      // Get project IDs from entidades_relacionadas where id_persona = 186 (Real Estate Ventures) and tipo_entidad = 5 (Inmobiliaria)
       const { data: relaciones, error: relError } = await supabase
         .from('entidades_relacionadas')
         .select('id_proyecto')
-        .eq('id_persona', 1809)
+        .eq('id_persona', 186)
         .eq('id_tipo_entidad', 5)
         .eq('activo', true)
         .not('id_proyecto', 'is', null);
@@ -583,7 +584,10 @@ export default function UsuariosDirectivos() {
       </AlertDialog>
 
       {/* Projects Dialog */}
-      <Dialog open={isProjectsDialogOpen} onOpenChange={setIsProjectsDialogOpen}>
+      <Dialog open={isProjectsDialogOpen} onOpenChange={(open) => {
+        setIsProjectsDialogOpen(open);
+        if (!open) setProjectSearch("");
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Asignar Proyectos</DialogTitle>
@@ -592,6 +596,17 @@ export default function UsuariosDirectivos() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
+            {/* Search Input */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar proyecto..."
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
             <ScrollArea className="h-[300px] pr-4">
               <div className="space-y-2">
                 {proyectosRealEstate.length === 0 ? (
@@ -599,24 +614,32 @@ export default function UsuariosDirectivos() {
                     No hay proyectos disponibles de Real Estate Ventures
                   </p>
                 ) : (
-                  proyectosRealEstate.map((proyecto) => (
-                    <div
-                      key={proyecto.id}
-                      className={cn(
-                        "flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                        selectedProjects.includes(proyecto.id)
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-muted/50"
-                      )}
-                      onClick={() => toggleProject(proyecto.id)}
-                    >
-                      <Checkbox
-                        checked={selectedProjects.includes(proyecto.id)}
-                        onCheckedChange={() => toggleProject(proyecto.id)}
-                      />
-                      <span className="font-medium">{proyecto.nombre}</span>
-                    </div>
-                  ))
+                  proyectosRealEstate
+                    .filter(p => p.nombre.toLowerCase().includes(projectSearch.toLowerCase()))
+                    .map((proyecto) => (
+                      <div
+                        key={proyecto.id}
+                        className={cn(
+                          "flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                          selectedProjects.includes(proyecto.id)
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:bg-muted/50"
+                        )}
+                        onClick={() => toggleProject(proyecto.id)}
+                      >
+                        <Checkbox
+                          checked={selectedProjects.includes(proyecto.id)}
+                          onCheckedChange={() => toggleProject(proyecto.id)}
+                        />
+                        <span className="font-medium">{proyecto.nombre}</span>
+                      </div>
+                    ))
+                )}
+                {proyectosRealEstate.length > 0 && 
+                  proyectosRealEstate.filter(p => p.nombre.toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
+                  <p className="text-muted-foreground text-center py-4">
+                    No se encontraron proyectos con "{projectSearch}"
+                  </p>
                 )}
               </div>
             </ScrollArea>
