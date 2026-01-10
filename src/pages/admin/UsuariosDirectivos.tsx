@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, UserCheck, UserX, Key, Loader2, RotateCcw, FolderOpen, Check, ChevronsUpDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -309,8 +309,8 @@ export default function UsuariosDirectivos() {
   };
 
   // Effect to set selected projects when dialog opens
-  useMemo(() => {
-    if (isProjectsDialogOpen && userProjects.length >= 0) {
+  useEffect(() => {
+    if (isProjectsDialogOpen) {
       setSelectedProjects(userProjects);
     }
   }, [userProjects, isProjectsDialogOpen]);
