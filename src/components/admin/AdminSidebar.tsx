@@ -173,7 +173,8 @@ const navigationItems: NavigationItem[] = [
     title: "Sistema",
     icon: Settings,
     children: [
-      { title: "Usuarios", href: "/admin/usuarios", icon: UserPlus },
+      { title: "Usuarios del Sistema", href: "/admin/usuarios", icon: UserPlus },
+      { title: "Usuarios Directivos", href: "/admin/usuarios-directivos", icon: Users },
       { title: "Roles y Permisos", href: "/admin/roles-permisos", icon: Shield },
     ]
   },
