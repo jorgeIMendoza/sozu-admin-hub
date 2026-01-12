@@ -152,34 +152,44 @@ export default function AprobacionComisiones() {
       const cuentas = await fetchAllCuentasCobranza();
       if (!cuentas || cuentas.length === 0) return [];
 
-      // Paso 2: Obtener ofertas relacionadas con propiedades y productos
+      // Paso 2: Obtener ofertas relacionadas con propiedades y productos (en batches para evitar límite de URL)
       const ofertaIds = cuentas.map(c => c.id_oferta).filter(id => id !== null);
-      const { data: ofertas, error: ofertasError } = ofertaIds.length > 0
-        ? await supabase.from("ofertas").select(`
-            id,
-            id_propiedad,
-            id_producto,
-            propiedades!ofertas_id_propiedad_fkey(
+      let ofertas: any[] = [];
+      
+      if (ofertaIds.length > 0) {
+        const batchSize = 200; // Usar batches más pequeños para nested selects
+        for (let i = 0; i < ofertaIds.length; i += batchSize) {
+          const batchIds = ofertaIds.slice(i, i + batchSize);
+          const { data: batchOfertas, error: ofertasError } = await supabase
+            .from("ofertas")
+            .select(`
               id,
-              numero_propiedad,
-              id_edificio_modelo,
-              edificios_modelos!propiedades_id_edificio_modelo_fkey(
+              id_propiedad,
+              id_producto,
+              propiedades!ofertas_id_propiedad_fkey(
                 id,
-                id_edificio,
-                id_modelo,
-                modelos!edificios_modelos_id_modelo_fkey(nombre),
-                edificios!edificios_modelos_id_edificio_fkey(
+                numero_propiedad,
+                id_edificio_modelo,
+                edificios_modelos!propiedades_id_edificio_modelo_fkey(
                   id,
-                  nombre,
-                  id_proyecto,
-                  proyectos!edificios_id_proyecto_fkey(id, nombre)
+                  id_edificio,
+                  id_modelo,
+                  modelos!edificios_modelos_id_modelo_fkey(nombre),
+                  edificios!edificios_modelos_id_edificio_fkey(
+                    id,
+                    nombre,
+                    id_proyecto,
+                    proyectos!edificios_id_proyecto_fkey(id, nombre)
+                  )
                 )
               )
-            )
-          `).in("id", ofertaIds)
-        : { data: [], error: null };
+            `)
+            .in("id", batchIds);
 
-      if (ofertasError) throw ofertasError;
+          if (ofertasError) throw ofertasError;
+          if (batchOfertas) ofertas = [...ofertas, ...batchOfertas];
+        }
+      }
 
       // Paso 3: Obtener productos (si aplica)
       const productoIds = ofertas?.filter(o => o.id_producto).map(o => o.id_producto) || [];
