@@ -147,8 +147,8 @@ export class EstadoCuentaService {
 
         // Fetch estacionamientos y bodegas
         const [estResult, bodResult] = await Promise.all([
-          supabase.from("estacionamientos").select("id, nombre").eq("id_propiedad", ofertaData.id_propiedad).eq("activo", true),
-          supabase.from("bodegas").select("id, nombre").eq("id_propiedad", ofertaData.id_propiedad).eq("activo", true)
+          supabase.from("estacionamientos").select("id, nombre, ubicacion").eq("id_propiedad", ofertaData.id_propiedad).eq("activo", true),
+          supabase.from("bodegas").select("id, nombre, ubicacion").eq("id_propiedad", ofertaData.id_propiedad).eq("activo", true)
         ]);
         
         estacionamientos = estResult.data || [];
@@ -347,16 +347,31 @@ export class EstadoCuentaService {
     }
     detailsLeft.push({ label: "Precio final:", value: formatMoney(data.precioFinal) });
     
-    // Show estacionamientos/bodegas names or "No" if none
+    // Show estacionamientos/bodegas with count, names and locations
     if (!isProduct) {
-      const estNames = (data.estacionamientos && data.estacionamientos.length > 0) 
-        ? data.estacionamientos.map((e: any) => e.nombre).join(", ") 
-        : "No";
-      const bodNames = (data.bodegas && data.bodegas.length > 0) 
-        ? data.bodegas.map((b: any) => b.nombre).join(", ") 
-        : "No";
-      detailsLeft.push({ label: "Estacionamiento:", value: estNames });
-      detailsLeft.push({ label: "Bodega:", value: bodNames });
+      const getCountWord = (count: number) => {
+        const words = ["", "uno", "dos", "tres", "cuatro", "cinco"];
+        return count <= 5 ? words[count] : String(count);
+      };
+      
+      let estValue = "No";
+      if (data.estacionamientos && data.estacionamientos.length > 0) {
+        const count = data.estacionamientos.length;
+        const names = data.estacionamientos.map((e: any) => e.nombre).join(", ");
+        const locations = data.estacionamientos.map((e: any) => e.ubicacion || "N/A").join(", ");
+        estValue = `${getCountWord(count)}: ${names}, ubicación: ${locations}`;
+      }
+      
+      let bodValue = "No";
+      if (data.bodegas && data.bodegas.length > 0) {
+        const count = data.bodegas.length;
+        const names = data.bodegas.map((b: any) => b.nombre).join(", ");
+        const locations = data.bodegas.map((b: any) => b.ubicacion || "N/A").join(", ");
+        bodValue = `${getCountWord(count)}: ${names}, ubicación: ${locations}`;
+      }
+      
+      detailsLeft.push({ label: "Estacionamiento:", value: estValue });
+      detailsLeft.push({ label: "Bodega:", value: bodValue });
     }
 
     detailsLeft.forEach((item) => {
@@ -519,8 +534,9 @@ export class EstadoCuentaService {
       colX += col.width;
     });
 
-    y += 10;
-    drawLine(y - 1);
+    y += 8;
+    drawLine(y);
+    y += 6;
 
     // Table rows
     pdf.setFont("helvetica", "normal");
@@ -632,8 +648,9 @@ export class EstadoCuentaService {
       colX += col.width;
     });
 
-    y += 10;
-    drawLine(y - 1);
+    y += 8;
+    drawLine(y);
+    y += 6;
 
     // Table rows
     pdf.setFont("helvetica", "normal");
