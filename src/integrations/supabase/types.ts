@@ -6128,6 +6128,14 @@ export type Database = {
           monto_ya_cobrado: number
         }[]
       }
+      get_totales_comisionistas: {
+        Args: never
+        Returns: {
+          monto_dispersado: number
+          monto_pendiente: number
+          monto_total: number
+        }[]
+      }
       get_user_menus: {
         Args: never
         Returns: {

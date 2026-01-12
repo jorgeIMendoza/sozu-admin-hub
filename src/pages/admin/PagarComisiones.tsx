@@ -15,6 +15,64 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
+// Helper para obtener todos los registros de comisionistas sin límite de 1000
+async function fetchAllComisionistas() {
+  const batchSize = 1000;
+  let allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("comisionistas")
+      .select(`
+        email_usuario,
+        porcentaje_comision,
+        pagada,
+        url_evidencia_pago,
+        aprobada,
+        id_cuenta_cobranza,
+        cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
+          id,
+          precio_final,
+          ofertas!fk_cuentas_cobranza_oferta!inner(
+            id_propiedad,
+            id_producto,
+            propiedades!fk_ofertas_propiedad(
+              numero_propiedad,
+              edificios_modelos!propiedades_id_edificio_modelo_fkey(
+                edificios!edificios_modelos_id_edificio_fkey(
+                  nombre,
+                  proyectos!edificios_id_proyecto_fkey(nombre)
+                ),
+                modelos!edificios_modelos_id_modelo_fkey(nombre)
+              )
+            ),
+            productos_servicios!ofertas_id_producto_fkey(
+              id,
+              categorias_producto!productos_servicios_id_categoria_fkey(nombre)
+            )
+          )
+        )
+      `)
+      .eq("activo", true)
+      .eq("aprobada", true)
+      .range(from, from + batchSize - 1);
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allData = [...allData, ...data];
+      from += batchSize;
+      hasMore = data.length === batchSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
+}
+
 export default function PagarComisiones() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -168,43 +226,8 @@ export default function PagarComisiones() {
   const { data: comisionistasAgrupados, isLoading: loadingComisionistas } = useQuery({
     queryKey: ["pagar-comisiones", "por-comisionista"],
     queryFn: async () => {
-      const { data: comisionistas, error } = await supabase
-        .from("comisionistas")
-        .select(`
-          email_usuario,
-          porcentaje_comision,
-          pagada,
-          url_evidencia_pago,
-          aprobada,
-          id_cuenta_cobranza,
-          cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
-            id,
-            precio_final,
-            ofertas!fk_cuentas_cobranza_oferta!inner(
-              id_propiedad,
-              id_producto,
-              propiedades!fk_ofertas_propiedad(
-                numero_propiedad,
-                edificios_modelos!propiedades_id_edificio_modelo_fkey(
-                  edificios!edificios_modelos_id_edificio_fkey(
-                    nombre,
-                    proyectos!edificios_id_proyecto_fkey(nombre)
-                  ),
-                  modelos!edificios_modelos_id_modelo_fkey(nombre)
-                )
-              ),
-              productos_servicios!ofertas_id_producto_fkey(
-                id,
-                categorias_producto!productos_servicios_id_categoria_fkey(nombre)
-              )
-            )
-          )
-        `)
-        .eq("activo", true)
-        .eq("aprobada", true)
-        .order("email_usuario");
-
-      if (error) throw error;
+      // Usar helper para obtener TODOS los registros sin límite de 1000
+      const comisionistas = await fetchAllComisionistas();
 
       // Obtener nombres de usuarios
       const emails = [...new Set(comisionistas.map((c: any) => c.email_usuario))];
@@ -258,43 +281,8 @@ export default function PagarComisiones() {
   const { data: cuentasAgrupadas, isLoading: loadingCuentas } = useQuery({
     queryKey: ["pagar-comisiones", "por-cuenta"],
     queryFn: async () => {
-      const { data: comisionistas, error } = await supabase
-        .from("comisionistas")
-        .select(`
-          email_usuario,
-          porcentaje_comision,
-          pagada,
-          url_evidencia_pago,
-          aprobada,
-          id_cuenta_cobranza,
-          cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
-            id,
-            precio_final,
-            ofertas!fk_cuentas_cobranza_oferta!inner(
-              id_propiedad,
-              id_producto,
-              propiedades!fk_ofertas_propiedad(
-                numero_propiedad,
-                edificios_modelos!propiedades_id_edificio_modelo_fkey(
-                  edificios!edificios_modelos_id_edificio_fkey(
-                    nombre,
-                    proyectos!edificios_id_proyecto_fkey(nombre)
-                  ),
-                  modelos!edificios_modelos_id_modelo_fkey(nombre)
-                )
-              ),
-              productos_servicios!ofertas_id_producto_fkey(
-                id,
-                categorias_producto!productos_servicios_id_categoria_fkey(nombre)
-              )
-            )
-          )
-        `)
-        .eq("activo", true)
-        .eq("aprobada", true)
-        .order("id_cuenta_cobranza");
-
-      if (error) throw error;
+      // Usar helper para obtener TODOS los registros sin límite de 1000
+      const comisionistas = await fetchAllComisionistas();
 
       // Obtener nombres de usuarios
       const emails = [...new Set(comisionistas.map((c: any) => c.email_usuario))];
@@ -498,40 +486,15 @@ export default function PagarComisiones() {
   const { data: totalesComisiones } = useQuery({
     queryKey: ["totales-comisiones"],
     queryFn: async () => {
-      const { data: comisionistas, error } = await supabase
-        .from("comisionistas")
-        .select(`
-          porcentaje_comision,
-          pagada,
-          id_cuenta_cobranza,
-          cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
-            precio_final
-          )
-        `)
-        .eq("activo", true)
-        .eq("aprobada", true);
+      // Usar RPC para obtener los totales de forma precisa (sin límite de 1000 registros)
+      const { data, error } = await supabase.rpc('get_totales_comisionistas');
 
       if (error) throw error;
 
-      let montoTotal = 0;
-      let montoDispersado = 0;
-      let montoPendiente = 0;
-
-      comisionistas.forEach((com: any) => {
-        const montoComision = (com.cuentas_cobranza.precio_final * com.porcentaje_comision) / 100;
-        montoTotal += montoComision;
-        
-        if (com.pagada) {
-          montoDispersado += montoComision;
-        } else {
-          montoPendiente += montoComision;
-        }
-      });
-
       return {
-        montoTotal,
-        montoDispersado,
-        montoPendiente
+        montoTotal: Number(data?.[0]?.monto_total || 0),
+        montoDispersado: Number(data?.[0]?.monto_dispersado || 0),
+        montoPendiente: Number(data?.[0]?.monto_pendiente || 0)
       };
     }
   });
