@@ -21,9 +21,25 @@ export class EstadoCuentaService {
       // Fetch oferta details
       const { data: ofertaData, error: ofertaError } = await supabase
         .from("ofertas")
-        .select("id_propiedad, id_producto")
+        .select(`
+          id_propiedad, 
+          id_producto,
+          fecha_generacion,
+          id_esquema_pago_seleccionado
+        `)
         .eq("id", cuentaData.id_oferta)
         .single();
+      
+      // Fetch esquema de pago for contract info
+      let esquemaPagoData = null;
+      if (ofertaData?.id_esquema_pago_seleccionado) {
+        const { data: esquema } = await supabase
+          .from("esquemas_pago")
+          .select("nombre, numero_mensualidades, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, porcentaje_descuento_aumento")
+          .eq("id", ofertaData.id_esquema_pago_seleccionado)
+          .maybeSingle();
+        esquemaPagoData = esquema;
+      }
 
       if (ofertaError) throw ofertaError;
 
@@ -64,20 +80,59 @@ export class EstadoCuentaService {
 
       if (pagosError) throw pagosError;
 
-      // Fetch proyecto info
+      // Fetch property details, project info, estacionamientos and bodegas
       let proyectoData = null;
+      let propiedadData = null;
+      let edificioData = null;
+      let modeloData = null;
+      let estacionamientos: any[] = [];
+      let bodegas: any[] = [];
+      let productoData = null;
+      
       if (ofertaData.id_propiedad) {
-        const { data: propiedadData } = await supabase
+        // Fetch property with edificio_modelo
+        const { data: propiedad } = await supabase
           .from("propiedades")
-          .select("id_entidad_relacionada_dueno")
+          .select("id, numero_propiedad, numero_piso, id_edificio_modelo, id_entidad_relacionada_dueno")
           .eq("id", ofertaData.id_propiedad)
           .maybeSingle();
 
-        if (propiedadData) {
+        propiedadData = propiedad;
+
+        // Fetch edificio and modelo
+        if (propiedad?.id_edificio_modelo) {
+          const { data: edificioModelo } = await supabase
+            .from("edificios_modelos")
+            .select(`
+              id,
+              modelos!edificios_modelos_id_modelo_fkey(id, nombre),
+              edificios!edificios_modelos_id_edificio_fkey(id, nombre, id_proyecto)
+            `)
+            .eq("id", propiedad.id_edificio_modelo)
+            .maybeSingle();
+
+          if (edificioModelo) {
+            edificioData = edificioModelo.edificios;
+            modeloData = edificioModelo.modelos;
+
+            // Fetch project from edificio
+            if (edificioModelo.edificios?.id_proyecto) {
+              const { data: proyecto } = await supabase
+                .from("proyectos")
+                .select("*")
+                .eq("id", edificioModelo.edificios.id_proyecto)
+                .maybeSingle();
+              proyectoData = proyecto;
+            }
+          }
+        }
+
+        // Fallback: fetch project from entidad_relacionada
+        if (!proyectoData && propiedad?.id_entidad_relacionada_dueno) {
           const { data: entidadData } = await supabase
             .from("entidades_relacionadas")
             .select("id_proyecto")
-            .eq("id", propiedadData.id_entidad_relacionada_dueno)
+            .eq("id", propiedad.id_entidad_relacionada_dueno)
             .maybeSingle();
 
           if (entidadData) {
@@ -86,10 +141,28 @@ export class EstadoCuentaService {
               .select("*")
               .eq("id", entidadData.id_proyecto)
               .maybeSingle();
-
             proyectoData = proyecto;
           }
         }
+
+        // Fetch estacionamientos y bodegas
+        const [estResult, bodResult] = await Promise.all([
+          supabase.from("estacionamientos").select("id, nombre").eq("id_propiedad", ofertaData.id_propiedad).eq("activo", true),
+          supabase.from("bodegas").select("id, nombre").eq("id_propiedad", ofertaData.id_propiedad).eq("activo", true)
+        ]);
+        
+        estacionamientos = estResult.data || [];
+        bodegas = bodResult.data || [];
+      }
+
+      // Fetch producto if it's a product sale
+      if (ofertaData.id_producto) {
+        const { data: producto } = await supabase
+          .from("productos_servicios")
+          .select("id, nombre, precio_referencia")
+          .eq("id", ofertaData.id_producto)
+          .maybeSingle();
+        productoData = producto;
       }
 
       // Calculate totals
@@ -114,10 +187,17 @@ export class EstadoCuentaService {
       await this.generateNativePDF({
         cuenta: cuentaData,
         oferta: ofertaData,
+        esquemaPago: esquemaPagoData,
         compradores: compradores || [],
         acuerdos: acuerdos || [],
         pagos: pagos || [],
         proyecto: proyectoData,
+        propiedad: propiedadData,
+        edificio: edificioData,
+        modelo: modeloData,
+        producto: productoData,
+        estacionamientos,
+        bodegas,
         precioFinal,
         totalPagado,
         totalMultas,
@@ -229,41 +309,144 @@ export class EstadoCuentaService {
     drawLine(y, primaryColor);
     y += 8;
 
-    // === META INFO ===
-    const metaBoxWidth = contentWidth / 3 - 4;
-    const metaItems = [
-      { label: "Estado", value: data.cuenta.es_aprobado ? "Aprobado" : "Pendiente" },
-      { 
-        label: "Periodo", 
-        value: data.acuerdos.length > 0 
-          ? `${formatDate(data.acuerdos[0].fecha_pago)} — ${formatDate(data.acuerdos[data.acuerdos.length - 1].fecha_pago)}`
-          : "N/A"
-      },
-      { label: "Fecha de Emisión", value: formatDate(new Date().toISOString()) },
-    ];
+    // === DETALLES DE LA PROPIEDAD/PRODUCTO ===
+    const isProduct = !!data.oferta?.id_producto;
+    const leftColWidth = contentWidth / 2 - 5;
+    const rightColWidth = contentWidth / 2 - 5;
+    const startY = y;
 
-    metaItems.forEach((item, i) => {
-      const x = margin + (i * (metaBoxWidth + 6));
-      
-      // Box background
-      pdf.setFillColor("#f8f9fa");
-      pdf.roundedRect(x, y, metaBoxWidth, 14, 2, 2, "F");
-      
-      // Left border
-      pdf.setFillColor(primaryColor);
-      pdf.rect(x, y, 1, 14, "F");
+    // Left column - Property/Product details
+    pdf.setFontSize(10);
+    pdf.setTextColor(primaryColor);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Detalles del " + (isProduct ? "Producto" : "Inmueble"), margin, y);
+    y += 6;
 
-      pdf.setFontSize(7);
-      pdf.setTextColor(lightGray);
-      pdf.text(item.label.toUpperCase(), x + 4, y + 5);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
 
-      pdf.setFontSize(9);
+    const detailsLeft = [];
+    
+    if (data.proyecto?.nombre) {
+      detailsLeft.push({ label: "Proyecto:", value: data.proyecto.nombre });
+    }
+    if (data.proyecto?.direccion) {
+      detailsLeft.push({ label: "Dirección:", value: data.proyecto.direccion });
+    }
+    if (data.edificio?.nombre) {
+      detailsLeft.push({ label: "Torre:", value: data.edificio.nombre });
+    }
+    if (data.propiedad?.numero_piso) {
+      detailsLeft.push({ label: "Piso:", value: data.propiedad.numero_piso });
+    }
+    if (data.modelo?.nombre) {
+      detailsLeft.push({ label: "Modelo:", value: data.modelo.nombre });
+    }
+    if (data.propiedad?.numero_propiedad) {
+      detailsLeft.push({ label: "N° de propiedad:", value: data.propiedad.numero_propiedad });
+    }
+    if (isProduct && data.producto?.nombre) {
+      detailsLeft.push({ label: "Nombre del Producto/Servicio:", value: data.producto.nombre });
+    }
+    detailsLeft.push({ label: "Precio final:", value: formatMoney(data.precioFinal) });
+    
+    // Show estacionamientos/bodegas if property has them
+    if (!isProduct) {
+      detailsLeft.push({ 
+        label: "Estacionamiento:", 
+        value: (data.estacionamientos && data.estacionamientos.length > 0) ? "Sí" : "No" 
+      });
+      detailsLeft.push({ 
+        label: "Bodega:", 
+        value: (data.bodegas && data.bodegas.length > 0) ? "Sí" : "No" 
+      });
+    }
+
+    detailsLeft.forEach((item) => {
+      pdf.setTextColor(grayColor);
+      pdf.text(item.label, margin, y);
       pdf.setTextColor(primaryColor);
       pdf.setFont("helvetica", "bold");
-      pdf.text(item.value, x + 4, y + 11);
+      const valueText = String(item.value || "N/A").substring(0, 40);
+      pdf.text(valueText, margin + 45, y);
+      pdf.setFont("helvetica", "normal");
+      y += 5;
     });
 
-    y += 20;
+    // Right column - Contract info
+    let rightY = startY;
+    const rightX = margin + leftColWidth + 10;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(primaryColor);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Información del contrato", rightX, rightY);
+    rightY += 6;
+
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+
+    const detailsRight = [];
+    
+    if (data.oferta?.fecha_generacion) {
+      detailsRight.push({ label: "Fecha de compra:", value: formatDate(data.oferta.fecha_generacion) });
+    }
+    if (data.esquemaPago?.numero_mensualidades) {
+      detailsRight.push({ label: "Número de parcialidades:", value: String(data.esquemaPago.numero_mensualidades) });
+    }
+    
+    // Calculate amounts from percentages (from esquema_pago)
+    const precioBase = data.precioFinal;
+    const porcentajeEnganche = data.esquemaPago?.porcentaje_enganche || 0;
+    const porcentajeMensualidades = data.esquemaPago?.porcentaje_mensualidades || 0;
+    const porcentajeEntrega = data.esquemaPago?.porcentaje_entrega || 0;
+    const numMensualidades = data.esquemaPago?.numero_mensualidades || 1;
+    
+    const montoMensualidades = precioBase * (porcentajeMensualidades / 100);
+    const pagoMensual = numMensualidades > 0 ? montoMensualidades / numMensualidades : 0;
+
+    if (pagoMensual > 0) {
+      detailsRight.push({ label: "Pago mensual:", value: formatMoney(pagoMensual) });
+    }
+    
+    // Find apartado amount from acuerdos
+    const apartadoAcuerdo = data.acuerdos.find((a: any) => 
+      a.conceptos_pago?.nombre?.toLowerCase().includes("apartado")
+    );
+    detailsRight.push({ 
+      label: "Apartado:", 
+      value: apartadoAcuerdo ? formatMoney(apartadoAcuerdo.monto) : "N/A" 
+    });
+    
+    if (porcentajeEnganche > 0) {
+      const montoEnganche = precioBase * (porcentajeEnganche / 100);
+      detailsRight.push({ label: "Enganche:", value: `${porcentajeEnganche}%  ${formatMoney(montoEnganche)}` });
+    }
+    
+    if (porcentajeMensualidades > 0) {
+      detailsRight.push({ label: "Monto de parcialidades:", value: `${porcentajeMensualidades}%  ${formatMoney(montoMensualidades)}` });
+    }
+    
+    if (porcentajeEntrega > 0) {
+      const montoEntrega = precioBase * (porcentajeEntrega / 100);
+      detailsRight.push({ label: "Contraentrega:", value: `${porcentajeEntrega}%  ${formatMoney(montoEntrega)}` });
+    }
+
+    detailsRight.forEach((item) => {
+      pdf.setTextColor(grayColor);
+      pdf.text(item.label, rightX, rightY);
+      pdf.setTextColor(primaryColor);
+      pdf.setFont("helvetica", "bold");
+      const valueText = String(item.value || "N/A").substring(0, 35);
+      pdf.text(valueText, rightX + 45, rightY);
+      pdf.setFont("helvetica", "normal");
+      rightY += 5;
+    });
+
+    // Move y to the max of both columns
+    y = Math.max(y, rightY) + 8;
+    drawLine(y, "#e5e7eb");
+    y += 8;
 
     // === SUMMARY CARDS ===
     const cardWidth = contentWidth / 4 - 3;
@@ -298,16 +481,16 @@ export class EstadoCuentaService {
       pdf.text(item.value, x + cardWidth / 2, y + 16, { align: "center" });
     });
 
-    y += 30;
+    y += 32;
 
     // === ACUERDOS DE PAGO TABLE ===
     pdf.setFontSize(12);
     pdf.setTextColor(primaryColor);
     pdf.setFont("helvetica", "bold");
     pdf.text("Acuerdos de Pago", margin, y);
-    y += 3;
+    y += 6;
     drawLine(y);
-    y += 5;
+    y += 8;
 
     // Table header
     const acuerdosCols = [
@@ -414,7 +597,7 @@ export class EstadoCuentaService {
       y += 6;
     }
 
-    y += 8;
+    y += 15;
 
     // === PAGOS REALIZADOS TABLE ===
     checkNewPage(30);
@@ -423,9 +606,9 @@ export class EstadoCuentaService {
     pdf.setTextColor(primaryColor);
     pdf.setFont("helvetica", "bold");
     pdf.text("Pagos Realizados", margin, y);
-    y += 3;
+    y += 6;
     drawLine(y);
-    y += 5;
+    y += 8;
 
     // Table header
     const pagosCols = [

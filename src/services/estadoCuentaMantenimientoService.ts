@@ -325,16 +325,16 @@ export class EstadoCuentaMantenimientoService {
       pdf.text(item.value, x + cardWidth / 2, y + 16, { align: "center" });
     });
 
-    y += 30;
+    y += 32;
 
     // === ACUERDOS DE PAGO TABLE ===
     pdf.setFontSize(12);
     pdf.setTextColor(primaryColor);
     pdf.setFont("helvetica", "bold");
     pdf.text("Acuerdos de Pago - Últimos 12 Meses", margin, y);
-    y += 6;
-    drawLine(y);
     y += 8;
+    drawLine(y);
+    y += 10;
 
     // Table header
     const acuerdosCols = [
