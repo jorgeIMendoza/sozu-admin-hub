@@ -266,13 +266,15 @@ export default function Usuarios() {
           auth_user_id,
           id_persona,
           debe_cambiar_password,
-          roles (nombre),
+          roles (nombre, es_rol_interno),
           personas (nombre_legal)
         `)
         .order('nombre', { ascending: true });
       
       if (error) throw error;
-      return (data || []) as Usuario[];
+      // Filter out users with internal roles (like Cliente, Directores)
+      return ((data || []) as (Usuario & { roles: { nombre: string; es_rol_interno: boolean } | null })[])
+        .filter(u => !u.roles?.es_rol_interno);
     },
   });
 
