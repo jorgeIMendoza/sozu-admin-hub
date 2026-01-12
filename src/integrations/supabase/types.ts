@@ -6189,6 +6189,7 @@ export type Database = {
         Args: { _reporte_id: number }
         Returns: boolean
       }
+      user_has_internal_role: { Args: { _user_id: string }; Returns: boolean }
       user_has_permission: {
         Args: { _permission_name: string; _submenu_path: string }
         Returns: boolean
