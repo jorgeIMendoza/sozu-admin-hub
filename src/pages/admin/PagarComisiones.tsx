@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 export default function PagarComisiones() {
   const { toast } = useToast();
@@ -23,6 +24,9 @@ export default function PagarComisiones() {
   const [selectedComisionista, setSelectedComisionista] = useState<{ email: string; idCuenta: number } | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pagarTodas, setPagarTodas] = useState<{ type: 'comisionista' | 'cuenta', data: any } | null>(null);
+  const [currentPageComisionistas, setCurrentPageComisionistas] = useState(1);
+  const [currentPageCuentas, setCurrentPageCuentas] = useState(1);
+  const itemsPerPage = 50;
 
   const toggleItem = (itemId: string) => {
     const newExpanded = new Set(expandedItems);
@@ -405,12 +409,81 @@ export default function PagarComisiones() {
   const comisionistasFiltrados = comisionistasAgrupados?.filter((com: any) =>
     com.email.toLowerCase().includes(filtroGeneral.toLowerCase()) ||
     com.nombre.toLowerCase().includes(filtroGeneral.toLowerCase())
-  );
+  ) || [];
 
   const cuentasFiltradas = cuentasAgrupadas?.filter((cuenta: any) =>
     cuenta.numeroCuenta.toLowerCase().includes(filtroGeneral.toLowerCase()) ||
     cuenta.proyecto.toLowerCase().includes(filtroGeneral.toLowerCase())
-  );
+  ) || [];
+
+  // Pagination logic
+  const totalPagesComisionistas = Math.ceil(comisionistasFiltrados.length / itemsPerPage);
+  const totalPagesCuentas = Math.ceil(cuentasFiltradas.length / itemsPerPage);
+
+  const paginatedComisionistas = useMemo(() => {
+    const startIndex = (currentPageComisionistas - 1) * itemsPerPage;
+    return comisionistasFiltrados.slice(startIndex, startIndex + itemsPerPage);
+  }, [comisionistasFiltrados, currentPageComisionistas, itemsPerPage]);
+
+  const paginatedCuentas = useMemo(() => {
+    const startIndex = (currentPageCuentas - 1) * itemsPerPage;
+    return cuentasFiltradas.slice(startIndex, startIndex + itemsPerPage);
+  }, [cuentasFiltradas, currentPageCuentas, itemsPerPage]);
+
+  // Reset pages when filter changes
+  useMemo(() => {
+    setCurrentPageComisionistas(1);
+    setCurrentPageCuentas(1);
+  }, [filtroGeneral]);
+
+  const renderPaginationItems = (totalPages: number, currentPage: number, setCurrentPage: (page: number) => void) => {
+    const items = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+        </PaginationItem>
+      );
+      if (startPage > 2) {
+        items.push(<PaginationEllipsis key="ellipsis-start" />);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink 
+            isActive={currentPage === i}
+            onClick={() => setCurrentPage(i)}
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<PaginationEllipsis key="ellipsis-end" />);
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return items;
+  };
 
   // Calcular totales para las cards de resumen
   const { data: totalesComisiones } = useQuery({
@@ -621,7 +694,7 @@ export default function PagarComisiones() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {comisionistasFiltrados?.map((com: any) => (
+                    {paginatedComisionistas?.map((com: any) => (
                       <>
                         <TableRow 
                           key={com.email}
@@ -735,6 +808,32 @@ export default function PagarComisiones() {
                   </TableBody>
                 </Table>
               )}
+
+              {/* Pagination for Comisionistas */}
+              {totalPagesComisionistas > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {((currentPageComisionistas - 1) * itemsPerPage) + 1} - {Math.min(currentPageComisionistas * itemsPerPage, comisionistasFiltrados.length)} de {comisionistasFiltrados.length} comisionistas
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPageComisionistas(Math.max(1, currentPageComisionistas - 1))}
+                          className={currentPageComisionistas === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {renderPaginationItems(totalPagesComisionistas, currentPageComisionistas, setCurrentPageComisionistas)}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPageComisionistas(Math.min(totalPagesComisionistas, currentPageComisionistas + 1))}
+                          className={currentPageComisionistas === totalPagesComisionistas ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -768,7 +867,7 @@ export default function PagarComisiones() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cuentasFiltradas?.map((cuenta: any) => (
+                    {paginatedCuentas?.map((cuenta: any) => (
                       <>
                         <TableRow 
                           key={cuenta.idCuenta}
@@ -879,6 +978,32 @@ export default function PagarComisiones() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+
+              {/* Pagination for Cuentas */}
+              {totalPagesCuentas > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {((currentPageCuentas - 1) * itemsPerPage) + 1} - {Math.min(currentPageCuentas * itemsPerPage, cuentasFiltradas.length)} de {cuentasFiltradas.length} cuentas
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPageCuentas(Math.max(1, currentPageCuentas - 1))}
+                          className={currentPageCuentas === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {renderPaginationItems(totalPagesCuentas, currentPageCuentas, setCurrentPageCuentas)}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPageCuentas(Math.min(totalPagesCuentas, currentPageCuentas + 1))}
+                          className={currentPageCuentas === totalPagesCuentas ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
               )}
             </CardContent>
           </Card>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 export default function AprobacionComisiones() {
   const { toast } = useToast();
@@ -21,6 +22,9 @@ export default function AprobacionComisiones() {
   const [filtroGeneral, setFiltroGeneral] = useState("");
   const [expandedCuentas, setExpandedCuentas] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState("pendientes");
+  const [currentPagePendientes, setCurrentPagePendientes] = useState(1);
+  const [currentPageCompletas, setCurrentPageCompletas] = useState(1);
+  const itemsPerPage = 50;
 
   const toggleCuenta = (cuentaId: number) => {
     const newExpanded = new Set(expandedCuentas);
@@ -261,13 +265,82 @@ export default function AprobacionComisiones() {
   }) || [];
 
   // Separar en pendientes y completas
-    const cuentasPendientes = cuentasFiltradas.filter((cuenta: any) => 
-      cuenta.comisionistas.length === 0 || cuenta.comisionistas.some((c: any) => !c.aprobada)
-    );
+  const cuentasPendientes = cuentasFiltradas.filter((cuenta: any) => 
+    cuenta.comisionistas.length === 0 || cuenta.comisionistas.some((c: any) => !c.aprobada)
+  );
 
-    const cuentasCompletas = cuentasFiltradas.filter((cuenta: any) => 
-      cuenta.comisionistas.length > 0 && cuenta.comisionistas.every((c: any) => c.aprobada)
-    );
+  const cuentasCompletas = cuentasFiltradas.filter((cuenta: any) => 
+    cuenta.comisionistas.length > 0 && cuenta.comisionistas.every((c: any) => c.aprobada)
+  );
+
+  // Pagination logic
+  const totalPagesPendientes = Math.ceil(cuentasPendientes.length / itemsPerPage);
+  const totalPagesCompletas = Math.ceil(cuentasCompletas.length / itemsPerPage);
+
+  const paginatedPendientes = useMemo(() => {
+    const startIndex = (currentPagePendientes - 1) * itemsPerPage;
+    return cuentasPendientes.slice(startIndex, startIndex + itemsPerPage);
+  }, [cuentasPendientes, currentPagePendientes, itemsPerPage]);
+
+  const paginatedCompletas = useMemo(() => {
+    const startIndex = (currentPageCompletas - 1) * itemsPerPage;
+    return cuentasCompletas.slice(startIndex, startIndex + itemsPerPage);
+  }, [cuentasCompletas, currentPageCompletas, itemsPerPage]);
+
+  // Reset pages when filter changes
+  useMemo(() => {
+    setCurrentPagePendientes(1);
+    setCurrentPageCompletas(1);
+  }, [filtroGeneral]);
+
+  const renderPaginationItems = (totalPages: number, currentPage: number, setCurrentPage: (page: number) => void) => {
+    const items = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+        </PaginationItem>
+      );
+      if (startPage > 2) {
+        items.push(<PaginationEllipsis key="ellipsis-start" />);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink 
+            isActive={currentPage === i}
+            onClick={() => setCurrentPage(i)}
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<PaginationEllipsis key="ellipsis-end" />);
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return items;
+  };
 
   // Calcular totales
   const calcularPorcentajeTotalComisiones = (cuenta: any) => {
@@ -513,11 +586,59 @@ export default function AprobacionComisiones() {
             </TabsList>
 
             <TabsContent value="pendientes">
-              {renderCuentasTable(cuentasPendientes, true)}
+              {renderCuentasTable(paginatedPendientes, true)}
+              {totalPagesPendientes > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {((currentPagePendientes - 1) * itemsPerPage) + 1} - {Math.min(currentPagePendientes * itemsPerPage, cuentasPendientes.length)} de {cuentasPendientes.length} cuentas
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPagePendientes(Math.max(1, currentPagePendientes - 1))}
+                          className={currentPagePendientes === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {renderPaginationItems(totalPagesPendientes, currentPagePendientes, setCurrentPagePendientes)}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPagePendientes(Math.min(totalPagesPendientes, currentPagePendientes + 1))}
+                          className={currentPagePendientes === totalPagesPendientes ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="completas">
-              {renderCuentasTable(cuentasCompletas, false)}
+              {renderCuentasTable(paginatedCompletas, false)}
+              {totalPagesCompletas > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {((currentPageCompletas - 1) * itemsPerPage) + 1} - {Math.min(currentPageCompletas * itemsPerPage, cuentasCompletas.length)} de {cuentasCompletas.length} cuentas
+                  </p>
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => setCurrentPageCompletas(Math.max(1, currentPageCompletas - 1))}
+                          className={currentPageCompletas === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {renderPaginationItems(totalPagesCompletas, currentPageCompletas, setCurrentPageCompletas)}
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => setCurrentPageCompletas(Math.min(totalPagesCompletas, currentPageCompletas + 1))}
+                          className={currentPageCompletas === totalPagesCompletas ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,6 +13,7 @@ import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 export default function Comisiones() {
   const {
     toast
@@ -27,6 +28,8 @@ export default function Comisiones() {
   const [filtroNumero, setFiltroNumero] = useState("");
   const [filtroEstatus, setFiltroEstatus] = useState("");
   const [filtroEfectivo, setFiltroEfectivo] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -343,6 +346,68 @@ export default function Comisiones() {
     }
     return true;
   }) || [];
+
+  // Pagination logic
+  const totalPages = Math.ceil(comisionesFiltradas.length / itemsPerPage);
+  const paginatedComisiones = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return comisionesFiltradas.slice(startIndex, startIndex + itemsPerPage);
+  }, [comisionesFiltradas, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [filtroGeneral, filtroId, filtroTipo, filtroProyecto, filtroEdificio, filtroModelo, filtroNumero, filtroEstatus, filtroEfectivo]);
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+        </PaginationItem>
+      );
+      if (startPage > 2) {
+        items.push(<PaginationEllipsis key="ellipsis-start" />);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink 
+            isActive={currentPage === i}
+            onClick={() => setCurrentPage(i)}
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<PaginationEllipsis key="ellipsis-end" />);
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return items;
+  };
+
   if (isLoading) {
     return <div className="container mx-auto py-6 space-y-4">
         <Card>
@@ -431,7 +496,7 @@ export default function Comisiones() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {comisionesFiltradas?.map((comision: any) => {
+              {paginatedComisiones?.map((comision: any) => {
               return <TableRow key={comision.id} className={comision.es_comision_venta_efectivo ? "bg-yellow-50 dark:bg-yellow-950/20" : ""}>
                     <TableCell className="font-medium">
                       <button onClick={() => copyToClipboard(formatCuentaCobranzaId(comision.id, comision.tipo), "Número de cuenta")} className="flex items-center gap-2 hover:text-primary transition-colors cursor-pointer">
@@ -497,6 +562,32 @@ export default function Comisiones() {
             })}
             </TableBody>
           </Table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, comisionesFiltradas.length)} de {comisionesFiltradas.length} comisiones
+              </p>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  {renderPaginationItems()}
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>;
