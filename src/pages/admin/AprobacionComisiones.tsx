@@ -152,65 +152,36 @@ export default function AprobacionComisiones() {
       const cuentas = await fetchAllCuentasCobranza();
       if (!cuentas || cuentas.length === 0) return [];
 
-      // Paso 2: Obtener ofertas relacionadas
+      // Paso 2: Obtener ofertas relacionadas con propiedades y productos
       const ofertaIds = cuentas.map(c => c.id_oferta).filter(id => id !== null);
       const { data: ofertas, error: ofertasError } = ofertaIds.length > 0
         ? await supabase.from("ofertas").select(`
             id,
             id_propiedad,
-            id_producto
+            id_producto,
+            propiedades!ofertas_id_propiedad_fkey(
+              id,
+              numero_propiedad,
+              id_edificio_modelo,
+              edificios_modelos!propiedades_id_edificio_modelo_fkey(
+                id,
+                id_edificio,
+                id_modelo,
+                modelos!edificios_modelos_id_modelo_fkey(nombre),
+                edificios!edificios_modelos_id_edificio_fkey(
+                  id,
+                  nombre,
+                  id_proyecto,
+                  proyectos!edificios_id_proyecto_fkey(id, nombre)
+                )
+              )
+            )
           `).in("id", ofertaIds)
         : { data: [], error: null };
 
       if (ofertasError) throw ofertasError;
 
-      // Paso 3: Obtener propiedades y modelos
-      const propiedadIds = ofertas?.filter(o => o.id_propiedad).map(o => o.id_propiedad) || [];
-      const { data: propiedades, error: propiedadesError } = propiedadIds.length > 0
-        ? await supabase.from("propiedades").select(`
-            id,
-            numero_propiedad,
-            id_edificio_modelo
-          `).in("id", propiedadIds)
-        : { data: [], error: null };
-
-      if (propiedadesError) throw propiedadesError;
-
-      // Paso 4: Obtener edificios y modelos
-      const edificioModeloIds = propiedades?.map(p => p.id_edificio_modelo).filter(Boolean) || [];
-      const { data: edificiosModelos, error: edificiosModelosError } = edificioModeloIds.length > 0
-        ? await supabase.from("edificios_modelos").select(`
-            id,
-            id_edificio,
-            modelos!edificios_modelos_id_modelo_fkey(nombre)
-          `).in("id", edificioModeloIds)
-        : { data: [], error: null };
-
-      if (edificiosModelosError) throw edificiosModelosError;
-
-      const edificioIdsReal = edificiosModelos?.map(em => em.id_edificio).filter(Boolean) || [];
-      const { data: edificiosData, error: edificiosDataError } = edificioIdsReal.length > 0
-        ? await supabase.from("edificios").select(`
-            id,
-            nombre,
-            id_proyecto
-          `).in("id", edificioIdsReal)
-        : { data: [], error: null };
-
-      if (edificiosDataError) throw edificiosDataError;
-
-      // Paso 5: Obtener proyectos
-      const proyectoIds = edificiosData?.map(e => e.id_proyecto).filter(Boolean) || [];
-      const { data: proyectos, error: proyectosError } = proyectoIds.length > 0
-        ? await supabase.from("proyectos").select(`
-            id,
-            nombre
-          `).in("id", proyectoIds)
-        : { data: [], error: null };
-
-      if (proyectosError) throw proyectosError;
-
-      // Paso 6: Obtener productos
+      // Paso 3: Obtener productos (si aplica)
       const productoIds = ofertas?.filter(o => o.id_producto).map(o => o.id_producto) || [];
       const { data: productos, error: productosError } = productoIds.length > 0
         ? await supabase.from("productos_servicios").select(`
@@ -223,7 +194,7 @@ export default function AprobacionComisiones() {
 
       if (productosError) throw productosError;
 
-      // Paso 7: Obtener comisionistas para todas las cuentas
+      // Paso 4: Obtener comisionistas para todas las cuentas
       const cuentaIds = cuentas.map(c => c.id);
       const { data: comisionistas, error: comisionistasError } = await supabase
         .from("comisionistas")
@@ -233,13 +204,14 @@ export default function AprobacionComisiones() {
 
       if (comisionistasError) throw comisionistasError;
 
-      // Paso 8: Combinar datos
+      // Paso 5: Combinar datos
       return cuentas.map(cuenta => {
         const oferta = ofertas?.find(o => o.id === cuenta.id_oferta);
-        const propiedad = propiedades?.find(p => p.id === oferta?.id_propiedad);
-        const edificioModelo = edificiosModelos?.find(em => em.id === propiedad?.id_edificio_modelo);
-        const edificio = edificiosData?.find(e => e.id === edificioModelo?.id_edificio);
-        const proyecto = proyectos?.find(pr => pr.id === edificio?.id_proyecto);
+        const propiedad = oferta?.propiedades;
+        const edificioModelo = propiedad?.edificios_modelos;
+        const edificio = edificioModelo?.edificios;
+        const proyecto = edificio?.proyectos;
+        const modelo = edificioModelo?.modelos;
         const producto = productos?.find(prod => prod.id === oferta?.id_producto);
 
         let tipo: 'Propiedad' | 'Producto' | 'Servicio' = 'Propiedad';
@@ -254,7 +226,7 @@ export default function AprobacionComisiones() {
           ...cuenta,
           proyecto_nombre: proyecto?.nombre,
           edificio_nombre: edificio?.nombre,
-          modelo_nombre: edificioModelo?.modelos?.nombre,
+          modelo_nombre: modelo?.nombre,
           numero_departamento: propiedad?.numero_propiedad,
           producto_nombre: producto?.nombre,
           tipo,
