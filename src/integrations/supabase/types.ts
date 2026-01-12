@@ -6120,6 +6120,14 @@ export type Database = {
           vista: string
         }[]
       }
+      get_totales_comisiones_sozu: {
+        Args: never
+        Returns: {
+          monto_por_cobrar: number
+          monto_total_sozu: number
+          monto_ya_cobrado: number
+        }[]
+      }
       get_user_menus: {
         Args: never
         Returns: {

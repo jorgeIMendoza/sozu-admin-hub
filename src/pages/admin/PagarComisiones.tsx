@@ -406,6 +406,15 @@ export default function PagarComisiones() {
     }).format(value);
   };
 
+  const formatCompactCurrency = (value: number) => {
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(2)}M`;
+    } else if (value >= 1000) {
+      return `$${(value / 1000).toFixed(2)}K`;
+    }
+    return formatCurrency(value);
+  };
+
   const comisionistasFiltrados = comisionistasAgrupados?.filter((com: any) =>
     com.email.toLowerCase().includes(filtroGeneral.toLowerCase()) ||
     com.nombre.toLowerCase().includes(filtroGeneral.toLowerCase())
@@ -530,35 +539,15 @@ export default function PagarComisiones() {
   const { data: totalesComisionesSozu } = useQuery({
     queryKey: ["totales-comisiones-sozu"],
     queryFn: async () => {
-      // Obtener todas las cuentas de cobranza con comisión
-      const { data: cuentas, error } = await supabase
-        .from("cuentas_cobranza")
-        .select(`
-          precio_final,
-          porcentaje_comision_venta,
-          es_pagada_comision_venta
-        `)
-        .eq("activo", true)
-        .gt("porcentaje_comision_venta", 0);
+      // Usar RPC para obtener los totales de forma precisa (sin límite de 1000 registros)
+      const { data, error } = await supabase.rpc('get_totales_comisiones_sozu');
 
       if (error) throw error;
 
-      let montoTotalSozu = 0;
-      let montoYaCobrado = 0;
-
-      cuentas.forEach((cuenta: any) => {
-        const montoComision = (cuenta.precio_final * cuenta.porcentaje_comision_venta) / 100;
-        montoTotalSozu += montoComision;
-        
-        if (cuenta.es_pagada_comision_venta) {
-          montoYaCobrado += montoComision;
-        }
-      });
-
       return {
-        montoTotalSozu,
-        montoYaCobrado,
-        montoPorCobrar: montoTotalSozu - montoYaCobrado
+        montoTotalSozu: Number(data?.[0]?.monto_total_sozu || 0),
+        montoYaCobrado: Number(data?.[0]?.monto_ya_cobrado || 0),
+        montoPorCobrar: Number(data?.[0]?.monto_por_cobrar || 0)
       };
     }
   });
@@ -582,7 +571,7 @@ export default function PagarComisiones() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {totalesComisionesSozu ? formatCurrency(totalesComisionesSozu.montoPorCobrar) : <Skeleton className="h-8 w-32" />}
+              {totalesComisionesSozu ? formatCompactCurrency(totalesComisionesSozu.montoPorCobrar) : <Skeleton className="h-8 w-32" />}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Comisión general pendiente
@@ -598,7 +587,7 @@ export default function PagarComisiones() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {totalesComisionesSozu ? formatCurrency(totalesComisionesSozu.montoYaCobrado) : <Skeleton className="h-8 w-32" />}
+              {totalesComisionesSozu ? formatCompactCurrency(totalesComisionesSozu.montoYaCobrado) : <Skeleton className="h-8 w-32" />}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Comisión general cobrada
@@ -614,7 +603,7 @@ export default function PagarComisiones() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {totalesComisiones ? formatCurrency(totalesComisiones.montoTotal) : <Skeleton className="h-8 w-32" />}
+              {totalesComisiones ? formatCompactCurrency(totalesComisiones.montoTotal) : <Skeleton className="h-8 w-32" />}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Total de comisiones aprobadas
@@ -630,7 +619,7 @@ export default function PagarComisiones() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {totalesComisiones ? formatCurrency(totalesComisiones.montoPendiente) : <Skeleton className="h-8 w-32" />}
+              {totalesComisiones ? formatCompactCurrency(totalesComisiones.montoPendiente) : <Skeleton className="h-8 w-32" />}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Comisiones pendientes de pago
@@ -646,7 +635,7 @@ export default function PagarComisiones() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {totalesComisiones ? formatCurrency(totalesComisiones.montoDispersado) : <Skeleton className="h-8 w-32" />}
+              {totalesComisiones ? formatCompactCurrency(totalesComisiones.montoDispersado) : <Skeleton className="h-8 w-32" />}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Comisiones ya pagadas
