@@ -15,6 +15,42 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
+// Helper para obtener todas las cuentas de cobranza sin límite de 1000
+async function fetchAllCuentasCobranza() {
+  const batchSize = 1000;
+  let allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("cuentas_cobranza")
+      .select(`
+        id,
+        precio_final,
+        porcentaje_comision_venta,
+        iva_incluido,
+        id_oferta
+      `)
+      .eq("es_pagada_comision_venta", true)
+      .is("id_cuenta_cobranza_padre", null)
+      .order("id", { ascending: false })
+      .range(from, from + batchSize - 1);
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      allData = [...allData, ...data];
+      from += batchSize;
+      hasMore = data.length === batchSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
+}
+
 export default function AprobacionComisiones() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -112,21 +148,8 @@ export default function AprobacionComisiones() {
   const { data: cuentasConComisionistas, isLoading } = useQuery({
     queryKey: ["aprobacion-comisiones"],
     queryFn: async () => {
-      // Paso 1: Obtener cuentas donde la comisión está pagada
-      const { data: cuentas, error: cuentasError } = await supabase
-        .from("cuentas_cobranza")
-        .select(`
-          id,
-          precio_final,
-          porcentaje_comision_venta,
-          iva_incluido,
-          id_oferta
-        `)
-        .eq("es_pagada_comision_venta", true)
-        .is("id_cuenta_cobranza_padre", null)
-        .order("id", { ascending: false });
-
-      if (cuentasError) throw cuentasError;
+      // Paso 1: Obtener TODAS las cuentas donde la comisión está pagada (sin límite de 1000)
+      const cuentas = await fetchAllCuentasCobranza();
       if (!cuentas || cuentas.length === 0) return [];
 
       // Paso 2: Obtener ofertas relacionadas
