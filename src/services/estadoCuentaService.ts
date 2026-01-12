@@ -159,10 +159,16 @@ export class EstadoCuentaService {
       if (ofertaData.id_producto) {
         const { data: producto } = await supabase
           .from("productos_servicios")
-          .select("id, nombre, precio_referencia")
+          .select("id, nombre, id_categoria, categorias_producto(id, nombre)")
           .eq("id", ofertaData.id_producto)
           .maybeSingle();
-        productoData = producto;
+        if (producto) {
+          productoData = {
+            id: producto.id,
+            nombre: producto.nombre,
+            categoria: producto.categorias_producto
+          };
+        }
       }
 
       // Calculate totals
@@ -342,21 +348,13 @@ export class EstadoCuentaService {
     if (data.propiedad?.numero_propiedad) {
       detailsLeft.push({ label: "N° de propiedad:", value: data.propiedad.numero_propiedad });
     }
-    if (isProduct && data.producto?.nombre) {
-      detailsLeft.push({ label: "Producto:", value: data.producto.nombre });
-    }
-    if (!isProduct && data.propiedad?.numero_propiedad && data.edificio?.nombre && data.proyecto?.nombre) {
-      // For properties, show comprehensive info
-    } else if (isProduct) {
-      // For products, show project and property context if available
-      if (data.proyecto?.nombre) {
-        detailsLeft.push({ label: "Proyecto:", value: data.proyecto.nombre });
+    if (isProduct) {
+      // For products, show category and product name instead of project/tower/property
+      if (data.producto?.categoria?.nombre) {
+        detailsLeft.push({ label: "Categoría:", value: data.producto.categoria.nombre });
       }
-      if (data.edificio?.nombre) {
-        detailsLeft.push({ label: "Torre:", value: data.edificio.nombre });
-      }
-      if (data.propiedad?.numero_propiedad) {
-        detailsLeft.push({ label: "N° de propiedad:", value: data.propiedad.numero_propiedad });
+      if (data.producto?.nombre) {
+        detailsLeft.push({ label: "Producto:", value: data.producto.nombre });
       }
     }
     detailsLeft.push({ label: "Precio final:", value: formatMoney(data.precioFinal) });
@@ -450,7 +448,7 @@ export class EstadoCuentaService {
     }
     
     if (porcentajeMensualidades > 0) {
-      detailsRight.push({ label: "Monto de parcialidades:", value: `${porcentajeMensualidades}%  ${formatMoney(montoMensualidades)} (${formatMoney(pagoMensual)} mens.)` });
+      detailsRight.push({ label: "Monto de parcialidades:", value: `${porcentajeMensualidades}%  ${formatMoney(montoMensualidades)}` });
     }
     
     if (porcentajeEntrega > 0) {
