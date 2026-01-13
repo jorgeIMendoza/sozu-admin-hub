@@ -653,11 +653,20 @@ export default function DetalleCuentaMantenimiento() {
     return sum + (acuerdo.monto || 0);
   }, 0) || 0;
 
-  // Saldo pendiente = pago mensual - total aplicado (no total pagado, porque el excedente ya está separado)
-  const saldoPendiente = pagoMensual - totalAplicado;
+  // Saldo pendiente bruto = pago mensual - total aplicado
+  const saldoPendienteBruto = pagoMensual - totalAplicado;
   
-  // Si hay excedente y no hay saldo pendiente, mostramos saldo a favor
-  const tieneExcedente = excedente > 0.01;
+  // Saldo pendiente real = descuenta el excedente del saldo pendiente bruto
+  // Si el excedente cubre todo el saldo pendiente, el saldo real es 0
+  const saldoPendienteReal = Math.max(0, saldoPendienteBruto - excedente);
+  
+  // Excedente neto = lo que sobra después de cubrir el saldo pendiente
+  const excedenteNeto = Math.max(0, excedente - saldoPendienteBruto);
+  
+  // Determinar estados para UI
+  const tieneExcedenteNeto = excedenteNeto > 0.01;
+  const tieneSaldoPendiente = saldoPendienteReal > 0.01;
+  const estaAlCorriente = !tieneSaldoPendiente && !tieneExcedenteNeto;
 
   // Find last payment and check if it's STP
   const pagosAplicados = acuerdosPago?.flatMap(acuerdo => 
@@ -755,14 +764,14 @@ export default function DetalleCuentaMantenimiento() {
                   <Button 
                     onClick={() => setReservaDialog(true)}
                     variant="outline"
-                    disabled={saldoPendiente > 0.01}
+                    disabled={saldoPendienteReal > 0.01}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
                     Agregar Reserva
                   </Button>
                 </span>
               </TooltipTrigger>
-              {saldoPendiente > 0.01 && (
+              {saldoPendienteReal > 0.01 && (
                 <TooltipContent>
                   <p>Hay saldo pendiente, no se pueden agregar reservas</p>
                 </TooltipContent>
@@ -795,9 +804,14 @@ export default function DetalleCuentaMantenimiento() {
             <p className="text-xs text-muted-foreground">
               Pagado en esta cuenta
             </p>
-            {tieneExcedente && (
+            {excedente > 0.01 && saldoPendienteBruto > 0.01 && (
+              <p className="text-xs text-blue-600 mt-1">
+                ({formatCurrency(Math.min(excedente, saldoPendienteBruto))} cubrirá el próximo pago)
+              </p>
+            )}
+            {tieneExcedenteNeto && (
               <p className="text-xs text-green-600 mt-1">
-                (Incluye {formatCurrency(excedente)} de excedente sin aplicar)
+                ({formatCurrency(excedenteNeto)} de saldo a favor)
               </p>
             )}
           </CardContent>
@@ -806,23 +820,30 @@ export default function DetalleCuentaMantenimiento() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {tieneExcedente && saldoPendiente <= 0.01 ? 'Saldo a Favor' : 'Saldo Pendiente'}
+              {tieneExcedenteNeto ? 'Saldo a Favor' : tieneSaldoPendiente ? 'Saldo Pendiente' : 'Saldo'}
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {tieneExcedente && saldoPendiente <= 0.01 ? (
+            {tieneExcedenteNeto ? (
               <>
-                <div className="text-2xl font-bold text-green-600">{formatCurrency(excedente)}</div>
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(excedenteNeto)}</div>
                 <p className="text-xs text-muted-foreground">
                   Disponible para próximos pagos
                 </p>
               </>
-            ) : (
+            ) : tieneSaldoPendiente ? (
               <>
-                <div className="text-2xl font-bold text-orange-600">{formatCurrency(Math.max(0, saldoPendiente))}</div>
+                <div className="text-2xl font-bold text-orange-600">{formatCurrency(saldoPendienteReal)}</div>
                 <p className="text-xs text-muted-foreground">
                   Por pagar
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(0)}</div>
+                <p className="text-xs text-muted-foreground">
+                  Al corriente
                 </p>
               </>
             )}
