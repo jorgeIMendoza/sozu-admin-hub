@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -295,7 +295,7 @@ export default function PagarComisiones() {
         const currentYear = today.getFullYear();
         
         if (fechaPagoEnganche) {
-          const fechaEnganche = new Date(fechaPagoEnganche);
+          const fechaEnganche = parseISO(fechaPagoEnganche);
           const engancheMonth = fechaEnganche.getMonth();
           const engancheYear = fechaEnganche.getFullYear();
           
@@ -748,7 +748,7 @@ export default function PagarComisiones() {
                                         <TableCell>{cuenta.numeroDepartamento}</TableCell>
                                         <TableCell>
                                           {cuenta.fechaPagoEnganche 
-                                            ? format(new Date(cuenta.fechaPagoEnganche), 'dd/MM/yyyy')
+                                            ? format(parseISO(cuenta.fechaPagoEnganche), 'dd/MM/yyyy')
                                             : '-'}
                                         </TableCell>
                                         <TableCell className="text-right">
