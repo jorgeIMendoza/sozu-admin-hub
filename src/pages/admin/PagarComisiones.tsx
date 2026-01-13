@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,6 +36,12 @@ async function fetchAllComisionistas() {
         cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
           id,
           precio_final,
+          acuerdos_pago!fk_acpago_cuenta(
+            id_concepto,
+            pago_completado,
+            fecha_pago,
+            conceptos_pago!fk_acpago_concepto(nombre)
+          ),
           ofertas!fk_cuentas_cobranza_oferta!inner(
             id_propiedad,
             id_producto,
@@ -270,6 +277,12 @@ export default function PagarComisiones() {
         const propiedad = oferta?.propiedades;
         const producto = oferta?.productos_servicios;
         const montoComision = (cuenta.precio_final * com.porcentaje_comision) / 100;
+        
+        // Buscar la fecha de pago del enganche
+        const enganche = cuenta.acuerdos_pago?.find((ap: any) => 
+          ap.pago_completado && ap.conceptos_pago?.nombre?.toLowerCase() === 'enganche'
+        );
+        const fechaPagoEnganche = enganche?.fecha_pago || null;
 
         acc[com.email_usuario].montoTotal += montoComision;
         acc[com.email_usuario].cuentas.push({
@@ -284,7 +297,8 @@ export default function PagarComisiones() {
           porcentajeComision: com.porcentaje_comision,
           montoComision,
           pagada: com.pagada,
-          urlEvidencia: com.url_evidencia_pago
+          urlEvidencia: com.url_evidencia_pago,
+          fechaPagoEnganche
         });
 
         return acc;
@@ -672,7 +686,7 @@ export default function PagarComisiones() {
                         </TableRow>
                         {expandedItems.has(com.email) && (
                           <TableRow>
-                            <TableCell colSpan={5} className="bg-muted/30 p-0">
+                            <TableCell colSpan={6} className="bg-muted/30 p-0">
                               <div className="p-4">
                                 <Table>
                                   <TableHeader>
@@ -683,6 +697,7 @@ export default function PagarComisiones() {
                                       <TableHead>Edificio</TableHead>
                                       <TableHead>Modelo</TableHead>
                                       <TableHead>Depto</TableHead>
+                                      <TableHead>Fecha Pago Enganche</TableHead>
                                       <TableHead className="text-right">Precio Final</TableHead>
                                       <TableHead className="text-right">Comisión</TableHead>
                                       <TableHead>Estatus</TableHead>
@@ -698,6 +713,11 @@ export default function PagarComisiones() {
                                         <TableCell>{cuenta.edificio}</TableCell>
                                         <TableCell>{cuenta.modelo}</TableCell>
                                         <TableCell>{cuenta.numeroDepartamento}</TableCell>
+                                        <TableCell>
+                                          {cuenta.fechaPagoEnganche 
+                                            ? format(new Date(cuenta.fechaPagoEnganche), 'dd/MM/yyyy')
+                                            : '-'}
+                                        </TableCell>
                                         <TableCell className="text-right">
                                           {formatCurrency(cuenta.precioFinal)}
                                         </TableCell>
