@@ -334,24 +334,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
     ));
   };
 
-  // Validate tramos sum equals numero_mensualidades
-  const tramosValidation = React.useMemo(() => {
-    const numeroMensualidadesTotal = parseInt(form.watch("numero_mensualidades") || "0");
-    const sumaTramos = tramosMensualidad.reduce((acc, t) => acc + t.numero_mensualidades, 0);
-    const isValid = sumaTramos === numeroMensualidadesTotal;
-    const diferencia = numeroMensualidadesTotal - sumaTramos;
-    
-    // Calculate total money from tramos
-    const sumaMontos = tramosMensualidad.reduce((acc, t) => acc + (t.numero_mensualidades * (t.monto / 100)), 0);
-    
-    return {
-      isValid,
-      sumaTramos,
-      diferencia,
-      sumaMontos,
-      hasTramos: tramosMensualidad.length > 0
-    };
-  }, [tramosMensualidad, form.watch("numero_mensualidades")]);
+  
 
   const getInitials = (name: string) => {
     return name
@@ -1071,6 +1054,34 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
     };
   }, [priceCalculations.propertyPrice, watchedEnganche, watchedMensualidades, watchedEntrega, watchedNumeroMensualidades, watchedDescuentoAumento]);
 
+  // Validate tramos sum equals numero_mensualidades and amounts match expected total
+  const tramosValidation = React.useMemo(() => {
+    const numeroMensualidadesTotal = parseInt(form.watch("numero_mensualidades") || "0");
+    const sumaTramos = tramosMensualidad.reduce((acc, t) => acc + t.numero_mensualidades, 0);
+    const isCountValid = sumaTramos === numeroMensualidadesTotal;
+    const diferenciaCantidad = numeroMensualidadesTotal - sumaTramos;
+    
+    // Calculate total money from tramos (monto is in cents, divide by 100)
+    const sumaMontos = tramosMensualidad.reduce((acc, t) => acc + (t.numero_mensualidades * (t.monto / 100)), 0);
+    
+    // Get expected monthly payment amount from calculations
+    const montoEsperado = manualSchemeCalculations.montoMensualidades;
+    const diferenciaMonto = montoEsperado - sumaMontos;
+    const isMontosValid = Math.abs(diferenciaMonto) < 1; // $1 tolerance for rounding
+    
+    return {
+      isCountValid,
+      isMontosValid,
+      isValid: isCountValid && isMontosValid, // Both validations must pass
+      sumaTramos,
+      diferenciaCantidad,
+      sumaMontos,
+      montoEsperado,
+      diferenciaMonto,
+      hasTramos: tramosMensualidad.length > 0
+    };
+  }, [tramosMensualidad, form.watch("numero_mensualidades"), manualSchemeCalculations.montoMensualidades]);
+
   const onSubmit = (data: FormData) => {
     console.log("Form submitted successfully!");
     
@@ -1489,30 +1500,68 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                             })}
                           </div>
 
-                          {/* Validation status */}
+                          {/* Count validation */}
                           {tramosValidation.hasTramos && (
-                            <div className={cn(
-                              "mt-3 p-2 rounded text-sm flex items-center gap-2",
-                              tramosValidation.isValid 
-                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                                : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                            )}>
-                              {tramosValidation.isValid ? (
+                            <div className={`flex items-center gap-2 text-sm p-2 rounded ${
+                              tramosValidation.isCountValid 
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                            }`}>
+                              {tramosValidation.isCountValid ? (
                                 <>
                                   <Check className="h-4 w-4" />
-                                  <span>Total: {tramosValidation.sumaTramos} mensualidades = ${tramosValidation.sumaMontos.toLocaleString()}</span>
+                                  <span>✓ Mensualidades: {tramosValidation.sumaTramos} de {form.watch("numero_mensualidades")}</span>
                                 </>
                               ) : (
                                 <>
                                   <AlertTriangle className="h-4 w-4" />
                                   <span>
-                                    {tramosValidation.diferencia > 0 
-                                      ? `Faltan ${tramosValidation.diferencia} mensualidades por asignar`
-                                      : `Hay ${Math.abs(tramosValidation.diferencia)} mensualidades de más`}
+                                    {tramosValidation.diferenciaCantidad > 0 
+                                      ? `Faltan ${tramosValidation.diferenciaCantidad} mensualidades por asignar`
+                                      : `Hay ${Math.abs(tramosValidation.diferenciaCantidad)} mensualidades de más`}
                                   </span>
                                 </>
                               )}
                             </div>
+                          )}
+                          
+                          {/* Amount validation */}
+                          {tramosValidation.hasTramos && tramosValidation.isCountValid && (
+                            <div className={`flex items-center justify-between text-sm p-2 rounded mt-2 ${
+                              tramosValidation.isMontosValid 
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                : 'bg-destructive/10 text-destructive border border-destructive/30'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                {tramosValidation.isMontosValid ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <AlertTriangle className="h-4 w-4" />
+                                )}
+                                <span>
+                                  Suma tramos: ${tramosValidation.sumaMontos.toLocaleString()}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  (esperado: ${tramosValidation.montoEsperado.toLocaleString()})
+                                </span>
+                              </div>
+                              {!tramosValidation.isMontosValid && (
+                                <span className="font-medium">
+                                  {tramosValidation.diferenciaMonto > 0 
+                                    ? `Faltan $${tramosValidation.diferenciaMonto.toLocaleString()}`
+                                    : `Excede $${Math.abs(tramosValidation.diferenciaMonto).toLocaleString()}`
+                                  }
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Suggested uniform amount */}
+                          {tramosValidation.hasTramos && !tramosValidation.isMontosValid && tramosValidation.isCountValid && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              💡 Monto sugerido por mensualidad (uniforme): $
+                              {(tramosValidation.montoEsperado / parseInt(form.watch("numero_mensualidades") || "1")).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </p>
                           )}
                         </>
                       )}
@@ -1957,7 +2006,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
               </Button>
               <Button
                 type="submit"
-                disabled={createOfferMutation.isPending}
+                disabled={createOfferMutation.isPending || (usarTramosPersonalizados && !tramosValidation.isValid)}
               >
                 {createOfferMutation.isPending ? "Generando..." : "Generar Oferta"}
               </Button>
