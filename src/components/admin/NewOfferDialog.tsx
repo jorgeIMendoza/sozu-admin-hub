@@ -60,11 +60,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Check, ChevronsUpDown, UserPlus, Warehouse, Car, Info, AlertTriangle } from "lucide-react";
+import { FileText, Check, ChevronsUpDown, UserPlus, Warehouse, Car, Info, AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { Switch } from "@/components/ui/switch";
+import { CurrencyInput } from "@/components/ui/currency-input";
+
+// Interface for tiered monthly payments (tramos de mensualidades)
+interface TramoMensualidad {
+  id: string;
+  numero_mensualidades: number;
+  monto: number; // stored as cents for CurrencyInput
+}
 
 const baseProspectSchema = z.object({
   tipo_persona: z.string().min(1, "El tipo de persona es requerido"),
@@ -176,6 +185,8 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [productSchemeSelections, setProductSchemeSelections] = useState<Record<number, number | null>>({});
   const [propertySchemeSelection, setPropertySchemeSelection] = useState<number | null>(null);
+  const [usarTramosPersonalizados, setUsarTramosPersonalizados] = useState(false);
+  const [tramosMensualidad, setTramosMensualidad] = useState<TramoMensualidad[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { profile } = useAuth();
@@ -259,6 +270,8 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       });
       setSelectedPerson(null);
       setSearchTerm("");
+      setUsarTramosPersonalizados(false);
+      setTramosMensualidad([]);
     }
   }, [open, form]);
 
@@ -297,7 +310,48 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       numero_pagos_enganche: "1",
       porcentaje_descuento_aumento: "",
     });
+    setUsarTramosPersonalizados(false);
+    setTramosMensualidad([]);
   };
+
+  // Helper functions for tramos
+  const addTramo = () => {
+    if (tramosMensualidad.length < 3) {
+      setTramosMensualidad([
+        ...tramosMensualidad,
+        { id: crypto.randomUUID(), numero_mensualidades: 0, monto: 0 }
+      ]);
+    }
+  };
+
+  const removeTramo = (id: string) => {
+    setTramosMensualidad(tramosMensualidad.filter(t => t.id !== id));
+  };
+
+  const updateTramo = (id: string, field: 'numero_mensualidades' | 'monto', value: number) => {
+    setTramosMensualidad(tramosMensualidad.map(t => 
+      t.id === id ? { ...t, [field]: value } : t
+    ));
+  };
+
+  // Validate tramos sum equals numero_mensualidades
+  const tramosValidation = React.useMemo(() => {
+    const numeroMensualidadesTotal = parseInt(form.watch("numero_mensualidades") || "0");
+    const sumaTramos = tramosMensualidad.reduce((acc, t) => acc + t.numero_mensualidades, 0);
+    const isValid = sumaTramos === numeroMensualidadesTotal;
+    const diferencia = numeroMensualidadesTotal - sumaTramos;
+    
+    // Calculate total money from tramos
+    const sumaMontos = tramosMensualidad.reduce((acc, t) => acc + (t.numero_mensualidades * (t.monto / 100)), 0);
+    
+    return {
+      isValid,
+      sumaTramos,
+      diferencia,
+      sumaMontos,
+      hasTramos: tramosMensualidad.length > 0
+    };
+  }, [tramosMensualidad, form.watch("numero_mensualidades")]);
 
   const getInitials = (name: string) => {
     return name
@@ -549,7 +603,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
           
           console.log("Creating scheme with name:", schemeName);
           
-          const schemeData = {
+          const schemeData: any = {
             id_proyecto: projectId,
             nombre: schemeName,
             porcentaje_enganche: parseFloat(data.porcentaje_enganche || "0"),
@@ -559,7 +613,15 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
             numero_pagos_enganche: parseInt(data.numero_pagos_enganche || "1"),
             porcentaje_descuento_aumento: parseFloat(data.porcentaje_descuento_aumento || "0"),
             es_manual: true,
-            activo: true
+            activo: true,
+            // Add tiered monthly payments if enabled
+            tramos_mensualidad: usarTramosPersonalizados && tramosMensualidad.length > 0
+              ? tramosMensualidad.map((t, i) => ({
+                  orden: i + 1,
+                  numero_mensualidades: t.numero_mensualidades,
+                  monto: t.monto / 100 // Convert from cents to decimal
+                }))
+              : null
           };
 
           const { data: newScheme, error: schemeError } = await supabase
@@ -1337,6 +1399,126 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                     />
                   </div>
 
+                  {/* Tiered Monthly Payments Section */}
+                  {parseInt(form.watch("numero_mensualidades") || "0") > 0 && parseFloat(watchedMensualidades || "0") > 0 && (
+                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="usar-tramos" className="text-sm font-medium">
+                            Usar montos escalonados
+                          </Label>
+                          <Switch
+                            id="usar-tramos"
+                            checked={usarTramosPersonalizados}
+                            onCheckedChange={(checked) => {
+                              setUsarTramosPersonalizados(checked);
+                              if (checked && tramosMensualidad.length === 0) {
+                                addTramo();
+                              }
+                            }}
+                          />
+                        </div>
+                        {usarTramosPersonalizados && tramosMensualidad.length < 3 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addTramo}
+                            className="h-8"
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Agregar tramo
+                          </Button>
+                        )}
+                      </div>
+
+                      {usarTramosPersonalizados && (
+                        <>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Define hasta 3 tramos con diferentes montos por mensualidad. La suma de mensualidades debe ser igual al total ({form.watch("numero_mensualidades")}).
+                          </p>
+                          
+                          <div className="space-y-3">
+                            {tramosMensualidad.map((tramo, index) => {
+                              const mensualidadesAcumuladas = tramosMensualidad
+                                .slice(0, index)
+                                .reduce((acc, t) => acc + t.numero_mensualidades, 0);
+                              
+                              return (
+                                <div key={tramo.id} className="flex items-center gap-2 bg-background p-3 rounded border">
+                                  <div className="flex-1 grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground">Nº de mensualidades</Label>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={tramo.numero_mensualidades || ""}
+                                        onChange={(e) => updateTramo(tramo.id, 'numero_mensualidades', parseInt(e.target.value) || 0)}
+                                        placeholder="12"
+                                        className="h-9"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground">Monto por mensualidad</Label>
+                                      <CurrencyInput
+                                        value={tramo.monto}
+                                        onChange={(value) => updateTramo(tramo.id, 'monto', value)}
+                                        placeholder="$0.00"
+                                        className="h-9"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-center gap-1">
+                                    {index > 0 && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        (mes {mensualidadesAcumuladas + 1}+)
+                                      </span>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive"
+                                      onClick={() => removeTramo(tramo.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Validation status */}
+                          {tramosValidation.hasTramos && (
+                            <div className={cn(
+                              "mt-3 p-2 rounded text-sm flex items-center gap-2",
+                              tramosValidation.isValid 
+                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                            )}>
+                              {tramosValidation.isValid ? (
+                                <>
+                                  <Check className="h-4 w-4" />
+                                  <span>Total: {tramosValidation.sumaTramos} mensualidades = ${tramosValidation.sumaMontos.toLocaleString()}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <span>
+                                    {tramosValidation.diferencia > 0 
+                                      ? `Faltan ${tramosValidation.diferencia} mensualidades por asignar`
+                                      : `Hay ${Math.abs(tramosValidation.diferencia)} mensualidades de más`}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   <FormField
                     control={form.control}
                     name="porcentaje_descuento_aumento"
@@ -1416,11 +1598,32 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                               <span className="text-muted-foreground">Mensualidades ({watchedMensualidades}%):</span>
                               <span className="font-medium">${manualSchemeCalculations.montoMensualidades.toLocaleString()}</span>
                             </div>
-                            {manualSchemeCalculations.numMensualidades > 0 && (
-                              <div className="flex justify-between pl-4 text-xs">
-                                <span className="text-muted-foreground">{manualSchemeCalculations.numMensualidades} pagos de:</span>
-                                <span>${manualSchemeCalculations.montoPorMensualidad.toLocaleString()}</span>
+                            {usarTramosPersonalizados && tramosMensualidad.length > 0 ? (
+                              // Show tiered breakdown
+                              <div className="pl-4 space-y-1">
+                                {tramosMensualidad.map((tramo, index) => {
+                                  const mensualidadesAcumuladas = tramosMensualidad
+                                    .slice(0, index)
+                                    .reduce((acc, t) => acc + t.numero_mensualidades, 0);
+                                  return (
+                                    <div key={tramo.id} className="flex justify-between text-xs">
+                                      <span className="text-muted-foreground">
+                                        {tramo.numero_mensualidades} pagos de:
+                                        {index > 0 && <span className="ml-1 text-blue-600">(mes {mensualidadesAcumuladas + 1}+)</span>}
+                                      </span>
+                                      <span>${(tramo.monto / 100).toLocaleString()}</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
+                            ) : (
+                              // Show uniform payment
+                              manualSchemeCalculations.numMensualidades > 0 && (
+                                <div className="flex justify-between pl-4 text-xs">
+                                  <span className="text-muted-foreground">{manualSchemeCalculations.numMensualidades} pagos de:</span>
+                                  <span>${manualSchemeCalculations.montoPorMensualidad.toLocaleString()}</span>
+                                </div>
+                              )
                             )}
                           </>
                         )}

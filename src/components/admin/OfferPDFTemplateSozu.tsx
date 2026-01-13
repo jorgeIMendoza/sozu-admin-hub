@@ -80,6 +80,11 @@ interface PaymentScheme {
   porcentaje_entrega: number;
   porcentaje_descuento_aumento: number;
   es_manual: boolean;
+  tramos_mensualidad?: Array<{
+    orden: number;
+    numero_mensualidades: number;
+    monto: number;
+  }> | null;
 }
 
 interface ProjectAmenity {
@@ -557,12 +562,34 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                             </span>
                           </div>
                           
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#000000' }}>{scheme.numero_mensualidades} mensualidades:</span>
-                            <span style={{ color: '#000000', fontWeight: 'bold' }}>
-                              {formatCurrency(amounts.mensualidad)}
-                            </span>
-                          </div>
+                          {scheme.tramos_mensualidad && scheme.tramos_mensualidad.length > 0 ? (
+                            // Tiered payments
+                            <>
+                              {scheme.tramos_mensualidad.map((tramo, idx) => {
+                                const mensualidadesAcumuladas = scheme.tramos_mensualidad!
+                                  .slice(0, idx)
+                                  .reduce((acc, t) => acc + t.numero_mensualidades, 0);
+                                return (
+                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: '#000000' }}>
+                                      {tramo.numero_mensualidades} mensualidades{idx > 0 ? ` (mes ${mensualidadesAcumuladas + 1}+)` : ''}:
+                                    </span>
+                                    <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                                      {formatCurrency(tramo.monto)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </>
+                          ) : (
+                            // Uniform payments
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#000000' }}>{scheme.numero_mensualidades} mensualidades:</span>
+                              <span style={{ color: '#000000', fontWeight: 'bold' }}>
+                                {formatCurrency(amounts.mensualidad)}
+                              </span>
+                            </div>
+                          )}
                         </>
                       )}
                       

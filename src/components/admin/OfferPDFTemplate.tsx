@@ -67,6 +67,11 @@ interface PaymentScheme {
   porcentaje_entrega: number;
   porcentaje_descuento_aumento: number;
   es_manual: boolean;
+  tramos_mensualidad?: Array<{
+    orden: number;
+    numero_mensualidades: number;
+    monto: number;
+  }> | null;
 }
 
 interface ProjectAmenity {
@@ -323,9 +328,31 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
                     )}
                     {scheme.porcentaje_mensualidades > 0 && scheme.numero_mensualidades > 0 && (
                       <div className="text-center">
-                        <p className="text-xs text-muted-foreground">Mensualidad</p>
-                        <p className="font-bold text-xs">{formatCurrency(calculation.mensualidad)}</p>
-                        <p className="text-xs text-muted-foreground">{scheme.numero_mensualidades} meses</p>
+                        <p className="text-xs text-muted-foreground">Mensualidades</p>
+                        {scheme.tramos_mensualidad && scheme.tramos_mensualidad.length > 0 ? (
+                          // Tiered payments
+                          <div className="space-y-1">
+                            {scheme.tramos_mensualidad.map((tramo, idx) => {
+                              const mensualidadesAcumuladas = scheme.tramos_mensualidad!
+                                .slice(0, idx)
+                                .reduce((acc, t) => acc + t.numero_mensualidades, 0);
+                              return (
+                                <div key={idx} className="text-xs">
+                                  <p className="font-bold">{tramo.numero_mensualidades} pagos de {formatCurrency(tramo.monto)}</p>
+                                  {idx > 0 && (
+                                    <p className="text-[10px] text-muted-foreground">(a partir del mes {mensualidadesAcumuladas + 1})</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          // Uniform payments
+                          <>
+                            <p className="font-bold text-xs">{formatCurrency(calculation.mensualidad)}</p>
+                            <p className="text-xs text-muted-foreground">{scheme.numero_mensualidades} meses</p>
+                          </>
+                        )}
                       </div>
                     )}
                     {scheme.porcentaje_entrega > 0 && (

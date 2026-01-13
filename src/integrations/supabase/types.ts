@@ -2983,6 +2983,7 @@ export type Database = {
           porcentaje_enganche: number
           porcentaje_entrega: number
           porcentaje_mensualidades: number
+          tramos_mensualidad: Json | null
         }
         Insert: {
           activo?: boolean
@@ -2999,6 +3000,7 @@ export type Database = {
           porcentaje_enganche?: number
           porcentaje_entrega?: number
           porcentaje_mensualidades?: number
+          tramos_mensualidad?: Json | null
         }
         Update: {
           activo?: boolean
@@ -3015,6 +3017,7 @@ export type Database = {
           porcentaje_enganche?: number
           porcentaje_entrega?: number
           porcentaje_mensualidades?: number
+          tramos_mensualidad?: Json | null
         }
         Relationships: [
           {
