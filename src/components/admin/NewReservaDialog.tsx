@@ -664,21 +664,39 @@ export const NewReservaDialog = ({
         totalMultas = multas?.reduce((sum, multa) => sum + (multa.monto || 0), 0) || 0;
       }
 
-      // Obtener todas las aplicaciones de pago
-      if (acuerdoIds.length === 0) return 0;
+      // Obtener total aplicado (aplicaciones_pago)
+      let totalAplicado = 0;
+      if (acuerdoIds.length > 0) {
+        const { data: aplicaciones, error: aplicacionesError } = await supabase
+          .from('aplicaciones_pago')
+          .select('monto')
+          .in('id_acuerdo_pago', acuerdoIds)
+          .eq('activo', true);
 
-      const { data: aplicaciones, error: aplicacionesError } = await supabase
-        .from('aplicaciones_pago')
+        if (aplicacionesError) throw aplicacionesError;
+        totalAplicado = aplicaciones?.reduce((sum, app) => sum + (app.monto || 0), 0) || 0;
+      }
+
+      // Obtener total pagado real (pagos directos a la cuenta)
+      const { data: pagos, error: pagosError } = await supabase
+        .from('pagos')
         .select('monto')
-        .in('id_acuerdo_pago', acuerdoIds)
+        .eq('id_cuenta_cobranza', selectedCuentaMantenimiento.id)
         .eq('activo', true);
 
-      if (aplicacionesError) throw aplicacionesError;
+      if (pagosError) throw pagosError;
+      const totalPagadoReal = pagos?.reduce((sum, pago) => sum + (pago.monto || 0), 0) || 0;
 
-      const totalPagado = aplicaciones?.reduce((sum, app) => sum + (app.monto || 0), 0) || 0;
+      // Excedente = pagos reales - aplicaciones (dinero no aplicado aún)
+      const excedente = totalPagadoReal - totalAplicado;
 
-      const saldo = (totalAPagar + totalMultas) - totalPagado;
-      return saldo;
+      // Saldo pendiente bruto = total a pagar + multas - total aplicado
+      const saldoPendienteBruto = (totalAPagar + totalMultas) - totalAplicado;
+
+      // Saldo pendiente real = descuenta el excedente (si hay excedente, cubre el pendiente)
+      const saldoPendienteReal = Math.max(0, saldoPendienteBruto - excedente);
+      
+      return saldoPendienteReal;
     },
     enabled: !!selectedCuentaMantenimiento?.id,
   });

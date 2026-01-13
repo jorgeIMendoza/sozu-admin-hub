@@ -109,14 +109,36 @@ export class EstadoCuentaMantenimientoService {
         aplicaciones = apps || [];
       }
 
+      // Fetch pagos reales de la cuenta
+      const { data: pagosReales, error: pagosError } = await supabase
+        .from("pagos")
+        .select("monto")
+        .eq("id_cuenta_cobranza", data.id_cuenta)
+        .eq("activo", true);
+
+      if (pagosError) throw pagosError;
+
       // Calculate totals
       const precioMensualAcumulado = (acuerdos || []).reduce((sum, a) => sum + (a.monto || 0), 0);
       
-      const totalPagado = aplicaciones
+      const totalAplicado = aplicaciones
         .filter(ap => !ap.es_multa)
         .reduce((sum, ap) => sum + (ap.monto || 0), 0);
 
-      const saldoPendiente = precioMensualAcumulado - totalPagado;
+      const totalPagadoReal = (pagosReales || []).reduce((sum, p) => sum + (p.monto || 0), 0);
+
+      // Excedente = pagos reales - aplicaciones (dinero no aplicado aún)
+      const excedente = totalPagadoReal - totalAplicado;
+
+      // Saldo pendiente bruto = pago mensual acumulado - total aplicado
+      const saldoPendienteBruto = precioMensualAcumulado - totalAplicado;
+
+      // Saldo pendiente real = descuenta el excedente
+      const saldoPendienteReal = saldoPendienteBruto - excedente;
+
+      // Para el PDF: totalPagado muestra lo aplicado, saldoPendiente muestra el real (puede ser negativo = a favor)
+      const totalPagado = totalAplicado;
+      const saldoPendiente = saldoPendienteReal;
 
       // Generate PDF with native text
       await this.generateNativePDF({
@@ -127,7 +149,7 @@ export class EstadoCuentaMantenimientoService {
         proyecto: proyectoData,
         propiedad: propiedadData,
         precioMensualAcumulado,
-        totalPagado,
+        totalPagado: totalPagadoReal, // Mostrar pagos reales, no solo aplicados
         saldoPendiente,
         id_cuenta: data.id_cuenta,
         fechaLimite,

@@ -85,8 +85,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Calcular total pagado
-    let totalPagado = 0;
+    // Calcular total aplicado (aplicaciones_pago)
+    let totalAplicado = 0;
     if (acuerdoIds.length > 0) {
       const { data: aplicaciones } = await supabase
         .from('aplicaciones_pago')
@@ -95,17 +95,37 @@ Deno.serve(async (req) => {
         .eq('activo', true);
 
       for (const aplicacion of aplicaciones || []) {
-        totalPagado += Number(aplicacion.monto);
+        totalAplicado += Number(aplicacion.monto);
       }
     }
 
+    // Obtener total pagado real (pagos directos a la cuenta)
+    const { data: pagosReales } = await supabase
+      .from('pagos')
+      .select('monto')
+      .eq('id_cuenta_cobranza', id_cuenta_mantenimiento)
+      .eq('activo', true);
+
+    let totalPagadoReal = 0;
+    for (const pago of pagosReales || []) {
+      totalPagadoReal += Number(pago.monto);
+    }
+
+    // Excedente = pagos reales - aplicaciones (dinero no aplicado aún)
+    const excedente = totalPagadoReal - totalAplicado;
+
+    // Saldo pendiente bruto = total a pagar - total aplicado
+    const saldoPendienteBruto = totalAPagar - totalAplicado;
+
+    // Saldo pendiente real = descuenta el excedente (si hay excedente, cubre el pendiente)
+    const saldoPendienteReal = Math.max(0, saldoPendienteBruto - excedente);
+
     // Validar que no haya adeudo
-    const saldoPendiente = totalAPagar - totalPagado;
-    if (saldoPendiente > 0.01) { // Tolerancia de 1 centavo por redondeo
+    if (saldoPendienteReal > 0.01) { // Tolerancia de 1 centavo por redondeo
       return new Response(
         JSON.stringify({ 
-          error: 'No se puede crear la reserva. La cuenta de mantenimiento tiene un saldo pendiente de $' + saldoPendiente.toFixed(2),
-          saldo_pendiente: saldoPendiente
+          error: 'No se puede crear la reserva. La cuenta de mantenimiento tiene un saldo pendiente de $' + saldoPendienteReal.toFixed(2),
+          saldo_pendiente: saldoPendienteReal
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
