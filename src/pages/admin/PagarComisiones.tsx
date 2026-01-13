@@ -39,8 +39,11 @@ async function fetchAllComisionistas() {
           acuerdos_pago!fk_acpago_cuenta(
             id_concepto,
             pago_completado,
-            fecha_pago,
-            conceptos_pago!fk_acpago_concepto(nombre)
+            conceptos_pago!fk_acpago_concepto(nombre),
+            aplicaciones_pago(
+              activo,
+              pagos!fk_aplicaciones_pago_pago(fecha_pago)
+            )
           ),
           ofertas!fk_cuentas_cobranza_oferta!inner(
             id_propiedad,
@@ -278,11 +281,12 @@ export default function PagarComisiones() {
         const producto = oferta?.productos_servicios;
         const montoComision = (cuenta.precio_final * com.porcentaje_comision) / 100;
         
-        // Buscar la fecha de pago del enganche
-        const enganche = cuenta.acuerdos_pago?.find((ap: any) => 
+        // Buscar la fecha de pago del enganche desde la tabla pagos
+        const engancheAcuerdo = cuenta.acuerdos_pago?.find((ap: any) => 
           ap.pago_completado && ap.conceptos_pago?.nombre?.toLowerCase() === 'enganche'
         );
-        const fechaPagoEnganche = enganche?.fecha_pago || null;
+        const aplicacionActiva = engancheAcuerdo?.aplicaciones_pago?.find((app: any) => app.activo);
+        const fechaPagoEnganche = aplicacionActiva?.pagos?.fecha_pago || null;
 
         acc[com.email_usuario].montoTotal += montoComision;
         acc[com.email_usuario].cuentas.push({
