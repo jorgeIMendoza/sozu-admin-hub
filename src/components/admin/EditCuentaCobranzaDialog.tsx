@@ -207,6 +207,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [productoServicioInfo, setProductoServicioInfo] = useState<any>(null);
   const [ofertaProductoData, setOfertaProductoData] = useState<{ id_producto: number | null; id_propiedad: number | null }>({ id_producto: null, id_propiedad: null });
   const [fechaCompra, setFechaCompra] = useState<Date | undefined>(undefined);
+  const [valorUma, setValorUma] = useState<string>('');
   const [selectedConyugeForBuyer, setSelectedConyugeForBuyer] = useState<{ buyerPersonaId: number | null; conyugePersonaId: number | null }>({ buyerPersonaId: null, conyugePersonaId: null });
   
   // Estados para campos de escritura
@@ -987,6 +988,13 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     }
   }, [cuentaDetalle]);
 
+  // Initialize valorUma from cuentaDetalle
+  useEffect(() => {
+    if (cuentaDetalle?.valor_uma !== undefined && cuentaDetalle?.valor_uma !== null) {
+      setValorUma(String(cuentaDetalle.valor_uma));
+    }
+  }, [cuentaDetalle]);
+
   // Mutation to update fecha_compra
   const updateFechaCompraMutation = useMutation({
     mutationFn: async (newDate: Date) => {
@@ -1010,6 +1018,25 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     onError: (error) => {
       console.error("Error updating fecha_compra:", error);
       toast.error("Error al actualizar la fecha de compra");
+    }
+  });
+
+  const updateValorUmaMutation = useMutation({
+    mutationFn: async (newValorUma: number) => {
+      const { error } = await supabase
+        .from('cuentas_cobranza')
+        .update({ valor_uma: newValorUma })
+        .eq('id', cuenta.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Valor de la UMA actualizado exitosamente");
+      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuenta.id] });
+    },
+    onError: (error) => {
+      console.error("Error updating valor_uma:", error);
+      toast.error("Error al actualizar el valor de la UMA");
     }
   });
 
@@ -3640,14 +3667,26 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                     </div>
                     {tipoCuenta === 'Propiedad' && (
                       <div>
-                        <h4 className="font-medium text-foreground mb-1">Valor de la UMA</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {cuentaDetalle?.valor_uma ? 
-                            new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.valor_uma) : 
-                            'No definido'
-                          }
-                        </p>
-                        <p className="text-xs text-muted-foreground">
+                        <Label className="font-medium text-foreground mb-1">Valor de la UMA</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={valorUma}
+                            onChange={(e) => setValorUma(e.target.value)}
+                            onBlur={() => {
+                              const numValue = parseFloat(valorUma);
+                              if (!isNaN(numValue) && numValue >= 0) {
+                                updateValorUmaMutation.mutate(numValue);
+                              }
+                            }}
+                            disabled={isReadOnly}
+                            className="w-32"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
                           Unidad de Medida y Actualización vigente
                         </p>
                       </div>
