@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Search, X, RefreshCw, Eye, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface PagoSTP {
@@ -152,7 +152,8 @@ export default function RastreoPagosSTP() {
   const formatDate = (dateString: string | null, includeTime: boolean = true) => {
     if (!dateString) return "-";
     try {
-      return format(new Date(dateString), includeTime ? "dd/MM/yyyy HH:mm" : "dd/MM/yyyy", { locale: es });
+      const date = parseISO(dateString);
+      return format(date, includeTime ? "dd/MM/yyyy HH:mm" : "dd/MM/yyyy", { locale: es });
     } catch {
       return dateString;
     }
