@@ -1658,9 +1658,11 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                                     <div key={tramo.id} className="flex justify-between text-xs">
                                       <span className="text-muted-foreground">
                                         {tramo.numero_mensualidades} pagos de:
+                                      </span>
+                                      <span>
+                                        ${(tramo.monto / 100).toLocaleString()}
                                         {index > 0 && <span className="ml-1 text-blue-600">(mes {mensualidadesAcumuladas + 1}+)</span>}
                                       </span>
-                                      <span>${(tramo.monto / 100).toLocaleString()}</span>
                                     </div>
                                   );
                                 })}
