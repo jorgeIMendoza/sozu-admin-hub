@@ -1305,6 +1305,8 @@ class HTMLToPDFService {
       leadEmail: string;
       email_creador: string;
       id_esquema_pago_seleccionado?: number | null;
+      clabe_stp_tmp_producto?: string | null;
+      clabe_stp?: string | null;
     },
     propertyDetails: PropertyDetails,
     productDetails: any,
@@ -1313,71 +1315,20 @@ class HTMLToPDFService {
     leadInfo: any,
     legalNotices: string[]
   ): Promise<void> {
-    const container = this.createContainer();
-    container.style.width = '2550px';
-    container.style.minHeight = '3300px';
+    // Use native PDF generation for faster, text-selectable PDFs
+    const { ofertaProductoPdfNativeService } = await import('./ofertaProductoPdfNativeService');
     
-    try {
-      // Create Product template element
-      const templateElement = React.createElement(OfferPDFTemplateProducto, {
-        offerData,
-        propertyDetails,
-        productDetails,
-        paymentSchemes,
-        creatorInfo,
-        leadInfo,
-        legalNotices
-      });
-      
-      const root = createRoot(container);
-      root.render(templateElement);
-      
-      // Wait for rendering
-      await new Promise<void>(resolve => setTimeout(resolve, 8000));
-      
-      // Capture as canvas
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 2550,
-        height: 3300,
-        imageTimeout: 0,
-        foreignObjectRendering: false
-      });
-      
-      // Create PDF with A4 dimensions
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [2550, 3300]
-      });
-      
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      pdf.addImage(imgData, 'JPEG', 0, 0, 2550, 3300);
-      
-      // Generate filename for product offer
-      const projectName = propertyDetails.projectData?.nombre || 'Proyecto';
-      const propertyNumber = propertyDetails.numero_propiedad || 'N/A';
-      const productName = productDetails.nombre || 'Producto';
-      const offerNumber = offerData.id.toString().padStart(6, '0') || '000000';
-      
-      const cleanProjectName = projectName.replace(/[^a-zA-Z0-9]/g, '_');
-      const cleanPropertyNumber = propertyNumber.replace(/[^a-zA-Z0-9]/g, '_');
-      const cleanProductName = productName.replace(/[^a-zA-Z0-9]/g, '_');
-      
-      const filename = `OP_${offerNumber}_${cleanPropertyNumber}_${cleanProductName}_${cleanProjectName}.pdf`;
-
-      // Download the PDF
-      pdf.save(filename);
-      
-      console.log('Product PDF generated successfully:', filename);
-      
-    } finally {
-      document.body.removeChild(container);
-    }
+    await ofertaProductoPdfNativeService.generateOfferPDF({
+      offerData,
+      propertyDetails,
+      productDetails,
+      paymentSchemes,
+      creatorInfo,
+      leadInfo,
+      legalNotices,
+    });
+    
+    console.log('Native Product PDF generated successfully');
   }
 
   private formatOfferNumber(offerId: number): string {
