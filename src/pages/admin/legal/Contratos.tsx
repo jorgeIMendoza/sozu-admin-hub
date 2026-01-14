@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { FileText, Loader2, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
@@ -17,14 +19,17 @@ interface Contrato {
   cuenta_id: number;
   proyecto: string;
   proyecto_id: number;
-  edificio: string;
-  modelo: string;
-  numero_propiedad: string;
+  edificio: string | null;
+  modelo: string | null;
+  numero_propiedad: string | null;
   dueno: string;
   precio_final: number;
   contrato_draft: string | null;
-  propiedad_id: number;
+  propiedad_id: number | null;
   oferta_id: number;
+  tipo: 'Propiedad' | 'Producto';
+  producto_nombre: string | null;
+  producto_id: number | null;
 }
 
 interface Comprador {
@@ -57,6 +62,7 @@ export default function Contratos() {
     numero_propiedad: "",
     dueno: "",
     cuenta_cobranza: "",
+    tipo: "",
   });
 
   // Paginación
@@ -81,12 +87,13 @@ export default function Contratos() {
     setCurrentPage(1);
   }, [filters]);
 
-  // Fetch contratos pendientes
+  // Fetch contratos pendientes (propiedades y productos)
   const { data: contratos = [], isLoading } = useQuery({
     queryKey: ['contratos-pendientes'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('execute_safe_query', {
         query_text: `
+          -- Query para PROPIEDADES
           SELECT DISTINCT
             cc.id as cuenta_id,
             cc.precio_final,
@@ -98,7 +105,10 @@ export default function Contratos() {
             m.nombre as modelo,
             proy.id as proyecto_id,
             proy.nombre as proyecto,
-            per_dueno.nombre_legal as dueno
+            per_dueno.nombre_legal as dueno,
+            'Propiedad' as tipo,
+            NULL::text as producto_nombre,
+            NULL::integer as producto_id
           FROM cuentas_cobranza cc
           JOIN ofertas o ON cc.id_oferta = o.id
           JOIN propiedades p ON o.id_propiedad = p.id
@@ -112,6 +122,7 @@ export default function Contratos() {
           WHERE cc.activo = true
             AND o.activo = true
             AND p.activo = true
+            AND o.id_propiedad IS NOT NULL
             AND est.id IN (4, 5)
             AND NOT EXISTS (
               SELECT 1 FROM documentos doc
@@ -146,7 +157,69 @@ export default function Contratos() {
               WHERE comp2.id_cuenta_cobranza = cc.id
                 AND comp2.activo = true
             )
-          ORDER BY proy.nombre, p.numero_propiedad
+
+          UNION ALL
+
+          -- Query para PRODUCTOS
+          SELECT DISTINCT
+            cc.id as cuenta_id,
+            cc.precio_final,
+            cc.contrato_draft,
+            o.id as oferta_id,
+            NULL::integer as propiedad_id,
+            NULL::text as numero_propiedad,
+            NULL::text as edificio,
+            NULL::text as modelo,
+            proy.id as proyecto_id,
+            proy.nombre as proyecto,
+            per_dueno.nombre_legal as dueno,
+            'Producto' as tipo,
+            ps.nombre as producto_nombre,
+            ps.id as producto_id
+          FROM cuentas_cobranza cc
+          JOIN ofertas o ON cc.id_oferta = o.id
+          JOIN productos_servicios ps ON o.id_producto = ps.id
+          JOIN entidades_relacionadas er_dueno ON ps.id_entidad_relacionada_dueno = er_dueno.id
+          JOIN proyectos proy ON er_dueno.id_proyecto = proy.id
+          JOIN personas per_dueno ON er_dueno.id_persona = per_dueno.id
+          WHERE cc.activo = true
+            AND o.activo = true
+            AND o.id_producto IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM documentos doc
+              WHERE doc.id_cuenta_cobranza = cc.id
+                AND doc.id_tipo_documento = 18
+                AND doc.activo = true
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM compradores comp
+              WHERE comp.id_cuenta_cobranza = cc.id
+                AND comp.activo = true
+                AND comp.id_persona IS NOT NULL
+                AND (
+                  EXISTS (
+                    SELECT 1 FROM documentos doc_no_verificado
+                    WHERE doc_no_verificado.id_persona = comp.id_persona
+                      AND doc_no_verificado.id_estatus_verificacion != 2
+                      AND doc_no_verificado.activo = true
+                      AND doc_no_verificado.id_cuenta_cobranza IS NULL
+                  )
+                  OR NOT EXISTS (
+                    SELECT 1 FROM documentos doc_verificado
+                    WHERE doc_verificado.id_persona = comp.id_persona
+                      AND doc_verificado.id_estatus_verificacion = 2
+                      AND doc_verificado.activo = true
+                      AND doc_verificado.id_cuenta_cobranza IS NULL
+                  )
+                )
+            )
+            AND EXISTS (
+              SELECT 1 FROM compradores comp2
+              WHERE comp2.id_cuenta_cobranza = cc.id
+                AND comp2.activo = true
+            )
+
+          ORDER BY proyecto, numero_propiedad NULLS LAST, producto_nombre NULLS LAST
         `,
         max_rows: 1000
       });
@@ -354,11 +427,16 @@ export default function Contratos() {
   // Filtrar contratos
   const contratosFiltrados = contratos.filter((c) => {
     if (filters.proyecto && !c.proyecto.toLowerCase().includes(filters.proyecto.toLowerCase())) return false;
-    if (filters.edificio && !c.edificio.toLowerCase().includes(filters.edificio.toLowerCase())) return false;
-    if (filters.modelo && !c.modelo.toLowerCase().includes(filters.modelo.toLowerCase())) return false;
-    if (filters.numero_propiedad && !c.numero_propiedad.toLowerCase().includes(filters.numero_propiedad.toLowerCase())) return false;
+    if (filters.edificio && c.edificio && !c.edificio.toLowerCase().includes(filters.edificio.toLowerCase())) return false;
+    if (filters.modelo && c.modelo && !c.modelo.toLowerCase().includes(filters.modelo.toLowerCase())) return false;
+    if (filters.numero_propiedad && c.numero_propiedad && !c.numero_propiedad.toLowerCase().includes(filters.numero_propiedad.toLowerCase())) return false;
     if (filters.dueno && !c.dueno.toLowerCase().includes(filters.dueno.toLowerCase())) return false;
-    if (filters.cuenta_cobranza && !formatCuentaCobranzaId(c.cuenta_id, 'Propiedad').toLowerCase().includes(filters.cuenta_cobranza.toLowerCase())) return false;
+    if (filters.tipo && c.tipo !== filters.tipo) return false;
+    
+    // Usar nomenclatura dinámica según el tipo
+    const formattedId = formatCuentaCobranzaId(c.cuenta_id, c.tipo);
+    if (filters.cuenta_cobranza && !formattedId.toLowerCase().includes(filters.cuenta_cobranza.toLowerCase())) return false;
+    
     return true;
   });
 
@@ -428,7 +506,20 @@ export default function Contratos() {
         </CardHeader>
         <CardContent>
           {/* Filtros */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Select
+              value={filters.tipo || "all"}
+              onValueChange={(value) => setFilters({ ...filters, tipo: value === "all" ? "" : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                <SelectItem value="Propiedad">Propiedad</SelectItem>
+                <SelectItem value="Producto">Producto</SelectItem>
+              </SelectContent>
+            </Select>
             <Input
               placeholder="Filtrar por proyecto..."
               value={filters.proyecto}
@@ -475,10 +566,12 @@ export default function Contratos() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Tipo</TableHead>
                     <TableHead>Proyecto</TableHead>
                     <TableHead>Edificio</TableHead>
                     <TableHead>Modelo</TableHead>
                     <TableHead>Propiedad</TableHead>
+                    <TableHead>Producto</TableHead>
                     <TableHead>Dueño</TableHead>
                     <TableHead className="text-right">Precio Final</TableHead>
                     <TableHead>Cuenta</TableHead>
@@ -490,10 +583,16 @@ export default function Contratos() {
                 <TableBody>
                   {paginatedContratos.map((contrato) => (
                     <TableRow key={contrato.cuenta_id}>
+                      <TableCell>
+                        <Badge variant={contrato.tipo === 'Propiedad' ? 'default' : 'secondary'}>
+                          {contrato.tipo}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{contrato.proyecto}</TableCell>
-                      <TableCell>{contrato.edificio}</TableCell>
-                      <TableCell>{contrato.modelo}</TableCell>
-                      <TableCell>{contrato.numero_propiedad}</TableCell>
+                      <TableCell>{contrato.edificio || '-'}</TableCell>
+                      <TableCell>{contrato.modelo || '-'}</TableCell>
+                      <TableCell>{contrato.numero_propiedad || '-'}</TableCell>
+                      <TableCell>{contrato.producto_nombre || '-'}</TableCell>
                       <TableCell>{contrato.dueno}</TableCell>
                       <TableCell className="text-right">
                         {contrato.precio_final?.toLocaleString('es-MX', {
@@ -502,7 +601,7 @@ export default function Contratos() {
                         })}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {formatCuentaCobranzaId(contrato.cuenta_id, 'Propiedad')}
+                        {formatCuentaCobranzaId(contrato.cuenta_id, contrato.tipo)}
                       </TableCell>
                       <TableCell>
                         <CompradoresConDocumentosDialog
