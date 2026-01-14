@@ -219,7 +219,7 @@ export default function Contratos() {
                 AND comp2.activo = true
             )
 
-          ORDER BY proyecto, numero_propiedad NULLS LAST, producto_nombre NULLS LAST
+          ORDER BY cuenta_id DESC
         `,
         max_rows: 1000
       });
