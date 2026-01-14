@@ -20,6 +20,7 @@ import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 const formSchema = z.object({
   monto: z.string({
@@ -57,6 +58,7 @@ interface AddManualPaymentDialogProps {
   precioFinal: number;
   montoPagado: number;
   esMantenimiento?: boolean;
+  totalMultasPendientes?: number;
 }
 
 export function AddManualPaymentDialog({ 
@@ -67,7 +69,8 @@ export function AddManualPaymentDialog({
   tipoCuenta = 'Propiedad',
   precioFinal,
   montoPagado,
-  esMantenimiento = false
+  esMantenimiento = false,
+  totalMultasPendientes = 0
 }: AddManualPaymentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -324,14 +327,15 @@ export function AddManualPaymentDialog({
     // Get form values
     const formValues = form.getValues();
     
-    // Validate amount doesn't exceed remaining balance
+    // Validate amount doesn't exceed remaining balance + pending fines
     const montoNuevoPago = typeof formValues.monto === 'number' ? formValues.monto : parseFloat(formValues.monto as any);
-    const montoRestante = precioFinal - montoPagado;
+    const saldoPrecioFinal = precioFinal - montoPagado;
+    const montoMaximoPermitido = saldoPrecioFinal + totalMultasPendientes;
     
-    if (montoNuevoPago > montoRestante) {
+    if (montoNuevoPago > montoMaximoPermitido) {
       toast({
         title: "Error",
-        description: `El monto del pago ($${montoNuevoPago.toLocaleString('es-MX', { minimumFractionDigits: 2 })}) más lo ya pagado ($${montoPagado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}) sobrepasa el precio final ($${precioFinal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}). El monto máximo permitido es $${montoRestante.toLocaleString('es-MX', { minimumFractionDigits: 2 })}.`,
+        description: `El monto del pago excede el máximo permitido. Saldo pendiente: $${saldoPrecioFinal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} + Multas: $${totalMultasPendientes.toLocaleString('es-MX', { minimumFractionDigits: 2 })} = Máximo: $${montoMaximoPermitido.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
         variant: "destructive",
       });
       return;
@@ -391,12 +395,10 @@ export function AddManualPaymentDialog({
                   <FormItem>
                     <FormLabel>Monto *</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
+                      <CurrencyInput
+                        value={field.value ? Math.round(Number(field.value) * 100) : 0}
+                        onChange={(cents) => field.onChange((cents / 100).toFixed(2))}
                         placeholder="0.00"
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />

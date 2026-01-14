@@ -1629,6 +1629,15 @@ export default function DetalleCuentaCobranza() {
     return sum + (acuerdo.aplicaciones || []).reduce((appSum, app) => appSum + (app?.monto || 0), 0);
   }, 0) || 0;
 
+  // Calcular total de multas pendientes (solo las que no están completamente pagadas)
+  const totalMultasPendientes = acuerdosPago?.reduce((sum, acuerdo) => {
+    return sum + (acuerdo.multas || []).reduce((multaSum, multa) => {
+      // Solo sumar el monto pendiente de cada multa (monto - pagosAplicados)
+      const pendiente = multa.monto - (multa.pagosAplicados || 0);
+      return multaSum + Math.max(0, pendiente);
+    }, 0);
+  }, 0) || 0;
+
   // Calculate total from acuerdos_pago (sum of monto) - EXCLUYENDO conceptos de cancelación
   const totalAcuerdos = acuerdosPago?.reduce((sum, acuerdo) => {
     // Excluir conceptos 7 y 9 del cálculo
@@ -4286,6 +4295,7 @@ export default function DetalleCuentaCobranza() {
         tipoCuenta={cuentaDetalle?.tipo_cuenta}
         precioFinal={cuentaDetalle?.precio_final || 0}
         montoPagado={totalPagado}
+        totalMultasPendientes={totalMultasPendientes}
       />
 
       <EditPaymentDialog
