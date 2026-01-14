@@ -25,7 +25,7 @@ import React from "react";
 interface ValidacionData {
   placeholders_en_template?: string[];
   todosPlaceholdersTemplate?: string[];
-  placeholders_disponibles: Array<{placeholder: string, valor: string, estado: string}>;
+  placeholders_disponibles: Array<{placeholder: string, valor: string, valorOriginal?: string, estado: string, caseType?: string}>;
   placeholders_faltantes: string[];
   placeholders_vacios: string[];
   variables_disponibles_sistema?: string[];
@@ -141,6 +141,18 @@ export function ValidarPlaceholdersDialog({
         return <Badge variant="outline" className="border-orange-500 text-orange-500 bg-orange-50"><AlertCircle className="w-3 h-3 mr-1" /> Por Solicitar</Badge>;
       default:
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Falta</Badge>;
+    }
+  };
+
+  const caseTypeBadge = (caseType: string | undefined) => {
+    switch (caseType) {
+      case 'upper':
+        return <Badge variant="outline" className="text-xs px-1 py-0 border-purple-400 text-purple-600 dark:text-purple-400">ABC</Badge>;
+      case 'capitalize':
+        return <Badge variant="outline" className="text-xs px-1 py-0 border-blue-400 text-blue-600 dark:text-blue-400">Abc</Badge>;
+      case 'lower':
+      default:
+        return <Badge variant="outline" className="text-xs px-1 py-0 border-gray-400 text-gray-600 dark:text-gray-400">abc</Badge>;
     }
   };
 
@@ -478,6 +490,7 @@ export function ValidarPlaceholdersDialog({
                         <TableHeader className="sticky top-0 bg-green-100 dark:bg-green-900 z-10 border-b border-green-300 dark:border-green-700">
                           <TableRow className="hover:bg-green-100 dark:hover:bg-green-900">
                             <TableHead className="w-[300px] text-green-700 dark:text-green-300">Placeholder</TableHead>
+                            <TableHead className="w-[60px] text-green-700 dark:text-green-300 text-center">Formato</TableHead>
                             <TableHead className="text-green-700 dark:text-green-300">Valor que se usará</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -485,6 +498,7 @@ export function ValidarPlaceholdersDialog({
                           {filteredPlaceholdersDisponibles.map((item, i) => (
                             <TableRow key={i} className="hover:bg-green-100 dark:hover:bg-green-900 border-green-200 dark:border-green-800">
                               <TableCell className="font-mono text-sm text-green-700 dark:text-green-300">{`{{${item.placeholder}}}`}</TableCell>
+                              <TableCell className="text-center">{caseTypeBadge(item.caseType)}</TableCell>
                               <TableCell className="text-sm text-green-700 dark:text-green-300">{item.valor}</TableCell>
                             </TableRow>
                           ))}

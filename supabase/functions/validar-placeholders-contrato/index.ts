@@ -170,6 +170,36 @@ function extractPlaceholdersFromHeadersFooters(doc: any, placeholders: Set<strin
   });
 }
 
+// Detectar el tipo de case de un placeholder
+function detectCase(placeholder: string): 'lower' | 'upper' | 'capitalize' {
+  // Remover caracteres no alfabéticos para analizar solo letras
+  const lettersOnly = placeholder.replace(/[^a-zA-Z]/g, '');
+  if (!lettersOnly) return 'lower'; // Si no hay letras, tratar como lowercase
+  
+  if (lettersOnly === lettersOnly.toLowerCase()) return 'lower';
+  if (lettersOnly === lettersOnly.toUpperCase()) return 'upper';
+  return 'capitalize'; // Mixto o capitalizado (Nombre_Completo)
+}
+
+// Transformar valor según el case del placeholder
+function transformValue(value: string | number | null | undefined, caseType: 'lower' | 'upper' | 'capitalize'): string {
+  if (value === null || value === undefined) return '';
+  const strValue = String(value);
+  
+  switch (caseType) {
+    case 'upper':
+      return strValue.toUpperCase();
+    case 'capitalize':
+      // Capitalizar cada palabra
+      return strValue.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+    case 'lower':
+    default:
+      return strValue;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -712,35 +742,56 @@ serve(async (req) => {
     console.log("Total placeholders encontrados en template:", placeholdersEnTemplate.size);
     console.log("Placeholders:", Array.from(placeholdersEnTemplate));
 
-    // Clasificar placeholders
-    const placeholdersDisponibles: Array<{placeholder: string, valor: string, estado: string}> = [];
+    // Clasificar placeholders usando comparación case-insensitive
+    const placeholdersDisponibles: Array<{placeholder: string, valor: string, valorOriginal: string, estado: string, caseType: string}> = [];
     const placeholdersFaltantes: string[] = [];
     const placeholdersVacios: string[] = [];
 
+    // Crear un mapa de keys en minúsculas para búsqueda case-insensitive
+    const mergeDataLowerKeys = new Map<string, string>();
+    Object.keys(mergeData).forEach(key => {
+      mergeDataLowerKeys.set(key.toLowerCase(), key);
+    });
+
     placeholdersEnTemplate.forEach((ph) => {
-      if (!(ph in mergeData)) {
+      const phLower = ph.toLowerCase();
+      const caseType = detectCase(ph);
+      const originalKey = mergeDataLowerKeys.get(phLower);
+      
+      if (!originalKey) {
+        // No existe en mergeData (ni con ningún case)
         placeholdersFaltantes.push(ph);
-      } else if (!mergeData[ph] || mergeData[ph].trim() === "") {
-        placeholdersVacios.push(ph);
-        placeholdersDisponibles.push({
-          placeholder: ph,
-          valor: "(vacío)",
-          estado: "vacío"
-        });
       } else {
-        placeholdersDisponibles.push({
-          placeholder: ph,
-          valor: mergeData[ph],
-          estado: "ok"
-        });
+        const valorOriginal = mergeData[originalKey];
+        if (!valorOriginal || valorOriginal.trim() === "") {
+          placeholdersVacios.push(ph);
+          placeholdersDisponibles.push({
+            placeholder: ph,
+            valor: "(vacío)",
+            valorOriginal: "",
+            estado: "vacío",
+            caseType: caseType
+          });
+        } else {
+          // Transformar el valor según el case del placeholder
+          const valorTransformado = transformValue(valorOriginal, caseType);
+          placeholdersDisponibles.push({
+            placeholder: ph,
+            valor: valorTransformado,
+            valorOriginal: valorOriginal,
+            estado: "ok",
+            caseType: caseType
+          });
+        }
       }
     });
 
     const variablesSistema = Object.keys(mergeData);
     const variablesUsadasEnTemplate = Array.from(placeholdersEnTemplate);
     
-    // Variables en el sistema pero NO usadas en el template (disponibles para usar)
-    const variablesNoUsadas = variablesSistema.filter(v => !placeholdersEnTemplate.has(v));
+    // Variables en el sistema pero NO usadas en el template (comparación case-insensitive)
+    const usadasLower = new Set(variablesUsadasEnTemplate.map(v => v.toLowerCase()));
+    const variablesNoUsadas = variablesSistema.filter(v => !usadasLower.has(v.toLowerCase()));
 
     return new Response(
       JSON.stringify({

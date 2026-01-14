@@ -170,6 +170,34 @@ function extractPlaceholdersFromHeadersFooters(doc: any, placeholders: Set<strin
   });
 }
 
+// Detectar el tipo de case de un placeholder
+function detectCase(placeholder: string): 'lower' | 'upper' | 'capitalize' {
+  const lettersOnly = placeholder.replace(/[^a-zA-Z]/g, '');
+  if (!lettersOnly) return 'lower';
+  
+  if (lettersOnly === lettersOnly.toLowerCase()) return 'lower';
+  if (lettersOnly === lettersOnly.toUpperCase()) return 'upper';
+  return 'capitalize';
+}
+
+// Transformar valor según el case del placeholder
+function transformValue(value: string | number | null | undefined, caseType: 'lower' | 'upper' | 'capitalize'): string {
+  if (value === null || value === undefined) return '';
+  const strValue = String(value);
+  
+  switch (caseType) {
+    case 'upper':
+      return strValue.toUpperCase();
+    case 'capitalize':
+      return strValue.split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+    case 'lower':
+    default:
+      return strValue;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -926,22 +954,77 @@ serve(async (req) => {
     const copiedDoc = await copyResponse.json();
     const newDocId = copiedDoc.id;
 
-    // 19. Hacer merge PRIMERO (reemplazar todos los placeholders con datos)
+    // 19. Hacer merge PRIMERO - Extraer placeholders del documento y reemplazar con transformación de case
+    // Primero obtener los placeholders del template copiado
+    const templateDocResponse = await fetch(
+      `https://docs.googleapis.com/v1/documents/${newDocId}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const templateDocContent = await templateDocResponse.json();
+    
+    // Extraer todos los placeholders del documento
+    const templatePlaceholders = new Set<string>();
+    const extractFromContent = (content: any[]) => {
+      for (const element of content) {
+        if (element.paragraph) {
+          element.paragraph.elements?.forEach((el: any) => {
+            const text = el.textRun?.content || "";
+            const matches = text.matchAll(/\{\{([^}]+)\}\}/g);
+            for (const match of matches) {
+              templatePlaceholders.add(match[1].trim());
+            }
+          });
+        }
+        if (element.table) {
+          element.table.tableRows?.forEach((row: any) => {
+            row.tableCells?.forEach((cell: any) => {
+              if (cell.content) extractFromContent(cell.content);
+            });
+          });
+        }
+      }
+    };
+    extractFromContent(templateDocContent.body?.content || []);
+    
+    // Crear mapa de keys en minúsculas para búsqueda case-insensitive
+    const mergeDataLowerKeys = new Map<string, string>();
+    Object.keys(mergeData).forEach(key => {
+      mergeDataLowerKeys.set(key.toLowerCase(), key);
+    });
+    
+    console.log(`Placeholders encontrados en template: ${templatePlaceholders.size}`);
+    
     // Si marcar_vacios es true, NO reemplazar los placeholders vacíos (se marcarán en amarillo después)
     const requests = [];
-    for (const [key, value] of Object.entries(mergeData)) {
-      // Si marcar_vacios está activo y el valor está vacío, no reemplazar
-      if (marcar_vacios && (!value || value.toString().trim() === '')) {
-        console.log(`Placeholder vacío NO reemplazado (se marcará en amarillo): {{${key}}}`);
+    for (const ph of templatePlaceholders) {
+      const phLower = ph.toLowerCase();
+      const caseType = detectCase(ph);
+      const originalKey = mergeDataLowerKeys.get(phLower);
+      
+      // Si no existe la key, no hacer nada (se marcará como faltante)
+      if (!originalKey) {
+        console.log(`Placeholder no encontrado en mergeData: {{${ph}}}`);
         continue;
       }
+      
+      const value = mergeData[originalKey];
+      
+      // Si marcar_vacios está activo y el valor está vacío, no reemplazar
+      if (marcar_vacios && (!value || value.toString().trim() === '')) {
+        console.log(`Placeholder vacío NO reemplazado (se marcará en amarillo): {{${ph}}}`);
+        continue;
+      }
+      
+      // Transformar el valor según el case del placeholder en el template
+      const transformedValue = transformValue(value, caseType);
+      
       requests.push({
         replaceAllText: {
           containsText: {
-            text: `{{${key}}}`,
-            matchCase: false,
+            text: `{{${ph}}}`,
+            matchCase: true, // Ahora usamos matchCase: true para ser precisos con el case original
           },
-          replaceText: value,
+          replaceText: transformedValue,
         },
       });
     }
@@ -1018,12 +1101,14 @@ serve(async (req) => {
 
       const highlightRequests = [];
 
-      // Clasificar placeholders no reemplazados en "faltantes" vs "vacíos"
+      // Clasificar placeholders no reemplazados en "faltantes" vs "vacíos" (case-insensitive)
       const stillMissingPlaceholders: string[] = [];
       const stillEmptyPlaceholders: string[] = [];
 
       unreplacedPlaceholders.forEach((ph) => {
-        if (!(ph in mergeData)) {
+        const phLower = ph.toLowerCase();
+        const originalKey = mergeDataLowerKeys.get(phLower);
+        if (!originalKey) {
           stillMissingPlaceholders.push(ph);
         } else {
           stillEmptyPlaceholders.push(ph);
