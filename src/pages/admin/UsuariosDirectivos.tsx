@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,7 +59,8 @@ export default function UsuariosDirectivos() {
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
-  const [ownerSelections, setOwnerSelections] = useState<Record<number, number | null>>({});
+  // Multi-select: array of owner IDs per project (empty array = all owners)
+  const [ownerSelections, setOwnerSelections] = useState<Record<number, number[]>>({});
   const [projectSearch, setProjectSearch] = useState("");
   const [newUserForm, setNewUserForm] = useState({
     email: "",
@@ -100,7 +100,6 @@ export default function UsuariosDirectivos() {
   const { data: proyectosRealEstate = [] } = useQuery({
     queryKey: ['proyectos-real-estate'],
     queryFn: async () => {
-      // Get project IDs from entidades_relacionadas where id_persona = 186 (Real Estate Ventures) and tipo_entidad = 5 (Inmobiliaria)
       const { data: relaciones, error: relError } = await supabase
         .from('entidades_relacionadas')
         .select('id_proyecto')
@@ -115,7 +114,6 @@ export default function UsuariosDirectivos() {
       
       if (projectIds.length === 0) return [];
       
-      // Fetch project details
       const { data: proyectos, error: projError } = await supabase
         .from('proyectos')
         .select('id, nombre')
@@ -129,7 +127,7 @@ export default function UsuariosDirectivos() {
     },
   });
 
-  // Fetch user's project access when dialog opens (using email as usuario_id)
+  // Fetch user's project access when dialog opens
   const { data: userProjects = [], refetch: refetchUserProjects } = useQuery({
     queryKey: ['user-projects-access', selectedUserEmail],
     queryFn: async () => {
@@ -308,7 +306,7 @@ export default function UsuariosDirectivos() {
     }
   };
 
-  // Save project access with owner selection
+  // Save project access with multiple owner selections
   const handleSaveProjects = async () => {
     if (!selectedUserEmail) return;
 
@@ -316,7 +314,7 @@ export default function UsuariosDirectivos() {
     try {
       const projectIdsToManage = proyectosRealEstate.map(p => p.id);
       
-      // Deactivate existing access for managed projects
+      // Deactivate all existing access for managed projects
       if (projectIdsToManage.length > 0) {
         const { error: updateError } = await supabase
           .from('proyectos_acceso')
@@ -327,40 +325,73 @@ export default function UsuariosDirectivos() {
         if (updateError) throw updateError;
       }
 
-      // Insert or update selected projects with owner
+      // Insert records for selected projects
       if (selectedProjects.length > 0) {
         for (const projectId of selectedProjects) {
-          const ownerId = ownerSelections[projectId] ?? null;
+          const selectedOwners = ownerSelections[projectId] || [];
           
-          // Check if record exists
-          const { data: existing } = await supabase
-            .from('proyectos_acceso')
-            .select('usuario_id')
-            .eq('usuario_id', selectedUserEmail)
-            .eq('proyecto_id', projectId)
-            .maybeSingle();
-
-          if (existing) {
-            // Update existing record
-            await supabase
+          if (selectedOwners.length === 0) {
+            // No owners selected = access to all owners (null)
+            const { data: existing } = await supabase
               .from('proyectos_acceso')
-              .update({ 
-                activo: true, 
-                fecha_actualizacion: new Date().toISOString(),
-                id_entidad_relacionada_dueno: ownerId
-              })
+              .select('usuario_id')
               .eq('usuario_id', selectedUserEmail)
-              .eq('proyecto_id', projectId);
+              .eq('proyecto_id', projectId)
+              .is('id_entidad_relacionada_dueno', null)
+              .maybeSingle();
+
+            if (existing) {
+              await supabase
+                .from('proyectos_acceso')
+                .update({ 
+                  activo: true, 
+                  fecha_actualizacion: new Date().toISOString()
+                })
+                .eq('usuario_id', selectedUserEmail)
+                .eq('proyecto_id', projectId)
+                .is('id_entidad_relacionada_dueno', null);
+            } else {
+              await supabase
+                .from('proyectos_acceso')
+                .insert({
+                  usuario_id: selectedUserEmail,
+                  proyecto_id: projectId,
+                  activo: true,
+                  id_entidad_relacionada_dueno: null,
+                });
+            }
           } else {
-            // Insert new record
-            await supabase
-              .from('proyectos_acceso')
-              .insert({
-                usuario_id: selectedUserEmail,
-                proyecto_id: projectId,
-                activo: true,
-                id_entidad_relacionada_dueno: ownerId,
-              });
+            // Insert one record per selected owner
+            for (const ownerId of selectedOwners) {
+              const { data: existing } = await supabase
+                .from('proyectos_acceso')
+                .select('usuario_id')
+                .eq('usuario_id', selectedUserEmail)
+                .eq('proyecto_id', projectId)
+                .eq('id_entidad_relacionada_dueno', ownerId)
+                .maybeSingle();
+
+              if (existing) {
+                await supabase
+                  .from('proyectos_acceso')
+                  .update({ 
+                    activo: true, 
+                    fecha_actualizacion: new Date().toISOString()
+                  })
+                  .eq('usuario_id', selectedUserEmail)
+                  .eq('proyecto_id', projectId)
+                  .eq('id_entidad_relacionada_dueno', ownerId);
+              } else {
+                await supabase
+                  .from('proyectos_acceso')
+                  .insert({
+                    usuario_id: selectedUserEmail,
+                    proyecto_id: projectId,
+                    activo: true,
+                    id_entidad_relacionada_dueno: ownerId,
+                  });
+              }
+            }
           }
         }
       }
@@ -390,12 +421,20 @@ export default function UsuariosDirectivos() {
   // Effect to set selected projects and owner selections when dialog opens
   useEffect(() => {
     if (isProjectsDialogOpen && userProjects.length > 0) {
-      setSelectedProjects(userProjects.map(p => p.proyecto_id));
+      // Get unique project IDs
+      const projectIds = [...new Set(userProjects.map(p => p.proyecto_id))];
+      setSelectedProjects(projectIds);
       
-      // Load owner selections
-      const selections: Record<number, number | null> = {};
+      // Group owners by project
+      const selections: Record<number, number[]> = {};
       for (const access of userProjects) {
-        selections[access.proyecto_id] = access.id_entidad_relacionada_dueno;
+        if (!selections[access.proyecto_id]) {
+          selections[access.proyecto_id] = [];
+        }
+        // If id_entidad_relacionada_dueno is null, it means all owners - keep empty array
+        if (access.id_entidad_relacionada_dueno !== null) {
+          selections[access.proyecto_id].push(access.id_entidad_relacionada_dueno);
+        }
       }
       setOwnerSelections(selections);
     } else if (isProjectsDialogOpen && userProjects.length === 0) {
@@ -414,17 +453,45 @@ export default function UsuariosDirectivos() {
         });
         return prev.filter(id => id !== projectId);
       } else {
+        // Initialize with empty array (all owners)
+        setOwnerSelections(prevOwners => ({
+          ...prevOwners,
+          [projectId]: []
+        }));
         return [...prev, projectId];
       }
     });
   };
 
-  const handleOwnerChange = (projectId: number, ownerIdStr: string) => {
-    const ownerId = ownerIdStr === 'all' ? null : parseInt(ownerIdStr);
-    setOwnerSelections(prev => ({
-      ...prev,
-      [projectId]: ownerId
-    }));
+  const toggleOwner = (projectId: number, ownerId: number) => {
+    setOwnerSelections(prev => {
+      const currentOwners = prev[projectId] || [];
+      if (currentOwners.includes(ownerId)) {
+        return {
+          ...prev,
+          [projectId]: currentOwners.filter(id => id !== ownerId)
+        };
+      } else {
+        return {
+          ...prev,
+          [projectId]: [...currentOwners, ownerId]
+        };
+      }
+    });
+  };
+
+  const getOwnerSelectionLabel = (projectId: number) => {
+    const selectedOwners = ownerSelections[projectId] || [];
+    const projectOwners = ownersByProject[projectId] || [];
+    
+    if (selectedOwners.length === 0) {
+      return "Todos los dueños";
+    } else if (selectedOwners.length === 1) {
+      const owner = projectOwners.find(o => o.id === selectedOwners[0]);
+      return owner?.persona?.nombre_legal || "1 dueño seleccionado";
+    } else {
+      return `${selectedOwners.length} dueños seleccionados`;
+    }
   };
 
   // Users Table Component
@@ -686,7 +753,7 @@ export default function UsuariosDirectivos() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Projects Dialog with Owner Selection */}
+      {/* Projects Dialog with Multi-select Owner Selection */}
       <Dialog open={isProjectsDialogOpen} onOpenChange={(open) => {
         setIsProjectsDialogOpen(open);
         if (!open) {
@@ -694,11 +761,13 @@ export default function UsuariosDirectivos() {
           setOwnerSelections({});
         }
       }}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Asignar Proyectos</DialogTitle>
+            <DialogTitle>Asignar Proyectos y Dueños</DialogTitle>
             <DialogDescription>
-              Selecciona los proyectos y dueños a los que <strong>{selectedUserName}</strong> tendrá acceso
+              Selecciona los proyectos y dueños a los que <strong>{selectedUserName}</strong> tendrá acceso.
+              <br />
+              <span className="text-xs">Si no seleccionas ningún dueño, tendrá acceso a todos los dueños del proyecto.</span>
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -713,7 +782,7 @@ export default function UsuariosDirectivos() {
               />
             </div>
             
-            <ScrollArea className="h-[350px] pr-4">
+            <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-3">
                 {proyectosRealEstate.length === 0 ? (
                   <p className="text-muted-foreground text-center py-4">
@@ -722,59 +791,74 @@ export default function UsuariosDirectivos() {
                 ) : (
                   proyectosRealEstate
                     .filter(p => p.nombre.toLowerCase().includes(projectSearch.toLowerCase()))
-                    .map((proyecto) => (
-                      <div
-                        key={proyecto.id}
-                        className={cn(
-                          "p-3 rounded-lg border transition-colors",
-                          selectedProjects.includes(proyecto.id)
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:bg-muted/50"
-                        )}
-                      >
-                        <div 
-                          className="flex items-center space-x-3 cursor-pointer"
-                          onClick={() => toggleProject(proyecto.id)}
+                    .map((proyecto) => {
+                      const isSelected = selectedProjects.includes(proyecto.id);
+                      const projectOwners = ownersByProject[proyecto.id] || [];
+                      const selectedOwners = ownerSelections[proyecto.id] || [];
+                      
+                      return (
+                        <div
+                          key={proyecto.id}
+                          className={cn(
+                            "p-3 rounded-lg border transition-colors",
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:bg-muted/50"
+                          )}
                         >
-                          <Checkbox
-                            checked={selectedProjects.includes(proyecto.id)}
-                            onCheckedChange={() => toggleProject(proyecto.id)}
-                          />
-                          <span className="font-medium">{proyecto.nombre}</span>
-                        </div>
-                        
-                        {/* Owner selector - only visible when project is selected */}
-                        {selectedProjects.includes(proyecto.id) && (
-                          <div className="ml-6 mt-3">
-                            <Select
-                              value={ownerSelections[proyecto.id]?.toString() ?? 'all'}
-                              onValueChange={(value) => handleOwnerChange(proyecto.id, value)}
-                            >
-                              <SelectTrigger className="h-9 text-sm">
-                                <Users className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                                <SelectValue placeholder="Seleccionar dueño" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">
-                                  <span className="font-medium">Todos los dueños</span>
-                                </SelectItem>
-                                {(ownersByProject[proyecto.id] || []).map((dueno) => (
-                                  <SelectItem key={dueno.id} value={dueno.id.toString()}>
-                                    {dueno.persona?.nombre_legal || `Entidad ${dueno.id}`}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {loadingDuenos && (
-                              <p className="text-xs text-muted-foreground mt-1">Cargando dueños...</p>
-                            )}
-                            {!loadingDuenos && (!ownersByProject[proyecto.id] || ownersByProject[proyecto.id].length === 0) && (
-                              <p className="text-xs text-muted-foreground mt-1">No hay dueños específicos para este proyecto</p>
-                            )}
+                          {/* Project checkbox */}
+                          <div 
+                            className="flex items-center space-x-3 cursor-pointer"
+                            onClick={() => toggleProject(proyecto.id)}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleProject(proyecto.id)}
+                            />
+                            <span className="font-medium">{proyecto.nombre}</span>
                           </div>
-                        )}
-                      </div>
-                    ))
+                          
+                          {/* Owner multi-select - only visible when project is selected */}
+                          {isSelected && (
+                            <div className="ml-6 mt-3 space-y-2">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                                <Users className="h-3.5 w-3.5" />
+                                <span>{getOwnerSelectionLabel(proyecto.id)}</span>
+                              </div>
+                              
+                              {loadingDuenos ? (
+                                <p className="text-xs text-muted-foreground">Cargando dueños...</p>
+                              ) : projectOwners.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                  No hay dueños específicos para este proyecto (acceso a todos)
+                                </p>
+                              ) : (
+                                <div className="bg-muted/30 rounded-md p-2 space-y-1.5">
+                                  {projectOwners.map((dueno) => (
+                                    <div
+                                      key={dueno.id}
+                                      className="flex items-center space-x-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleOwner(proyecto.id, dueno.id);
+                                      }}
+                                    >
+                                      <Checkbox
+                                        checked={selectedOwners.includes(dueno.id)}
+                                        onCheckedChange={() => toggleOwner(proyecto.id, dueno.id)}
+                                      />
+                                      <span className="text-sm">
+                                        {dueno.persona?.nombre_legal || `Entidad ${dueno.id}`}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
                 )}
                 {proyectosRealEstate.length > 0 && 
                   proyectosRealEstate.filter(p => p.nombre.toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
