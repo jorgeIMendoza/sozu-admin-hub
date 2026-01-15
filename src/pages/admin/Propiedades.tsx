@@ -42,6 +42,7 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
+import { OwnerHistoryDialog } from "@/components/admin/OwnerHistoryDialog";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -188,6 +189,9 @@ interface Property {
   cuenta_sin_esquema: boolean; // Nueva propiedad para saber si la cuenta existe pero sin esquema de pago
   // Relaciones
   propietario: string;
+  propietario_original: string; // Dueño original de la propiedad
+  propietario_actual: string; // Propietario actual (puede ser comprador si cuenta está pagada)
+  tiene_cuenta_pagada: boolean; // Indica si tiene al menos una cuenta completamente pagada
   es_desarrollador: boolean; // Indica si el propietario mostrado es el desarrollador del proyecto
   tiene_sozu_como_inmobiliaria: boolean; // Indica si el proyecto tiene a Sozu como inmobiliaria
   proyecto: string;
@@ -1137,7 +1141,8 @@ const Propiedades = () => {
         .from('cuentas_cobranza')
         .select('id, clabe_stp, id_oferta, precio_final, es_comision_venta_efectivo, porcentaje_comision_venta')
         .in('id_oferta', ofertaIdsCurrentPage)
-        .eq('activo', true);
+        .eq('activo', true)
+        .is('id_tipo_cancelacion', null);
       activeCuentas = cuentasData || [];
     }
 
@@ -1145,6 +1150,33 @@ const Propiedades = () => {
       acc[cuenta.id_oferta] = cuenta;
       return acc;
     }, {});
+
+    // Fetch compradores for all active cuentas to determine current owner
+    const cuentaIdsAll = activeCuentas.map(c => c.id);
+    let compradoresPorCuenta: Record<number, { nombre: string; porcentaje: number }[]> = {};
+    
+    if (cuentaIdsAll.length > 0) {
+      const { data: compradoresData } = await supabase
+        .from('compradores')
+        .select(`
+          id_cuenta_cobranza,
+          porcentaje_copropiedad,
+          personas!inner(nombre_legal)
+        `)
+        .in('id_cuenta_cobranza', cuentaIdsAll)
+        .eq('activo', true)
+        .order('porcentaje_copropiedad', { ascending: false });
+
+      (compradoresData || []).forEach((c: any) => {
+        if (!compradoresPorCuenta[c.id_cuenta_cobranza]) {
+          compradoresPorCuenta[c.id_cuenta_cobranza] = [];
+        }
+        compradoresPorCuenta[c.id_cuenta_cobranza].push({
+          nombre: (c.personas as any)?.nombre_legal || 'Sin nombre',
+          porcentaje: Number(c.porcentaje_copropiedad) || 0
+        });
+      });
+    }
 
     // Get payment agreements and applications for each cuenta_cobranza
     const cuentaIds = activeCuentas.map(c => c.id);
@@ -1437,7 +1469,23 @@ const Propiedades = () => {
                          (paymentStatus?.especial?.status === 'pagado') ||
                          (paymentStatus?.cesion_derechos?.monto_pagado > 0),
         cuenta_sin_esquema: cuentaSinEsquema,
+        // Determinar propietario actual basado en si la cuenta está completamente pagada
         propietario: propietarioDisplay,
+        propietario_original: propietarioDisplay,
+        propietario_actual: (() => {
+          // Si la cuenta está completamente pagada (restante <= 0), el propietario actual son los compradores
+          const tieneCuentaPagada = restante <= 0 && precio_final > 0 && cuentaCobranzaData?.id;
+          if (tieneCuentaPagada && compradoresPorCuenta[cuentaCobranzaData.id]?.length > 0) {
+            const compradores = compradoresPorCuenta[cuentaCobranzaData.id];
+            if (compradores.length === 1) {
+              return compradores[0].nombre;
+            }
+            // Multiple buyers - show primary buyer
+            return compradores[0].nombre + (compradores.length > 1 ? ` (+${compradores.length - 1})` : '');
+          }
+          return propietarioDisplay;
+        })(),
+        tiene_cuenta_pagada: restante <= 0 && precio_final > 0 && !!cuentaCobranzaData?.id,
         es_desarrollador: esDarrollador,
         proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
         proyecto_id: property.edificios_modelos?.edificios?.proyectos?.id || 0,
@@ -3912,14 +3960,25 @@ const Propiedades = () => {
                       case 'propietario':
                         return (
                           <TableCell key={column.key}>
-                            {property.es_desarrollador ? (
+                            <div className="flex items-center gap-2">
                               <div className="flex flex-col">
-                                <span>{property.propietario}</span>
-                                <span className="text-muted-foreground text-xs">(Desarrollador)</span>
+                                <span>{property.propietario_actual}</span>
+                                {property.tiene_cuenta_pagada && (
+                                  <span className="text-muted-foreground text-xs">(Comprador)</span>
+                                )}
+                                {!property.tiene_cuenta_pagada && property.es_desarrollador && (
+                                  <span className="text-muted-foreground text-xs">(Desarrollador)</span>
+                                )}
                               </div>
-                            ) : (
-                              property.propietario
-                            )}
+                              {property.cuenta_cobranza_id && (
+                                <OwnerHistoryDialog
+                                  propertyId={property.id}
+                                  numeroPropiedad={property.numero_propiedad}
+                                  propietarioOriginal={property.propietario_original}
+                                  esPropietarioActualComprador={property.tiene_cuenta_pagada}
+                                />
+                              )}
+                            </div>
                           </TableCell>
                         );
                       

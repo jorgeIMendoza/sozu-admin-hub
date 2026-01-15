@@ -12,6 +12,7 @@ import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { CompradoresConDocumentosDialog } from "@/components/admin/CompradoresConDocumentosDialog";
 import { ValidarPlaceholdersDialog } from "@/components/admin/ValidarPlaceholdersDialog";
 import { SubirContratoFirmadoDialog } from "@/components/admin/SubirContratoFirmadoDialog";
+import { OwnerHistoryDialog } from "@/components/admin/OwnerHistoryDialog";
 
 interface Contrato {
   cuenta_id: number;
@@ -498,7 +499,17 @@ export default function Contratos() {
                       <TableCell>{contrato.edificio || '-'}</TableCell>
                       <TableCell>{contrato.modelo || '-'}</TableCell>
                       <TableCell>{contrato.numero_propiedad || '-'}</TableCell>
-                      <TableCell>{contrato.dueno}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span>{contrato.dueno}</span>
+                          <OwnerHistoryDialog
+                            propertyId={contrato.propiedad_id}
+                            numeroPropiedad={contrato.numero_propiedad || '-'}
+                            propietarioOriginal={contrato.dueno}
+                            esPropietarioActualComprador={true}
+                          />
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         {contrato.precio_final?.toLocaleString('es-MX', {
                           style: 'currency',
