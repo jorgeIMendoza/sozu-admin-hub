@@ -151,7 +151,10 @@ export default function UsuariosClientes() {
       
       for (const user of usersWithoutAuth) {
         const response = await supabase.functions.invoke('create-client-user', {
-          body: { email: user.email },
+          body: { 
+            email: user.email,
+            nombre: user.nombre || user.personas?.nombre_legal,
+          },
         });
 
         if (response.error) {
@@ -268,7 +271,7 @@ export default function UsuariosClientes() {
                         </Button>
                       ) : (
                         <>
-                          {usuario.auth_user_id && !usuario.debe_cambiar_password && (
+                          {usuario.auth_user_id && (
                             <Button
                               variant="outline"
                               size="sm"
