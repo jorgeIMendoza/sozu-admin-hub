@@ -191,7 +191,7 @@ interface Property {
   propietario: string;
   propietario_original: string; // Dueño original de la propiedad
   propietario_actual: string; // Propietario actual (puede ser comprador si cuenta está pagada)
-  tiene_cuenta_pagada: boolean; // Indica si tiene al menos una cuenta completamente pagada
+  tiene_cuenta_pagada: boolean; // Indica si tiene cuenta de mantenimiento (propiedad entregada)
   es_desarrollador: boolean; // Indica si el propietario mostrado es el desarrollador del proyecto
   tiene_sozu_como_inmobiliaria: boolean; // Indica si el proyecto tiene a Sozu como inmobiliaria
   proyecto: string;
@@ -1154,9 +1154,11 @@ const Propiedades = () => {
     // Fetch compradores for all active cuentas to determine current owner
     const cuentaIdsAll = activeCuentas.map(c => c.id);
     let compradoresPorCuenta: Record<number, { nombre: string; porcentaje: number }[]> = {};
+    let cuentasConMantenimiento: Set<number> = new Set(); // Track which cuentas have maintenance accounts
     
     if (cuentaIdsAll.length > 0) {
-      const { data: compradoresData } = await supabase
+      // Fetch compradores
+      const compradoresPromise = supabase
         .from('compradores')
         .select(`
           id_cuenta_cobranza,
@@ -1167,7 +1169,19 @@ const Propiedades = () => {
         .eq('activo', true)
         .order('porcentaje_copropiedad', { ascending: false });
 
-      (compradoresData || []).forEach((c: any) => {
+      // Fetch maintenance accounts - these have id_cuenta_cobranza_padre pointing to the sale account
+      const mantenimientoPromise = supabase
+        .from('cuentas_cobranza')
+        .select('id_cuenta_cobranza_padre')
+        .in('id_cuenta_cobranza_padre', cuentaIdsAll)
+        .eq('activo', true);
+
+      const [compradoresResult, mantenimientoResult] = await Promise.all([
+        compradoresPromise,
+        mantenimientoPromise
+      ]);
+
+      (compradoresResult.data || []).forEach((c: any) => {
         if (!compradoresPorCuenta[c.id_cuenta_cobranza]) {
           compradoresPorCuenta[c.id_cuenta_cobranza] = [];
         }
@@ -1175,6 +1189,13 @@ const Propiedades = () => {
           nombre: (c.personas as any)?.nombre_legal || 'Sin nombre',
           porcentaje: Number(c.porcentaje_copropiedad) || 0
         });
+      });
+
+      // Build set of cuenta IDs that have maintenance accounts
+      (mantenimientoResult.data || []).forEach((m: any) => {
+        if (m.id_cuenta_cobranza_padre) {
+          cuentasConMantenimiento.add(m.id_cuenta_cobranza_padre);
+        }
       });
     }
 
@@ -1469,13 +1490,13 @@ const Propiedades = () => {
                          (paymentStatus?.especial?.status === 'pagado') ||
                          (paymentStatus?.cesion_derechos?.monto_pagado > 0),
         cuenta_sin_esquema: cuentaSinEsquema,
-        // Determinar propietario actual basado en si la cuenta está completamente pagada
+        // Determinar propietario actual basado en si tiene cuenta de mantenimiento (indica entrega completada)
         propietario: propietarioDisplay,
         propietario_original: propietarioDisplay,
         propietario_actual: (() => {
-          // Si la cuenta está completamente pagada (restante <= 0), el propietario actual son los compradores
-          const tieneCuentaPagada = restante <= 0 && precio_final > 0 && cuentaCobranzaData?.id;
-          if (tieneCuentaPagada && compradoresPorCuenta[cuentaCobranzaData.id]?.length > 0) {
+          // Si la cuenta tiene cuenta de mantenimiento asociada, el propietario actual son los compradores
+          const tieneCuentaMantenimiento = cuentaCobranzaData?.id && cuentasConMantenimiento.has(cuentaCobranzaData.id);
+          if (tieneCuentaMantenimiento && compradoresPorCuenta[cuentaCobranzaData.id]?.length > 0) {
             const compradores = compradoresPorCuenta[cuentaCobranzaData.id];
             if (compradores.length === 1) {
               return compradores[0].nombre;
@@ -1485,7 +1506,7 @@ const Propiedades = () => {
           }
           return propietarioDisplay;
         })(),
-        tiene_cuenta_pagada: restante <= 0 && precio_final > 0 && !!cuentaCobranzaData?.id,
+        tiene_cuenta_pagada: cuentaCobranzaData?.id ? cuentasConMantenimiento.has(cuentaCobranzaData.id) : false,
         es_desarrollador: esDarrollador,
         proyecto: property.edificios_modelos?.edificios?.proyectos?.nombre || 'Sin proyecto',
         proyecto_id: property.edificios_modelos?.edificios?.proyectos?.id || 0,
@@ -3970,7 +3991,7 @@ const Propiedades = () => {
                                   <span className="text-muted-foreground text-xs">(Desarrollador)</span>
                                 )}
                               </div>
-                              {property.cuenta_cobranza_id && (
+                              {property.tiene_cuenta_pagada && (
                                 <OwnerHistoryDialog
                                   propertyId={property.id}
                                   numeroPropiedad={property.numero_propiedad}
