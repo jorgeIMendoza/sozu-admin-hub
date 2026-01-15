@@ -251,7 +251,7 @@ export default function UsuariosClientes() {
                 {canUpdate && (
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      {usuario.auth_user_id && (
+                      {usuario.auth_user_id && !usuario.debe_cambiar_password && (
                         <Button
                           variant="outline"
                           size="sm"
