@@ -3983,12 +3983,20 @@ const Propiedades = () => {
                           <TableCell key={column.key}>
                             <div className="flex items-center gap-2">
                               <div className="flex flex-col">
-                                <span>{property.propietario_actual}</span>
-                                {property.tiene_cuenta_pagada && (
-                                  <span className="text-muted-foreground text-xs">(Comprador)</span>
-                                )}
-                                {!property.tiene_cuenta_pagada && property.es_desarrollador && (
-                                  <span className="text-muted-foreground text-xs">(Desarrollador)</span>
+                                {/* Si tiene cuenta de mantenimiento (entregada), mostrar nombre del comprador */}
+                                {property.tiene_cuenta_pagada ? (
+                                  <>
+                                    <span className="font-medium">{property.propietario_actual}</span>
+                                    <span className="text-muted-foreground text-xs">(Comprador)</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    {/* Solo mostrar dueño original */}
+                                    <span>{property.propietario_original}</span>
+                                    {property.es_desarrollador && (
+                                      <span className="text-muted-foreground text-xs">(Desarrollador)</span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                               {property.tiene_cuenta_pagada && (
