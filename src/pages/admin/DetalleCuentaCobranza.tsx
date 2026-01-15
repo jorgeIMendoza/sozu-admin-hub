@@ -28,6 +28,7 @@ import { EstadoCuentaService } from "@/services/estadoCuentaService";
 import { EnDemandaDialog } from "@/components/admin/EnDemandaDialog";
 import { JuicioTerminadoDialog } from "@/components/admin/JuicioTerminadoDialog";
 import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
+import { AgenteVendedorDialog, type AgenteVendedorInfo } from "@/components/admin/AgenteVendedorDialog";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -436,6 +437,7 @@ export default function DetalleCuentaCobranza() {
   const [enDemandaDialog, setEnDemandaDialog] = useState(false);
   const [juicioTerminadoDialog, setJuicioTerminadoDialog] = useState(false);
   const [editCuentaDialog, setEditCuentaDialog] = useState(false);
+  const [agenteVendedorDialog, setAgenteVendedorDialog] = useState(false);
   const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState(false);
   // Estado para edición de clave_rastreo
   const [editingClaveRastreo, setEditingClaveRastreo] = useState<{ [pagoId: number]: string }>({});
@@ -746,6 +748,106 @@ export default function DetalleCuentaCobranza() {
       return scheme;
     },
     enabled: !!offerData?.id_esquema_pago_seleccionado,
+  });
+
+  // Fetch agente vendedor (seller agent) information
+  const { data: agenteVendedor } = useQuery({
+    queryKey: ["agente_vendedor", cuentaDetalle?.oferta_id],
+    queryFn: async (): Promise<AgenteVendedorInfo | null> => {
+      if (!cuentaDetalle?.oferta_id) return null;
+
+      // Get email_creador from oferta
+      const { data: oferta, error: ofertaError } = await supabase
+        .from('ofertas')
+        .select('email_creador')
+        .eq('id', cuentaDetalle.oferta_id)
+        .maybeSingle();
+
+      if (ofertaError || !oferta?.email_creador) return null;
+
+      const emailCreador = oferta.email_creador;
+
+      // Get user info by email with role
+      const { data: usuario, error: userError } = await supabase
+        .from('usuarios')
+        .select(`
+          nombre,
+          email,
+          telefono,
+          rol_id,
+          id_persona,
+          roles!usuarios_rol_id_fkey(nombre)
+        `)
+        .eq('email', emailCreador)
+        .maybeSingle();
+
+      if (userError || !usuario) {
+        // Return minimal info if user not found
+        return {
+          nombre: emailCreador,
+          email: emailCreador,
+          telefono: null,
+          tipoAgente: emailCreador.includes('@sozu.com') ? 'interno' : 'otro',
+          organizacion: emailCreador.includes('@sozu.com') ? 'Sozu' : 'Grupo Investimento',
+          rolNombre: undefined
+        };
+      }
+
+      const rolNombre = (usuario.roles as any)?.nombre || '';
+      
+      // Determine agent type and organization
+      let tipoAgente: 'interno' | 'inmobiliario' | 'otro' = 'otro';
+      let organizacion: string | null = null;
+
+      // Check if user is an internal agent (Agente Interno / Agente Sozu)
+      if (rolNombre.toLowerCase().includes('agente') && rolNombre.toLowerCase().includes('interno')) {
+        tipoAgente = 'interno';
+        organizacion = 'Sozu';
+      }
+      // Check if user is a real estate agent (Agente Inmobiliario)
+      else if (rolNombre.toLowerCase().includes('agente') && rolNombre.toLowerCase().includes('inmobiliario')) {
+        tipoAgente = 'inmobiliario';
+        
+        // Get the inmobiliaria from entidades_relacionadas via id_persona_duena_lead
+        if (usuario.id_persona) {
+          const { data: agenteEntidad } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona_duena_lead')
+            .eq('id_persona', usuario.id_persona)
+            .eq('id_tipo_entidad', 19) // tipo agente
+            .eq('activo', true)
+            .maybeSingle();
+
+          if (agenteEntidad?.id_persona_duena_lead) {
+            const { data: inmobiliaria } = await supabase
+              .from('personas')
+              .select('nombre_legal')
+              .eq('id', agenteEntidad.id_persona_duena_lead)
+              .maybeSingle();
+
+            organizacion = inmobiliaria?.nombre_legal || null;
+          }
+        }
+      }
+      // For other roles (super admin, inmobiliaria, etc.)
+      else {
+        if (usuario.email.includes('@sozu.com')) {
+          organizacion = 'Sozu';
+        } else {
+          organizacion = 'Grupo Investimento';
+        }
+      }
+
+      return {
+        nombre: usuario.nombre || emailCreador,
+        email: usuario.email,
+        telefono: usuario.telefono || null,
+        tipoAgente,
+        organizacion,
+        rolNombre
+      };
+    },
+    enabled: !!cuentaDetalle?.oferta_id,
   });
 
   // Handle payment scheme selection
@@ -2860,6 +2962,26 @@ export default function DetalleCuentaCobranza() {
                   <label className="text-sm font-medium">Fecha Compra</label>
                   <p className="text-sm text-muted-foreground">{formatDate(cuentaDetalle.fecha_compra)}</p>
                 </div>
+                {agenteVendedor && (
+                  <div>
+                    <label className="text-sm font-medium">Agente Vendedor</label>
+                    <button 
+                      onClick={() => setAgenteVendedorDialog(true)}
+                      className="flex items-center gap-2 text-sm text-primary hover:underline cursor-pointer"
+                    >
+                      <span>{agenteVendedor.nombre}</span>
+                      {agenteVendedor.tipoAgente === 'interno' && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">Sozu</Badge>
+                      )}
+                      {agenteVendedor.tipoAgente === 'inmobiliario' && agenteVendedor.organizacion && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 text-purple-600 border-purple-200">{agenteVendedor.organizacion}</Badge>
+                      )}
+                      {agenteVendedor.tipoAgente === 'otro' && agenteVendedor.organizacion && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-gray-50 text-gray-600 border-gray-200">{agenteVendedor.organizacion}</Badge>
+                      )}
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -2910,6 +3032,26 @@ export default function DetalleCuentaCobranza() {
                   <label className="text-sm font-medium">Fecha Compra</label>
                   <p className="text-sm text-muted-foreground">{formatDate(cuentaDetalle.fecha_compra)}</p>
                 </div>
+                {agenteVendedor && (
+                  <div>
+                    <label className="text-sm font-medium">Agente Vendedor</label>
+                    <button 
+                      onClick={() => setAgenteVendedorDialog(true)}
+                      className="flex items-center gap-2 text-sm text-primary hover:underline cursor-pointer"
+                    >
+                      <span>{agenteVendedor.nombre}</span>
+                      {agenteVendedor.tipoAgente === 'interno' && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">Sozu</Badge>
+                      )}
+                      {agenteVendedor.tipoAgente === 'inmobiliario' && agenteVendedor.organizacion && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 text-purple-600 border-purple-200">{agenteVendedor.organizacion}</Badge>
+                      )}
+                      {agenteVendedor.tipoAgente === 'otro' && agenteVendedor.organizacion && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-gray-50 text-gray-600 border-gray-200">{agenteVendedor.organizacion}</Badge>
+                      )}
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -4341,6 +4483,12 @@ export default function DetalleCuentaCobranza() {
           }}
         />
       )}
+
+      <AgenteVendedorDialog
+        isOpen={agenteVendedorDialog}
+        onClose={() => setAgenteVendedorDialog(false)}
+        agente={agenteVendedor || null}
+      />
     </div>
   );
 }
