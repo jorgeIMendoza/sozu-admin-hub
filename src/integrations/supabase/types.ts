@@ -3900,6 +3900,7 @@ export type Database = {
           activo: boolean
           clabe_stp_tmp_producto: string | null
           email_creador: string
+          es_aprobada: boolean | null
           fecha_actualizacion: string
           fecha_creacion: string
           fecha_generacion: string
@@ -3916,6 +3917,7 @@ export type Database = {
           activo?: boolean
           clabe_stp_tmp_producto?: string | null
           email_creador: string
+          es_aprobada?: boolean | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_generacion?: string
@@ -3932,6 +3934,7 @@ export type Database = {
           activo?: boolean
           clabe_stp_tmp_producto?: string | null
           email_creador?: string
+          es_aprobada?: boolean | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_generacion?: string

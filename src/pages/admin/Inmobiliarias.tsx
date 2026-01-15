@@ -238,7 +238,7 @@ export default function Inmobiliarias() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { representativeId, commercialRepresentativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
+      const { representativeId, commercialRepresentativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, inmobiliariaId, ...cleanPersonData } = personData;
       
       const { data: personResult, error: personError } = await supabase
         .from('personas')
@@ -364,7 +364,7 @@ export default function Inmobiliarias() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { representativeId, commercialRepresentativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
+      const { representativeId, commercialRepresentativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, inmobiliariaId, ...cleanPersonData } = personData;
       
       const { error: updateError } = await supabase
         .from('personas')
