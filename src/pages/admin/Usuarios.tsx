@@ -226,6 +226,7 @@ function UsersTable({
 
 export default function Usuarios() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
@@ -481,11 +482,17 @@ export default function Usuarios() {
     },
   });
 
-  const filteredUsuarios = usuarios.filter(usuario => 
-    usuario.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    usuario.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    usuario.roles?.nombre?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsuarios = usuarios.filter(usuario => {
+    const matchesSearch = 
+      usuario.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      usuario.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      usuario.roles?.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesRole = selectedRoleFilter === "all" || 
+      usuario.rol_id?.toString() === selectedRoleFilter;
+    
+    return matchesSearch && matchesRole;
+  });
 
   const activeUsers = filteredUsuarios.filter(u => u.activo);
   const inactiveUsers = filteredUsuarios.filter(u => !u.activo);
@@ -645,8 +652,8 @@ export default function Usuarios() {
         </CardHeader>
         
         <CardContent className="p-6">
-          <div className="mb-6">
-            <div className="relative max-w-md">
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 type="text"
@@ -655,6 +662,21 @@ export default function Usuarios() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 border-border focus:ring-primary/20"
               />
+            </div>
+            <div className="w-full sm:w-64">
+              <Select value={selectedRoleFilter} onValueChange={setSelectedRoleFilter}>
+                <SelectTrigger className="border-border">
+                  <SelectValue placeholder="Filtrar por rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los roles</SelectItem>
+                  {roles.map((rol) => (
+                    <SelectItem key={rol.id} value={rol.id.toString()}>
+                      {rol.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
