@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Key, Loader2, RotateCcw, UserCheck, RefreshCcw } from "lucide-react";
+import { Search, Key, Loader2, RotateCcw, UserCheck, RefreshCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+
+const ITEMS_PER_PAGE = 50;
 
 type UsuarioCliente = {
   email: string;
@@ -29,7 +31,8 @@ export default function UsuariosClientes() {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isActivateDialogOpen, setIsActivateDialogOpen] = useState(false);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
-
+  const [activePageIndex, setActivePageIndex] = useState(0);
+  const [inactivePageIndex, setInactivePageIndex] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { registrarActualizacion, registrarRestauracion } = useActivityLogger();
@@ -73,21 +76,39 @@ export default function UsuariosClientes() {
   });
 
   // Filter users based on search and active/inactive tab
-  const activeUsers = useMemo(() => 
+  const activeUsersFiltered = useMemo(() => 
     usuarios.filter(u => u.activo && 
       (u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       u.personas?.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()))),
+       u.email.toLowerCase().includes(searchTerm.toLowerCase()))),
     [usuarios, searchTerm]
   );
 
-  const inactiveUsers = useMemo(() => 
+  const inactiveUsersFiltered = useMemo(() => 
     usuarios.filter(u => !u.activo && 
       (u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       u.personas?.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()))),
+       u.email.toLowerCase().includes(searchTerm.toLowerCase()))),
     [usuarios, searchTerm]
   );
+
+  // Paginated users
+  const activeUsers = useMemo(() => {
+    const start = activePageIndex * ITEMS_PER_PAGE;
+    return activeUsersFiltered.slice(start, start + ITEMS_PER_PAGE);
+  }, [activeUsersFiltered, activePageIndex]);
+
+  const inactiveUsers = useMemo(() => {
+    const start = inactivePageIndex * ITEMS_PER_PAGE;
+    return inactiveUsersFiltered.slice(start, start + ITEMS_PER_PAGE);
+  }, [inactiveUsersFiltered, inactivePageIndex]);
+
+  const activeTotalPages = Math.ceil(activeUsersFiltered.length / ITEMS_PER_PAGE);
+  const inactiveTotalPages = Math.ceil(inactiveUsersFiltered.length / ITEMS_PER_PAGE);
+
+  // Reset pagination when search changes
+  useMemo(() => {
+    setActivePageIndex(0);
+    setInactivePageIndex(0);
+  }, [searchTerm]);
 
   // Activate user mutation (resets password)
   const activateMutation = useMutation({
@@ -182,6 +203,39 @@ export default function UsuariosClientes() {
     [usuarios]
   );
 
+  // Pagination Component
+  const Pagination = ({ currentPage, totalPages, onPageChange }: { currentPage: number, totalPages: number, onPageChange: (page: number) => void }) => {
+    if (totalPages <= 1) return null;
+    
+    return (
+      <div className="flex items-center justify-between mt-4 px-2">
+        <p className="text-sm text-muted-foreground">
+          Página {currentPage + 1} de {totalPages}
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 0}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages - 1}
+          >
+            Siguiente
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   // Users Table Component
   const UsersTable = ({ users, isInactiveTab = false }: { users: UsuarioCliente[], isInactiveTab?: boolean }) => (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -190,7 +244,6 @@ export default function UsuariosClientes() {
           <TableRow className="bg-muted/50">
             <TableHead className="font-semibold text-foreground">Cliente</TableHead>
             <TableHead className="font-semibold text-foreground">Email</TableHead>
-            <TableHead className="font-semibold text-foreground">Persona</TableHead>
             {!isInactiveTab && (
               <TableHead className="font-semibold text-foreground">Estado Auth</TableHead>
             )}
@@ -205,7 +258,7 @@ export default function UsuariosClientes() {
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={isInactiveTab ? (canUpdate ? 4 : 3) : (canUpdate ? 6 : 5)} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={isInactiveTab ? (canUpdate ? 3 : 2) : (canUpdate ? 5 : 4)} className="text-center py-8 text-muted-foreground">
                 No se encontraron usuarios clientes
               </TableCell>
             </TableRow>
@@ -225,9 +278,6 @@ export default function UsuariosClientes() {
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{usuario.email}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {usuario.personas?.nombre_legal || '-'}
-                </TableCell>
                 {!isInactiveTab && (
                   <TableCell>
                     {usuario.auth_user_id ? (
@@ -348,7 +398,7 @@ export default function UsuariosClientes() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Buscar por nombre, email o persona..."
+                placeholder="Buscar por nombre o email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -360,10 +410,10 @@ export default function UsuariosClientes() {
             <TabsList className="grid w-full max-w-[400px] grid-cols-2 mb-6">
               <TabsTrigger value="activos" className="flex items-center gap-2">
                 <UserCheck className="h-4 w-4" />
-                Activos ({activeUsers.length})
+                Activos ({activeUsersFiltered.length})
               </TabsTrigger>
               <TabsTrigger value="inactivos" className="flex items-center gap-2">
-                Inactivos ({inactiveUsers.length})
+                Inactivos ({inactiveUsersFiltered.length})
               </TabsTrigger>
             </TabsList>
 
@@ -373,7 +423,14 @@ export default function UsuariosClientes() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <UsersTable users={activeUsers} />
+                <>
+                  <UsersTable users={activeUsers} />
+                  <Pagination 
+                    currentPage={activePageIndex} 
+                    totalPages={activeTotalPages} 
+                    onPageChange={setActivePageIndex} 
+                  />
+                </>
               )}
             </TabsContent>
 
@@ -383,7 +440,14 @@ export default function UsuariosClientes() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <UsersTable users={inactiveUsers} isInactiveTab />
+                <>
+                  <UsersTable users={inactiveUsers} isInactiveTab />
+                  <Pagination 
+                    currentPage={inactivePageIndex} 
+                    totalPages={inactiveTotalPages} 
+                    onPageChange={setInactivePageIndex} 
+                  />
+                </>
               )}
             </TabsContent>
           </Tabs>
