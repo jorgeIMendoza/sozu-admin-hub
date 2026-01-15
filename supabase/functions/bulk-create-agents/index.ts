@@ -306,27 +306,48 @@ Deno.serve(async (req) => {
 
         // 3. Crear auth user y usuario si es necesario
         if (validation.needsUsuario && personaId) {
-          // Crear auth user
+          let authUserId: string | undefined;
+
+          // Primero intentar crear el auth user
           const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: email,
             password: 'Temporal123!',
             email_confirm: true,
           });
 
-          let authUserId = authUser?.user?.id;
-
-          // Si ya existía en auth, obtener su ID
-          if (!authUserId && authError?.message?.includes('already been registered')) {
-            const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
-            const existingAuth = existingAuthUsers?.users?.find(u => u.email === email);
-            authUserId = existingAuth?.id;
-          } else if (authError && !authError.message.includes('already been registered')) {
+          if (authUser?.user?.id) {
+            authUserId = authUser.user.id;
+            console.log(`[bulk-create-agents] Auth user creado: ${email}`);
+          } else if (authError?.message?.includes('already been registered')) {
+            // Usuario ya existe en auth - buscarlo por email usando listUsers con filtro
+            console.log(`[bulk-create-agents] Auth user ya existe, buscando: ${email}`);
+            
+            // Usar listUsers con paginación para buscar el usuario
+            let page = 1;
+            let found = false;
+            while (!found && page <= 20) { // Máximo 20 páginas (1000 usuarios)
+              const { data: usersPage } = await supabaseAdmin.auth.admin.listUsers({
+                page: page,
+                perPage: 50,
+              });
+              
+              if (!usersPage?.users || usersPage.users.length === 0) break;
+              
+              const existingAuth = usersPage.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+              if (existingAuth) {
+                authUserId = existingAuth.id;
+                found = true;
+                console.log(`[bulk-create-agents] Auth user encontrado en página ${page}: ${email}`);
+              }
+              page++;
+            }
+          } else if (authError) {
             throw new Error(`Error creando auth user para ${email}: ${authError.message}`);
           }
 
-          // CRÍTICO: Si no se pudo obtener authUserId, lanzar error
+          // Si aún no tenemos authUserId, lanzar error descriptivo
           if (!authUserId) {
-            throw new Error(`No se pudo obtener o crear auth user para ${email}`);
+            throw new Error(`No se pudo obtener auth user para ${email}. El usuario puede existir pero no fue encontrado en la búsqueda.`);
           }
 
           createdRecords.push({ type: 'usuario', authUserId, email });
