@@ -34,43 +34,9 @@ serve(async (req) => {
 
     console.log(`[create-client-user] Processing request for email: ${email}`);
 
-    // Step 1: Get the "Cliente" role ID
-    const { data: clienteRole, error: roleError } = await supabaseAdmin
-      .from('roles')
-      .select('id')
-      .eq('nombre', 'Cliente')
-      .eq('activo', true)
-      .single();
-
-    if (roleError || !clienteRole) {
-      console.error('Error fetching Cliente role:', roleError);
-      return new Response(
-        JSON.stringify({ error: 'Could not find Cliente role' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const clienteRoleId = clienteRole.id;
-    console.log(`[create-client-user] Cliente role ID: ${clienteRoleId}`);
-
-    // Step 2: Check if user already exists in usuarios table
-    const { data: existingUsuario, error: usuarioError } = await supabaseAdmin
-      .from('usuarios')
-      .select('email, auth_user_id, activo')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (usuarioError) {
-      console.error('Error checking existing usuario:', usuarioError);
-      return new Response(
-        JSON.stringify({ error: `Error checking existing usuario: ${usuarioError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     let authUserId: string;
 
-    // Step 3: Check if auth user already exists
+    // Step 1: Check if auth user already exists
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingAuthUser = existingUsers?.users?.find(u => u.email === email);
 
@@ -112,55 +78,24 @@ serve(async (req) => {
       console.log(`[create-client-user] Created auth user with ID: ${authUserId}`);
     }
 
-    // Step 4: Create or update usuario record
-    if (existingUsuario) {
-      // Update existing usuario with auth_user_id
-      console.log(`[create-client-user] Updating existing usuario: ${email}`);
-      const { error: updateUsuarioError } = await supabaseAdmin
-        .from('usuarios')
-        .update({ 
-          auth_user_id: authUserId,
-          debe_cambiar_password: true,
-          activo: true,
-          fecha_actualizacion: new Date().toISOString()
-        })
-        .eq('email', email);
-
-      if (updateUsuarioError) {
-        console.error('Error updating usuario:', updateUsuarioError);
-        return new Response(
-          JSON.stringify({ error: `Error updating usuario: ${updateUsuarioError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    } else {
-      // Create new usuario with role "Cliente"
-      console.log(`[create-client-user] Creating new usuario: ${email} with role ID: ${clienteRoleId}`);
-      const usuarioData: Record<string, any> = {
-        email: email,
-        nombre: nombre || email.split('@')[0],
-        rol_id: clienteRoleId,
+    // Step 2: Update the usuarios record with auth_user_id
+    // The usuarios record should already exist (created by database trigger)
+    console.log(`[create-client-user] Updating usuario with auth_user_id: ${authUserId}`);
+    const { error: updateUsuarioError } = await supabaseAdmin
+      .from('usuarios')
+      .update({ 
         auth_user_id: authUserId,
-        activo: true,
         debe_cambiar_password: true,
-      };
+        fecha_actualizacion: new Date().toISOString()
+      })
+      .eq('email', email);
 
-      // Only add id_persona if provided and valid
-      if (id_persona && typeof id_persona === 'number') {
-        usuarioData.id_persona = id_persona;
-      }
-
-      const { error: insertUsuarioError } = await supabaseAdmin
-        .from('usuarios')
-        .insert(usuarioData);
-
-      if (insertUsuarioError) {
-        console.error('Error creating usuario:', insertUsuarioError);
-        return new Response(
-          JSON.stringify({ error: `Error creating usuario: ${insertUsuarioError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    if (updateUsuarioError) {
+      console.error('Error updating usuario:', updateUsuarioError);
+      return new Response(
+        JSON.stringify({ error: `Error updating usuario: ${updateUsuarioError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`[create-client-user] Successfully processed client user: ${email}`);
@@ -168,7 +103,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: existingUsuario ? 'Client user updated successfully' : 'Client user created successfully',
+        message: 'Client user processed successfully',
         auth_user_id: authUserId 
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

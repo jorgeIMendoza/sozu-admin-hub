@@ -1281,7 +1281,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         }
       }
     },
-    onSuccess: async (_, variables) => {
+    onSuccess: async () => {
       console.log('Buyer added successfully, setting tab to compradores');
       toast.success("Comprador agregado exitosamente. Puedes agregar más compradores.");
       refetchCompradores();
@@ -1292,36 +1292,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       console.log('Current activeTab before setting:', activeTab);
       setActiveTab('compradores');
       console.log('Tab set to compradores');
-
-      // Create client user for the buyer
-      try {
-        // Get persona data for the buyer
-        const { data: personaData } = await supabase
-          .from('personas')
-          .select('id, nombre_legal, email')
-          .eq('id', variables.personaId)
-          .single();
-
-        if (personaData?.email) {
-          console.log('[EditCuentaCobranzaDialog] Creating client user for:', personaData.email);
-          const response = await supabase.functions.invoke('create-client-user', {
-            body: {
-              email: personaData.email,
-              nombre: personaData.nombre_legal,
-              id_persona: personaData.id
-            }
-          });
-
-          if (response.error) {
-            console.error('[EditCuentaCobranzaDialog] Error creating client user:', response.error);
-          } else {
-            console.log('[EditCuentaCobranzaDialog] Client user created/updated successfully');
-          }
-        }
-      } catch (clientUserError) {
-        console.error('[EditCuentaCobranzaDialog] Error in client user creation:', clientUserError);
-        // Don't show error to user - this is a background operation
-      }
+      // Note: Client user creation is now handled automatically by database trigger
     },
     onError: (error) => {
       console.error("Error adding buyer:", error);
