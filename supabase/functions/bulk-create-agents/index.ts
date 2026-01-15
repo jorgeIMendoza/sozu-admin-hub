@@ -330,57 +330,75 @@ Deno.serve(async (req) => {
             authUserId = authUser.user.id;
             console.log(`[bulk-create-agents] Auth user creado: ${email}`);
           } else if (authError?.message?.includes('already been registered')) {
-            // Usuario ya existe en auth - buscarlo por email usando listUsers con filtro
-            console.log(`[bulk-create-agents] Auth user ya existe, buscando: ${email}`);
+            // Usuario ya existe en auth - usar getUserById no funciona, usar listUsers con filtro directo
+            console.log(`[bulk-create-agents] Auth user ya existe, obteniendo ID: ${email}`);
             
-            // Usar listUsers con paginación para buscar el usuario
-            let page = 1;
-            let found = false;
-            while (!found && page <= 20) { // Máximo 20 páginas (1000 usuarios)
-              const { data: usersPage } = await supabaseAdmin.auth.admin.listUsers({
-                page: page,
-                perPage: 50,
-              });
-              
-              if (!usersPage?.users || usersPage.users.length === 0) break;
-              
-              const existingAuth = usersPage.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+            // Obtener usuario por email usando la API de admin con filtro
+            const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
+              page: 1,
+              perPage: 1000, // Obtener más usuarios de una vez para evitar paginación
+            });
+            
+            if (listData?.users) {
+              const existingAuth = listData.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
               if (existingAuth) {
                 authUserId = existingAuth.id;
-                found = true;
-                console.log(`[bulk-create-agents] Auth user encontrado en página ${page}: ${email}`);
+                console.log(`[bulk-create-agents] Auth user encontrado: ${email}`);
               }
-              page++;
             }
           } else if (authError) {
             throw new Error(`Error creando auth user para ${email}: ${authError.message}`);
           }
 
-          // Si aún no tenemos authUserId, lanzar error descriptivo
+          // Si no encontramos authUserId, intentar continuar sin él (el usuario ya puede existir)
           if (!authUserId) {
-            throw new Error(`No se pudo obtener auth user para ${email}. El usuario puede existir pero no fue encontrado en la búsqueda.`);
+            console.log(`[bulk-create-agents] No se encontró auth user para ${email}, verificando si usuario ya existe...`);
+            
+            // Verificar una vez más si el usuario ya existe en la tabla usuarios
+            const { data: existingUser } = await supabaseAdmin
+              .from('usuarios')
+              .select('email, auth_user_id')
+              .eq('email', email)
+              .single();
+            
+            if (existingUser) {
+              console.log(`[bulk-create-agents] Usuario ya existe en tabla usuarios: ${email}, saltando creación`);
+              // No necesitamos crear el usuario, ya existe
+            } else {
+              throw new Error(`No se pudo obtener auth user para ${email} y no existe en usuarios`);
+            }
+          } else {
+            // Solo crear usuario si obtuvimos authUserId y no existe ya
+            const { data: existingUser } = await supabaseAdmin
+              .from('usuarios')
+              .select('email')
+              .eq('email', email)
+              .single();
+            
+            if (!existingUser) {
+              createdRecords.push({ type: 'usuario', authUserId, email });
+
+              const { error: usuarioError } = await supabaseAdmin
+                .from('usuarios')
+                .insert({
+                  email: email,
+                  nombre: nombre,
+                  rol_id: 3, // Agente Inmobiliario
+                  id_persona: personaId,
+                  auth_user_id: authUserId,
+                  debe_cambiar_password: true,
+                  activo: true,
+                });
+
+              if (usuarioError) {
+                throw new Error(`Error creando usuario para ${email}: ${usuarioError.message}`);
+              }
+
+              console.log(`[bulk-create-agents] Usuario creado: ${email}`);
+            } else {
+              console.log(`[bulk-create-agents] Usuario ya existe, saltando: ${email}`);
+            }
           }
-
-          createdRecords.push({ type: 'usuario', authUserId, email });
-
-          // Crear registro en usuarios
-          const { error: usuarioError } = await supabaseAdmin
-            .from('usuarios')
-            .insert({
-              email: email,
-              nombre: nombre,
-              rol_id: 3, // Agente Inmobiliario
-              id_persona: personaId,
-              auth_user_id: authUserId,
-              debe_cambiar_password: true,
-              activo: true,
-            });
-
-          if (usuarioError) {
-            throw new Error(`Error creando usuario para ${email}: ${usuarioError.message}`);
-          }
-
-          console.log(`[bulk-create-agents] Usuario creado: ${email}`);
         }
 
         // 4. Crear acceso al proyecto si es necesario
