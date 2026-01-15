@@ -1,7 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Key, Loader2, RotateCcw, UserCheck, RefreshCcw, ChevronLeft, ChevronRight } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Key, Loader2, RotateCcw, RefreshCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -29,20 +28,18 @@ type UsuarioCliente = {
 export default function UsuariosClientes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
-  const [isActivateDialogOpen, setIsActivateDialogOpen] = useState(false);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
-  const [activePageIndex, setActivePageIndex] = useState(0);
-  const [inactivePageIndex, setInactivePageIndex] = useState(0);
+  const [pageIndex, setPageIndex] = useState(0);
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { registrarActualizacion, registrarRestauracion } = useActivityLogger();
+  const { registrarActualizacion } = useActivityLogger();
   const { canUpdate, isLoading: isLoadingPermissions } = usePagePermissions('/admin/usuarios-clientes');
 
   // Fetch users with role "Cliente"
   const { data: usuarios = [], isLoading: isLoadingUsuarios } = useQuery({
     queryKey: ['usuarios-clientes'],
     queryFn: async () => {
-      // First get the role id for "Cliente"
       const { data: roleData, error: roleError } = await supabase
         .from('roles')
         .select('id')
@@ -68,6 +65,7 @@ export default function UsuariosClientes() {
           personas (nombre_legal)
         `)
         .eq('rol_id', roleData.id)
+        .eq('activo', true)
         .order('nombre', { ascending: true });
       
       if (error) throw error;
@@ -75,71 +73,26 @@ export default function UsuariosClientes() {
     },
   });
 
-  // Filter users based on search and active/inactive tab
-  const activeUsersFiltered = useMemo(() => 
-    usuarios.filter(u => u.activo && 
-      (u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-       u.email.toLowerCase().includes(searchTerm.toLowerCase()))),
-    [usuarios, searchTerm]
-  );
-
-  const inactiveUsersFiltered = useMemo(() => 
-    usuarios.filter(u => !u.activo && 
-      (u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-       u.email.toLowerCase().includes(searchTerm.toLowerCase()))),
+  // Filter users based on search
+  const filteredUsers = useMemo(() => 
+    usuarios.filter(u => 
+      u.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      u.email.toLowerCase().includes(searchTerm.toLowerCase())),
     [usuarios, searchTerm]
   );
 
   // Paginated users
-  const activeUsers = useMemo(() => {
-    const start = activePageIndex * ITEMS_PER_PAGE;
-    return activeUsersFiltered.slice(start, start + ITEMS_PER_PAGE);
-  }, [activeUsersFiltered, activePageIndex]);
+  const paginatedUsers = useMemo(() => {
+    const start = pageIndex * ITEMS_PER_PAGE;
+    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredUsers, pageIndex]);
 
-  const inactiveUsers = useMemo(() => {
-    const start = inactivePageIndex * ITEMS_PER_PAGE;
-    return inactiveUsersFiltered.slice(start, start + ITEMS_PER_PAGE);
-  }, [inactiveUsersFiltered, inactivePageIndex]);
-
-  const activeTotalPages = Math.ceil(activeUsersFiltered.length / ITEMS_PER_PAGE);
-  const inactiveTotalPages = Math.ceil(inactiveUsersFiltered.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
 
   // Reset pagination when search changes
-  useMemo(() => {
-    setActivePageIndex(0);
-    setInactivePageIndex(0);
+  useEffect(() => {
+    setPageIndex(0);
   }, [searchTerm]);
-
-  // Activate user mutation (resets password)
-  const activateMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const { error: updateError } = await supabase
-        .from('usuarios')
-        .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
-        .eq('email', email);
-      
-      if (updateError) throw updateError;
-
-      const response = await supabase.functions.invoke('reset-user-password', {
-        body: { email },
-      });
-
-      if (response.error) throw new Error(response.error.message);
-      if (response.data?.error) throw new Error(response.data.error);
-
-      return response.data;
-    },
-    onSuccess: (_, email) => {
-      queryClient.invalidateQueries({ queryKey: ['usuarios-clientes'] });
-      registrarRestauracion('usuario_cliente', { email, activo: false }, { email, activo: true, password_reset: true });
-      toast({ title: "Usuario activado", description: "El usuario ha sido activado con contraseña temporal: Temporal123!" });
-      setIsActivateDialogOpen(false);
-      setSelectedUserEmail(null);
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: `Error al activar el usuario: ${error.message}`, variant: "destructive" });
-    },
-  });
 
   // Reset password mutation
   const resetPasswordMutation = useMutation({
@@ -204,13 +157,13 @@ export default function UsuariosClientes() {
   );
 
   // Pagination Component
-  const Pagination = ({ currentPage, totalPages, onPageChange }: { currentPage: number, totalPages: number, onPageChange: (page: number) => void }) => {
-    if (totalPages <= 1) return null;
+  const Pagination = ({ currentPage, totalPages: pages, onPageChange }: { currentPage: number, totalPages: number, onPageChange: (page: number) => void }) => {
+    if (pages <= 1) return null;
     
     return (
       <div className="flex items-center justify-between mt-4 px-2">
         <p className="text-sm text-muted-foreground">
-          Página {currentPage + 1} de {totalPages}
+          Página {currentPage + 1} de {pages}
         </p>
         <div className="flex gap-2">
           <Button
@@ -226,7 +179,7 @@ export default function UsuariosClientes() {
             variant="outline"
             size="sm"
             onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages - 1}
+            disabled={currentPage >= pages - 1}
           >
             Siguiente
             <ChevronRight className="h-4 w-4" />
@@ -237,19 +190,15 @@ export default function UsuariosClientes() {
   };
 
   // Users Table Component
-  const UsersTable = ({ users, isInactiveTab = false }: { users: UsuarioCliente[], isInactiveTab?: boolean }) => (
+  const UsersTable = ({ users }: { users: UsuarioCliente[] }) => (
     <div className="border border-border rounded-lg overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
             <TableHead className="font-semibold text-foreground">Cliente</TableHead>
             <TableHead className="font-semibold text-foreground">Email</TableHead>
-            {!isInactiveTab && (
-              <TableHead className="font-semibold text-foreground">Estado Auth</TableHead>
-            )}
-            {!isInactiveTab && (
-              <TableHead className="font-semibold text-foreground">Contraseña</TableHead>
-            )}
+            <TableHead className="font-semibold text-foreground">Estado Auth</TableHead>
+            <TableHead className="font-semibold text-foreground">Contraseña</TableHead>
             {canUpdate && (
               <TableHead className="font-semibold text-foreground text-center">Acciones</TableHead>
             )}
@@ -258,7 +207,7 @@ export default function UsuariosClientes() {
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={isInactiveTab ? (canUpdate ? 3 : 2) : (canUpdate ? 5 : 4)} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={canUpdate ? 5 : 4} className="text-center py-8 text-muted-foreground">
                 No se encontraron usuarios clientes
               </TableCell>
             </TableRow>
@@ -278,64 +227,43 @@ export default function UsuariosClientes() {
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{usuario.email}</TableCell>
-                {!isInactiveTab && (
-                  <TableCell>
-                    {usuario.auth_user_id ? (
-                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                        Sincronizado
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-                        Sin sincronizar
-                      </Badge>
-                    )}
-                  </TableCell>
-                )}
-                {!isInactiveTab && (
-                  <TableCell>
-                    {usuario.debe_cambiar_password ? (
-                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-                        <Key className="h-3 w-3 mr-1" />
-                        Temporal
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Personalizada</span>
-                    )}
-                  </TableCell>
-                )}
+                <TableCell>
+                  {usuario.auth_user_id ? (
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                      Sincronizado
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                      Sin sincronizar
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {usuario.debe_cambiar_password ? (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                      <Key className="h-3 w-3 mr-1" />
+                      Temporal
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">Personalizada</span>
+                  )}
+                </TableCell>
                 {canUpdate && (
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      {isInactiveTab ? (
+                      {usuario.auth_user_id && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
                             setSelectedUserEmail(usuario.email);
-                            setIsActivateDialogOpen(true);
+                            setIsResetPasswordDialogOpen(true);
                           }}
-                          className="hover:bg-green-500/10 hover:border-green-500 hover:text-green-600"
+                          className="hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
                         >
-                          <UserCheck className="h-3 w-3 mr-1" />
-                          Activar
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Resetear Contraseña
                         </Button>
-                      ) : (
-                        <>
-                          {usuario.auth_user_id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedUserEmail(usuario.email);
-                                setIsResetPasswordDialogOpen(true);
-                              }}
-                              className="hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
-                            >
-                              <RotateCcw className="h-3 w-3 mr-1" />
-                              Resetear Contraseña
-                            </Button>
-                          )}
-                        </>
                       )}
                     </div>
                   </TableCell>
@@ -371,7 +299,7 @@ export default function UsuariosClientes() {
             <div>
               <CardTitle className="text-lg">Listado de Clientes</CardTitle>
               <CardDescription>
-                {usuarios.length} usuarios clientes en total
+                {filteredUsers.length} usuarios clientes
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -406,51 +334,20 @@ export default function UsuariosClientes() {
             </div>
           </div>
 
-          <Tabs defaultValue="activos" className="w-full">
-            <TabsList className="grid w-full max-w-[400px] grid-cols-2 mb-6">
-              <TabsTrigger value="activos" className="flex items-center gap-2">
-                <UserCheck className="h-4 w-4" />
-                Activos ({activeUsersFiltered.length})
-              </TabsTrigger>
-              <TabsTrigger value="inactivos" className="flex items-center gap-2">
-                Inactivos ({inactiveUsersFiltered.length})
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="activos">
-              {isLoadingUsuarios ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <>
-                  <UsersTable users={activeUsers} />
-                  <Pagination 
-                    currentPage={activePageIndex} 
-                    totalPages={activeTotalPages} 
-                    onPageChange={setActivePageIndex} 
-                  />
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="inactivos">
-              {isLoadingUsuarios ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <>
-                  <UsersTable users={inactiveUsers} isInactiveTab />
-                  <Pagination 
-                    currentPage={inactivePageIndex} 
-                    totalPages={inactiveTotalPages} 
-                    onPageChange={setInactivePageIndex} 
-                  />
-                </>
-              )}
-            </TabsContent>
-          </Tabs>
+          {isLoadingUsuarios ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              <UsersTable users={paginatedUsers} />
+              <Pagination 
+                currentPage={pageIndex} 
+                totalPages={totalPages} 
+                onPageChange={setPageIndex} 
+              />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -480,37 +377,6 @@ export default function UsuariosClientes() {
                 <RotateCcw className="h-4 w-4 mr-2" />
               )}
               Resetear
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Activate User Dialog */}
-      <AlertDialog open={isActivateDialogOpen} onOpenChange={setIsActivateDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Activar Usuario</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Estás seguro de que deseas activar al usuario <strong>{selectedUserEmail}</strong>?
-              <br /><br />
-              Se reseteará la contraseña a: <strong>Temporal123!</strong>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedUserEmail(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => selectedUserEmail && activateMutation.mutate(selectedUserEmail)}
-              disabled={activateMutation.isPending}
-              className="bg-green-500 hover:bg-green-600"
-            >
-              {activateMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <UserCheck className="h-4 w-4 mr-2" />
-              )}
-              Activar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
