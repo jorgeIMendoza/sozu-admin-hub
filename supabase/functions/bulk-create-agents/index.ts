@@ -248,6 +248,7 @@ Deno.serve(async (req) => {
     const results: { email: string; status: string; message: string }[] = [];
     let created = 0;
     let updated = 0;
+    let skipped = 0;
 
     try {
       for (let i = 0; i < agents.length; i++) {
@@ -258,6 +259,7 @@ Deno.serve(async (req) => {
         const telefono = agent.telefono?.trim().replace(/\D/g, '');
 
         let personaId = validation.personaId;
+        let didCreateSomething = false;
 
         // 1. Crear persona si es necesario
         if (validation.needsPersona) {
@@ -280,6 +282,7 @@ Deno.serve(async (req) => {
 
           personaId = newPersona.id;
           createdRecords.push({ type: 'persona', id: personaId, email });
+          didCreateSomething = true;
           console.log(`[bulk-create-agents] Persona creada: ${email} (id: ${personaId})`);
 
           // Verificar inmediatamente que la persona existe
@@ -312,6 +315,7 @@ Deno.serve(async (req) => {
           }
 
           createdRecords.push({ type: 'entidad', id: newEntidad.id, email });
+          didCreateSomething = true;
           console.log(`[bulk-create-agents] Entidad creada para: ${email}`);
         }
 
@@ -394,6 +398,7 @@ Deno.serve(async (req) => {
                 throw new Error(`Error creando usuario para ${email}: ${usuarioError.message}`);
               }
 
+              didCreateSomething = true;
               console.log(`[bulk-create-agents] Usuario creado: ${email}`);
             } else {
               console.log(`[bulk-create-agents] Usuario ya existe, saltando: ${email}`);
@@ -427,15 +432,19 @@ Deno.serve(async (req) => {
           }
 
           createdRecords.push({ type: 'acceso', email, proyectoId: validation.proyectoId });
+          didCreateSomething = true;
           console.log(`[bulk-create-agents] Acceso creado: ${email} -> proyecto ${validation.proyectoId}`);
         }
 
-        // Determinar resultado
-        if (validation.needsPersona) {
+        // Determinar resultado basado en lo que realmente pasó
+        if (!didCreateSomething) {
+          results.push({ email, status: 'skipped', message: 'Usuario y acceso ya existían - sin cambios' });
+          skipped++;
+        } else if (validation.needsPersona) {
           results.push({ email, status: 'created', message: 'Agente creado exitosamente' });
           created++;
         } else {
-          results.push({ email, status: 'updated', message: 'Agente existente actualizado' });
+          results.push({ email, status: 'updated', message: 'Acceso al proyecto actualizado' });
           updated++;
         }
       }
@@ -450,7 +459,7 @@ Deno.serve(async (req) => {
             total: agents.length,
             created,
             updated,
-            skipped: 0,
+            skipped,
             errors: 0,
           },
           details: results,
