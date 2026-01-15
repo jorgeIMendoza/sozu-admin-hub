@@ -281,6 +281,17 @@ Deno.serve(async (req) => {
           personaId = newPersona.id;
           createdRecords.push({ type: 'persona', id: personaId, email });
           console.log(`[bulk-create-agents] Persona creada: ${email} (id: ${personaId})`);
+
+          // Verificar inmediatamente que la persona existe
+          const { data: personaCheck } = await supabaseAdmin
+            .from('personas')
+            .select('id')
+            .eq('id', personaId)
+            .single();
+          
+          if (!personaCheck) {
+            throw new Error(`Persona ${personaId} creada pero no encontrada para ${email}`);
+          }
         }
 
         // 2. Crear entidad relacionada si es necesario

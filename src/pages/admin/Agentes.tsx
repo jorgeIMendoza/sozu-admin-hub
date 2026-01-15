@@ -382,12 +382,15 @@ export default function Agentes() {
     },
   });
 
-  const filteredAgentes = agentes.filter(agente => 
+  const filterAgente = (agente: Agente) => 
     agente.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     agente.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     agente.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agente.inmobiliaria_nombre?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    agente.inmobiliaria_nombre?.toLowerCase().includes(searchTerm.toLowerCase());
+
+  const filteredActiveAgentes = activeAgentes.filter(filterAgente);
+  const filteredDeletedAgentes = deletedAgentes.filter(filterAgente);
+  const filteredAgentes = activeTab === 'active' ? filteredActiveAgentes : filteredDeletedAgentes;
 
   const handleEdit = (agente: Agente) => {
     setEditingAgente(agente);
@@ -578,8 +581,8 @@ export default function Agentes() {
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="active">Activos ({activeAgentes.length})</TabsTrigger>
-              <TabsTrigger value="deleted">Eliminados ({deletedAgentes.length})</TabsTrigger>
+              <TabsTrigger value="active">Activos ({filteredActiveAgentes.length})</TabsTrigger>
+              <TabsTrigger value="deleted">Eliminados ({filteredDeletedAgentes.length})</TabsTrigger>
             </TabsList>
             
             <div className="mb-6">
