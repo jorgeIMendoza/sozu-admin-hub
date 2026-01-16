@@ -62,6 +62,18 @@ export class EstadoCuentaService {
 
       if (acuerdosError) throw acuerdosError;
 
+      // Fetch multas
+      // @ts-ignore - Type instantiation too deep
+      const multasResult = await supabase
+        .from("multas")
+        .select("id, monto, descripcion, es_pagada, fecha_creacion")
+        .eq("id_cuenta_cobranza", data.id_cuenta)
+        .eq("activo", true)
+        .order("fecha_creacion", { ascending: true });
+      
+      const multas = (multasResult.data || []) as any[];
+      if (multasResult.error) throw multasResult.error;
+
       // Fetch pagos
       const { data: pagos, error: pagosError } = await supabase
         .from("pagos")
@@ -207,6 +219,7 @@ export class EstadoCuentaService {
         esquemaPago: esquemaPagoData,
         compradores: compradores || [],
         acuerdos: acuerdos || [],
+        multas: multas || [],
         pagos: pagos || [],
         proyecto: proyectoData,
         propiedad: propiedadData,
@@ -649,7 +662,120 @@ export class EstadoCuentaService {
       y += 6;
     }
 
-    y += 15;
+    y += 10;
+
+    // === MULTAS TABLE (if any) ===
+    if (data.multas && data.multas.length > 0) {
+      checkNewPage(30);
+      
+      pdf.setFontSize(12);
+      pdf.setTextColor(primaryColor);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Multas", margin, y);
+      y += 6;
+      drawLine(y);
+      y += 8;
+
+      // Table header
+      const multasCols = [
+        { title: "#", width: 8, align: "center" as const },
+        { title: "Descripción", width: 80, align: "left" as const },
+        { title: "Monto", width: 30, align: "right" as const },
+        { title: "Pagado", width: 30, align: "right" as const },
+        { title: "Estado", width: 25, align: "center" as const },
+      ];
+
+      colX = margin;
+      pdf.setFillColor("#fef3c7");
+      pdf.rect(margin, y - 1, contentWidth, 7, "F");
+      
+      pdf.setFontSize(7);
+      pdf.setTextColor("#92400e");
+      pdf.setFont("helvetica", "bold");
+      
+      multasCols.forEach((col) => {
+        if (col.align === "right") {
+          pdf.text(col.title.toUpperCase(), colX + col.width - 1, y + 4, { align: "right" });
+        } else if (col.align === "center") {
+          pdf.text(col.title.toUpperCase(), colX + col.width / 2, y + 4, { align: "center" });
+        } else {
+          pdf.text(col.title.toUpperCase(), colX + 1, y + 4);
+        }
+        colX += col.width;
+      });
+
+      y += 8;
+      drawLine(y);
+      y += 6;
+
+      // Table rows
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+
+      let multaIndex = 0;
+      for (const multa of data.multas) {
+        checkNewPage(8);
+
+        // Calculate pagado for this multa
+        const pagadoMulta = data.pagos.reduce((sum: number, pago: any) => {
+          const aplicacionesMulta = (pago.aplicaciones_pago || []).filter(
+            (ap: any) => ap.es_multa && ap.id_acuerdo_pago === multa.id
+          );
+          return sum + aplicacionesMulta.reduce((s: number, ap: any) => s + (ap.monto || 0), 0);
+        }, 0);
+
+        const isPaid = multa.es_pagada || pagadoMulta >= multa.monto;
+
+        // Alternating row background
+        if (multaIndex % 2 === 0) {
+          pdf.setFillColor("#fffbeb");
+          pdf.rect(margin, y - 3, contentWidth, 6, "F");
+        }
+
+        colX = margin;
+        pdf.setTextColor("#333333");
+
+        // #
+        pdf.text(String(multaIndex + 1), colX + multasCols[0].width / 2, y, { align: "center" });
+        colX += multasCols[0].width;
+
+        // Descripción
+        pdf.text((multa.descripcion || "Multa").substring(0, 50), colX + 1, y);
+        colX += multasCols[1].width;
+
+        // Monto
+        pdf.text(formatMoneyAllowNegative(multa.monto), colX + multasCols[2].width - 1, y, { align: "right" });
+        colX += multasCols[2].width;
+
+        // Pagado
+        pdf.text(formatMoneyAllowNegative(pagadoMulta), colX + multasCols[3].width - 1, y, { align: "right" });
+        colX += multasCols[3].width;
+
+        // Estado badge
+        const statusText = isPaid ? "Pagada" : "Pendiente";
+        const badgeWidth = 18;
+        const badgeX = colX + (multasCols[4].width - badgeWidth) / 2;
+        
+        if (isPaid) {
+          pdf.setFillColor("#dcfce7");
+          pdf.setTextColor("#166534");
+        } else {
+          pdf.setFillColor("#fee2e2");
+          pdf.setTextColor("#991b1b");
+        }
+        pdf.roundedRect(badgeX, y - 3, badgeWidth, 5, 1, 1, "F");
+        pdf.setFontSize(6);
+        pdf.text(statusText, badgeX + badgeWidth / 2, y, { align: "center" });
+        pdf.setFontSize(8);
+
+        y += 6;
+        multaIndex++;
+      }
+
+      y += 5;
+    }
+
+    y += 10;
 
     // === PAGOS REALIZADOS TABLE ===
     checkNewPage(30);
