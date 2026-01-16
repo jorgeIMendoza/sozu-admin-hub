@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, subMonths, isBefore, isEqual } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,22 @@ interface ComisionesPorPagarTabProps {
   openPagarTodasDialog: (type: 'comisionista' | 'cuenta', data: any) => void;
 }
 
+// Función para determinar la fecha límite de enganche según la lógica de negocio
+function getFechaLimiteEnganche(): Date {
+  const today = new Date();
+  const currentDay = today.getDate();
+  
+  if (currentDay >= 16) {
+    // Del 16 al fin de mes: mostrar comisiones con enganche pagado hasta el día 15 del mes actual
+    const limitDate = new Date(today.getFullYear(), today.getMonth(), 15, 23, 59, 59, 999);
+    return limitDate;
+  } else {
+    // Del 1 al 15: mostrar comisiones con enganche pagado hasta fin del mes anterior
+    const lastMonth = subMonths(today, 1);
+    return endOfMonth(lastMonth);
+  }
+}
+
 export default function ComisionesPorPagarTab({
   comisionistasAgrupados,
   cuentasAgrupadas,
@@ -35,6 +51,8 @@ export default function ComisionesPorPagarTab({
   const [currentPageCuentas, setCurrentPageCuentas] = useState(1);
   const itemsPerPage = 50;
 
+  const fechaLimite = useMemo(() => getFechaLimiteEnganche(), []);
+
   const toggleItem = (itemId: string) => {
     const newExpanded = new Set(expandedItems);
     if (newExpanded.has(itemId)) {
@@ -45,23 +63,54 @@ export default function ComisionesPorPagarTab({
     setExpandedItems(newExpanded);
   };
 
-  // Filtrar solo comisiones pendientes (pagada = false)
+  // Filtrar comisiones por fecha de enganche y estado de pago
   const comisionistasPendientes = useMemo(() => {
-    return comisionistasAgrupados?.map((com: any) => ({
-      ...com,
-      cuentas: com.cuentas.filter((c: any) => !c.pagada),
-      montoTotal: com.cuentas.filter((c: any) => !c.pagada).reduce((sum: number, c: any) => sum + c.montoComision, 0),
-      montoPagado: com.cuentas.filter((c: any) => c.pagada).reduce((sum: number, c: any) => sum + c.montoComision, 0),
-    })).filter((com: any) => com.cuentas.length > 0) || [];
-  }, [comisionistasAgrupados]);
+    return comisionistasAgrupados?.map((com: any) => {
+      // Filtrar cuentas pendientes que cumplan con la fecha límite
+      const cuentasPendientes = com.cuentas.filter((c: any) => {
+        if (c.pagada) return false;
+        if (!c.fechaPagoEnganche) return false;
+        const fechaEnganche = parseISO(c.fechaPagoEnganche);
+        return isBefore(fechaEnganche, fechaLimite) || isEqual(fechaEnganche, fechaLimite);
+      });
+      
+      const cuentasPagadas = com.cuentas.filter((c: any) => c.pagada);
+      
+      // Calcular montos
+      const montoTotal = com.cuentas.reduce((sum: number, c: any) => sum + c.montoComision, 0);
+      const montoPendiente = cuentasPendientes.reduce((sum: number, c: any) => sum + c.montoComision, 0);
+      const montoPagado = cuentasPagadas.reduce((sum: number, c: any) => sum + c.montoComision, 0);
+      
+      return {
+        ...com,
+        cuentas: cuentasPendientes,
+        montoTotal, // Total de todas las comisiones (por pagar)
+        montoPendiente, // Total pendiente que cumple con fecha
+        montoPagado, // Total ya pagado
+      };
+    }).filter((com: any) => com.cuentas.length > 0) || [];
+  }, [comisionistasAgrupados, fechaLimite]);
 
   const cuentasPendientes = useMemo(() => {
-    return cuentasAgrupadas?.map((cuenta: any) => ({
-      ...cuenta,
-      comisionistas: cuenta.comisionistas.filter((c: any) => !c.pagada),
-      montoTotalComision: cuenta.comisionistas.filter((c: any) => !c.pagada).reduce((sum: number, c: any) => sum + c.montoComision, 0),
-      montoPagado: cuenta.comisionistas.filter((c: any) => c.pagada).reduce((sum: number, c: any) => sum + c.montoComision, 0),
-    })).filter((cuenta: any) => cuenta.comisionistas.length > 0) || [];
+    return cuentasAgrupadas?.map((cuenta: any) => {
+      // Filtrar comisionistas pendientes
+      const comisionistasPendientes = cuenta.comisionistas.filter((c: any) => !c.pagada);
+      const comisionistasPagados = cuenta.comisionistas.filter((c: any) => c.pagada);
+      
+      // Calcular montos
+      const montoTotal = cuenta.comisionistas.reduce((sum: number, c: any) => sum + c.montoComision, 0);
+      const montoPendiente = comisionistasPendientes.reduce((sum: number, c: any) => sum + c.montoComision, 0);
+      const montoPagado = comisionistasPagados.reduce((sum: number, c: any) => sum + c.montoComision, 0);
+      
+      return {
+        ...cuenta,
+        comisionistas: comisionistasPendientes,
+        montoTotal, // Total de todas las comisiones
+        montoTotalComision: montoPendiente, // Mantener compatibilidad
+        montoPendiente,
+        montoPagado,
+      };
+    }).filter((cuenta: any) => cuenta.comisionistas.length > 0) || [];
   }, [cuentasAgrupadas]);
 
   const comisionistasFiltrados = comisionistasPendientes.filter((com: any) =>
@@ -169,8 +218,9 @@ export default function ComisionesPorPagarTab({
                     <TableHead className="w-12"></TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead>Usuario</TableHead>
+                    <TableHead className="text-right">Monto por Pagar</TableHead>
+                    <TableHead className="text-right">Monto Pagado</TableHead>
                     <TableHead className="text-right">Monto Pendiente</TableHead>
-                    <TableHead className="text-right">Ya Pagado</TableHead>
                     <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -191,11 +241,14 @@ export default function ComisionesPorPagarTab({
                         </TableCell>
                         <TableCell className="font-medium">{com.nombre}</TableCell>
                         <TableCell>{com.email}</TableCell>
-                        <TableCell className="text-right font-bold text-orange-600">
+                        <TableCell className="text-right">
                           {formatCurrency(com.montoTotal)}
                         </TableCell>
                         <TableCell className="text-right text-green-600">
                           {formatCurrency(com.montoPagado)}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-orange-600">
+                          {formatCurrency(com.montoPendiente)}
                         </TableCell>
                         <TableCell>
                           {com.cuentas.length > 0 && (
@@ -215,7 +268,7 @@ export default function ComisionesPorPagarTab({
                       </TableRow>
                       {expandedItems.has(com.email) && (
                         <TableRow>
-                          <TableCell colSpan={6} className="bg-muted/30 p-0">
+                          <TableCell colSpan={7} className="bg-muted/30 p-0">
                             <div className="p-4">
                               <Table>
                                 <TableHeader>
@@ -334,8 +387,9 @@ export default function ComisionesPorPagarTab({
                     <TableHead>Modelo</TableHead>
                     <TableHead>Depto</TableHead>
                     <TableHead className="text-right">Precio Final</TableHead>
+                    <TableHead className="text-right">Monto por Pagar</TableHead>
+                    <TableHead className="text-right">Monto Pagado</TableHead>
                     <TableHead className="text-right">Monto Pendiente</TableHead>
-                    <TableHead className="text-right">Ya Pagado</TableHead>
                     <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -363,11 +417,14 @@ export default function ComisionesPorPagarTab({
                         <TableCell className="text-right">
                           {formatCurrency(cuenta.precioFinal)}
                         </TableCell>
-                        <TableCell className="text-right font-bold text-orange-600">
-                          {formatCurrency(cuenta.montoTotalComision)}
+                        <TableCell className="text-right">
+                          {formatCurrency(cuenta.montoTotal)}
                         </TableCell>
                         <TableCell className="text-right text-green-600">
                           {formatCurrency(cuenta.montoPagado)}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-orange-600">
+                          {formatCurrency(cuenta.montoPendiente)}
                         </TableCell>
                         <TableCell>
                           {cuenta.comisionistas.length > 0 && (
@@ -387,7 +444,7 @@ export default function ComisionesPorPagarTab({
                       </TableRow>
                       {expandedItems.has(`cuenta-${cuenta.idCuenta}`) && (
                         <TableRow>
-                          <TableCell colSpan={11} className="bg-muted/30 p-0">
+                          <TableCell colSpan={12} className="bg-muted/30 p-0">
                             <div className="p-4">
                               <Table>
                                 <TableHeader>
