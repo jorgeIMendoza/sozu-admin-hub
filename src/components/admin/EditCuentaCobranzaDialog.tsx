@@ -2044,8 +2044,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
     const difference = newPrecio - cuentaDetalle.precio_final;
     
-    if (Math.abs(difference) < 0.01) {
-      // No change
+    // Use a small epsilon to handle floating point precision issues
+    // This allows changes as small as 0.01 (1 cent)
+    if (Math.abs(difference) < 0.001) {
+      // No change (essentially zero difference accounting for floating point)
       setIsEditingPrecioFinal(false);
       setEditingPrecioFinal('');
       return;
