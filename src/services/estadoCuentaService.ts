@@ -751,6 +751,9 @@ export class EstadoCuentaService {
         
         const rowHeight = Math.max(6, descLines.length * 4 + 2);
         checkNewPage(rowHeight + 2);
+        
+        // Calculate vertical center for single-line elements
+        const verticalCenter = y + (descLines.length > 1 ? (descLines.length - 1) * 2 : 0);
 
         // Alternating row background
         if (multaIndex % 2 === 0) {
@@ -762,7 +765,7 @@ export class EstadoCuentaService {
         pdf.setTextColor("#333333");
 
         // #
-        pdf.text(String(multaIndex + 1), colX + multasCols[0].width / 2, y, { align: "center" });
+        pdf.text(String(multaIndex + 1), colX + multasCols[0].width / 2, verticalCenter, { align: "center" });
         colX += multasCols[0].width;
 
         // Descripción - multiple lines
@@ -773,15 +776,15 @@ export class EstadoCuentaService {
         }
         colX += multasCols[1].width;
 
-        // Monto
-        pdf.text(formatMoneyAllowNegative(multa.monto), colX + multasCols[2].width - 1, y, { align: "right" });
+        // Monto - centered vertically
+        pdf.text(formatMoneyAllowNegative(multa.monto), colX + multasCols[2].width - 1, verticalCenter, { align: "right" });
         colX += multasCols[2].width;
 
-        // Pagado
-        pdf.text(formatMoneyAllowNegative(pagadoMulta), colX + multasCols[3].width - 1, y, { align: "right" });
+        // Pagado - centered vertically
+        pdf.text(formatMoneyAllowNegative(pagadoMulta), colX + multasCols[3].width - 1, verticalCenter, { align: "right" });
         colX += multasCols[3].width;
 
-        // Estado badge
+        // Estado badge - centered vertically
         const statusText = isPaid ? "Pagada" : "Pendiente";
         const badgeWidth = 18;
         const badgeX = colX + (multasCols[4].width - badgeWidth) / 2;
@@ -793,9 +796,9 @@ export class EstadoCuentaService {
           pdf.setFillColor("#fee2e2");
           pdf.setTextColor("#991b1b");
         }
-        pdf.rect(badgeX, y - 3, badgeWidth, 5, "F");
+        pdf.rect(badgeX, verticalCenter - 3, badgeWidth, 5, "F");
         pdf.setFontSize(6);
-        pdf.text(statusText, badgeX + badgeWidth / 2, y, { align: "center" });
+        pdf.text(statusText, badgeX + badgeWidth / 2, verticalCenter, { align: "center" });
         pdf.setFontSize(8);
 
         y += rowHeight;
