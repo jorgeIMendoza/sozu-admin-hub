@@ -763,7 +763,7 @@ export class EstadoCuentaService {
           pdf.setFillColor("#fee2e2");
           pdf.setTextColor("#991b1b");
         }
-        pdf.roundedRect(badgeX, y - 3, badgeWidth, 5, 1, 1, "F");
+        pdf.rect(badgeX, y - 3, badgeWidth, 5, "F");
         pdf.setFontSize(6);
         pdf.text(statusText, badgeX + badgeWidth / 2, y, { align: "center" });
         pdf.setFontSize(8);
