@@ -1226,6 +1226,7 @@ export default function DetalleCuentaCobranza() {
           monto,
           id_pago,
           id_acuerdo_pago,
+          es_multa,
           acuerdos_pago!aplicaciones_pago_id_acuerdo_pago_fkey(
             fecha_pago,
             orden,
@@ -4017,6 +4018,23 @@ export default function DetalleCuentaCobranza() {
                             <div>
                               <p className="text-xs text-muted-foreground">Monto Total</p>
                               <p className="text-lg font-bold">{formatCurrency(pagos.reduce((sum, p) => sum + (p.monto || 0), 0))}</p>
+                              {/* Desglose Propiedad vs Multas */}
+                              {aplicacionesPorPago && aplicacionesPorPago.length > 0 && (() => {
+                                const montoPropiedad = aplicacionesPorPago
+                                  .filter(a => !a.es_multa)
+                                  .reduce((sum, a) => sum + (a.monto || 0), 0);
+                                const montoMultas = aplicacionesPorPago
+                                  .filter(a => a.es_multa)
+                                  .reduce((sum, a) => sum + (a.monto || 0), 0);
+                                return (
+                                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                    <p>Propiedad: {formatCurrency(montoPropiedad)}</p>
+                                    {montoMultas > 0 && (
+                                      <p className="text-warning">Multas: {formatCurrency(montoMultas)}</p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         </CardContent>
@@ -4243,21 +4261,26 @@ export default function DetalleCuentaCobranza() {
                                           const concepto = aplicacion.acuerdos_pago?.conceptos_pago?.nombre || 'Sin concepto';
                                           const acuerdoId = aplicacion.id_acuerdo_pago;
                                           const parcialidadNumber = acuerdoId ? parcialidadMap[acuerdoId] : null;
-                                          const conceptoDisplay = concepto.toLowerCase() === 'parcialidad' && parcialidadNumber 
-                                            ? `Parcialidad ${parcialidadNumber}` 
-                                            : concepto;
+                                          const esMulta = aplicacion.es_multa;
+                                          const conceptoDisplay = esMulta 
+                                            ? 'Multa' 
+                                            : (concepto.toLowerCase() === 'parcialidad' && parcialidadNumber 
+                                              ? `Parcialidad ${parcialidadNumber}` 
+                                              : concepto);
                                           
                                           return (
-                                            <TableRow key={aplicacion.id}>
+                                            <TableRow key={aplicacion.id} className={esMulta ? 'bg-warning/10' : ''}>
                                               <TableCell className="text-xs">
-                                                {conceptoDisplay}
+                                                <span className={esMulta ? 'text-warning font-medium' : ''}>
+                                                  {conceptoDisplay}
+                                                </span>
                                               </TableCell>
                                               <TableCell className="text-xs">
                                                 {aplicacion.acuerdos_pago?.fecha_pago 
                                                   ? formatDate(aplicacion.acuerdos_pago.fecha_pago)
                                                   : 'Sin fecha'}
                                               </TableCell>
-                                              <TableCell className="font-medium text-xs">
+                                              <TableCell className={`font-medium text-xs ${esMulta ? 'text-warning' : ''}`}>
                                                 {formatCurrency(aplicacion.monto)}
                                               </TableCell>
                                             </TableRow>
