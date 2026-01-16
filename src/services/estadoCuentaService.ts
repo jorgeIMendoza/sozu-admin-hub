@@ -684,14 +684,14 @@ export class EstadoCuentaService {
       drawLine(y);
       y += 8;
 
-      // Table header - total width must equal contentWidth (173mm for A4 with 10mm margins each side)
-      // contentWidth = pageWidth - 2*margin = 210 - 20 = 190, but we use 173 based on cols
+      // Table header - total width must fit contentWidth
       const multasCols = [
         { title: "#", width: 8, align: "center" as const },
-        { title: "Descripción", width: 75, align: "left" as const },
-        { title: "Monto", width: 28, align: "right" as const },
-        { title: "Pagado", width: 28, align: "right" as const },
-        { title: "Estado", width: 26, align: "center" as const },
+        { title: "Descripción", width: 60, align: "left" as const },
+        { title: "Monto", width: 26, align: "right" as const },
+        { title: "Pagado", width: 26, align: "right" as const },
+        { title: "Pendiente", width: 26, align: "right" as const },
+        { title: "Estado", width: 22, align: "center" as const },
       ];
 
       colX = margin;
@@ -723,19 +723,25 @@ export class EstadoCuentaService {
 
       let multaIndex = 0;
       for (const multa of data.multas) {
-        // Calculate pagado for this multa
-        const pagadoMulta = data.pagos.reduce((sum: number, pago: any) => {
-          const aplicacionesMulta = (pago.aplicaciones_pago || []).filter(
-            (ap: any) => ap.es_multa && ap.id_acuerdo_pago === multa.id
-          );
-          return sum + aplicacionesMulta.reduce((s: number, ap: any) => s + (ap.monto || 0), 0);
-        }, 0);
+        // Calculate pagado for this multa - if es_pagada is true, full amount was paid
+        let pagadoMulta = 0;
+        if (multa.es_pagada) {
+          pagadoMulta = multa.monto;
+        } else {
+          pagadoMulta = data.pagos.reduce((sum: number, pago: any) => {
+            const aplicacionesMulta = (pago.aplicaciones_pago || []).filter(
+              (ap: any) => ap.es_multa && ap.id_acuerdo_pago === multa.id
+            );
+            return sum + aplicacionesMulta.reduce((s: number, ap: any) => s + (ap.monto || 0), 0);
+          }, 0);
+        }
 
         const isPaid = multa.es_pagada || pagadoMulta >= multa.monto;
+        const pendienteMulta = Math.max(0, multa.monto - pagadoMulta);
         
         // Split description into multiple lines if needed
         const descripcionText = multa.descripcion || "Multa";
-        const maxCharsPerLine = 50;
+        const maxCharsPerLine = 40;
         const descLines: string[] = [];
         let remaining = descripcionText;
         while (remaining.length > 0) {
@@ -785,10 +791,14 @@ export class EstadoCuentaService {
         pdf.text(formatMoneyAllowNegative(pagadoMulta), colX + multasCols[3].width - 1, verticalCenter, { align: "right" });
         colX += multasCols[3].width;
 
+        // Pendiente - centered vertically
+        pdf.text(formatMoneyAllowNegative(pendienteMulta), colX + multasCols[4].width - 1, verticalCenter, { align: "right" });
+        colX += multasCols[4].width;
+
         // Estado badge - centered vertically
         const statusText = isPaid ? "Pagada" : "Pendiente";
         const badgeWidth = 18;
-        const badgeX = colX + (multasCols[4].width - badgeWidth) / 2;
+        const badgeX = colX + (multasCols[5].width - badgeWidth) / 2;
         
         if (isPaid) {
           pdf.setFillColor("#dcfce7");
