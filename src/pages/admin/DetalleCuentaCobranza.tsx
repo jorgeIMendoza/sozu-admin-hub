@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload, Scale, Gavel, X, Save } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload, Scale, Gavel, X, Save, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -137,6 +137,7 @@ interface Multa {
   estaPagada?: boolean;
   descripcion: string;
   fecha_creacion: string;
+  id_acuerdo_pago: number;
   detallesPagos?: {
     id: number;
     monto: number;
@@ -1107,7 +1108,12 @@ export default function DetalleCuentaCobranza() {
           }
           
           return {
-            ...multa,
+            id: multa.id,
+            monto: multa.monto,
+            montoOriginal: multa.monto,
+            descripcion: multa.descripcion,
+            fecha_creacion: multa.fecha_creacion,
+            id_acuerdo_pago: multa.id_acuerdo_pago,
             pagosAplicados,
             saldoPendiente: multa.monto - pagosAplicados,
             estaPagada: pagosAplicados >= multa.monto,
@@ -1157,6 +1163,7 @@ export default function DetalleCuentaCobranza() {
             estaPagada: m.estaPagada,
             descripcion: m.descripcion,
             fecha_creacion: m.fecha_creacion,
+            id_acuerdo_pago: m.id_acuerdo_pago,
             detallesPagos: m.detallesPagos
           }))
         };
@@ -4262,6 +4269,14 @@ export default function DetalleCuentaCobranza() {
                                           const acuerdoId = aplicacion.id_acuerdo_pago;
                                           const parcialidadNumber = acuerdoId ? parcialidadMap[acuerdoId] : null;
                                           const esMulta = aplicacion.es_multa;
+                                          
+                                          // Find multa description if es_multa is true
+                                          const multaInfo = esMulta && acuerdosPago 
+                                            ? acuerdosPago
+                                                .flatMap(a => a.multas || [])
+                                                .find(m => m.id_acuerdo_pago === acuerdoId)
+                                            : null;
+                                          
                                           const conceptoDisplay = esMulta 
                                             ? 'Multa' 
                                             : (concepto.toLowerCase() === 'parcialidad' && parcialidadNumber 
@@ -4271,9 +4286,40 @@ export default function DetalleCuentaCobranza() {
                                           return (
                                             <TableRow key={aplicacion.id} className={esMulta ? 'bg-warning/10' : ''}>
                                               <TableCell className="text-xs">
-                                                <span className={esMulta ? 'text-warning font-medium' : ''}>
-                                                  {conceptoDisplay}
-                                                </span>
+                                                {esMulta ? (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <span className="text-warning font-medium cursor-pointer hover:underline flex items-center gap-1">
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        {conceptoDisplay}
+                                                        <Info className="h-3 w-3 opacity-60" />
+                                                      </span>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-80">
+                                                      <div className="space-y-2">
+                                                        <h4 className="font-medium text-sm flex items-center gap-2">
+                                                          <AlertTriangle className="h-4 w-4 text-warning" />
+                                                          Detalle de Multa
+                                                        </h4>
+                                                        <div className="text-sm">
+                                                          <p className="font-medium">Monto: {formatCurrency(aplicacion.monto)}</p>
+                                                          {multaInfo && (
+                                                            <>
+                                                              <p className="text-muted-foreground mt-2">
+                                                                <span className="font-medium">Descripción:</span>
+                                                              </p>
+                                                              <p className="text-sm mt-1 whitespace-pre-wrap">
+                                                                {multaInfo.descripcion || 'Sin descripción'}
+                                                              </p>
+                                                            </>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                ) : (
+                                                  <span>{conceptoDisplay}</span>
+                                                )}
                                               </TableCell>
                                               <TableCell className="text-xs">
                                                 {aplicacion.acuerdos_pago?.fecha_pago 

@@ -311,21 +311,34 @@ export class EstadoCuentaService {
     pdf.text(cuentaId, pageWidth - margin, y + 8, { align: "right" });
 
     // Client name
+    let rightHeaderY = 14;
     if (data.compradores.length > 0) {
       const clientName = data.compradores
         .map((c: any) => c.personas.nombre_legal)
         .join(", ");
       pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      pdf.text(clientName, pageWidth - margin, y + 14, { align: "right" });
+      pdf.text(clientName, pageWidth - margin, y + rightHeaderY, { align: "right" });
+      rightHeaderY += 5;
 
       const clientId = data.compradores[0].personas.rfc || data.compradores[0].personas.curp || "";
       pdf.setFontSize(8);
       pdf.setTextColor(lightGray);
-      pdf.text(clientId, pageWidth - margin, y + 19, { align: "right" });
+      pdf.text(clientId, pageWidth - margin, y + rightHeaderY, { align: "right" });
+      rightHeaderY += 5;
     }
 
-    y += 25;
+    // STP Account (CLABE)
+    if (data.cuenta.clabe_stp) {
+      pdf.setFontSize(7);
+      pdf.setTextColor(lightGray);
+      pdf.text("CLABE STP:", pageWidth - margin - 35, y + rightHeaderY, { align: "right" });
+      pdf.setTextColor(primaryColor);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(data.cuenta.clabe_stp, pageWidth - margin, y + rightHeaderY, { align: "right" });
+    }
+
+    y += 28;
     drawLine(y, primaryColor);
     y += 8;
 
