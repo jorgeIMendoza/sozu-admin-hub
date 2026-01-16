@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { usePagePermissions } from '@/hooks/usePagePermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -187,6 +188,7 @@ interface EditCuentaCobranzaDialogProps {
 export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuentaCobranzaDialogProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { canUpdate: canUpdateCuenta, isSuperAdmin } = usePagePermissions('/admin/detalle-cuenta-cobranza');
   const [activeTab, setActiveTab] = useState('propiedad');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
@@ -232,6 +234,19 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [porcentajeComisionista, setPorcentajeComisionista] = useState<string>('');
   const [esComisionEfectivo, setEsComisionEfectivo] = useState<boolean>(false);
   const [showComisionEfectivoDialog, setShowComisionEfectivoDialog] = useState(false);
+
+  // Estados para edición del precio final
+  const [isEditingPrecioFinal, setIsEditingPrecioFinal] = useState(false);
+  const [editingPrecioFinal, setEditingPrecioFinal] = useState<string>('');
+  const [showPrecioFinalConfirmDialog, setShowPrecioFinalConfirmDialog] = useState(false);
+  const [pendingPrecioFinalChange, setPendingPrecioFinalChange] = useState<{
+    newPrecio: number;
+    difference: number;
+    lastAcuerdoId: number;
+    lastAcuerdoMonto: number;
+    lastAcuerdoPendiente: number;
+    lastAcuerdoConcepto: string;
+  } | null>(null);
 
   const handleNavigateToCompradores = (rfc?: string) => {
     if (rfc) {
@@ -851,6 +866,33 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     Math.abs(selectedPaymentScheme.porcentaje_entrega - currentPaymentPlan.porcentaje_entrega) > 0.01 ||
     selectedPaymentScheme.numero_mensualidades !== currentPaymentPlan.numero_mensualidades
   ) : false;
+
+  // Calculate if cuenta has pending payments and get last pending acuerdo
+  const hasPendingPayments = useMemo(() => {
+    return acuerdos?.some(a => !a.pago_completado) || false;
+  }, [acuerdos]);
+
+  // Get the last acuerdo (pago a contra entrega or the last one by orden)
+  const lastAcuerdo = useMemo(() => {
+    if (!acuerdos || acuerdos.length === 0) return null;
+    
+    // First, try to find "Pago a contra entrega" that is not fully paid
+    const contraEntrega = acuerdos.find(a => 
+      a.concepto_nombre?.toLowerCase() === 'pago a contra entrega' && !a.pago_completado
+    );
+    if (contraEntrega) return contraEntrega;
+    
+    // Otherwise, get the last pending acuerdo by orden
+    const pendingAcuerdos = acuerdos.filter(a => !a.pago_completado);
+    if (pendingAcuerdos.length > 0) {
+      return pendingAcuerdos.reduce((max, a) => a.orden > max.orden ? a : max, pendingAcuerdos[0]);
+    }
+    
+    return null;
+  }, [acuerdos]);
+
+  // Check if user can edit precio final
+  const canEditPrecioFinal = (canUpdateCuenta || isSuperAdmin) && hasPendingPayments && !isReadOnly;
 
   // Get payment schemes
   const { data: esquemasPago } = useQuery({
@@ -1939,6 +1981,101 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       toast.error("Error al actualizar los datos de escritura");
     }
   });
+
+  // Mutation to update precio final
+  const updatePrecioFinalMutation = useMutation({
+    mutationFn: async ({ newPrecio, lastAcuerdoId, difference }: { newPrecio: number; lastAcuerdoId: number; difference: number }) => {
+      // First update the precio_final in cuentas_cobranza
+      const { error: updateCuentaError } = await supabase
+        .from('cuentas_cobranza')
+        .update({ precio_final: newPrecio })
+        .eq('id', cuenta.id);
+      
+      if (updateCuentaError) throw updateCuentaError;
+
+      // Then update the last acuerdo's monto
+      const { data: lastAcuerdoData, error: getAcuerdoError } = await supabase
+        .from('acuerdos_pago')
+        .select('monto')
+        .eq('id', lastAcuerdoId)
+        .single();
+      
+      if (getAcuerdoError) throw getAcuerdoError;
+
+      const newMonto = (lastAcuerdoData?.monto || 0) + difference;
+      
+      const { error: updateAcuerdoError } = await supabase
+        .from('acuerdos_pago')
+        .update({ monto: newMonto })
+        .eq('id', lastAcuerdoId);
+      
+      if (updateAcuerdoError) throw updateAcuerdoError;
+
+      return { newPrecio, newMonto };
+    },
+    onSuccess: () => {
+      toast.success("Precio final actualizado exitosamente");
+      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuenta.id] });
+      queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuenta.id] });
+      setShowPrecioFinalConfirmDialog(false);
+      setPendingPrecioFinalChange(null);
+      setIsEditingPrecioFinal(false);
+      setEditingPrecioFinal('');
+      onUpdate();
+    },
+    onError: (error) => {
+      console.error("Error updating precio final:", error);
+      toast.error("Error al actualizar el precio final");
+    }
+  });
+
+  // Handler for precio final edit
+  const handlePrecioFinalEdit = () => {
+    if (!cuentaDetalle?.precio_final || !lastAcuerdo) {
+      toast.error("No se puede editar el precio final: no hay datos suficientes");
+      return;
+    }
+
+    const newPrecio = parseFloat(editingPrecioFinal);
+    if (isNaN(newPrecio) || newPrecio <= 0) {
+      toast.error("Por favor ingrese un precio válido");
+      return;
+    }
+
+    const difference = newPrecio - cuentaDetalle.precio_final;
+    
+    if (Math.abs(difference) < 0.01) {
+      // No change
+      setIsEditingPrecioFinal(false);
+      setEditingPrecioFinal('');
+      return;
+    }
+
+    // Calculate the pending amount in the last acuerdo
+    const lastAcuerdoPendiente = lastAcuerdo.monto - (lastAcuerdo.monto_pagado || 0);
+
+    // If decreasing
+    if (difference < 0) {
+      const decreaseAmount = Math.abs(difference);
+      
+      // Cannot decrease more than what's pending in the last acuerdo
+      if (decreaseAmount > lastAcuerdoPendiente) {
+        toast.error(`No se puede disminuir más de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(lastAcuerdoPendiente)} (monto pendiente del último pago)`);
+        return;
+      }
+    }
+
+    // Show confirmation dialog
+    setPendingPrecioFinalChange({
+      newPrecio,
+      difference,
+      lastAcuerdoId: lastAcuerdo.id,
+      lastAcuerdoMonto: lastAcuerdo.monto,
+      lastAcuerdoPendiente,
+      lastAcuerdoConcepto: lastAcuerdo.concepto_nombre || 'Último pago'
+    });
+    setShowPrecioFinalConfirmDialog(true);
+  };
 
   // Mutation to delete payment agreement
   const deleteAcuerdoMutation = useMutation({
@@ -3775,13 +3912,68 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               <div>
                                 <h4 className="font-medium text-foreground mb-1">Precio Final</h4>
                                 <div className="flex items-center gap-2">
-                                  <p className="text-sm font-semibold text-foreground">
-                                    {cuentaDetalle?.precio_final ? 
-                                      new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.precio_final) : 
-                                      'No definido'
-                                    }
-                                  </p>
-                                  {esComisionEfectivo && porcentajeComision > 0 && (() => {
+                                  {isEditingPrecioFinal ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-muted-foreground">$</span>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={editingPrecioFinal}
+                                        onChange={(e) => setEditingPrecioFinal(e.target.value)}
+                                        className="w-40 h-8"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handlePrecioFinalEdit();
+                                          if (e.key === 'Escape') {
+                                            setIsEditingPrecioFinal(false);
+                                            setEditingPrecioFinal('');
+                                          }
+                                        }}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-8"
+                                        onClick={handlePrecioFinalEdit}
+                                      >
+                                        Guardar
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8"
+                                        onClick={() => {
+                                          setIsEditingPrecioFinal(false);
+                                          setEditingPrecioFinal('');
+                                        }}
+                                      >
+                                        Cancelar
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {cuentaDetalle?.precio_final ? 
+                                          new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.precio_final) : 
+                                          'No definido'
+                                        }
+                                      </p>
+                                      {canEditPrecioFinal && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0"
+                                          onClick={() => {
+                                            setEditingPrecioFinal(cuentaDetalle?.precio_final?.toString() || '');
+                                            setIsEditingPrecioFinal(true);
+                                          }}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                    </>
+                                  )}
+                                  {!isEditingPrecioFinal && esComisionEfectivo && porcentajeComision > 0 && (() => {
                                     // Calcular precio antes de comisión usando fórmula inversa
                                     const precioAntesComision = cuentaDetalle?.precio_final 
                                       ? cuentaDetalle.precio_final / (1 - porcentajeComision / 100) 
@@ -3933,12 +4125,69 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               </div>
                               <div>
                                 <h4 className="font-medium text-foreground mb-1">Precio Final</h4>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {cuentaDetalle?.precio_final ? 
-                                    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.precio_final) : 
-                                    'No definido'
-                                  }
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  {isEditingPrecioFinal ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-muted-foreground">$</span>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={editingPrecioFinal}
+                                        onChange={(e) => setEditingPrecioFinal(e.target.value)}
+                                        className="w-40 h-8"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handlePrecioFinalEdit();
+                                          if (e.key === 'Escape') {
+                                            setIsEditingPrecioFinal(false);
+                                            setEditingPrecioFinal('');
+                                          }
+                                        }}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-8"
+                                        onClick={handlePrecioFinalEdit}
+                                      >
+                                        Guardar
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8"
+                                        onClick={() => {
+                                          setIsEditingPrecioFinal(false);
+                                          setEditingPrecioFinal('');
+                                        }}
+                                      >
+                                        Cancelar
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {cuentaDetalle?.precio_final ? 
+                                          new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cuentaDetalle.precio_final) : 
+                                          'No definido'
+                                        }
+                                      </p>
+                                      {canEditPrecioFinal && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0"
+                                          onClick={() => {
+                                            setEditingPrecioFinal(cuentaDetalle?.precio_final?.toString() || '');
+                                            setIsEditingPrecioFinal(true);
+                                          }}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               </div>
                               {(() => {
                                 const precioLista = tipoCuenta === 'Propiedad' 
@@ -4972,6 +5221,59 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {deleteAcuerdoMutation.isPending ? "Eliminando..." : "Eliminar pago"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Precio Final Confirmation Dialog */}
+        <AlertDialog open={showPrecioFinalConfirmDialog} onOpenChange={setShowPrecioFinalConfirmDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar actualización del precio final</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    {pendingPrecioFinalChange?.difference && pendingPrecioFinalChange.difference > 0 
+                      ? `Estás aumentando el precio final en ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pendingPrecioFinalChange.difference)}.`
+                      : `Estás disminuyendo el precio final en ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Math.abs(pendingPrecioFinalChange?.difference || 0))}.`
+                    }
+                  </p>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="font-medium">Se actualizará el pago "{pendingPrecioFinalChange?.lastAcuerdoConcepto}":</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Monto actual: {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pendingPrecioFinalChange?.lastAcuerdoMonto || 0)}
+                    </p>
+                    <p className="text-sm font-semibold mt-1">
+                      Nuevo monto: {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format((pendingPrecioFinalChange?.lastAcuerdoMonto || 0) + (pendingPrecioFinalChange?.difference || 0))}
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    ¿Deseas continuar con esta actualización?
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setShowPrecioFinalConfirmDialog(false);
+                setPendingPrecioFinalChange(null);
+              }}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  if (pendingPrecioFinalChange) {
+                    updatePrecioFinalMutation.mutate({
+                      newPrecio: pendingPrecioFinalChange.newPrecio,
+                      lastAcuerdoId: pendingPrecioFinalChange.lastAcuerdoId,
+                      difference: pendingPrecioFinalChange.difference
+                    });
+                  }
+                }}
+                disabled={updatePrecioFinalMutation.isPending}
+              >
+                {updatePrecioFinalMutation.isPending ? "Actualizando..." : "Confirmar"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
