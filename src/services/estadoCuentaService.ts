@@ -722,8 +722,6 @@ export class EstadoCuentaService {
 
       let multaIndex = 0;
       for (const multa of data.multas) {
-        checkNewPage(8);
-
         // Calculate pagado for this multa
         const pagadoMulta = data.pagos.reduce((sum: number, pago: any) => {
           const aplicacionesMulta = (pago.aplicaciones_pago || []).filter(
@@ -733,11 +731,31 @@ export class EstadoCuentaService {
         }, 0);
 
         const isPaid = multa.es_pagada || pagadoMulta >= multa.monto;
+        
+        // Split description into multiple lines if needed
+        const descripcionText = multa.descripcion || "Multa";
+        const maxCharsPerLine = 60;
+        const descLines: string[] = [];
+        let remaining = descripcionText;
+        while (remaining.length > 0) {
+          if (remaining.length <= maxCharsPerLine) {
+            descLines.push(remaining);
+            break;
+          }
+          // Find last space before maxCharsPerLine
+          let splitPos = remaining.lastIndexOf(' ', maxCharsPerLine);
+          if (splitPos === -1) splitPos = maxCharsPerLine;
+          descLines.push(remaining.substring(0, splitPos));
+          remaining = remaining.substring(splitPos).trim();
+        }
+        
+        const rowHeight = Math.max(6, descLines.length * 4 + 2);
+        checkNewPage(rowHeight + 2);
 
         // Alternating row background
         if (multaIndex % 2 === 0) {
           pdf.setFillColor("#fffbeb");
-          pdf.rect(margin, y - 3, contentWidth, 6, "F");
+          pdf.rect(margin, y - 3, contentWidth, rowHeight, "F");
         }
 
         colX = margin;
@@ -747,8 +765,12 @@ export class EstadoCuentaService {
         pdf.text(String(multaIndex + 1), colX + multasCols[0].width / 2, y, { align: "center" });
         colX += multasCols[0].width;
 
-        // Descripción - allow longer text
-        pdf.text((multa.descripcion || "Multa").substring(0, 70), colX + 1, y);
+        // Descripción - multiple lines
+        let descY = y;
+        for (const line of descLines) {
+          pdf.text(line, colX + 1, descY);
+          descY += 4;
+        }
         colX += multasCols[1].width;
 
         // Monto
@@ -776,7 +798,7 @@ export class EstadoCuentaService {
         pdf.text(statusText, badgeX + badgeWidth / 2, y, { align: "center" });
         pdf.setFontSize(8);
 
-        y += 6;
+        y += rowHeight;
         multaIndex++;
       }
 
