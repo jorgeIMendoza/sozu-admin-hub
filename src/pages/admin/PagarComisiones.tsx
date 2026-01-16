@@ -1,20 +1,17 @@
-import { useState, useMemo } from "react";
-import { format, parseISO } from "date-fns";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, ChevronRight, Upload, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import ComisionesPorPagarTab from "@/components/admin/ComisionesPorPagarTab";
+import ComisionesPagadasTab from "@/components/admin/ComisionesPagadasTab";
 
 // Helper para obtener todos los registros de comisionistas sin límite de 1000
 async function fetchAllComisionistas() {
@@ -87,30 +84,15 @@ export default function PagarComisiones() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filtroGeneral, setFiltroGeneral] = useState("");
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
   const [selectedComisionista, setSelectedComisionista] = useState<{ email: string; idCuenta: number } | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pagarTodas, setPagarTodas] = useState<{ type: 'comisionista' | 'cuenta', data: any } | null>(null);
-  const [currentPageComisionistas, setCurrentPageComisionistas] = useState(1);
-  const [currentPageCuentas, setCurrentPageCuentas] = useState(1);
-  const itemsPerPage = 50;
-
-  const toggleItem = (itemId: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(itemId)) {
-      newExpanded.delete(itemId);
-    } else {
-      newExpanded.add(itemId);
-    }
-    setExpandedItems(newExpanded);
-  };
 
   const pagarComisionMutation = useMutation({
     mutationFn: async ({ email, idCuenta, file }: { email: string; idCuenta: number; file?: File }) => {
       let publicUrl: string | null = null;
       
-      // Subir archivo a storage solo si se proporcionó
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${email}_${idCuenta}_${Date.now()}.${fileExt}`;
@@ -122,14 +104,12 @@ export default function PagarComisiones() {
 
         if (uploadError) throw uploadError;
 
-        // Obtener URL pública
         const { data } = supabase.storage
           .from('documentos')
           .getPublicUrl(filePath);
         publicUrl = data.publicUrl;
       }
 
-      // Actualizar comisionista
       const updatePayload: { pagada: boolean; url_evidencia_pago?: string } = { 
         pagada: true
       };
@@ -178,7 +158,6 @@ export default function PagarComisiones() {
     mutationFn: async ({ cuentas, file }: { cuentas: Array<{ email: string; idCuenta: number }>, file?: File }) => {
       let publicUrl: string | null = null;
       
-      // Subir archivo a storage solo si se proporcionó
       if (file) {
         const fileExt = file.name.split('.').pop();
         const fileName = `pago_multiple_${Date.now()}.${fileExt}`;
@@ -190,14 +169,12 @@ export default function PagarComisiones() {
 
         if (uploadError) throw uploadError;
 
-        // Obtener URL pública
         const { data } = supabase.storage
           .from('documentos')
           .getPublicUrl(filePath);
         publicUrl = data.publicUrl;
       }
 
-      // Actualizar todas las comisiones
       const resultados = [];
       for (const cuenta of cuentas) {
         const updatePayload: { pagada: boolean; url_evidencia_pago?: string } = { 
@@ -251,20 +228,18 @@ export default function PagarComisiones() {
     }
   });
 
+  // Query para comisionistas agrupados - SIN filtro de fecha
   const { data: comisionistasAgrupados, isLoading: loadingComisionistas } = useQuery({
     queryKey: ["pagar-comisiones", "por-comisionista"],
     queryFn: async () => {
-      // Usar helper para obtener TODOS los registros sin límite de 1000
       const comisionistas = await fetchAllComisionistas();
 
-      // Obtener nombres de usuarios usando función RPC para evitar problemas de RLS
       const emails = [...new Set(comisionistas.map((c: any) => c.email_usuario))];
       const { data: usuarios } = await supabase
         .rpc('get_usuarios_by_emails', { _emails: emails });
 
       const usuariosMap = new Map(usuarios?.map((u: { email: string; nombre: string }) => [u.email, u.nombre]) || []);
 
-      // Agrupar por comisionista
       const grouped = comisionistas.reduce((acc: any, com: any) => {
         if (!acc[com.email_usuario]) {
           acc[com.email_usuario] = {
@@ -281,41 +256,12 @@ export default function PagarComisiones() {
         const producto = oferta?.productos_servicios;
         const montoComision = (cuenta.precio_final * com.porcentaje_comision) / 100;
         
-        // Buscar la fecha de pago del enganche desde la tabla pagos
+        // Obtener fecha de pago del enganche
         const engancheAcuerdo = cuenta.acuerdos_pago?.find((ap: any) => 
           ap.pago_completado && ap.conceptos_pago?.nombre?.toLowerCase() === 'enganche'
         );
         const aplicacionActiva = engancheAcuerdo?.aplicaciones_pago?.find((app: any) => app.activo);
         const fechaPagoEnganche = aplicacionActiva?.pagos?.fecha_pago || null;
-
-        // Filtrar por mes según la fecha actual
-        const today = new Date();
-        const currentDay = today.getDate();
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
-        
-        if (fechaPagoEnganche) {
-          const fechaEnganche = parseISO(fechaPagoEnganche);
-          const engancheMonth = fechaEnganche.getMonth();
-          const engancheYear = fechaEnganche.getFullYear();
-          
-          if (currentDay <= 15) {
-            // Del 1 al 15: mostrar solo del mes anterior
-            const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-            const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-            if (engancheMonth !== prevMonth || engancheYear !== prevYear) {
-              return acc;
-            }
-          } else {
-            // Del 16 al último día: mostrar solo del mes actual
-            if (engancheMonth !== currentMonth || engancheYear !== currentYear) {
-              return acc;
-            }
-          }
-        } else {
-          // Si no tiene fecha de pago de enganche, no mostrar
-          return acc;
-        }
 
         acc[com.email_usuario].montoTotal += montoComision;
         acc[com.email_usuario].cuentas.push({
@@ -341,20 +287,18 @@ export default function PagarComisiones() {
     }
   });
 
+  // Query para cuentas agrupadas - SIN filtro de fecha
   const { data: cuentasAgrupadas, isLoading: loadingCuentas } = useQuery({
     queryKey: ["pagar-comisiones", "por-cuenta"],
     queryFn: async () => {
-      // Usar helper para obtener TODOS los registros sin límite de 1000
       const comisionistas = await fetchAllComisionistas();
 
-      // Obtener nombres de usuarios usando función RPC para evitar problemas de RLS
       const emails = [...new Set(comisionistas.map((c: any) => c.email_usuario))];
       const { data: usuarios } = await supabase
         .rpc('get_usuarios_by_emails', { _emails: emails });
 
       const usuariosMap = new Map(usuarios?.map(u => [u.email, u.nombre]) || []);
 
-      // Agrupar por cuenta
       const grouped = comisionistas.reduce((acc: any, com: any) => {
         const cuentaId = com.id_cuenta_cobranza;
         if (!acc[cuentaId]) {
@@ -407,7 +351,6 @@ export default function PagarComisiones() {
 
   const handlePagar = () => {
     if (pagarTodas) {
-      // Pagar todas las comisiones
       const cuentas = pagarTodas.type === 'comisionista'
         ? pagarTodas.data.cuentas
             .filter((c: any) => !c.pagada)
@@ -418,7 +361,6 @@ export default function PagarComisiones() {
 
       pagarTodasMutation.mutate({ cuentas, file: evidenciaFile || undefined });
     } else if (selectedComisionista) {
-      // Pagar una sola comisión
       pagarComisionMutation.mutate({
         email: selectedComisionista.email,
         idCuenta: selectedComisionista.idCuenta,
@@ -455,90 +397,10 @@ export default function PagarComisiones() {
     return formatCurrency(value);
   };
 
-  const comisionistasFiltrados = comisionistasAgrupados?.filter((com: any) =>
-    com.email.toLowerCase().includes(filtroGeneral.toLowerCase()) ||
-    com.nombre.toLowerCase().includes(filtroGeneral.toLowerCase())
-  ) || [];
-
-  const cuentasFiltradas = cuentasAgrupadas?.filter((cuenta: any) =>
-    cuenta.numeroCuenta.toLowerCase().includes(filtroGeneral.toLowerCase()) ||
-    cuenta.proyecto.toLowerCase().includes(filtroGeneral.toLowerCase())
-  ) || [];
-
-  // Pagination logic
-  const totalPagesComisionistas = Math.ceil(comisionistasFiltrados.length / itemsPerPage);
-  const totalPagesCuentas = Math.ceil(cuentasFiltradas.length / itemsPerPage);
-
-  const paginatedComisionistas = useMemo(() => {
-    const startIndex = (currentPageComisionistas - 1) * itemsPerPage;
-    return comisionistasFiltrados.slice(startIndex, startIndex + itemsPerPage);
-  }, [comisionistasFiltrados, currentPageComisionistas, itemsPerPage]);
-
-  const paginatedCuentas = useMemo(() => {
-    const startIndex = (currentPageCuentas - 1) * itemsPerPage;
-    return cuentasFiltradas.slice(startIndex, startIndex + itemsPerPage);
-  }, [cuentasFiltradas, currentPageCuentas, itemsPerPage]);
-
-  // Reset pages when filter changes
-  useMemo(() => {
-    setCurrentPageComisionistas(1);
-    setCurrentPageCuentas(1);
-  }, [filtroGeneral]);
-
-  const renderPaginationItems = (totalPages: number, currentPage: number, setCurrentPage: (page: number) => void) => {
-    const items = [];
-    const maxVisiblePages = 5;
-    
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    if (startPage > 1) {
-      items.push(
-        <PaginationItem key={1}>
-          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
-        </PaginationItem>
-      );
-      if (startPage > 2) {
-        items.push(<PaginationEllipsis key="ellipsis-start" />);
-      }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      items.push(
-        <PaginationItem key={i}>
-          <PaginationLink 
-            isActive={currentPage === i}
-            onClick={() => setCurrentPage(i)}
-          >
-            {i}
-          </PaginationLink>
-        </PaginationItem>
-      );
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        items.push(<PaginationEllipsis key="ellipsis-end" />);
-      }
-      items.push(
-        <PaginationItem key={totalPages}>
-          <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
-        </PaginationItem>
-      );
-    }
-
-    return items;
-  };
-
   // Calcular totales para las cards de resumen
   const { data: totalesComisiones } = useQuery({
     queryKey: ["totales-comisiones"],
     queryFn: async () => {
-      // Usar RPC para obtener los totales de forma precisa (sin límite de 1000 registros)
       const { data, error } = await supabase.rpc('get_totales_comisionistas');
 
       if (error) throw error;
@@ -554,7 +416,6 @@ export default function PagarComisiones() {
   const { data: totalesComisionesSozu } = useQuery({
     queryKey: ["totales-comisiones-sozu"],
     queryFn: async () => {
-      // Usar RPC para obtener los totales de forma precisa (sin límite de 1000 registros)
       const { data, error } = await supabase.rpc('get_totales_comisiones_sozu');
 
       if (error) throw error;
@@ -652,355 +513,35 @@ export default function PagarComisiones() {
         />
       </div>
 
-      <Tabs defaultValue="por-comisionista" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="por-comisionista">Agrupada por Comisionista</TabsTrigger>
-          <TabsTrigger value="por-cuenta">Agrupada por Cuenta de Cobranza</TabsTrigger>
+      {/* Pestañas principales: Por Pagar / Pagadas */}
+      <Tabs defaultValue="por-pagar" className="space-y-4">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="por-pagar">Comisiones por Pagar</TabsTrigger>
+          <TabsTrigger value="pagadas">Comisiones Pagadas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="por-comisionista" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Comisiones por Comisionista</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingComisionistas ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12"></TableHead>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Usuario</TableHead>
-                      <TableHead className="text-right">Monto Total</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedComisionistas?.map((com: any) => (
-                      <>
-                        <TableRow 
-                          key={com.email}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => toggleItem(com.email)}
-                        >
-                          <TableCell>
-                            {expandedItems.has(com.email) ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium">{com.nombre}</TableCell>
-                          <TableCell>{com.email}</TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatCurrency(com.montoTotal)}
-                          </TableCell>
-                          <TableCell>
-                            {com.cuentas.some((c: any) => !c.pagada) && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPagarTodasDialog('comisionista', com);
-                                }}
-                              >
-                                <Upload className="h-4 w-4 mr-1" />
-                                Pagar Todas
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                        {expandedItems.has(com.email) && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="bg-muted/30 p-0">
-                              <div className="p-4">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Cuenta</TableHead>
-                                      <TableHead>Tipo</TableHead>
-                                      <TableHead>Proyecto</TableHead>
-                                      <TableHead>Edificio</TableHead>
-                                      <TableHead>Modelo</TableHead>
-                                      <TableHead>Depto</TableHead>
-                                      <TableHead>Fecha Pago Enganche</TableHead>
-                                      <TableHead className="text-right">Precio Final</TableHead>
-                                      <TableHead className="text-right">Comisión</TableHead>
-                                      <TableHead>Estatus</TableHead>
-                                      <TableHead>Acciones</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {com.cuentas.map((cuenta: any) => (
-                                      <TableRow key={cuenta.idCuenta}>
-                                        <TableCell>{cuenta.numeroCuenta}</TableCell>
-                                        <TableCell>{cuenta.tipo}</TableCell>
-                                        <TableCell>{cuenta.proyecto}</TableCell>
-                                        <TableCell>{cuenta.edificio}</TableCell>
-                                        <TableCell>{cuenta.modelo}</TableCell>
-                                        <TableCell>{cuenta.numeroDepartamento}</TableCell>
-                                        <TableCell>
-                                          {cuenta.fechaPagoEnganche 
-                                            ? format(parseISO(cuenta.fechaPagoEnganche), 'dd/MM/yyyy')
-                                            : '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          {formatCurrency(cuenta.precioFinal)}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          {formatCurrency(cuenta.montoComision)}
-                                          <span className="text-muted-foreground text-xs ml-1">
-                                            ({cuenta.porcentajeComision}%)
-                                          </span>
-                                        </TableCell>
-                                        <TableCell>
-                                          {cuenta.pagada ? (
-                                            <Badge variant="default">Pagada</Badge>
-                                          ) : (
-                                            <Badge variant="secondary">Pendiente</Badge>
-                                          )}
-                                        </TableCell>
-                                        <TableCell>
-                                          <div className="flex gap-2">
-                                            {!cuenta.pagada ? (
-                                              <Button
-                                                size="sm"
-                                                onClick={() => openPagarDialog(com.email, cuenta.idCuenta)}
-                                              >
-                                                <Upload className="h-4 w-4 mr-1" />
-                                                Pagar
-                                              </Button>
-                                            ) : cuenta.urlEvidencia ? (
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => window.open(cuenta.urlEvidencia, '_blank')}
-                                              >
-                                                <Eye className="h-4 w-4 mr-1" />
-                                                Ver Evidencia
-                                              </Button>
-                                            ) : null}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-
-              {/* Pagination for Comisionistas */}
-              {totalPagesComisionistas > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Mostrando {((currentPageComisionistas - 1) * itemsPerPage) + 1} - {Math.min(currentPageComisionistas * itemsPerPage, comisionistasFiltrados.length)} de {comisionistasFiltrados.length} comisionistas
-                  </p>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPageComisionistas(Math.max(1, currentPageComisionistas - 1))}
-                          className={currentPageComisionistas === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                      {renderPaginationItems(totalPagesComisionistas, currentPageComisionistas, setCurrentPageComisionistas)}
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPageComisionistas(Math.min(totalPagesComisionistas, currentPageComisionistas + 1))}
-                          className={currentPageComisionistas === totalPagesComisionistas ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="por-pagar" className="space-y-4">
+          <ComisionesPorPagarTab
+            comisionistasAgrupados={comisionistasAgrupados || []}
+            cuentasAgrupadas={cuentasAgrupadas || []}
+            loadingComisionistas={loadingComisionistas}
+            loadingCuentas={loadingCuentas}
+            filtroGeneral={filtroGeneral}
+            formatCurrency={formatCurrency}
+            openPagarDialog={openPagarDialog}
+            openPagarTodasDialog={openPagarTodasDialog}
+          />
         </TabsContent>
 
-        <TabsContent value="por-cuenta" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Comisiones por Cuenta de Cobranza</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingCuentas ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12"></TableHead>
-                      <TableHead>Cuenta</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Proyecto</TableHead>
-                      <TableHead>Edificio</TableHead>
-                      <TableHead>Modelo</TableHead>
-                      <TableHead>Depto</TableHead>
-                      <TableHead className="text-right">Precio Final</TableHead>
-                      <TableHead className="text-right">Monto Comisión</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedCuentas?.map((cuenta: any) => (
-                      <>
-                        <TableRow 
-                          key={cuenta.idCuenta}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => toggleItem(`cuenta-${cuenta.idCuenta}`)}
-                        >
-                          <TableCell>
-                            {expandedItems.has(`cuenta-${cuenta.idCuenta}`) ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium">{cuenta.numeroCuenta}</TableCell>
-                          <TableCell>{cuenta.tipo}</TableCell>
-                          <TableCell>{cuenta.proyecto}</TableCell>
-                          <TableCell>{cuenta.edificio}</TableCell>
-                          <TableCell>{cuenta.modelo}</TableCell>
-                          <TableCell>{cuenta.numeroDepartamento}</TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(cuenta.precioFinal)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {formatCurrency(cuenta.montoTotalComision)}
-                            <span className="text-muted-foreground text-xs ml-1">
-                              ({cuenta.porcentajeTotalComision.toFixed(2)}%)
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            {cuenta.comisionistas.some((c: any) => !c.pagada) && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openPagarTodasDialog('cuenta', cuenta);
-                                }}
-                              >
-                                <Upload className="h-4 w-4 mr-1" />
-                                Pagar Todas
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                        {expandedItems.has(`cuenta-${cuenta.idCuenta}`) && (
-                          <TableRow>
-                            <TableCell colSpan={10} className="bg-muted/30 p-0">
-                              <div className="p-4">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Nombre</TableHead>
-                                      <TableHead>Usuario</TableHead>
-                                      <TableHead className="text-right">Comisión</TableHead>
-                                      <TableHead>Estatus</TableHead>
-                                      <TableHead>Acciones</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {cuenta.comisionistas.map((com: any) => (
-                                      <TableRow key={`${cuenta.idCuenta}-${com.email}`}>
-                                        <TableCell className="font-medium">{com.nombre}</TableCell>
-                                        <TableCell>{com.email}</TableCell>
-                                        <TableCell className="text-right">
-                                          {formatCurrency(com.montoComision)}
-                                          <span className="text-muted-foreground text-xs ml-1">
-                                            ({com.porcentajeComision}%)
-                                          </span>
-                                        </TableCell>
-                                        <TableCell>
-                                          {com.pagada ? (
-                                            <Badge variant="default">Pagada</Badge>
-                                          ) : (
-                                            <Badge variant="secondary">Pendiente</Badge>
-                                          )}
-                                        </TableCell>
-                                        <TableCell>
-                                          <div className="flex gap-2">
-                                            {!com.pagada ? (
-                                              <Button
-                                                size="sm"
-                                                onClick={() => openPagarDialog(com.email, cuenta.idCuenta)}
-                                              >
-                                                <Upload className="h-4 w-4 mr-1" />
-                                                Pagar
-                                              </Button>
-                                            ) : com.urlEvidencia ? (
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => window.open(com.urlEvidencia, '_blank')}
-                                              >
-                                                <Eye className="h-4 w-4 mr-1" />
-                                                Ver Evidencia
-                                              </Button>
-                                            ) : null}
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-
-              {/* Pagination for Cuentas */}
-              {totalPagesCuentas > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Mostrando {((currentPageCuentas - 1) * itemsPerPage) + 1} - {Math.min(currentPageCuentas * itemsPerPage, cuentasFiltradas.length)} de {cuentasFiltradas.length} cuentas
-                  </p>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPageCuentas(Math.max(1, currentPageCuentas - 1))}
-                          className={currentPageCuentas === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                      {renderPaginationItems(totalPagesCuentas, currentPageCuentas, setCurrentPageCuentas)}
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPageCuentas(Math.min(totalPagesCuentas, currentPageCuentas + 1))}
-                          className={currentPageCuentas === totalPagesCuentas ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="pagadas" className="space-y-4">
+          <ComisionesPagadasTab
+            comisionistasAgrupados={comisionistasAgrupados || []}
+            cuentasAgrupadas={cuentasAgrupadas || []}
+            loadingComisionistas={loadingComisionistas}
+            loadingCuentas={loadingCuentas}
+            filtroGeneral={filtroGeneral}
+            formatCurrency={formatCurrency}
+          />
         </TabsContent>
       </Tabs>
 
