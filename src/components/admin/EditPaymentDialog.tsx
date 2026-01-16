@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -42,7 +43,7 @@ export function EditPaymentDialog({
   const originalPaymentRef = useRef<any>(null);
   
   const [formData, setFormData] = useState({
-    monto: "",
+    monto: 0, // Store as cents (integer)
     fecha_pago: "",
     id_metodos_pago: "",
     clave_rastreo: "",
@@ -96,7 +97,7 @@ export function EditPaymentDialog({
       };
       
       setFormData({
-        monto: paymentData.monto?.toString() || "",
+        monto: paymentData.monto ? Math.round(paymentData.monto * 100) : 0, // Convert to cents
         fecha_pago: paymentData.fecha_pago || "",
         id_metodos_pago: paymentData.id_metodos_pago?.toString() || "",
         clave_rastreo: paymentData.clave_rastreo || "",
@@ -109,8 +110,8 @@ export function EditPaymentDialog({
     mutationFn: async () => {
       if (!paymentId) throw new Error("No payment ID provided");
 
-      const monto = parseFloat(formData.monto);
-      if (isNaN(monto) || monto <= 0) {
+      const monto = formData.monto / 100; // Convert from cents to actual value
+      if (monto <= 0) {
         throw new Error("El monto debe ser mayor a 0");
       }
 
@@ -146,7 +147,7 @@ export function EditPaymentDialog({
           originalPaymentRef.current,
           {
             id: data.paymentId,
-            monto: parseFloat(formData.monto),
+            monto: formData.monto / 100,
             fecha_pago: formData.fecha_pago,
             id_metodos_pago: parseInt(formData.id_metodos_pago),
             clave_rastreo: formData.clave_rastreo || null,
@@ -182,7 +183,7 @@ export function EditPaymentDialog({
 
   const handleClose = () => {
     setFormData({
-      monto: "",
+      monto: 0,
       fecha_pago: "",
       id_metodos_pago: "",
       clave_rastreo: "",
@@ -212,14 +213,11 @@ export function EditPaymentDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="monto">Monto *</Label>
-            <Input
+            <CurrencyInput
               id="monto"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
               value={formData.monto}
-              onChange={(e) =>
-                setFormData({ ...formData, monto: e.target.value })
+              onChange={(value) =>
+                setFormData({ ...formData, monto: value })
               }
               required
             />
