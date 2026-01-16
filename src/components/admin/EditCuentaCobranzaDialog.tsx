@@ -2021,7 +2021,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       setPendingPrecioFinalChange(null);
       setIsEditingPrecioFinal(false);
       setEditingPrecioFinal('');
-      onUpdate();
+      // Don't call onUpdate() here to keep the modal open
     },
     onError: (error) => {
       console.error("Error updating precio final:", error);
