@@ -891,8 +891,8 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     return null;
   }, [acuerdos]);
 
-  // Check if user can edit precio final
-  const canEditPrecioFinal = (canUpdateCuenta || isSuperAdmin) && hasPendingPayments && !isReadOnly;
+  // Check if user can edit precio final - only for Producto accounts
+  const canEditPrecioFinal = (canUpdateCuenta || isSuperAdmin) && hasPendingPayments && !isReadOnly && tipoCuenta === 'Producto';
 
   // Get payment schemes
   const { data: esquemasPago } = useQuery({
