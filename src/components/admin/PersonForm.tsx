@@ -23,7 +23,7 @@ import { TempBankAccountsSection } from "./TempBankAccountsSection";
 import { TempBeneficiariosSection } from "./TempBeneficiariosSection";
 import { ImageUploadField } from "./ImageUploadField";
 import { DocumentsTab } from "./DocumentsTab";
-import { isFiscalDataComplete } from '@/utils/fiscalDataValidation';
+import { isFiscalDataComplete, validateRFC } from '@/utils/fiscalDataValidation';
 import { RepresentanteLegalSelector } from "./RepresentanteLegalSelector";
 import { RepresentanteComercialSelector } from "./RepresentanteComercialSelector";
 
@@ -63,8 +63,22 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   // Identification
   const [curp, setCurp] = useState(initialData?.curp || '');
   const [rfc, setRfc] = useState(initialData?.rfc || '');
+  const [rfcError, setRfcError] = useState<string | null>(null);
   const [usoCfdi, setUsoCfdi] = useState(initialData?.uso_cfdi || '');
   const [regimen, setRegimen] = useState(initialData?.regimen || '');
+  
+  // RFC validation handler
+  const handleRfcChange = (value: string) => {
+    const upperValue = value.toUpperCase();
+    setRfc(upperValue);
+    
+    if (upperValue.trim()) {
+      const validation = validateRFC(upperValue);
+      setRfcError(validation.error || null);
+    } else {
+      setRfcError(null);
+    }
+  };
   const [idTipoIdentificacion, setIdTipoIdentificacion] = useState(initialData?.id_tipo_identificacion || '');
   
   // Personal info
@@ -664,11 +678,11 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       return;
     }
 
-    // Regular RFC validation for all cases when RFC is provided
+    // Strict RFC validation using centralized function
     if (rfc.trim()) {
-      const rfcRegex = /^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$/;
-      if (!rfcRegex.test(rfc.trim().toUpperCase())) {
-        toast.error("El RFC no tiene un formato válido.");
+      const rfcValidation = validateRFC(rfc);
+      if (!rfcValidation.isValid) {
+        toast.error(rfcValidation.error || "El RFC no tiene un formato válido.");
         return;
       }
     }
@@ -681,13 +695,6 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
 
     if (telefono.length !== 10) {
       toast.error("El teléfono debe tener exactamente 10 dígitos.");
-      return;
-    }
-
-    // RFC validation
-    const rfcRegex = /^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{3}$/;
-    if (rfc.trim() && !rfcRegex.test(rfc.trim().toUpperCase())) {
-      toast.error("El RFC no tiene un formato válido.");
       return;
     }
 
@@ -977,11 +984,15 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                       id="rfc"
                       type="text"
                       value={rfc}
-                      onChange={(e) => setRfc(e.target.value.toUpperCase())}
+                      onChange={(e) => handleRfcChange(e.target.value)}
                       placeholder="Ingresa el RFC (Ej: ABC123456DEF)"
                       required={restrictToBasicTab && entityType === 'comprador'}
                       maxLength={13}
+                      className={rfcError ? "border-destructive" : ""}
                     />
+                    {rfcError && (
+                      <p className="text-sm text-destructive mt-1">{rfcError}</p>
+                    )}
                   </div>
 
                   {tipoPersona === 'pf' && (
@@ -1263,11 +1274,15 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     id="rfc"
                     type="text"
                     value={rfc}
-                    onChange={(e) => setRfc(e.target.value.toUpperCase())}
+                    onChange={(e) => handleRfcChange(e.target.value)}
                     placeholder="Ingresa el RFC (Ej: ABC123456DEF)"
                     required={restrictToBasicTab && entityType === 'comprador'}
                     maxLength={13}
+                    className={rfcError ? "border-destructive" : ""}
                   />
+                  {rfcError && (
+                    <p className="text-sm text-destructive mt-1">{rfcError}</p>
+                  )}
                 </div>
 
                 {tipoPersona === 'pf' && (
