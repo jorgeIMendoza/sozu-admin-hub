@@ -384,12 +384,12 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       const [bodegasRes, estacionamientosRes] = await Promise.all([
         supabase
           .from("bodegas")
-          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!bodegas_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno)")
+          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!bodegas_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, nombre, cuenta_madre_stp))")
           .eq("id_propiedad", propertyId)
           .eq("activo", true),
         supabase
           .from("estacionamientos")
-          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!estacionamientos_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno)")
+          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!estacionamientos_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, nombre, cuenta_madre_stp))")
           .eq("id_propiedad", propertyId)
           .eq("activo", true)
       ]);
@@ -1011,13 +1011,17 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         ...b,
         tipo: 'Bodega',
         precioFinal: ((b.productos_servicios as any)?.precio_lista || 0) * (b.m2 || 0),
-        hasSchemes: (b.paymentSchemes?.length || 0) > 0
+        hasSchemes: (b.paymentSchemes?.length || 0) > 0,
+        hasCuentaMadreStp: !!(b.productos_servicios?.entidades_relacionadas?.cuenta_madre_stp),
+        nombreDueno: b.productos_servicios?.entidades_relacionadas?.nombre || 'Dueño no configurado'
       })),
       ...includedProducts.estacionamientos.map((e: any) => ({
         ...e,
         tipo: 'Estacionamiento', 
         precioFinal: ((e.productos_servicios as any)?.precio_lista || 0) * (e.m2 || 0),
-        hasSchemes: (e.paymentSchemes?.length || 0) > 0
+        hasSchemes: (e.paymentSchemes?.length || 0) > 0,
+        hasCuentaMadreStp: !!(e.productos_servicios?.entidades_relacionadas?.cuenta_madre_stp),
+        nombreDueno: e.productos_servicios?.entidades_relacionadas?.nombre || 'Dueño no configurado'
       }))
     ].filter(p => p.precioFinal > 0);
 
@@ -2125,12 +2129,17 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                                 ))}
                               </SelectContent>
                             </Select>
-                            {!productSchemeSelections[p.id_producto] && (
+                            {!productSchemeSelections[p.id_producto] ? (
                               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                                 <AlertTriangle className="h-3 w-3" />
-                                Se generará PDF sin cuenta CLABE para pagos
+                                Se generará PDF sin cuenta CLABE (no hay esquema seleccionado)
                               </p>
-                            )}
+                            ) : !p.hasCuentaMadreStp ? (
+                              <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                No se puede generar CLABE: El dueño "{p.nombreDueno}" no tiene cuenta madre STP configurada
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       ))}
