@@ -402,10 +402,14 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
 
       let entidadesMap: Record<number, { cuenta_madre_stp: string | null; nombre_dueno: string }> = {};
       if (entidadIds.length > 0) {
-        const { data: entidades } = await supabase
+        const { data: entidades, error: entidadesError } = await supabase
           .from("entidades_relacionadas")
-          .select("id, cuenta_madre_stp, personas(nombre_legal)")
+          .select("id, cuenta_madre_stp, personas!entidades_relacionadas_id_persona_fkey(nombre_legal)")
           .in("id", [...new Set(entidadIds)]);
+        
+        console.log('[DEBUG] entidadIds:', entidadIds);
+        console.log('[DEBUG] entidades query result:', entidades);
+        console.log('[DEBUG] entidades query error:', entidadesError);
         
         if (entidades) {
           entidades.forEach((e: any) => {
@@ -416,6 +420,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
           });
         }
       }
+      console.log('[DEBUG] entidadesMap:', entidadesMap);
 
       // For each product with price > 0, fetch its payment schemes
       const allProducts = [
