@@ -384,12 +384,12 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       const [bodegasRes, estacionamientosRes] = await Promise.all([
         supabase
           .from("bodegas")
-          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!bodegas_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, nombre, cuenta_madre_stp))")
+          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!bodegas_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, cuenta_madre_stp, personas(nombre_legal)))")
           .eq("id_propiedad", propertyId)
           .eq("activo", true),
         supabase
           .from("estacionamientos")
-          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!estacionamientos_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, nombre, cuenta_madre_stp))")
+          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!estacionamientos_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, cuenta_madre_stp, personas(nombre_legal)))")
           .eq("id_propiedad", propertyId)
           .eq("activo", true)
       ]);
@@ -1013,7 +1013,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         precioFinal: ((b.productos_servicios as any)?.precio_lista || 0) * (b.m2 || 0),
         hasSchemes: (b.paymentSchemes?.length || 0) > 0,
         hasCuentaMadreStp: !!(b.productos_servicios?.entidades_relacionadas?.cuenta_madre_stp),
-        nombreDueno: b.productos_servicios?.entidades_relacionadas?.nombre || 'Dueño no configurado'
+        nombreDueno: b.productos_servicios?.entidades_relacionadas?.personas?.nombre_legal || 'Dueño no configurado'
       })),
       ...includedProducts.estacionamientos.map((e: any) => ({
         ...e,
@@ -1021,7 +1021,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         precioFinal: ((e.productos_servicios as any)?.precio_lista || 0) * (e.m2 || 0),
         hasSchemes: (e.paymentSchemes?.length || 0) > 0,
         hasCuentaMadreStp: !!(e.productos_servicios?.entidades_relacionadas?.cuenta_madre_stp),
-        nombreDueno: e.productos_servicios?.entidades_relacionadas?.nombre || 'Dueño no configurado'
+        nombreDueno: e.productos_servicios?.entidades_relacionadas?.personas?.nombre_legal || 'Dueño no configurado'
       }))
     ].filter(p => p.precioFinal > 0);
 
