@@ -381,6 +381,8 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   const { data: includedProducts, isLoading: isLoadingProducts } = useQuery({
     queryKey: ["property-included-products-with-schemes", propertyId],
     queryFn: async () => {
+      console.log('[DEBUG] Fetching products for propertyId:', propertyId);
+      
       const [bodegasRes, estacionamientosRes] = await Promise.all([
         supabase
           .from("bodegas")
@@ -394,11 +396,17 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
           .eq("activo", true)
       ]);
 
+      console.log('[DEBUG] bodegasRes.data:', bodegasRes.data);
+      console.log('[DEBUG] bodegasRes.error:', bodegasRes.error);
+      console.log('[DEBUG] estacionamientosRes.data:', estacionamientosRes.data);
+      console.log('[DEBUG] estacionamientosRes.error:', estacionamientosRes.error);
+
       // Fetch entidades_relacionadas data for cuenta_madre_stp
       const entidadIds = [
         ...(bodegasRes.data || []).map(b => (b.productos_servicios as any)?.id_entidad_relacionada_dueno),
         ...(estacionamientosRes.data || []).map(e => (e.productos_servicios as any)?.id_entidad_relacionada_dueno)
       ].filter((id): id is number => !!id);
+      console.log('[DEBUG] extracted entidadIds:', entidadIds);
 
       let entidadesMap: Record<number, { cuenta_madre_stp: string | null; nombre_dueno: string }> = {};
       if (entidadIds.length > 0) {
