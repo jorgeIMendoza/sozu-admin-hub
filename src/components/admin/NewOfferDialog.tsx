@@ -384,15 +384,38 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       const [bodegasRes, estacionamientosRes] = await Promise.all([
         supabase
           .from("bodegas")
-          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!bodegas_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, cuenta_madre_stp, personas(nombre_legal)))")
+          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!bodegas_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno)")
           .eq("id_propiedad", propertyId)
           .eq("activo", true),
         supabase
           .from("estacionamientos")
-          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!estacionamientos_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno, entidades_relacionadas(id, cuenta_madre_stp, personas(nombre_legal)))")
+          .select("id, nombre, es_incluido, m2, id_producto, productos_servicios!estacionamientos_id_producto_fkey(id, precio_lista, nombre, id_entidad_relacionada_dueno)")
           .eq("id_propiedad", propertyId)
           .eq("activo", true)
       ]);
+
+      // Fetch entidades_relacionadas data for cuenta_madre_stp
+      const entidadIds = [
+        ...(bodegasRes.data || []).map(b => (b.productos_servicios as any)?.id_entidad_relacionada_dueno),
+        ...(estacionamientosRes.data || []).map(e => (e.productos_servicios as any)?.id_entidad_relacionada_dueno)
+      ].filter((id): id is number => !!id);
+
+      let entidadesMap: Record<number, { cuenta_madre_stp: string | null; nombre_dueno: string }> = {};
+      if (entidadIds.length > 0) {
+        const { data: entidades } = await supabase
+          .from("entidades_relacionadas")
+          .select("id, cuenta_madre_stp, personas(nombre_legal)")
+          .in("id", [...new Set(entidadIds)]);
+        
+        if (entidades) {
+          entidades.forEach((e: any) => {
+            entidadesMap[e.id] = {
+              cuenta_madre_stp: e.cuenta_madre_stp,
+              nombre_dueno: e.personas?.nombre_legal || 'Dueño no configurado'
+            };
+          });
+        }
+      }
 
       // For each product with price > 0, fetch its payment schemes
       const allProducts = [
@@ -431,14 +454,24 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       }
 
       return {
-        bodegas: (bodegasRes.data || []).map(b => ({
-          ...b,
-          paymentSchemes: schemesMap[b.id_producto] || []
-        })),
-        estacionamientos: (estacionamientosRes.data || []).map(e => ({
-          ...e,
-          paymentSchemes: schemesMap[e.id_producto] || []
-        }))
+        bodegas: (bodegasRes.data || []).map(b => {
+          const entidadId = (b.productos_servicios as any)?.id_entidad_relacionada_dueno;
+          const entidadInfo = entidadId ? entidadesMap[entidadId] : null;
+          return {
+            ...b,
+            paymentSchemes: schemesMap[b.id_producto] || [],
+            entidadInfo
+          };
+        }),
+        estacionamientos: (estacionamientosRes.data || []).map(e => {
+          const entidadId = (e.productos_servicios as any)?.id_entidad_relacionada_dueno;
+          const entidadInfo = entidadId ? entidadesMap[entidadId] : null;
+          return {
+            ...e,
+            paymentSchemes: schemesMap[e.id_producto] || [],
+            entidadInfo
+          };
+        })
       };
     },
     enabled: open && !!propertyId,
@@ -1012,16 +1045,16 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         tipo: 'Bodega',
         precioFinal: ((b.productos_servicios as any)?.precio_lista || 0) * (b.m2 || 0),
         hasSchemes: (b.paymentSchemes?.length || 0) > 0,
-        hasCuentaMadreStp: !!(b.productos_servicios?.entidades_relacionadas?.cuenta_madre_stp),
-        nombreDueno: b.productos_servicios?.entidades_relacionadas?.personas?.nombre_legal || 'Dueño no configurado'
+        hasCuentaMadreStp: !!(b.entidadInfo?.cuenta_madre_stp),
+        nombreDueno: b.entidadInfo?.nombre_dueno || 'Dueño no configurado'
       })),
       ...includedProducts.estacionamientos.map((e: any) => ({
         ...e,
         tipo: 'Estacionamiento', 
         precioFinal: ((e.productos_servicios as any)?.precio_lista || 0) * (e.m2 || 0),
         hasSchemes: (e.paymentSchemes?.length || 0) > 0,
-        hasCuentaMadreStp: !!(e.productos_servicios?.entidades_relacionadas?.cuenta_madre_stp),
-        nombreDueno: e.productos_servicios?.entidades_relacionadas?.personas?.nombre_legal || 'Dueño no configurado'
+        hasCuentaMadreStp: !!(e.entidadInfo?.cuenta_madre_stp),
+        nombreDueno: e.entidadInfo?.nombre_dueno || 'Dueño no configurado'
       }))
     ].filter(p => p.precioFinal > 0);
 
