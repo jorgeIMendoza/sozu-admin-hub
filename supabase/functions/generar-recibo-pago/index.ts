@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Oferta found:', { id: oferta.id, id_propiedad: oferta.id_propiedad, id_producto_servicio: oferta.id_producto_servicio });
+    console.log('Oferta found:', { id: oferta.id, id_propiedad: oferta.id_propiedad, id_producto: oferta.id_producto });
 
     // 4. Fetch compradores - using id_cuenta_cobranza (not id_oferta)
     // Table compradores has: id_cuenta_cobranza, id_persona, porcentaje_copropiedad, activo
@@ -272,6 +272,7 @@ Deno.serve(async (req) => {
     let proyectoNombre = '';
     let m2Totales = 0;
     let proyectoData: any = null;
+    let categoriaProducto = ''; // Para mostrar si es bodega, estacionamiento, etc.
 
     if (oferta.id_propiedad) {
       console.log('Fetching propiedad with correct relationship path...');
@@ -328,7 +329,7 @@ Deno.serve(async (req) => {
       } else {
         console.error('Error fetching propiedad:', propiedadError);
       }
-    } else if (oferta.id_producto_servicio) {
+    } else if (oferta.id_producto) {
       console.log('Fetching producto...');
       // Use explicit FK name to avoid ambiguous relationship error
       const { data: producto, error: productoError } = await supabase
@@ -336,8 +337,12 @@ Deno.serve(async (req) => {
         .select(`
           id,
           nombre,
-          m2,
           id_proyecto,
+          id_categoria,
+          categorias_producto (
+            id,
+            nombre
+          ),
           proyectos!productos_servicios_id_proyecto_fkey (
             id,
             nombre,
@@ -346,17 +351,19 @@ Deno.serve(async (req) => {
             url_firma_recibos
           )
         `)
-        .eq('id', oferta.id_producto_servicio)
+        .eq('id', oferta.id_producto)
         .single();
 
       if (!productoError && producto) {
         unidadNombre = producto.nombre || 'Producto';
         proyectoData = producto.proyectos;
         proyectoNombre = proyectoData?.nombre || '';
-        m2Totales = Number(producto.m2) || 0;
+        // Get category name for displaying in the receipt
+        categoriaProducto = (producto as any).categorias_producto?.nombre || '';
         console.log('Producto found:', { 
           nombre: producto.nombre, 
           proyecto: proyectoNombre,
+          categoria: categoriaProducto,
           url_logo: proyectoData?.url_logo,
           nombre_firmante: proyectoData?.nombre_firmante_recibos
         });
@@ -490,7 +497,14 @@ Deno.serve(async (req) => {
     const m2Formateado = m2Totales.toFixed(2);
     const m2EnLetras = numberToWordsM2(m2Totales);
 
-    const mainParagraph = `Recibimos de ${nombreComprador.toUpperCase()} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, al efecto de adquirir la siguiente unidad condominal, cuyas características serán:`;
+    // Build the main paragraph - adjust text based on whether it's a product or property
+    let conceptoText = '';
+    if (categoriaProducto) {
+      conceptoText = `Recibimos de ${nombreComprador.toUpperCase()} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de un(a) ${categoriaProducto.toLowerCase()} del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, cuyas características serán:`;
+    } else {
+      conceptoText = `Recibimos de ${nombreComprador.toUpperCase()} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, al efecto de adquirir la siguiente unidad condominal, cuyas características serán:`;
+    }
+    const mainParagraph = conceptoText;
 
     const mainLines = wrapText(mainParagraph, contentWidth, helvetica, 11);
     for (const line of mainLines) {
@@ -506,7 +520,10 @@ Deno.serve(async (req) => {
     yPosition -= 12;
 
     // ========== NUMBERED LIST ==========
-    // Item 1
+    // Item 1 - Label changes based on whether it's a product or property
+    const item1Label = categoriaProducto ? `${categoriaProducto}:` : 'Unidad condominal:';
+    const item1LabelWidth = helveticaBold.widthOfTextAtSize(item1Label, 11);
+    
     page.drawText('1.', {
       x: margin + 5,
       y: yPosition,
@@ -514,7 +531,7 @@ Deno.serve(async (req) => {
       font: helveticaBold,
       color: accentColor,
     });
-    page.drawText('Unidad condominal:', {
+    page.drawText(item1Label, {
       x: margin + 25,
       y: yPosition,
       size: 11,
@@ -522,7 +539,7 @@ Deno.serve(async (req) => {
       color: black,
     });
     page.drawText(unidadNombre, {
-      x: margin + 155,
+      x: margin + 30 + item1LabelWidth,
       y: yPosition,
       size: 11,
       font: helvetica,
