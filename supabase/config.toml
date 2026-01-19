@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.exportar-reporte]
 verify_jwt = false
+
+[functions.generar-recibo-pago]
+verify_jwt = false
