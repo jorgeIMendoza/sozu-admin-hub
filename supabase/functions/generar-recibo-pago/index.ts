@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
 
     console.log('Oferta found:', { id: oferta.id, id_propiedad: oferta.id_propiedad, id_producto_servicio: oferta.id_producto_servicio });
 
-    // 4. Fetch compradores
+    // 4. Fetch compradores - using explicit FK to avoid ambiguous relationship error
     console.log('Fetching compradores...');
     const { data: compradores, error: compradoresError } = await supabase
       .from('compradores')
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
         id,
         es_titular,
         id_persona,
-        personas:id_persona (
+        personas!fk_compradores_persona (
           id,
           nombre_legal,
           rfc,
@@ -243,6 +243,7 @@ Deno.serve(async (req) => {
     }
 
     console.log('Compradores found:', compradores?.length || 0);
+    console.log('Compradores data:', JSON.stringify(compradores, null, 2));
 
     // Get buyer info
     const titularComprador = compradores?.find((c: any) => c.es_titular) || compradores?.[0];
@@ -250,6 +251,8 @@ Deno.serve(async (req) => {
     const nombreComprador = titularPersona?.nombre_legal || 'Sin nombre';
     const tipoPersona = titularPersona?.tipo_persona || 'fisica';
     const sexo = titularPersona?.sexo || 'F';
+    
+    console.log('Buyer info:', { nombreComprador, tipoPersona, sexo });
     
     // Determine title (Señor/Señora or company)
     let titulo = '';
@@ -267,6 +270,7 @@ Deno.serve(async (req) => {
 
     if (oferta.id_propiedad) {
       console.log('Fetching propiedad with correct relationship path...');
+      // Use explicit FK name to avoid ambiguous relationship error
       const { data: propiedad, error: propiedadError } = await supabase
         .from('propiedades')
         .select(`
@@ -276,12 +280,12 @@ Deno.serve(async (req) => {
           m2_interiores,
           m2_exteriores,
           m2_loft,
-          edificios_modelos:id_edificio_modelo (
+          edificios_modelos!fk_propiedades_edificio_modelo (
             id,
-            edificios:id_edificio (
+            edificios!fk_edificios_modelos_edificio (
               id,
               nombre,
-              proyectos:id_proyecto (
+              proyectos!fk_edificios_proyecto (
                 id,
                 nombre,
                 url_logo,
@@ -308,12 +312,20 @@ Deno.serve(async (req) => {
         const m2Loft = Number(propiedad.m2_loft) || 0;
         m2Totales = m2Int + m2Ext + m2Loft;
         
-        console.log('Propiedad found:', { numero: propiedad.numero_propiedad, proyecto: proyectoNombre, m2: m2Totales });
+        console.log('Propiedad found:', { 
+          numero: propiedad.numero_propiedad, 
+          proyecto: proyectoNombre, 
+          m2: m2Totales,
+          url_logo: proyectoData?.url_logo,
+          nombre_firmante: proyectoData?.nombre_firmante_recibos,
+          url_firma: proyectoData?.url_firma_recibos
+        });
       } else {
         console.error('Error fetching propiedad:', propiedadError);
       }
     } else if (oferta.id_producto_servicio) {
       console.log('Fetching producto...');
+      // Use explicit FK name to avoid ambiguous relationship error
       const { data: producto, error: productoError } = await supabase
         .from('productos_servicios')
         .select(`
@@ -321,7 +333,7 @@ Deno.serve(async (req) => {
           nombre,
           m2,
           id_proyecto,
-          proyectos:id_proyecto (
+          proyectos!productos_servicios_id_proyecto_fkey (
             id,
             nombre,
             url_logo,
@@ -337,7 +349,14 @@ Deno.serve(async (req) => {
         proyectoData = producto.proyectos;
         proyectoNombre = proyectoData?.nombre || '';
         m2Totales = Number(producto.m2) || 0;
-        console.log('Producto found:', { nombre: producto.nombre, proyecto: proyectoNombre });
+        console.log('Producto found:', { 
+          nombre: producto.nombre, 
+          proyecto: proyectoNombre,
+          url_logo: proyectoData?.url_logo,
+          nombre_firmante: proyectoData?.nombre_firmante_recibos
+        });
+      } else {
+        console.error('Error fetching producto:', productoError);
       }
     }
 
