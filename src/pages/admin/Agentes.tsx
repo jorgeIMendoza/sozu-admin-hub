@@ -14,12 +14,14 @@ import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationD
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { BulkUploadAgentesDialog } from "@/components/admin/BulkUploadAgentesDialog";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 
 type Agente = {
   id: number;
   nombre_legal: string;
   email: string;
   telefono?: string;
+  clave_pais_telefono?: string;
   curp?: string;
   rfc?: string;
   tipo_persona: string;
@@ -61,6 +63,7 @@ export default function Agentes() {
           nombre_legal,
           email,
           telefono,
+          clave_pais_telefono,
           curp,
           rfc,
           tipo_persona,
@@ -116,6 +119,7 @@ export default function Agentes() {
         nombre_legal: item.nombre_legal,
         email: item.email,
         telefono: item.telefono,
+        clave_pais_telefono: item.clave_pais_telefono,
         curp: item.curp,
         rfc: item.rfc,
         tipo_persona: item.tipo_persona,
@@ -495,8 +499,8 @@ export default function Agentes() {
                 <TableCell className="text-muted-foreground">
                   {agente.email}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {agente.telefono || 'N/A'}
+                <TableCell>
+                  <PhoneDisplay telefono={agente.telefono} clavePaisTelefono={agente.clave_pais_telefono} />
                 </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
