@@ -219,14 +219,15 @@ Deno.serve(async (req) => {
 
     console.log('Oferta found:', { id: oferta.id, id_propiedad: oferta.id_propiedad, id_producto_servicio: oferta.id_producto_servicio });
 
-    // 4. Fetch compradores - using explicit FK to avoid ambiguous relationship error
-    console.log('Fetching compradores...');
+    // 4. Fetch compradores - using id_cuenta_cobranza (not id_oferta)
+    // Table compradores has: id_cuenta_cobranza, id_persona, porcentaje_copropiedad, activo
+    console.log('Fetching compradores for cuenta_cobranza:', cuenta.id);
     const { data: compradores, error: compradoresError } = await supabase
       .from('compradores')
       .select(`
-        id,
-        es_titular,
+        id_cuenta_cobranza,
         id_persona,
+        porcentaje_copropiedad,
         personas!fk_compradores_persona (
           id,
           nombre_legal,
@@ -235,7 +236,7 @@ Deno.serve(async (req) => {
           sexo
         )
       `)
-      .eq('id_oferta', oferta.id)
+      .eq('id_cuenta_cobranza', cuenta.id)
       .eq('activo', true);
 
     if (compradoresError) {
@@ -245,8 +246,12 @@ Deno.serve(async (req) => {
     console.log('Compradores found:', compradores?.length || 0);
     console.log('Compradores data:', JSON.stringify(compradores, null, 2));
 
-    // Get buyer info
-    const titularComprador = compradores?.find((c: any) => c.es_titular) || compradores?.[0];
+    // Get buyer info - use first comprador or the one with highest porcentaje_copropiedad
+    const titularComprador = compradores?.reduce((prev: any, curr: any) => {
+      if (!prev) return curr;
+      return (curr.porcentaje_copropiedad || 0) > (prev.porcentaje_copropiedad || 0) ? curr : prev;
+    }, null) || compradores?.[0];
+    
     const titularPersona = titularComprador?.personas;
     const nombreComprador = titularPersona?.nombre_legal || 'Sin nombre';
     const tipoPersona = titularPersona?.tipo_persona || 'fisica';
@@ -558,7 +563,7 @@ Deno.serve(async (req) => {
     });
     yPosition -= 22;
 
-    // Item 3
+    // Item 3 - Full text with client name
     page.drawText('3.', {
       x: margin + 5,
       y: yPosition,
@@ -566,23 +571,31 @@ Deno.serve(async (req) => {
       font: helveticaBold,
       color: accentColor,
     });
-    page.drawText('Monto total de depósito en garantía:', {
-      x: margin + 25,
-      y: yPosition,
-      size: 11,
-      font: helveticaBold,
-      color: black,
-    });
-    yPosition -= 16;
+    
+    // Item 3 label - wrap the full text including client name
+    const item3Label = `Monto total de depósito en garantía de cumplimiento al que se compromete ${titulo}${nombreComprador.toUpperCase()}:`;
+    const item3LabelLines = wrapText(item3Label, contentWidth - 30, helveticaBold, 11);
+    for (let i = 0; i < item3LabelLines.length; i++) {
+      page.drawText(item3LabelLines[i], {
+        x: margin + 25,
+        y: yPosition - (i * 15),
+        size: 11,
+        font: helveticaBold,
+        color: black,
+      });
+    }
+    yPosition -= (item3LabelLines.length * 15) + 5;
+    
     // Amount on new line
     page.drawText(precioTotalFormateado, {
       x: margin + 25,
       y: yPosition,
-      size: 11,
+      size: 12,
       font: helveticaBold,
       color: black,
     });
     yPosition -= 16;
+    
     // Amount in words
     const item3InWords = `(${precioTotalEnLetras})`;
     const item3WordsLines = wrapText(item3InWords, contentWidth - 30, helvetica, 10);
