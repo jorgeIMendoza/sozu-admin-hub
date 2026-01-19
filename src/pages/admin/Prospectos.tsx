@@ -27,12 +27,14 @@ import {
 } from "@/components/ui/pagination";
 import { format } from "date-fns";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 
 type Prospecto = {
   id: number;
   nombre_legal: string;
   email: string;
   telefono?: string;
+  clave_pais_telefono?: string;
   curp?: string;
   rfc?: string;
   tipo_persona: string;
@@ -98,6 +100,7 @@ export default function Prospectos() {
           nombre_legal,
           email,
           telefono,
+          clave_pais_telefono,
           curp,
           rfc,
           tipo_persona,
@@ -954,8 +957,8 @@ export default function Prospectos() {
                 <TableCell className="text-muted-foreground">
                   {prospecto.rfc || 'N/A'}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {prospecto.telefono || 'N/A'}
+                <TableCell>
+                  <PhoneDisplay telefono={prospecto.telefono} clavePaisTelefono={prospecto.clave_pais_telefono} />
                 </TableCell>
                 <TableCell>
                   <Select

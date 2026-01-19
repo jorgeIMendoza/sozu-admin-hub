@@ -12,12 +12,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 
 type RepresentanteComercial = {
   id: number;
   nombre_legal: string;
   email: string;
   telefono?: string;
+  clave_pais_telefono?: string;
   curp?: string;
   activo: boolean;
   entidad_relacionada_id: number;
@@ -49,6 +51,7 @@ export default function RepresentantesComerciales() {
             nombre_legal,
             email,
             telefono,
+            clave_pais_telefono,
             curp,
             activo
           )
@@ -67,6 +70,7 @@ export default function RepresentantesComerciales() {
         nombre_legal: item.personas.nombre_legal,
         email: item.personas.email,
         telefono: item.personas.telefono,
+        clave_pais_telefono: item.personas.clave_pais_telefono,
         curp: item.personas.curp,
         activo: item.personas.activo,
       })) as RepresentanteComercial[];
@@ -423,8 +427,8 @@ export default function RepresentantesComerciales() {
                 <TableCell className="text-muted-foreground">
                   {representante.email}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {representante.telefono || '-'}
+                <TableCell>
+                  <PhoneDisplay telefono={representante.telefono} clavePaisTelefono={representante.clave_pais_telefono} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {representante.curp || '-'}

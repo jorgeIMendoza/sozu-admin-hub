@@ -43,7 +43,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [nombreComercial, setNombreComercial] = useState(initialData?.nombre_comercial || '');
   const [email, setEmail] = useState(initialData?.email || '');
   const [telefono, setTelefono] = useState(initialData?.telefono || '');
-  const [clavePaisTelefono, setClavePaisTelefono] = useState(initialData?.clave_pais_telefono || 'MX');
+  const [clavePaisTelefono, setClavePaisTelefono] = useState(initialData?.clave_pais_telefono || '');
   const [tipoPersona, setTipoPersona] = useState(
     initialData?.tipo_persona || 
     (entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || entityType === 'banco' ? 'pm' : 
@@ -952,8 +952,8 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     <Label htmlFor="telefono">Teléfono *</Label>
                     <div className="flex gap-2 flex-1">
                       <Select value={clavePaisTelefono} onValueChange={setClavePaisTelefono}>
-                        <SelectTrigger className="w-20">
-                          <SelectValue />
+                        <SelectTrigger className={cn("w-20", !clavePaisTelefono && "text-muted-foreground")}>
+                          <SelectValue placeholder="--" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="MX">MX</SelectItem>

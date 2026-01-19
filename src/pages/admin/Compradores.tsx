@@ -17,12 +17,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { ConvertirProspectoDialog } from "@/components/admin/ConvertirProspectoDialog";
+import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 
 type Comprador = {
   id: number;
   nombre_legal: string;
   email: string;
   telefono?: string;
+  clave_pais_telefono?: string;
   curp?: string;
   rfc?: string;
   tipo_persona: string;
@@ -93,6 +95,7 @@ export default function Compradores() {
           nombre_legal,
           email,
           telefono,
+          clave_pais_telefono,
           curp,
           rfc,
           tipo_persona,
@@ -152,6 +155,7 @@ export default function Compradores() {
         nombre_legal: item.nombre_legal,
         email: item.email,
         telefono: item.telefono,
+        clave_pais_telefono: item.clave_pais_telefono,
         curp: item.curp,
         rfc: item.rfc,
         tipo_persona: item.tipo_persona,
@@ -181,6 +185,7 @@ export default function Compradores() {
           nombre_legal,
           email,
           telefono,
+          clave_pais_telefono,
           curp,
           rfc,
           tipo_persona,
@@ -240,6 +245,7 @@ export default function Compradores() {
         nombre_legal: item.nombre_legal,
         email: item.email,
         telefono: item.telefono,
+        clave_pais_telefono: item.clave_pais_telefono,
         curp: item.curp,
         rfc: item.rfc,
         tipo_persona: item.tipo_persona,
@@ -561,8 +567,8 @@ export default function Compradores() {
                 <TableCell className="text-muted-foreground">
                   {comprador.email}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {comprador.telefono || 'N/A'}
+                <TableCell>
+                  <PhoneDisplay telefono={comprador.telefono} clavePaisTelefono={comprador.clave_pais_telefono} />
                 </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
