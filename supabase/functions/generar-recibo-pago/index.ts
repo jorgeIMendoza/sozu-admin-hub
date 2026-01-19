@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
           nombre,
           id_proyecto,
           id_categoria,
-          categorias_producto (
+          categorias_producto!fk_prodserv_categoria (
             id,
             nombre
           ),
