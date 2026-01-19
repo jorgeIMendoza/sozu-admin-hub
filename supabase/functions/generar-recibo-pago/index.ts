@@ -268,13 +268,57 @@ Deno.serve(async (req) => {
     }
 
     // 5. Fetch property or product details with CORRECT relationship path
+    // IMPORTANT: Prioritize id_producto when it exists (it means it's a product account, not property)
     let unidadNombre = '';
     let proyectoNombre = '';
     let m2Totales = 0;
     let proyectoData: any = null;
     let categoriaProducto = ''; // Para mostrar si es bodega, estacionamiento, etc.
 
-    if (oferta.id_propiedad) {
+    // Check id_producto FIRST - if it exists, this is a product account
+    if (oferta.id_producto) {
+      console.log('Fetching producto (prioritized over property)...');
+      // Use explicit FK name to avoid ambiguous relationship error
+      const { data: producto, error: productoError } = await supabase
+        .from('productos_servicios')
+        .select(`
+          id,
+          nombre,
+          id_proyecto,
+          id_categoria,
+          categorias_producto (
+            id,
+            nombre
+          ),
+          proyectos!productos_servicios_id_proyecto_fkey (
+            id,
+            nombre,
+            url_logo,
+            nombre_firmante_recibos,
+            url_firma_recibos
+          )
+        `)
+        .eq('id', oferta.id_producto)
+        .single();
+
+      if (!productoError && producto) {
+        unidadNombre = producto.nombre || 'Producto';
+        proyectoData = producto.proyectos;
+        proyectoNombre = proyectoData?.nombre || '';
+        // Get category name for displaying in the receipt
+        categoriaProducto = (producto as any).categorias_producto?.nombre || '';
+        console.log('Producto found:', { 
+          nombre: producto.nombre, 
+          proyecto: proyectoNombre,
+          categoria: categoriaProducto,
+          url_logo: proyectoData?.url_logo,
+          nombre_firmante: proyectoData?.nombre_firmante_recibos
+        });
+      } else {
+        console.error('Error fetching producto:', productoError);
+      }
+    } else if (oferta.id_propiedad) {
+      // Only fetch property if there's no product (regular property account)
       console.log('Fetching propiedad with correct relationship path...');
       // Use explicit FK name to avoid ambiguous relationship error
       const { data: propiedad, error: propiedadError } = await supabase
@@ -328,47 +372,6 @@ Deno.serve(async (req) => {
         });
       } else {
         console.error('Error fetching propiedad:', propiedadError);
-      }
-    } else if (oferta.id_producto) {
-      console.log('Fetching producto...');
-      // Use explicit FK name to avoid ambiguous relationship error
-      const { data: producto, error: productoError } = await supabase
-        .from('productos_servicios')
-        .select(`
-          id,
-          nombre,
-          id_proyecto,
-          id_categoria,
-          categorias_producto (
-            id,
-            nombre
-          ),
-          proyectos!productos_servicios_id_proyecto_fkey (
-            id,
-            nombre,
-            url_logo,
-            nombre_firmante_recibos,
-            url_firma_recibos
-          )
-        `)
-        .eq('id', oferta.id_producto)
-        .single();
-
-      if (!productoError && producto) {
-        unidadNombre = producto.nombre || 'Producto';
-        proyectoData = producto.proyectos;
-        proyectoNombre = proyectoData?.nombre || '';
-        // Get category name for displaying in the receipt
-        categoriaProducto = (producto as any).categorias_producto?.nombre || '';
-        console.log('Producto found:', { 
-          nombre: producto.nombre, 
-          proyecto: proyectoNombre,
-          categoria: categoriaProducto,
-          url_logo: proyectoData?.url_logo,
-          nombre_firmante: proyectoData?.nombre_firmante_recibos
-        });
-      } else {
-        console.error('Error fetching producto:', productoError);
       }
     }
 
