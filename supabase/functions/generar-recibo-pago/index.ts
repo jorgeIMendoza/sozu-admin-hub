@@ -1,89 +1,84 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ReciboPagoRequest {
-  aplicacionId: number;
-  cuentaCobranzaId: number;
-}
-
-// Number to words conversion utilities
+// Helper function to convert number to words in Spanish
 function convertirEntero(n: number): string {
-  const units = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
-  const tens = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
-  const teens = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
-  const hundreds = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+  const unidades = ['', 'un', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+  const especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
+  const decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+  const centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
 
   if (n === 0) return 'cero';
-  if (n < 10) return units[n];
-  if (n >= 10 && n < 20) return teens[n - 10];
-  if (n >= 20 && n < 100) {
-    const unit = n % 10;
-    const ten = Math.floor(n / 10);
-    return unit === 0 ? tens[ten] : `${tens[ten]} y ${units[unit]}`;
+  if (n === 100) return 'cien';
+  
+  if (n < 10) return unidades[n];
+  if (n < 20) return especiales[n - 10];
+  if (n < 30) {
+    if (n === 20) return 'veinte';
+    return 'veinti' + unidades[n - 20];
   }
-  if (n >= 100 && n < 1000) {
-    const hundred = Math.floor(n / 100);
+  if (n < 100) {
+    const decena = Math.floor(n / 10);
+    const unidad = n % 10;
+    return decenas[decena] + (unidad > 0 ? ' y ' + unidades[unidad] : '');
+  }
+  if (n < 1000) {
+    const centena = Math.floor(n / 100);
     const resto = n % 100;
-    const hundredText = n === 100 ? 'cien' : hundreds[hundred];
-    return resto === 0 ? hundredText : `${hundredText} ${convertirEntero(resto)}`;
+    return centenas[centena] + (resto > 0 ? ' ' + convertirEntero(resto) : '');
   }
-  if (n >= 1000 && n < 1000000) {
+  if (n < 1000000) {
     const miles = Math.floor(n / 1000);
     const resto = n % 1000;
-    let milesText = miles === 1 ? 'mil' : convertirEntero(miles) + ' mil';
-    return resto === 0 ? milesText : `${milesText} ${convertirEntero(resto)}`;
+    if (miles === 1) {
+      return 'mil' + (resto > 0 ? ' ' + convertirEntero(resto) : '');
+    }
+    return convertirEntero(miles) + ' mil' + (resto > 0 ? ' ' + convertirEntero(resto) : '');
   }
-  if (n >= 1000000 && n < 2000000) {
-    const resto = n % 1000000;
-    return resto === 0 ? 'un millón' : `un millón ${convertirEntero(resto)}`;
-  }
-  if (n >= 2000000) {
+  if (n < 1000000000) {
     const millones = Math.floor(n / 1000000);
     const resto = n % 1000000;
-    const millonesText = convertirEntero(millones) + ' millones';
-    return resto === 0 ? millonesText : `${millonesText} ${convertirEntero(resto)}`;
+    if (millones === 1) {
+      return 'un millón' + (resto > 0 ? ' ' + convertirEntero(resto) : '');
+    }
+    return convertirEntero(millones) + ' millones' + (resto > 0 ? ' ' + convertirEntero(resto) : '');
   }
   return n.toString();
 }
 
 function numberToWordsWithPesos(num: number): string {
-  const roundedNum = Math.round(num * 100) / 100;
-  const parteEntera = Math.floor(roundedNum);
-  const parteDecimal = Math.round((roundedNum - parteEntera) * 100);
-  const palabrasEntera = convertirEntero(parteEntera);
-  const palabrasEnteraCapitalizada = palabrasEntera.charAt(0).toUpperCase() + palabrasEntera.slice(1);
-  return `${palabrasEnteraCapitalizada} Pesos ${parteDecimal.toString().padStart(2, '0')}/100 M.N.`;
-}
-
-function numberToWords(num: number): string {
-  const roundedNum = Math.round(num * 100) / 100;
-  const parteEntera = Math.floor(roundedNum);
-  const parteDecimal = Math.round((roundedNum - parteEntera) * 100);
-  let resultado = convertirEntero(parteEntera);
-  if (parteDecimal > 0) {
-    resultado += ` punto ${convertirEntero(parteDecimal)}`;
+  const entero = Math.floor(num);
+  const centavos = Math.round((num - entero) * 100);
+  
+  let resultado = convertirEntero(entero) + ' Pesos';
+  if (centavos > 0) {
+    resultado += ' ' + centavos.toString().padStart(2, '0') + '/100 M.N.';
+  } else {
+    resultado += ' 00/100 M.N.';
   }
-  return resultado;
+  
+  return resultado.charAt(0).toUpperCase() + resultado.slice(1);
 }
 
 function formatMoney(amount: number): string {
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: 'MXN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(amount);
 }
 
 function formatCuentaCobranzaId(id: number, tipo: string): string {
-  const prefix = tipo === 'Producto' ? 'PR' : 'PR';
+  const prefix = tipo === 'mantenimiento' ? 'MN' : 'PR';
   return `${prefix}${id.toString().padStart(6, '0')}`;
 }
 
-// Function to wrap text into lines that fit a given width
 function wrapText(text: string, maxCharsPerLine: number): string[] {
   const words = text.split(' ');
   const lines: string[] = [];
@@ -98,430 +93,542 @@ function wrapText(text: string, maxCharsPerLine: number): string[] {
     }
   }
   if (currentLine) lines.push(currentLine);
+
   return lines;
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { aplicacionId, cuentaCobranzaId }: ReciboPagoRequest = await req.json();
-    console.log(`📄 Generating recibo for aplicacionId: ${aplicacionId}, cuentaCobranzaId: ${cuentaCobranzaId}`);
+    const { pagoId } = await req.json();
 
-    if (!aplicacionId || !cuentaCobranzaId) {
+    console.log('Received request with pagoId:', pagoId);
+
+    if (!pagoId) {
       return new Response(
-        JSON.stringify({ error: 'aplicacionId y cuentaCobranzaId son requeridos' }),
+        JSON.stringify({ error: 'pagoId is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch aplicacion details
-    const { data: aplicacionData, error: aplicacionError } = await supabase
-      .from('aplicaciones_pago')
+    // 1. Fetch the payment data
+    console.log('Fetching pago data...');
+    const { data: pago, error: pagoError } = await supabase
+      .from('pagos')
       .select('*')
-      .eq('id', aplicacionId)
+      .eq('id', pagoId)
       .single();
 
-    if (aplicacionError) {
-      console.error('Error fetching aplicacion:', aplicacionError);
-      throw new Error(`Error fetching aplicacion: ${aplicacionError.message}`);
+    if (pagoError || !pago) {
+      console.error('Error fetching pago:', pagoError);
+      return new Response(
+        JSON.stringify({ error: 'Pago not found', details: pagoError?.message }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Fetch pago details
-    let pagoData = null;
-    if (aplicacionData.id_pago) {
-      const { data: pago } = await supabase
-        .from('pagos')
-        .select(`
-          monto,
-          fecha_pago,
-          clave_rastreo,
-          descripcion,
-          metodos_pago!pagos_id_metodos_pago_fkey(nombre)
-        `)
-        .eq('id', aplicacionData.id_pago)
-        .maybeSingle();
-      pagoData = pago;
-    }
+    console.log('Pago found:', { id: pago.id, monto: pago.monto, id_cuenta_cobranza: pago.id_cuenta_cobranza });
 
-    // Fetch acuerdo details
-    let acuerdoData = null;
-    if (aplicacionData.id_acuerdo_pago) {
-      const { data: acuerdo } = await supabase
-        .from('acuerdos_pago')
-        .select(`
-          id_concepto,
-          conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)
-        `)
-        .eq('id', aplicacionData.id_acuerdo_pago)
-        .maybeSingle();
-      acuerdoData = acuerdo;
-    }
-
-    // Fetch cuenta cobranza details
-    const { data: cuentaData, error: cuentaError } = await supabase
+    // 2. Fetch the cuenta_cobranza
+    console.log('Fetching cuenta_cobranza...');
+    const { data: cuenta, error: cuentaError } = await supabase
       .from('cuentas_cobranza')
       .select('*')
-      .eq('id', cuentaCobranzaId)
+      .eq('id', pago.id_cuenta_cobranza)
       .single();
 
-    if (cuentaError) {
-      console.error('Error fetching cuenta cobranza:', cuentaError);
-      throw new Error(`Error fetching cuenta cobranza: ${cuentaError.message}`);
+    if (cuentaError || !cuenta) {
+      console.error('Error fetching cuenta:', cuentaError);
+      return new Response(
+        JSON.stringify({ error: 'Cuenta cobranza not found', details: cuentaError?.message }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Fetch oferta details
-    let ofertaData = null;
-    if (cuentaData.id_oferta) {
-      const { data: oferta } = await supabase
-        .from('ofertas')
-        .select('id_propiedad, id_producto')
-        .eq('id', cuentaData.id_oferta)
-        .maybeSingle();
-      ofertaData = oferta;
+    console.log('Cuenta found:', { id: cuenta.id, tipo: cuenta.tipo, id_oferta: cuenta.id_oferta });
+
+    // 3. Fetch the oferta
+    console.log('Fetching oferta...');
+    const { data: oferta, error: ofertaError } = await supabase
+      .from('ofertas')
+      .select('*')
+      .eq('id', cuenta.id_oferta)
+      .single();
+
+    if (ofertaError || !oferta) {
+      console.error('Error fetching oferta:', ofertaError);
+      return new Response(
+        JSON.stringify({ error: 'Oferta not found', details: ofertaError?.message }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Fetch compradores with sex info
+    console.log('Oferta found:', { id: oferta.id, id_propiedad: oferta.id_propiedad, id_producto_servicio: oferta.id_producto_servicio });
+
+    // 4. Fetch compradores
+    console.log('Fetching compradores...');
     const { data: compradores, error: compradoresError } = await supabase
       .from('compradores')
-      .select('*, personas!compradores_id_persona_fkey(nombre_legal, sexo)')
-      .eq('id_cuenta_cobranza', cuentaCobranzaId)
+      .select(`
+        id,
+        es_titular,
+        id_persona,
+        personas:id_persona (
+          id,
+          nombre_legal,
+          rfc,
+          direccion_calle,
+          direccion_colonia,
+          direccion_municipio,
+          direccion_estado,
+          direccion_codigo_postal
+        )
+      `)
+      .eq('id_oferta', oferta.id)
       .eq('activo', true);
 
     if (compradoresError) {
       console.error('Error fetching compradores:', compradoresError);
     }
 
-    // Fetch property or product details
-    const unidadInfo: Record<string, any> = {};
-    if (ofertaData?.id_propiedad) {
-      const { data: propiedadData } = await supabase
+    console.log('Compradores found:', compradores?.length || 0);
+
+    // Get buyer names
+    const buyerNames = compradores?.map((c: any) => c.personas?.nombre_legal).filter(Boolean).join(', ') || 'Sin comprador';
+    const titularComprador = compradores?.find((c: any) => c.es_titular);
+    const titularPersona = titularComprador?.personas;
+
+    // 5. Fetch property or product details
+    let unidadNombre = '';
+    let proyectoNombre = '';
+    let edificioNombre = '';
+    let proyectoData: any = null;
+
+    if (oferta.id_propiedad) {
+      console.log('Fetching propiedad...');
+      const { data: propiedad, error: propiedadError } = await supabase
         .from('propiedades')
         .select(`
-          numero_propiedad,
-          m2_interiores,
-          m2_exteriores,
-          id_entidad_relacionada_dueno
+          id,
+          numero,
+          piso,
+          id_proyecto,
+          id_edificio_modelo,
+          proyectos:id_proyecto (
+            id,
+            nombre,
+            url_logo,
+            nombre_firmante_recibos,
+            url_firma_recibos
+          ),
+          edificios_modelos:id_edificio_modelo (
+            id,
+            edificios:id_edificio (
+              id,
+              nombre
+            )
+          )
         `)
-        .eq('id', ofertaData.id_propiedad)
-        .maybeSingle();
+        .eq('id', oferta.id_propiedad)
+        .single();
 
-      if (propiedadData) {
-        unidadInfo.numero = propiedadData.numero_propiedad;
-        unidadInfo.m2 = (propiedadData.m2_interiores || 0) + (propiedadData.m2_exteriores || 0);
+      if (!propiedadError && propiedad) {
+        unidadNombre = `Unidad ${propiedad.numero}${propiedad.piso ? ` - Piso ${propiedad.piso}` : ''}`;
+        proyectoData = propiedad.proyectos;
+        proyectoNombre = proyectoData?.nombre || '';
+        edificioNombre = (propiedad.edificios_modelos as any)?.edificios?.nombre || '';
+        console.log('Propiedad found:', { numero: propiedad.numero, proyecto: proyectoNombre });
+      }
+    } else if (oferta.id_producto_servicio) {
+      console.log('Fetching producto...');
+      const { data: producto, error: productoError } = await supabase
+        .from('productos_servicios')
+        .select(`
+          id,
+          nombre,
+          id_proyecto,
+          proyectos:id_proyecto (
+            id,
+            nombre,
+            url_logo,
+            nombre_firmante_recibos,
+            url_firma_recibos
+          )
+        `)
+        .eq('id', oferta.id_producto_servicio)
+        .single();
 
-        const { data: entidadData } = await supabase
-          .from('entidades_relacionadas')
-          .select('id_proyecto, id_persona')
-          .eq('id', propiedadData.id_entidad_relacionada_dueno)
-          .maybeSingle();
-
-        if (entidadData?.id_proyecto) {
-          const { data: proyectoData } = await supabase
-            .from('proyectos')
-            .select('nombre, direccion, url_logo, url_firma_recibos, nombre_firmante_recibos')
-            .eq('id', entidadData.id_proyecto)
-            .maybeSingle();
-
-          if (proyectoData) {
-            unidadInfo.proyecto = proyectoData.nombre;
-            unidadInfo.direccion = proyectoData.direccion;
-            unidadInfo.logo = proyectoData.url_logo;
-            unidadInfo.firma = proyectoData.url_firma_recibos;
-            unidadInfo.nombreFirmante = proyectoData.nombre_firmante_recibos;
-          }
-        }
-
-        if (entidadData?.id_persona) {
-          const { data: personaData } = await supabase
-            .from('personas')
-            .select('nombre_legal')
-            .eq('id', entidadData.id_persona)
-            .maybeSingle();
-          unidadInfo.propietario = personaData?.nombre_legal;
-        }
+      if (!productoError && producto) {
+        unidadNombre = producto.nombre || 'Producto';
+        proyectoData = producto.proyectos;
+        proyectoNombre = proyectoData?.nombre || '';
+        console.log('Producto found:', { nombre: producto.nombre, proyecto: proyectoNombre });
       }
     }
 
-    console.log('📋 Data collected, generating PDF...');
-
-    // Generate PDF using pdf-lib
+    // ============ Generate PDF ============
+    console.log('Generating PDF...');
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]); // A4 size in points
-    const { width, height } = page.getSize();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    
-    let currentY = height - 50;
-    const margin = 50;
-    const maxWidth = width - 2 * margin;
+    const page = pdfDoc.addPage([612, 792]); // Letter size
+    const { height } = page.getSize();
+
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    let yPosition = height - 50;
+
+    // Try to load project logo
+    if (proyectoData?.url_logo) {
+      try {
+        const logoResponse = await fetch(proyectoData.url_logo);
+        const logoBytes = await logoResponse.arrayBuffer();
+        let logoImage;
+        
+        if (proyectoData.url_logo.toLowerCase().includes('.png')) {
+          logoImage = await pdfDoc.embedPng(logoBytes);
+        } else {
+          logoImage = await pdfDoc.embedJpg(logoBytes);
+        }
+        
+        const logoWidth = 120;
+        const logoHeight = (logoImage.height / logoImage.width) * logoWidth;
+        page.drawImage(logoImage, {
+          x: 50,
+          y: yPosition - logoHeight + 20,
+          width: logoWidth,
+          height: logoHeight,
+        });
+        yPosition -= logoHeight + 30;
+      } catch (e) {
+        console.error('Error loading logo:', e);
+        yPosition -= 30;
+      }
+    } else {
+      yPosition -= 30;
+    }
 
     // Title
-    page.drawText('RECIBO', {
-      x: width / 2 - 40,
-      y: currentY,
-      size: 24,
-      font: fontBold,
+    page.drawText('RECIBO DE PAGO', {
+      x: 50,
+      y: yPosition,
+      size: 18,
+      font: helveticaBold,
       color: rgb(0, 0, 0),
     });
+    yPosition -= 30;
 
-    currentY -= 40;
+    // Receipt number
+    const cuentaFormateada = formatCuentaCobranzaId(cuenta.id, cuenta.tipo || 'propiedad');
+    page.drawText(`Recibo: ${cuentaFormateada}-${pago.id}`, {
+      x: 50,
+      y: yPosition,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPosition -= 15;
 
-    // Bueno por
-    const montoPago = pagoData?.monto || 0;
-    const montoEnLetra = numberToWordsWithPesos(montoPago);
-    const buenoporText = `Bueno por: ${formatMoney(montoPago)} (${montoEnLetra})`;
-    
-    const buenoporLines = wrapText(buenoporText, 80);
-    for (const line of buenoporLines) {
+    // Date
+    const fechaPago = new Date(pago.fecha_pago);
+    const fechaFormateada = fechaPago.toLocaleDateString('es-MX', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+    page.drawText(`Fecha: ${fechaFormateada}`, {
+      x: 50,
+      y: yPosition,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPosition -= 40;
+
+    // Amount section
+    page.drawRectangle({
+      x: 50,
+      y: yPosition - 60,
+      width: 512,
+      height: 70,
+      color: rgb(0.95, 0.95, 0.95),
+    });
+
+    page.drawText('CANTIDAD RECIBIDA:', {
+      x: 60,
+      y: yPosition - 20,
+      size: 12,
+      font: helveticaBold,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+
+    page.drawText(formatMoney(pago.monto), {
+      x: 60,
+      y: yPosition - 45,
+      size: 24,
+      font: helveticaBold,
+      color: rgb(0.1, 0.4, 0.1),
+    });
+
+    yPosition -= 80;
+
+    // Amount in words
+    const montoEnLetras = numberToWordsWithPesos(pago.monto);
+    const letrasLines = wrapText(`(${montoEnLetras})`, 80);
+    for (const line of letrasLines) {
       page.drawText(line, {
-        x: margin,
-        y: currentY,
+        x: 50,
+        y: yPosition,
+        size: 10,
+        font: helvetica,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+      yPosition -= 15;
+    }
+    yPosition -= 20;
+
+    // Buyer info section
+    page.drawText('RECIBIDO DE:', {
+      x: 50,
+      y: yPosition,
+      size: 11,
+      font: helveticaBold,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    yPosition -= 18;
+
+    const nombreLines = wrapText(buyerNames, 70);
+    for (const line of nombreLines) {
+      page.drawText(line, {
+        x: 50,
+        y: yPosition,
         size: 11,
-        font: font,
+        font: helvetica,
         color: rgb(0, 0, 0),
       });
-      currentY -= 16;
+      yPosition -= 15;
     }
+    yPosition -= 10;
 
-    currentY -= 10;
+    // RFC if available
+    if (titularPersona?.rfc) {
+      page.drawText(`RFC: ${titularPersona.rfc}`, {
+        x: 50,
+        y: yPosition,
+        size: 10,
+        font: helvetica,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+      yPosition -= 20;
+    }
+    yPosition -= 10;
 
-    // Get buyer info
-    const primerComprador = compradores && compradores.length > 0 ? compradores[0] : null;
-    const sexoComprador = primerComprador?.personas?.sexo?.toUpperCase();
-    const nombresCompradores = (compradores || [])
-      .map((c: any) => c.personas?.nombre_legal)
-      .filter(Boolean)
-      .join('/');
-    const clientName = nombresCompradores || 'N/A';
-    const articulo = (compradores?.length || 0) > 1 ? 'de' : (sexoComprador === 'M' ? 'del Señor' : 'de la Señora');
-    const articuloElLa = (compradores?.length || 0) > 1 ? 'los compradores' : (sexoComprador === 'M' ? 'el Señor' : 'la Señora');
+    // Property/Product info
+    page.drawText('POR CONCEPTO DE:', {
+      x: 50,
+      y: yPosition,
+      size: 11,
+      font: helveticaBold,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+    yPosition -= 18;
 
-    // Payment date
-    const paymentDateStr = pagoData?.fecha_pago;
-    const paymentDate = paymentDateStr
-      ? new Date(paymentDateStr.includes('T') ? paymentDateStr : `${paymentDateStr}T12:00:00`)
-      : new Date();
-    const dia = paymentDate.getDate();
-    const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    const mes = meses[paymentDate.getMonth()];
-    const anio = paymentDate.getFullYear();
-    const fechaFormateada = `${dia} de ${mes} de ${anio}`;
-
-    // Main text
-    const proyectoMayusculas = (unidadInfo.proyecto || 'N/A').toUpperCase();
-    const mainText = `Recibimos ${articulo} ${clientName} la cantidad de ${formatMoney(montoPago)} (${montoEnLetra}), el dia ${fechaFormateada}, por concepto de deposito en garantia de cumplimiento de conformidad que tiene como objetivo la gestion para la adquisicion de una unidad condominal del desarrollo inmobiliario ${proyectoMayusculas}, al efecto de adquirir la siguiente unidad condominal, cuyas caracteristicas seran:`;
+    const conceptoText = cuenta.tipo === 'mantenimiento' 
+      ? `Cuota de mantenimiento - ${unidadNombre}`
+      : `Pago de ${unidadNombre}`;
     
-    const mainTextLines = wrapText(mainText, 85);
-    for (const line of mainTextLines) {
+    const conceptoLines = wrapText(conceptoText, 70);
+    for (const line of conceptoLines) {
       page.drawText(line, {
-        x: margin,
-        y: currentY,
+        x: 50,
+        y: yPosition,
+        size: 11,
+        font: helvetica,
+        color: rgb(0, 0, 0),
+      });
+      yPosition -= 15;
+    }
+    yPosition -= 5;
+
+    // Project info
+    if (proyectoNombre) {
+      page.drawText(`Proyecto: ${proyectoNombre}`, {
+        x: 50,
+        y: yPosition,
         size: 10,
-        font: font,
-        color: rgb(0, 0, 0),
+        font: helvetica,
+        color: rgb(0.3, 0.3, 0.3),
       });
-      currentY -= 14;
+      yPosition -= 15;
     }
 
-    currentY -= 10;
-
-    // Property characteristics
-    if (unidadInfo.numero) {
-      page.drawText(`1. Unidad condominal: ${unidadInfo.numero}`, {
-        x: margin + 10,
-        y: currentY,
+    if (edificioNombre) {
+      page.drawText(`Edificio: ${edificioNombre}`, {
+        x: 50,
+        y: yPosition,
         size: 10,
-        font: font,
-        color: rgb(0, 0, 0),
+        font: helvetica,
+        color: rgb(0.3, 0.3, 0.3),
       });
-      currentY -= 16;
-
-      if (unidadInfo.m2) {
-        const m2EnLetra = numberToWords(unidadInfo.m2);
-        const m2Capitalizado = m2EnLetra.charAt(0).toUpperCase() + m2EnLetra.slice(1);
-        page.drawText(`2. Metros estimados: ${unidadInfo.m2} m2 (${m2Capitalizado} metros cuadrados)`, {
-          x: margin + 10,
-          y: currentY,
-          size: 10,
-          font: font,
-          color: rgb(0, 0, 0),
-        });
-        currentY -= 16;
-      }
-
-      const precioEnLetra = numberToWordsWithPesos(cuentaData.precio_final || 0);
-      const montoText = `3. Monto total de deposito en garantia de cumplimiento al que se compromete ${articuloElLa} ${clientName}: ${formatMoney(cuentaData.precio_final || 0)} (${precioEnLetra})`;
-      const montoLines = wrapText(montoText, 80);
-      for (const line of montoLines) {
-        page.drawText(line, {
-          x: margin + 10,
-          y: currentY,
-          size: 10,
-          font: font,
-          color: rgb(0, 0, 0),
-        });
-        currentY -= 14;
-      }
+      yPosition -= 15;
     }
 
-    currentY -= 20;
+    page.drawText(`Cuenta: ${cuentaFormateada}`, {
+      x: 50,
+      y: yPosition,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPosition -= 40;
 
-    // Legal notes
-    const legalText1 = 'La cantidad aqui entregada y recibida sera aplicada al deposito en garantia de cumplimiento, al momento de la celebracion del contrato de promesa de compraventa.';
-    const legalLines1 = wrapText(legalText1, 90);
-    for (const line of legalLines1) {
+    // Legal notice
+    page.drawLine({
+      start: { x: 50, y: yPosition },
+      end: { x: 562, y: yPosition },
+      thickness: 0.5,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+    yPosition -= 20;
+
+    const legalText = 'Este recibo es un comprobante de pago y no sustituye la factura fiscal correspondiente. ' +
+      'Para cualquier aclaración, favor de comunicarse con la administración del proyecto.';
+    const legalLines = wrapText(legalText, 90);
+    for (const line of legalLines) {
       page.drawText(line, {
-        x: margin,
-        y: currentY,
-        size: 9,
-        font: font,
-        color: rgb(0, 0, 0),
+        x: 50,
+        y: yPosition,
+        size: 8,
+        font: helvetica,
+        color: rgb(0.5, 0.5, 0.5),
       });
-      currentY -= 12;
+      yPosition -= 12;
     }
-
-    currentY -= 10;
-
-    const legalText2 = `Sera obligacion de la empresa mantener debidamente informado al aportante de la forma y terminos en los que se lleve a cabo la gestion la adquisicion de una unidad condominal del desarrollo inmobiliario ${proyectoMayusculas}.`;
-    const legalLines2 = wrapText(legalText2, 90);
-    for (const line of legalLines2) {
-      page.drawText(line, {
-        x: margin,
-        y: currentY,
-        size: 9,
-        font: font,
-        color: rgb(0, 0, 0),
-      });
-      currentY -= 12;
-    }
-
-    currentY -= 30;
+    yPosition -= 30;
 
     // Signature section
-    page.drawText('ATENTAMENTE', {
-      x: width / 2 - 35,
-      y: currentY,
-      size: 12,
-      font: fontBold,
-      color: rgb(0, 0, 0),
-    });
-    currentY -= 20;
+    if (proyectoData?.nombre_firmante_recibos) {
+      // Try to load signature image
+      if (proyectoData?.url_firma_recibos) {
+        try {
+          const firmaResponse = await fetch(proyectoData.url_firma_recibos);
+          const firmaBytes = await firmaResponse.arrayBuffer();
+          let firmaImage;
+          
+          if (proyectoData.url_firma_recibos.toLowerCase().includes('.png')) {
+            firmaImage = await pdfDoc.embedPng(firmaBytes);
+          } else {
+            firmaImage = await pdfDoc.embedJpg(firmaBytes);
+          }
+          
+          const firmaWidth = 100;
+          const firmaHeight = (firmaImage.height / firmaImage.width) * firmaWidth;
+          page.drawImage(firmaImage, {
+            x: 250,
+            y: yPosition - firmaHeight + 20,
+            width: firmaWidth,
+            height: firmaHeight,
+          });
+          yPosition -= firmaHeight + 10;
+        } catch (e) {
+          console.error('Error loading signature:', e);
+        }
+      }
 
-    if (unidadInfo.propietario) {
-      const propietarioX = width / 2 - (unidadInfo.propietario.length * 3);
-      page.drawText(unidadInfo.propietario, {
-        x: propietarioX,
-        y: currentY,
-        size: 10,
-        font: font,
+      page.drawLine({
+        start: { x: 200, y: yPosition },
+        end: { x: 400, y: yPosition },
+        thickness: 1,
         color: rgb(0, 0, 0),
       });
-      currentY -= 40;
-    }
+      yPosition -= 15;
 
-    if (unidadInfo.nombreFirmante) {
-      const firmanteX = width / 2 - (unidadInfo.nombreFirmante.length * 3);
-      page.drawText(unidadInfo.nombreFirmante, {
-        x: firmanteX,
-        y: currentY,
+      page.drawText(proyectoData.nombre_firmante_recibos, {
+        x: 200 + (200 - helvetica.widthOfTextAtSize(proyectoData.nombre_firmante_recibos, 10)) / 2,
+        y: yPosition,
         size: 10,
-        font: font,
+        font: helveticaBold,
         color: rgb(0, 0, 0),
       });
-      currentY -= 16;
-    }
+      yPosition -= 12;
 
-    page.drawText('Gerente de cobranza', {
-      x: width / 2 - 45,
-      y: currentY,
-      size: 10,
-      font: font,
-      color: rgb(0.4, 0.4, 0.4),
-    });
+      page.drawText('Firma Autorizada', {
+        x: 200 + (200 - helvetica.widthOfTextAtSize('Firma Autorizada', 8)) / 2,
+        y: yPosition,
+        size: 8,
+        font: helvetica,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+    }
 
     // Generate PDF bytes
     const pdfBytes = await pdfDoc.save();
-    console.log(`📄 PDF generated, size: ${pdfBytes.length} bytes`);
-
-    // Generate filename
-    const tipoCuenta = ofertaData?.id_producto ? 'Producto' : 'Propiedad';
-    const cuentaFormatted = formatCuentaCobranzaId(cuentaCobranzaId, tipoCuenta);
-    const fechaPago = paymentDateStr 
-      ? new Date(paymentDateStr.includes('T') ? paymentDateStr : `${paymentDateStr}T12:00:00`) 
-      : new Date();
-    const year = fechaPago.getFullYear();
-    const month = String(fechaPago.getMonth() + 1).padStart(2, '0');
-    const day = String(fechaPago.getDate()).padStart(2, '0');
-    const fechaFormatted = `${year}_${month}_${day}`;
-    const timestamp = Date.now();
-    const fileName = `recibos_temp/recibo_cuenta_${cuentaFormatted}_${fechaFormatted}_${timestamp}.pdf`;
+    console.log('PDF generated, size:', pdfBytes.length, 'bytes');
 
     // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const timestamp = Date.now();
+    const fileName = `recibo_cuenta_${cuentaFormateada}_${fechaPago.toISOString().split('T')[0]}_${timestamp}.pdf`;
+    const filePath = `recibos_temp/${fileName}`;
+
+    console.log('Uploading PDF to storage:', filePath);
+    const { error: uploadError } = await supabase.storage
       .from('documentos')
-      .upload(fileName, pdfBytes, {
+      .upload(filePath, pdfBytes, {
         contentType: 'application/pdf',
         upsert: true,
       });
 
     if (uploadError) {
       console.error('Error uploading PDF:', uploadError);
-      throw new Error(`Error uploading PDF: ${uploadError.message}`);
+      return new Response(
+        JSON.stringify({ error: 'Failed to upload PDF', details: uploadError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    console.log('📤 PDF uploaded to storage:', fileName);
 
     // Get public URL
     const { data: urlData } = supabase.storage
       .from('documentos')
-      .getPublicUrl(fileName);
+      .getPublicUrl(filePath);
 
-    const publicUrl = urlData.publicUrl;
-    console.log('🔗 Public URL:', publicUrl);
+    console.log('PDF uploaded successfully:', urlData.publicUrl);
 
     // Schedule deletion after 1 minute
     setTimeout(async () => {
       try {
-        console.log(`🗑️ Deleting ephemeral recibo: ${fileName}`);
-        await supabase.storage.from('documentos').remove([fileName]);
-        console.log(`✅ Ephemeral recibo deleted: ${fileName}`);
-      } catch (deleteError) {
-        console.error('Error deleting ephemeral recibo:', deleteError);
+        await supabase.storage.from('documentos').remove([filePath]);
+        console.log('Temporary file deleted:', filePath);
+      } catch (e) {
+        console.error('Error deleting temporary file:', e);
       }
-    }, 60000); // 1 minute
+    }, 60000);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
-        url_recibo: publicUrl,
+        url_recibo: urlData.publicUrl,
         fileName: fileName,
-        expiresIn: '1 minute'
+        expiresIn: '1 minute',
+        pagoId: pago.id,
+        monto: pago.monto,
+        cuentaCobranzaId: cuenta.id
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('❌ Error generating recibo:', error);
+    console.error('Error in generar-recibo-pago:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        success: false
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

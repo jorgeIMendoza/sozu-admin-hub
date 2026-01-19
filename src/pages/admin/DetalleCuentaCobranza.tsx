@@ -2069,14 +2069,11 @@ export default function DetalleCuentaCobranza() {
     }
   };
 
-  const handleDownloadRecibo = async (aplicacionId: number) => {
+  const handleDownloadRecibo = async (pagoId: number) => {
     try {
-      setDownloadingRecibo(aplicacionId);
+      setDownloadingRecibo(pagoId);
       const reciboService = new ReciboPagoService();
-      await reciboService.generateRecibo({
-        aplicacionId,
-        cuentaCobranzaId: cuentaId,
-      });
+      await reciboService.generateRecibo({ pagoId });
       
       toast({
         title: "Recibo generado",
@@ -3802,10 +3799,10 @@ export default function DetalleCuentaCobranza() {
                                                     variant="outline"
                                                     size="icon"
                                                     className="h-6 w-6"
-                                                    onClick={() => handleDownloadRecibo(aplicacion.id)}
-                                                    disabled={downloadingRecibo === aplicacion.id}
+                                                    onClick={() => handleDownloadRecibo(aplicacion.pago.id)}
+                                                    disabled={downloadingRecibo === aplicacion.pago.id}
                                                   >
-                                                    {downloadingRecibo === aplicacion.id ? (
+                                                    {downloadingRecibo === aplicacion.pago.id ? (
                                                       <Loader2 className="h-3 w-3 animate-spin" />
                                                     ) : (
                                                       <Download className="h-3 w-3" />
