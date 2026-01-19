@@ -34,6 +34,7 @@ const formSchema = z.object({
   tipo_persona: z.string().min(1, "El tipo de persona es requerido"),
   razon_social: z.string().min(1, "Este campo es requerido"),
   email: z.string().email("Email inválido"),
+  clave_pais_telefono: z.string().min(1, "Selecciona el código de país"),
   telefono: z.string()
     .min(10, "El teléfono debe tener 10 dígitos")
     .max(10, "El teléfono debe tener 10 dígitos")
@@ -117,6 +118,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
       tipo_persona: "pf",
       razon_social: "",
       email: "",
+      clave_pais_telefono: "MX",
       telefono: "",
       rfc: "",
       curp: "",
@@ -187,6 +189,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         tipo_persona: "pf",
         razon_social: "",
         email: "",
+        clave_pais_telefono: "MX",
         telefono: "",
         rfc: "",
         curp: "",
@@ -243,6 +246,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
       form.setValue("tipo_persona", currentBuyerData.tipo_persona || "pf");
       form.setValue("razon_social", currentBuyerData.nombre_legal || "");
       form.setValue("email", currentBuyerData.email || "");
+      form.setValue("clave_pais_telefono", currentBuyerData.clave_pais_telefono || "MX");
       form.setValue("telefono", currentBuyerData.telefono || "");
       form.setValue("rfc", currentBuyerData.rfc || "");
       form.setValue("curp", currentBuyerData.curp || "");
@@ -256,6 +260,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
       form.setValue("tipo_persona", currentBuyerData.tipo_persona || "pf");
       form.setValue("razon_social", currentBuyerData.nombre_legal || "");
       form.setValue("email", currentBuyerData.email || "");
+      form.setValue("clave_pais_telefono", currentBuyerData.clave_pais_telefono || "MX");
       form.setValue("telefono", currentBuyerData.telefono || "");
       form.setValue("rfc", currentBuyerData.rfc || "");
       form.setValue("curp", currentBuyerData.curp || "");
@@ -374,6 +379,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
       form.setValue("tipo_persona", currentBuyerData.tipo_persona || "pf");
       form.setValue("razon_social", currentBuyerData.nombre_legal || "");
       form.setValue("email", currentBuyerData.email || "");
+      form.setValue("clave_pais_telefono", currentBuyerData.clave_pais_telefono || "MX");
       form.setValue("telefono", currentBuyerData.telefono || "");
       form.setValue("rfc", currentBuyerData.rfc || "");
       form.setValue("curp", currentBuyerData.curp || "");
@@ -386,6 +392,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
     form.setValue("tipo_persona", persona.tipo_persona || "pf");
     form.setValue("razon_social", persona.nombre_legal);
     form.setValue("email", persona.email);
+    form.setValue("clave_pais_telefono", persona.clave_pais_telefono || "MX");
     form.setValue("telefono", persona.telefono || "");
     form.setValue("rfc", persona.rfc || "");
     form.setValue("curp", persona.curp || "");
@@ -398,6 +405,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
     form.setValue("tipo_persona", "pf");
     form.setValue("razon_social", "");
     form.setValue("email", "");
+    form.setValue("clave_pais_telefono", "MX");
     form.setValue("telefono", "");
     form.setValue("rfc", "");
     form.setValue("curp", "");
@@ -551,6 +559,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
             tipo_persona: formValues.tipo_persona,
             nombre_legal: formValues.razon_social,
             email: formValues.email,
+            clave_pais_telefono: formValues.clave_pais_telefono || 'MX',
             telefono: formValues.telefono,
             rfc: formValues.rfc,
             curp: formValues.curp || null,
@@ -1230,6 +1239,35 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
                       </FormItem>
                     )}
                   />
+                </div>
+
+                <div className="grid grid-cols-[auto,1fr] gap-4 items-end">
+                  <FormField
+                    control={form.control}
+                    name="clave_pais_telefono"
+                    render={({ field }) => (
+                      <FormItem className="w-24">
+                        <FormLabel>País *</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                          disabled={isFieldDisabled}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="--" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="MX">🇲🇽 +52</SelectItem>
+                            <SelectItem value="US">🇺🇸 +1</SelectItem>
+                            <SelectItem value="CA">🇨🇦 +1</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
@@ -1240,10 +1278,14 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
                         <FormControl>
                           <Input
                             type="tel"
-                            placeholder="Ingresa el teléfono (10 dígitos obligatorios)"
+                            placeholder="10 dígitos"
                             disabled={isFieldDisabled}
                             maxLength={10}
                             {...field}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              field.onChange(value);
+                            }}
                           />
                         </FormControl>
                         <FormMessage />

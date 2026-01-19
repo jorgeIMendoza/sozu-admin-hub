@@ -84,6 +84,7 @@ const baseProspectSchema = z.object({
   tipo_persona: z.string().min(1, "El tipo de persona es requerido"),
   nombre_completo: z.string().min(1, "El nombre completo es requerido"),
   email: z.string().email("Email inválido"),
+  clave_pais_telefono: z.string().min(1, "Selecciona el código de país"),
   telefono: z.string()
     .min(10, "El teléfono debe tener exactamente 10 dígitos")
     .max(10, "El teléfono debe tener exactamente 10 dígitos")
@@ -205,6 +206,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       tipo_persona: "pf",
       nombre_completo: "",
       email: "",
+      clave_pais_telefono: "MX",
       telefono: "",
       rfc: "",
       curp: "",
@@ -240,7 +242,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       
       const { data, error } = await supabase
         .from("personas")
-        .select("id, nombre_legal, email, telefono, rfc, curp, tipo_persona")
+        .select("id, nombre_legal, email, telefono, clave_pais_telefono, rfc, curp, tipo_persona")
         .ilike("nombre_legal", `%${searchTerm}%`)
         .eq("activo", true)
         .limit(10);
@@ -260,6 +262,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
         tipo_persona: "pf",
         nombre_completo: "",
         email: "",
+        clave_pais_telefono: "MX",
         telefono: "",
         rfc: "",
         curp: "",
@@ -287,6 +290,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       form.setValue("tipo_persona", selectedPerson.tipo_persona);
       form.setValue("nombre_completo", selectedPerson.nombre_legal);
       form.setValue("email", selectedPerson.email);
+      form.setValue("clave_pais_telefono", selectedPerson.clave_pais_telefono || "MX");
       form.setValue("telefono", selectedPerson.telefono || "");
       form.setValue("rfc", selectedPerson.rfc || "");
       form.setValue("curp", selectedPerson.curp || "");
@@ -302,6 +306,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
       tipo_persona: "pf",
       nombre_completo: "",
       email: "",
+      clave_pais_telefono: "MX",
       telefono: "",
       rfc: "",
       curp: "",
@@ -553,6 +558,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
             tipo_persona: data.tipo_persona,
             nombre_legal: data.nombre_completo,
             email: data.email,
+            clave_pais_telefono: data.clave_pais_telefono || 'MX',
             telefono: data.telefono,
             rfc: data.rfc || null,
             curp: data.curp || null,
@@ -1904,7 +1910,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-[1fr,auto,1fr] gap-4 items-end">
                 <FormField
                   control={form.control}
                   name="email"
@@ -1926,13 +1932,40 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
 
                 <FormField
                   control={form.control}
+                  name="clave_pais_telefono"
+                  render={({ field }) => (
+                    <FormItem className="w-24">
+                      <FormLabel>País *</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={selectedPerson !== null}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="--" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="MX">🇲🇽 +52</SelectItem>
+                          <SelectItem value="US">🇺🇸 +1</SelectItem>
+                          <SelectItem value="CA">🇨🇦 +1</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="telefono"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex-1">
                       <FormLabel>Teléfono *</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="Ingresa el teléfono (10 dígitos obligatorios)" 
+                          placeholder="10 dígitos" 
                           disabled={selectedPerson !== null}
                           {...field}
                           onChange={(e) => {
