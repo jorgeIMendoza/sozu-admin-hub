@@ -726,7 +726,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       nombre_comercial: nombreComercial.trim() || null,
       email: email.trim(),
       telefono: telefono.trim() || null,
-      clave_pais_telefono: clavePaisTelefono || null,
+      clave_pais_telefono: clavePaisTelefono || 'MX',
       tipo_persona: tipoPersona,
       curp: curp.trim() || null,
       rfc: rfc.trim() || null,
@@ -815,7 +815,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         nombre_legal: nombre.trim(),
         email: email.trim(),
         telefono: telefono.trim() || null,
-        clave_pais_telefono: clavePaisTelefono || null,
+        clave_pais_telefono: clavePaisTelefono || 'MX',
         curp: curp.trim() || null,
         url_documento_identificacion: documentImageUrl || undefined,
       });
