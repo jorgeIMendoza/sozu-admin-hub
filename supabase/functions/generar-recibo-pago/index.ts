@@ -490,7 +490,7 @@ Deno.serve(async (req) => {
     const m2Formateado = m2Totales.toFixed(2);
     const m2EnLetras = numberToWordsM2(m2Totales);
 
-    const mainParagraph = `Recibimos de ${titulo}${nombreComprador.toUpperCase()} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, al efecto de adquirir la siguiente unidad condominal, cuyas características serán:`;
+    const mainParagraph = `Recibimos de ${nombreComprador.toUpperCase()} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, al efecto de adquirir la siguiente unidad condominal, cuyas características serán:`;
 
     const mainLines = wrapText(mainParagraph, contentWidth, helvetica, 11);
     for (const line of mainLines) {
@@ -573,7 +573,7 @@ Deno.serve(async (req) => {
     });
     
     // Item 3 label - wrap the full text including client name
-    const item3Label = `Monto total de depósito en garantía de cumplimiento al que se compromete ${titulo}${nombreComprador.toUpperCase()}:`;
+    const item3Label = `Monto total de depósito en garantía de cumplimiento al que se compromete ${nombreComprador.toUpperCase()}:`;
     const item3LabelLines = wrapText(item3Label, contentWidth - 30, helveticaBold, 11);
     for (let i = 0; i < item3LabelLines.length; i++) {
       page.drawText(item3LabelLines[i], {
@@ -647,13 +647,15 @@ Deno.serve(async (req) => {
     yPosition -= 45;
 
     // Signature image
-    if (proyectoData?.url_firma_recibos) {
+    const urlFirma = proyectoData?.url_firma_recibos || proyectoData?.url_firma;
+    if (urlFirma) {
       try {
-        const firmaResponse = await fetch(proyectoData.url_firma_recibos);
+        console.log('Loading firma from:', urlFirma);
+        const firmaResponse = await fetch(urlFirma);
         const firmaBytes = await firmaResponse.arrayBuffer();
         let firmaImage;
         
-        if (proyectoData.url_firma_recibos.toLowerCase().includes('.png')) {
+        if (urlFirma.toLowerCase().includes('.png')) {
           firmaImage = await pdfDoc.embedPng(firmaBytes);
         } else {
           firmaImage = await pdfDoc.embedJpg(firmaBytes);
