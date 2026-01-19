@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -472,6 +473,7 @@ export default function DetalleCuentaCobranza() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { canUpdate, canDelete, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
+  const { registrarCreacion } = useActivityLogger();
 
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
@@ -947,15 +949,51 @@ export default function DetalleCuentaCobranza() {
         });
 
         if (webhookResponse.ok) {
+          // Registrar en log de actividad
+          await registrarCreacion(
+            'acuerdos_pago',
+            {
+              id_cuenta_cobranza: cuentaDetalle.id,
+              id_oferta: offerData.id,
+              id_propiedad: offerData.id_propiedad,
+              id_esquema_pago: schemeId,
+              precio_final: precioFinal,
+              precio_lista: precioLista,
+              porcentaje_ajuste: porcentajeAjuste
+            },
+            'generar_acuerdo_pago_desde_cuenta'
+          );
+
           toast({
             title: "Acuerdo generado",
             description: "Se ha generado el acuerdo de pago para la cuenta de cobranza",
           });
         } else {
           console.error('Webhook response not ok:', webhookResponse.status);
+          await registrarCreacion(
+            'acuerdos_pago',
+            {
+              id_cuenta_cobranza: cuentaDetalle.id,
+              id_oferta: offerData.id,
+              webhook_status: webhookResponse.status
+            },
+            'generar_acuerdo_pago_desde_cuenta',
+            'error',
+            `Webhook respondió con status ${webhookResponse.status}`
+          );
         }
       } catch (webhookError) {
         console.error('Error calling webhook:', webhookError);
+        await registrarCreacion(
+          'acuerdos_pago',
+          {
+            id_cuenta_cobranza: cuentaDetalle.id,
+            id_oferta: offerData?.id
+          },
+          'generar_acuerdo_pago_desde_cuenta',
+          'error',
+          `Error en webhook: ${webhookError instanceof Error ? webhookError.message : 'Error desconocido'}`
+        );
       }
 
       // Refresh queries
