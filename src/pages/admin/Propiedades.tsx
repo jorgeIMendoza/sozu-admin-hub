@@ -199,6 +199,7 @@ interface Property {
   edificio: string;
   modelo: string;
   vista: string;
+  tipo_transaccion: string;
   disponibilidad: string;
   id_estatus_disponibilidad: number;
   configuracion_modelo: {
@@ -225,7 +226,7 @@ interface Property {
 
 type ColumnKey = 
   | 'proyecto' | 'propietario' | 'edificio' | 'modelo' | 'numero_departamento'
-  | 'piso' | 'vista' | 'area' | 'configuracion' | 'precio' | 'precio_m2'
+  | 'piso' | 'vista' | 'area' | 'configuracion' | 'tipo_transaccion' | 'precio' | 'precio_m2'
   | 'estacionamientos' | 'bodegas' | 'ofertas_comerciales' | 'ofertas_productos'
   | 'esquemas_pago' | 'disponibilidad' | 'cuenta_cobranza' | 'cuenta_clabe' | 'precio_final'
   | 'pagado' | 'restante' | 'estado_pagos' | 'factura' | 'acciones';
@@ -247,6 +248,7 @@ const COLUMNS_CONFIG: ColumnConfig[] = [
   { key: 'vista', label: 'Vista', required: false, defaultVisible: false },
   { key: 'area', label: 'Área', required: false, defaultVisible: true },
   { key: 'configuracion', label: 'Configuración', required: false, defaultVisible: true },
+  { key: 'tipo_transaccion', label: 'Tipo de Transacción', required: false, defaultVisible: true },
   { key: 'precio', label: 'Precio', required: false, defaultVisible: true },
   { key: 'precio_m2', label: 'Precio por M2', required: false, defaultVisible: false },
   { key: 'estacionamientos', label: 'Estacionamientos', required: false, defaultVisible: true },
@@ -1031,7 +1033,8 @@ const Propiedades = () => {
       entidadesResult,
       vistasResult,
       estatusResult,
-      ofertasResult
+      ofertasResult,
+      tiposTransaccionResult
     ] = await Promise.all([
       // Parking counts - add limit to avoid 1000 default
       supabase.from('estacionamientos').select('id_propiedad').in('id_propiedad', propertyIds).eq('activo', true).limit(10000),
@@ -1062,7 +1065,12 @@ const Propiedades = () => {
         .select('id, id_propiedad, id_producto, activo, cuentas_cobranza!fk_cuentas_cobranza_oferta(clabe_stp, id)')
         .in('id_propiedad', propertyIds)
         .eq('activo', true)
-        .limit(10000)
+        .limit(10000),
+      // Transaction types
+      supabase.from('tipos_transaccion')
+        .select('id, nombre')
+        .in('id', [...new Set(data.map(p => p.id_tipo_transaccion).filter(Boolean))])
+        .limit(100)
     ]);
 
     // Create maps for quick lookup
@@ -1111,6 +1119,11 @@ const Propiedades = () => {
       return acc;
     }, {});
     
+    const tiposTransaccionMap = (tiposTransaccionResult.data || []).reduce((acc: any, t: any) => {
+      acc[t.id] = t;
+      return acc;
+    }, {});
+    
     // Group ofertas by property
     const ofertasMap = (ofertasResult.data || []).reduce((acc: any, o: any) => {
       if (!acc[o.id_propiedad]) acc[o.id_propiedad] = [];
@@ -1125,6 +1138,7 @@ const Propiedades = () => {
       entidades_relacionadas: entidadesMap[property.id_entidad_relacionada_dueno] || null,
       vistas: vistasMap[property.id_vista] || null,
       estatus_disponibilidad: estatusMap[property.id_estatus_disponibilidad] || null,
+      tipos_transaccion: tiposTransaccionMap[property.id_tipo_transaccion] || null,
       ofertas: ofertasMap[property.id] || []
     }));
     
@@ -1524,6 +1538,7 @@ const Propiedades = () => {
         edificio: property.edificios_modelos?.edificios?.nombre || 'Sin edificio',
         modelo: property.edificios_modelos?.modelos?.nombre || 'Sin modelo',
         vista: property.vistas?.nombre || 'Sin vista',
+        tipo_transaccion: property.tipos_transaccion?.nombre || '-',
         disponibilidad: property.estatus_disponibilidad?.nombre || 'Sin estatus',
         id_estatus_disponibilidad: property.estatus_disponibilidad?.id || 0,
         tieneOfertas: property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto === null),
@@ -1642,6 +1657,7 @@ const Propiedades = () => {
             clabe_stp_tmp_apartado,
             id_entidad_relacionada_dueno,
             id_estatus_disponibilidad,
+            id_tipo_transaccion,
             activo,
             es_aprobado,
             id_edificio_modelo,
@@ -2051,6 +2067,7 @@ const Propiedades = () => {
             clabe_stp_tmp_apartado,
             id_entidad_relacionada_dueno,
             id_estatus_disponibilidad,
+            id_tipo_transaccion,
             activo,
             es_aprobado,
             id_edificio_modelo,
@@ -2455,6 +2472,7 @@ const Propiedades = () => {
             clabe_stp_tmp_apartado,
             id_entidad_relacionada_dueno,
             id_estatus_disponibilidad,
+            id_tipo_transaccion,
             activo,
             es_aprobado,
             id_edificio_modelo,
@@ -4068,6 +4086,13 @@ const Propiedades = () => {
                       
                       case 'configuracion':
                         return <TableCell key={column.key} className="text-sm">{formatConfiguracion(property.configuracion_modelo)}</TableCell>;
+                      
+                      case 'tipo_transaccion':
+                        return (
+                          <TableCell key={column.key}>
+                            <Badge variant="outline">{property.tipo_transaccion}</Badge>
+                          </TableCell>
+                        );
                       
                       case 'precio':
                         return (
