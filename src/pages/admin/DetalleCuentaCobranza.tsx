@@ -2032,7 +2032,7 @@ export default function DetalleCuentaCobranza() {
   // Only set ultimoPagoSTP if the most recent payment is STP
   const ultimoPagoSTP = ultimoPagoEsSTP ? ultimoPago : null;
 
-  // Mutation to delete payment application
+  // Mutation to delete payment application (physical deletion)
   const deletePaymentMutation = useMutation({
     mutationFn: async (aplicacionId: number) => {
       // Get the application to find its payment
@@ -2045,44 +2045,56 @@ export default function DetalleCuentaCobranza() {
       if (aplicacionError) throw aplicacionError;
       if (!aplicacion) throw new Error("Aplicación no encontrada");
 
-      // Get the payment to verify it's not STP
+      // Get the payment with clave_rastreo for STP cleanup
       const { data: pago, error: pagoError } = await supabase
         .from('pagos')
-        .select('id_metodos_pago')
+        .select('id_metodos_pago, clave_rastreo')
         .eq('id', aplicacion.id_pago)
         .single();
 
       if (pagoError) throw pagoError;
       if (!pago) throw new Error("Pago no encontrado");
 
-      // STP payments can now be deleted
-
-      // Get all active applications for this payment
+      // Get all applications for this payment to update related acuerdos
       const { data: todasAplicaciones, error: aplicacionesError } = await supabase
         .from('aplicaciones_pago')
         .select('id, id_acuerdo_pago')
-        .eq('id_pago', aplicacion.id_pago)
-        .eq('activo', true);
+        .eq('id_pago', aplicacion.id_pago);
 
       if (aplicacionesError) throw aplicacionesError;
 
-      // Inactivate the payment
-      const { error: inactivarPagoError } = await supabase
-        .from('pagos')
-        .update({ activo: false })
-        .eq('id', aplicacion.id_pago);
-
-      if (inactivarPagoError) throw inactivarPagoError;
-
-      // Inactivate ALL applications for this payment
-      const { error: inactivarAplicacionesError } = await supabase
+      // 1. PHYSICALLY DELETE all applications for this payment
+      const { error: deleteAplicacionesError } = await supabase
         .from('aplicaciones_pago')
-        .update({ activo: false })
+        .delete()
         .eq('id_pago', aplicacion.id_pago);
 
-      if (inactivarAplicacionesError) throw inactivarAplicacionesError;
+      if (deleteAplicacionesError) throw deleteAplicacionesError;
 
-      // Mark all affected payment agreements as incomplete
+      // 2. PHYSICALLY DELETE the payment
+      const { error: deletePagoError } = await supabase
+        .from('pagos')
+        .delete()
+        .eq('id', aplicacion.id_pago);
+
+      if (deletePagoError) throw deletePagoError;
+
+      // 3. If it was an STP payment, clean up related records
+      if (pago.clave_rastreo) {
+        // 3a. Delete the tabla_datos_cep record (allows regeneration on reload)
+        await supabase
+          .from('tabla_datos_cep')
+          .delete()
+          .eq('claverastreo', pago.clave_rastreo);
+
+        // 3b. Mark pagos_stp_raw as not applied (allows reprocessing)
+        await supabase
+          .from('pagos_stp_raw')
+          .update({ es_pago_aplicado: false })
+          .eq('claverastreo', pago.clave_rastreo);
+      }
+
+      // 4. Mark all affected payment agreements as incomplete
       if (todasAplicaciones && todasAplicaciones.length > 0) {
         const acuerdosIds = [...new Set(todasAplicaciones.map(a => a.id_acuerdo_pago))];
         
@@ -2097,7 +2109,7 @@ export default function DetalleCuentaCobranza() {
     onSuccess: () => {
       toast({
         title: "Pago eliminado",
-        description: "La aplicación de pago ha sido eliminada exitosamente",
+        description: "El pago y todas sus aplicaciones han sido eliminados. Si era STP, puede ser recargado nuevamente.",
       });
       queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuentaId] });
       queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
@@ -2107,7 +2119,7 @@ export default function DetalleCuentaCobranza() {
     onError: (error) => {
       toast({
         title: "Error",
-        description: "No se pudo eliminar la aplicación de pago",
+        description: "No se pudo eliminar el pago",
         variant: "destructive",
       });
     },
