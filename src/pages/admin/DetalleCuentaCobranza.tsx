@@ -160,6 +160,7 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
     title: ''
   });
 
+  // Fetch documents with category info
   const { data: documentos, isLoading } = useQuery({
     queryKey: ["documentos_cuenta_cobranza", cuentaCobranzaId],
     queryFn: async () => {
@@ -171,7 +172,9 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
           url,
           id_estatus_verificacion,
           fecha_creacion,
-          tipos_documento:id_tipo_documento(nombre)
+          id_persona,
+          id_tipo_documento,
+          tipos_documento:id_tipo_documento(id, nombre, id_categoria_documento)
         `)
         .eq('id_cuenta_cobranza', cuentaCobranzaId)
         .eq('activo', true)
@@ -190,12 +193,10 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
         
         // Si la URL no es completa (no empieza con https://), construir la URL pública
         if (correctedUrl && !correctedUrl.startsWith('https://')) {
-          // Remover el prefijo "documentos/" si existe para evitar duplicación
           const fileName = correctedUrl.startsWith('documentos/') 
             ? correctedUrl.replace('documentos/', '') 
             : correctedUrl;
           
-          // Construir la URL pública correcta
           const { data } = supabase.storage
             .from('documentos')
             .getPublicUrl(fileName);
@@ -213,6 +214,61 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
     }
   });
 
+  // Fetch compradores to get their names
+  const { data: compradoresData } = useQuery({
+    queryKey: ["compradores_cuenta_cobranza", cuentaCobranzaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('compradores')
+        .select(`
+          id_persona,
+          personas!compradores_id_persona_fkey(id, nombre_legal)
+        `)
+        .eq('id_cuenta_cobranza', cuentaCobranzaId)
+        .eq('activo', true);
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  // Fetch delivery document types (categoria 7)
+  const { data: tiposDocEntrega } = useQuery({
+    queryKey: ["tipos_documento_entrega"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tipos_documento')
+        .select('id, nombre')
+        .eq('id_categoria_documento', 7)
+        .eq('activo', true)
+        .order('nombre');
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  // Separate documents by type
+  const clientDocuments = documentos?.filter(doc => doc.id_persona) || [];
+  const propertyDocuments = documentos?.filter(doc => !doc.id_persona) || [];
+  
+  // Get delivery documents (categoria 7) from property documents
+  const deliveryDocuments = propertyDocuments.filter(
+    doc => (doc.tipos_documento as any)?.id_categoria_documento === 7
+  );
+  
+  // Find missing delivery documents
+  const uploadedDeliveryTypeIds = deliveryDocuments.map(d => d.id_tipo_documento);
+  const missingDeliveryDocs = tiposDocEntrega?.filter(
+    tipo => !uploadedDeliveryTypeIds.includes(tipo.id)
+  ) || [];
+
+  // Get comprador name by id_persona
+  const getCompradorName = (idPersona: number) => {
+    const comprador = compradoresData?.find(c => c.id_persona === idPersona);
+    return (comprador?.personas as any)?.nombre_legal || 'Comprador desconocido';
+  };
+
   const handleDownloadAll = async () => {
     if (!documentos || documentos.length === 0) {
       toast({
@@ -227,7 +283,6 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
     try {
       const zip = new JSZip();
       
-      // Descargar cada documento y agregarlo al ZIP
       for (const doc of documentos) {
         try {
           const response = await fetch(doc.url);
@@ -237,17 +292,15 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
           }
           
           const blob = await response.blob();
-          const fileName = `${doc.tipos_documento?.nombre || 'Documento'}_${doc.numero || doc.id}.pdf`;
+          const fileName = `${(doc.tipos_documento as any)?.nombre || 'Documento'}_${doc.numero || doc.id}.pdf`;
           zip.file(fileName, blob);
         } catch (error) {
           console.error(`Error procesando documento ${doc.id}:`, error);
         }
       }
 
-      // Generar el archivo ZIP
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       
-      // Descargar el ZIP
       const link = document.createElement('a');
       link.href = URL.createObjectURL(zipBlob);
       link.download = `documentos_cuenta_cobranza_${cuentaCobranzaId}.zip`;
@@ -272,6 +325,71 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
     }
   };
 
+  const renderDocumentTable = (docs: typeof documentos, showComprador = false) => {
+    if (!docs || docs.length === 0) {
+      return (
+        <div className="text-center py-4 text-muted-foreground text-sm">
+          No hay documentos en esta sección
+        </div>
+      );
+    }
+
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Tipo</TableHead>
+            {showComprador && <TableHead>Comprador</TableHead>}
+            <TableHead>Número</TableHead>
+            <TableHead>Fecha</TableHead>
+            <TableHead>Verificado</TableHead>
+            <TableHead className="text-right">Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {docs.map((doc: any) => (
+            <TableRow key={doc.id}>
+              <TableCell className="font-medium">
+                {doc.tipos_documento?.nombre || 'Sin tipo'}
+                {doc.tipos_documento?.id_categoria_documento === 7 && (
+                  <Badge variant="outline" className="ml-2 text-xs">Entrega</Badge>
+                )}
+              </TableCell>
+              {showComprador && (
+                <TableCell>{getCompradorName(doc.id_persona)}</TableCell>
+              )}
+              <TableCell>{doc.numero || ''}</TableCell>
+              <TableCell>
+                {new Date(doc.fecha_creacion).toLocaleDateString('es-MX')}
+              </TableCell>
+              <TableCell>
+                <Badge variant={doc.id_estatus_verificacion === 2 ? "default" : doc.id_estatus_verificacion === 3 ? "destructive" : "secondary"}>
+                  {doc.id_estatus_verificacion === 2 ? "Validado" : doc.id_estatus_verificacion === 3 ? "Rechazado" : doc.id_estatus_verificacion === 4 ? "Expirado" : "Pendiente"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setViewerDialog({
+                      isOpen: true,
+                      url: doc.url,
+                      title: doc.tipos_documento?.nombre || 'Documento'
+                    });
+                  }}
+                  title="Ver documento"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -283,79 +401,67 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+    <div className="space-y-6">
+      {/* Client Documents Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
             <FileText className="h-5 w-5" />
-            Documentos de la propiedad
+            Documentos del Cliente
           </CardTitle>
-          {documentos && documentos.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadAll}
-              disabled={isDownloading}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {isDownloading ? "Descargando..." : "Descargar todos"}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {documentos && documentos.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Número</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Verificado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {documentos.map((doc: any) => (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-medium">
-                    {doc.tipos_documento?.nombre || 'Sin tipo'}
-                  </TableCell>
-                  <TableCell>{doc.numero || ''}</TableCell>
-                  <TableCell>
-                    {new Date(doc.fecha_creacion).toLocaleDateString('es-MX')}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={doc.id_estatus_verificacion === 2 ? "default" : doc.id_estatus_verificacion === 3 ? "destructive" : "secondary"}>
-                      {doc.id_estatus_verificacion === 2 ? "Validado" : doc.id_estatus_verificacion === 3 ? "Rechazado" : doc.id_estatus_verificacion === 4 ? "Expirado" : "Pendiente"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setViewerDialog({
-                          isOpen: true,
-                          url: doc.url,
-                          title: doc.tipos_documento?.nombre || 'Documento'
-                        });
-                      }}
-                      title="Ver documento"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            No hay documentos adjuntos
+        </CardHeader>
+        <CardContent>
+          {renderDocumentTable(clientDocuments, true)}
+        </CardContent>
+      </Card>
+
+      {/* Property Documents Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Home className="h-5 w-5" />
+              Documentos de la Propiedad
+            </CardTitle>
+            {documentos && documentos.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAll}
+                disabled={isDownloading}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isDownloading ? "Descargando..." : "Descargar todos"}
+              </Button>
+            )}
           </div>
-        )}
-      </CardContent>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {renderDocumentTable(propertyDocuments)}
+
+          {/* Missing Delivery Documents Warning */}
+          {missingDeliveryDocs.length > 0 && (
+            <div className="mt-4 p-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    Documentos de entrega faltantes ({missingDeliveryDocs.length})
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-300">
+                    {missingDeliveryDocs.map(tipo => (
+                      <li key={tipo.id} className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        {tipo.nombre}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Document Viewer Dialog */}
       <Dialog open={viewerDialog.isOpen} onOpenChange={(open) => setViewerDialog({ ...viewerDialog, isOpen: open })}>
@@ -372,7 +478,7 @@ function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number 
           </div>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
 

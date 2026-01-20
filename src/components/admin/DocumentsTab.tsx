@@ -52,6 +52,7 @@ interface DocumentsTabProps {
 interface TipoDocumento {
   id: number;
   nombre: string;
+  id_categoria_documento?: number;
 }
 
 interface Documento {
@@ -153,7 +154,7 @@ export function DocumentsTab({
       // Build query
       let query = supabase
         .from('tipos_documento')
-        .select('id, nombre')
+        .select('id, nombre, id_categoria_documento')
         .eq('activo', true)
         .eq('asignado_a', asignadoA);
       
@@ -1355,12 +1356,16 @@ export function DocumentsTab({
                       return true;
                     })
                     .map((tipo) => {
+                      const isDeliveryDoc = tipo.id_categoria_documento === 7;
                       return (
                         <SelectItem 
                           key={tipo.id} 
                           value={tipo.id.toString()}
                         >
                           {tipo.nombre}
+                          {isDeliveryDoc && (
+                            <span className="ml-2 text-xs text-primary font-medium">(Doc. Entrega)</span>
+                          )}
                         </SelectItem>
                       );
                     })}
