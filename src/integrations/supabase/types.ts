@@ -5448,6 +5448,54 @@ export type Database = {
           },
         ]
       }
+      tabla_carga_documentos_propiedades_n8n: {
+        Row: {
+          error: string | null
+          estatus: boolean | null
+          fecha_actualizacion: string | null
+          fecha_creacion: string | null
+          id: number
+          id_proyecto: number | null
+          id_tipo_documento: number | null
+          url_evidencia: string | null
+        }
+        Insert: {
+          error?: string | null
+          estatus?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          id_proyecto?: number | null
+          id_tipo_documento?: number | null
+          url_evidencia?: string | null
+        }
+        Update: {
+          error?: string | null
+          estatus?: boolean | null
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          id_proyecto?: number | null
+          id_tipo_documento?: number | null
+          url_evidencia?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tabla_carga_documentos_propiedades_n8n_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tabla_carga_documentos_propiedades_n8n_id_tipo_documento_fkey"
+            columns: ["id_tipo_documento"]
+            isOneToOne: false
+            referencedRelation: "tipos_documento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tabla_datos_cep: {
         Row: {
           cadena: string
