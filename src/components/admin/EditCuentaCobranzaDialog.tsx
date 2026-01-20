@@ -239,6 +239,10 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const [isEditingPrecioFinal, setIsEditingPrecioFinal] = useState(false);
   const [editingPrecioFinal, setEditingPrecioFinal] = useState<string>('');
   const [showPrecioFinalConfirmDialog, setShowPrecioFinalConfirmDialog] = useState(false);
+
+  // Estados para edición de comprador
+  const [isEditBuyerDialogOpen, setIsEditBuyerDialogOpen] = useState(false);
+  const [editingBuyer, setEditingBuyer] = useState<any>(null);
   const [pendingPrecioFinalChange, setPendingPrecioFinalChange] = useState<{
     newPrecio: number;
     difference: number;
@@ -1168,6 +1172,69 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       toast.error("Error al eliminar comprador: " + (error as Error).message);
     }
   });
+
+  // Mutation para actualizar comprador
+  const updateBuyerMutation = useMutation({
+    mutationFn: async (personData: any) => {
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
+      
+      const { error: updateError } = await supabase
+        .from('personas')
+        .update(cleanPersonData)
+        .eq('id', editingBuyer?.id);
+      
+      if (updateError) throw updateError;
+      
+      // Actualizar representante legal
+      if (representativeId !== undefined) {
+        const { error: repError } = await supabase
+          .from('personas')
+          .update({ id_entidad_relacionada_rep_leg: representativeId || null })
+          .eq('id', editingBuyer?.id);
+          
+        if (repError) throw repError;
+      }
+
+      // Si se actualizó el id_conyuge, sincronizar cuentas de compradores
+      if (cleanPersonData.id_conyuge !== undefined && editingBuyer?.id) {
+        const { error: syncError } = await supabase
+          .rpc('sync_conyuge_compradores', {
+            p_id_persona: editingBuyer.id
+          });
+        
+        if (syncError) {
+          console.error('Error al sincronizar cónyuge en compradores:', syncError);
+          throw new Error(`Error al sincronizar compradores: ${syncError.message}`);
+        }
+      }
+    },
+    onSuccess: () => {
+      refetchCompradores();
+      setIsEditBuyerDialogOpen(false);
+      setEditingBuyer(null);
+      toast.success("Comprador actualizado correctamente.");
+    },
+    onError: (error: any) => {
+      toast.error(`Error al actualizar el comprador: ${error.message}`);
+    },
+  });
+
+  const handleEditBuyer = async (personaId: number) => {
+    // Fetch full persona data for editing
+    const { data: personaData, error } = await supabase
+      .from('personas')
+      .select('*')
+      .eq('id', personaId)
+      .single();
+    
+    if (error) {
+      toast.error('Error al cargar datos del comprador');
+      return;
+    }
+    
+    setEditingBuyer(personaData);
+    setIsEditBuyerDialogOpen(true);
+  };
 
   const handleDeleteBuyer = (personaId: number, nombreComprador: string) => {
     // Find the comprador to check for spouse
@@ -2939,15 +3006,26 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 />
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => handleDeleteBuyer(comprador.personas?.id || 0, comprador.personas?.nombre_legal || '')}
-                                  disabled={deleteBuyerMutation.isPending || isReadOnly}
-                                  className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleEditBuyer(comprador.personas?.id || 0)}
+                                    disabled={isReadOnly}
+                                    className="hover:bg-primary/10 hover:border-primary hover:text-primary transition-colors"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleDeleteBuyer(comprador.personas?.id || 0, comprador.personas?.nombre_legal || '')}
+                                    disabled={deleteBuyerMutation.isPending || isReadOnly}
+                                    className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                            </TableRow>
                            
@@ -5280,6 +5358,28 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Dialog para editar comprador */}
+        <Dialog open={isEditBuyerDialogOpen} onOpenChange={setIsEditBuyerDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Comprador</DialogTitle>
+            </DialogHeader>
+            <PersonForm
+              initialData={{
+                ...editingBuyer,
+                representativeId: editingBuyer?.id_entidad_relacionada_rep_leg
+              }}
+              onSubmit={(data) => updateBuyerMutation.mutate(data)}
+              isLoading={updateBuyerMutation.isPending}
+              onCancel={() => {
+                setIsEditBuyerDialogOpen(false);
+                setEditingBuyer(null);
+              }}
+              entityType="comprador"
+            />
+          </DialogContent>
+        </Dialog>
 
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={handleCloseModal}>
