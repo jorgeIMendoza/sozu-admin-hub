@@ -1949,10 +1949,7 @@ export default function DetalleCuentaCobranza() {
       if (pagoError) throw pagoError;
       if (!pago) throw new Error("Pago no encontrado");
 
-      // Prevent deletion of STP payments (id_metodos_pago = 6)
-      if (pago.id_metodos_pago === 6) {
-        throw new Error("No se pueden eliminar pagos realizados por STP");
-      }
+      // STP payments can now be deleted
 
       // Get all active applications for this payment
       const { data: todasAplicaciones, error: aplicacionesError } = await supabase
@@ -2017,14 +2014,7 @@ export default function DetalleCuentaCobranza() {
     );
     const aplicacionData = acuerdo?.aplicaciones?.find(app => app.id === aplicacion.id);
     
-    if (aplicacionData?.pago.metodo_pago === 'STP') {
-      toast({
-        title: "No se puede eliminar",
-        description: "No se pueden eliminar pagos realizados por STP",
-        variant: "destructive",
-      });
-      return;
-    }
+    // STP payments can now be deleted
 
     // Get the number of applications for this payment
     if (aplicacionData) {
@@ -3697,6 +3687,7 @@ export default function DetalleCuentaCobranza() {
                               <TableBody>
                                 {(acuerdo.aplicaciones || []).map((aplicacion, index) => {
                                   const isStpPayment = aplicacion.pago.metodo_pago?.toLowerCase().includes('stp');
+                                  const isStpPaymentForEdit = isStpPayment; // Keep for edit button logic
                                   
                                   return (
                                     <TableRow key={aplicacion.id}>
@@ -3815,7 +3806,7 @@ export default function DetalleCuentaCobranza() {
                                               </Tooltip>
                                               
                                               {/* Edit Button - Only for non-STP payments and incomplete agreements */}
-                                              {!isStpPayment && !acuerdo.pago_completado && (
+                                              {!isStpPaymentForEdit && !acuerdo.pago_completado && (
                                                 <Tooltip>
                                                   <TooltipTrigger asChild>
                                                     <Button
@@ -3847,13 +3838,13 @@ export default function DetalleCuentaCobranza() {
                                                         monto: aplicacion.monto,
                                                         conceptoNombre: conceptoDisplay
                                                       })}
-                                                      disabled={deletePaymentMutation.isPending || isStpPayment || esCuentaCancelada || isReadOnly || isEnDemanda}
+                                                      disabled={deletePaymentMutation.isPending || esCuentaCancelada || isReadOnly || isEnDemanda}
                                                     >
                                                       <Trash2 className="h-3 w-3" />
                                                     </Button>
                                                   </TooltipTrigger>
                                                   <TooltipContent>
-                                                    <p>{isStpPayment ? "No se pueden eliminar pagos STP" : "Eliminar Pago"}</p>
+                                                    <p>Eliminar Pago</p>
                                                   </TooltipContent>
                                                 </Tooltip>
                                               )}
