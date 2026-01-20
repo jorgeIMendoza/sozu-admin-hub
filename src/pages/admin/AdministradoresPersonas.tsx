@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, FileSpreadsheet } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";  
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
+import { useExportToExcel } from "@/hooks/useExportToExcel";
 
 type Administrador = {
   id: number;
@@ -28,7 +29,8 @@ type Administrador = {
 };
 
 export default function AdministradoresPersonas() {
-  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin } = usePagePermissions('/admin/administradores-personas');
+  const { canCreate, canUpdate, canDelete, canApprove, canExport, isSuperAdmin } = usePagePermissions('/admin/administradores-personas');
+  const { exportToExcel, isExporting } = useExportToExcel();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
@@ -480,15 +482,38 @@ export default function AdministradoresPersonas() {
                 Gestiona la información de los administradores
               </p>
             </div>
-            {(canCreate || isSuperAdmin) && (
-              <Button 
-                onClick={() => setIsNewDialogOpen(true)}
-                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo Administrador
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {(canExport || isSuperAdmin) && filteredAdministradores.length > 0 && (
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    const exportData = filteredAdministradores.map(a => ({
+                      'Nombre': a.nombre_legal,
+                      'Email': a.email,
+                      'Teléfono': a.telefono || 'N/A',
+                      'Tipo Persona': a.tipo_persona === 'pf' ? 'Física' : 'Moral',
+                      'RFC': a.rfc || 'N/A',
+                      'CURP': a.curp || 'N/A',
+                      'Representante Legal': a.representante_legal_nombre || 'N/A',
+                    }));
+                    exportToExcel({ data: exportData, filename: 'administradores' });
+                  }}
+                  disabled={isExporting}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  {isExporting ? 'Exportando...' : 'Exportar Excel'}
+                </Button>
+              )}
+              {(canCreate || isSuperAdmin) && (
+                <Button 
+                  onClick={() => setIsNewDialogOpen(true)}
+                  className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Administrador
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, FileSpreadsheet } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { saveTempPersonData } from "@/utils/personUtils";
+import { useExportToExcel } from "@/hooks/useExportToExcel";
 
 type Vendedor = {
   id: number;
@@ -29,7 +30,8 @@ type Vendedor = {
 };
 
 export default function Vendedores() {
-  const { canCreate, canUpdate, canDelete, canApprove, isSuperAdmin } = usePagePermissions('/admin/vendedores');
+  const { canCreate, canUpdate, canDelete, canApprove, canExport, isSuperAdmin } = usePagePermissions('/admin/vendedores');
+  const { exportToExcel, isExporting } = useExportToExcel();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
@@ -468,15 +470,38 @@ export default function Vendedores() {
                 Gestiona la información de los vendedores
               </p>
             </div>
-            {(canCreate || isSuperAdmin) && (
-              <Button 
-                onClick={() => setIsNewDialogOpen(true)}
-                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo Vendedor
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {(canExport || isSuperAdmin) && filteredVendedores.length > 0 && (
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    const exportData = filteredVendedores.map(v => ({
+                      'Nombre': v.nombre_legal,
+                      'Email': v.email,
+                      'Teléfono': v.telefono || 'N/A',
+                      'Tipo Persona': v.tipo_persona === 'pf' ? 'Física' : 'Moral',
+                      'RFC': v.rfc || 'N/A',
+                      'CURP': v.curp || 'N/A',
+                      'Representante Legal': v.representante_legal_nombre || 'N/A',
+                    }));
+                    exportToExcel({ data: exportData, filename: 'vendedores' });
+                  }}
+                  disabled={isExporting}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  {isExporting ? 'Exportando...' : 'Exportar Excel'}
+                </Button>
+              )}
+              {(canCreate || isSuperAdmin) && (
+                <Button 
+                  onClick={() => setIsNewDialogOpen(true)}
+                  className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Vendedor
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         
