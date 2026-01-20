@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";  
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { BulkUploadAgentesDialog } from "@/components/admin/BulkUploadAgentesDialog";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
+import { useExportToExcel } from "@/hooks/useExportToExcel";
 
 type Agente = {
   id: number;
@@ -51,7 +52,8 @@ export default function Agentes() {
   const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canCreate } = usePagePermissions('/admin/agentes');
+  const { canCreate, canUpdate, canDelete, canExport, isSuperAdmin } = usePagePermissions('/admin/agentes');
+  const { exportToExcel, isExporting } = useExportToExcel();
 
   const { data: activeAgentes = [], isLoading: loadingActive } = useQuery({
     queryKey: ['agentes', 'active'],
@@ -582,24 +584,48 @@ export default function Agentes() {
                 Gestiona la información de los agentes
               </p>
             </div>
-            {canCreate && (
-              <div className="flex gap-2">
+            <div className="flex gap-2">
+              {(canExport || isSuperAdmin) && filteredAgentes.length > 0 && (
                 <Button 
                   variant="outline"
-                  onClick={() => setIsBulkUploadDialogOpen(true)}
+                  onClick={() => {
+                    const exportData = filteredAgentes.map(a => ({
+                      'Nombre': a.nombre_legal,
+                      'Email': a.email,
+                      'Teléfono': a.telefono || 'N/A',
+                      'Tipo Persona': a.tipo_persona === 'pf' ? 'Física' : 'Moral',
+                      'RFC': a.rfc || 'N/A',
+                      'CURP': a.curp || 'N/A',
+                      'Representante Legal': a.representante_legal_nombre || 'N/A',
+                      'Inmobiliaria': a.inmobiliaria_nombre || 'N/A',
+                    }));
+                    exportToExcel({ data: exportData, filename: 'agentes' });
+                  }}
+                  disabled={isExporting}
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Carga Masiva
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  {isExporting ? 'Exportando...' : 'Exportar Excel'}
                 </Button>
-                <Button 
-                  onClick={() => setIsNewDialogOpen(true)}
-                  className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Agente
-                </Button>
-              </div>
-            )}
+              )}
+              {canCreate && (
+                <>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsBulkUploadDialogOpen(true)}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Carga Masiva
+                  </Button>
+                  <Button 
+                    onClick={() => setIsNewDialogOpen(true)}
+                    className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nuevo Agente
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </CardHeader>
         

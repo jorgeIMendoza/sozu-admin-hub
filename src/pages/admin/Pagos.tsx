@@ -27,6 +27,8 @@ import { EstadoCuentaService } from "@/services/estadoCuentaService";
 import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { useExportToExcel } from "@/hooks/useExportToExcel";
+import { FileSpreadsheet } from "lucide-react";
 interface Comprador {
   nombre_legal: string;
   rfc: string | null;
@@ -167,7 +169,8 @@ export default function Pagos() {
   } = useProjectAccess();
 
   // Page permissions
-  const { canCreate, canUpdate, canDelete, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
+  const { canCreate, canUpdate, canDelete, canExport, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
+  const { exportToExcel, isExporting } = useExportToExcel();
   const { data: estatusDisponibilidad } = useQuery({
     queryKey: ["estatus_disponibilidad"],
     queryFn: async () => {
@@ -2212,8 +2215,8 @@ export default function Pagos() {
                   </div>
                 </div>
                 
-                {/* Clear filters button */}
-                <div className="flex justify-end">
+                {/* Clear filters button and Export */}
+                <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => {
                   setSearchTerm("");
                   setIdCuentaFilter("");
@@ -2228,6 +2231,36 @@ export default function Pagos() {
                 }}>
                     Limpiar Filtros
                   </Button>
+                  {(canExport || isSuperAdmin) && (searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0) && filteredCuentasActivas.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        const exportData = filteredCuentasActivas.map(cuenta => ({
+                          'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
+                          'Tipo': cuenta.tipo,
+                          'Nombre de producto': cuenta.producto_nombre || 'N/A',
+                          'Compradores': cuenta.compradores.map(c => c.nombre_legal).join(', ') || 'Sin compradores',
+                          'Dueño': cuenta.dueno,
+                          'CLABE': cuenta.clabe_stp || 'N/A',
+                          'Proyecto': cuenta.proyecto,
+                          'Edificio': cuenta.edificio,
+                          'No. Propiedad': cuenta.numero_propiedad,
+                          'Modelo': cuenta.modelo,
+                          'Estatus de Propiedad': cuenta.estatus_propiedad || 'N/A',
+                          'Metraje': cuenta.metraje ? `${cuenta.metraje.toFixed(2)} m²` : 'N/A',
+                          'Precio/m²': cuenta.precio_por_m2 || 'N/A',
+                          'Precio Final': cuenta.precio_final,
+                          'Pagado': cuenta.pagado,
+                          'Restante': cuenta.restante,
+                        }));
+                        exportToExcel({ data: exportData, filename: 'cuentas_cobranza_activas' });
+                      }}
+                      disabled={isExporting}
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      {isExporting ? 'Exportando...' : 'Exportar Excel'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -2712,8 +2745,8 @@ export default function Pagos() {
                   </div>
                 </div>
                 
-                {/* Clear filters button */}
-                <div className="flex justify-end">
+                {/* Clear filters button and Export */}
+                <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => {
                   setSearchTerm("");
                   setIdCuentaFilter("");
@@ -2728,6 +2761,37 @@ export default function Pagos() {
                 }}>
                     Limpiar Filtros
                   </Button>
+                  {(canExport || isSuperAdmin) && (searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0) && filteredCuentasCanceladas.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        const exportData = filteredCuentasCanceladas.map(cuenta => ({
+                          'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
+                          'Tipo': cuenta.tipo,
+                          'Nombre de producto': cuenta.producto_nombre || 'N/A',
+                          'Compradores': cuenta.compradores.map(c => c.nombre_legal).join(', ') || 'Sin compradores',
+                          'Dueño': cuenta.dueno,
+                          'CLABE': cuenta.clabe_stp || 'N/A',
+                          'Proyecto': cuenta.proyecto,
+                          'Edificio': cuenta.edificio,
+                          'No. Propiedad': cuenta.numero_propiedad,
+                          'Modelo': cuenta.modelo,
+                          'Estatus de Propiedad': cuenta.estatus_propiedad || 'N/A',
+                          'Metraje': cuenta.metraje ? `${cuenta.metraje.toFixed(2)} m²` : 'N/A',
+                          'Precio/m²': cuenta.precio_por_m2 || 'N/A',
+                          'Precio Final': cuenta.precio_final,
+                          'Pagado': cuenta.pagado,
+                          'Restante': cuenta.restante,
+                          'Motivo Cancelación': cuenta.motivo_cancelacion || 'N/A',
+                        }));
+                        exportToExcel({ data: exportData, filename: 'cuentas_cobranza_canceladas' });
+                      }}
+                      disabled={isExporting}
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      {isExporting ? 'Exportando...' : 'Exportar Excel'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>

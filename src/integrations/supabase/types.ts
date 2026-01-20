@@ -5455,8 +5455,9 @@ export type Database = {
           fecha_actualizacion: string | null
           fecha_creacion: string | null
           id: number
-          id_proyecto: number | null
+          id_proyecto: number
           id_tipo_documento: number | null
+          numero_propiedad: string
           url_evidencia: string | null
         }
         Insert: {
@@ -5465,8 +5466,9 @@ export type Database = {
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id?: number
-          id_proyecto?: number | null
+          id_proyecto: number
           id_tipo_documento?: number | null
+          numero_propiedad: string
           url_evidencia?: string | null
         }
         Update: {
@@ -5475,8 +5477,9 @@ export type Database = {
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id?: number
-          id_proyecto?: number | null
+          id_proyecto?: number
           id_tipo_documento?: number | null
+          numero_propiedad?: string
           url_evidencia?: string | null
         }
         Relationships: [
@@ -5492,6 +5495,44 @@ export type Database = {
             columns: ["id_tipo_documento"]
             isOneToOne: false
             referencedRelation: "tipos_documento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tabla_carpetas_drive_documentos_n8n: {
+        Row: {
+          fecha_actualizacion: string | null
+          fecha_creacion: string | null
+          id: number
+          id_drive_carpeta: string | null
+          id_proyecto: number | null
+          nombre_carpeta: string | null
+          numero_propiedad: string | null
+        }
+        Insert: {
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          id_drive_carpeta?: string | null
+          id_proyecto?: number | null
+          nombre_carpeta?: string | null
+          numero_propiedad?: string | null
+        }
+        Update: {
+          fecha_actualizacion?: string | null
+          fecha_creacion?: string | null
+          id?: number
+          id_drive_carpeta?: string | null
+          id_proyecto?: number | null
+          nombre_carpeta?: string | null
+          numero_propiedad?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tabla_carpetas_drive_documentos_n8n_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
         ]
