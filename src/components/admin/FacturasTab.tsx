@@ -27,10 +27,19 @@ interface FacturasTabProps {
   isReadOnly?: boolean; // Nueva prop para modo solo lectura
 }
 
+interface FacturaDocument {
+  id: number;
+  url: string;
+  es_draft: boolean;
+  numero: string | null;
+  id_persona: number | null;
+}
+
 interface FacturaInfo {
   id_persona: number;
   nombre_legal: string;
   rfc?: string;
+  facturas_pdf: FacturaDocument[];
   factura_pdf?: {
     id: number;
     url: string;
@@ -88,23 +97,28 @@ export function FacturasTab({
 
       if (error) throw error;
 
+      // Get all PDF facturas
+      const allFacturasPdf = documentos?.filter(
+        doc => doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
+               doc.tipos_documento?.nombre?.toLowerCase().includes('pdf')
+      ) || [];
+
       // Map compradores to their facturas
       const facturasInfo: FacturaInfo[] = compradores.map(comprador => {
-        // Buscar factura con id_persona que coincida
-        let facturaPdf = documentos?.find(
-          doc => doc.id_persona === comprador.id_persona && 
-                 doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
-                 doc.tipos_documento?.nombre?.toLowerCase().includes('pdf')
+        // Buscar todas las facturas PDF con id_persona que coincida
+        let facturasPdfComprador = allFacturasPdf.filter(
+          doc => doc.id_persona === comprador.id_persona
         );
         
-        // Si no hay factura con id_persona y solo hay 1 comprador, usar facturas sin asignar
-        if (!facturaPdf && compradores.length === 1) {
-          facturaPdf = documentos?.find(
-            doc => doc.id_persona === null && 
-                   doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
-                   doc.tipos_documento?.nombre?.toLowerCase().includes('pdf')
+        // Si no hay facturas con id_persona y solo hay 1 comprador, usar facturas sin asignar
+        if (facturasPdfComprador.length === 0 && compradores.length === 1) {
+          facturasPdfComprador = allFacturasPdf.filter(
+            doc => doc.id_persona === null
           );
         }
+        
+        // La factura principal (la más reciente o la primera)
+        const facturaPdf = facturasPdfComprador[0];
         
         let facturaXml = documentos?.find(
           doc => doc.id_persona === comprador.id_persona && 
@@ -125,6 +139,13 @@ export function FacturasTab({
           id_persona: comprador.id_persona,
           nombre_legal: comprador.nombre_legal,
           rfc: comprador.rfc,
+          facturas_pdf: facturasPdfComprador.map(doc => ({
+            id: doc.id,
+            url: doc.url,
+            es_draft: doc.es_draft,
+            numero: doc.numero,
+            id_persona: doc.id_persona
+          })),
           factura_pdf: facturaPdf ? {
             id: facturaPdf.id,
             url: facturaPdf.url,
@@ -635,18 +656,50 @@ export function FacturasTab({
                   .filter(factura => {
                     // Si el dueño no puede facturar, solo mostrar compradores con facturas subidas
                     if (!duenoPuedeFacturar) {
-                      return factura.factura_pdf || factura.factura_xml;
+                      return factura.facturas_pdf.length > 0 || factura.factura_xml;
                     }
                     return true;
+                  })
+                  .flatMap((factura) => {
+                    // Si tiene múltiples facturas, mostrar una fila por cada una
+                    if (factura.facturas_pdf.length > 1) {
+                      return factura.facturas_pdf.map((pdf, index) => ({
+                        ...factura,
+                        factura_pdf: pdf,
+                        rowKey: `${factura.id_persona}-${pdf.id}`,
+                        isFirstRow: index === 0,
+                        totalFacturas: factura.facturas_pdf.length
+                      }));
+                    }
+                    // Si tiene 0 o 1 factura, mostrar una fila normal
+                    return [{
+                      ...factura,
+                      rowKey: `${factura.id_persona}`,
+                      isFirstRow: true,
+                      totalFacturas: factura.facturas_pdf.length
+                    }];
                   })
                   .map((factura) => {
                   const tienePdf = !!factura.factura_pdf;
                   const isDraft = factura.factura_pdf?.es_draft;
                   
                   return (
-                    <TableRow key={factura.id_persona}>
-                      <TableCell className="font-medium">{factura.nombre_legal}</TableCell>
-                      <TableCell>{factura.rfc || '-'}</TableCell>
+                    <TableRow key={factura.rowKey}>
+                      <TableCell className="font-medium">
+                        {factura.isFirstRow ? (
+                          <>
+                            {factura.nombre_legal}
+                            {factura.totalFacturas > 1 && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                ({factura.totalFacturas} facturas)
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground text-sm italic">↳ {factura.nombre_legal}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{factura.isFirstRow ? (factura.rfc || '-') : ''}</TableCell>
                       <TableCell>
                         {tienePdf && factura.factura_pdf?.numero ? (
                           factura.factura_pdf.numero
@@ -663,7 +716,7 @@ export function FacturasTab({
                               setViewerDialog({
                                 isOpen: true,
                                 url: factura.factura_pdf!.url,
-                                title: `Factura PDF - ${factura.nombre_legal}`
+                                title: `Factura PDF - ${factura.nombre_legal}${factura.factura_pdf?.numero ? ` (${factura.factura_pdf.numero})` : ''}`
                               });
                             }}
                           >

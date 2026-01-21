@@ -223,12 +223,13 @@ export function PropertyProgressTimeline({
 
     const escrituracionCompleted = escrituracionConditions.filter(c => c.completed).length;
     const escrituracionPercentage = Math.round((escrituracionCompleted / escrituracionConditions.length) * 100);
+    const allEscrituracionComplete = escrituracionCompleted === escrituracionConditions.length;
 
     stages.push({
       name: 'Escrituración',
-      status: estatusActual >= 7 ? 'completed' : (estatusActual >= 5 && escrituracionCompleted > 0) ? 'in-progress' : 'pending',
+      status: allEscrituracionComplete ? 'completed' : (estatusActual >= 5 && escrituracionCompleted > 0) ? 'in-progress' : 'pending',
       conditions: escrituracionConditions,
-      percentage: estatusActual >= 7 ? 100 : escrituracionPercentage,
+      percentage: escrituracionPercentage,
     });
 
     // ============ ETAPA 3: ENTREGA ============
