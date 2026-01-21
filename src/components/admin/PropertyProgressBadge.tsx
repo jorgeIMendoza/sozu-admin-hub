@@ -189,8 +189,8 @@ export function PropertyProgressBadge({
               />
             </div>
           ))}
-          <p className="text-xs text-muted-foreground">
-            Clic en "Ver Detalle" para información completa
+          <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+            Clic en cada indicador para ver el detalle completo
           </p>
         </div>
       </PopoverContent>
