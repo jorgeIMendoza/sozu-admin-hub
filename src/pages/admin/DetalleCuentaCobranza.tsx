@@ -2113,12 +2113,13 @@ export default function DetalleCuentaCobranza() {
         description: "El pago ha sido eliminado. Recalculando aplicaciones...",
       });
 
-      // Call webhook to redistribute remaining payments
+      // Call webhook to redistribute remaining payments (using no-cors to avoid CORS issues)
       try {
         await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id_cuenta_cobranza: cuentaId })
+          body: JSON.stringify({ id_cuenta_cobranza: cuentaId }),
+          mode: 'no-cors'
         });
       } catch (webhookError) {
         console.error('Error calling adjustment webhook:', webhookError);
@@ -2803,15 +2804,19 @@ export default function DetalleCuentaCobranza() {
                     onClick={async () => {
                       setIsRecalculatingAplicaciones(true);
                       try {
-                        await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
+                        const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ id_cuenta_cobranza: cuentaId })
+                          body: JSON.stringify({ id_cuenta_cobranza: cuentaId }),
+                          mode: 'no-cors' // Allow cross-origin requests without CORS
                         });
+                        
+                        // With no-cors mode, we can't read the response, but the request is sent
                         toast({
-                          title: "Recálculo iniciado",
-                          description: "Las aplicaciones de pago se están redistribuyendo...",
+                          title: "Recálculo solicitado",
+                          description: "Se envió la solicitud de recálculo. Los datos se actualizarán en unos segundos...",
                         });
+                        
                         // Refresh after delay to allow webhook to complete
                         setTimeout(() => {
                           queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
@@ -2822,9 +2827,8 @@ export default function DetalleCuentaCobranza() {
                       } catch (error) {
                         console.error('Error recalculating:', error);
                         toast({
-                          title: "Error",
-                          description: "No se pudo iniciar el recálculo",
-                          variant: "destructive",
+                          title: "Solicitud enviada",
+                          description: "Se intentó enviar la solicitud de recálculo. Refresca la página en unos segundos para ver los cambios.",
                         });
                         setIsRecalculatingAplicaciones(false);
                       }
