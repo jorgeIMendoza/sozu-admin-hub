@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { PropertyProgressTimeline } from './PropertyProgressTimeline';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { usePagePermissions } from '@/hooks/usePagePermissions';
@@ -2535,23 +2536,35 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-[1325px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <span>Editar Cuenta de Cobranza - {formatCuentaCobranzaId(cuenta.id, tipoCuenta)}</span>
-            {cuentaDetalle?.collection_id && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Badge variant="outline" className="text-xs">
-                      {cuentaDetalle.collection_id}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-sm">Cuenta anterior: {cuentaDetalle.collection_id}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          <div className="flex flex-col gap-3">
+            <DialogTitle className="flex items-center gap-2">
+              <span>Editar Cuenta de Cobranza - {formatCuentaCobranzaId(cuenta.id, tipoCuenta)}</span>
+              {cuentaDetalle?.collection_id && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Badge variant="outline" className="text-xs">
+                        {cuentaDetalle.collection_id}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-sm">Cuenta anterior: {cuentaDetalle.collection_id}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </DialogTitle>
+            
+            {/* Timeline de progreso - solo para cuentas de Propiedad */}
+            {tipoCuenta === 'Propiedad' && propiedadDetalle && estatusPropiedad && (
+              <PropertyProgressTimeline 
+                cuentaId={cuenta.id}
+                propiedadId={propiedadDetalle.id}
+                estatusActual={estatusPropiedad.id_estatus_disponibilidad}
+                cuentaDetalle={cuentaDetalle}
+              />
             )}
-          </DialogTitle>
+          </div>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
