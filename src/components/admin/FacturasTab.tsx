@@ -90,17 +90,36 @@ export function FacturasTab({
 
       // Map compradores to their facturas
       const facturasInfo: FacturaInfo[] = compradores.map(comprador => {
-        const facturaPdf = documentos?.find(
+        // Buscar factura con id_persona que coincida
+        let facturaPdf = documentos?.find(
           doc => doc.id_persona === comprador.id_persona && 
                  doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
                  doc.tipos_documento?.nombre?.toLowerCase().includes('pdf')
         );
         
-        const facturaXml = documentos?.find(
+        // Si no hay factura con id_persona y solo hay 1 comprador, usar facturas sin asignar
+        if (!facturaPdf && compradores.length === 1) {
+          facturaPdf = documentos?.find(
+            doc => doc.id_persona === null && 
+                   doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
+                   doc.tipos_documento?.nombre?.toLowerCase().includes('pdf')
+          );
+        }
+        
+        let facturaXml = documentos?.find(
           doc => doc.id_persona === comprador.id_persona && 
                  doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
                  doc.tipos_documento?.nombre?.toLowerCase().includes('xml')
         );
+        
+        // Si no hay factura XML con id_persona y solo hay 1 comprador, usar facturas sin asignar
+        if (!facturaXml && compradores.length === 1) {
+          facturaXml = documentos?.find(
+            doc => doc.id_persona === null && 
+                   doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
+                   doc.tipos_documento?.nombre?.toLowerCase().includes('xml')
+          );
+        }
 
         return {
           id_persona: comprador.id_persona,
