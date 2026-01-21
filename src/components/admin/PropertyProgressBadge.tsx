@@ -161,7 +161,8 @@ export function PropertyProgressBadge({
       detail: hasCompradores ? `${compradoresCount} comprador(es)` : 'Sin compradores'
     });
 
-    const contratoFirmado = documentos.some(d => d.id_tipo_documento === 14 && d.id_estatus_verificacion === 2);
+    // Tipo 18 = "Contrato firmado completamente"
+    const contratoFirmado = documentos.some(d => d.id_tipo_documento === 18 && d.id_estatus_verificacion === 2);
     pagosConditions.push({
       label: 'Contrato firmado verificado',
       completed: contratoFirmado,
