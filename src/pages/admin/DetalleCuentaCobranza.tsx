@@ -1934,6 +1934,11 @@ export default function DetalleCuentaCobranza() {
   const montoSobrepago = haySobrepago ? Math.abs(diferenciaReal) : 0;
   const totalPendiente = Math.max(0, diferenciaReal);
 
+  // Detectar discrepancia entre pagos y aplicaciones (para mostrar botón recalcular)
+  const totalAplicaciones = aplicacionesPorPago?.reduce((sum, app) => sum + (app.monto || 0), 0) || 0;
+  const discrepanciaAplicaciones = totalPagado - totalAplicaciones;
+  const hayDiscrepanciaAplicaciones = pagos && pagos.length > 0 && Math.abs(discrepanciaAplicaciones) > 0.01;
+
   // Calculate pending balance breakdown (only for properties)
   const pendingBalanceBreakdown = cuentaDetalle?.tipo_cuenta === 'Propiedad' && acuerdosPago ? (() => {
     // Find contraentrega (pago a contra entrega) acuerdos
@@ -2793,85 +2798,96 @@ export default function DetalleCuentaCobranza() {
                 </>
               )}
               
-              {/* Botón Recalcular Aplicaciones */}
-              {(canUpdate || isSuperAdmin) && !esCuentaCancelada && !isEnDemanda && (
+              {/* Botón Recalcular Aplicaciones - Solo visible cuando hay discrepancia */}
+              {(canUpdate || isSuperAdmin) && !esCuentaCancelada && !isEnDemanda && hayDiscrepanciaAplicaciones && (
                 <>
                   <div className="h-5 w-px bg-border" />
-                  <Button
-                    onClick={async () => {
-                      setIsRecalculatingAplicaciones(true);
-                      try {
-                        // Use edge function proxy to avoid CORS issues with external n8n webhook
-                        const { data, error } = await supabase.functions.invoke('recalcular-aplicaciones', {
-                          body: { id_cuenta_cobranza: cuentaId }
-                        });
-                        
-                        if (error) {
-                          throw error;
-                        }
-                        
-                        // Log activity
-                        await registrarActualizacion(
-                          'aplicaciones_pago',
-                          null,
-                          {
-                            id_cuenta_cobranza: cuentaId,
-                            accion: 'recalcular_aplicaciones',
-                            proyecto: cuentaDetalle?.proyecto,
-                            propiedad: cuentaDetalle?.numero_propiedad
-                          },
-                          'recalcular_aplicaciones_pago',
-                          'exito'
-                        );
-                        
-                        toast({
-                          title: "Recálculo iniciado",
-                          description: "Las aplicaciones de pago se están redistribuyendo...",
-                        });
-                        
-                        // Refresh after delay to allow webhook to complete
-                        setTimeout(() => {
-                          queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
-                          queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
-                          queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaId] });
-                          setIsRecalculatingAplicaciones(false);
-                        }, 3000);
-                      } catch (error) {
-                        console.error('Error recalculating:', error);
-                        
-                        // Log error activity
-                        await registrarActualizacion(
-                          'aplicaciones_pago',
-                          null,
-                          {
-                            id_cuenta_cobranza: cuentaId,
-                            accion: 'recalcular_aplicaciones'
-                          },
-                          'recalcular_aplicaciones_pago',
-                          'error',
-                          error instanceof Error ? error.message : 'Error desconocido'
-                        );
-                        
-                        toast({
-                          title: "Error",
-                          description: "No se pudo iniciar el recálculo. Intenta de nuevo.",
-                          variant: "destructive",
-                        });
-                        setIsRecalculatingAplicaciones(false);
-                      }
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    className="h-9"
-                    disabled={isRecalculatingAplicaciones}
-                  >
-                    {isRecalculatingAplicaciones ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCcw className="h-4 w-4 mr-2" />
-                    )}
-                    Recalcular aplicaciones
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={async () => {
+                            setIsRecalculatingAplicaciones(true);
+                            try {
+                              // Use edge function proxy to avoid CORS issues with external n8n webhook
+                              const { data, error } = await supabase.functions.invoke('recalcular-aplicaciones', {
+                                body: { id_cuenta_cobranza: cuentaId }
+                              });
+                              
+                              if (error) {
+                                throw error;
+                              }
+                              
+                              // Log activity
+                              await registrarActualizacion(
+                                'aplicaciones_pago',
+                                null,
+                                {
+                                  id_cuenta_cobranza: cuentaId,
+                                  accion: 'recalcular_aplicaciones',
+                                  proyecto: cuentaDetalle?.proyecto,
+                                  propiedad: cuentaDetalle?.numero_propiedad,
+                                  discrepancia: discrepanciaAplicaciones
+                                },
+                                'recalcular_aplicaciones_pago',
+                                'exito'
+                              );
+                              
+                              toast({
+                                title: "Recálculo completado",
+                                description: "Las aplicaciones de pago se han redistribuido correctamente.",
+                              });
+                              
+                              // Refresh after delay to allow function to complete
+                              setTimeout(() => {
+                                queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
+                                queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
+                                queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaId] });
+                                setIsRecalculatingAplicaciones(false);
+                              }, 2000);
+                            } catch (error) {
+                              console.error('Error recalculating:', error);
+                              
+                              // Log error activity
+                              await registrarActualizacion(
+                                'aplicaciones_pago',
+                                null,
+                                {
+                                  id_cuenta_cobranza: cuentaId,
+                                  accion: 'recalcular_aplicaciones'
+                                },
+                                'recalcular_aplicaciones_pago',
+                                'error',
+                                error instanceof Error ? error.message : 'Error desconocido'
+                              );
+                              
+                              toast({
+                                title: "Error",
+                                description: "No se pudo iniciar el recálculo. Intenta de nuevo.",
+                                variant: "destructive",
+                              });
+                              setIsRecalculatingAplicaciones(false);
+                            }
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950/50"
+                          disabled={isRecalculatingAplicaciones}
+                        >
+                          {isRecalculatingAplicaciones ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCcw className="h-4 w-4 mr-2" />
+                          )}
+                          Recalcular
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Discrepancia detectada: {formatCurrency(Math.abs(discrepanciaAplicaciones))}</p>
+                        <p className="text-xs text-muted-foreground">Pagos: {formatCurrency(totalPagado)} | Aplicaciones: {formatCurrency(totalAplicaciones)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </>
               )}
             </div>
