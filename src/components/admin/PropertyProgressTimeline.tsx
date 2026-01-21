@@ -147,34 +147,16 @@ export function PropertyProgressTimeline({
       detail: statusOk ? 'Estatus válido' : 'La propiedad debe estar apartada'
     });
 
-    // Only show payment conditions if they exist in the acuerdos_pago
-    const apartadoAcuerdo = acuerdosPago?.find(a => a.id_concepto === 1);
-    if (apartadoAcuerdo) {
+    // Show consolidated "Pagos" condition with X/N format
+    // Exclude contra entrega (7) and escrituración (9) from this calculation
+    const pagosVendido = acuerdosPago?.filter(a => a.id_concepto !== 7 && a.id_concepto !== 9) ?? [];
+    if (pagosVendido.length > 0) {
+      const pagosCompletados = pagosVendido.filter(p => p.pago_completado).length;
+      const todosPagosCompletos = pagosCompletados === pagosVendido.length;
       vendidoConditions.push({
-        label: 'Pago de apartado',
-        completed: apartadoAcuerdo.pago_completado,
-        detail: apartadoAcuerdo.pago_completado ? 'Completado' : 'Pendiente'
-      });
-    }
-
-    const engancheAcuerdo = acuerdosPago?.find(a => a.id_concepto === 2);
-    if (engancheAcuerdo) {
-      vendidoConditions.push({
-        label: 'Pago de enganche',
-        completed: engancheAcuerdo.pago_completado,
-        detail: engancheAcuerdo.pago_completado ? 'Completado' : 'Pendiente'
-      });
-    }
-
-    // Check for pagos especiales (concepto 4)
-    const pagosEspeciales = acuerdosPago?.filter(a => a.id_concepto === 4) ?? [];
-    if (pagosEspeciales.length > 0) {
-      const pagosEspecialesPagados = pagosEspeciales.filter(p => p.pago_completado).length;
-      const todosEspecialesPagados = pagosEspecialesPagados === pagosEspeciales.length;
-      vendidoConditions.push({
-        label: 'Pagos especiales',
-        completed: todosEspecialesPagados,
-        detail: `${pagosEspecialesPagados}/${pagosEspeciales.length} completado(s)`
+        label: 'Pagos',
+        completed: todosPagosCompletos,
+        detail: `${pagosCompletados}/${pagosVendido.length} completado(s)`
       });
     }
 
