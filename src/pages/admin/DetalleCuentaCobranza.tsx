@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload, Scale, Gavel, X, Save, Info } from "lucide-react";
+import { ArrowLeft, FileText, DollarSign, CalendarDays, ChevronDown, ChevronUp, Trash2, Plus, AlertTriangle, Eye, CreditCard, ArrowRight, Home, Warehouse, Car, Banknote, Download, HeartHandshake, MessageSquare, CheckCircle, Edit, Loader2, AlertCircle, FileCheck, Upload, Scale, Gavel, X, Save, Info, RefreshCcw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -555,6 +555,7 @@ export default function DetalleCuentaCobranza() {
   const [editCuentaDialog, setEditCuentaDialog] = useState(false);
   const [agenteVendedorDialog, setAgenteVendedorDialog] = useState(false);
   const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState(false);
+  const [isRecalculatingAplicaciones, setIsRecalculatingAplicaciones] = useState(false);
   // Estado para edición de clave_rastreo
   const [editingClaveRastreo, setEditingClaveRastreo] = useState<{ [pagoId: number]: string }>({});
   const [savingClaveRastreo, setSavingClaveRastreo] = useState<number | null>(null);
@@ -2106,15 +2107,30 @@ export default function DetalleCuentaCobranza() {
         if (acuerdosError) throw acuerdosError;
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Pago eliminado",
-        description: "El pago y todas sus aplicaciones han sido eliminados. Si era STP, puede ser recargado nuevamente.",
+        description: "El pago ha sido eliminado. Recalculando aplicaciones...",
       });
-      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuentaId] });
-      queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
-      queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
-      queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaId] });
+
+      // Call webhook to redistribute remaining payments
+      try {
+        await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_cuenta_cobranza: cuentaId })
+        });
+      } catch (webhookError) {
+        console.error('Error calling adjustment webhook:', webhookError);
+      }
+
+      // Invalidate queries after a short delay to allow webhook to complete
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuentaId] });
+        queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
+        queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
+        queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaId] });
+      }, 2000);
     },
     onError: (error) => {
       toast({
@@ -2775,6 +2791,55 @@ export default function DetalleCuentaCobranza() {
                   >
                     <Gavel className="h-4 w-4 mr-2" />
                     Juicio Terminado
+                  </Button>
+                </>
+              )}
+              
+              {/* Botón Recalcular Aplicaciones */}
+              {(canUpdate || isSuperAdmin) && !esCuentaCancelada && !isEnDemanda && (
+                <>
+                  <div className="h-5 w-px bg-border" />
+                  <Button
+                    onClick={async () => {
+                      setIsRecalculatingAplicaciones(true);
+                      try {
+                        await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ id_cuenta_cobranza: cuentaId })
+                        });
+                        toast({
+                          title: "Recálculo iniciado",
+                          description: "Las aplicaciones de pago se están redistribuyendo...",
+                        });
+                        // Refresh after delay to allow webhook to complete
+                        setTimeout(() => {
+                          queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
+                          queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
+                          queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaId] });
+                          setIsRecalculatingAplicaciones(false);
+                        }, 3000);
+                      } catch (error) {
+                        console.error('Error recalculating:', error);
+                        toast({
+                          title: "Error",
+                          description: "No se pudo iniciar el recálculo",
+                          variant: "destructive",
+                        });
+                        setIsRecalculatingAplicaciones(false);
+                      }
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="h-9"
+                    disabled={isRecalculatingAplicaciones}
+                  >
+                    {isRecalculatingAplicaciones ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCcw className="h-4 w-4 mr-2" />
+                    )}
+                    Recalcular aplicaciones
                   </Button>
                 </>
               )}
