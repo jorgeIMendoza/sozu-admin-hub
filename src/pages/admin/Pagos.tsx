@@ -18,6 +18,7 @@ import { AddManualPaymentDialog } from "@/components/admin/AddManualPaymentDialo
 import { CancelCuentaDialog } from "@/components/admin/CancelCuentaDialog";
 import { CashPaymentDetailDialog } from "@/components/admin/CashPaymentDetailDialog";
 import { ProjectCollectionSummaryDialog } from "@/components/admin/ProjectCollectionSummaryDialog";
+import { PropertyProgressBadge } from "@/components/admin/PropertyProgressBadge";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -2291,6 +2292,7 @@ export default function Pagos() {
                       <TableHead>Pagado</TableHead>
                       <TableHead>Restante</TableHead>
                       <TableHead>Pagos en Efectivo</TableHead>
+                      <TableHead>Progreso</TableHead>
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -2546,6 +2548,17 @@ export default function Pagos() {
                                   </TooltipContent>
                                </Tooltip>
                              </TooltipProvider> : <span className="text-muted-foreground text-xs">N/A</span>}
+                         </TableCell>
+                         {/* Progress column - only for Propiedad */}
+                         <TableCell>
+                           {cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad ? (
+                             <PropertyProgressBadge 
+                               cuentaId={cuenta.id} 
+                               estatusActual={cuenta.id_estatus_disponibilidad} 
+                             />
+                           ) : (
+                             <span className="text-muted-foreground text-xs">N/A</span>
+                           )}
                          </TableCell>
                            <TableCell>
                              <TooltipProvider>
