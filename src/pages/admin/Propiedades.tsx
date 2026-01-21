@@ -43,6 +43,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { OwnerHistoryDialog } from "@/components/admin/OwnerHistoryDialog";
+import { ReventaDialog } from "@/components/admin/ReventaDialog";
+import { RefreshCw } from "lucide-react";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -4301,7 +4303,10 @@ const Propiedades = () => {
                       case 'cuenta_cobranza':
                         return (
                           <TableCell key={column.key}>
-                      {property.cuenta_cobranza_id ? (
+                      {/* No mostrar cuenta de cobranza para propiedades en Reventa */}
+                      {property.tipo_transaccion === "Reventa" ? (
+                        <Badge variant="outline" className="text-muted-foreground">N/A</Badge>
+                      ) : property.cuenta_cobranza_id ? (
                         <div className="flex items-center gap-2">
                           <Button
                             variant="outline"  
@@ -4369,7 +4374,8 @@ const Propiedades = () => {
                           <TableCell key={column.key}
                       className="font-mono text-sm cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => {
-                        if (property.clabe_stp) {
+                        // No copiar CLABE para propiedades en Reventa
+                        if (property.clabe_stp && property.tipo_transaccion !== "Reventa") {
                           navigator.clipboard.writeText(property.clabe_stp);
                           toast({
                             title: "CLABE copiada",
@@ -4378,7 +4384,8 @@ const Propiedades = () => {
                         }
                       }}
                     >
-                            {property.clabe_stp || 'Sin CLABE'}
+                            {/* No mostrar CLABE para propiedades en Reventa */}
+                            {property.tipo_transaccion === "Reventa" ? 'N/A' : (property.clabe_stp || 'Sin CLABE')}
                           </TableCell>
                         );
                       
@@ -4653,10 +4660,22 @@ const Propiedades = () => {
                       </div>
                      ) : (
                        <div className="flex space-x-2">
+                          {/* Botón de Reventa para propiedades Asignado (10) o Entregado (8) */}
+                          {(canUpdate || isSuperAdmin) && (property.id_estatus_disponibilidad === 10 || property.id_estatus_disponibilidad === 8) && (
+                            <ReventaDialog
+                              propertyId={property.id}
+                              propertyNumber={property.numero_propiedad}
+                              currentPrecioFinal={property.precio_final}
+                              currentPrecioLista={property.precio_lista}
+                              currentMontoApartado={property.monto_apartado}
+                            />
+                          )}
+                          {/* Generar oferta para propiedades Disponible - si es Reventa, forzar modo manual */}
                           {(canGenerateOffer || isSuperAdmin) && property.disponibilidad === "Disponible" && property.tiene_sozu_como_inmobiliaria && (
                             <NewOfferDialog 
                               propertyId={property.id} 
-                              propertyNumber={property.numero_propiedad} 
+                              propertyNumber={property.numero_propiedad}
+                              forceManualMode={property.tipo_transaccion === "Reventa"}
                             />
                           )}
                           {(canGenerateOffer || isSuperAdmin) && (property.disponibilidad === "Apartado" || 

@@ -180,9 +180,10 @@ type FormData = z.infer<typeof formSchema>;
 interface NewOfferDialogProps {
   propertyId: number;
   propertyNumber: string;
+  forceManualMode?: boolean; // For resale properties that require manual mode only
 }
 
-export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogProps) {
+export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false }: NewOfferDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -201,7 +202,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      mode: "precargada",
+      mode: forceManualMode ? "manual" : "precargada",
       selectedPersonId: undefined,
       tipo_persona: "pf",
       nombre_completo: "",
@@ -257,7 +258,7 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
   useEffect(() => {
     if (open) {
       form.reset({
-        mode: "precargada",
+        mode: forceManualMode ? "manual" : "precargada",
         selectedPersonId: undefined,
         tipo_persona: "pf",
         nombre_completo: "",
@@ -1310,6 +1311,20 @@ export function NewOfferDialog({ propertyId, propertyNumber }: NewOfferDialogPro
             {/* Mode Selection - Manual available for all roles except Agente Inmobiliario */}
             {(() => {
               const canUseManualMode = profile?.rol_nombre !== 'Agente Inmobiliario';
+              
+              // If forceManualMode is true (Reventa), show only manual mode as a badge
+              if (forceManualMode) {
+                return (
+                  <div className="space-y-2">
+                    <Label>Tipo de Oferta</Label>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="px-3 py-1">Manual (Reventa)</Badge>
+                      <span className="text-xs text-muted-foreground">Las propiedades en reventa solo permiten ofertas manuales</span>
+                    </div>
+                  </div>
+                );
+              }
+              
               return (
                 <FormField
                   control={form.control}
