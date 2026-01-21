@@ -171,10 +171,11 @@ export function PropertyProgressBadge({
 
     const pagosCompleted = pagosConditions.filter(c => c.completed).length;
     const pagosPercentage = Math.round((pagosCompleted / pagosConditions.length) * 100);
+    const allPagosComplete = pagosCompleted === pagosConditions.length;
     stages.push({
       name: 'Pagos',
-      status: estatusActual >= 5 ? 'completed' : pagosCompleted > 0 ? 'in-progress' : 'pending',
-      percentage: estatusActual >= 5 ? 100 : pagosPercentage,
+      status: allPagosComplete ? 'completed' : pagosCompleted > 0 ? 'in-progress' : 'pending',
+      percentage: pagosPercentage,
       conditions: pagosConditions,
     });
 

@@ -176,12 +176,13 @@ export function PropertyProgressTimeline({
 
     const pagosCompleted = pagosConditions.filter(c => c.completed).length;
     const pagosPercentage = Math.round((pagosCompleted / pagosConditions.length) * 100);
+    const allPagosComplete = pagosCompleted === pagosConditions.length;
 
     stages.push({
       name: 'Pagos',
-      status: estatusActual >= 5 ? 'completed' : pagosCompleted > 0 ? 'in-progress' : 'pending',
+      status: allPagosComplete ? 'completed' : pagosCompleted > 0 ? 'in-progress' : 'pending',
       conditions: pagosConditions,
-      percentage: estatusActual >= 5 ? 100 : pagosPercentage,
+      percentage: pagosPercentage,
     });
 
     // ============ ETAPA 2: ESCRITURACIÓN ============
