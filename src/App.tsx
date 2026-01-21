@@ -70,7 +70,15 @@ const ReportesInventarios = lazy(() => import("./pages/admin/reportes/Inventario
 const ReportesFinanzas = lazy(() => import("./pages/admin/reportes/Finanzas"));
 const ReporteViewer = lazy(() => import("./pages/admin/reportes/ReporteViewer"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
