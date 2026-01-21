@@ -68,6 +68,7 @@ interface Documento {
   tipo_documento_nombre?: string;
   es_draft?: boolean;
   comprador_nombre?: string;
+  id_categoria_documento?: number;
 }
 
 export function DocumentsTab({ 
@@ -202,19 +203,19 @@ export function DocumentsTab({
       
       if (docsError) throw docsError;
       
-      // Get document types separately
+      // Get document types separately (including category)
       const { data: tiposData, error: tiposError } = await supabase
         .from('tipos_documento')
-        .select('id, nombre')
+        .select('id, nombre, id_categoria_documento')
         .eq('activo', true);
       
       if (tiposError) throw tiposError;
       
-      // Create types map
-      const tiposMap = new Map<number, string>();
+      // Create types map with category
+      const tiposMap = new Map<number, { nombre: string; id_categoria_documento: number | null }>();
       if (tiposData) {
         tiposData.forEach((tipo) => {
-          tiposMap.set(tipo.id, tipo.nombre);
+          tiposMap.set(tipo.id, { nombre: tipo.nombre, id_categoria_documento: tipo.id_categoria_documento });
         });
       }
       
@@ -239,7 +240,8 @@ export function DocumentsTab({
       // First check if there are any invoices
       const allDocs = docsData || [];
       const invoicesExist = allDocs.some((doc) => {
-        const tipoNombre = tiposMap.get(doc.id_tipo_documento)?.toLowerCase() || '';
+        const tipoData = tiposMap.get(doc.id_tipo_documento);
+        const tipoNombre = tipoData?.nombre.toLowerCase() || '';
         return tipoNombre.includes('factura') && (tipoNombre.includes('pdf') || tipoNombre.includes('xml'));
       });
       
@@ -247,16 +249,21 @@ export function DocumentsTab({
       
       const docs = allDocs
         .filter((doc) => {
-          const tipoNombre = tiposMap.get(doc.id_tipo_documento)?.toLowerCase() || '';
+          const tipoData = tiposMap.get(doc.id_tipo_documento);
+          const tipoNombre = tipoData?.nombre.toLowerCase() || '';
           // Excluir facturas PDF y XML
           return !(tipoNombre.includes('factura') && (tipoNombre.includes('pdf') || tipoNombre.includes('xml')));
         })
-        .map((doc) => ({
-          ...doc,
-          numero: doc.numero != null ? String(doc.numero) : null,
-          tipo_documento_nombre: tiposMap.get(doc.id_tipo_documento) || 'Tipo desconocido',
-          comprador_nombre: doc.id_persona ? personasMap.get(doc.id_persona) : undefined
-        }))
+        .map((doc) => {
+          const tipoData = tiposMap.get(doc.id_tipo_documento);
+          return {
+            ...doc,
+            numero: doc.numero != null ? String(doc.numero) : null,
+            tipo_documento_nombre: tipoData?.nombre || 'Tipo desconocido',
+            id_categoria_documento: tipoData?.id_categoria_documento || undefined,
+            comprador_nombre: doc.id_persona ? personasMap.get(doc.id_persona) : undefined
+          };
+        })
         .sort((a, b) => {
           // Primero ordenar por tipo de documento (alfabéticamente)
           const tipoComparison = (a.tipo_documento_nombre || '').localeCompare(b.tipo_documento_nombre || '', 'es', { sensitivity: 'base' });
@@ -1199,7 +1206,21 @@ export function DocumentsTab({
                     return (
                       <TableRow key={`${documento.numero}-${index}`}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell>{documento.tipo_documento_nombre}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span>{documento.tipo_documento_nombre}</span>
+                            {documento.id_categoria_documento === 6 && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800">
+                                Escrituración
+                              </Badge>
+                            )}
+                            {documento.id_categoria_documento === 7 && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+                                Entrega
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{documento.numero || ''}</TableCell>
                         <TableCell>
                           <Badge variant={documento.id_estatus_verificacion === 2 ? "default" : documento.id_estatus_verificacion === 3 ? "destructive" : "secondary"}>
