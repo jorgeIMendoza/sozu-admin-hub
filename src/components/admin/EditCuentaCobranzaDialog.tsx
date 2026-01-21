@@ -845,12 +845,15 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     const enganche = acuerdosPago.find((a: any) => a.concepto_nombre?.toLowerCase() === 'enganche');
     const parcialidades = acuerdosPago.filter((a: any) => a.concepto_nombre?.toLowerCase() === 'parcialidad');
     const contraentrega = acuerdosPago.find((a: any) => a.concepto_nombre?.toLowerCase() === 'pago a contra entrega');
+    // Include pagos especiales
+    const pagosEspeciales = acuerdosPago.filter((a: any) => a.concepto_nombre?.toLowerCase() === 'pago especial');
 
     if (!cuentaDetalle.precio_final) return null;
 
     const totalEnganche = (apartado?.monto || 0) + (enganche?.monto || 0);
     const totalParcialidades = parcialidades.reduce((sum: number, p: any) => sum + p.monto, 0);
     const totalContraentrega = contraentrega?.monto || 0;
+    const totalPagosEspeciales = pagosEspeciales.reduce((sum: number, p: any) => sum + p.monto, 0);
 
     return {
       porcentaje_enganche: Number(((totalEnganche / cuentaDetalle.precio_final) * 100).toFixed(2)),
@@ -860,7 +863,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       // Montos reales de los acuerdos
       monto_enganche: totalEnganche,
       monto_mensualidades: totalParcialidades,
-      monto_entrega: totalContraentrega
+      monto_entrega: totalContraentrega,
+      // Pagos especiales
+      monto_pagos_especiales: totalPagosEspeciales,
+      numero_pagos_especiales: pagosEspeciales.length,
+      porcentaje_pagos_especiales: Number(((totalPagosEspeciales / cuentaDetalle.precio_final) * 100).toFixed(2))
     };
   })() : null;
 
@@ -4383,7 +4390,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           {/* Modified Plan - Active */}
                           <div className="border-2 border-primary rounded p-3">
                             <label className="text-xs text-primary font-semibold mb-2 block">Plan Modificado</label>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                               <div>
                                 <h4 className="font-medium text-foreground mb-1">Nombre del Plan</h4>
                                 <p className="text-sm font-semibold">{selectedPaymentScheme.nombre} modificado</p>
@@ -4412,6 +4419,22 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                   </p>
                                 )}
                               </div>
+                              {/* Pagos Especiales - only show if there are any */}
+                              {currentPaymentPlan?.numero_pagos_especiales && currentPaymentPlan.numero_pagos_especiales > 0 && (
+                                <div>
+                                  <h4 className="font-medium text-foreground mb-1">Pagos Especiales</h4>
+                                  <p className="text-sm font-semibold">
+                                    {currentPaymentPlan.numero_pagos_especiales} pago(s) de {currentPaymentPlan.porcentaje_pagos_especiales?.toFixed(2)}%
+                                  </p>
+                                  {cuentaDetalle?.precio_final && currentPaymentPlan.monto_pagos_especiales !== undefined && (
+                                    <p className="text-xs font-medium text-primary">
+                                      {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
+                                        currentPaymentPlan.monto_pagos_especiales
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                               <div>
                                 <h4 className="font-medium text-foreground mb-1">Entrega</h4>
                                 <p className="text-sm font-semibold">{currentPaymentPlan?.porcentaje_entrega?.toFixed(2)}%</p>
