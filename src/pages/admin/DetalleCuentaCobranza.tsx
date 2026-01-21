@@ -580,7 +580,7 @@ export default function DetalleCuentaCobranza() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { canUpdate, canDelete, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
-  const { registrarCreacion } = useActivityLogger();
+  const { registrarCreacion, registrarActualizacion } = useActivityLogger();
 
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
@@ -2804,12 +2804,26 @@ export default function DetalleCuentaCobranza() {
                     onClick={async () => {
                       setIsRecalculatingAplicaciones(true);
                       try {
-                        const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
+                        await fetch(`${N8N_WEBHOOK_BASE_URL}/ajustaAplicacionesPagoCuentaEspecifica`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ id_cuenta_cobranza: cuentaId }),
                           mode: 'no-cors' // Allow cross-origin requests without CORS
                         });
+                        
+                        // Log activity
+                        await registrarActualizacion(
+                          'aplicaciones_pago',
+                          null,
+                          {
+                            id_cuenta_cobranza: cuentaId,
+                            accion: 'recalcular_aplicaciones',
+                            proyecto: cuentaDetalle?.proyecto,
+                            propiedad: cuentaDetalle?.numero_propiedad
+                          },
+                          'recalcular_aplicaciones_pago',
+                          'exito'
+                        );
                         
                         // With no-cors mode, we can't read the response, but the request is sent
                         toast({
@@ -2826,6 +2840,20 @@ export default function DetalleCuentaCobranza() {
                         }, 3000);
                       } catch (error) {
                         console.error('Error recalculating:', error);
+                        
+                        // Log error activity
+                        await registrarActualizacion(
+                          'aplicaciones_pago',
+                          null,
+                          {
+                            id_cuenta_cobranza: cuentaId,
+                            accion: 'recalcular_aplicaciones'
+                          },
+                          'recalcular_aplicaciones_pago',
+                          'error',
+                          error instanceof Error ? error.message : 'Error desconocido'
+                        );
+                        
                         toast({
                           title: "Solicitud enviada",
                           description: "Se intentó enviar la solicitud de recálculo. Refresca la página en unos segundos para ver los cambios.",
