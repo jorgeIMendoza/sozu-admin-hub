@@ -782,6 +782,7 @@ export default function DetalleCuentaCobranza() {
       return detalle;
     },
     enabled: !!cuentaId,
+    staleTime: 30000, // 30 segundos - evita refetch automático al abrir modal
   });
 
   // Fetch offer data with payment scheme info
@@ -1335,6 +1336,7 @@ export default function DetalleCuentaCobranza() {
       return acuerdosConAplicaciones;
     },
     enabled: !!cuentaId,
+    staleTime: 30000, // 30 segundos - evita refetch automático al abrir modal
   });
 
   // Query to get all pagos for this cuenta
@@ -1361,7 +1363,8 @@ export default function DetalleCuentaCobranza() {
       if (error) throw error;
       return data;
     },
-    enabled: !!cuentaId
+    enabled: !!cuentaId,
+    staleTime: 30000, // 30 segundos - evita refetch automático al abrir modal
   });
 
   // Query to get aplicaciones_pago for all pagos - independiente de la query de pagos para evitar race conditions
@@ -1399,7 +1402,8 @@ export default function DetalleCuentaCobranza() {
       if (error) throw error;
       return data;
     },
-    enabled: !!cuentaId
+    enabled: !!cuentaId,
+    staleTime: 30000, // 30 segundos - evita refetch automático al abrir modal
   });
 
   // Query for cash payments limit calculation (only for properties)
@@ -1943,8 +1947,8 @@ export default function DetalleCuentaCobranza() {
   const totalPendiente = Math.max(0, diferenciaReal);
 
   // Detectar discrepancia entre pagos y aplicaciones (para mostrar botón recalcular)
-  // Solo calcular cuando ambas queries estén cargadas para evitar falsos positivos
-  const isLoadingPaymentData = !pagos || aplicacionesPorPagoLoading;
+  // Solo calcular cuando TODAS las queries relacionadas estén completamente cargadas para evitar falsos positivos
+  const isLoadingPaymentData = !pagos || aplicacionesPorPagoLoading || acuerdosLoading || !acuerdosPago;
   const totalAplicaciones = aplicacionesPorPago?.reduce((sum, app) => sum + (app.monto || 0), 0) || 0;
   const discrepanciaAplicaciones = totalPagado - totalAplicaciones;
   const hayDiscrepanciaAplicaciones = !isLoadingPaymentData && pagos && pagos.length > 0 && Math.abs(discrepanciaAplicaciones) > 0.01;

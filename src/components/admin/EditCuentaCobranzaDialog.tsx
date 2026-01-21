@@ -270,9 +270,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     })
   );
 
-  // Get cuenta details
+  // Get cuenta details - usa query key diferente para evitar colisiones con la página padre
   const { data: cuentaDetalle } = useQuery({
-    queryKey: ["cuenta_detalle", cuenta.id],
+    queryKey: ["cuenta_detalle_modal", cuenta.id],
     queryFn: async () => {
       const { data } = await supabase
         .from('cuentas_cobranza')
@@ -780,9 +780,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     enabled: !!cuentaDetalle?.id_oferta
   });
 
-  // Get payment agreements
+  // Get payment agreements - usa query key diferente para evitar colisiones con la página padre
   const { data: acuerdosPago } = useQuery({
-    queryKey: ["acuerdos_pago", cuenta.id],
+    queryKey: ["acuerdos_pago_modal", cuenta.id],
     queryFn: async () => {
       // Use raw query to avoid TypeScript type issues
       const { data: acuerdos, error } = await supabase
