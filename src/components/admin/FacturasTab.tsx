@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { FileText, FileCheck, Eye, RefreshCw, FileEdit, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileText, FileCheck, Eye, RefreshCw, FileEdit, Loader2, UserCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +46,7 @@ interface FacturaInfo {
     url: string;
     es_draft: boolean;
     numero: string | null;
+    id_persona: number | null;
   } | null;
   factura_xml?: {
     id: number;
@@ -52,6 +54,14 @@ interface FacturaInfo {
     es_draft: boolean;
     numero: string | null;
   } | null;
+}
+
+// Interface for unassigned invoices
+interface UnassignedFactura {
+  id: number;
+  url: string;
+  es_draft: boolean;
+  numero: string | null;
 }
 
 export function FacturasTab({ 
@@ -64,7 +74,9 @@ export function FacturasTab({
   isReadOnly = false
 }: FacturasTabProps) {
   const [facturas, setFacturas] = useState<FacturaInfo[]>([]);
+  const [unassignedFacturas, setUnassignedFacturas] = useState<UnassignedFactura[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [assigningFactura, setAssigningFactura] = useState<number | null>(null);
   const [viewerDialog, setViewerDialog] = useState<{ isOpen: boolean; url: string; title: string }>({
     isOpen: false,
     url: '',
@@ -102,6 +114,18 @@ export function FacturasTab({
         doc => doc.tipos_documento?.nombre?.toLowerCase().includes('factura') &&
                doc.tipos_documento?.nombre?.toLowerCase().includes('pdf')
       ) || [];
+
+      // Separate unassigned invoices (only when there's more than 1 buyer)
+      const unassigned = compradores.length > 1 
+        ? allFacturasPdf.filter(doc => doc.id_persona === null).map(doc => ({
+            id: doc.id,
+            url: doc.url,
+            es_draft: doc.es_draft,
+            numero: doc.numero
+          }))
+        : [];
+      
+      setUnassignedFacturas(unassigned);
 
       // Map compradores to their facturas
       const facturasInfo: FacturaInfo[] = compradores.map(comprador => {
@@ -150,7 +174,8 @@ export function FacturasTab({
             id: facturaPdf.id,
             url: facturaPdf.url,
             es_draft: facturaPdf.es_draft,
-            numero: facturaPdf.numero
+            numero: facturaPdf.numero,
+            id_persona: facturaPdf.id_persona
           } : null,
           factura_xml: facturaXml ? {
             id: facturaXml.id,
@@ -621,6 +646,96 @@ export function FacturasTab({
     }
   };
 
+  // Handle assigning an invoice to a buyer
+  const handleAssignFactura = async (facturaId: number, idPersona: number) => {
+    setAssigningFactura(facturaId);
+    try {
+      const { error } = await supabase
+        .from('documentos')
+        .update({ id_persona: idPersona })
+        .eq('id', facturaId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Factura asignada",
+        description: "La factura ha sido asignada al comprador correctamente"
+      });
+
+      // Reload facturas
+      loadFacturas();
+    } catch (error) {
+      console.error('Error assigning factura:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Error al asignar la factura"
+      });
+    } finally {
+      setAssigningFactura(null);
+    }
+  };
+
+  // Handle reassigning an invoice to a different buyer
+  const handleReassignFactura = async (facturaId: number, newIdPersona: string) => {
+    if (!newIdPersona || newIdPersona === 'unassigned') {
+      // Unassign the invoice
+      setAssigningFactura(facturaId);
+      try {
+        const { error } = await supabase
+          .from('documentos')
+          .update({ id_persona: null })
+          .eq('id', facturaId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Factura desasignada",
+          description: "La factura ha sido desasignada del comprador"
+        });
+
+        loadFacturas();
+      } catch (error) {
+        console.error('Error unassigning factura:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Error al desasignar la factura"
+        });
+      } finally {
+        setAssigningFactura(null);
+      }
+      return;
+    }
+
+    const idPersona = parseInt(newIdPersona, 10);
+    setAssigningFactura(facturaId);
+    try {
+      const { error } = await supabase
+        .from('documentos')
+        .update({ id_persona: idPersona })
+        .eq('id', facturaId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Factura reasignada",
+        description: "La factura ha sido reasignada al comprador correctamente"
+      });
+
+      loadFacturas();
+    } catch (error) {
+      console.error('Error reassigning factura:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Error al reasignar la factura"
+      });
+    } finally {
+      setAssigningFactura(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -643,12 +758,13 @@ export function FacturasTab({
             <Table>
               <TableHeader>
                 <TableRow>
-              <TableHead>Comprador</TableHead>
-              <TableHead>RFC</TableHead>
-              <TableHead>ID de factura</TableHead>
-              <TableHead>Factura PDF</TableHead>
-              <TableHead>Estado de la factura</TableHead>
-              {duenoPuedeFacturar && <TableHead className="text-right">Acciones</TableHead>}
+                  <TableHead>Comprador</TableHead>
+                  <TableHead>RFC</TableHead>
+                  <TableHead>ID de factura</TableHead>
+                  <TableHead>Factura PDF</TableHead>
+                  <TableHead>Estado de la factura</TableHead>
+                  {compradores.length > 1 && <TableHead>Asignar a</TableHead>}
+                  {duenoPuedeFacturar && <TableHead className="text-right">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -735,6 +851,29 @@ export function FacturasTab({
                           <Badge variant="outline">Sin factura</Badge>
                         )}
                       </TableCell>
+                      {/* Column to reassign invoice to a different buyer - only when multiple buyers */}
+                      {compradores.length > 1 && (
+                        <TableCell>
+                          {tienePdf && factura.factura_pdf && (
+                            <Select
+                              value={factura.factura_pdf.id_persona?.toString() || 'unassigned'}
+                              onValueChange={(value) => handleReassignFactura(factura.factura_pdf!.id, value)}
+                              disabled={assigningFactura === factura.factura_pdf.id || isReadOnly}
+                            >
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {compradores.map((comp) => (
+                                  <SelectItem key={comp.id_persona} value={comp.id_persona.toString()}>
+                                    {comp.nombre_legal}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </TableCell>
+                      )}
                       {duenoPuedeFacturar && (
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
