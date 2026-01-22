@@ -6160,62 +6160,109 @@ export type Database = {
           reporte_id: number
         }[]
       }
-      get_cuentas_cobranza_paginadas: {
-        Args: {
-          p_activo?: boolean
-          p_clabe?: string
-          p_compradores?: string
-          p_dueno_entity_ids?: number[]
-          p_estatus_ids?: number[]
-          p_id_cuenta?: string
-          p_modelo?: string
-          p_no_propiedad?: string
-          p_page?: number
-          p_per_page?: number
-          p_producto?: string
-          p_proyecto?: string
-          p_proyecto_ids?: number[]
-          p_tipos?: string[]
-        }
-        Returns: {
-          activo: boolean
-          apartado_pagado: boolean
-          cash_limit: number
-          cash_paid: number
-          cash_payments: Json
-          clabe_stp: string
-          collection_id: number
-          comprador: string
-          compradores_json: Json
-          discrepancia: number
-          dueno: string
-          edificio: string
-          estatus_disponibilidad_nombre: string
-          fecha_compra: string
-          id: number
-          id_cuenta_cobranza_padre: number
-          id_entidad_relacionada_dueno: number
-          id_estatus_disponibilidad: number
-          id_oferta: number
-          id_producto: number
-          id_propiedad: number
-          id_proyecto: number
-          metraje: number
-          modelo: string
-          numero_propiedad: string
-          pagado: number
-          precio_final: number
-          precio_lista: number
-          producto: string
-          proyecto: string
-          restante: number
-          tiene_acuerdos: boolean
-          tipo: string
-          total_acuerdos: number
-          total_count: number
-          vendedor: string
-        }[]
-      }
+      get_cuentas_cobranza_paginadas:
+        | {
+            Args: {
+              p_activo?: boolean
+              p_clabe?: string
+              p_compradores?: string
+              p_dueno_entity_ids?: number[]
+              p_estatus_ids?: number[]
+              p_id_cuenta?: string
+              p_modelo?: string
+              p_no_propiedad?: string
+              p_page?: number
+              p_per_page?: number
+              p_producto?: string
+              p_proyecto?: string
+              p_proyecto_ids?: number[]
+              p_tipos?: string[]
+            }
+            Returns: {
+              activo: boolean
+              apartado_pagado: boolean
+              cash_limit: number
+              cash_paid: number
+              cash_payments: Json
+              clabe_stp: string
+              collection_id: number
+              comprador: string
+              compradores_json: Json
+              discrepancia: number
+              dueno: string
+              edificio: string
+              estatus_disponibilidad_nombre: string
+              fecha_compra: string
+              id: number
+              id_cuenta_cobranza_padre: number
+              id_entidad_relacionada_dueno: number
+              id_estatus_disponibilidad: number
+              id_oferta: number
+              id_producto: number
+              id_propiedad: number
+              id_proyecto: number
+              metraje: number
+              modelo: string
+              numero_propiedad: string
+              pagado: number
+              precio_final: number
+              precio_lista: number
+              producto: string
+              proyecto: string
+              restante: number
+              tiene_acuerdos: boolean
+              tipo: string
+              total_acuerdos: number
+              total_count: number
+              vendedor: string
+            }[]
+          }
+        | {
+            Args: {
+              p_activo?: boolean
+              p_clabe?: string
+              p_compradores?: string
+              p_dueno_entity_ids?: number[]
+              p_estatus_ids?: number[]
+              p_id_cuenta?: string
+              p_modelo?: string
+              p_no_propiedad?: string
+              p_page?: number
+              p_per_page?: number
+              p_proyecto?: string
+              p_proyecto_ids?: number[]
+              p_tipos?: string[]
+            }
+            Returns: {
+              activo: boolean
+              cash_limit: number
+              cash_paid: number
+              clabe_stp: string
+              compradores_json: Json
+              discrepancia: number
+              dueno: string
+              estatus_disponibilidad: string
+              fecha_compra: string
+              id: number
+              id_estatus_disponibilidad: number
+              id_modelo: number
+              id_oferta: number
+              id_producto: number
+              id_propiedad: number
+              id_proyecto: number
+              metraje: number
+              modelo: string
+              no_propiedad: string
+              pagado: number
+              precio_final: number
+              producto: string
+              proyecto: string
+              restante: number
+              tipo: string
+              total_count: number
+              vendedor: string
+            }[]
+          }
       get_cuentas_cobranza_stats: {
         Args: { p_dueno_entity_ids?: number[]; p_proyecto_ids?: number[] }
         Returns: {
