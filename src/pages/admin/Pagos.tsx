@@ -83,6 +83,7 @@ export default function Pagos() {
   });
   const [uploadingCep, setUploadingCep] = useState(false);
   const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState<number | null>(null);
+  const [isExportingData, setIsExportingData] = useState(false);
   const [satDialog, setSatDialog] = useState<{
     isOpen: boolean;
     cuenta: CuentaCobranza | null;
@@ -1318,53 +1319,71 @@ export default function Pagos() {
                     <Button 
                       variant="outline" 
                       onClick={async () => {
-                        // Fetch ALL data for export (not just current page)
-                        const { data: allData } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
-                          p_page: 1,
-                          p_per_page: 50000, // Large number to get all records
-                          p_id_cuenta: idCuentaFilter || null,
-                          p_proyecto: proyectoFilter || null,
-                          p_clabe: clabeFilter || null,
-                          p_no_propiedad: noPropiedadFilter || null,
-                          p_modelo: modeloFilter || null,
-                          p_compradores: compradoresFilter || null,
-                          p_producto: productoFilter || null,
-                          p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
-                          p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
-                          p_activo: true,
-                          p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
-                          p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
-                        });
-                        
-                        if (!allData || allData.length === 0) {
-                          toast({ title: "Sin datos", description: "No hay datos para exportar.", variant: "destructive" });
-                          return;
+                        setIsExportingData(true);
+                        try {
+                          // Fetch ALL data for export (not just current page)
+                          const { data: allData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
+                            p_page: 1,
+                            p_per_page: 50000, // Large number to get all records
+                            p_id_cuenta: idCuentaFilter || null,
+                            p_proyecto: proyectoFilter || null,
+                            p_clabe: clabeFilter || null,
+                            p_no_propiedad: noPropiedadFilter || null,
+                            p_modelo: modeloFilter || null,
+                            p_compradores: compradoresFilter || null,
+                            p_producto: productoFilter || null,
+                            p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
+                            p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
+                            p_activo: true,
+                            p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
+                            p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
+                          });
+                          
+                          if (error) {
+                            console.error('Error fetching data for export:', error);
+                            toast({ title: "Error", description: "No se pudo obtener los datos para exportar.", variant: "destructive" });
+                            return;
+                          }
+                          
+                          if (!allData || allData.length === 0) {
+                            toast({ title: "Sin datos", description: "No hay datos para exportar.", variant: "destructive" });
+                            return;
+                          }
+                          
+                          const exportData = (allData as any[]).map(cuenta => ({
+                            'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
+                            'Tipo': cuenta.tipo,
+                            'Nombre de producto': cuenta.producto || 'N/A',
+                            'Compradores': cuenta.compradores_json?.map((c: any) => c.nombre_legal).join(', ') || 'Sin compradores',
+                            'Dueño': cuenta.dueno,
+                            'CLABE': cuenta.clabe_stp || 'N/A',
+                            'Proyecto': cuenta.proyecto,
+                            'Edificio': cuenta.edificio,
+                            'No. Propiedad': cuenta.numero_propiedad,
+                            'Modelo': cuenta.modelo,
+                            'Estatus de Propiedad': cuenta.estatus_disponibilidad_nombre || 'N/A',
+                            'Metraje': cuenta.metraje ? `${Number(cuenta.metraje).toFixed(2)} m²` : 'N/A',
+                            'Precio/m²': cuenta.metraje && Number(cuenta.metraje) > 0 ? Number(cuenta.precio_final) / Number(cuenta.metraje) : 'N/A',
+                            'Precio Final': cuenta.precio_final,
+                            'Pagado': cuenta.pagado,
+                            'Restante': cuenta.restante,
+                          }));
+                          await exportToExcel({ data: exportData, filename: 'cuentas_cobranza_activas' });
+                        } catch (err) {
+                          console.error('Export error:', err);
+                          toast({ title: "Error", description: "Ocurrió un error al exportar.", variant: "destructive" });
+                        } finally {
+                          setIsExportingData(false);
                         }
-                        
-                        const exportData = (allData as any[]).map(cuenta => ({
-                          'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
-                          'Tipo': cuenta.tipo,
-                          'Nombre de producto': cuenta.producto || 'N/A',
-                          'Compradores': cuenta.compradores_json?.map((c: any) => c.nombre_legal).join(', ') || 'Sin compradores',
-                          'Dueño': cuenta.dueno,
-                          'CLABE': cuenta.clabe_stp || 'N/A',
-                          'Proyecto': cuenta.proyecto,
-                          'Edificio': cuenta.edificio,
-                          'No. Propiedad': cuenta.numero_propiedad,
-                          'Modelo': cuenta.modelo,
-                          'Estatus de Propiedad': cuenta.estatus_disponibilidad_nombre || 'N/A',
-                          'Metraje': cuenta.metraje ? `${Number(cuenta.metraje).toFixed(2)} m²` : 'N/A',
-                          'Precio/m²': cuenta.metraje && Number(cuenta.metraje) > 0 ? Number(cuenta.precio_final) / Number(cuenta.metraje) : 'N/A',
-                          'Precio Final': cuenta.precio_final,
-                          'Pagado': cuenta.pagado,
-                          'Restante': cuenta.restante,
-                        }));
-                        exportToExcel({ data: exportData, filename: 'cuentas_cobranza_activas' });
                       }}
-                      disabled={isExporting}
+                      disabled={isExporting || isExportingData}
                     >
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      {isExporting ? 'Exportando...' : 'Exportar Excel'}
+                      {(isExporting || isExportingData) ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      )}
+                      {(isExporting || isExportingData) ? 'Exportando...' : 'Exportar Excel'}
                     </Button>
                   )}
                 </div>
@@ -1901,54 +1920,72 @@ export default function Pagos() {
                     <Button 
                       variant="outline" 
                       onClick={async () => {
-                        // Fetch ALL data for export (not just current page)
-                        const { data: allData } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
-                          p_page: 1,
-                          p_per_page: 50000, // Large number to get all records
-                          p_id_cuenta: idCuentaFilter || null,
-                          p_proyecto: proyectoFilter || null,
-                          p_clabe: clabeFilter || null,
-                          p_no_propiedad: noPropiedadFilter || null,
-                          p_modelo: modeloFilter || null,
-                          p_compradores: compradoresFilter || null,
-                          p_producto: productoFilter || null,
-                          p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
-                          p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
-                          p_activo: false, // Cancelled accounts
-                          p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
-                          p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
-                        });
-                        
-                        if (!allData || allData.length === 0) {
-                          toast({ title: "Sin datos", description: "No hay datos para exportar.", variant: "destructive" });
-                          return;
+                        setIsExportingData(true);
+                        try {
+                          // Fetch ALL data for export (not just current page)
+                          const { data: allData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
+                            p_page: 1,
+                            p_per_page: 50000, // Large number to get all records
+                            p_id_cuenta: idCuentaFilter || null,
+                            p_proyecto: proyectoFilter || null,
+                            p_clabe: clabeFilter || null,
+                            p_no_propiedad: noPropiedadFilter || null,
+                            p_modelo: modeloFilter || null,
+                            p_compradores: compradoresFilter || null,
+                            p_producto: productoFilter || null,
+                            p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
+                            p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
+                            p_activo: false, // Cancelled accounts
+                            p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
+                            p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
+                          });
+                          
+                          if (error) {
+                            console.error('Error fetching data for export:', error);
+                            toast({ title: "Error", description: "No se pudo obtener los datos para exportar.", variant: "destructive" });
+                            return;
+                          }
+                          
+                          if (!allData || allData.length === 0) {
+                            toast({ title: "Sin datos", description: "No hay datos para exportar.", variant: "destructive" });
+                            return;
+                          }
+                          
+                          const exportData = (allData as any[]).map(cuenta => ({
+                            'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
+                            'Tipo': cuenta.tipo,
+                            'Nombre de producto': cuenta.producto || 'N/A',
+                            'Compradores': cuenta.compradores_json?.map((c: any) => c.nombre_legal).join(', ') || 'Sin compradores',
+                            'Dueño': cuenta.dueno,
+                            'CLABE': cuenta.clabe_stp || 'N/A',
+                            'Proyecto': cuenta.proyecto,
+                            'Edificio': cuenta.edificio,
+                            'No. Propiedad': cuenta.numero_propiedad,
+                            'Modelo': cuenta.modelo,
+                            'Estatus de Propiedad': cuenta.estatus_disponibilidad_nombre || 'N/A',
+                            'Metraje': cuenta.metraje ? `${Number(cuenta.metraje).toFixed(2)} m²` : 'N/A',
+                            'Precio/m²': cuenta.metraje && Number(cuenta.metraje) > 0 ? Number(cuenta.precio_final) / Number(cuenta.metraje) : 'N/A',
+                            'Precio Final': cuenta.precio_final,
+                            'Pagado': cuenta.pagado,
+                            'Restante': cuenta.restante,
+                            'Motivo Cancelación': 'N/A', // Note: motivo_cancelacion not in RPC, would need separate query
+                          }));
+                          await exportToExcel({ data: exportData, filename: 'cuentas_cobranza_canceladas' });
+                        } catch (err) {
+                          console.error('Export error:', err);
+                          toast({ title: "Error", description: "Ocurrió un error al exportar.", variant: "destructive" });
+                        } finally {
+                          setIsExportingData(false);
                         }
-                        
-                        const exportData = (allData as any[]).map(cuenta => ({
-                          'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
-                          'Tipo': cuenta.tipo,
-                          'Nombre de producto': cuenta.producto || 'N/A',
-                          'Compradores': cuenta.compradores_json?.map((c: any) => c.nombre_legal).join(', ') || 'Sin compradores',
-                          'Dueño': cuenta.dueno,
-                          'CLABE': cuenta.clabe_stp || 'N/A',
-                          'Proyecto': cuenta.proyecto,
-                          'Edificio': cuenta.edificio,
-                          'No. Propiedad': cuenta.numero_propiedad,
-                          'Modelo': cuenta.modelo,
-                          'Estatus de Propiedad': cuenta.estatus_disponibilidad_nombre || 'N/A',
-                          'Metraje': cuenta.metraje ? `${Number(cuenta.metraje).toFixed(2)} m²` : 'N/A',
-                          'Precio/m²': cuenta.metraje && Number(cuenta.metraje) > 0 ? Number(cuenta.precio_final) / Number(cuenta.metraje) : 'N/A',
-                          'Precio Final': cuenta.precio_final,
-                          'Pagado': cuenta.pagado,
-                          'Restante': cuenta.restante,
-                          'Motivo Cancelación': 'N/A', // Note: motivo_cancelacion not in RPC, would need separate query
-                        }));
-                        exportToExcel({ data: exportData, filename: 'cuentas_cobranza_canceladas' });
                       }}
-                      disabled={isExporting}
+                      disabled={isExporting || isExportingData}
                     >
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      {isExporting ? 'Exportando...' : 'Exportar Excel'}
+                      {(isExporting || isExportingData) ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      )}
+                      {(isExporting || isExportingData) ? 'Exportando...' : 'Exportar Excel'}
                     </Button>
                   )}
                 </div>
