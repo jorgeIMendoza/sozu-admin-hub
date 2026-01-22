@@ -6187,7 +6187,6 @@ export type Database = {
               id: number
               id_estatus_disponibilidad: number
               id_oferta: number
-              id_oferta_producto: number
               id_producto: number
               id_propiedad: number
               id_proyecto: number
