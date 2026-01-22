@@ -262,11 +262,12 @@ export function PropertyProgressTimeline({
     const entregaCompleted = entregaConditions.filter(c => c.completed).length;
     const entregaPercentage = Math.round((entregaCompleted / entregaConditions.length) * 100);
 
+    const allEntregaComplete = entregaCompleted === entregaConditions.length;
     stages.push({
       name: 'Entrega',
-      status: estatusActual === 8 ? 'completed' : (estatusActual === 7 && entregaCompleted > 0) ? 'in-progress' : 'pending',
+      status: allEntregaComplete ? 'completed' : entregaCompleted > 0 ? 'in-progress' : 'pending',
       conditions: entregaConditions,
-      percentage: estatusActual === 8 ? 100 : entregaPercentage,
+      percentage: entregaPercentage,
     });
 
     return stages;

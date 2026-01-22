@@ -217,10 +217,11 @@ export function PropertyProgressBadge({
 
     const escrituracionCompleted = escrituracionConditions.filter(c => c.completed).length;
     const escrituracionPercentage = Math.round((escrituracionCompleted / escrituracionConditions.length) * 100);
+    const allEscrituracionComplete = escrituracionCompleted === escrituracionConditions.length;
     stages.push({
       name: 'Escrituración',
-      status: estatusActual >= 7 ? 'completed' : (estatusActual >= 5 && escrituracionCompleted > 0) ? 'in-progress' : 'pending',
-      percentage: estatusActual >= 7 ? 100 : escrituracionPercentage,
+      status: allEscrituracionComplete ? 'completed' : escrituracionCompleted > 0 ? 'in-progress' : 'pending',
+      percentage: escrituracionPercentage,
       conditions: escrituracionConditions,
     });
 
@@ -252,10 +253,11 @@ export function PropertyProgressBadge({
 
     const entregaCompleted = entregaConditions.filter(c => c.completed).length;
     const entregaPercentage = Math.round((entregaCompleted / entregaConditions.length) * 100);
+    const allEntregaComplete = entregaCompleted === entregaConditions.length;
     stages.push({
       name: 'Entrega',
-      status: estatusActual === 8 ? 'completed' : (estatusActual === 7 && entregaCompleted > 0) ? 'in-progress' : 'pending',
-      percentage: estatusActual === 8 ? 100 : entregaPercentage,
+      status: allEntregaComplete ? 'completed' : entregaCompleted > 0 ? 'in-progress' : 'pending',
+      percentage: entregaPercentage,
       conditions: entregaConditions,
     });
 
