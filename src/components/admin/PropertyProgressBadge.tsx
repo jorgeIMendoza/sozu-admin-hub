@@ -234,11 +234,11 @@ export function PropertyProgressBadge({
       detail: estatusActual === 8 ? 'Entregada' : enEscrituracion ? 'En proceso' : 'Debe completar escrituración'
     });
 
-    const datosEscrituraCompletos = !!(cuentaDetalle?.numero_escritura && cuentaDetalle?.fecha_escritura && cuentaDetalle?.id_notario);
+    const datosEscrituraCompletos = !!cuentaDetalle?.numero_escritura;
     entregaConditions.push({
       label: 'Datos de escritura completos',
       completed: datosEscrituraCompletos,
-      detail: datosEscrituraCompletos ? 'Número, fecha y notario registrados' : 'Faltan datos de escritura'
+      detail: datosEscrituraCompletos ? 'Número de escritura registrado' : 'Faltan datos de escritura'
     });
 
     const docsEntrega = documentos.filter(d => d.tipos_documento?.id_categoria_documento === 7);

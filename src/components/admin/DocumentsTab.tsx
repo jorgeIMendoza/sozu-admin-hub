@@ -455,6 +455,18 @@ export function DocumentsTab({
 
       if (insertError) throw insertError;
 
+      // Si es documento tipo 23 (Escritura) y tiene número, actualizar numero_escritura en cuenta_cobranza
+      if (parseInt(selectedTipoDocumento) === 23 && numeroValue && idCuentaCobranza) {
+        const { error: updateError } = await supabase
+          .from('cuentas_cobranza')
+          .update({ numero_escritura: numeroValue })
+          .eq('id', idCuentaCobranza);
+        
+        if (updateError) {
+          console.error('Error actualizando numero_escritura:', updateError);
+        }
+      }
+
       // Reload documents
       await loadDocumentos();
       
