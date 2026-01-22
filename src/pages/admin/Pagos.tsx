@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,53 +31,12 @@ import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { FileSpreadsheet } from "lucide-react";
-interface Comprador {
-  nombre_legal: string;
-  rfc: string | null;
-  porcentaje_copropiedad: number;
-  id_persona?: number;
-}
+import { useCuentasCobranzaPaginadas, CuentaCobranza } from "@/hooks/useCuentasCobranzaPaginadas";
+
+// Re-export interfaces from the hook for internal use
 interface CashPayment {
   fecha_pago: string;
   monto: number;
-}
-interface CuentaCobranza {
-  id: number;
-  tipo: 'Propiedad' | 'Producto' | 'Servicio';
-  producto_nombre?: string;
-  clabe_stp: string | null;
-  precio_final: number;
-  precio_lista: number | null;
-  es_comision_venta_efectivo?: boolean;
-  porcentaje_comision_venta?: number;
-  pagado: number;
-  restante: number;
-  compradores: Comprador[];
-  dueno: string;
-  proyecto: string;
-  edificio: string;
-  numero_propiedad: string;
-  modelo: string;
-  activo: boolean;
-  id_oferta: number;
-  motivo_cancelacion?: string | null;
-  apartado_pagado: boolean;
-  tiene_acuerdos: boolean;
-  tiene_multas_pendientes?: boolean;
-  cash_limit?: number;
-  cash_paid?: number;
-  cash_remaining?: number;
-  cash_percentage?: number;
-  cash_payments?: CashPayment[];
-  id_estatus_disponibilidad?: number;
-  estatus_propiedad?: string;
-  collection_id?: number | null;
-  total_acuerdos?: number;
-  discrepancia?: number;
-  metraje?: number;
-  precio_por_m2?: number;
-  id_proyecto?: number;
-  id_entidad_relacionada_dueno?: number;
 }
 export default function Pagos() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -201,889 +160,85 @@ export default function Pagos() {
     setCurrentPageCancelled(1);
   }, [searchTerm, idCuentaFilter, productoFilter, compradoresFilter, clabeFilter, proyectoFilter, noPropiedadFilter, modeloFilter, selectedTipos, estatusFilter]);
 
-  // Helper function to normalize balance and avoid floating point precision issues
-  const normalizarSaldo = (saldo: number): number => {
-    // Round to 2 decimal places first to avoid precision issues
-    const rounded = Math.round(saldo * 100) / 100;
+  // Combined search term for the hook (combines searchTerm + individual filters)
+  const combinedSearchTerm = searchTerm || undefined;
 
-    // If balance is very close to zero (less than 1 cent), treat it as exactly zero
-    // This also handles -0 (negative zero) by explicitly returning positive 0
-    if (Math.abs(rounded) < 0.01 || Object.is(rounded, -0)) {
-      return 0; // Explicitly return positive 0
-    }
-    return rounded;
-  };
+  // Use the new paginated hook for ACTIVE accounts
   const {
-    data: cuentasCobranza,
-    isLoading
-  } = useQuery({
-    queryKey: ["cuentas_cobranza", estatusDisponibilidad],
-    enabled: !!estatusDisponibilidad,
+    data: activeCuentasData,
+    isLoading: isLoadingActive
+  } = useCuentasCobranzaPaginadas({
+    page: currentPageActive,
+    perPage: itemsPerPage,
+    idCuenta: idCuentaFilter || undefined,
+    proyecto: proyectoFilter || undefined,
+    clabe: clabeFilter || undefined,
+    noPropiedad: noPropiedadFilter || undefined,
+    modelo: modeloFilter || undefined,
+    compradores: compradoresFilter || undefined,
+    producto: productoFilter || undefined,
+    estatusIds: estatusFilter.length > 0 ? estatusFilter : undefined,
+    tipos: selectedTipos.length < 3 ? selectedTipos : undefined,
+    activo: true,
+    enabled: !isLoadingAccess
+  });
+
+  // Use the new paginated hook for CANCELLED accounts
+  const {
+    data: cancelledCuentasData,
+    isLoading: isLoadingCancelled
+  } = useCuentasCobranzaPaginadas({
+    page: currentPageCancelled,
+    perPage: itemsPerPage,
+    idCuenta: idCuentaFilter || undefined,
+    proyecto: proyectoFilter || undefined,
+    clabe: clabeFilter || undefined,
+    noPropiedad: noPropiedadFilter || undefined,
+    modelo: modeloFilter || undefined,
+    compradores: compradoresFilter || undefined,
+    producto: productoFilter || undefined,
+    estatusIds: estatusFilter.length > 0 ? estatusFilter : undefined,
+    tipos: selectedTipos.length < 3 ? selectedTipos : undefined,
+    activo: false,
+    enabled: !isLoadingAccess
+  });
+
+  // Query for global statistics (fast aggregate)
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+    queryKey: [
+      "cuentas_cobranza_stats",
+      hasUnrestrictedAccess,
+      accessibleProjectIds,
+      ownershipEntityIds,
+      isRepresentanteEmpresaDuena
+    ],
+    enabled: !isLoadingAccess,
     queryFn: async () => {
-      // Get basic cuenta cobranza data with payment sums (excluding maintenance accounts)
-      const selectColumns = `
-          id,
-          clabe_stp,
-          precio_final,
-          id_oferta,
-          activo,
-          valor_uma,
-          es_comision_venta_efectivo,
-          porcentaje_comision_venta,
-          collection_id,
-          tipos_cancelacion:id_tipo_cancelacion(nombre)
-        `;
-
-      const pageSize = 1000;
-      let cuentas: any[] = [];
-      let from = 0;
-      let to = pageSize - 1;
-      let more = true;
-      let cuentasError: any = null;
-
-      while (more) {
-        const { data, error } = await supabase
-          .from('cuentas_cobranza')
-          .select(selectColumns)
-          .is('id_cuenta_cobranza_padre', null)
-          .order('id', { ascending: false })
-          .range(from, to);
-
-        if (error) {
-          cuentasError = error;
-          break;
-        }
-
-        if (!data || data.length === 0) {
-          more = false;
-          break;
-        }
-
-        cuentas = cuentas.concat(data);
-
-        if (data.length < pageSize) {
-          // Última página
-          more = false;
-        } else {
-          from += pageSize;
-          to += pageSize;
-        }
-      }
-
-      if (cuentasError) {
-        console.error('Error fetching cuentas:', cuentasError);
-        return [];
-      }
-
-      if (!cuentas || cuentas.length === 0) return [];
-
-      // Get all payment amounts for each account using aplicaciones_pago
-      const cuentaIds = cuentas.map(c => c.id);
-      console.log('Cuenta IDs:', cuentaIds);
-
-      // Helper function to chunk arrays for batched queries (Supabase .in() has limits)
-      const chunkArray = <T,>(array: T[], chunkSize: number): T[][] => {
-        const chunks: T[][] = [];
-        for (let i = 0; i < array.length; i += chunkSize) {
-          chunks.push(array.slice(i, i + chunkSize));
-        }
-        return chunks;
-      };
-
-      // First get all acuerdos for these cuentas (batched by cuenta IDs)
-      let acuerdosForPagos: any[] = [];
-      const cuentaIdChunks = chunkArray(cuentaIds, 500);
-      for (const chunk of cuentaIdChunks) {
-        const pageSize = 1000;
-        let from = 0;
-        let more = true;
-        while (more) {
-          const { data, error } = await supabase
-            .from('acuerdos_pago')
-            .select('id, id_cuenta_cobranza')
-            .in('id_cuenta_cobranza', chunk)
-            .eq('activo', true)
-            .range(from, from + pageSize - 1);
-          if (error || !data || data.length === 0) {
-            more = false;
-          } else {
-            acuerdosForPagos = acuerdosForPagos.concat(data);
-            if (data.length < pageSize) more = false;
-            else from += pageSize;
-          }
-        }
-      }
-      const acuerdoIdsForPagos = acuerdosForPagos.map(a => a.id);
-      console.log('Acuerdos for pagos count:', acuerdosForPagos.length);
-
-      // Now get aplicaciones_pago for those acuerdos (batched by acuerdo IDs)
-      let aplicacionesPago: any[] = [];
-      if (acuerdoIdsForPagos.length > 0) {
-        const acuerdoIdChunks = chunkArray(acuerdoIdsForPagos, 500);
-        for (const chunk of acuerdoIdChunks) {
-          const pageSize = 1000;
-          let from = 0;
-          let more = true;
-          while (more) {
-            const { data, error } = await supabase
-              .from('aplicaciones_pago')
-              .select('monto, id_acuerdo_pago, es_multa')
-              .in('id_acuerdo_pago', chunk)
-              .eq('activo', true)
-              .eq('es_multa', false)
-              .range(from, from + pageSize - 1);
-            if (error || !data || data.length === 0) {
-              more = false;
-            } else {
-              aplicacionesPago = aplicacionesPago.concat(data);
-              if (data.length < pageSize) more = false;
-              else from += pageSize;
-            }
-          }
-        }
-      }
-      console.log('Aplicaciones pago count:', aplicacionesPago.length);
-
-      // Create a map from acuerdo_id to cuenta_id
-      const acuerdoToCuentaMap = acuerdosForPagos.reduce((acc: Record<number, number>, a) => {
-        acc[a.id] = a.id_cuenta_cobranza;
-        return acc;
-      }, {});
-
-      // DEBUG: Check if account 536 is being processed correctly
-      const acuerdos536 = acuerdosForPagos.filter(a => a.id_cuenta_cobranza === 536);
-      console.log('🔍 DEBUG - Acuerdos for cuenta 536:', acuerdos536);
-      const acuerdoIds536 = acuerdos536.map(a => a.id);
-      const aplicaciones536 = aplicacionesPago.filter(ap => acuerdoIds536.includes(ap.id_acuerdo_pago));
-      console.log('🔍 DEBUG - Aplicaciones for cuenta 536:', aplicaciones536);
-
-      // Calculate total payments per account from aplicaciones
-      const pagadoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
-        const totalPagado = aplicacionesPago.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id).reduce((sum, ap) => sum + (ap.monto || 0), 0);
-        acc[cuenta.id] = totalPagado;
-        return acc;
-      }, {});
-      console.log('Pagado por cuenta sample:', Object.entries(pagadoPorCuenta).slice(0, 5));
-      console.log('🔍 DEBUG - Pagado cuenta 536:', pagadoPorCuenta[536]);
-
-      // Get cash payments (id_metodos_pago = 1) for all accounts (batched)
-      let pagosCash: any[] = [];
-      for (const chunk of cuentaIdChunks) {
-        const pageSize = 1000;
-        let from = 0;
-        let more = true;
-        while (more) {
-          const { data, error } = await supabase
-            .from('pagos')
-            .select('id, fecha_pago, id_metodos_pago, activo')
-            .in('id_cuenta_cobranza', chunk)
-            .eq('id_metodos_pago', 1)
-            .eq('activo', true)
-            .order('fecha_pago', { ascending: false })
-            .range(from, from + pageSize - 1);
-          if (error || !data || data.length === 0) {
-            more = false;
-          } else {
-            pagosCash = pagosCash.concat(data);
-            if (data.length < pageSize) more = false;
-            else from += pageSize;
-          }
-        }
-      }
-      const pagosCashIds = pagosCash.map(p => p.id);
-
-      // Get aplicaciones for cash payments (batched)
-      let aplicacionesCash: any[] = [];
-      if (pagosCashIds.length > 0 && acuerdoIdsForPagos.length > 0) {
-        const pagosCashIdChunks = chunkArray(pagosCashIds, 500);
-        for (const chunk of pagosCashIdChunks) {
-          const pageSize = 1000;
-          let from = 0;
-          let more = true;
-          while (more) {
-            const { data, error } = await supabase
-              .from('aplicaciones_pago')
-              .select('monto, id_acuerdo_pago, id_pago, es_multa')
-              .in('id_pago', chunk)
-              .eq('activo', true)
-              .eq('es_multa', false)
-              .range(from, from + pageSize - 1);
-            if (error || !data || data.length === 0) {
-              more = false;
-            } else {
-              aplicacionesCash = aplicacionesCash.concat(data);
-              if (data.length < pageSize) more = false;
-              else from += pageSize;
-            }
-          }
-        }
-      }
-
-      // Get acuerdos_pago to check if "Apartado" or "Enganche" is paid (batched)
-      // Also get monto for discrepancy calculation
-      let acuerdosPago: any[] = [];
-      for (const chunk of cuentaIdChunks) {
-        const pageSize = 1000;
-        let from = 0;
-        let more = true;
-        while (more) {
-          const { data, error } = await supabase
-            .from('acuerdos_pago')
-            .select('id, id_cuenta_cobranza, id_concepto, pago_completado, monto')
-            .in('id_cuenta_cobranza', chunk)
-            .eq('activo', true)
-            .range(from, from + pageSize - 1);
-          if (error || !data || data.length === 0) {
-            more = false;
-          } else {
-            acuerdosPago = acuerdosPago.concat(data);
-            if (data.length < pageSize) more = false;
-            else from += pageSize;
-          }
-        }
-      }
-      console.log('🔍 Acuerdos de pago count:', acuerdosPago.length);
-
-      // Calculate total acuerdos per cuenta for discrepancy detection
-      const totalAcuerdosPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
-        const acuerdosCuenta = acuerdosPago.filter(ap => ap.id_cuenta_cobranza === cuenta.id);
-        const totalMonto = acuerdosCuenta.reduce((sum, ap) => sum + (Number(ap.monto) || 0), 0);
-        acc[cuenta.id] = Math.round(totalMonto * 100) / 100;
-        return acc;
-      }, {});
-
-      // Get aplicaciones_pago para verificar si hay pagos de cesión de derechos (batched)
-      const acuerdoIds = acuerdosPago.map(a => a.id);
-      let cesionDerechosMap: Record<number, boolean> = {};
-      if (acuerdoIds.length > 0) {
-        let aplicaciones: any[] = [];
-        const acuerdoIdChunks = chunkArray(acuerdoIds, 500);
-        for (const chunk of acuerdoIdChunks) {
-          const pageSize = 1000;
-          let from = 0;
-          let more = true;
-          while (more) {
-            const { data, error } = await supabase
-              .from('aplicaciones_pago')
-              .select('id_acuerdo_pago, monto')
-              .in('id_acuerdo_pago', chunk)
-              .eq('activo', true)
-              .range(from, from + pageSize - 1);
-            if (error || !data || data.length === 0) {
-              more = false;
-            } else {
-              aplicaciones = aplicaciones.concat(data);
-              if (data.length < pageSize) more = false;
-              else from += pageSize;
-            }
-          }
-        }
-
-        // Crear mapeo de acuerdo_id a concepto_id y cuenta_id
-        const acuerdosMap = acuerdosPago.reduce((acc: any, a) => {
-          acc[a.id] = {
-            id_concepto: a.id_concepto,
-            id_cuenta_cobranza: a.id_cuenta_cobranza
-          };
-          return acc;
-        }, {});
-
-        // Crear un mapa de cuentas que tienen cesión de derechos con pagos (id_concepto = 6)
-        aplicaciones.forEach((app: any) => {
-          const acuerdo = acuerdosMap[app.id_acuerdo_pago];
-          if (acuerdo && acuerdo.id_concepto === 6 && app.monto > 0) {
-            cesionDerechosMap[acuerdo.id_cuenta_cobranza] = true;
-          }
-        });
-        console.log('🔍 Cuentas con cesión de derechos:', cesionDerechosMap);
-      }
-
-      // Primero necesitamos determinar qué cuentas son de productos
-      // Obtenemos las ofertas para saber cuáles tienen id_producto (CON PAGINACIÓN)
-      const ofertaIdsTemp = cuentas.map(c => c.id_oferta).filter(id => id !== null);
-      let ofertasTemp: { id: number; id_producto: number | null }[] = [];
-      if (ofertaIdsTemp.length > 0) {
-        const ofertaIdChunks = chunkArray(ofertaIdsTemp, 500);
-        for (const chunk of ofertaIdChunks) {
-          const pageSize = 1000;
-          let from = 0;
-          let more = true;
-          while (more) {
-            const { data, error } = await supabase
-              .from('ofertas')
-              .select('id, id_producto')
-              .in('id', chunk)
-              .range(from, from + pageSize - 1);
-            if (error || !data || data.length === 0) {
-              more = false;
-            } else {
-              ofertasTemp = ofertasTemp.concat(data);
-              if (data.length < pageSize) more = false;
-              else from += pageSize;
-            }
-          }
-        }
-      }
-      const cuentasProductoSet = new Set(ofertasTemp.filter(o => o.id_producto).map(o => cuentas.find(c => c.id_oferta === o.id)?.id).filter(Boolean) || []);
-      console.log('🔍 Cuentas de productos (total ofertas cargadas:', ofertasTemp.length, '):', Array.from(cuentasProductoSet));
-
-      // Create a map of whether initial payment is made for each cuenta
-      const apartadoPagadoPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
-        const esProducto = cuentasProductoSet.has(cuenta.id);
-        if (esProducto) {
-          // Para productos, el pago inicial es el Enganche (id_concepto = 2)
-          const acuerdoEnganche = acuerdosPago.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 2);
-          acc[cuenta.id] = acuerdoEnganche?.pago_completado || false;
-          console.log(`💰 Cuenta ${cuenta.id} [PRODUCTO]: enganche_pagado = ${acc[cuenta.id]}`);
-        } else {
-          // Para propiedades, el pago inicial es Apartado (id_concepto = 1) o Cesión de derechos (id_concepto = 6)
-          const acuerdoApartado = acuerdosPago.find(ap => ap.id_cuenta_cobranza === cuenta.id && ap.id_concepto === 1);
-          acc[cuenta.id] = acuerdoApartado?.pago_completado || false || cesionDerechosMap[cuenta.id] || false;
-          console.log(`💰 Cuenta ${cuenta.id} [PROPIEDAD]: apartado_pagado = ${acc[cuenta.id]} (apartado: ${acuerdoApartado?.pago_completado}, cesión: ${cesionDerechosMap[cuenta.id]})`);
-        }
-        return acc;
-      }, {});
-
-      // Create a map to check if each cuenta has acuerdos
-      const tieneAcuerdosPorCuenta = cuentas.reduce((acc: Record<number, boolean>, cuenta) => {
-        const tieneAcuerdos = acuerdosPago.some(ap => ap.id_cuenta_cobranza === cuenta.id);
-        acc[cuenta.id] = tieneAcuerdos;
-        return acc;
-      }, {});
-
-      // Get multas pendientes para cada cuenta (batched)
-      const acuerdoIdsForMultas = acuerdosPago.map(ap => ap.id);
-      let multasPendientesPorCuenta: Record<number, boolean> = {};
-      if (acuerdoIdsForMultas.length > 0) {
-        let multas: any[] = [];
-        const acuerdoIdChunksForMultas = chunkArray(acuerdoIdsForMultas, 500);
-        for (const chunk of acuerdoIdChunksForMultas) {
-          const pageSize = 1000;
-          let from = 0;
-          let more = true;
-          while (more) {
-            const { data, error } = await supabase
-              .from('multas')
-              .select('id, id_acuerdo_pago, es_pagada')
-              .in('id_acuerdo_pago', chunk)
-              .eq('activo', true)
-              .eq('es_pagada', false)
-              .range(from, from + pageSize - 1);
-            if (error || !data || data.length === 0) {
-              more = false;
-            } else {
-              multas = multas.concat(data);
-              if (data.length < pageSize) more = false;
-              else from += pageSize;
-            }
-          }
-        }
-
-        // Crear un mapa de acuerdo_id a cuenta_id
-        const acuerdoToCuentaMapMultas = acuerdosPago.reduce((acc: any, ap) => {
-          acc[ap.id] = ap.id_cuenta_cobranza;
-          return acc;
-        }, {});
-
-        // Marcar qué cuentas tienen multas pendientes
-        multas.forEach(multa => {
-          const cuentaId = acuerdoToCuentaMapMultas[multa.id_acuerdo_pago];
-          if (cuentaId) {
-            multasPendientesPorCuenta[cuentaId] = true;
-          }
-        });
-        console.log('🔍 Cuentas con multas pendientes:', multasPendientesPorCuenta);
-      }
-
-      // Get offer IDs to fetch related data
-      const ofertaIds = cuentas.map(c => c.id_oferta).filter(id => id !== null);
-
-      // Get ofertas with properties and products (batched)
-      let ofertas: any[] = [];
-      let ofertasError: any = null;
-
-      if (ofertaIds.length > 0) {
-        const ofertaIdChunks = chunkArray(ofertaIds, 500);
-        for (const chunk of ofertaIdChunks) {
-          const pageSize = 1000;
-          let from = 0;
-          let to = pageSize - 1;
-          let more = true;
-
-          while (more) {
-            const { data, error } = await supabase
-              .from('ofertas')
-              .select(`
-              id,
-              id_propiedad,
-              id_producto,
-              propiedades!ofertas_id_propiedad_fkey(
-                id,
-                numero_propiedad,
-                precio_lista,
-                m2_interiores,
-                m2_exteriores,
-                id_entidad_relacionada_dueno,
-                id_edificio_modelo,
-                id_estatus_disponibilidad
-              )
-              `)
-              .in('id', chunk)
-              .range(from, to);
-
-            if (error) {
-              ofertasError = error;
-              break;
-            }
-
-            if (!data || data.length === 0) {
-              more = false;
-              break;
-            }
-
-            ofertas = ofertas.concat(data);
-
-            if (data.length < pageSize) {
-              more = false;
-            } else {
-              from += pageSize;
-              to += pageSize;
-            }
-          }
-          if (ofertasError) break;
-        }
-      }
-      if (ofertasError) {
-        console.error('Error fetching ofertas:', ofertasError);
-        return [];
-      }
-
-      // Get property IDs to find non-included bodegas and estacionamientos
-      const propiedadIds = ofertas.filter(o => o.id_propiedad).map(o => o.id_propiedad);
-
-      // Get bodegas not included for these properties (batched)
-      let bodegasNoIncluidas: any[] = [];
-      if (propiedadIds.length > 0) {
-        const propiedadIdChunks = chunkArray(propiedadIds, 500);
-        for (const chunk of propiedadIdChunks) {
-          const { data } = await supabase
-            .from('bodegas')
-            .select('id, id_propiedad, id_producto, es_incluido')
-            .in('id_propiedad', chunk)
-            .eq('es_incluido', false)
-            .eq('activo', true);
-          if (data) bodegasNoIncluidas = bodegasNoIncluidas.concat(data);
-        }
-      }
-
-      // Get estacionamientos not included for these properties (batched)
-      let estacionamientosNoIncluidos: any[] = [];
-      if (propiedadIds.length > 0) {
-        const propiedadIdChunks2 = chunkArray(propiedadIds, 500);
-        for (const chunk of propiedadIdChunks2) {
-          const { data } = await supabase
-            .from('estacionamientos')
-            .select('id, id_propiedad, id_producto, es_incluido')
-            .in('id_propiedad', chunk)
-            .eq('es_incluido', false)
-            .eq('activo', true);
-          if (data) estacionamientosNoIncluidos = estacionamientosNoIncluidos.concat(data);
-        }
-      }
-
-      // Create maps: propiedad_id -> [producto_ids]
-      const bodegaProductosPorPropiedad = new Map<number, number[]>();
-      const estacionamientoProductosPorPropiedad = new Map<number, number[]>();
-      bodegasNoIncluidas.forEach(b => {
-        if (b.id_producto && b.id_propiedad) {
-          if (!bodegaProductosPorPropiedad.has(b.id_propiedad)) {
-            bodegaProductosPorPropiedad.set(b.id_propiedad, []);
-          }
-          bodegaProductosPorPropiedad.get(b.id_propiedad)!.push(b.id_producto);
-        }
-      });
-      estacionamientosNoIncluidos.forEach(e => {
-        if (e.id_producto && e.id_propiedad) {
-          if (!estacionamientoProductosPorPropiedad.has(e.id_propiedad)) {
-            estacionamientoProductosPorPropiedad.set(e.id_propiedad, []);
-          }
-          estacionamientoProductosPorPropiedad.get(e.id_propiedad)!.push(e.id_producto);
-        }
+      const { data, error } = await supabase.rpc('get_cuentas_cobranza_stats' as any, {
+        p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
+        p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
       });
 
-      // Get all complementary product IDs
-      const complementarioProductIds = [...(bodegasNoIncluidas.map(b => b.id_producto).filter(Boolean)), ...(estacionamientosNoIncluidos.map(e => e.id_producto).filter(Boolean))];
-
-      // Get ofertas for complementary products (batched)
-      let ofertasComplementarias: any[] = [];
-      let cuentasComplementarias: any[] = [];
-      if (complementarioProductIds.length > 0) {
-        const productIdChunks = chunkArray(complementarioProductIds, 500);
-        for (const chunk of productIdChunks) {
-          const { data: ofertasComp } = await supabase
-            .from('ofertas')
-            .select('id, id_producto')
-            .in('id_producto', chunk)
-            .eq('activo', true);
-          if (ofertasComp) ofertasComplementarias = ofertasComplementarias.concat(ofertasComp);
-        }
-        if (ofertasComplementarias.length > 0) {
-          const ofertaCompIds = ofertasComplementarias.map(o => o.id);
-          const ofertaCompIdChunks = chunkArray(ofertaCompIds, 500);
-          for (const chunk of ofertaCompIdChunks) {
-            const { data: cuentasComp } = await supabase
-              .from('cuentas_cobranza')
-              .select('id, id_oferta')
-              .in('id_oferta', chunk)
-              .eq('activo', true);
-            if (cuentasComp) cuentasComplementarias = cuentasComplementarias.concat(cuentasComp);
-          }
-        }
+      if (error) {
+        console.error('Error fetching stats:', error);
+        return null;
       }
 
-      // Create map: oferta_id -> cuenta_id
-      const ofertaToCuentaCompMap = new Map<number, number>();
-      cuentasComplementarias.forEach(c => {
-        ofertaToCuentaCompMap.set(c.id_oferta, c.id);
-      });
-
-      // Create map: producto_id -> cuenta_id
-      const productoToCuentaMap = new Map<number, number>();
-      ofertasComplementarias.forEach(o => {
-        const cuentaId = ofertaToCuentaCompMap.get(o.id);
-        if (cuentaId && o.id_producto) {
-          productoToCuentaMap.set(o.id_producto, cuentaId);
-        }
-      });
-
-      // Calculate cash paid per cuenta, including complementary units
-      const pagadoEfectivoPorCuenta = cuentas.reduce((acc: Record<number, number>, cuenta) => {
-        const oferta = ofertas.find(o => o.id === cuenta.id_oferta);
-        const propiedadId = oferta?.id_propiedad;
-
-        // 1. Cash paid for main property account
-        let totalEfectivo = aplicacionesCash.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id).reduce((sum, ap) => sum + (ap.monto || 0), 0);
-
-        // 2. Add cash paid for non-included bodegas (only for property accounts)
-        if (propiedadId && bodegaProductosPorPropiedad.has(propiedadId)) {
-          const bodegaProductos = bodegaProductosPorPropiedad.get(propiedadId) || [];
-          bodegaProductos.forEach(productoId => {
-            const cuentaComplementariaId = productoToCuentaMap.get(productoId);
-            if (cuentaComplementariaId) {
-              const efectivoBodega = aplicacionesCash.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuentaComplementariaId).reduce((sum, ap) => sum + (ap.monto || 0), 0);
-              totalEfectivo += efectivoBodega;
-            }
-          });
-        }
-
-        // 3. Add cash paid for non-included estacionamientos (only for property accounts)
-        if (propiedadId && estacionamientoProductosPorPropiedad.has(propiedadId)) {
-          const estacionamientoProductos = estacionamientoProductosPorPropiedad.get(propiedadId) || [];
-          estacionamientoProductos.forEach(productoId => {
-            const cuentaComplementariaId = productoToCuentaMap.get(productoId);
-            if (cuentaComplementariaId) {
-              const efectivoEstacionamiento = aplicacionesCash.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuentaComplementariaId).reduce((sum, ap) => sum + (ap.monto || 0), 0);
-              totalEfectivo += efectivoEstacionamiento;
-            }
-          });
-        }
-        acc[cuenta.id] = totalEfectivo;
-        return acc;
-      }, {});
-
-      // Create a map of individual cash payments per account with aggregated amounts
-      const pagosCashPorCuenta = cuentas.reduce((acc: Record<number, CashPayment[]>, cuenta) => {
-        // Get all cash payment IDs for this cuenta through aplicaciones
-        const aplicacionesForCuenta = aplicacionesCash.filter(ap => acuerdoToCuentaMap[ap.id_acuerdo_pago] === cuenta.id);
-
-        // Group by payment ID and sum amounts
-        const pagoAggregated = aplicacionesForCuenta.reduce((pagoAcc: Record<number, number>, ap) => {
-          pagoAcc[ap.id_pago] = (pagoAcc[ap.id_pago] || 0) + (ap.monto || 0);
-          return pagoAcc;
-        }, {});
-
-        // Map to payment details
-        const pagos = Object.entries(pagoAggregated).map(([pagoId, monto]) => {
-          const pago = pagosCash.find(p => p.id === parseInt(pagoId));
-          return {
-            fecha_pago: pago?.fecha_pago || '',
-            monto: monto as number
-          };
-        }).filter(p => p.fecha_pago);
-        acc[cuenta.id] = pagos;
-        return acc;
-      }, {});
-
-      // Get compradores - include inactive personas too (batched)
-      let compradores: any[] = [];
-      if (cuentaIds.length > 0) {
-        for (const chunk of cuentaIdChunks) {
-          const pageSize = 1000;
-          let from = 0;
-          let to = pageSize - 1;
-          let more = true;
-
-          while (more) {
-            const { data, error } = await supabase
-              .from('compradores')
-              .select(`
-                id_cuenta_cobranza,
-                porcentaje_copropiedad,
-                id_persona,
-                activo
-              `)
-              .in('id_cuenta_cobranza', chunk)
-              .eq('activo', true)
-              .range(from, to);
-
-            if (error) {
-              console.error('Error fetching compradores:', error);
-              break;
-            }
-
-            if (!data || data.length === 0) {
-              more = false;
-              break;
-            }
-
-            compradores = compradores.concat(data);
-
-            if (data.length < pageSize) {
-              more = false;
-            } else {
-              from += pageSize;
-              to += pageSize;
-            }
-          }
-        }
-      }
-
-      // Get all persona IDs
-      const personaIds = [...new Set(compradores.map(c => c.id_persona).filter(Boolean))];
-
-      // Fetch personas separately (batched)
-      let personas: any[] = [];
-      if (personaIds.length > 0) {
-        const personaIdChunks = chunkArray(personaIds, 500);
-        for (const chunk of personaIdChunks) {
-          const pageSize = 1000;
-          let from = 0;
-          let to = pageSize - 1;
-          let more = true;
-          
-          while (more) {
-            const { data, error } = await supabase
-              .from('personas')
-              .select('id, nombre_legal, rfc')
-              .in('id', chunk)
-              .range(from, to);
-            
-            if (error) {
-              console.error('Error fetching personas:', error);
-              break;
-            }
-            
-            if (!data || data.length === 0) {
-              more = false;
-              break;
-            }
-            
-            personas = personas.concat(data);
-            
-            if (data.length < pageSize) {
-              more = false;
-            } else {
-              from += pageSize;
-              to += pageSize;
-            }
-          }
-        }
-      }
-
-      // Create personas map
-      const personasMap = new Map<number, {
-        id: number;
-        nombre_legal: string;
-        rfc: string | null;
-      }>();
-      personas.forEach(p => {
-        personasMap.set(p.id, {
-          id: p.id,
-          nombre_legal: p.nombre_legal,
-          rfc: p.rfc
-        });
-      });
-
-      // Get entidades relacionadas, proyectos, edificios, modelos, productos
-      const entidadIds = ofertas.map(o => o.propiedades?.id_entidad_relacionada_dueno).filter(Boolean);
-      const edificioModeloIds = ofertas.map(o => o.propiedades?.id_edificio_modelo).filter(Boolean);
-      const productoIds = ofertas.map(o => o.id_producto).filter(Boolean);
-
-      // Get productos_servicios data 
-      let productosData: any[] = [];
-      let entidadesProductosMap: Map<number, number> = new Map(); // id_entidad -> id_proyecto
-      let proyectosProductosData: any[] = [];
-      if (productoIds.length > 0) {
-        const {
-          data: productos
-        } = await supabase.from('productos_servicios').select('id, nombre, id_entidad_relacionada_dueno').in('id', productoIds);
-        productosData = productos || [];
-        if (productosData.length > 0) {
-          const entidadIdsProductos = productosData.map(p => p.id_entidad_relacionada_dueno).filter(Boolean);
-          if (entidadIdsProductos.length > 0) {
-            const {
-              data: entidadesProductos
-            } = await supabase.from('entidades_relacionadas').select('id, id_proyecto').in('id', entidadIdsProductos);
-
-            // Create a map for quick lookup
-            entidadesProductos?.forEach(e => {
-              entidadesProductosMap.set(e.id, e.id_proyecto);
-            });
-            const proyectoIdsProductos = entidadesProductos?.map(e => e.id_proyecto).filter(Boolean) || [];
-            if (proyectoIdsProductos.length > 0) {
-              const {
-                data: proyectos
-              } = await supabase.from('proyectos').select('id, id_tipo_uso').in('id', proyectoIdsProductos);
-              proyectosProductosData = proyectos || [];
-            }
-          }
-        }
-      }
-      const [entidadesResult, edificiosModelosResult] = await Promise.all([supabase.from('entidades_relacionadas').select(`
-            id,
-            id_proyecto,
-            personas!fk_entrel_persona(nombre_legal),
-            proyectos!entidades_relacionadas_id_proyecto_fkey(
-              id,
-              nombre,
-              id_tipo_uso
-            )
-          `).in('id', entidadIds), supabase.from('edificios_modelos').select(`
-            id,
-            edificios!edificios_modelos_id_edificio_fkey(nombre),
-            modelos!edificios_modelos_id_modelo_fkey(nombre)
-          `).in('id', edificioModeloIds)]);
-
-      // Transform the data
-      const transformedData: CuentaCobranza[] = cuentas.map(cuenta => {
-        const oferta = ofertas.find(o => o.id === cuenta.id_oferta);
-        const propiedad = oferta?.propiedades;
-        const entidad = entidadesResult.data?.find(e => e.id === propiedad?.id_entidad_relacionada_dueno);
-        const edificioModelo = edificiosModelosResult.data?.find(em => em.id === propiedad?.id_edificio_modelo);
-        const cuentaCompradores = compradores.filter(c => c.id_cuenta_cobranza === cuenta.id);
-
-        // Determine tipo based on oferta
-        let tipo: 'Propiedad' | 'Producto' | 'Servicio' = 'Propiedad';
-        let productoNombre: string | undefined;
-        if (oferta?.id_producto) {
-          const producto = productosData?.find((p: any) => p.id === oferta.id_producto);
-          productoNombre = producto?.nombre;
-          if (producto && producto.id_entidad_relacionada_dueno) {
-            // Get proyecto id from the map
-            const idProyecto = entidadesProductosMap.get(producto.id_entidad_relacionada_dueno);
-            if (idProyecto) {
-              const proyecto = proyectosProductosData?.find((pr: any) => pr.id === idProyecto);
-              if (proyecto) {
-                // id_tipo_uso: 9 = Productos, 10 = Servicios, 11 = Mantenimientos (also Servicios)
-                const tipoUso = proyecto.id_tipo_uso;
-                if (tipoUso === 9) {
-                  tipo = 'Producto';
-                } else if (tipoUso === 10 || tipoUso === 11) {
-                  tipo = 'Servicio';
-                }
-              } else {
-                tipo = 'Producto'; // Default if we can't determine
-              }
-            } else {
-              tipo = 'Producto'; // Default if we can't determine
-            }
-          } else {
-            tipo = 'Producto'; // Default if we can't determine
-          }
-        }
-        const pagado = pagadoPorCuenta[cuenta.id] || 0;
-        const precio_final = cuenta.precio_final || 0;
-        // Calculate difference and normalize to avoid -0
-        let restante = precio_final - pagado;
-        restante = Math.round(restante * 100) / 100;
-        // Force any zero (including -0) to positive 0
-        if (Math.abs(restante) < 0.01) {
-          restante = 0;
-        }
-        // Final cleanup: use + operator to convert -0 to 0
-        restante = +restante.toFixed(2);
-
-        // Calculate cash payment data (only for properties)
-        const valorUma = cuenta.valor_uma || 0;
-        const limiteEfectivo = valorUma * 8025;
-        const pagadoEfectivo = tipo === 'Propiedad' ? pagadoEfectivoPorCuenta[cuenta.id] || 0 : 0;
-        let restanteEfectivo = limiteEfectivo - pagadoEfectivo;
-        restanteEfectivo = Math.round(restanteEfectivo * 100) / 100;
-        if (Math.abs(restanteEfectivo) < 0.01) {
-          restanteEfectivo = 0;
-        }
-        restanteEfectivo = +restanteEfectivo.toFixed(2);
-        const porcentajeEfectivo = limiteEfectivo > 0 ? pagadoEfectivo / limiteEfectivo * 100 : 0;
-        // Calculate metraje and precio_por_m2 for property accounts
-        const m2Interiores = propiedad?.m2_interiores ? Number(propiedad.m2_interiores) : 0;
-        const m2Exteriores = propiedad?.m2_exteriores ? Number(propiedad.m2_exteriores) : 0;
-        const metraje = tipo === 'Propiedad' ? m2Interiores + m2Exteriores : undefined;
-        const precio_por_m2 = tipo === 'Propiedad' && metraje && metraje > 0 ? precio_final / metraje : undefined;
-
-        return {
-          id: cuenta.id,
-          tipo,
-          producto_nombre: productoNombre,
-          clabe_stp: cuenta.clabe_stp,
-          precio_final,
-          precio_lista: propiedad?.precio_lista || null,
-          es_comision_venta_efectivo: (cuenta as any).es_comision_venta_efectivo || false,
-          porcentaje_comision_venta: (cuenta as any).porcentaje_comision_venta || 0,
-          pagado,
-          restante,
-          cash_limit: limiteEfectivo,
-          cash_paid: pagadoEfectivo,
-          cash_remaining: restanteEfectivo,
-          cash_percentage: porcentajeEfectivo,
-          cash_payments: tipo === 'Propiedad' ? pagosCashPorCuenta[cuenta.id] || [] : [],
-          compradores: cuentaCompradores.map(c => {
-            const persona = personasMap.get(c.id_persona);
-            return {
-              nombre_legal: persona?.nombre_legal || '',
-              rfc: persona?.rfc || null,
-              porcentaje_copropiedad: c.porcentaje_copropiedad || 0,
-              id_persona: c.id_persona
-            };
-          }).filter(c => c.nombre_legal),
-          dueno: entidad?.personas?.nombre_legal || 'Sin dueño',
-          proyecto: entidad?.proyectos?.nombre || 'Sin proyecto',
-          edificio: edificioModelo?.edificios?.nombre || 'Sin edificio',
-          numero_propiedad: propiedad?.numero_propiedad || 'Sin número',
-          modelo: edificioModelo?.modelos?.nombre || 'Sin modelo',
-          activo: cuenta.activo,
-          id_oferta: cuenta.id_oferta,
-          motivo_cancelacion: (cuenta as any).tipos_cancelacion?.nombre || null,
-          apartado_pagado: apartadoPagadoPorCuenta[cuenta.id],
-          tiene_acuerdos: tieneAcuerdosPorCuenta[cuenta.id],
-          tiene_multas_pendientes: multasPendientesPorCuenta[cuenta.id] || false,
-          id_estatus_disponibilidad: propiedad?.id_estatus_disponibilidad,
-          estatus_propiedad: propiedad?.id_estatus_disponibilidad 
-            ? estatusDisponibilidad?.find(e => e.id === propiedad.id_estatus_disponibilidad)?.nombre || undefined
-            : undefined,
-          collection_id: cuenta.collection_id,
-          total_acuerdos: totalAcuerdosPorCuenta[cuenta.id] || 0,
-          discrepancia: tieneAcuerdosPorCuenta[cuenta.id] 
-            ? Math.round((precio_final - (totalAcuerdosPorCuenta[cuenta.id] || 0)) * 100) / 100
-            : 0,
-          metraje,
-          precio_por_m2,
-          id_proyecto: entidad?.id_proyecto || undefined,
-          id_entidad_relacionada_dueno: propiedad?.id_entidad_relacionada_dueno || undefined
-        };
-      });
-      return transformedData.sort((a, b) => b.id - a.id);
+      const result = (data as any)?.[0] || null;
+      return result;
     }
   });
+
+  const isLoading = isLoadingActive || isLoadingCancelled;
+
+  // Extract data from hooks
+  const paginatedCuentasActivas = activeCuentasData?.cuentas || [];
+  const totalActivasCount = activeCuentasData?.totalCount || 0;
+  const totalActivasPages = activeCuentasData?.totalPages || 1;
+
+  const paginatedCuentasCanceladas = cancelledCuentasData?.cuentas || [];
+  const totalCancelladasCount = cancelledCuentasData?.totalCount || 0;
+  const totalCancelladasPages = cancelledCuentasData?.totalPages || 1;
 
   // Debug log for project access
   console.log('🔍 Project Access Debug:', { 
@@ -1174,87 +329,17 @@ export default function Pagos() {
     enabled: !isLoadingAccess
   });
 
-  // Filter by active status and project access
-  const allCuentasActivas = cuentasCobranza?.filter(cuenta => cuenta.activo) || [];
-  const allCuentasCanceladas = cuentasCobranza?.filter(cuenta => !cuenta.activo) || [];
-  
-  // Apply project access filtering
-  const cuentasActivas = useMemo(() => {
-    if (hasUnrestrictedAccess) return allCuentasActivas;
-    
-    let filtered = allCuentasActivas.filter(cuenta => 
-      cuenta.id_proyecto && accessibleProjectIds.includes(cuenta.id_proyecto)
-    );
-    
-    // For Representante de empresa dueña, additionally filter by ownership entity
-    if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
-      filtered = filtered.filter(cuenta => 
-        cuenta.id_entidad_relacionada_dueno && ownershipEntityIds.includes(cuenta.id_entidad_relacionada_dueno)
-      );
-    }
-    
-    return filtered;
-  }, [allCuentasActivas, hasUnrestrictedAccess, accessibleProjectIds, isRepresentanteEmpresaDuena, ownershipEntityIds]);
-  
-  const cuentasCanceladas = useMemo(() => {
-    if (hasUnrestrictedAccess) return allCuentasCanceladas;
-    
-    let filtered = allCuentasCanceladas.filter(cuenta => 
-      cuenta.id_proyecto && accessibleProjectIds.includes(cuenta.id_proyecto)
-    );
-    
-    if (isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0) {
-      filtered = filtered.filter(cuenta => 
-        cuenta.id_entidad_relacionada_dueno && ownershipEntityIds.includes(cuenta.id_entidad_relacionada_dueno)
-      );
-    }
-    
-    return filtered;
-  }, [allCuentasCanceladas, hasUnrestrictedAccess, accessibleProjectIds, isRepresentanteEmpresaDuena, ownershipEntityIds]);
+  // Derive current data based on active tab
+  const currentCuentas = activeTab === "activas" ? paginatedCuentasActivas : paginatedCuentasCanceladas;
+  const filteredCuentas = currentCuentas; // Already filtered by the server
+  const paginatedCuentas = currentCuentas; // Already paginated by the server
 
-  // Filter function to apply to any list of cuentas
-  const applyFilters = (cuentas: CuentaCobranza[]) => {
-    return cuentas.filter(cuenta => {
-      // Filter by tipo
-      if (!selectedTipos.includes(cuenta.tipo)) {
-        return false;
-      }
-
-      // Filter by search term (including formatted ID like CC-000001)
-      const formattedId = formatCuentaCobranzaId(cuenta.id, cuenta.tipo).toLowerCase();
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = searchTerm === "" || formattedId.includes(searchLower) || cuenta.id.toString().includes(searchTerm) || cuenta.compradores.some(c => c.nombre_legal.toLowerCase().includes(searchLower) || c.rfc?.toLowerCase().includes(searchLower)) || cuenta.dueno.toLowerCase().includes(searchLower) || cuenta.clabe_stp?.toLowerCase().includes(searchLower) || cuenta.proyecto.toLowerCase().includes(searchLower) || cuenta.edificio.toLowerCase().includes(searchLower) || cuenta.numero_propiedad.toLowerCase().includes(searchLower) || cuenta.modelo.toLowerCase().includes(searchLower) || cuenta.producto_nombre?.toLowerCase().includes(searchLower) || cuenta.precio_final.toString().includes(searchTerm);
-
-      // Apply individual filters (ID filter supports both raw ID and formatted ID like CC-000001)
-      const idFilterTrimmed = idCuentaFilter.trim().toLowerCase();
-      const paddedNumber = String(cuenta.id).padStart(6, '0'); // e.g., "000100"
-      const matchesIdCuenta = idCuentaFilter.trim() === "" || 
-        formattedId.includes(idFilterTrimmed) ||  // Search in "cc-000100"
-        paddedNumber.includes(idFilterTrimmed) || // Search in "000100" (without prefix)
-        cuenta.id.toString().includes(idFilterTrimmed); // Search in "100"
-      const matchesProducto = productoFilter === "" || cuenta.producto_nombre?.toLowerCase().includes(productoFilter.toLowerCase());
-      const matchesCompradores = compradoresFilter === "" || cuenta.compradores.some(c => c.nombre_legal.toLowerCase().includes(compradoresFilter.toLowerCase()) || c.rfc?.toLowerCase().includes(compradoresFilter.toLowerCase()));
-      const matchesClabe = clabeFilter === "" || cuenta.clabe_stp?.toLowerCase().includes(clabeFilter.toLowerCase());
-      const matchesProyecto = proyectoFilter === "" || cuenta.proyecto.toLowerCase().includes(proyectoFilter.toLowerCase());
-      const matchesNoPropiedad = noPropiedadFilter === "" || cuenta.numero_propiedad.toLowerCase().includes(noPropiedadFilter.toLowerCase());
-      const matchesModelo = modeloFilter === "" || cuenta.modelo.toLowerCase().includes(modeloFilter.toLowerCase());
-      const matchesEstatus = estatusFilter.length === 0 || (cuenta.id_estatus_disponibilidad && estatusFilter.includes(cuenta.id_estatus_disponibilidad));
-      return matchesSearch && matchesIdCuenta && matchesProducto && matchesCompradores && matchesClabe && matchesProyecto && matchesNoPropiedad && matchesModelo && matchesEstatus;
-    });
-  };
-
-  // Apply filters to both activas and canceladas
-  const filteredCuentasActivas = applyFilters(cuentasActivas);
-  const filteredCuentasCanceladas = applyFilters(cuentasCanceladas);
-  const currentCuentas = activeTab === "activas" ? cuentasActivas : cuentasCanceladas;
-  const filteredCuentas = activeTab === "activas" ? filteredCuentasActivas : filteredCuentasCanceladas;
-
-  // Pagination logic
+  // Pagination logic - now uses server-side totals
   const currentPage = activeTab === "activas" ? currentPageActive : currentPageCancelled;
   const setCurrentPage = activeTab === "activas" ? setCurrentPageActive : setCurrentPageCancelled;
-  const totalFilteredCount = filteredCuentas.length;
-  const totalPages = Math.ceil(totalFilteredCount / itemsPerPage);
-  const paginatedCuentas = filteredCuentas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalFilteredCount = activeTab === "activas" ? totalActivasCount : totalCancelladasCount;
+  const totalPages = activeTab === "activas" ? totalActivasPages : totalCancelladasPages;
+
   const handleTipoToggle = (tipo: 'Propiedad' | 'Producto' | 'Servicio') => {
     setSelectedTipos(prev => prev.includes(tipo) ? prev.filter(t => t !== tipo) : [...prev, tipo]);
   };
@@ -1266,72 +351,61 @@ export default function Pagos() {
     localStorage.setItem('pagos-stats-expanded', JSON.stringify(newValue));
   };
 
-  // Statistics for table counts based on active tab
-  const statsCuentas = activeTab === "activas" ? cuentasActivas : cuentasCanceladas;
+  // Statistics from the server-side aggregate query
+  const cuentasPropiedadesActivasCount = statsData?.total_propiedades || 0;
+  const cuentasProductosActivasCount = statsData?.total_productos || 0;
+  const totalCuentasActivas = statsData?.total_cuentas_activas || 0;
   
-  // Separar cuentas por tipo para estadísticas de tabla (según tab activo)
-  const cuentasPropiedades = statsCuentas.filter(c => c.tipo === 'Propiedad');
-  const cuentasProductos = statsCuentas.filter(c => c.tipo === 'Producto' || c.tipo === 'Servicio');
-  
-  // IMPORTANT: Total Colocado and Cobrado ALWAYS use ACTIVE accounts only (never cancelled)
-  const cuentasPropiedadesActivas = cuentasActivas.filter(c => c.tipo === 'Propiedad');
-  const cuentasProductosActivas = cuentasActivas.filter(c => c.tipo === 'Producto' || c.tipo === 'Servicio');
-  
-  // Total Colocado (only from ACTIVE accounts - never cancelled)
-  const totalMontoPropiedades = cuentasPropiedadesActivas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
-  const totalMontoProductos = cuentasProductosActivas.reduce((sum, cuenta) => sum + Number(cuenta.precio_final), 0);
+  // Total Colocado (from stats RPC)
+  const totalMontoPropiedades = Number(statsData?.total_colocado_propiedades) || 0;
+  const totalMontoProductos = Number(statsData?.total_colocado_productos) || 0;
   const totalMonto = totalMontoPropiedades + totalMontoProductos;
   
-  // Total Cobrado (only from ACTIVE accounts - never cancelled)
-  const totalCobradoPropiedades = cuentasPropiedadesActivas.reduce((sum, cuenta) => sum + Number(cuenta.pagado || 0), 0);
-  const totalCobradoProductos = cuentasProductosActivas.reduce((sum, cuenta) => sum + Number(cuenta.pagado || 0), 0);
+  // Total Cobrado (from stats RPC)
+  const totalCobradoPropiedades = Number(statsData?.total_cobrado_propiedades) || 0;
+  const totalCobradoProductos = Number(statsData?.total_cobrado_productos) || 0;
   const totalCobrado = totalCobradoPropiedades + totalCobradoProductos;
   
-  // Calculate top 3 projects by number of accounts with totals (unfiltered) - SOLO PROPIEDADES ACTIVAS
-  const proyectosDataMap = cuentasPropiedadesActivas.reduce((acc, cuenta) => {
-    const proyecto = cuenta.proyecto;
-    const id_proyecto = cuenta.id_proyecto || 0;
-    if (!acc[proyecto]) {
-      acc[proyecto] = { count: 0, total: 0, cobrado: 0, cuentaIds: [] as number[], id_proyecto, valorProyecto: 0 };
-    }
-    acc[proyecto].count += 1;
-    acc[proyecto].total += Number(cuenta.precio_final);
-    acc[proyecto].cobrado += Number(cuenta.pagado || 0);
-    acc[proyecto].cuentaIds.push(cuenta.id);
-    if (!acc[proyecto].id_proyecto) acc[proyecto].id_proyecto = id_proyecto;
-    return acc;
-  }, {} as Record<string, { count: number; total: number; cobrado: number; cuentaIds: number[]; id_proyecto: number; valorProyecto: number }>);
-
-  const top3Proyectos = Object.entries(proyectosDataMap)
-    .sort(([, a], [, b]) => b.count - a.count)
-    .slice(0, 3)
-    .map(([proyecto, data]) => ({ 
-      proyecto, 
-      count: data.count, 
-      total: data.total,
-      promedio: data.total / data.count,
-      cobrado: data.cobrado,
-      restante: data.total - data.cobrado,
-      cuentaIds: data.cuentaIds,
-      id_proyecto: data.id_proyecto,
-      valorProyecto: valorProyectosData?.[data.id_proyecto]?.valorTotal || data.total
+  // Parse project stats from JSONB
+  const proyectosStats = useMemo(() => {
+    if (!statsData?.stats_por_proyecto) return [];
+    const stats = statsData.stats_por_proyecto as Array<{
+      id_proyecto: number;
+      proyecto: string;
+      count: number;
+      colocado: number;
+      cobrado: number;
+    }>;
+    return stats.slice(0, 3).map(proy => ({
+      proyecto: proy.proyecto,
+      count: proy.count,
+      total: Number(proy.colocado) || 0,
+      promedio: proy.count > 0 ? (Number(proy.colocado) / proy.count) : 0,
+      cobrado: Number(proy.cobrado) || 0,
+      restante: (Number(proy.colocado) || 0) - (Number(proy.cobrado) || 0),
+      cuentaIds: [] as number[], // Not available from aggregate, but not critical
+      id_proyecto: proy.id_proyecto,
+      valorProyecto: valorProyectosData?.[proy.id_proyecto]?.valorTotal || Number(proy.colocado) || 0
     }));
+  }, [statsData, valorProyectosData]);
+
+  const top3Proyectos = proyectosStats;
   
-  // Calculate valor total de todos los proyectos (solo proyectos con cuentas activas)
+  // Calculate valor total de todos los proyectos
   const valorTotalProyectos = useMemo(() => {
     if (!valorProyectosData) return 0;
-    // Obtener los IDs de proyectos que tienen cuentas activas
+    // Get project IDs that have active accounts from stats
     const proyectosConCuentasIds = new Set(
-      Object.values(proyectosDataMap).map(data => data.id_proyecto).filter(id => id > 0)
+      proyectosStats.map(data => data.id_proyecto).filter(id => id > 0)
     );
-    // Solo sumar valores de proyectos con cuentas activas
+    // Only sum values of projects with active accounts
     return Object.entries(valorProyectosData)
       .filter(([idStr]) => proyectosConCuentasIds.has(parseInt(idStr)))
       .reduce((sum, [, proj]) => sum + proj.valorTotal, 0);
-  }, [valorProyectosData, proyectosDataMap]);
+  }, [valorProyectosData, proyectosStats]);
 
-  // Promedio de productos (usando cuentas activas)
-  const promedioProductos = cuentasProductosActivas.length > 0 ? totalMontoProductos / cuentasProductosActivas.length : 0;
+  // Promedio de productos
+  const promedioProductos = cuentasProductosActivasCount > 0 ? totalMontoProductos / cuentasProductosActivasCount : 0;
 
   const formatCurrency = (amount: number) => {
     // Aggressively eliminate -0
@@ -1695,14 +769,14 @@ export default function Pagos() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {cuentasActivas.length}
+                {totalCuentasActivas}
               </div>
               <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        Propiedades: <span className="font-medium text-foreground">{cuentasPropiedadesActivas.length}</span>
+                        Propiedades: <span className="font-medium text-foreground">{cuentasPropiedadesActivasCount}</span>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1714,7 +788,7 @@ export default function Pagos() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        Productos: <span className="font-medium text-foreground">{cuentasProductosActivas.length}</span>
+                        Productos: <span className="font-medium text-foreground">{cuentasProductosActivasCount}</span>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1852,12 +926,12 @@ export default function Pagos() {
                       <div className="cursor-help">
                         <div className="text-xs text-muted-foreground">Propiedades</div>
                         <div className="text-xl font-bold">
-                          {formatCurrencyCompact(cuentasPropiedadesActivas.length > 0 ? totalMontoPropiedades / cuentasPropiedadesActivas.length : 0)}
+                          {formatCurrencyCompact(cuentasPropiedadesActivasCount > 0 ? totalMontoPropiedades / cuentasPropiedadesActivasCount : 0)}
                         </div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{formatCurrency(cuentasPropiedadesActivas.length > 0 ? totalMontoPropiedades / cuentasPropiedadesActivas.length : 0)}</p>
+                      <p>{formatCurrency(cuentasPropiedadesActivasCount > 0 ? totalMontoPropiedades / cuentasPropiedadesActivasCount : 0)}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -2017,13 +1091,13 @@ export default function Pagos() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {cuentasProductosActivas.length > 0 ? (
+              {cuentasProductosActivasCount > 0 ? (
                 <div className="space-y-4">
                   <div className="space-y-2 pb-3 border-b">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Total de Cuentas</span>
                       <Badge variant="secondary">
-                        {cuentasProductosActivas.length} {cuentasProductosActivas.length === 1 ? 'cuenta' : 'cuentas'}
+                        {cuentasProductosActivasCount} {cuentasProductosActivasCount === 1 ? 'cuenta' : 'cuentas'}
                       </Badge>
                     </div>
                   </div>
@@ -2104,8 +1178,8 @@ export default function Pagos() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="activas">Cuentas Activas ({filteredCuentasActivas.length})</TabsTrigger>
-          <TabsTrigger value="canceladas">Cuentas Canceladas ({filteredCuentasCanceladas.length})</TabsTrigger>
+          <TabsTrigger value="activas">Cuentas Activas ({totalActivasCount})</TabsTrigger>
+          <TabsTrigger value="canceladas">Cuentas Canceladas ({totalCancelladasCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="activas" className="mt-6">
@@ -2240,11 +1314,11 @@ export default function Pagos() {
                 }}>
                     Limpiar Filtros
                   </Button>
-                  {(canExport || isSuperAdmin) && (searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0) && filteredCuentasActivas.length > 0 && (
+                  {(canExport || isSuperAdmin) && paginatedCuentasActivas.length > 0 && (
                     <Button 
                       variant="outline" 
                       onClick={() => {
-                        const exportData = filteredCuentasActivas.map(cuenta => ({
+                        const exportData = paginatedCuentasActivas.map(cuenta => ({
                           'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
                           'Tipo': cuenta.tipo,
                           'Nombre de producto': cuenta.producto_nombre || 'N/A',
@@ -2276,7 +1350,7 @@ export default function Pagos() {
             <CardContent>
               {/* Filtered count display */}
               {!isLoading && <div className="mb-4 text-sm text-muted-foreground">
-                  Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasActivas.length}</span> cuentas
+                  Mostrando <span className="font-semibold text-foreground">{paginatedCuentasActivas.length}</span> de <span className="font-semibold text-foreground">{totalActivasCount}</span> cuentas
                 </div>}
               {isLoading ? <div className="text-center py-8">Cargando cuentas de cobranza...</div> : filteredCuentas.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza activas"}
@@ -2800,11 +1874,11 @@ export default function Pagos() {
                 }}>
                     Limpiar Filtros
                   </Button>
-                  {(canExport || isSuperAdmin) && (searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0) && filteredCuentasCanceladas.length > 0 && (
+                  {(canExport || isSuperAdmin) && paginatedCuentasCanceladas.length > 0 && (
                     <Button 
                       variant="outline" 
                       onClick={() => {
-                        const exportData = filteredCuentasCanceladas.map(cuenta => ({
+                        const exportData = paginatedCuentasCanceladas.map(cuenta => ({
                           'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
                           'Tipo': cuenta.tipo,
                           'Nombre de producto': cuenta.producto_nombre || 'N/A',
@@ -2837,7 +1911,7 @@ export default function Pagos() {
             <CardContent>
               {/* Filtered count display */}
               {!isLoading && <div className="mb-4 text-sm text-muted-foreground">
-                  Mostrando <span className="font-semibold text-foreground">{filteredCuentas.length}</span> de <span className="font-semibold text-foreground">{cuentasCanceladas.length}</span> cuentas
+                  Mostrando <span className="font-semibold text-foreground">{paginatedCuentasCanceladas.length}</span> de <span className="font-semibold text-foreground">{totalCancelladasCount}</span> cuentas
                 </div>}
               {isLoading ? <div className="text-center py-8">Cargando cuentas de cobranza...</div> : filteredCuentas.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   {searchTerm || idCuentaFilter || productoFilter || compradoresFilter || clabeFilter || proyectoFilter || noPropiedadFilter || modeloFilter || selectedTipos.length < 3 || estatusFilter.length > 0 ? "No se encontraron cuentas que coincidan con los filtros" : "No hay cuentas de cobranza canceladas"}

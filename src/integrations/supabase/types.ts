@@ -6217,6 +6217,19 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_cuentas_cobranza_stats: {
+        Args: { p_dueno_entity_ids?: number[]; p_proyecto_ids?: number[] }
+        Returns: {
+          stats_por_proyecto: Json
+          total_cobrado_productos: number
+          total_cobrado_propiedades: number
+          total_colocado_productos: number
+          total_colocado_propiedades: number
+          total_cuentas_activas: number
+          total_productos: number
+          total_propiedades: number
+        }[]
+      }
       get_current_user_persona_id: { Args: never; Returns: number }
       get_current_user_profile: {
         Args: never

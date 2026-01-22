@@ -184,8 +184,7 @@ export function usePropiedadesPaginadas({
     ],
     enabled: enabled && !isLoadingAccess,
     queryFn: async () => {
-      // @ts-expect-error - RPC function exists but types are not generated
-      const { data, error } = await supabase.rpc('get_propiedades_paginadas', {
+      const { data, error } = await supabase.rpc('get_propiedades_paginadas' as any, {
         p_page: page,
         p_per_page: perPage,
         p_search: search || null,

@@ -152,8 +152,7 @@ export function useCuentasCobranzaPaginadas({
     ],
     enabled: enabled && !isLoadingAccess,
     queryFn: async () => {
-      // @ts-expect-error - RPC function exists but types are not generated
-      const { data, error } = await supabase.rpc('get_cuentas_cobranza_paginadas', {
+      const { data, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
         p_page: page,
         p_per_page: perPage,
         p_id_cuenta: idCuenta ? parseInt(idCuenta) : null,
