@@ -93,6 +93,18 @@ interface CuentaCobranzaRPCResult {
   dueno: string | null;
   id_entidad_relacionada_dueno: number | null;
   id_cuenta_cobranza_padre: number | null;
+  metraje: number | null;
+  precio_lista: number | null;
+  pagado: number | null;
+  restante: number | null;
+  tiene_acuerdos: boolean | null;
+  apartado_pagado: boolean | null;
+  total_acuerdos: number | null;
+  discrepancia: number | null;
+  cash_limit: number | null;
+  cash_paid: number | null;
+  cash_payments: Array<{ fecha_pago: string; monto: number }> | null;
+  collection_id: number | null;
   total_count: number;
 }
 
@@ -172,9 +184,9 @@ export function useCuentasCobranzaPaginadas({
         producto_nombre: row.producto || undefined,
         clabe_stp: row.clabe_stp,
         precio_final: Number(row.precio_final) || 0,
-        precio_lista: null,
-        pagado: 0,
-        restante: 0,
+        precio_lista: row.precio_lista ? Number(row.precio_lista) : null,
+        pagado: Number(row.pagado) || 0,
+        restante: Number(row.restante) || 0,
         dueno: row.dueno || '',
         proyecto: row.proyecto || '',
         edificio: row.edificio || '',
@@ -182,13 +194,25 @@ export function useCuentasCobranzaPaginadas({
         modelo: row.modelo || '',
         activo: row.activo,
         id_oferta: row.id_oferta,
-        apartado_pagado: false,
-        tiene_acuerdos: false,
+        apartado_pagado: row.apartado_pagado || false,
+        tiene_acuerdos: row.tiene_acuerdos || false,
         id_estatus_disponibilidad: row.id_estatus_disponibilidad || undefined,
         estatus_propiedad: row.estatus_disponibilidad_nombre || undefined,
-        cash_payments: [],
+        metraje: row.metraje ? Number(row.metraje) : undefined,
+        precio_por_m2: row.metraje && Number(row.metraje) > 0 ? Number(row.precio_final) / Number(row.metraje) : undefined,
+        total_acuerdos: row.total_acuerdos ? Number(row.total_acuerdos) : undefined,
+        discrepancia: row.discrepancia ? Number(row.discrepancia) : undefined,
+        cash_limit: row.cash_limit ? Number(row.cash_limit) : undefined,
+        cash_paid: row.cash_paid ? Number(row.cash_paid) : undefined,
+        cash_remaining: row.cash_limit && row.cash_paid ? Number(row.cash_limit) - Number(row.cash_paid) : undefined,
+        cash_percentage: row.cash_limit && Number(row.cash_limit) > 0 && row.cash_paid ? (Number(row.cash_paid) / Number(row.cash_limit)) * 100 : undefined,
+        cash_payments: (row.cash_payments || []).map((cp: { fecha_pago: string; monto: number }) => ({
+          fecha_pago: cp.fecha_pago,
+          monto: Number(cp.monto)
+        })),
         id_proyecto: row.id_proyecto || undefined,
         id_entidad_relacionada_dueno: row.id_entidad_relacionada_dueno || undefined,
+        collection_id: row.collection_id || undefined,
         compradores: (row.compradores_json || []).map(c => ({
           nombre_legal: c.nombre_legal,
           rfc: c.rfc,
