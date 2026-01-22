@@ -8,6 +8,7 @@ import { ChevronDown, ChevronRight, Upload, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { usePagePermissions } from "@/hooks/usePagePermissions";
 
 interface ComisionesPorPagarTabProps {
   comisionistasAgrupados: any[];
@@ -46,6 +47,7 @@ export default function ComisionesPorPagarTab({
   openPagarDialog,
   openPagarTodasDialog
 }: ComisionesPorPagarTabProps) {
+  const { canUpdate, isSuperAdmin } = usePagePermissions('/admin/pagar-comisiones');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [currentPageComisionistas, setCurrentPageComisionistas] = useState(1);
   const [currentPageCuentas, setCurrentPageCuentas] = useState(1);
@@ -251,7 +253,7 @@ export default function ComisionesPorPagarTab({
                           {formatCurrency(com.montoPendiente)}
                         </TableCell>
                         <TableCell>
-                          {com.cuentas.length > 0 && (
+                          {com.cuentas.length > 0 && (canUpdate || isSuperAdmin) && (
                             <Button
                               size="sm"
                               variant="default"
@@ -282,7 +284,7 @@ export default function ComisionesPorPagarTab({
                                     <TableHead>Fecha Pago Enganche</TableHead>
                                     <TableHead className="text-right">Precio Final</TableHead>
                                     <TableHead className="text-right">Comisión</TableHead>
-                                    <TableHead>Acciones</TableHead>
+                                    {(canUpdate || isSuperAdmin) && <TableHead>Acciones</TableHead>}
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -308,15 +310,17 @@ export default function ComisionesPorPagarTab({
                                           ({cuenta.porcentajeComision}%)
                                         </span>
                                       </TableCell>
-                                      <TableCell>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => openPagarDialog(com.email, cuenta.idCuenta)}
-                                        >
-                                          <Upload className="h-4 w-4 mr-1" />
-                                          Pagar
-                                        </Button>
-                                      </TableCell>
+                                      {(canUpdate || isSuperAdmin) && (
+                                        <TableCell>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => openPagarDialog(com.email, cuenta.idCuenta)}
+                                          >
+                                            <Upload className="h-4 w-4 mr-1" />
+                                            Pagar
+                                          </Button>
+                                        </TableCell>
+                                      )}
                                     </TableRow>
                                   ))}
                                 </TableBody>
@@ -390,7 +394,7 @@ export default function ComisionesPorPagarTab({
                     <TableHead className="text-right">Monto por Pagar</TableHead>
                     <TableHead className="text-right">Monto Pagado</TableHead>
                     <TableHead className="text-right">Monto Pendiente</TableHead>
-                    <TableHead>Acciones</TableHead>
+                    {(canUpdate || isSuperAdmin) && <TableHead>Acciones</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -426,21 +430,23 @@ export default function ComisionesPorPagarTab({
                         <TableCell className="text-right font-bold text-orange-600">
                           {formatCurrency(cuenta.montoPendiente)}
                         </TableCell>
-                        <TableCell>
-                          {cuenta.comisionistas.length > 0 && (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openPagarTodasDialog('cuenta', cuenta);
-                              }}
-                            >
-                              <Upload className="h-4 w-4 mr-1" />
-                              Pagar Todas ({cuenta.comisionistas.length})
-                            </Button>
-                          )}
-                        </TableCell>
+                        {(canUpdate || isSuperAdmin) && (
+                          <TableCell>
+                            {cuenta.comisionistas.length > 0 && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPagarTodasDialog('cuenta', cuenta);
+                                }}
+                              >
+                                <Upload className="h-4 w-4 mr-1" />
+                                Pagar Todas ({cuenta.comisionistas.length})
+                              </Button>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                       {expandedItems.has(`cuenta-${cuenta.idCuenta}`) && (
                         <TableRow>
@@ -453,7 +459,7 @@ export default function ComisionesPorPagarTab({
                                     <TableHead>Email</TableHead>
                                     <TableHead className="text-right">Porcentaje</TableHead>
                                     <TableHead className="text-right">Monto Comisión</TableHead>
-                                    <TableHead>Acciones</TableHead>
+                                    {(canUpdate || isSuperAdmin) && <TableHead>Acciones</TableHead>}
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -465,15 +471,17 @@ export default function ComisionesPorPagarTab({
                                       <TableCell className="text-right">
                                         {formatCurrency(comisionista.montoComision)}
                                       </TableCell>
-                                      <TableCell>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => openPagarDialog(comisionista.email, cuenta.idCuenta)}
-                                        >
-                                          <Upload className="h-4 w-4 mr-1" />
-                                          Pagar
-                                        </Button>
-                                      </TableCell>
+                                      {(canUpdate || isSuperAdmin) && (
+                                        <TableCell>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => openPagarDialog(comisionista.email, cuenta.idCuenta)}
+                                          >
+                                            <Upload className="h-4 w-4 mr-1" />
+                                            Pagar
+                                          </Button>
+                                        </TableCell>
+                                      )}
                                     </TableRow>
                                   ))}
                                 </TableBody>

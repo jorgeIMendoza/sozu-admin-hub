@@ -581,6 +581,7 @@ export default function DetalleCuentaCobranza() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { canUpdate, canDelete, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
+  const { canGenerateOffer: canGenerateOfferPropiedades } = usePagePermissions('/admin/propiedades');
   const { registrarCreacion, registrarActualizacion } = useActivityLogger();
 
 
@@ -4895,6 +4896,8 @@ export default function DetalleCuentaCobranza() {
         isOpen={agenteVendedorDialog}
         onClose={() => setAgenteVendedorDialog(false)}
         agente={agenteVendedor || null}
+        ofertaId={cuentaDetalle?.oferta_id}
+        canEdit={canGenerateOfferPropiedades || isSuperAdmin}
       />
 
       <EditMultaDialog
