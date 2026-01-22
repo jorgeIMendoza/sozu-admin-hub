@@ -1322,10 +1322,11 @@ export default function Pagos() {
                         setIsExportingData(true);
                         try {
                           // Fetch data in batches to avoid timeout
-                          const batchSize = 500;
+                          const batchSize = 200;
                           let allData: any[] = [];
                           let currentPage = 1;
                           let hasMore = true;
+                          console.log('[Export] Starting batch export for active accounts');
                           
                           while (hasMore) {
                             const { data: batchData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
@@ -1938,10 +1939,11 @@ export default function Pagos() {
                         setIsExportingData(true);
                         try {
                           // Fetch data in batches to avoid timeout
-                          const batchSize = 500;
+                          const batchSize = 200;
                           let allData: any[] = [];
                           let currentPage = 1;
                           let hasMore = true;
+                          console.log('[Export] Starting batch export for cancelled accounts');
                           
                           while (hasMore) {
                             const { data: batchData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
