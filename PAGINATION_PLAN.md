@@ -1,89 +1,113 @@
-# Plan de Implementación de Paginación
+# Plan de Implementación de Paginación y Optimización
 
-## Páginas que Necesitan Paginación
+## Estado Actual - Enero 2026
 
-1. **Estacionamientos** - Query compleja con joins, actualmente trae todos los datos
-2. **Bodegas** - Query compleja con joins, actualmente trae todos los datos  
-3. **Vistas** - Usa useState en lugar de useQuery, filtra en memoria
-4. **Productos** - Ya tiene paginación parcial pero mal implementada
-5. **Compradores** - Query compleja con personas/entidades, trae todos los datos
-6. **Duenos** - Query compleja con personas/entidades, trae todos los datos
-7. **Residentes** - Query compleja con personas/entidades, trae todos los datos
-8. **Prospectos** - Query compleja con personas/entidades, trae todos los datos
+### ✅ COMPLETADO: Funciones RPC Optimizadas
 
-## Patrón a Aplicar (basado en Modelos.tsx)
+Se crearon dos funciones RPC en PostgreSQL para optimizar los listados más pesados:
 
-### 1. Estados de Paginación
-```typescript
-const [currentPageActive, setCurrentPageActive] = useState(1);
-const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
-const itemsPerPage = 50;
-```
+1. **`get_cuentas_cobranza_paginadas`** - Para Pagos.tsx
+   - Paginación real en SQL con `LIMIT/OFFSET`
+   - Filtros aplicados en la base de datos
+   - Agregaciones de pagos, multas, efectivo calculados en SQL
+   - Compradores retornados como JSONB
+   - Índices de soporte creados
 
-### 2. Queries con Paginación
-```typescript
-const { data: activeData } = useQuery({
-  queryKey: ["items", "active", currentPageActive, searchTerm, filters],
-  queryFn: async () => {
-    const from = (currentPageActive - 1) * itemsPerPage;
-    const to = from + itemsPerPage - 1;
-    
-    let query = supabase.from("table")
-      .select("*", { count: 'exact' })
-      .eq("activo", true);
-    
-    // Apply filters in query
-    if (searchTerm) {
-      query = query.ilike("nombre", `%${searchTerm}%`);
-    }
-    
-    const { data, error, count } = await query
-      .order("nombre")
-      .range(from, to);
-    
-    return { items: data || [], count: count || 0 };
-  },
-});
-```
+2. **`get_propiedades_paginadas`** - Para Propiedades.tsx
+   - Paginación real en SQL
+   - Conteos de estacionamientos/bodegas en SQL
+   - Datos de cuenta de cobranza incluidos
+   - Soporte para todos los filtros existentes
 
-### 3. Componente de Paginación
-```typescript
-{totalPages > 1 && (
-  <Pagination>
-    <PaginationContent>
-      <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} />
-      {/* pagination items */}
-      <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} />
-    </PaginationContent>
-  </Pagination>
-)}
-```
+### ✅ COMPLETADO: Hooks de React
 
-## Desafíos Específicos
+- `src/hooks/useCuentasCobranzaPaginadas.ts`
+- `src/hooks/usePropiedadesPaginadas.ts`
 
-### Estacionamientos y Bodegas
-- Requieren dos queries (una para datos base, otra para proyectos)
-- Necesitan mantener los joins pero aplicar paginación
-- Solución: Paginar la query principal, luego fetch projects para esa página
+### 🔄 PENDIENTE: Integración en Páginas
 
-### Vistas
-- Actualmente usa useState + fetchVistas()
-- Necesita migrar a useQuery completamente
-- Relativamente simple una vez migrado
+Los hooks están listos pero requieren integración en:
+- `src/pages/admin/Pagos.tsx` (3196 líneas)
+- `src/pages/admin/Propiedades.tsx` (6361 líneas)
 
-### Páginas de Personas (Compradores, Duenos, Residentes, Prospectos)
-- Queries muy complejas con múltiples joins
-- Filtros complejos con entidades_relacionadas
-- Solución: Mantener los joins, aplicar paginación con `.range()`
+## Rendimiento Esperado
 
-### Productos
-- Ya tiene estructura de paginación pero no funciona bien
-- Solo necesita corregir la implementación existente
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Tiempo de carga | 8-20 seg | < 1 seg |
+| Queries por carga | 15-20 | 1-2 |
+| Datos transferidos | 5-15 MB | 50-100 KB |
+| Filtrado | Cliente | Servidor |
 
-## Orden de Implementación
+## Páginas Adicionales que Necesitan Paginación
 
 1. ✅ Modelos - COMPLETADO
-2. Vistas - Más simple, buen próximo paso
-3. Productos - Corregir lo existente
+2. Vistas - Migrar a useQuery
+3. Productos - Corregir implementación existente
 4. Estacionamientos y Bodegas - Similar entre sí
 5. Compradores, Duenos, Residentes, Prospectos - Los más complejos
+
+## Próximos Pasos
+
+Para activar la optimización en Pagos.tsx/Propiedades.tsx:
+1. Reemplazar la query actual por el hook correspondiente
+2. Remover filtrado en memoria (`applyFilters`)
+3. Actualizar componentes de paginación para usar `totalPages` del hook
+4. Probar todos los filtros y funcionalidades existentes
+
+## Uso de los Nuevos Hooks
+
+### useCuentasCobranzaPaginadas
+
+```typescript
+import { useCuentasCobranzaPaginadas } from "@/hooks/useCuentasCobranzaPaginadas";
+
+const { data, isLoading } = useCuentasCobranzaPaginadas({
+  page: currentPage,
+  perPage: 50,
+  proyecto: proyectoFilter,
+  clabe: clabeFilter,
+  noPropiedad: noPropiedadFilter,
+  modelo: modeloFilter,
+  compradores: compradoresFilter,
+  producto: productoFilter,
+  estatusIds: estatusFilter,
+  tipos: selectedTipos,
+  activo: activeTab === 'activas',
+});
+
+// data.cuentas - array de cuentas para la página actual
+// data.totalCount - total de registros que coinciden con los filtros
+// data.totalPages - total de páginas
+```
+
+### usePropiedadesPaginadas
+
+```typescript
+import { usePropiedadesPaginadas } from "@/hooks/usePropiedadesPaginadas";
+
+const { data, isLoading } = usePropiedadesPaginadas({
+  page: currentPage,
+  perPage: 50,
+  search: searchTerm,
+  proyectoIds: selectedProyectos,
+  modeloIds: selectedModelos,
+  recamaras: parseInt(recamarasFilter) || null,
+  banos: parseInt(banosFilter) || null,
+  disponibilidadIds: disponibilidadFilter.map(id => parseInt(id)),
+  areaMin: areaFilter[0] > 0 ? areaFilter[0] : null,
+  areaMax: areaFilter[1] < 500 ? areaFilter[1] : null,
+  precioMin: precioFilter[0] > 0 ? precioFilter[0] : null,
+  precioMax: precioFilter[1] < 100000000 ? precioFilter[1] : null,
+  tieneBodegas: bodegasFilter || null,
+  tieneEstacionamientos: estacionamientosFilter || null,
+  tieneCuenta: cuentaCobranzaFilter || null,
+  activo: activeTab === 'activos',
+  esAprobado: activeTab !== 'draft',
+  ordenPrecio: precioSort,
+});
+
+// data.propiedades - array de propiedades para la página actual
+// data.totalCount - total de registros
+// data.totalPages - total de páginas
+```

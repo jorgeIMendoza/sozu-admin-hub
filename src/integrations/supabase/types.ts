@@ -6160,6 +6160,63 @@ export type Database = {
           reporte_id: number
         }[]
       }
+      get_cuentas_cobranza_paginadas: {
+        Args: {
+          p_activo?: boolean
+          p_clabe?: string
+          p_compradores?: string
+          p_dueno_entity_ids?: number[]
+          p_estatus_ids?: number[]
+          p_id_cuenta?: number
+          p_modelo?: string
+          p_no_propiedad?: string
+          p_page?: number
+          p_per_page?: number
+          p_producto?: string
+          p_proyecto?: string
+          p_proyecto_ids?: number[]
+          p_search?: string
+          p_tipos?: string[]
+        }
+        Returns: {
+          activo: boolean
+          apartado_pagado: boolean
+          cash_limit: number
+          cash_paid: number
+          cash_percentage: number
+          cash_remaining: number
+          clabe_stp: string
+          collection_id: number
+          compradores: Json
+          discrepancia: number
+          dueno: string
+          edificio: string
+          es_comision_venta_efectivo: boolean
+          estatus_propiedad: string
+          id: number
+          id_entidad_relacionada_dueno: number
+          id_estatus_disponibilidad: number
+          id_oferta: number
+          id_proyecto: number
+          metraje: number
+          modelo: string
+          motivo_cancelacion: string
+          numero_propiedad: string
+          pagado: number
+          porcentaje_comision_venta: number
+          precio_final: number
+          precio_lista: number
+          precio_por_m2: number
+          producto_nombre: string
+          proyecto: string
+          restante: number
+          tiene_acuerdos: boolean
+          tiene_multas_pendientes: boolean
+          tipo: string
+          total_acuerdos: number
+          total_count: number
+        }[]
+      }
       get_current_user_persona_id: { Args: never; Returns: number }
       get_current_user_profile: {
         Args: never
@@ -6216,6 +6273,77 @@ export type Database = {
           precio_lista: number
           tipo_propiedad: string
           transaccion: string
+          vista: string
+        }[]
+      }
+      get_propiedades_paginadas: {
+        Args: {
+          p_accessible_project_ids?: number[]
+          p_activo?: boolean
+          p_area_max?: number
+          p_area_min?: number
+          p_banos?: number
+          p_disponibilidad_ids?: number[]
+          p_es_aprobado?: boolean
+          p_modelo_ids?: number[]
+          p_orden_precio?: string
+          p_ownership_entity_ids?: number[]
+          p_page?: number
+          p_per_page?: number
+          p_precio_max?: number
+          p_precio_min?: number
+          p_proyecto_ids?: number[]
+          p_recamaras?: number
+          p_search?: string
+          p_tiene_bodegas?: string
+          p_tiene_cuenta?: string
+          p_tiene_estacionamientos?: string
+          p_tipo_transaccion_ids?: number[]
+        }
+        Returns: {
+          activo: boolean
+          apartado_pagado: boolean
+          bodegas_count: number
+          clabe_stp: string
+          clabe_stp_tmp_apartado: string
+          cuenta_cobranza_id: number
+          cuenta_sin_esquema: boolean
+          disponibilidad: string
+          edificio: string
+          es_aprobado: boolean
+          es_comision_venta_efectivo: boolean
+          estacionamientos_count: number
+          id: number
+          id_edificio_modelo: number
+          id_entidad_relacionada_dueno: number
+          id_estatus_disponibilidad: number
+          id_tipo_transaccion: number
+          id_vista: number
+          m2_exteriores: number
+          m2_interiores: number
+          m2_reales: number
+          modelo: string
+          modelo_id: number
+          monto_apartado: number
+          monto_apartado_pagando: number
+          numero_completo_banos: number
+          numero_medio_bano: number
+          numero_piso: string
+          numero_propiedad: string
+          numero_recamaras: number
+          porcentaje_comision_venta: number
+          precio_final: number
+          precio_lista: number
+          propietario: string
+          proyecto: string
+          proyecto_id: number
+          restante: number
+          tiene_cuenta_pagada: boolean
+          tiene_ofertas: boolean
+          tiene_ofertas_productos: boolean
+          tipo_transaccion: string
+          total_count: number
+          total_pagado: number
           vista: string
         }[]
       }
