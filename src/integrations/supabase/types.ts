@@ -6178,12 +6178,15 @@ export type Database = {
           p_tipos?: string[]
         }
         Returns: {
+          apartado_pagado: boolean
           cash_limit: number
           cash_paid: number
           clabe_stp: string
           compradores: Json
+          dueno: string
           edificio: string
           estatus_disponibilidad: string
+          estatus_disponibilidad_nombre: string
           fecha_compra: string
           id: number
           id_entidad_relacionada_dueno: number
