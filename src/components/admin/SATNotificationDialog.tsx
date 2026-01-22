@@ -208,7 +208,14 @@ export function SATNotificationDialog({
                 `Propiedad Pagada Completamente (Estatus: ${status.estatusDisponibilidad === 9 ? 'Pagada' : status.estatusDisponibilidad || 'Desconocido'})`,
                 status.estatusDisponibilidad === 9
               )}
-              {renderConditionBadge("Factura subida", status.tieneFactura)}
+              {renderConditionBadge(
+                `Factura PDF subida${status.tieneFacturaPdf ? (status.facturaPdfVerificada ? ' y verificada' : ' (pendiente verificar)') : ''}`, 
+                status.tieneFacturaPdf && status.facturaPdfVerificada
+              )}
+              {renderConditionBadge(
+                `Factura XML subida${status.tieneFacturaXml ? (status.facturaXmlVerificada ? ' y verificada' : ' (pendiente verificar)') : ''}`, 
+                status.tieneFacturaXml && status.facturaXmlVerificada
+              )}
               {renderConditionBadge("Constancia de Situación Fiscal del comprador", status.tieneConstancia)}
             </div>
 
@@ -244,7 +251,7 @@ export function SATNotificationDialog({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   No se cumplen los requisitos para generar la notificación. 
-                  Verifica que la propiedad esté pagada completamente, tenga factura y el comprador tenga constancia de situación fiscal.
+                  Verifica que la propiedad esté pagada completamente, tenga factura PDF y XML verificadas, y el comprador tenga constancia de situación fiscal.
                 </AlertDescription>
               </Alert>
             )}

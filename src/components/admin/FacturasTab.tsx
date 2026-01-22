@@ -762,6 +762,7 @@ export function FacturasTab({
                   <TableHead>RFC</TableHead>
                   <TableHead>ID de factura</TableHead>
                   <TableHead>Factura PDF</TableHead>
+                  <TableHead>XML</TableHead>
                   <TableHead>Estado de la factura</TableHead>
                   {compradores.length > 1 && <TableHead>Asignar a</TableHead>}
                   {duenoPuedeFacturar && <TableHead className="text-right">Acciones</TableHead>}
@@ -841,6 +842,18 @@ export function FacturasTab({
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        {factura.isFirstRow && factura.factura_xml ? (
+                          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                            <FileCheck className="h-3 w-3 mr-1" />
+                            XML
+                          </Badge>
+                        ) : factura.isFirstRow ? (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            Sin XML
+                          </Badge>
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         {tienePdf ? (

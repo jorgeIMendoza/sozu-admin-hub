@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 
 export interface SATNotificationStatus {
-  canGenerate: boolean; // id_estatus_disponibilidad === 9 AND tiene factura AND tiene constancia
+  canGenerate: boolean; // id_estatus_disponibilidad === 9 AND tiene factura PDF+XML verificadas AND tiene constancia
   hasArchivoSAT: boolean;
   hasAcuseSAT: boolean;
   archivoSATUrl: string | null;
@@ -10,7 +10,10 @@ export interface SATNotificationStatus {
   archivoSATDocId: number | null;
   acuseSATDocId: number | null;
   isGenerating: boolean;
-  tieneFactura: boolean;
+  tieneFacturaPdf: boolean;
+  tieneFacturaXml: boolean;
+  facturaPdfVerificada: boolean;
+  facturaXmlVerificada: boolean;
   tieneConstancia: boolean;
   estatusDisponibilidad: number | null;
 }
@@ -46,7 +49,10 @@ export const SATNotificationService = {
         archivoSATDocId: null,
         acuseSATDocId: null,
         isGenerating: false,
-        tieneFactura: false,
+        tieneFacturaPdf: false,
+        tieneFacturaXml: false,
+        facturaPdfVerificada: false,
+        facturaXmlVerificada: false,
         tieneConstancia: false,
         estatusDisponibilidad: null
       };
@@ -54,16 +60,31 @@ export const SATNotificationService = {
 
     const estatusDisponibilidad = (cuenta.ofertas as any)?.propiedades?.id_estatus_disponibilidad || null;
 
-    // Check for factura (id_tipo_documento 21 or 22)
-    const { data: facturas } = await supabase
+    // Check for factura PDF (id_tipo_documento 22) - verificada = id_estatus_verificacion 2
+    const { data: facturaPdf } = await supabase
       .from('documentos')
-      .select('id')
+      .select('id, id_estatus_verificacion')
       .eq('id_cuenta_cobranza', cuentaCobranzaId)
-      .in('id_tipo_documento', [21, 22])
+      .eq('id_tipo_documento', 22)
       .eq('activo', true)
+      .order('fecha_creacion', { ascending: false })
       .limit(1);
 
-    const tieneFactura = (facturas?.length || 0) > 0;
+    const tieneFacturaPdf = (facturaPdf?.length || 0) > 0;
+    const facturaPdfVerificada = facturaPdf?.[0]?.id_estatus_verificacion === 2;
+
+    // Check for factura XML (id_tipo_documento 21) - verificada = id_estatus_verificacion 2
+    const { data: facturaXml } = await supabase
+      .from('documentos')
+      .select('id, id_estatus_verificacion')
+      .eq('id_cuenta_cobranza', cuentaCobranzaId)
+      .eq('id_tipo_documento', 21)
+      .eq('activo', true)
+      .order('fecha_creacion', { ascending: false })
+      .limit(1);
+
+    const tieneFacturaXml = (facturaXml?.length || 0) > 0;
+    const facturaXmlVerificada = facturaXml?.[0]?.id_estatus_verificacion === 2;
 
     // Get compradores for this cuenta
     const { data: compradores } = await supabase
@@ -116,8 +137,9 @@ export const SATNotificationService = {
     const acuseSATUrl = acuseSAT?.[0]?.url || null;
     const acuseSATDocId = acuseSAT?.[0]?.id || null;
 
-    // canGenerate = estatus 9 + factura + constancia
-    const canGenerate = estatusDisponibilidad === 9 && tieneFactura && tieneConstancia;
+    // canGenerate = estatus 9 + factura PDF y XML verificadas + constancia
+    const facturasCompletas = tieneFacturaPdf && tieneFacturaXml && facturaPdfVerificada && facturaXmlVerificada;
+    const canGenerate = estatusDisponibilidad === 9 && facturasCompletas && tieneConstancia;
 
     return {
       canGenerate,
@@ -128,7 +150,10 @@ export const SATNotificationService = {
       archivoSATDocId,
       acuseSATDocId,
       isGenerating: false,
-      tieneFactura,
+      tieneFacturaPdf,
+      tieneFacturaXml,
+      facturaPdfVerificada,
+      facturaXmlVerificada,
       tieneConstancia,
       estatusDisponibilidad
     };
