@@ -6178,24 +6178,27 @@ export type Database = {
           p_tipos?: string[]
         }
         Returns: {
-          activo: boolean
           clabe_stp: string
           compradores: Json
-          edificio: string
-          estatus_disponibilidad: string
+          edificio_nombre: string
+          estatus_nombre: string
           fecha_compra: string
           id: number
+          id_edificio: number
           id_estatus_disponibilidad: number
+          id_modelo: number
           id_oferta: number
-          id_persona_lead: number
-          id_propiedad: number
+          id_producto: number
           id_proyecto: number
-          modelo: string
-          nombre_producto: string
+          modelo_nombre: string
+          no_propiedad: string
           nombre_vendedor: string
-          numero_propiedad: string
+          pagos_efectivo: Json
+          porcentaje_comision_venta: number
           precio_final: number
-          proyecto: string
+          producto_nombre: string
+          proyecto_logo: string
+          proyecto_nombre: string
           tipo: string
           total_count: number
         }[]
