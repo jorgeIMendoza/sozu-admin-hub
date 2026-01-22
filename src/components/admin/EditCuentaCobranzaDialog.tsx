@@ -1568,6 +1568,45 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     enabled: searchUsuario.length >= 2
   });
 
+  // Query for searching inmobiliarias (personas with id_tipo_persona = 4)
+  const { data: inmobiliarias } = useQuery({
+    queryKey: ["inmobiliarias_search", searchUsuario],
+    queryFn: async (): Promise<Array<{ email: string; nombre: string; esInmobiliaria: boolean }>> => {
+      if (!searchUsuario || searchUsuario.length < 2) return [];
+      
+      // Get existing comisionistas emails
+      const existingEmails = comisionistas?.map(c => c.email_usuario) || [];
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabaseAny = supabase as any;
+      
+      const { data } = await supabaseAny
+        .from('personas')
+        .select('id, nombre_legal, email, rfc')
+        .eq('id_tipo_persona', 4) // Inmobiliaria
+        .eq('activo', true)
+        .or(`email.ilike.%${searchUsuario}%,nombre_legal.ilike.%${searchUsuario}%`)
+        .not('email', 'in', existingEmails.length > 0 ? `(${existingEmails.map((e: string) => `"${e}"`).join(',')})` : '("")')
+        .limit(10);
+      
+      // Transform to match usuario format
+      return (data || []).map((p: { email: string; nombre_legal: string }) => ({
+        email: p.email,
+        nombre: p.nombre_legal,
+        esInmobiliaria: true
+      }));
+    },
+    enabled: searchUsuario.length >= 2
+  });
+
+  // Combine usuarios and inmobiliarias for display
+  const combinedSearchResults = useMemo(() => {
+    const allResults: Array<{ email: string; nombre: string; esInmobiliaria?: boolean }> = [];
+    if (usuarios) allResults.push(...usuarios.map(u => ({ ...u, esInmobiliaria: false })));
+    if (inmobiliarias) allResults.push(...inmobiliarias);
+    return allResults;
+  }, [usuarios, inmobiliarias]);
+
   // Mutation to update comisión data
   const updateComisionMutation = useMutation({
     mutationFn: async ({ porcentaje, ivaIncluido, esComisionEfectivo }: { porcentaje: number; ivaIncluido: boolean; esComisionEfectivo?: boolean }) => {
@@ -4836,26 +4875,33 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       
                       {/* Campo de búsqueda solo */}
                       <div className="space-y-2">
-                        <Label>Buscar Usuario</Label>
+                        <Label>Buscar Usuario o Inmobiliaria</Label>
                         <div className="relative">
                           <Input
                             placeholder="Buscar por email o nombre..."
                             value={searchUsuario}
                             onChange={(e) => setSearchUsuario(e.target.value)}
                           />
-                          {usuarios && usuarios.length > 0 && searchUsuario && !selectedUsuario && (
+                          {combinedSearchResults && combinedSearchResults.length > 0 && searchUsuario && !selectedUsuario && (
                             <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
-                              {usuarios.map((usuario) => (
+                              {combinedSearchResults.map((item) => (
                                 <div
-                                  key={usuario.email}
+                                  key={item.email}
                                   className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
                                   onClick={() => {
-                                    setSelectedUsuario(usuario);
+                                    setSelectedUsuario(item);
                                     setSearchUsuario('');
                                   }}
                                 >
-                                  <p className="font-medium">{usuario.nombre || usuario.email}</p>
-                                  <p className="text-sm text-muted-foreground">{usuario.email}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium">{item.nombre || item.email}</p>
+                                    {item.esInmobiliaria && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 text-purple-600 border-purple-200">
+                                        Inmobiliaria
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{item.email}</p>
                                 </div>
                               ))}
                             </div>
