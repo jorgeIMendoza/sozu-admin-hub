@@ -54,6 +54,26 @@ export function PropertyProgressBadge({
 }: PropertyProgressBadgeProps) {
   const [selectedStage, setSelectedStage] = useState<StageData | null>(null);
 
+  // Fetch numero_escritura directly from cuentas_cobranza if not provided via props
+  const { data: fetchedNumeroEscritura } = useQuery({
+    queryKey: ['progress-badge-escritura', cuentaId],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabaseAny = supabase as any;
+      const { data } = await supabaseAny
+        .from('cuentas_cobranza')
+        .select('numero_escritura')
+        .eq('id', cuentaId)
+        .single();
+      return data?.numero_escritura || null;
+    },
+    staleTime: 60000,
+    enabled: !cuentaDetalle?.numero_escritura, // Only fetch if not provided via props
+  });
+
+  // Use prop value if available, otherwise use fetched value
+  const numeroEscritura = cuentaDetalle?.numero_escritura || fetchedNumeroEscritura;
+
   // Fetch payment agreements status
   const { data: acuerdosPago, isLoading: isLoadingAcuerdos } = useQuery({
     queryKey: ['progress-badge-acuerdos', cuentaId],
@@ -235,7 +255,7 @@ export function PropertyProgressBadge({
       detail: estatusActual === 8 ? 'Entregada' : enEscrituracion ? 'En proceso' : 'Debe completar escrituración'
     });
 
-    const datosEscrituraCompletos = !!cuentaDetalle?.numero_escritura;
+    const datosEscrituraCompletos = !!numeroEscritura;
     entregaConditions.push({
       label: 'Datos de escritura completos',
       completed: datosEscrituraCompletos,
