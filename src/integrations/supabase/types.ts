@@ -6182,18 +6182,14 @@ export type Database = {
           clabe_stp: string
           compradores: Json
           edificio: string
-          estatus: string
           estatus_disponibilidad: string
           fecha_compra: string
-          fecha_creacion: string
           id: number
-          id_estatus_cuenta: number
           id_estatus_disponibilidad: number
           id_oferta: number
           id_producto: number
           id_propiedad: number
           id_proyecto: number
-          id_vendedor: number
           modelo: string
           numero_propiedad: string
           pagos_efectivo: Json
@@ -6201,6 +6197,7 @@ export type Database = {
           precio_final: number
           producto: string
           proyecto: string
+          tipo: string
           total_count: number
           valor_uma: number
           vendedor: string
