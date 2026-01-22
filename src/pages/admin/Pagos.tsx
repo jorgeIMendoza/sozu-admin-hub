@@ -1346,8 +1346,8 @@ export default function Pagos() {
                                 p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
                                 p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
                                 p_limit: batchSize,
-                              })
-                              .range(offset, offset + batchSize - 1);
+                                p_offset: offset,
+                              });
                             
                             if (error) {
                               console.error('Error fetching batch:', error);
@@ -1969,8 +1969,8 @@ export default function Pagos() {
                                 p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
                                 p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
                                 p_limit: batchSize,
-                              })
-                              .range(offset, offset + batchSize - 1);
+                                p_offset: offset,
+                              });
                             
                             if (error) {
                               console.error('Error fetching batch:', error);

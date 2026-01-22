@@ -6234,6 +6234,44 @@ export type Database = {
               vendedor: string
             }[]
           }
+        | {
+            Args: {
+              p_activo?: boolean
+              p_clabe?: string
+              p_compradores?: string
+              p_dueno_entity_ids?: number[]
+              p_estatus_ids?: number[]
+              p_id_cuenta?: string
+              p_limit?: number
+              p_modelo?: string
+              p_no_propiedad?: string
+              p_offset?: number
+              p_producto?: string
+              p_proyecto?: string
+              p_proyecto_ids?: number[]
+              p_tipos?: string[]
+            }
+            Returns: {
+              clabe_stp: string
+              comprador: string
+              dueno: string
+              edificio: string
+              estatus_disponibilidad_nombre: string
+              fecha_compra: string
+              id: number
+              metraje: number
+              modelo: string
+              numero_propiedad: string
+              pagado: number
+              precio_final: number
+              precio_lista: number
+              producto: string
+              proyecto: string
+              restante: number
+              tipo: string
+              vendedor: string
+            }[]
+          }
       get_cuentas_cobranza_paginadas: {
         Args: {
           p_activo?: boolean
