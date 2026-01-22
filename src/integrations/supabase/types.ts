@@ -6178,29 +6178,29 @@ export type Database = {
           p_tipos?: string[]
         }
         Returns: {
+          activo: boolean
           clabe_stp: string
           compradores: Json
           edificio_nombre: string
           estatus_nombre: string
           fecha_compra: string
           id: number
-          id_edificio: number
+          id_edificio_modelo: number
           id_estatus_disponibilidad: number
-          id_modelo: number
           id_oferta: number
           id_producto: number
+          id_propiedad: number
           id_proyecto: number
           modelo_nombre: string
-          no_propiedad: string
-          nombre_vendedor: string
-          pagos_efectivo: Json
+          numero_propiedad: string
+          piso: string
           porcentaje_comision_venta: number
           precio_final: number
           producto_nombre: string
-          proyecto_logo: string
           proyecto_nombre: string
           tipo: string
           total_count: number
+          valor_uma: number
         }[]
       }
       get_cuentas_cobranza_stats: {
