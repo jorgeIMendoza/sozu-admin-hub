@@ -6172,21 +6172,27 @@ export type Database = {
           p_no_propiedad?: string
           p_page?: number
           p_per_page?: number
+          p_producto?: string
           p_proyecto?: string
           p_proyecto_ids?: number[]
           p_tipos?: string[]
         }
         Returns: {
           activo: boolean
+          apartado_pagado: boolean
           cash_limit: number
           cash_paid: number
+          cash_payments: Json
           clabe_stp: string
+          collection_id: number
           compradores_json: Json
           discrepancia: number
           dueno: string
-          estatus_disponibilidad: string
+          edificio: string
+          estatus_disponibilidad_nombre: string
           fecha_compra: string
           id: number
+          id_entidad_relacionada_dueno: number
           id_estatus_disponibilidad: number
           id_modelo: number
           id_oferta: number
@@ -6195,13 +6201,16 @@ export type Database = {
           id_proyecto: number
           metraje: number
           modelo: string
-          no_propiedad: string
+          numero_propiedad: string
           pagado: number
           precio_final: number
+          precio_lista: number
           producto: string
           proyecto: string
           restante: number
+          tiene_acuerdos: boolean
           tipo: string
+          total_acuerdos: number
           total_count: number
           vendedor: string
         }[]
