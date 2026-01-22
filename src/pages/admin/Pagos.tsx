@@ -1323,7 +1323,7 @@ export default function Pagos() {
                         try {
                           console.log('[Export] Starting export for active accounts using optimized RPC');
                           
-                          // Use optimized export RPC with 120s timeout - add .limit(10000) to bypass default 1000 row limit
+                          // Use optimized export RPC with 120s timeout and explicit limit
                           const { data: allData, error } = await supabase.rpc('get_cuentas_cobranza_export' as any, {
                             p_id_cuenta: idCuentaFilter || null,
                             p_proyecto: proyectoFilter || null,
@@ -1337,7 +1337,8 @@ export default function Pagos() {
                             p_activo: true,
                             p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
                             p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
-                          }).limit(10000);
+                            p_limit: 50000,
+                          });
                           
                           if (error) {
                             console.error('Error fetching data for export:', error);
@@ -1926,7 +1927,7 @@ export default function Pagos() {
                         try {
                           console.log('[Export] Starting export for cancelled accounts using optimized RPC');
                           
-                          // Use optimized export RPC with 120s timeout - add .limit(10000) to bypass default 1000 row limit
+                          // Use optimized export RPC with 120s timeout and explicit limit
                           const { data: allData, error } = await supabase.rpc('get_cuentas_cobranza_export' as any, {
                             p_id_cuenta: idCuentaFilter || null,
                             p_proyecto: proyectoFilter || null,
@@ -1940,7 +1941,8 @@ export default function Pagos() {
                             p_activo: false, // Cancelled accounts
                             p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
                             p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
-                          }).limit(10000);
+                            p_limit: 50000,
+                          });
                           
                           if (error) {
                             console.error('Error fetching data for export:', error);
