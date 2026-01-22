@@ -1321,36 +1321,51 @@ export default function Pagos() {
                       onClick={async () => {
                         setIsExportingData(true);
                         try {
-                          // Fetch ALL data for export (not just current page)
-                          const { data: allData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
-                            p_page: 1,
-                            p_per_page: 50000, // Large number to get all records
-                            p_id_cuenta: idCuentaFilter || null,
-                            p_proyecto: proyectoFilter || null,
-                            p_clabe: clabeFilter || null,
-                            p_no_propiedad: noPropiedadFilter || null,
-                            p_modelo: modeloFilter || null,
-                            p_compradores: compradoresFilter || null,
-                            p_producto: productoFilter || null,
-                            p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
-                            p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
-                            p_activo: true,
-                            p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
-                            p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
-                          });
+                          // Fetch data in batches to avoid timeout
+                          const batchSize = 500;
+                          let allData: any[] = [];
+                          let currentPage = 1;
+                          let hasMore = true;
                           
-                          if (error) {
-                            console.error('Error fetching data for export:', error);
-                            toast({ title: "Error", description: "No se pudo obtener los datos para exportar.", variant: "destructive" });
-                            return;
+                          while (hasMore) {
+                            const { data: batchData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
+                              p_page: currentPage,
+                              p_per_page: batchSize,
+                              p_id_cuenta: idCuentaFilter || null,
+                              p_proyecto: proyectoFilter || null,
+                              p_clabe: clabeFilter || null,
+                              p_no_propiedad: noPropiedadFilter || null,
+                              p_modelo: modeloFilter || null,
+                              p_compradores: compradoresFilter || null,
+                              p_producto: productoFilter || null,
+                              p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
+                              p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
+                              p_activo: true,
+                              p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
+                              p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
+                            });
+                            
+                            if (error) {
+                              console.error('Error fetching data for export:', error);
+                              toast({ title: "Error", description: "No se pudo obtener los datos para exportar.", variant: "destructive" });
+                              return;
+                            }
+                            
+                            if (batchData && batchData.length > 0) {
+                              allData = [...allData, ...batchData];
+                              hasMore = batchData.length === batchSize;
+                              currentPage++;
+                            } else {
+                              hasMore = false;
+                            }
                           }
                           
-                          if (!allData || allData.length === 0) {
+                          if (allData.length === 0) {
                             toast({ title: "Sin datos", description: "No hay datos para exportar.", variant: "destructive" });
                             return;
                           }
                           
-                          const exportData = (allData as any[]).map(cuenta => ({
+                          const exportData = allData.map(cuenta => ({
                             'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
                             'Tipo': cuenta.tipo,
                             'Nombre de producto': cuenta.producto || 'N/A',
@@ -1922,36 +1937,51 @@ export default function Pagos() {
                       onClick={async () => {
                         setIsExportingData(true);
                         try {
-                          // Fetch ALL data for export (not just current page)
-                          const { data: allData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
-                            p_page: 1,
-                            p_per_page: 50000, // Large number to get all records
-                            p_id_cuenta: idCuentaFilter || null,
-                            p_proyecto: proyectoFilter || null,
-                            p_clabe: clabeFilter || null,
-                            p_no_propiedad: noPropiedadFilter || null,
-                            p_modelo: modeloFilter || null,
-                            p_compradores: compradoresFilter || null,
-                            p_producto: productoFilter || null,
-                            p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
-                            p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
-                            p_activo: false, // Cancelled accounts
-                            p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
-                            p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
-                          });
+                          // Fetch data in batches to avoid timeout
+                          const batchSize = 500;
+                          let allData: any[] = [];
+                          let currentPage = 1;
+                          let hasMore = true;
                           
-                          if (error) {
-                            console.error('Error fetching data for export:', error);
-                            toast({ title: "Error", description: "No se pudo obtener los datos para exportar.", variant: "destructive" });
-                            return;
+                          while (hasMore) {
+                            const { data: batchData, error } = await supabase.rpc('get_cuentas_cobranza_paginadas' as any, {
+                              p_page: currentPage,
+                              p_per_page: batchSize,
+                              p_id_cuenta: idCuentaFilter || null,
+                              p_proyecto: proyectoFilter || null,
+                              p_clabe: clabeFilter || null,
+                              p_no_propiedad: noPropiedadFilter || null,
+                              p_modelo: modeloFilter || null,
+                              p_compradores: compradoresFilter || null,
+                              p_producto: productoFilter || null,
+                              p_estatus_ids: estatusFilter.length > 0 ? estatusFilter : null,
+                              p_tipos: selectedTipos.length < 3 ? selectedTipos : null,
+                              p_activo: false, // Cancelled accounts
+                              p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
+                              p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
+                            });
+                            
+                            if (error) {
+                              console.error('Error fetching data for export:', error);
+                              toast({ title: "Error", description: "No se pudo obtener los datos para exportar.", variant: "destructive" });
+                              return;
+                            }
+                            
+                            if (batchData && batchData.length > 0) {
+                              allData = [...allData, ...batchData];
+                              hasMore = batchData.length === batchSize;
+                              currentPage++;
+                            } else {
+                              hasMore = false;
+                            }
                           }
                           
-                          if (!allData || allData.length === 0) {
+                          if (allData.length === 0) {
                             toast({ title: "Sin datos", description: "No hay datos para exportar.", variant: "destructive" });
                             return;
                           }
                           
-                          const exportData = (allData as any[]).map(cuenta => ({
+                          const exportData = allData.map(cuenta => ({
                             'ID Cuenta': formatCuentaCobranzaId(cuenta.id, cuenta.tipo),
                             'Tipo': cuenta.tipo,
                             'Nombre de producto': cuenta.producto || 'N/A',
@@ -1968,7 +1998,7 @@ export default function Pagos() {
                             'Precio Final': cuenta.precio_final,
                             'Pagado': cuenta.pagado,
                             'Restante': cuenta.restante,
-                            'Motivo Cancelación': 'N/A', // Note: motivo_cancelacion not in RPC, would need separate query
+                            'Motivo Cancelación': 'N/A',
                           }));
                           await exportToExcel({ data: exportData, filename: 'cuentas_cobranza_canceladas' });
                         } catch (err) {
