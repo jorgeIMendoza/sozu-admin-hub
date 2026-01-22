@@ -6160,47 +6160,88 @@ export type Database = {
           reporte_id: number
         }[]
       }
-      get_cuentas_cobranza_paginadas: {
-        Args: {
-          p_activo?: boolean
-          p_clabe?: string
-          p_compradores?: string
-          p_dueno_entity_ids?: number[]
-          p_estatus_ids?: number[]
-          p_id_cuenta?: string
-          p_modelo?: string
-          p_no_propiedad?: string
-          p_page?: number
-          p_per_page?: number
-          p_producto?: string
-          p_proyecto?: string
-          p_proyecto_ids?: number[]
-          p_tipos?: string[]
-          p_vendedor?: string
-        }
-        Returns: {
-          clabe_stp: string
-          compradores: Json
-          estatus_cuenta_cobranza: string
-          fecha_compra: string
-          id: number
-          id_estatus_cuenta_cobranza: number
-          id_modelo: number
-          id_oferta: number
-          id_producto: number
-          id_propiedad: number
-          id_proyecto: number
-          modelo: string
-          numero_propiedad: string
-          pagos_efectivo: Json
-          porcentaje_comision_venta: number
-          precio_final: number
-          producto: string
-          proyecto: string
-          tiene_acuerdos: boolean
-          total_count: number
-        }[]
-      }
+      get_cuentas_cobranza_paginadas:
+        | {
+            Args: {
+              p_activo?: boolean
+              p_clabe?: string
+              p_compradores?: string
+              p_dueno_entity_ids?: number[]
+              p_estatus_ids?: number[]
+              p_id_cuenta?: string
+              p_modelo?: string
+              p_no_propiedad?: string
+              p_page?: number
+              p_per_page?: number
+              p_producto?: string
+              p_proyecto?: string
+              p_proyecto_ids?: number[]
+              p_tipos?: string[]
+            }
+            Returns: {
+              activo: boolean
+              clabe_stp: string
+              compradores: Json
+              edificio: string
+              estatus_disponibilidad: string
+              fecha_compra: string
+              id: number
+              id_estatus_disponibilidad: number
+              id_oferta: number
+              id_persona_lead: number
+              id_propiedad: number
+              id_proyecto: number
+              modelo: string
+              nombre_producto: string
+              nombre_vendedor: string
+              numero_propiedad: string
+              precio_final: number
+              proyecto: string
+              tipo: string
+              total_count: number
+            }[]
+          }
+        | {
+            Args: {
+              p_activo?: boolean
+              p_clabe?: string
+              p_compradores?: string
+              p_dueno_entity_ids?: number[]
+              p_estatus_ids?: number[]
+              p_id_cuenta?: string
+              p_modelo?: string
+              p_no_propiedad?: string
+              p_page?: number
+              p_per_page?: number
+              p_producto?: string
+              p_proyecto?: string
+              p_proyecto_ids?: number[]
+              p_tipos?: string[]
+              p_vendedor?: string
+            }
+            Returns: {
+              clabe_stp: string
+              compradores: Json
+              estatus_cuenta_cobranza: string
+              fecha_compra: string
+              id: number
+              id_estatus_cuenta_cobranza: number
+              id_modelo: number
+              id_oferta: number
+              id_producto: number
+              id_propiedad: number
+              id_proyecto: number
+              modelo: string
+              numero_propiedad: string
+              pagos_efectivo: Json
+              porcentaje_comision_venta: number
+              precio_final: number
+              producto: string
+              proyecto: string
+              tiene_acuerdos: boolean
+              total_count: number
+            }[]
+          }
       get_cuentas_cobranza_stats: {
         Args: { p_dueno_entity_ids?: number[]; p_proyecto_ids?: number[] }
         Returns: {
