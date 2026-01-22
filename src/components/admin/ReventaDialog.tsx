@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Repeat2, AlertTriangle, Info } from "lucide-react";
+import { HandCoins, AlertTriangle, Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -152,7 +152,7 @@ export const ReventaDialog = ({
             className="h-8 w-8 p-0"
             onClick={() => setOpen(true)}
           >
-            <Repeat2 className="h-4 w-4" />
+            <HandCoins className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
@@ -164,7 +164,7 @@ export const ReventaDialog = ({
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Repeat2 className="h-5 w-5" />
+              <HandCoins className="h-5 w-5" />
               Poner Propiedad en Reventa
             </DialogTitle>
             <DialogDescription>
