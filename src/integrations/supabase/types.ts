@@ -6180,6 +6180,7 @@ export type Database = {
         Returns: {
           activo: boolean
           apartado_pagado: boolean
+          cash_payments: Json
           clabe_stp: string
           compradores: Json
           dueno: string
@@ -6187,13 +6188,15 @@ export type Database = {
           fecha_compra: string
           id: number
           id_estatus_disponibilidad: number
+          id_oferta: number
+          id_producto: number
           id_propiedad: number
           id_proyecto: number
           nombre_edificio: string
           nombre_modelo: string
+          nombre_producto: string
           nombre_proyecto: string
           numero_propiedad: string
-          pagos_efectivo: Json
           porcentaje_comision_venta: number
           precio_final: number
           tipo: string
