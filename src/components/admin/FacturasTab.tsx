@@ -7,12 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, FileCheck, Eye, RefreshCw, FileEdit, Loader2, UserCheck } from "lucide-react";
+import { FileText, FileCheck, Eye, RefreshCw, FileEdit, Loader2, UserCheck, Download, ClipboardCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from '@/lib/config';
 import { format } from 'date-fns';
+import { downloadDocument } from "@/utils/googleDriveUrl";
+import { ValidarDatosFiscalesDialog } from "./ValidarDatosFiscalesDialog";
 
 interface FacturasTabProps {
   cuentaCobranzaId: number;
@@ -93,6 +95,16 @@ export function FacturasTab({
     datosEscrituracionCompletos: boolean;
     datosFiscalesCompradores: Record<number, boolean>;
   } | null>(null);
+  const [validarSatDialog, setValidarSatDialog] = useState<{
+    isOpen: boolean;
+    comprador: { id_persona: number; nombre_legal: string; rfc?: string } | null;
+    xmlUrl: string;
+    csfUrl?: string;
+  }>({
+    isOpen: false,
+    comprador: null,
+    xmlUrl: ''
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -845,10 +857,23 @@ export function FacturasTab({
                       </TableCell>
                       <TableCell>
                         {factura.isFirstRow && factura.factura_xml ? (
-                          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-                            <FileCheck className="h-3 w-3 mr-1" />
-                            XML
-                          </Badge>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge 
+                                  variant="default" 
+                                  className="bg-green-600 hover:bg-green-700 cursor-pointer"
+                                  onClick={() => downloadDocument(factura.factura_xml!.url, `factura_${factura.rfc || factura.id_persona}.xml`)}
+                                >
+                                  <Download className="h-3 w-3 mr-1" />
+                                  XML
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Clic para descargar XML</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         ) : factura.isFirstRow ? (
                           <Badge variant="outline" className="text-muted-foreground">
                             Sin XML
@@ -992,6 +1017,34 @@ export function FacturasTab({
                                 </Tooltip>
                               </TooltipProvider>
                             )}
+                            
+                            {/* Botón para validar datos fiscales SAT - solo si hay XML y factura timbrada */}
+                            {factura.isFirstRow && factura.factura_xml && tienePdf && !isDraft && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setValidarSatDialog({
+                                        isOpen: true,
+                                        comprador: {
+                                          id_persona: factura.id_persona,
+                                          nombre_legal: factura.nombre_legal,
+                                          rfc: factura.rfc
+                                        },
+                                        xmlUrl: factura.factura_xml!.url
+                                      })}
+                                    >
+                                      <ClipboardCheck className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Validar datos fiscales para SAT</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                           </div>
                         </TableCell>
                       )}
@@ -1038,6 +1091,18 @@ export function FacturasTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Validar Datos Fiscales Dialog */}
+      {validarSatDialog.comprador && (
+        <ValidarDatosFiscalesDialog
+          isOpen={validarSatDialog.isOpen}
+          onClose={() => setValidarSatDialog({ isOpen: false, comprador: null, xmlUrl: '' })}
+          cuentaCobranzaId={cuentaCobranzaId}
+          comprador={validarSatDialog.comprador}
+          xmlUrl={validarSatDialog.xmlUrl}
+          csfUrl={validarSatDialog.csfUrl}
+        />
+      )}
     </div>
   );
 }
