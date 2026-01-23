@@ -958,13 +958,13 @@ export function AddManualPaymentDialog({
               />
 
               <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
+                <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting || isRecovering}>
                   Cancelar
                 </Button>
                 <Button 
                   type="submit" 
                   disabled={(() => {
-                    if (isSubmitting || createPaymentMutation.isPending) return true;
+                    if (isSubmitting || createPaymentMutation.isPending || isRecovering) return true;
                     if (pagoExistente?.activo === true) return true;
                     
                     const formValues = form.getValues();
@@ -985,10 +985,10 @@ export function AddManualPaymentDialog({
                     return false;
                   })()}
                 >
-                  {(isSubmitting || createPaymentMutation.isPending) ? (
+                  {(isSubmitting || createPaymentMutation.isPending || isRecovering) ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Guardando...
+                      {isRecovering ? "Reactivando..." : "Guardando..."}
                     </>
                   ) : (
                     "Guardar Pago"
