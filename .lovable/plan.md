@@ -1,65 +1,37 @@
 
-# Plan: Corregir consulta de documentos en indicadores de progreso
+# Plan: Mostrar botón SAT para propiedades con estatus 7, 8 y 9
 
-## Problema identificado
+## Problema actual
 
-Los componentes `PropertyProgressTimeline` y `PropertyProgressBadge` consultan una tabla/vista inexistente (`documentos_cuenta`) en lugar de la tabla real (`documentos`). Esto causa que la condición "Documentos de entrega verificados" siempre muestre "Sin documentos de entrega", incluso cuando existen documentos verificados.
+El botón SAT solo aparece cuando `id_estatus_disponibilidad === 9` (Pagada completamente). Sin embargo, también debe mostrarse para:
 
-### Evidencia
-La cuenta 207 tiene **8 documentos de categoría 7 (Entrega)** todos verificados:
-- Factura XML
-- Factura PDF
-- Escritura
-- Acta de entrega
-- Periodo de cobertura
-- Póliza de garantía
-- Anexo A
-- Declaración de fondos
-
-Sin embargo, el componente muestra "Sin documentos de entrega" porque la consulta a `documentos_cuenta` falla silenciosamente.
+| ID | Estatus |
+|----|---------|
+| 7 | Escriturada |
+| 8 | Entregado |
+| 9 | Pagada completamente |
 
 ## Solución
 
-Cambiar la consulta de `documentos_cuenta` a `documentos` en ambos componentes.
+Cambiar la condición de igualdad estricta por una verificación de inclusión en array.
 
-## Archivos a modificar
+## Archivo a modificar
 
-| Archivo | Cambio |
-|---------|--------|
-| `src/components/admin/PropertyProgressTimeline.tsx` | Línea 99: cambiar `documentos_cuenta` → `documentos` |
-| `src/components/admin/PropertyProgressBadge.tsx` | Línea 119: cambiar `documentos_cuenta` → `documentos` |
+`src/pages/admin/Pagos.tsx` - línea 1784
 
-## Cambios específicos
+## Cambio específico
 
-### PropertyProgressTimeline.tsx (línea 99)
 ```typescript
-// Antes
-const { data: rawDocs, error } = await supabaseAny
-  .from('documentos_cuenta')  // ❌ No existe
-  .select('id, id_tipo_documento, id_estatus_verificacion, id_persona')
+// Antes (línea 1783-1784)
+{/* SAT Notification Button - Only for Propiedad with estatus 9 */}
+{cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad === 9 && (
 
 // Después
-const { data: rawDocs, error } = await supabaseAny
-  .from('documentos')  // ✅ Tabla correcta
-  .select('id, id_tipo_documento, id_estatus_verificacion, id_persona')
-```
-
-### PropertyProgressBadge.tsx (línea 119)
-```typescript
-// Antes
-const { data: rawDocs, error } = await supabaseAny
-  .from('documentos_cuenta')  // ❌ No existe
-  .select('id, id_tipo_documento, id_estatus_verificacion, id_persona')
-
-// Después
-const { data: rawDocs, error } = await supabaseAny
-  .from('documentos')  // ✅ Tabla correcta
-  .select('id, id_tipo_documento, id_estatus_verificacion, id_persona')
+{/* SAT Notification Button - For Propiedad with estatus 7, 8, or 9 */}
+{cuenta.tipo === 'Propiedad' && [7, 8, 9].includes(cuenta.id_estatus_disponibilidad) && (
 ```
 
 ## Resultado esperado
 
-Después del cambio:
-- La cuenta 207 mostrará **8/8 verificados** en la condición de documentos de entrega
-- La etapa "Entrega" pasará a **100%** (todos los requisitos cumplidos)
-- El indicador cambiará de azul (en progreso) a verde (completado)
+- La cuenta 207 (estatus 8 - Entregado) mostrará el botón SAT
+- Todas las propiedades con estatus Escriturada (7), Entregado (8) o Pagada completamente (9) tendrán acceso al botón de notificación SAT
