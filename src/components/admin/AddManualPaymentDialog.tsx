@@ -369,13 +369,12 @@ export function AddManualPaymentDialog({
           });
       }
       
-      // 5. Reactivate the payment and update monto, evidence, and cep
+      // 5. Reactivate the payment and update monto and evidence ONLY (NOT fecha_pago)
       const updateData: { 
         activo: boolean; 
         monto?: number;
         url_recibo?: string;
         url_cep?: string;
-        fecha_pago?: string;
       } = { activo: true };
       
       if (nuevoMonto !== pagoExistente.monto) {
@@ -387,10 +386,7 @@ export function AddManualPaymentDialog({
       if (nuevoCepUrl) {
         updateData.url_cep = nuevoCepUrl;
       }
-      // Update fecha_pago if provided in form
-      if (formValues.fecha_pago) {
-        updateData.fecha_pago = formValues.fecha_pago.toISOString();
-      }
+      // NOTE: We intentionally do NOT update fecha_pago - keep the original payment date
       
       const { error: updateError } = await supabase
         .from("pagos")
@@ -991,7 +987,15 @@ export function AddManualPaymentDialog({
       </Dialog>
 
       {/* Recovery confirmation dialog */}
-      <AlertDialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+      <AlertDialog 
+        open={showRecoveryDialog} 
+        onOpenChange={(open) => {
+          // Only allow closing if NOT recovering
+          if (!isRecovering) {
+            setShowRecoveryDialog(open);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Reactivar este pago?</AlertDialogTitle>
