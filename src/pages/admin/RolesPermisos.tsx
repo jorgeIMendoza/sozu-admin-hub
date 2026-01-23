@@ -509,14 +509,14 @@ export default function RolesPermisos() {
 
   const isSuperAdminSelected = selectedRoleId === SUPER_ADMIN_ROLE_ID;
 
-  // Fetch roles (excluding internal roles like "Directores")
+  // Fetch roles (only internal roles)
   const { data: roles = [], isLoading: loadingRoles } = useQuery({
     queryKey: ['roles-management'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('roles')
         .select('id, nombre, activo, ver_todos_prospectos_compradores, ver_todos_proyectos_propiedades, ver_filtros_avanzados_eliminados, ver_todos_duenos')
-        .eq('es_rol_interno', false)
+        .eq('es_rol_interno', true)
         .order('id');
       
       if (error) throw error;
