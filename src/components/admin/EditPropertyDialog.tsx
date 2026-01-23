@@ -498,8 +498,8 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           return;
         }
         
-        // Validar que el cambio solo es entre Inventario y Disponible
-        if (!allowedStatusIds.includes(currentStatusId) || !allowedStatusIds.includes(originalStatusId)) {
+        // Super Admin puede cambiar a cualquier estatus, otros roles solo Inventario <-> Disponible
+        if (!isSuperAdmin && (!allowedStatusIds.includes(currentStatusId) || !allowedStatusIds.includes(originalStatusId))) {
           toast({
             title: "Error",
             description: "Solo se permite cambiar entre Inventario y Disponible.",
