@@ -181,7 +181,8 @@ export default function Pagos() {
     estatusIds: estatusFilter.length > 0 ? estatusFilter : undefined,
     tipos: selectedTipos.length < 3 ? selectedTipos : undefined,
     activo: true,
-    enabled: !isLoadingAccess
+    enabled: !isLoadingAccess,
+    search: searchTerm || undefined
   });
 
   // Use the new paginated hook for CANCELLED accounts
@@ -201,7 +202,8 @@ export default function Pagos() {
     estatusIds: estatusFilter.length > 0 ? estatusFilter : undefined,
     tipos: selectedTipos.length < 3 ? selectedTipos : undefined,
     activo: false,
-    enabled: !isLoadingAccess
+    enabled: !isLoadingAccess,
+    search: searchTerm || undefined
   });
 
   // Query for global statistics (fast aggregate)

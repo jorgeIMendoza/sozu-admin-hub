@@ -67,6 +67,7 @@ interface UseCuentasCobranzaParams {
   tipos?: ('Propiedad' | 'Producto' | 'Servicio')[];
   activo: boolean;
   enabled?: boolean;
+  search?: string;
 }
 
 interface CuentaCobranzaRPCResult {
@@ -122,6 +123,7 @@ export function useCuentasCobranzaPaginadas({
   tipos,
   activo,
   enabled = true,
+  search,
 }: UseCuentasCobranzaParams) {
   const { 
     accessibleProjectIds, 
@@ -149,6 +151,7 @@ export function useCuentasCobranzaPaginadas({
       hasUnrestrictedAccess,
       accessibleProjectIds,
       ownershipEntityIds,
+      search,
     ],
     enabled: enabled && !isLoadingAccess,
     queryFn: async () => {
@@ -167,6 +170,7 @@ export function useCuentasCobranzaPaginadas({
         p_activo: activo,
         p_proyecto_ids: hasUnrestrictedAccess ? null : (accessibleProjectIds.length > 0 ? accessibleProjectIds : null),
         p_dueno_entity_ids: isRepresentanteEmpresaDuena && ownershipEntityIds.length > 0 ? ownershipEntityIds : null,
+        p_search: search || null,
       });
 
       if (error) {

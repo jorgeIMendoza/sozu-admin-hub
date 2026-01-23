@@ -1,0 +1,196 @@
+-- Add p_search parameter for general search functionality
+CREATE OR REPLACE FUNCTION public.get_cuentas_cobranza_paginadas(
+  p_page integer DEFAULT 1, 
+  p_per_page integer DEFAULT 50, 
+  p_id_cuenta text DEFAULT NULL::text, 
+  p_proyecto text DEFAULT NULL::text, 
+  p_clabe text DEFAULT NULL::text, 
+  p_no_propiedad text DEFAULT NULL::text, 
+  p_modelo text DEFAULT NULL::text, 
+  p_compradores text DEFAULT NULL::text, 
+  p_producto text DEFAULT NULL::text, 
+  p_estatus_ids integer[] DEFAULT NULL::integer[], 
+  p_tipos text[] DEFAULT NULL::text[], 
+  p_activo boolean DEFAULT true, 
+  p_proyecto_ids integer[] DEFAULT NULL::integer[], 
+  p_dueno_entity_ids integer[] DEFAULT NULL::integer[],
+  p_search text DEFAULT NULL::text
+)
+RETURNS TABLE(
+  id integer, clabe_stp text, fecha_compra text, precio_final numeric, activo boolean, 
+  id_oferta integer, tipo text, proyecto text, id_proyecto integer, modelo text, 
+  edificio text, numero_propiedad text, id_propiedad integer, producto text, 
+  id_producto integer, comprador text, compradores_json jsonb, id_estatus_disponibilidad integer, 
+  estatus_disponibilidad_nombre text, vendedor text, dueno text, id_entidad_relacionada_dueno integer, 
+  id_cuenta_cobranza_padre integer, metraje numeric, precio_lista numeric, pagado numeric, 
+  restante numeric, tiene_acuerdos boolean, apartado_pagado boolean, total_acuerdos numeric, 
+  discrepancia numeric, cash_limit numeric, cash_paid numeric, cash_payments jsonb, 
+  collection_id integer, total_count bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
+DECLARE
+  v_offset integer;
+  v_total bigint;
+BEGIN
+  v_offset := (p_page - 1) * p_per_page;
+
+  -- Get total count
+  SELECT COUNT(*) INTO v_total
+  FROM cuentas_cobranza cc
+  JOIN ofertas o ON cc.id_oferta = o.id
+  LEFT JOIN propiedades prop ON o.id_propiedad = prop.id
+  LEFT JOIN edificios_modelos em ON prop.id_edificio_modelo = em.id
+  LEFT JOIN edificios edif ON em.id_edificio = edif.id
+  LEFT JOIN proyectos pr ON edif.id_proyecto = pr.id
+  LEFT JOIN modelos m ON em.id_modelo = m.id
+  LEFT JOIN productos_servicios ps ON o.id_producto = ps.id
+  LEFT JOIN proyectos pr2 ON ps.id_proyecto = pr2.id
+  LEFT JOIN personas dueno_pers ON prop.id_entidad_relacionada_dueno = dueno_pers.id
+  WHERE cc.activo = p_activo
+    AND cc.id_cuenta_cobranza_padre IS NULL
+    AND (p_id_cuenta IS NULL OR cc.id::text ILIKE '%' || p_id_cuenta || '%')
+    AND (p_clabe IS NULL OR cc.clabe_stp ILIKE '%' || p_clabe || '%')
+    AND (p_proyecto IS NULL OR COALESCE(pr.nombre, pr2.nombre) ILIKE '%' || p_proyecto || '%')
+    AND (p_no_propiedad IS NULL OR prop.numero_propiedad ILIKE '%' || p_no_propiedad || '%')
+    AND (p_modelo IS NULL OR m.nombre ILIKE '%' || p_modelo || '%')
+    AND (p_compradores IS NULL OR EXISTS (
+      SELECT 1 FROM compradores comp
+      JOIN personas pers ON comp.id_persona = pers.id
+      WHERE comp.id_cuenta_cobranza = cc.id AND comp.activo = true
+        AND pers.nombre_legal ILIKE '%' || p_compradores || '%'
+    ))
+    AND (p_producto IS NULL OR ps.nombre ILIKE '%' || p_producto || '%')
+    AND (p_estatus_ids IS NULL OR prop.id_estatus_disponibilidad = ANY(p_estatus_ids))
+    AND (p_tipos IS NULL OR (
+      CASE
+        WHEN o.id_producto IS NOT NULL THEN 'Producto'
+        WHEN o.id_propiedad IS NOT NULL THEN 'Propiedad'
+        ELSE 'Servicio'
+      END
+    ) = ANY(p_tipos))
+    AND (p_proyecto_ids IS NULL OR COALESCE(pr.id, pr2.id) = ANY(p_proyecto_ids))
+    AND (p_dueno_entity_ids IS NULL OR prop.id_entidad_relacionada_dueno = ANY(p_dueno_entity_ids))
+    -- General search filter across multiple fields
+    AND (p_search IS NULL OR (
+      cc.id::text ILIKE '%' || p_search || '%'
+      OR cc.clabe_stp ILIKE '%' || p_search || '%'
+      OR COALESCE(pr.nombre, pr2.nombre) ILIKE '%' || p_search || '%'
+      OR prop.numero_propiedad ILIKE '%' || p_search || '%'
+      OR m.nombre ILIKE '%' || p_search || '%'
+      OR edif.nombre ILIKE '%' || p_search || '%'
+      OR dueno_pers.nombre_legal ILIKE '%' || p_search || '%'
+      OR ps.nombre ILIKE '%' || p_search || '%'
+      OR EXISTS (
+        SELECT 1 FROM compradores comp
+        JOIN personas pers ON comp.id_persona = pers.id
+        WHERE comp.id_cuenta_cobranza = cc.id AND comp.activo = true
+          AND pers.nombre_legal ILIKE '%' || p_search || '%'
+      )
+    ));
+
+  RETURN QUERY
+  SELECT
+    cc.id::integer AS id,
+    cc.clabe_stp,
+    cc.fecha_compra::text,
+    cc.precio_final,
+    cc.activo,
+    cc.id_oferta::integer,
+    CASE
+      WHEN o.id_producto IS NOT NULL THEN 'Producto'
+      WHEN o.id_propiedad IS NOT NULL THEN 'Propiedad'
+      ELSE 'Servicio'
+    END AS tipo,
+    COALESCE(pr.nombre, pr2.nombre) AS proyecto,
+    COALESCE(pr.id, pr2.id)::integer AS id_proyecto,
+    m.nombre AS modelo,
+    edif.nombre AS edificio,
+    prop.numero_propiedad,
+    prop.id::integer AS id_propiedad,
+    ps.nombre AS producto,
+    ps.id::integer AS id_producto,
+    (SELECT pers.nombre_legal FROM compradores comp JOIN personas pers ON comp.id_persona = pers.id WHERE comp.id_cuenta_cobranza = cc.id AND comp.activo = true LIMIT 1) AS comprador,
+    (SELECT jsonb_agg(jsonb_build_object(
+      'id_persona', comp.id_persona,
+      'nombre_legal', pers.nombre_legal,
+      'rfc', pers.rfc,
+      'porcentaje_copropiedad', comp.porcentaje_copropiedad
+    )) FROM compradores comp JOIN personas pers ON comp.id_persona = pers.id WHERE comp.id_cuenta_cobranza = cc.id AND comp.activo = true) AS compradores_json,
+    prop.id_estatus_disponibilidad::integer,
+    ed.nombre AS estatus_disponibilidad_nombre,
+    (SELECT pers.nombre_legal FROM personas pers WHERE pers.id = o.id_persona_lead) AS vendedor,
+    dueno_pers.nombre_legal AS dueno,
+    prop.id_entidad_relacionada_dueno::integer,
+    cc.id_cuenta_cobranza_padre::integer,
+    COALESCE(prop.m2_interiores, 0) + COALESCE(prop.m2_exteriores, 0) AS metraje,
+    prop.precio_lista,
+    (SELECT COALESCE(SUM(p.monto), 0) FROM pagos p WHERE p.id_cuenta_cobranza = cc.id AND p.activo = true) AS pagado,
+    cc.precio_final - (SELECT COALESCE(SUM(p.monto), 0) FROM pagos p WHERE p.id_cuenta_cobranza = cc.id AND p.activo = true) AS restante,
+    EXISTS(SELECT 1 FROM acuerdos_pago ap WHERE ap.id_cuenta_cobranza = cc.id AND ap.activo = true) AS tiene_acuerdos,
+    (SELECT COALESCE(ap.pago_completado, false) FROM acuerdos_pago ap WHERE ap.id_cuenta_cobranza = cc.id AND ap.activo = true AND ap.orden = 1 LIMIT 1) AS apartado_pagado,
+    (SELECT COALESCE(SUM(ap.monto), 0) FROM acuerdos_pago ap WHERE ap.id_cuenta_cobranza = cc.id AND ap.activo = true) AS total_acuerdos,
+    cc.precio_final - (SELECT COALESCE(SUM(ap.monto), 0) FROM acuerdos_pago ap WHERE ap.id_cuenta_cobranza = cc.id AND ap.activo = true) AS discrepancia,
+    8025 * cc.valor_uma AS cash_limit,
+    (SELECT COALESCE(SUM(p.monto), 0) FROM pagos p WHERE p.id_cuenta_cobranza = cc.id AND p.activo = true AND p.id_metodos_pago = 1) AS cash_paid,
+    (SELECT jsonb_agg(jsonb_build_object('fecha_pago', p.fecha_pago, 'monto', p.monto)) FROM pagos p WHERE p.id_cuenta_cobranza = cc.id AND p.activo = true AND p.id_metodos_pago = 1) AS cash_payments,
+    cc.collection_id::integer,
+    v_total AS total_count
+  FROM cuentas_cobranza cc
+  JOIN ofertas o ON cc.id_oferta = o.id
+  LEFT JOIN propiedades prop ON o.id_propiedad = prop.id
+  LEFT JOIN edificios_modelos em ON prop.id_edificio_modelo = em.id
+  LEFT JOIN edificios edif ON em.id_edificio = edif.id
+  LEFT JOIN proyectos pr ON edif.id_proyecto = pr.id
+  LEFT JOIN modelos m ON em.id_modelo = m.id
+  LEFT JOIN productos_servicios ps ON o.id_producto = ps.id
+  LEFT JOIN proyectos pr2 ON ps.id_proyecto = pr2.id
+  LEFT JOIN personas dueno_pers ON prop.id_entidad_relacionada_dueno = dueno_pers.id
+  LEFT JOIN estatus_disponibilidad ed ON prop.id_estatus_disponibilidad = ed.id
+  WHERE cc.activo = p_activo
+    AND cc.id_cuenta_cobranza_padre IS NULL
+    AND (p_id_cuenta IS NULL OR cc.id::text ILIKE '%' || p_id_cuenta || '%')
+    AND (p_clabe IS NULL OR cc.clabe_stp ILIKE '%' || p_clabe || '%')
+    AND (p_proyecto IS NULL OR COALESCE(pr.nombre, pr2.nombre) ILIKE '%' || p_proyecto || '%')
+    AND (p_no_propiedad IS NULL OR prop.numero_propiedad ILIKE '%' || p_no_propiedad || '%')
+    AND (p_modelo IS NULL OR m.nombre ILIKE '%' || p_modelo || '%')
+    AND (p_compradores IS NULL OR EXISTS (
+      SELECT 1 FROM compradores comp
+      JOIN personas pers ON comp.id_persona = pers.id
+      WHERE comp.id_cuenta_cobranza = cc.id AND comp.activo = true
+        AND pers.nombre_legal ILIKE '%' || p_compradores || '%'
+    ))
+    AND (p_producto IS NULL OR ps.nombre ILIKE '%' || p_producto || '%')
+    AND (p_estatus_ids IS NULL OR prop.id_estatus_disponibilidad = ANY(p_estatus_ids))
+    AND (p_tipos IS NULL OR (
+      CASE
+        WHEN o.id_producto IS NOT NULL THEN 'Producto'
+        WHEN o.id_propiedad IS NOT NULL THEN 'Propiedad'
+        ELSE 'Servicio'
+      END
+    ) = ANY(p_tipos))
+    AND (p_proyecto_ids IS NULL OR COALESCE(pr.id, pr2.id) = ANY(p_proyecto_ids))
+    AND (p_dueno_entity_ids IS NULL OR prop.id_entidad_relacionada_dueno = ANY(p_dueno_entity_ids))
+    -- General search filter across multiple fields
+    AND (p_search IS NULL OR (
+      cc.id::text ILIKE '%' || p_search || '%'
+      OR cc.clabe_stp ILIKE '%' || p_search || '%'
+      OR COALESCE(pr.nombre, pr2.nombre) ILIKE '%' || p_search || '%'
+      OR prop.numero_propiedad ILIKE '%' || p_search || '%'
+      OR m.nombre ILIKE '%' || p_search || '%'
+      OR edif.nombre ILIKE '%' || p_search || '%'
+      OR dueno_pers.nombre_legal ILIKE '%' || p_search || '%'
+      OR ps.nombre ILIKE '%' || p_search || '%'
+      OR EXISTS (
+        SELECT 1 FROM compradores comp
+        JOIN personas pers ON comp.id_persona = pers.id
+        WHERE comp.id_cuenta_cobranza = cc.id AND comp.activo = true
+          AND pers.nombre_legal ILIKE '%' || p_search || '%'
+      )
+    ))
+  ORDER BY cc.id DESC
+  LIMIT p_per_page
+  OFFSET v_offset;
+END;
+$function$;
