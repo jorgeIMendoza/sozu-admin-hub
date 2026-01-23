@@ -699,8 +699,19 @@ export function AddManualPaymentDialog({
       return;
     }
 
-    // If there's an inactive payment found, show recovery dialog instead of creating new
+    // If there's an inactive payment found, check if it belongs to this account
     if (pagoExistente && !pagoExistente.activo) {
+      // Block if the payment belongs to a different account
+      if (pagoExistente.id_cuenta_cobranza !== cuentaCobranzaId) {
+        toast({
+          title: "Cuenta incorrecta",
+          description: `Este pago pertenece a la cuenta ${formatCuentaLabel(pagoExistente.id_cuenta_cobranza, pagoExistente.tipo_cuenta)}. No se puede agregar a esta cuenta.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Show recovery dialog for payments of this account
       setNuevoMontoRecuperacion(Math.round(montoNuevoPago * 100));
       setShowRecoveryDialog(true);
       return;
