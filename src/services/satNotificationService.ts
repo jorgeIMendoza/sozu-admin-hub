@@ -109,7 +109,7 @@ export const SATNotificationService = {
       .from('compradores')
       .select(`
         id_persona,
-        personas:id_persona(
+        personas:personas!fk_compradores_persona(
           nombre_legal
         )
       `)
