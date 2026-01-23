@@ -273,13 +273,13 @@ export default function Usuarios() {
         .order('nombre', { ascending: true });
       
       if (error) throw error;
-      // Filter out users with internal roles (like Cliente, Directores)
+      // Filter to show only users with internal roles
       return ((data || []) as (Usuario & { roles: { nombre: string; es_rol_interno: boolean } | null })[])
-        .filter(u => !u.roles?.es_rol_interno);
+        .filter(u => u.roles?.es_rol_interno === true);
     },
   });
 
-  // Fetch roles (excluding internal roles)
+  // Fetch roles (only internal roles)
   const { data: roles = [] } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
@@ -287,7 +287,7 @@ export default function Usuarios() {
         .from('roles')
         .select('id, nombre, es_rol_interno')
         .eq('activo', true)
-        .eq('es_rol_interno', false)
+        .eq('es_rol_interno', true)
         .order('nombre', { ascending: true });
       
       if (error) throw error;

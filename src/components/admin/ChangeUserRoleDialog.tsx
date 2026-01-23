@@ -35,7 +35,7 @@ export function ChangeUserRoleDialog({
   const queryClient = useQueryClient();
   const { registrarActualizacion } = useActivityLogger();
 
-  // Fetch roles
+  // Fetch roles (only internal roles)
   const { data: roles = [] } = useQuery({
     queryKey: ['roles'],
     queryFn: async () => {
@@ -43,6 +43,7 @@ export function ChangeUserRoleDialog({
         .from('roles')
         .select('id, nombre')
         .eq('activo', true)
+        .eq('es_rol_interno', true)
         .order('nombre');
       
       if (error) throw error;
