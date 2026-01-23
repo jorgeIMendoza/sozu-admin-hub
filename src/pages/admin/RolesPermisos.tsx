@@ -615,7 +615,7 @@ export default function RolesPermisos() {
     mutationFn: async (nombre: string) => {
       const { data, error } = await supabase
         .from('roles')
-        .insert({ nombre, activo: true })
+        .insert({ nombre, activo: true, es_rol_interno: true })
         .select()
         .single();
       
