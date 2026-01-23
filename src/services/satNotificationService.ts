@@ -50,7 +50,7 @@ export const SATNotificationService = {
       .select(`
         id,
         precio_final,
-        ofertas:id_oferta(
+        ofertas:ofertas!fk_ccob_oferta(
           propiedades:id_propiedad(
             id_estatus_disponibilidad
           )
