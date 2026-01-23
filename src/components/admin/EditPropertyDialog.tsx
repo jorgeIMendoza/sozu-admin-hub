@@ -210,7 +210,8 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
   const [originalStatusId, setOriginalStatusId] = useState<number | null>(null);
 
   // Verificar si el usuario puede editar el estatus de propiedad
-  const canEditPropertyStatus = profile?.rol_id === ROL_SUPER_ADMIN || profile?.rol_id === ROL_ADMIN_DATA;
+  const isSuperAdmin = profile?.rol_id === ROL_SUPER_ADMIN;
+  const canEditPropertyStatus = isSuperAdmin || profile?.rol_id === ROL_ADMIN_DATA;
   const allowedStatusIds = [ESTATUS_INVENTARIO, ESTATUS_DISPONIBLE];
   
   // Debug log temporal
@@ -810,7 +811,8 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                           </SelectTrigger>
                           <SelectContent>
                             {estatusDisponibilidad?.map((estatus) => {
-                              const isAllowed = allowedStatusIds.includes(estatus.id);
+                              // Super Admin puede seleccionar cualquier estatus
+                              const isAllowed = isSuperAdmin || allowedStatusIds.includes(estatus.id);
                               const isCurrent = estatus.id.toString() === formData.id_estatus_disponibilidad;
                               return (
                                 <SelectItem 
