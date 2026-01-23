@@ -294,7 +294,50 @@ export function AddManualPaymentDialog({
     
     setIsRecovering(true);
     try {
-      // 1. Delete old inactive applications for this payment
+      // Get form values for evidence files
+      const formValues = form.getValues();
+      
+      // 1. Upload new evidence file
+      let nuevaEvidenciaUrl: string | null = null;
+      if (formValues.evidencia_pago && formValues.evidencia_pago instanceof File) {
+        const fileName = `evidencia_${Date.now()}_${formValues.evidencia_pago.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('documentos')
+          .upload(fileName, formValues.evidencia_pago);
+        
+        if (uploadError) {
+          console.error("Error uploading evidence:", uploadError);
+          throw new Error("No se pudo subir la evidencia de pago");
+        }
+        
+        const { data: urlData } = supabase.storage
+          .from('documentos')
+          .getPublicUrl(fileName);
+        
+        nuevaEvidenciaUrl = urlData.publicUrl;
+      }
+      
+      // 2. Upload new CEP file if STP-Manual
+      let nuevoCepUrl: string | null = null;
+      if (isStpManual && formValues.archivo_cep && formValues.archivo_cep instanceof File) {
+        const fileName = `cep_${Date.now()}_${formValues.archivo_cep.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('documentos')
+          .upload(fileName, formValues.archivo_cep);
+        
+        if (uploadError) {
+          console.error("Error uploading CEP:", uploadError);
+          throw new Error("No se pudo subir el archivo CEP");
+        }
+        
+        const { data: urlData } = supabase.storage
+          .from('documentos')
+          .getPublicUrl(fileName);
+        
+        nuevoCepUrl = urlData.publicUrl;
+      }
+      
+      // 3. Delete old inactive applications for this payment
       const { error: deleteError } = await supabase
         .from("aplicaciones_pago")
         .delete()
@@ -305,10 +348,48 @@ export function AddManualPaymentDialog({
         throw new Error("No se pudieron eliminar las aplicaciones antiguas");
       }
       
-      // 2. Reactivate the payment and update monto if changed
-      const updateData: { activo: boolean; monto?: number } = { activo: true };
+      // 4. Delete records from STP tables using clave_rastreo
+      if (pagoExistente.clave_rastreo) {
+        // Delete from tabla_datos_cep (column is "claverastreo" without underscore)
+        await supabase
+          .from("tabla_datos_cep")
+          .delete()
+          .eq("claverastreo", pagoExistente.clave_rastreo)
+          .then(({ error }) => {
+            if (error) console.warn("Could not delete from tabla_datos_cep:", error);
+          });
+        
+        // Delete from pagos_stp_raw
+        await supabase
+          .from("pagos_stp_raw")
+          .delete()
+          .eq("claverastreo", pagoExistente.clave_rastreo)
+          .then(({ error }) => {
+            if (error) console.warn("Could not delete from pagos_stp_raw:", error);
+          });
+      }
+      
+      // 5. Reactivate the payment and update monto, evidence, and cep
+      const updateData: { 
+        activo: boolean; 
+        monto?: number;
+        url_recibo?: string;
+        url_cep?: string;
+        fecha_pago?: string;
+      } = { activo: true };
+      
       if (nuevoMonto !== pagoExistente.monto) {
         updateData.monto = nuevoMonto;
+      }
+      if (nuevaEvidenciaUrl) {
+        updateData.url_recibo = nuevaEvidenciaUrl;
+      }
+      if (nuevoCepUrl) {
+        updateData.url_cep = nuevoCepUrl;
+      }
+      // Update fecha_pago if provided in form
+      if (formValues.fecha_pago) {
+        updateData.fecha_pago = formValues.fecha_pago.toISOString();
       }
       
       const { error: updateError } = await supabase
@@ -321,7 +402,9 @@ export function AddManualPaymentDialog({
         throw new Error("No se pudo reactivar el pago");
       }
       
-      // 3. Execute recalculation of applications
+      // 6. Execute recalculation of applications
+      // Note: The recalcular-aplicaciones function processes payments in order by fecha_pago,
+      // so payments with earlier dates will be applied first correctly
       const { error: recalcError } = await supabase.functions.invoke('recalcular-aplicaciones', {
         body: { id_cuenta_cobranza: pagoExistente.id_cuenta_cobranza }
       });
@@ -331,7 +414,7 @@ export function AddManualPaymentDialog({
         throw new Error("No se pudieron recalcular las aplicaciones");
       }
       
-      // 4. Register activity
+      // 7. Register activity
       const montoFinal = nuevoMonto !== pagoExistente.monto ? nuevoMonto : pagoExistente.monto;
       await registrarRecuperacionPago({
         id_pago: pagoExistente.id,
@@ -347,7 +430,7 @@ export function AddManualPaymentDialog({
         description: `El pago de $${montoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ha sido reactivado y las aplicaciones recalculadas`,
       });
       
-      // 5. Invalidate all related queries
+      // 8. Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ["cuentas_cobranza"] });
       queryClient.invalidateQueries({ queryKey: ["cuentas_mantenimiento"] });
       queryClient.invalidateQueries({ queryKey: ["pagos"] });
@@ -364,6 +447,8 @@ export function AddManualPaymentDialog({
         queryClient.invalidateQueries({ queryKey: ["aplicaciones_por_pago", cuentaCobranzaId] });
       }
       
+      // Only close dialogs after everything is complete
+      setShowRecoveryDialog(false);
       handleClose();
     } catch (error) {
       console.error("Error recovering payment:", error);
@@ -372,9 +457,7 @@ export function AddManualPaymentDialog({
         description: error instanceof Error ? error.message : "No se pudo recuperar el pago",
         variant: "destructive",
       });
-    } finally {
       setIsRecovering(false);
-      setShowRecoveryDialog(false);
     }
   };
 
