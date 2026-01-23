@@ -1379,7 +1379,7 @@ export default function Pagos() {
                             'Tipo': cuenta.tipo,
                             'Nombre de producto': cuenta.producto || 'N/A',
                             'Comprador': cuenta.comprador || 'Sin compradores',
-                            'Dueño': cuenta.dueno,
+                            'Propietario': cuenta.dueno,
                             'CLABE': cuenta.clabe_stp || 'N/A',
                             'Proyecto': cuenta.proyecto,
                             'Edificio': cuenta.edificio,
@@ -1427,7 +1427,7 @@ export default function Pagos() {
                       <TableHead>Tipo</TableHead>
                       <TableHead>Nombre de producto</TableHead>
                       <TableHead>Compradores</TableHead>
-                      <TableHead>Dueño</TableHead>
+                      <TableHead>Propietario</TableHead>
                       <TableHead>CLABE</TableHead>
                       <TableHead>Proyecto</TableHead>
                       <TableHead>Edificio</TableHead>
