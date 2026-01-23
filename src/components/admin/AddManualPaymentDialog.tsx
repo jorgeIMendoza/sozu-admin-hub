@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon, AlertCircle, Loader2 } from "lucide-react";
+import { CalendarIcon, AlertCircle, Loader2, ArrowRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -750,44 +750,68 @@ export function AddManualPaymentDialog({
                   />
 
                   {/* Alert for duplicate payment detection */}
-                  {pagoExistente && (
-                    <Alert variant={pagoExistente.activo ? "default" : "destructive"}>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>
-                        {pagoExistente.activo ? "Pago ya registrado" : "Pago anterior encontrado"}
-                      </AlertTitle>
-                      <AlertDescription>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <p><strong>Monto:</strong> ${pagoExistente.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
-                          <p><strong>Fecha:</strong> {format(new Date(pagoExistente.fecha_pago), 'PPP', { locale: es })}</p>
-                          <p><strong>Cuenta:</strong> {formatCuentaLabel(pagoExistente.id_cuenta_cobranza, pagoExistente.tipo_cuenta)}</p>
-                          {pagoExistente.activo ? (
-                            <p className="text-muted-foreground mt-2">
-                              Este pago ya está aplicado. No se puede crear otro con la misma clave.
-                            </p>
-                          ) : (
-                            <div className="mt-3 flex gap-2">
-                              <Button 
-                                type="button" 
-                                size="sm"
-                                onClick={() => setShowRecoveryDialog(true)}
-                              >
-                                Reactivar y Recalcular
-                              </Button>
-                              <Button 
-                                type="button"
-                                variant="outline" 
-                                size="sm"
-                                onClick={handleClearClave}
-                              >
-                                Usar otra clave
-                              </Button>
+                  {pagoExistente && (() => {
+                    const montoFormulario = form.watch("monto");
+                    const nuevoMontoNum = typeof montoFormulario === 'number' ? montoFormulario : parseFloat(String(montoFormulario) || "0");
+                    const montosDiferentes = !pagoExistente.activo && nuevoMontoNum > 0 && Math.abs(nuevoMontoNum - pagoExistente.monto) > 0.01;
+                    
+                    return (
+                      <Alert variant={pagoExistente.activo ? "default" : "destructive"}>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>
+                          {pagoExistente.activo ? "Pago ya registrado" : "Pago anterior encontrado"}
+                        </AlertTitle>
+                        <AlertDescription>
+                          <div className="mt-2 space-y-2 text-sm">
+                            {/* Show amount with update option if different */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span><strong>Monto:</strong></span>
+                              <span className={montosDiferentes ? "line-through text-muted-foreground" : ""}>
+                                ${pagoExistente.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                              </span>
+                              {montosDiferentes && (
+                                <>
+                                  <ArrowRight className="h-4 w-4 text-primary" />
+                                  <span className="font-semibold text-primary">
+                                    ${nuevoMontoNum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                  </span>
+                                </>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                            <p><strong>Fecha:</strong> {format(new Date(pagoExistente.fecha_pago), 'PPP', { locale: es })}</p>
+                            <p><strong>Cuenta:</strong> {formatCuentaLabel(pagoExistente.id_cuenta_cobranza, pagoExistente.tipo_cuenta)}</p>
+                            {pagoExistente.activo ? (
+                              <p className="text-muted-foreground mt-2">
+                                Este pago ya está aplicado. No se puede crear otro con la misma clave.
+                              </p>
+                            ) : (
+                              <div className="mt-3 flex gap-2">
+                                <Button 
+                                  type="button" 
+                                  size="sm"
+                                  onClick={() => {
+                                    // Set the recovery amount from form value
+                                    setNuevoMontoRecuperacion(Math.round(nuevoMontoNum * 100));
+                                    setShowRecoveryDialog(true);
+                                  }}
+                                >
+                                  {montosDiferentes ? "Actualizar y Reactivar" : "Reactivar y Recalcular"}
+                                </Button>
+                                <Button 
+                                  type="button"
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={handleClearClave}
+                                >
+                                  Usar otra clave
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  })()}
                 </>
               )}
 
