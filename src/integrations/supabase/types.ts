@@ -6289,39 +6289,37 @@ export type Database = {
           cash_limit: number
           cash_paid: number
           cash_payments: Json
-          categoria_producto_nombre: string
           clabe_stp: string
           collection_id: number
-          compradores: Json
+          comprador: string
+          compradores_json: Json
           discrepancia: number
-          edificio_nombre: string
-          estatus_cuenta_nombre: string
+          dueno: string
+          edificio: string
           estatus_disponibilidad_nombre: string
           fecha_compra: string
           id: number
-          id_categoria_producto: number
-          id_edificio: number
-          id_estatus_cuenta: number
+          id_cuenta_cobranza_padre: number
+          id_entidad_relacionada_dueno: number
           id_estatus_disponibilidad: number
-          id_modelo: number
           id_oferta: number
-          id_producto_servicio: number
+          id_producto: number
           id_propiedad: number
           id_proyecto: number
           metraje: number
-          modelo_nombre: string
+          modelo: string
           numero_propiedad: string
           pagado: number
-          piso: string
-          porcentaje_comision_venta: number
           precio_final: number
-          producto_nombre: string
-          proyecto_nombre: string
+          precio_lista: number
+          producto: string
+          proyecto: string
           restante: number
           tiene_acuerdos: boolean
+          tipo: string
           total_acuerdos: number
           total_count: number
-          valor_uma: number
+          vendedor: string
         }[]
       }
       get_cuentas_cobranza_stats: {
