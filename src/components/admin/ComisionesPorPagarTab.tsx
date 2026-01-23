@@ -241,7 +241,14 @@ export default function ComisionesPorPagarTab({
                             <ChevronRight className="h-4 w-4" />
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{com.nombre}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {com.nombre}
+                            {com.esInmobiliaria && (
+                              <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{com.email}</TableCell>
                         <TableCell className="text-right">
                           {formatCurrency(com.montoTotal)}
@@ -465,7 +472,14 @@ export default function ComisionesPorPagarTab({
                                 <TableBody>
                                   {cuenta.comisionistas.map((comisionista: any) => (
                                     <TableRow key={comisionista.email}>
-                                      <TableCell className="font-medium">{comisionista.nombre}</TableCell>
+                                      <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                          {comisionista.nombre}
+                                          {comisionista.esInmobiliaria && (
+                                            <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
+                                          )}
+                                        </div>
+                                      </TableCell>
                                       <TableCell>{comisionista.email}</TableCell>
                                       <TableCell className="text-right">{comisionista.porcentajeComision}%</TableCell>
                                       <TableCell className="text-right">

@@ -238,13 +238,33 @@ export default function PagarComisiones() {
       const { data: usuarios } = await supabase
         .rpc('get_usuarios_by_emails', { _emails: emails });
 
-      const usuariosMap = new Map(usuarios?.map((u: { email: string; nombre: string }) => [u.email, u.nombre]) || []);
+      const usuariosMap = new Map(usuarios?.map((u: { email: string; nombre: string }) => [u.email, { nombre: u.nombre, esInmobiliaria: false }]) || []);
+
+      // Find emails not in usuarios and fetch from personas (inmobiliarias)
+      const emailsNotInUsuarios = emails.filter(email => !usuariosMap.has(email));
+      
+      if (emailsNotInUsuarios.length > 0) {
+        const { data: personasData } = await supabase
+          .from('personas')
+          .select('email, nombre_legal, tipo_persona')
+          .in('email', emailsNotInUsuarios)
+          .eq('activo', true);
+        
+        personasData?.forEach(p => {
+          usuariosMap.set(p.email, { 
+            nombre: p.nombre_legal, 
+            esInmobiliaria: p.tipo_persona === 'pm' 
+          });
+        });
+      }
 
       const grouped = comisionistas.reduce((acc: any, com: any) => {
         if (!acc[com.email_usuario]) {
+          const userData = usuariosMap.get(com.email_usuario);
           acc[com.email_usuario] = {
             email: com.email_usuario,
-            nombre: usuariosMap.get(com.email_usuario) || 'N/A',
+            nombre: userData?.nombre || 'N/A',
+            esInmobiliaria: userData?.esInmobiliaria || false,
             montoTotal: 0,
             cuentas: []
           };
@@ -297,7 +317,25 @@ export default function PagarComisiones() {
       const { data: usuarios } = await supabase
         .rpc('get_usuarios_by_emails', { _emails: emails });
 
-      const usuariosMap = new Map(usuarios?.map(u => [u.email, u.nombre]) || []);
+      const usuariosMap = new Map(usuarios?.map(u => [u.email, { nombre: u.nombre, esInmobiliaria: false }]) || []);
+
+      // Find emails not in usuarios and fetch from personas (inmobiliarias)
+      const emailsNotInUsuarios = emails.filter(email => !usuariosMap.has(email));
+      
+      if (emailsNotInUsuarios.length > 0) {
+        const { data: personasData } = await supabase
+          .from('personas')
+          .select('email, nombre_legal, tipo_persona')
+          .in('email', emailsNotInUsuarios)
+          .eq('activo', true);
+        
+        personasData?.forEach(p => {
+          usuariosMap.set(p.email, { 
+            nombre: p.nombre_legal, 
+            esInmobiliaria: p.tipo_persona === 'pm' 
+          });
+        });
+      }
 
       const grouped = comisionistas.reduce((acc: any, com: any) => {
         const cuentaId = com.id_cuenta_cobranza;
@@ -323,13 +361,15 @@ export default function PagarComisiones() {
         }
 
         const montoComision = (com.cuentas_cobranza.precio_final * com.porcentaje_comision) / 100;
+        const userData = usuariosMap.get(com.email_usuario);
 
         acc[cuentaId].montoTotalComision += montoComision;
         acc[cuentaId].porcentajeTotalComision += com.porcentaje_comision;
 
         acc[cuentaId].comisionistas.push({
           email: com.email_usuario,
-          nombre: usuariosMap.get(com.email_usuario) || 'N/A',
+          nombre: userData?.nombre || 'N/A',
+          esInmobiliaria: userData?.esInmobiliaria || false,
           porcentajeComision: com.porcentaje_comision,
           montoComision,
           pagada: com.pagada,

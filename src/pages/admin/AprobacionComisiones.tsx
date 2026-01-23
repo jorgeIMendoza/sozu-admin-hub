@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -214,7 +214,38 @@ export default function AprobacionComisiones() {
 
       if (comisionistasError) throw comisionistasError;
 
-      // Paso 5: Combinar datos
+      // Paso 5: Obtener nombres de usuarios y personas para los comisionistas
+      const comisionistaEmails = [...new Set(comisionistas?.map(c => c.email_usuario) || [])] as string[];
+      
+      // Fetch from usuarios
+      const { data: usuariosData } = comisionistaEmails.length > 0 
+        ? await supabase.from("usuarios").select("email, nombre").in("email", comisionistaEmails)
+        : { data: [] };
+      
+      const usuariosMap = new Map<string, { nombre: string; esInmobiliaria: boolean }>();
+      usuariosData?.forEach(u => {
+        usuariosMap.set(u.email, { nombre: u.nombre, esInmobiliaria: false });
+      });
+      
+      // Find emails not in usuarios and fetch from personas (inmobiliarias)
+      const emailsNotInUsuarios = comisionistaEmails.filter(email => !usuariosMap.has(email));
+      
+      if (emailsNotInUsuarios.length > 0) {
+        const { data: personasData } = await supabase
+          .from('personas')
+          .select('email, nombre_legal, tipo_persona')
+          .in('email', emailsNotInUsuarios)
+          .eq('activo', true);
+        
+        personasData?.forEach(p => {
+          usuariosMap.set(p.email, { 
+            nombre: p.nombre_legal, 
+            esInmobiliaria: p.tipo_persona === 'pm' 
+          });
+        });
+      }
+
+      // Paso 6: Combinar datos
       return cuentas.map(cuenta => {
         const oferta = ofertas?.find(o => o.id === cuenta.id_oferta);
         const propiedad = oferta?.propiedades;
@@ -230,7 +261,14 @@ export default function AprobacionComisiones() {
           tipo = categoriaNombre === 'servicios' ? 'Servicio' : 'Producto';
         }
 
-        const comisionistasFiltered = comisionistas?.filter(c => c.id_cuenta_cobranza === cuenta.id) || [];
+        const comisionistasFiltered = (comisionistas?.filter(c => c.id_cuenta_cobranza === cuenta.id) || []).map(c => {
+          const userData = usuariosMap.get(c.email_usuario);
+          return {
+            ...c,
+            nombre: userData?.nombre || 'N/A',
+            esInmobiliaria: userData?.esInmobiliaria || false
+          };
+        });
 
         return {
           ...cuenta,
@@ -413,8 +451,8 @@ export default function AprobacionComisiones() {
             const tieneComisionistas = cuenta.comisionistas.length > 0;
             
             return (
-              <>
-                <TableRow key={cuenta.id} className="cursor-pointer hover:bg-accent/50">
+              <React.Fragment key={cuenta.id}>
+                <TableRow className="cursor-pointer hover:bg-accent/50">
                   <TableCell onClick={() => toggleCuenta(cuenta.id)}>
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4" />
@@ -485,6 +523,7 @@ export default function AprobacionComisiones() {
                             <Table>
                               <TableHeader>
                                 <TableRow>
+                                  <TableHead>Nombre</TableHead>
                                   <TableHead>Email Comisionista</TableHead>
                                   <TableHead>Comisión</TableHead>
                                   <TableHead>Estado</TableHead>
@@ -497,6 +536,14 @@ export default function AprobacionComisiones() {
                                   
                                   return (
                                     <TableRow key={comisionista.email_usuario}>
+                                      <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                          {comisionista.nombre || 'N/A'}
+                                          {comisionista.esInmobiliaria && (
+                                            <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
+                                          )}
+                                        </div>
+                                      </TableCell>
                                       <TableCell>{comisionista.email_usuario}</TableCell>
                                       <TableCell>
                                         <div className="space-y-1">
@@ -531,7 +578,7 @@ export default function AprobacionComisiones() {
                                 })}
                                 {cuenta.comisionistas.length > 0 && (
                                   <TableRow className="font-semibold bg-muted/50">
-                                    <TableCell>Total a dispersar</TableCell>
+                                    <TableCell colSpan={2}>Total a dispersar</TableCell>
                                     <TableCell>
                                       <div className="space-y-1">
                                         <div className="font-bold">{formatMonto((cuenta.precio_final * porcentajeDispersar) / 100)}</div>
@@ -551,7 +598,7 @@ export default function AprobacionComisiones() {
                     </TableCell>
                   </TableRow>
                 )}
-              </>
+              </React.Fragment>
             );
           })
         )}

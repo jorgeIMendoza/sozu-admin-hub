@@ -1532,13 +1532,32 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         .select('email, nombre')
         .in('email', emails);
       
-      // Create a map for quick lookup
-      const usuariosMap = new Map(usuariosData?.map(u => [u.email, u]) || []);
+      // Create a map for quick lookup from usuarios
+      const usuariosMap = new Map(usuariosData?.map(u => [u.email, { nombre: u.nombre, esInmobiliaria: false }]) || []);
+      
+      // Find emails not in usuarios and fetch from personas (inmobiliarias)
+      const emailsNotInUsuarios = emails.filter(email => !usuariosMap.has(email));
+      
+      if (emailsNotInUsuarios.length > 0) {
+        const { data: personasData } = await supabase
+          .from('personas')
+          .select('email, nombre_legal, tipo_persona')
+          .in('email', emailsNotInUsuarios)
+          .eq('activo', true);
+        
+        // Add personas to the map
+        personasData?.forEach(p => {
+          usuariosMap.set(p.email, { 
+            nombre: p.nombre_legal, 
+            esInmobiliaria: p.tipo_persona === 'pm' 
+          });
+        });
+      }
       
       // Merge data
       const mergedData = comisionistasData.map(c => ({
         ...c,
-        usuarios: usuariosMap.get(c.email_usuario)
+        usuarios: usuariosMap.get(c.email_usuario) || null
       }));
       
       return mergedData;
@@ -5005,7 +5024,14 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       <TableBody>
                         {comisionistas.map((comisionista) => (
                           <TableRow key={comisionista.email_usuario}>
-                            <TableCell className="font-medium">{comisionista.usuarios?.nombre || 'N/A'}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {comisionista.usuarios?.nombre || 'N/A'}
+                                {comisionista.usuarios?.esInmobiliaria && (
+                                  <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell>{comisionista.email_usuario}</TableCell>
                             <TableCell className="text-right">
                               {comisionista.porcentaje_comision.toFixed(2)}%
