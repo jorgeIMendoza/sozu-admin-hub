@@ -555,7 +555,7 @@ export function AddManualPaymentDialog({
     if (pagoExistente?.activo) {
       toast({
         title: "Clave de rastreo duplicada",
-        description: `Esta clave ya está registrada en la cuenta ${pagoExistente.id_cuenta_cobranza}`,
+        description: `Esta clave ya está registrada en la cuenta ${formatCuentaLabel(pagoExistente.id_cuenta_cobranza, pagoExistente.tipo_cuenta)}`,
         variant: "destructive",
       });
       return;
@@ -607,6 +607,13 @@ export function AddManualPaymentDialog({
     }
     
     if (hasErrors) {
+      return;
+    }
+
+    // If there's an inactive payment found, show recovery dialog instead of creating new
+    if (pagoExistente && !pagoExistente.activo) {
+      setNuevoMontoRecuperacion(Math.round(montoNuevoPago * 100));
+      setShowRecoveryDialog(true);
       return;
     }
 
@@ -756,16 +763,16 @@ export function AddManualPaymentDialog({
                     const montosDiferentes = !pagoExistente.activo && nuevoMontoNum > 0 && Math.abs(nuevoMontoNum - pagoExistente.monto) > 0.01;
                     
                     return (
-                      <Alert variant={pagoExistente.activo ? "default" : "destructive"}>
+                      <Alert variant={pagoExistente.activo ? "destructive" : "default"} className={!pagoExistente.activo ? "border-primary bg-primary/5" : ""}>
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>
                           {pagoExistente.activo ? "Pago ya registrado" : "Pago anterior encontrado"}
                         </AlertTitle>
                         <AlertDescription>
                           <div className="mt-2 space-y-2 text-sm">
-                            {/* Show amount with update option if different */}
+                            {/* Show amount with update preview if different */}
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span><strong>Monto:</strong></span>
+                              <span><strong>Monto registrado:</strong></span>
                               <span className={montosDiferentes ? "line-through text-muted-foreground" : ""}>
                                 ${pagoExistente.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                               </span>
@@ -782,30 +789,12 @@ export function AddManualPaymentDialog({
                             <p><strong>Cuenta:</strong> {formatCuentaLabel(pagoExistente.id_cuenta_cobranza, pagoExistente.tipo_cuenta)}</p>
                             {pagoExistente.activo ? (
                               <p className="text-muted-foreground mt-2">
-                                Este pago ya está aplicado. No se puede crear otro con la misma clave.
+                                Este pago ya está activo. No se puede crear otro con la misma clave.
                               </p>
                             ) : (
-                              <div className="mt-3 flex gap-2">
-                                <Button 
-                                  type="button" 
-                                  size="sm"
-                                  onClick={() => {
-                                    // Set the recovery amount from form value
-                                    setNuevoMontoRecuperacion(Math.round(nuevoMontoNum * 100));
-                                    setShowRecoveryDialog(true);
-                                  }}
-                                >
-                                  {montosDiferentes ? "Actualizar y Reactivar" : "Reactivar y Recalcular"}
-                                </Button>
-                                <Button 
-                                  type="button"
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={handleClearClave}
-                                >
-                                  Usar otra clave
-                                </Button>
-                              </div>
+                              <p className="text-primary mt-2 font-medium">
+                                Al guardar, se reactivará este pago{montosDiferentes ? " con el nuevo monto" : ""} y se recalcularán las aplicaciones.
+                              </p>
                             )}
                           </div>
                         </AlertDescription>
@@ -885,7 +874,27 @@ export function AddManualPaymentDialog({
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting || createPaymentMutation.isPending || (pagoExistente?.activo === true)}
+                  disabled={(() => {
+                    if (isSubmitting || createPaymentMutation.isPending) return true;
+                    if (pagoExistente?.activo === true) return true;
+                    
+                    const formValues = form.getValues();
+                    const monto = typeof formValues.monto === 'number' ? formValues.monto : parseFloat(String(formValues.monto) || "0");
+                    
+                    // Required fields validation
+                    if (monto <= 0) return true;
+                    if (!formValues.fecha_pago) return true;
+                    if (!formValues.id_metodos_pago) return true;
+                    if (!formValues.evidencia_pago) return true;
+                    
+                    // STP-Manual specific validations
+                    if (isStpManual) {
+                      if (!formValues.clave_rastreo || formValues.clave_rastreo.trim() === "") return true;
+                      if (!formValues.archivo_cep) return true;
+                    }
+                    
+                    return false;
+                  })()}
                 >
                   {(isSubmitting || createPaymentMutation.isPending) && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
