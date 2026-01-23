@@ -67,6 +67,7 @@ export const SATNotificationService = {
       .eq('id_cuenta_cobranza', cuentaCobranzaId)
       .eq('id_tipo_documento', 22)
       .eq('activo', true)
+      .eq('es_draft', false)
       .order('fecha_creacion', { ascending: false })
       .limit(1);
 
@@ -80,6 +81,7 @@ export const SATNotificationService = {
       .eq('id_cuenta_cobranza', cuentaCobranzaId)
       .eq('id_tipo_documento', 21)
       .eq('activo', true)
+      .eq('es_draft', false)
       .order('fecha_creacion', { ascending: false })
       .limit(1);
 
