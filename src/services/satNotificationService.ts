@@ -1,6 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
-
 export interface CompradorSATStatus {
   id_persona: number;
   nombre_legal: string;
@@ -253,65 +251,77 @@ export const SATNotificationService = {
   },
 
   /**
-   * Generate SAT notification file by calling N8N webhook
+   * Generate SAT notification file by calling N8N webhook via Edge Function proxy
    * Returns the URL of the generated file
    */
   async generate(cuentaCobranzaId: number): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
-      const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/generaNotificacionSAT`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id_cuenta_cobranza: cuentaCobranzaId,
-          timestamp: new Date().toISOString()
-        })
+      // Call the Edge Function proxy to avoid CORS issues
+      const { data, error } = await supabase.functions.invoke('trigger-sat-notification', {
+        body: { id_cuenta_cobranza: cuentaCobranzaId }
       });
 
-      if (!response.ok) {
-        throw new Error(`Error from N8N: ${response.statusText}`);
+      if (error) {
+        throw new Error(`Error from Edge Function: ${error.message}`);
       }
 
-      // The response should be the XLSM file
-      const blob = await response.blob();
-      
-      // Generate filename
-      const filename = `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
-      
-      // Upload to Supabase storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documentos')
-        .upload(`sat-notifications/${filename}`, blob, {
-          contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12'
-        });
-
-      if (uploadError) {
-        throw new Error(`Error uploading file: ${uploadError.message}`);
+      if (!data.success) {
+        throw new Error(data.error || 'Error desconocido al generar la notificación');
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('documentos')
-        .getPublicUrl(`sat-notifications/${filename}`);
+      // If the response contains a file (base64), upload it to storage
+      if (data.file) {
+        const filename = data.filename || `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
+        
+        // Convert base64 to blob
+        const binaryString = atob(data.file);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'application/vnd.ms-excel.sheet.macroEnabled.12' });
+        
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase.storage
+          .from('documentos')
+          .upload(`sat-notifications/${filename}`, blob, {
+            contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12'
+          });
 
-      const documentUrl = urlData.publicUrl;
+        if (uploadError) {
+          throw new Error(`Error uploading file: ${uploadError.message}`);
+        }
 
-      // Create document record
-      const { error: docError } = await supabase
-        .from('documentos')
-        .insert({
-          id_cuenta_cobranza: cuentaCobranzaId,
-          id_tipo_documento: 44, // Archivo de notificación al SAT
-          url: documentUrl,
-          activo: true
-        });
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('documentos')
+          .getPublicUrl(`sat-notifications/${filename}`);
 
-      if (docError) {
-        throw new Error(`Error creating document record: ${docError.message}`);
+        const documentUrl = urlData.publicUrl;
+
+        // Create document record
+        const { error: docError } = await supabase
+          .from('documentos')
+          .insert({
+            id_cuenta_cobranza: cuentaCobranzaId,
+            id_tipo_documento: 44, // Archivo de notificación al SAT
+            url: documentUrl,
+            activo: true
+          });
+
+        if (docError) {
+          throw new Error(`Error creating document record: ${docError.message}`);
+        }
+
+        return { success: true, url: documentUrl };
       }
 
-      return { success: true, url: documentUrl };
+      // If N8N already handled the upload and returned a URL
+      if (data.result?.url) {
+        return { success: true, url: data.result.url };
+      }
+
+      return { success: true };
     } catch (error: any) {
       console.error('Error generating SAT notification:', error);
       return { success: false, error: error.message };

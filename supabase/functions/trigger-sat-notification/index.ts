@@ -58,6 +58,31 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Check content type to determine if it's a file or JSON
+    const contentType = response.headers.get('content-type') || ''
+    console.log(`Response content-type: ${contentType}`)
+    
+    // If it's an Excel file, return it as base64
+    if (contentType.includes('application/vnd.ms-excel') || 
+        contentType.includes('application/vnd.openxmlformats') ||
+        contentType.includes('application/octet-stream')) {
+      const fileBuffer = await response.arrayBuffer()
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)))
+      
+      console.log(`SAT notification file received, size: ${fileBuffer.byteLength} bytes`)
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          file: base64,
+          contentType: contentType,
+          filename: `notificacion_sat_${id_cuenta_cobranza}_${Date.now()}.xlsm`
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Otherwise treat as JSON
     const result = await response.json().catch(() => ({ success: true }))
     console.log(`SAT notification triggered successfully for cuenta_cobranza: ${id_cuenta_cobranza}`)
 
