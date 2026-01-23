@@ -891,6 +891,10 @@ export function AddManualPaymentDialog({
                               <p className="text-muted-foreground mt-2">
                                 Este pago ya está activo. No se puede crear otro con la misma clave.
                               </p>
+                            ) : pagoExistente.id_cuenta_cobranza !== cuentaCobranzaId ? (
+                              <p className="text-destructive mt-2 font-medium">
+                                ⚠️ Este pago pertenece a otra cuenta. No se puede agregar aquí.
+                              </p>
                             ) : (
                               <p className="text-primary mt-2 font-medium">
                                 Al guardar, se reactivará este pago{montosDiferentes ? " con el nuevo monto" : ""} y se recalcularán las aplicaciones.
@@ -977,6 +981,8 @@ export function AddManualPaymentDialog({
                   disabled={(() => {
                     if (isSubmitting || createPaymentMutation.isPending || isRecovering) return true;
                     if (pagoExistente?.activo === true) return true;
+                    // Disable if payment belongs to a different account
+                    if (pagoExistente && !pagoExistente.activo && pagoExistente.id_cuenta_cobranza !== cuentaCobranzaId) return true;
                     
                     const formValues = form.getValues();
                     const monto = typeof formValues.monto === 'number' ? formValues.monto : parseFloat(String(formValues.monto) || "0");
