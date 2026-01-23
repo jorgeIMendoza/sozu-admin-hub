@@ -6281,6 +6281,52 @@ export type Database = {
               p_producto?: string
               p_proyecto?: string
               p_proyecto_ids?: number[]
+              p_search?: string
+              p_tipos?: string[]
+            }
+            Returns: {
+              activo: boolean
+              cash_payments: Json
+              clabe_stp: string
+              compradores: Json
+              dueno: string
+              edificio: string
+              estatus_cobranza_nombre: string
+              estatus_cobranza_orden: number
+              estatus_disponibilidad_nombre: string
+              fecha_compra: string
+              id: number
+              id_estatus_cobranza: number
+              id_estatus_disponibilidad: number
+              id_oferta: number
+              modelo: string
+              numero_propiedad: string
+              pagado: number
+              precio_final: number
+              precio_lista: number
+              producto_nombre: string
+              proyecto: string
+              restante: number
+              tipo: string
+              total_count: number
+              vendedor: string
+            }[]
+          }
+        | {
+            Args: {
+              p_activo?: boolean
+              p_clabe?: string
+              p_compradores?: string
+              p_dueno_entity_ids?: number[]
+              p_estatus_ids?: number[]
+              p_id_cuenta?: string
+              p_modelo?: string
+              p_no_propiedad?: string
+              p_page?: number
+              p_per_page?: number
+              p_producto?: string
+              p_proyecto?: string
+              p_proyecto_ids?: number[]
               p_tipos?: string[]
             }
             Returns: {
