@@ -797,7 +797,8 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     <Label htmlFor="estatus_propiedad">Estatus de propiedad *</Label>
                     {(() => {
                       const userCanEdit = profile?.rol_id === ROL_SUPER_ADMIN || profile?.rol_id === ROL_ADMIN_DATA;
-                      const statusIsEditable = originalStatusId !== null && allowedStatusIds.includes(originalStatusId);
+                      // Super Admin puede editar cualquier estatus, otros roles solo Inventario/Disponible
+                      const statusIsEditable = isSuperAdmin || (originalStatusId !== null && allowedStatusIds.includes(originalStatusId));
                       const fieldEnabled = userCanEdit && statusIsEditable;
                       
                       return (
