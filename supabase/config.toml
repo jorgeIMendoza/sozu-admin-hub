@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.recalcular-aplicaciones]
 verify_jwt = false
+
+[functions.trigger-sat-notification]
+verify_jwt = false
