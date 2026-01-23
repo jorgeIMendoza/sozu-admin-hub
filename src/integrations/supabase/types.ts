@@ -2280,13 +2280,6 @@ export type Database = {
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_comisionistas_usuarios"
-            columns: ["email_usuario"]
-            isOneToOne: false
-            referencedRelation: "usuarios"
-            referencedColumns: ["email"]
-          },
         ]
       }
       compradores: {
