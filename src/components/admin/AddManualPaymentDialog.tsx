@@ -985,10 +985,15 @@ export function AddManualPaymentDialog({
                     return false;
                   })()}
                 >
-                  {(isSubmitting || createPaymentMutation.isPending || isRecovering) ? (
+                  {(isSubmitting || createPaymentMutation.isPending) ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {isRecovering ? "Reactivando..." : "Guardando..."}
+                      Guardando...
+                    </>
+                  ) : (isRecovering && !showRecoveryDialog) ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Reactivando...
                     </>
                   ) : (
                     "Guardar Pago"
