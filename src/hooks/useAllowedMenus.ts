@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -11,6 +11,9 @@ export function useAllowedMenus() {
   const { profile, isLoading: isAuthLoading, user, permissionVersion } = useAuth();
   const [allowedPaths, setAllowedPaths] = useState<Set<string>>(new Set());
   const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
+  
+  // Ref para evitar mostrar spinner en recargas subsecuentes
+  const hasLoadedOnce = useRef(false);
 
   // Super Admin has access to everything - only check when profile is loaded
   const isSuperAdmin = profile?.rol_nombre === 'Super Administrador';
@@ -22,8 +25,10 @@ export function useAllowedMenus() {
     if (!profile?.rol_id) return;
     
     try {
-      setIsLoadingPermissions(true);
-      
+      // Solo mostrar spinner la primera vez, recargas son silenciosas
+      if (!hasLoadedOnce.current) {
+        setIsLoadingPermissions(true);
+      }
       // Get all submenus where user has 'leer' permission
       // First get the 'leer' permission id
       const { data: permisoData } = await supabase
@@ -79,9 +84,13 @@ export function useAllowedMenus() {
       });
 
       setAllowedPaths(paths);
+      hasLoadedOnce.current = true;
     } catch (err) {
       console.error('Error in fetchAllowedMenus:', err);
-      setAllowedPaths(new Set());
+      // Solo limpiar paths si nunca hemos cargado exitosamente
+      if (!hasLoadedOnce.current) {
+        setAllowedPaths(new Set());
+      }
     } finally {
       setIsLoadingPermissions(false);
     }

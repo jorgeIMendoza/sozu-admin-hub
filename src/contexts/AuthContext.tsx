@@ -196,13 +196,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (event, newSession) => {
         if (!isMounted) return;
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        // Si es solo un refresh de token y el usuario es el mismo, solo actualizar sesión
+        // Esto evita re-cargar el perfil innecesariamente al cambiar de pestaña
+        if (event === 'TOKEN_REFRESHED' && user && newSession?.user?.id === user.id) {
+          setSession(newSession);
+          return; // No disparar re-carga de perfil
+        }
         
-        if (session?.user) {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        if (newSession?.user) {
           // Defer profile fetch to avoid Supabase deadlock
           profileFetchPromise = fetchProfile().finally(() => {
             if (isMounted) {
