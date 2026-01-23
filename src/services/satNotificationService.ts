@@ -91,14 +91,17 @@ export const SATNotificationService = {
       .eq('id_cuenta_cobranza', cuentaCobranzaId)
       .eq('activo', true);
     
-    const totalPagado = (pagosData || []).reduce((sum, p) => sum + (p.monto || 0), 0);
-    const precioFinal = cuenta.precio_final || 0;
-    const estaPagadaCompletamente = totalPagado >= precioFinal;
+    // Parse numeric values properly (Supabase returns numeric as string)
+    const totalPagado = (pagosData || []).reduce((sum, p) => sum + (parseFloat(String(p.monto)) || 0), 0);
+    const precioFinal = parseFloat(String(cuenta.precio_final)) || 0;
+    const estaPagadaCompletamente = precioFinal > 0 && totalPagado >= precioFinal;
+    
+    console.log('[SAT Service] Payment check:', { totalPagado, precioFinal, estaPagadaCompletamente });
 
     const estatusDisponibilidad = (cuenta.ofertas as any)?.propiedades?.id_estatus_disponibilidad || null;
 
     // Get compradores for this cuenta
-    const { data: compradores } = await supabase
+    const { data: compradores, error: compradoresError } = await supabase
       .from('compradores')
       .select(`
         id_persona,
@@ -109,10 +112,12 @@ export const SATNotificationService = {
       .eq('id_cuenta_cobranza', cuentaCobranzaId)
       .eq('activo', true);
 
+    console.log('[SAT Service] Compradores query:', { cuentaCobranzaId, compradores, compradoresError });
+
     const personaIds = compradores?.map(c => c.id_persona) || [];
 
     // Get all facturas (PDF type 22, XML type 21) for this cuenta
-    const { data: facturas } = await supabase
+    const { data: facturas, error: facturasError } = await supabase
       .from('documentos')
       .select('id, id_persona, id_tipo_documento, id_estatus_verificacion')
       .eq('id_cuenta_cobranza', cuentaCobranzaId)
@@ -120,16 +125,19 @@ export const SATNotificationService = {
       .eq('activo', true)
       .eq('es_draft', false);
 
+    console.log('[SAT Service] Facturas query:', { cuentaCobranzaId, facturas, facturasError });
+
     // Get constancias de situación fiscal (type 6) for all compradores
     let constancias: any[] = [];
     if (personaIds.length > 0) {
-      const { data: constanciasData } = await supabase
+      const { data: constanciasData, error: constanciasError } = await supabase
         .from('documentos')
         .select('id, id_persona, id_estatus_verificacion')
         .in('id_persona', personaIds)
         .eq('id_tipo_documento', 6)
         .eq('activo', true);
       
+      console.log('[SAT Service] Constancias query:', { personaIds, constanciasData, constanciasError });
       constancias = constanciasData || [];
     }
 
