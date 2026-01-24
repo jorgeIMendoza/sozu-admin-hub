@@ -316,16 +316,25 @@ export function SATNotificationDialog({
 
     setIsGenerating(true);
     try {
-      // Load the template using ExcelJS - preserves all formatting
-      const response = await fetch('/templates/template-aviso-sat-inmuebles.xlsm');
+      // Load the template as xlsx format (ExcelJS requires .xlsx, not .xlsm)
+      // Try xlsx first, fallback to xlsm if xlsx doesn't exist
+      let response = await fetch('/templates/template-aviso-sat-inmuebles.xlsx');
+      if (!response.ok) {
+        response = await fetch('/templates/template-aviso-sat-inmuebles.xlsm');
+      }
       if (!response.ok) throw new Error('No se pudo cargar el template');
       
       const arrayBuffer = await response.arrayBuffer();
       const workbook = new ExcelJS.Workbook();
+      
+      // Load with explicit xlsx format
       await workbook.xlsx.load(arrayBuffer);
       
       // Get the first sheet
       const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        throw new Error('No se encontró la hoja en el template');
+      }
       
       const csf = extractedData.constancia_situacion_fiscal;
       const cfdi = extractedData.factura_cfdi;
@@ -335,12 +344,25 @@ export function SATNotificationDialog({
         throw new Error('Datos incompletos. Extrae los datos nuevamente.');
       }
       
-      // Extract name components from CSF
+      // Extract name components from CSF (format: NOMBRES APELLIDO_PATERNO APELLIDO_MATERNO)
       const nombreCompleto = csf.datos_identificacion.nombre || '';
-      const nombreParts = nombreCompleto.split(' ').filter(Boolean);
-      const apellidoPaterno = nombreParts.length >= 2 ? nombreParts[nombreParts.length - 2] : '';
-      const apellidoMaterno = nombreParts.length >= 1 ? nombreParts[nombreParts.length - 1] : '';
-      const nombres = nombreParts.length > 2 ? nombreParts.slice(0, -2).join(' ') : '';
+      const nombreParts = nombreCompleto.trim().split(/\s+/).filter(Boolean);
+      
+      // Mexican naming convention: typically last two words are apellidos
+      let apellidoPaterno = '';
+      let apellidoMaterno = '';
+      let nombres = '';
+      
+      if (nombreParts.length >= 3) {
+        apellidoMaterno = nombreParts[nombreParts.length - 1];
+        apellidoPaterno = nombreParts[nombreParts.length - 2];
+        nombres = nombreParts.slice(0, -2).join(' ');
+      } else if (nombreParts.length === 2) {
+        apellidoPaterno = nombreParts[1];
+        nombres = nombreParts[0];
+      } else {
+        nombres = nombreCompleto;
+      }
       
       // Extract birth date from CURP (positions 4-9: YYMMDD)
       const curp = csf.datos_identificacion.curp || '';
@@ -353,37 +375,43 @@ export function SATNotificationDialog({
         fechaNacimiento = `${dd}/${mm}/${year}`;
       }
 
-      // ExcelJS preserves styles automatically - just set the cell value
-      // Using getCell ensures styles are preserved
-      worksheet.getCell('B2').value = csf.datos_identificacion.rfc;
-      worksheet.getCell('B3').value = csf.datos_identificacion.curp;
-      worksheet.getCell('B4').value = apellidoPaterno;
-      worksheet.getCell('B5').value = apellidoMaterno;
-      worksheet.getCell('B6').value = nombres;
-      worksheet.getCell('B7').value = fechaNacimiento;
+      // Helper to update cell value while preserving style
+      const setCellValue = (address: string, value: string | number | null | undefined) => {
+        const cell = worksheet.getCell(address);
+        // Only update the value property, style is preserved automatically
+        cell.value = value ?? '';
+      };
+
+      // Identification data
+      setCellValue('B2', csf.datos_identificacion.rfc);
+      setCellValue('B3', csf.datos_identificacion.curp);
+      setCellValue('B4', apellidoPaterno);
+      setCellValue('B5', apellidoMaterno);
+      setCellValue('B6', nombres);
+      setCellValue('B7', fechaNacimiento);
       
       // Address
-      worksheet.getCell('B10').value = csf.domicilio_fiscal.vialidad;
-      worksheet.getCell('B11').value = csf.domicilio_fiscal.colonia;
-      worksheet.getCell('B12').value = csf.domicilio_fiscal.municipio;
-      worksheet.getCell('B13').value = csf.domicilio_fiscal.entidad;
-      worksheet.getCell('B14').value = csf.domicilio_fiscal.codigo_postal;
+      setCellValue('B10', csf.domicilio_fiscal.vialidad);
+      setCellValue('B11', csf.domicilio_fiscal.colonia);
+      setCellValue('B12', csf.domicilio_fiscal.municipio);
+      setCellValue('B13', csf.domicilio_fiscal.entidad);
+      setCellValue('B14', csf.domicilio_fiscal.codigo_postal);
       
       // CFDI data
-      worksheet.getCell('B17').value = cfdi.informacion_general.uuid;
-      worksheet.getCell('B18').value = cfdi.informacion_general.fecha;
-      worksheet.getCell('B19').value = cfdi.totales.total;
+      setCellValue('B17', cfdi.informacion_general.uuid);
+      setCellValue('B18', cfdi.informacion_general.fecha);
+      setCellValue('B19', cfdi.totales.total);
       
       // Emisor
-      worksheet.getCell('B22').value = cfdi.emisor.rfc;
-      worksheet.getCell('B23').value = cfdi.emisor.nombre;
+      setCellValue('B22', cfdi.emisor.rfc);
+      setCellValue('B23', cfdi.emisor.nombre);
       
       // Concepto (first one)
       if (cfdi.conceptos && cfdi.conceptos.length > 0) {
-        worksheet.getCell('B26').value = cfdi.conceptos[0].descripcion.substring(0, 500);
+        setCellValue('B26', cfdi.conceptos[0].descripcion.substring(0, 500));
       }
 
-      // Generate the file as xlsx (ExcelJS doesn't support xlsm VBA)
+      // Generate the file as xlsx
       const excelBuffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       
