@@ -219,32 +219,38 @@ export function SATNotificationDialog({
 
       if (data.success && data.result?.documentos_procesados) {
         const docs = data.result.documentos_procesados;
-        setExtractedData(docs);
         
-        // Build comparison results
+        // Validate that required data exists
         const csf = docs.constancia_situacion_fiscal;
         const cfdi = docs.factura_cfdi;
         
+        if (!csf?.datos_identificacion || !csf?.domicilio_fiscal || !cfdi?.receptor) {
+          throw new Error('Los datos extraídos están incompletos. Verifica los documentos.');
+        }
+        
+        setExtractedData(docs);
+        
+        // Build comparison results
         const results: ComparisonResult[] = [
           {
             campo: 'RFC',
-            valorCsf: csf.datos_identificacion.rfc,
-            valorCfdi: cfdi.receptor.rfc,
-            coincide: csf.datos_identificacion.rfc === cfdi.receptor.rfc,
+            valorCsf: csf.datos_identificacion.rfc || '',
+            valorCfdi: cfdi.receptor.rfc || '',
+            coincide: (csf.datos_identificacion.rfc || '') === (cfdi.receptor.rfc || ''),
             requerido: true
           },
           {
             campo: 'Nombre',
-            valorCsf: csf.datos_identificacion.nombre,
-            valorCfdi: cfdi.receptor.nombre,
-            coincide: normalizeText(csf.datos_identificacion.nombre) === normalizeText(cfdi.receptor.nombre),
+            valorCsf: csf.datos_identificacion.nombre || '',
+            valorCfdi: cfdi.receptor.nombre || '',
+            coincide: normalizeText(csf.datos_identificacion.nombre || '') === normalizeText(cfdi.receptor.nombre || ''),
             requerido: true
           },
           {
             campo: 'Código Postal',
-            valorCsf: csf.domicilio_fiscal.codigo_postal,
-            valorCfdi: cfdi.receptor.domicilio_fiscal,
-            coincide: csf.domicilio_fiscal.codigo_postal === cfdi.receptor.domicilio_fiscal,
+            valorCsf: csf.domicilio_fiscal.codigo_postal || '',
+            valorCfdi: cfdi.receptor.domicilio_fiscal || '',
+            coincide: (csf.domicilio_fiscal.codigo_postal || '') === (cfdi.receptor.domicilio_fiscal || ''),
             requerido: true
           }
         ];
@@ -302,11 +308,17 @@ export function SATNotificationDialog({
       const csf = extractedData.constancia_situacion_fiscal;
       const cfdi = extractedData.factura_cfdi;
       
+      // Validate data exists
+      if (!csf?.datos_identificacion || !csf?.domicilio_fiscal || !cfdi?.receptor) {
+        throw new Error('Datos incompletos. Extrae los datos nuevamente.');
+      }
+      
       // Extract name components from CSF
-      const nombreParts = csf.datos_identificacion.nombre.split(' ');
-      const apellidoPaterno = nombreParts.length > 0 ? nombreParts[nombreParts.length - 2] || '' : '';
-      const apellidoMaterno = nombreParts.length > 0 ? nombreParts[nombreParts.length - 1] || '' : '';
-      const nombres = nombreParts.slice(0, -2).join(' ');
+      const nombreCompleto = csf.datos_identificacion.nombre || '';
+      const nombreParts = nombreCompleto.split(' ').filter(Boolean);
+      const apellidoPaterno = nombreParts.length >= 2 ? nombreParts[nombreParts.length - 2] : '';
+      const apellidoMaterno = nombreParts.length >= 1 ? nombreParts[nombreParts.length - 1] : '';
+      const nombres = nombreParts.length > 2 ? nombreParts.slice(0, -2).join(' ') : '';
       
       // Extract birth date from CURP (positions 4-9: YYMMDD)
       const curp = csf.datos_identificacion.curp || '';
