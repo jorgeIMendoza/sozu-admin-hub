@@ -1,91 +1,107 @@
 
-# Plan: Habilitar ofertas de productos para propiedades "Disponible" sin opción de comprador actual
+# Plan: Corregir Mapeo de Celdas para Plantilla SAT Oficial
 
 ## Resumen
 
-Se habilitará el botón "Generar oferta de productos/servicios" para propiedades con estatus **"Disponible"**, pero ocultando automáticamente la opción "Comprador actual" ya que no existe un comprador asociado a la propiedad en ese estado.
+El código actual está escribiendo en celdas incorrectas (B2-B26) que no corresponden a la estructura real del template oficial `Presentacion_de_Aviso_al_SAT_Inmuebles_v4_5-3.xlsm`. Se corregirá el mapeo para usar las celdas correctas según la plantilla oficial.
+
+---
+
+## Estructura del Template Oficial
+
+Basado en el análisis del archivo subido:
+
+### Datos Generales (filas 3-11)
+| Celda | Campo |
+|-------|-------|
+| B3 | RFC |
+| B4 | Periodo (AAAAMM) |
+| D4 | ¿Artículo 27 Bis? |
+| B5 | Referencia |
+| D5 | Prioridad |
+| B6 | Tipo de alerta |
+| D6 | Descripción de alerta |
+| B8 | RFC Entidad colegiada |
+| B10 | ¿El aviso es modificatorio? |
+| B11 | Folio del aviso previo |
+| B12 | Descripción de la modificación |
+
+### Persona Física (fila 17 en adelante, primera persona en fila 17)
+| Columna | Campo |
+|---------|-------|
+| B17 | Nombre(s) |
+| C17 | Apellido Paterno |
+| D17 | Apellido Materno |
+| E17 | Fecha Nacimiento |
+| F17 | RFC |
+| G17 | CURP |
+| H17 | País de nacionalidad |
+| I17 | Actividad económica |
+
+### Domicilio Nacional (fila 48 en adelante, primer domicilio en fila 48)
+| Columna | Campo |
+|---------|-------|
+| B48 | Código postal |
+| C48 | Estado |
+| D48 | Municipio/Delegación |
+| E48 | Colonia |
+| F48 | Calle, avenida o vía |
+| G48 | Número exterior |
+| H48 | Número interior |
+
+### Contacto (fila 72 en adelante)
+| Columna | Campo |
+|---------|-------|
+| B72 | Clave de país |
+| C72 | Número de teléfono |
+| D72 | Correo electrónico |
 
 ---
 
 ## Cambios a Realizar
 
-### 1. Habilitar el botón para estatus "Disponible"
-**Archivo**: `src/pages/admin/Propiedades.tsx`
+### 1. Actualizar plantilla en public/templates
+**Archivo**: Copiar el template subido a `public/templates/template-aviso-sat-inmuebles.xlsm`
 
-Agregar `"Disponible"` a la condición que controla la visibilidad del botón:
+### 2. Modificar función handleGenerateExcel
+**Archivo**: `src/components/admin/SATNotificationDialog.tsx`
+
+Reemplazar el mapeo de celdas actual con el mapeo correcto:
 
 ```typescript
-// Líneas ~4681-4685: Agregar "Disponible" a la lista
-(property.disponibilidad === "Disponible" ||
- property.disponibilidad === "Apartado" || 
- property.disponibilidad === "Vendido" || 
- property.disponibilidad === "Pagada completamente" ||
- property.disponibilidad === "En escrituración" ||
- property.disponibilidad === "Entregado")
+// Datos generales
+setCellValue('B3', cfdi.emisor.rfc);                    // RFC del emisor (inmobiliaria)
+setCellValue('B4', periodo);                             // Periodo AAAAMM
+setCellValue('B5', `CC-${cuentaCobranzaId}`);           // Referencia
+
+// Persona física - Fila 17 (primera persona)
+setCellValue('B17', nombres);                           // Nombre(s)
+setCellValue('C17', apellidoPaterno);                   // Apellido Paterno
+setCellValue('D17', apellidoMaterno);                   // Apellido Materno
+setCellValue('E17', fechaNacimiento);                   // Fecha Nacimiento (DD/MM/YYYY)
+setCellValue('F17', csf.datos_identificacion.rfc);      // RFC
+setCellValue('G17', csf.datos_identificacion.curp);     // CURP
+setCellValue('H17', 'México');                          // País de nacionalidad
+setCellValue('I17', csf.regimenes?.[0] || '');         // Actividad económica
+
+// Domicilio nacional - Fila 48
+setCellValue('B48', csf.domicilio_fiscal.codigo_postal);
+setCellValue('C48', csf.domicilio_fiscal.entidad);
+setCellValue('D48', csf.domicilio_fiscal.municipio);
+setCellValue('E48', csf.domicilio_fiscal.colonia);
+setCellValue('F48', csf.domicilio_fiscal.vialidad);
+setCellValue('G48', csf.domicilio_fiscal.numero_exterior || '');
+setCellValue('H48', csf.domicilio_fiscal.numero_interior || '');
 ```
 
 ---
 
-### 2. Ocultar checkbox "Comprador actual" cuando es "Disponible"
-**Archivo**: `src/components/admin/NewProductOfferDialog.tsx`
+## Consideraciones Técnicas
 
-**Cambio A - Inicializar estado correctamente:**
-Cuando el dialog se abre, si la propiedad está en "Disponible", establecer `useCurrentBuyer` en `false` y `showProspectSearch` en `true` automáticamente:
-
-```typescript
-// useEffect de reset (~líneas 171-198)
-useEffect(() => {
-  if (open) {
-    const isDisponible = property?.disponibilidad === "Disponible";
-    setUseCurrentBuyer(!isDisponible); // false si es Disponible
-    setShowProspectSearch(isDisponible); // true si es Disponible
-    // ... resto del reset
-  }
-}, [open, form, property?.disponibilidad]);
-```
-
-**Cambio B - Ocultar el checkbox en el UI:**
-Solo mostrar el checkbox cuando la propiedad NO está en "Disponible":
-
-```typescript
-// Líneas ~1084-1093: Agregar condición
-{property?.disponibilidad !== "Disponible" && (
-  <div className="flex items-center space-x-2">
-    <Checkbox
-      id="comprador-actual"
-      checked={useCurrentBuyer}
-      onCheckedChange={handleCheckboxChange}
-    />
-    <Label htmlFor="comprador-actual" className="cursor-pointer">
-      Comprador actual
-    </Label>
-  </div>
-)}
-```
-
----
-
-## Flujo Resultante
-
-```text
-┌─────────────────────────────────────────────────────┐
-│           Propiedad con estatus                     │
-└───────────────────────┬─────────────────────────────┘
-                        │
-          ┌─────────────┴─────────────┐
-          │                           │
-   ┌──────▼──────┐           ┌────────▼────────┐
-   │ "Disponible" │           │  Otros estatus  │
-   └──────┬──────┘           │  (Apartado, etc) │
-          │                   └────────┬────────┘
-          │                            │
-┌─────────▼─────────┐      ┌───────────▼───────────┐
-│ Sin checkbox de   │      │ Checkbox "Comprador   │
-│ "Comprador actual"│      │ actual" visible       │
-│ Inicia en búsqueda│      │ Puede elegir entre    │
-│ de prospecto      │      │ actual o buscar       │
-└───────────────────┘      └───────────────────────┘
-```
+1. **Formato de fecha**: El template espera fecha en formato DD/MM/YYYY, ya implementado correctamente
+2. **Múltiples compradores**: El template soporta hasta 10 personas físicas (filas 17-26), pero por ahora solo poblamos la primera
+3. **Preservación de estilos**: Mantener el helper `setCellValue` que solo modifica el valor sin alterar estilos
+4. **ExcelJS y .xlsm**: ExcelJS tiene soporte limitado para macros, pero preserva el contenido básico
 
 ---
 
@@ -93,13 +109,44 @@ Solo mostrar el checkbox cuando la propiedad NO está en "Disponible":
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/pages/admin/Propiedades.tsx` | Agregar "Disponible" a condición de visibilidad del botón |
-| `src/components/admin/NewProductOfferDialog.tsx` | Inicializar estado sin comprador actual + ocultar checkbox |
+| `public/templates/template-aviso-sat-inmuebles.xlsm` | Reemplazar con el archivo oficial subido |
+| `src/components/admin/SATNotificationDialog.tsx` | Actualizar mapeo de celdas según estructura del template |
 
 ---
 
-## Detalles Técnicos
+## Flujo de Generación
 
-- El query `currentBuyerData` no se ejecutará cuando no hay `cuenta_cobranza_id` (lo cual es normal para propiedades "Disponible")
-- El formulario funcionará correctamente con búsqueda de prospecto o ingreso manual de datos
-- No se requieren cambios en la base de datos ni en Edge Functions
+```text
+┌────────────────────────────────────────┐
+│      Datos Extraídos (CSF + CFDI)      │
+└───────────────────┬────────────────────┘
+                    │
+                    ▼
+┌────────────────────────────────────────┐
+│      Mapeo a Celdas del Template       │
+│                                        │
+│  RFC Emisor      → B3                  │
+│  Periodo         → B4                  │
+│  Referencia      → B5                  │
+│  Nombre(s)       → B17                 │
+│  Apellido Pat.   → C17                 │
+│  Apellido Mat.   → D17                 │
+│  Fecha Nac.      → E17                 │
+│  RFC             → F17                 │
+│  CURP            → G17                 │
+│  País            → H17                 │
+│  Actividad       → I17                 │
+│  Código Postal   → B48                 │
+│  Estado          → C48                 │
+│  Municipio       → D48                 │
+│  Colonia         → E48                 │
+│  Calle           → F48                 │
+│  Núm. Ext.       → G48                 │
+│  Núm. Int.       → H48                 │
+└───────────────────┬────────────────────┘
+                    │
+                    ▼
+┌────────────────────────────────────────┐
+│    Guardar y Descargar Excel (.xlsx)   │
+└────────────────────────────────────────┘
+```
