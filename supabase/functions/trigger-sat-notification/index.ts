@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     }
     
     // Handle both wrapped and unwrapped responses
-    // n8n may return the data directly or wrapped in documentos_procesados
+    // n8n may return the data directly or wrapped in documentos_procesados (sometimes double-wrapped)
     let documentos = result.documentos_procesados || result
     
     // If n8n returns an array, take the first element
@@ -121,7 +121,15 @@ Deno.serve(async (req) => {
       documentos = documentos[0]
     }
     
-    console.log(`Documentos structure: ${JSON.stringify(documentos).substring(0, 1000)}`)
+    // Handle double-nesting: if documentos has its own documentos_procesados, unwrap it
+    if (documentos.documentos_procesados && !documentos.constancia_situacion_fiscal) {
+      console.log('Detected double-nested documentos_procesados, unwrapping...')
+      documentos = documentos.documentos_procesados
+    }
+    
+    console.log(`Final documentos keys: ${JSON.stringify(Object.keys(documentos))}`)
+    console.log(`Has CSF: ${!!documentos.constancia_situacion_fiscal}`)
+    console.log(`Has CFDI: ${!!documentos.factura_cfdi}`)
 
     return new Response(
       JSON.stringify({ success: true, result: { documentos_procesados: documentos } }),
