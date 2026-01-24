@@ -321,7 +321,14 @@ export function SATNotificationDialog({
       if (!response.ok) throw new Error('No se pudo cargar el template');
       
       const arrayBuffer = await response.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array', bookVBA: true });
+      // Read with cellStyles to preserve formatting
+      const workbook = XLSX.read(arrayBuffer, { 
+        type: 'array', 
+        bookVBA: true,
+        cellStyles: true,
+        cellNF: true,
+        cellDates: true
+      });
       
       // Get the first sheet
       const sheetName = workbook.SheetNames[0];
@@ -353,34 +360,53 @@ export function SATNotificationDialog({
         fechaNacimiento = `${dd}/${mm}/${year}`;
       }
 
-      // Fill in the template cells (adjust based on actual template structure)
-      // These are example cell positions - adjust based on actual template
-      worksheet['B2'] = { t: 's', v: csf.datos_identificacion.rfc };
-      worksheet['B3'] = { t: 's', v: csf.datos_identificacion.curp };
-      worksheet['B4'] = { t: 's', v: apellidoPaterno };
-      worksheet['B5'] = { t: 's', v: apellidoMaterno };
-      worksheet['B6'] = { t: 's', v: nombres };
-      worksheet['B7'] = { t: 's', v: fechaNacimiento };
+      // Helper to update cell value preserving style
+      const updateCell = (cellRef: string, value: string | number) => {
+        if (worksheet[cellRef]) {
+          // Preserve existing cell properties (style, format, etc.) and update only value
+          const existingCell = worksheet[cellRef];
+          if (typeof value === 'number') {
+            existingCell.t = 'n';
+            existingCell.v = value;
+          } else {
+            existingCell.t = 's';
+            existingCell.v = value;
+          }
+        } else {
+          // Cell doesn't exist, create with basic type
+          worksheet[cellRef] = typeof value === 'number' 
+            ? { t: 'n', v: value }
+            : { t: 's', v: value };
+        }
+      };
+
+      // Fill in the template cells - preserving original formatting
+      updateCell('B2', csf.datos_identificacion.rfc);
+      updateCell('B3', csf.datos_identificacion.curp);
+      updateCell('B4', apellidoPaterno);
+      updateCell('B5', apellidoMaterno);
+      updateCell('B6', nombres);
+      updateCell('B7', fechaNacimiento);
       
       // Address
-      worksheet['B10'] = { t: 's', v: csf.domicilio_fiscal.vialidad };
-      worksheet['B11'] = { t: 's', v: csf.domicilio_fiscal.colonia };
-      worksheet['B12'] = { t: 's', v: csf.domicilio_fiscal.municipio };
-      worksheet['B13'] = { t: 's', v: csf.domicilio_fiscal.entidad };
-      worksheet['B14'] = { t: 's', v: csf.domicilio_fiscal.codigo_postal };
+      updateCell('B10', csf.domicilio_fiscal.vialidad);
+      updateCell('B11', csf.domicilio_fiscal.colonia);
+      updateCell('B12', csf.domicilio_fiscal.municipio);
+      updateCell('B13', csf.domicilio_fiscal.entidad);
+      updateCell('B14', csf.domicilio_fiscal.codigo_postal);
       
       // CFDI data
-      worksheet['B17'] = { t: 's', v: cfdi.informacion_general.uuid };
-      worksheet['B18'] = { t: 's', v: cfdi.informacion_general.fecha };
-      worksheet['B19'] = { t: 'n', v: cfdi.totales.total };
+      updateCell('B17', cfdi.informacion_general.uuid);
+      updateCell('B18', cfdi.informacion_general.fecha);
+      updateCell('B19', cfdi.totales.total);
       
       // Emisor
-      worksheet['B22'] = { t: 's', v: cfdi.emisor.rfc };
-      worksheet['B23'] = { t: 's', v: cfdi.emisor.nombre };
+      updateCell('B22', cfdi.emisor.rfc);
+      updateCell('B23', cfdi.emisor.nombre);
       
       // Concepto (first one)
       if (cfdi.conceptos && cfdi.conceptos.length > 0) {
-        worksheet['B26'] = { t: 's', v: cfdi.conceptos[0].descripcion.substring(0, 500) };
+        updateCell('B26', cfdi.conceptos[0].descripcion.substring(0, 500));
       }
 
       // Generate the file
