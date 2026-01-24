@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 interface SATNotificationDialogProps {
   isOpen: boolean;
@@ -316,23 +316,16 @@ export function SATNotificationDialog({
 
     setIsGenerating(true);
     try {
-      // Load the template
+      // Load the template using ExcelJS - preserves all formatting
       const response = await fetch('/templates/template-aviso-sat-inmuebles.xlsm');
       if (!response.ok) throw new Error('No se pudo cargar el template');
       
       const arrayBuffer = await response.arrayBuffer();
-      // Read with cellStyles to preserve formatting
-      const workbook = XLSX.read(arrayBuffer, { 
-        type: 'array', 
-        bookVBA: true,
-        cellStyles: true,
-        cellNF: true,
-        cellDates: true
-      });
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
       
       // Get the first sheet
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
+      const worksheet = workbook.worksheets[0];
       
       const csf = extractedData.constancia_situacion_fiscal;
       const cfdi = extractedData.factura_cfdi;
@@ -360,65 +353,46 @@ export function SATNotificationDialog({
         fechaNacimiento = `${dd}/${mm}/${year}`;
       }
 
-      // Helper to update cell value preserving style
-      const updateCell = (cellRef: string, value: string | number) => {
-        if (worksheet[cellRef]) {
-          // Preserve existing cell properties (style, format, etc.) and update only value
-          const existingCell = worksheet[cellRef];
-          if (typeof value === 'number') {
-            existingCell.t = 'n';
-            existingCell.v = value;
-          } else {
-            existingCell.t = 's';
-            existingCell.v = value;
-          }
-        } else {
-          // Cell doesn't exist, create with basic type
-          worksheet[cellRef] = typeof value === 'number' 
-            ? { t: 'n', v: value }
-            : { t: 's', v: value };
-        }
-      };
-
-      // Fill in the template cells - preserving original formatting
-      updateCell('B2', csf.datos_identificacion.rfc);
-      updateCell('B3', csf.datos_identificacion.curp);
-      updateCell('B4', apellidoPaterno);
-      updateCell('B5', apellidoMaterno);
-      updateCell('B6', nombres);
-      updateCell('B7', fechaNacimiento);
+      // ExcelJS preserves styles automatically - just set the cell value
+      // Using getCell ensures styles are preserved
+      worksheet.getCell('B2').value = csf.datos_identificacion.rfc;
+      worksheet.getCell('B3').value = csf.datos_identificacion.curp;
+      worksheet.getCell('B4').value = apellidoPaterno;
+      worksheet.getCell('B5').value = apellidoMaterno;
+      worksheet.getCell('B6').value = nombres;
+      worksheet.getCell('B7').value = fechaNacimiento;
       
       // Address
-      updateCell('B10', csf.domicilio_fiscal.vialidad);
-      updateCell('B11', csf.domicilio_fiscal.colonia);
-      updateCell('B12', csf.domicilio_fiscal.municipio);
-      updateCell('B13', csf.domicilio_fiscal.entidad);
-      updateCell('B14', csf.domicilio_fiscal.codigo_postal);
+      worksheet.getCell('B10').value = csf.domicilio_fiscal.vialidad;
+      worksheet.getCell('B11').value = csf.domicilio_fiscal.colonia;
+      worksheet.getCell('B12').value = csf.domicilio_fiscal.municipio;
+      worksheet.getCell('B13').value = csf.domicilio_fiscal.entidad;
+      worksheet.getCell('B14').value = csf.domicilio_fiscal.codigo_postal;
       
       // CFDI data
-      updateCell('B17', cfdi.informacion_general.uuid);
-      updateCell('B18', cfdi.informacion_general.fecha);
-      updateCell('B19', cfdi.totales.total);
+      worksheet.getCell('B17').value = cfdi.informacion_general.uuid;
+      worksheet.getCell('B18').value = cfdi.informacion_general.fecha;
+      worksheet.getCell('B19').value = cfdi.totales.total;
       
       // Emisor
-      updateCell('B22', cfdi.emisor.rfc);
-      updateCell('B23', cfdi.emisor.nombre);
+      worksheet.getCell('B22').value = cfdi.emisor.rfc;
+      worksheet.getCell('B23').value = cfdi.emisor.nombre;
       
       // Concepto (first one)
       if (cfdi.conceptos && cfdi.conceptos.length > 0) {
-        updateCell('B26', cfdi.conceptos[0].descripcion.substring(0, 500));
+        worksheet.getCell('B26').value = cfdi.conceptos[0].descripcion.substring(0, 500);
       }
 
-      // Generate the file
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsm', type: 'array', bookVBA: true });
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.ms-excel.sheet.macroEnabled.12' });
+      // Generate the file as xlsx (ExcelJS doesn't support xlsm VBA)
+      const excelBuffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       
       // Upload to storage
-      const filename = `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
+      const filename = `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsx`;
       const { error: uploadError } = await supabase.storage
         .from('documentos')
         .upload(`sat-notifications/${filename}`, blob, {
-          contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12'
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         });
 
       if (uploadError) throw uploadError;
