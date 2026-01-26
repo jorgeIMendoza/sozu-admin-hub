@@ -1574,10 +1574,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       // Get existing comisionistas emails
       const existingEmails = comisionistas?.map(c => c.email_usuario) || [];
       
+      // Filter by es_rol_interno = true to include all internal roles automatically
       const { data } = await supabase
         .from('usuarios')
-        .select('email, nombre')
-        .in('rol_id', [1, 2, 3, 9, 10]) // Super Admin, Admin Proyecto, Agente Inmobiliario, Agente Interno, Admin Data
+        .select('email, nombre, roles!inner(es_rol_interno)')
+        .eq('roles.es_rol_interno', true)
         .or(`email.ilike.%${searchUsuario}%,nombre.ilike.%${searchUsuario}%`)
         .not('email', 'in', existingEmails.length > 0 ? `(${existingEmails.map(e => `"${e}"`).join(',')})` : '("")')
         .limit(10);
