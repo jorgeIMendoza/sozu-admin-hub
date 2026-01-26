@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Download, RefreshCw, Upload, FileCheck, AlertCircle, CheckCircle2, XCircle, Users, FileSearch } from "lucide-react";
+import { Loader2, Download, RefreshCw, Upload, FileCheck, AlertCircle, CheckCircle2, XCircle, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SATNotificationService, SATNotificationStatus, CompradorSATStatus } from "@/services/satNotificationService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import ExcelJS from 'exceljs';
 
 interface SATNotificationDialogProps {
   isOpen: boolean;
@@ -36,70 +35,6 @@ interface SATNotificationDialogProps {
   cuentaCobranzaId: number;
   cuentaLabel: string;
   onSuccess?: () => void;
-}
-
-interface ExtractedData {
-  constancia_situacion_fiscal: {
-    origen: string;
-    datos_identificacion: {
-      id_cif: string;
-      rfc: string;
-      curp: string;
-      nombre: string;
-      fecha_inicio_operaciones: string;
-      estatus: string;
-    };
-    domicilio_fiscal: {
-      codigo_postal: string;
-      vialidad: string;
-      colonia: string;
-      municipio: string;
-      entidad: string;
-    };
-    regimenes: string[];
-  };
-  factura_cfdi: {
-    origen: string;
-    informacion_general: {
-      version: string;
-      folio: string;
-      fecha: string;
-      uuid: string;
-      tipo_comprobante: string;
-      lugar_expedicion: string;
-    };
-    emisor: {
-      rfc: string;
-      nombre: string;
-      regimen_fiscal: string;
-    };
-    receptor: {
-      rfc: string;
-      nombre: string;
-      uso_cfdi: string;
-      domicilio_fiscal: string;
-      regimen_fiscal: string;
-    };
-    totales: {
-      moneda: string;
-      subtotal: number;
-      total: number;
-    };
-    conceptos: Array<{
-      clave_prod_serv: string;
-      cantidad: number;
-      descripcion: string;
-      importe: number;
-    }>;
-  };
-}
-
-interface ComparisonResult {
-  campo: string;
-  valorCsf: string;
-  valorCfdi: string;
-  coincide: boolean;
-  requerido: boolean;
 }
 
 export function SATNotificationDialog({
@@ -113,20 +48,13 @@ export function SATNotificationDialog({
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
   const [isCompradoresOpen, setIsCompradoresOpen] = useState(false);
-  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
-  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
-  const [comparisonResults, setComparisonResults] = useState<ComparisonResult[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen && cuentaCobranzaId) {
       loadStatus();
-      // Reset extracted data when dialog opens
-      setExtractedData(null);
-      setComparisonResults([]);
     }
   }, [isOpen, cuentaCobranzaId]);
 
@@ -151,18 +79,8 @@ export function SATNotificationDialog({
     }
   };
 
-  const normalizeText = (text: string): string => {
-    if (!text) return '';
-    return text
-      .toUpperCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
-
-  const handleExtractData = async () => {
-    setIsExtracting(true);
+  const handleGenerateSAT = async () => {
+    setIsGenerating(true);
     try {
       // Get compradores for this cuenta
       const { data: compradores } = await supabase
@@ -204,7 +122,7 @@ export function SATNotificationDialog({
         throw new Error('No se encontraron los documentos necesarios (XML y CSF)');
       }
 
-      // Call Edge Function to extract data
+      // Call Edge Function with the new endpoint
       const { data, error } = await supabase.functions.invoke('trigger-sat-notification', {
         body: {
           id_cuenta_cobranza: cuentaCobranzaId,
@@ -217,257 +135,80 @@ export function SATNotificationDialog({
 
       if (error) throw error;
 
-      console.log('SAT extraction response:', JSON.stringify(data, null, 2));
+      console.log('SAT generation response:', JSON.stringify(data, null, 2));
 
-      if (data.success && data.result?.documentos_procesados) {
-        const docs = data.result.documentos_procesados;
+      // If the response contains a file (base64), download it and save
+      if (data.success && data.file) {
+        const filename = data.filename || `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
         
-        // Get CSF and CFDI with flexible structure handling
-        const csf = docs.constancia_situacion_fiscal;
-        const cfdi = docs.factura_cfdi;
-        
-        console.log('CSF data:', csf);
-        console.log('CFDI data:', cfdi);
-        
-        // Build comparison results even with partial data - show what we have
-        const csfRfc = csf?.datos_identificacion?.rfc || '';
-        const csfNombre = csf?.datos_identificacion?.nombre || '';
-        const csfCp = csf?.domicilio_fiscal?.codigo_postal || '';
-        const cfdiRfc = cfdi?.receptor?.rfc || '';
-        const cfdiNombre = cfdi?.receptor?.nombre || '';
-        const cfdiCp = cfdi?.receptor?.domicilio_fiscal || '';
-        
-        // Check if we have minimum required data
-        const hasMinimumData = csfRfc || cfdiRfc || csfNombre || cfdiNombre;
-        
-        if (!hasMinimumData) {
-          // Show detailed error about what's missing
-          const missingParts = [];
-          if (!csf) missingParts.push('CSF');
-          if (!cfdi) missingParts.push('CFDI');
-          if (csf && !csf.datos_identificacion) missingParts.push('datos_identificacion');
-          if (cfdi && !cfdi.receptor) missingParts.push('receptor');
-          throw new Error(`Datos incompletos. Faltan: ${missingParts.join(', ')}. Estructura recibida: ${JSON.stringify(Object.keys(docs))}`);
+        // Convert base64 to blob
+        const binaryString = atob(data.file);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
+        const blob = new Blob([bytes], { type: data.contentType || 'application/vnd.ms-excel.sheet.macroEnabled.12' });
         
-        setExtractedData(docs);
-        
-        // Build comparison results
-        const results: ComparisonResult[] = [
-          {
-            campo: 'RFC',
-            valorCsf: csfRfc,
-            valorCfdi: cfdiRfc,
-            coincide: csfRfc !== '' && cfdiRfc !== '' && csfRfc === cfdiRfc,
-            requerido: true
-          },
-          {
-            campo: 'Nombre',
-            valorCsf: csfNombre,
-            valorCfdi: cfdiNombre,
-            coincide: csfNombre !== '' && cfdiNombre !== '' && normalizeText(csfNombre) === normalizeText(cfdiNombre),
-            requerido: true
-          },
-          {
-            campo: 'Código Postal',
-            valorCsf: csfCp,
-            valorCfdi: cfdiCp,
-            coincide: csfCp !== '' && cfdiCp !== '' && csfCp === cfdiCp,
-            requerido: true
-          }
-        ];
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase.storage
+          .from('documentos')
+          .upload(`sat-notifications/${filename}`, blob, {
+            contentType: data.contentType || 'application/vnd.ms-excel.sheet.macroEnabled.12'
+          });
 
-        setComparisonResults(results);
-        setIsComparisonOpen(true);
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('documentos')
+          .getPublicUrl(`sat-notifications/${filename}`);
+
+        const documentUrl = urlData.publicUrl;
+
+        // Create document record
+        const { error: docError } = await supabase
+          .from('documentos')
+          .insert({
+            id_cuenta_cobranza: cuentaCobranzaId,
+            id_tipo_documento: 44,
+            url: documentUrl,
+            activo: true
+          });
+
+        if (docError) throw docError;
+
+        // Download the file for the user
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
 
         toast({
-          title: "Datos extraídos",
-          description: "Los datos han sido extraídos. Verifica la comparación."
+          title: "Éxito",
+          description: "Archivo de notificación SAT generado y descargado"
         });
+
+        await loadStatus();
+        onSuccess?.();
+      } else if (data.success) {
+        toast({
+          title: "Éxito",
+          description: "Notificación SAT procesada correctamente"
+        });
+        await loadStatus();
+        onSuccess?.();
       } else {
-        throw new Error(data.error || `Error al extraer datos. Respuesta: ${JSON.stringify(data).substring(0, 200)}`);
+        throw new Error(data.error || 'Error al generar la notificación');
       }
     } catch (error: any) {
-      console.error('Error extracting data:', error);
+      console.error('Error generating SAT notification:', error);
       toast({
         title: "Error",
-        description: error.message || "Error al extraer datos",
-        variant: "destructive"
-      });
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
-  const allRequiredFieldsMatch = () => {
-    if (comparisonResults.length === 0) return false;
-    return comparisonResults.filter(r => r.requerido).every(r => r.coincide);
-  };
-
-  const handleGenerateExcel = async () => {
-    if (!extractedData) {
-      toast({
-        title: "Error",
-        description: "Primero debes extraer los datos",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      // Load the template as xlsx format (ExcelJS requires .xlsx, not .xlsm)
-      // Try xlsx first, fallback to xlsm if xlsx doesn't exist
-      let response = await fetch('/templates/template-aviso-sat-inmuebles.xlsx');
-      if (!response.ok) {
-        response = await fetch('/templates/template-aviso-sat-inmuebles.xlsm');
-      }
-      if (!response.ok) throw new Error('No se pudo cargar el template');
-      
-      const arrayBuffer = await response.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      
-      // Load with explicit xlsx format
-      await workbook.xlsx.load(arrayBuffer);
-      
-      // Get the first sheet
-      const worksheet = workbook.worksheets[0];
-      if (!worksheet) {
-        throw new Error('No se encontró la hoja en el template');
-      }
-      
-      const csf = extractedData.constancia_situacion_fiscal;
-      const cfdi = extractedData.factura_cfdi;
-      
-      // Validate data exists
-      if (!csf?.datos_identificacion || !csf?.domicilio_fiscal || !cfdi?.receptor) {
-        throw new Error('Datos incompletos. Extrae los datos nuevamente.');
-      }
-      
-      // Extract name components from CSF (format: NOMBRES APELLIDO_PATERNO APELLIDO_MATERNO)
-      const nombreCompleto = csf.datos_identificacion.nombre || '';
-      const nombreParts = nombreCompleto.trim().split(/\s+/).filter(Boolean);
-      
-      // Mexican naming convention: typically last two words are apellidos
-      let apellidoPaterno = '';
-      let apellidoMaterno = '';
-      let nombres = '';
-      
-      if (nombreParts.length >= 3) {
-        apellidoMaterno = nombreParts[nombreParts.length - 1];
-        apellidoPaterno = nombreParts[nombreParts.length - 2];
-        nombres = nombreParts.slice(0, -2).join(' ');
-      } else if (nombreParts.length === 2) {
-        apellidoPaterno = nombreParts[1];
-        nombres = nombreParts[0];
-      } else {
-        nombres = nombreCompleto;
-      }
-      
-      // Extract birth date from CURP (positions 4-9: YYMMDD)
-      const curp = csf.datos_identificacion.curp || '';
-      let fechaNacimiento = '';
-      if (curp.length >= 10) {
-        const yy = curp.substring(4, 6);
-        const mm = curp.substring(6, 8);
-        const dd = curp.substring(8, 10);
-        const year = parseInt(yy) > 30 ? `19${yy}` : `20${yy}`;
-        fechaNacimiento = `${dd}/${mm}/${year}`;
-      }
-
-      // Helper to update cell value while preserving style
-      const setCellValue = (address: string, value: string | number | null | undefined) => {
-        const cell = worksheet.getCell(address);
-        // Only update the value property, style is preserved automatically
-        cell.value = value ?? '';
-      };
-
-      // Generate period in AAAAMM format (current month)
-      const now = new Date();
-      const periodo = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-      // === DATOS GENERALES (filas 3-12) ===
-      setCellValue('B3', cfdi.emisor.rfc);                    // RFC del emisor (inmobiliaria)
-      setCellValue('B4', periodo);                            // Periodo AAAAMM
-      setCellValue('B5', `CC-${cuentaCobranzaId}`);           // Referencia
-      
-      // === PERSONA FÍSICA - Fila 17 (primera persona) ===
-      setCellValue('B17', nombres);                           // Nombre(s)
-      setCellValue('C17', apellidoPaterno);                   // Apellido Paterno
-      setCellValue('D17', apellidoMaterno);                   // Apellido Materno
-      setCellValue('E17', fechaNacimiento);                   // Fecha Nacimiento (DD/MM/YYYY)
-      setCellValue('F17', csf.datos_identificacion.rfc);      // RFC
-      setCellValue('G17', csf.datos_identificacion.curp);     // CURP
-      setCellValue('H17', 'México');                          // País de nacionalidad
-      setCellValue('I17', csf.regimenes?.[0] || '');         // Actividad económica (primer régimen)
-      
-      // === DOMICILIO NACIONAL - Fila 48 ===
-      setCellValue('B48', csf.domicilio_fiscal.codigo_postal);
-      setCellValue('C48', csf.domicilio_fiscal.entidad);
-      setCellValue('D48', csf.domicilio_fiscal.municipio);
-      setCellValue('E48', csf.domicilio_fiscal.colonia);
-      setCellValue('F48', csf.domicilio_fiscal.vialidad);
-      // Número exterior e interior - intentar extraer de la vialidad si contiene "No." o "#"
-      const vialidad = csf.domicilio_fiscal.vialidad || '';
-      const numExtMatch = vialidad.match(/(?:No\.?|#)\s*(\d+)/i);
-      setCellValue('G48', numExtMatch ? numExtMatch[1] : '');  // Número exterior
-      setCellValue('H48', '');                                  // Número interior (opcional)
-
-      // Generate the file as xlsx
-      const excelBuffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      
-      // Upload to storage
-      const filename = `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsx`;
-      const { error: uploadError } = await supabase.storage
-        .from('documentos')
-        .upload(`sat-notifications/${filename}`, blob, {
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('documentos')
-        .getPublicUrl(`sat-notifications/${filename}`);
-
-      const documentUrl = urlData.publicUrl;
-
-      // Create document record
-      const { error: docError } = await supabase
-        .from('documentos')
-        .insert({
-          id_cuenta_cobranza: cuentaCobranzaId,
-          id_tipo_documento: 44,
-          url: documentUrl,
-          activo: true
-        });
-
-      if (docError) throw docError;
-
-      // Also download the file for the user
-      const downloadUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(downloadUrl);
-
-      toast({
-        title: "Éxito",
-        description: "Archivo de notificación SAT generado y descargado"
-      });
-
-      await loadStatus();
-      onSuccess?.();
-    } catch (error: any) {
-      console.error('Error generating Excel:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Error al generar el archivo",
+        description: error.message || "Error al generar la notificación",
         variant: "destructive"
       });
     } finally {
@@ -480,20 +221,17 @@ export function SATNotificationDialog({
     setIsGenerating(true);
     try {
       await SATNotificationService.invalidatePrevious(cuentaCobranzaId);
-      setExtractedData(null);
-      setComparisonResults([]);
       toast({
         title: "Archivo anterior invalidado",
-        description: "Extrae los datos nuevamente para regenerar"
+        description: "Generando nuevo archivo..."
       });
-      await loadStatus();
+      await handleGenerateSAT();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Error al invalidar",
+        description: error.message || "Error al regenerar",
         variant: "destructive"
       });
-    } finally {
       setIsGenerating(false);
     }
   };
@@ -628,50 +366,6 @@ export function SATNotificationDialog({
     );
   };
 
-  const renderComparisonTable = () => {
-    if (comparisonResults.length === 0) return null;
-
-    return (
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[120px]">Campo</TableHead>
-              <TableHead>Valor CSF</TableHead>
-              <TableHead>Valor CFDI</TableHead>
-              <TableHead className="text-center w-[80px]">Estado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {comparisonResults.map((result, index) => (
-              <TableRow 
-                key={index}
-                className={!result.coincide ? "bg-red-50 dark:bg-red-950/20" : ""}
-              >
-                <TableCell className="font-medium text-sm">
-                  {result.campo}
-                  {result.requerido && <span className="text-red-500 ml-1">*</span>}
-                </TableCell>
-                <TableCell className="text-sm font-mono">
-                  {result.valorCsf.length > 30 ? result.valorCsf.substring(0, 30) + '...' : result.valorCsf}
-                </TableCell>
-                <TableCell className="text-sm font-mono">
-                  {result.valorCfdi.length > 30 ? result.valorCfdi.substring(0, 30) + '...' : result.valorCfdi}
-                </TableCell>
-                <TableCell className="text-center">
-                  {renderStatusIcon(result.coincide)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <p className="text-xs text-muted-foreground p-2 border-t">
-          * Campos requeridos para generar el Excel
-        </p>
-      </div>
-    );
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
@@ -741,33 +435,6 @@ export function SATNotificationDialog({
               </Collapsible>
             )}
 
-            {/* Comparison section - only show when data is extracted */}
-            {comparisonResults.length > 0 && (
-              <Collapsible open={isComparisonOpen} onOpenChange={setIsComparisonOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between p-2 h-auto">
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      <FileSearch className="h-4 w-4" />
-                      Comparación de Datos
-                      {allRequiredFieldsMatch() ? (
-                        <Badge className="bg-green-600 text-xs">Coinciden</Badge>
-                      ) : (
-                        <Badge variant="destructive" className="text-xs">No coinciden</Badge>
-                      )}
-                    </span>
-                    {isComparisonOpen ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
-                  {renderComparisonTable()}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-
             {/* Current status */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -825,32 +492,16 @@ export function SATNotificationDialog({
         <DialogFooter className="flex-wrap gap-2">
           {status && !isLoading && (
             <>
-              {/* Case 1: No archivo SAT - Show Extract Data button first, then Generate if data matches */}
+              {/* Case 1: No archivo SAT - Show Validar y Generar button */}
               {!status.hasArchivoSAT && status.canGenerate && (
-                <>
-                  {!extractedData ? (
-                    <Button onClick={handleExtractData} disabled={isExtracting}>
-                      {isExtracting ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <FileSearch className="h-4 w-4 mr-2" />
-                      )}
-                      Extraer y Comparar Datos
-                    </Button>
+                <Button onClick={handleGenerateSAT} disabled={isGenerating}>
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <Button 
-                      onClick={handleGenerateExcel} 
-                      disabled={isGenerating || !allRequiredFieldsMatch()}
-                    >
-                      {isGenerating ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <FileCheck className="h-4 w-4 mr-2" />
-                      )}
-                      Generar Excel SAT
-                    </Button>
+                    <FileCheck className="h-4 w-4 mr-2" />
                   )}
-                </>
+                  Validar y Generar
+                </Button>
               )}
 
               {/* Case 2: Has archivo SAT but no acuse - Show Download, Regenerate, Upload Acuse */}

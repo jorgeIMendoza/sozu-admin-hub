@@ -34,7 +34,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    const webhookUrl = `${n8nBaseUrl}/extraerDatosXmlCsf`
+    // Use the new endpoint that generates the file directly
+    const webhookUrl = `${n8nBaseUrl}/extraerDatosXmlCsfYGeneraArchivo`
     console.log(`Calling N8N webhook: ${webhookUrl}`)
 
     // Call the N8N webhook
@@ -68,7 +69,8 @@ Deno.serve(async (req) => {
     // If it's an Excel file, return it as base64
     if (contentType.includes('application/vnd.ms-excel') || 
         contentType.includes('application/vnd.openxmlformats') ||
-        contentType.includes('application/octet-stream')) {
+        contentType.includes('application/octet-stream') ||
+        contentType.includes('spreadsheet')) {
       const fileBuffer = await response.arrayBuffer()
       const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)))
       
@@ -85,7 +87,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Otherwise treat as JSON - return the extracted data
+    // Otherwise treat as JSON response
     const responseText = await response.text()
     console.log(`Raw N8N response (first 2000 chars): ${responseText.substring(0, 2000)}`)
     
@@ -100,7 +102,7 @@ Deno.serve(async (req) => {
       )
     }
     
-    console.log(`SAT notification data extracted for cuenta_cobranza: ${id_cuenta_cobranza}`)
+    console.log(`SAT notification response for cuenta_cobranza: ${id_cuenta_cobranza}`)
     console.log(`Response structure keys: ${JSON.stringify(Object.keys(result))}`)
     
     // Check if n8n returned an error message
@@ -112,27 +114,9 @@ Deno.serve(async (req) => {
       )
     }
     
-    // Handle both wrapped and unwrapped responses
-    // n8n may return the data directly or wrapped in documentos_procesados (sometimes double-wrapped)
-    let documentos = result.documentos_procesados || result
-    
-    // If n8n returns an array, take the first element
-    if (Array.isArray(documentos)) {
-      documentos = documentos[0]
-    }
-    
-    // Handle double-nesting: if documentos has its own documentos_procesados, unwrap it
-    if (documentos.documentos_procesados && !documentos.constancia_situacion_fiscal) {
-      console.log('Detected double-nested documentos_procesados, unwrapping...')
-      documentos = documentos.documentos_procesados
-    }
-    
-    console.log(`Final documentos keys: ${JSON.stringify(Object.keys(documentos))}`)
-    console.log(`Has CSF: ${!!documentos.constancia_situacion_fiscal}`)
-    console.log(`Has CFDI: ${!!documentos.factura_cfdi}`)
-
+    // If n8n returns a file URL or success indicator, pass it through
     return new Response(
-      JSON.stringify({ success: true, result: { documentos_procesados: documentos } }),
+      JSON.stringify({ success: true, result }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
