@@ -162,64 +162,28 @@ export function SATNotificationDialog({
         return;
       }
 
-      // If the response contains a file (base64), download it and save
-      if (data.success && (data.type === 'file' || data.file)) {
+      // If the response contains a file URL (uploaded by edge function)
+      if (data.success && data.type === 'file' && data.url) {
         // Clear any previous validation errors
         setValidationErrors(null);
         
         const filename = data.filename || `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
         
-        // Convert base64 to blob
-        const binaryString = atob(data.file);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: data.contentType || 'application/vnd.ms-excel.sheet.macroEnabled.12' });
-        
-        // Upload to Supabase storage
-        const { error: uploadError } = await supabase.storage
-          .from('documentos')
-          .upload(`sat-notifications/${filename}`, blob, {
-            contentType: data.contentType || 'application/vnd.ms-excel.sheet.macroEnabled.12'
-          });
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('documentos')
-          .getPublicUrl(`sat-notifications/${filename}`);
-
-        const documentUrl = urlData.publicUrl;
-
-        // Create document record
-        const { error: docError } = await supabase
-          .from('documentos')
-          .insert({
-            id_cuenta_cobranza: cuentaCobranzaId,
-            id_tipo_documento: 44,
-            url: documentUrl,
-            activo: true
-          });
-
-        if (docError) throw docError;
-
         // Download the file for the user
-        const downloadUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = downloadUrl;
+        a.href = data.url;
         a.download = filename;
+        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(downloadUrl);
 
         toast({
           title: "Éxito",
           description: "Archivo de notificación SAT generado y descargado"
         });
 
+        // Reload status to show the new document
         await loadStatus();
         onSuccess?.();
       } else if (data.success) {
