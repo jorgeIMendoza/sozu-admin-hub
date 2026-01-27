@@ -341,51 +341,9 @@ export const SATNotificationService = {
         };
       }
 
-      // Handle file response (binary Excel)
-      if (data.type === 'file' && data.file) {
-        const filename = data.filename || `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
-        
-        // Convert base64 to blob
-        const binaryString = atob(data.file);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: 'application/vnd.ms-excel.sheet.macroEnabled.12' });
-        
-        // Upload to Supabase storage
-        const { error: uploadError } = await supabase.storage
-          .from('documentos')
-          .upload(`sat-notifications/${filename}`, blob, {
-            contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12'
-          });
-
-        if (uploadError) {
-          throw new Error(`Error uploading file: ${uploadError.message}`);
-        }
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('documentos')
-          .getPublicUrl(`sat-notifications/${filename}`);
-
-        const documentUrl = urlData.publicUrl;
-
-        // Create document record
-        const { error: docError } = await supabase
-          .from('documentos')
-          .insert({
-            id_cuenta_cobranza: cuentaCobranzaId,
-            id_tipo_documento: 44, // Archivo de notificación al SAT
-            url: documentUrl,
-            activo: true
-          });
-
-        if (docError) {
-          throw new Error(`Error creating document record: ${docError.message}`);
-        }
-
-        return { success: true, type: 'file', url: documentUrl };
+      // Handle file response - file is already uploaded by edge function
+      if (data.type === 'file' && data.url) {
+        return { success: true, type: 'file', url: data.url };
       }
 
       return { success: true };

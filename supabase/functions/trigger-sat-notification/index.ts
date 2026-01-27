@@ -1,4 +1,19 @@
 import { corsHeaders } from '../_shared/cors.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Helper function to encode ArrayBuffer to base64 in chunks (memory efficient)
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192; // Process 8KB at a time
+  let binary = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  
+  return btoa(binary);
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -61,23 +76,71 @@ Deno.serve(async (req) => {
     const contentType = response.headers.get('content-type') || ''
     console.log(`Response content-type: ${contentType}`)
     
-    // If it's an Excel file, return it as base64
+    // If it's an Excel file, upload directly to Supabase Storage (avoid base64 in response)
     if (contentType.includes('application/vnd.ms-excel') || 
         contentType.includes('application/vnd.openxmlformats') ||
         contentType.includes('application/octet-stream') ||
         contentType.includes('spreadsheet')) {
-      const fileBuffer = await response.arrayBuffer()
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)))
       
+      const fileBuffer = await response.arrayBuffer()
       console.log(`SAT notification file received, size: ${fileBuffer.byteLength} bytes`)
+      
+      // Upload directly to Supabase Storage from edge function
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const supabase = createClient(supabaseUrl, supabaseServiceKey)
+      
+      const filename = `notificacion_sat_${id_cuenta_cobranza}_${Date.now()}.xlsm`
+      const filePath = `sat-notifications/${filename}`
+      
+      // Upload file to storage
+      const { error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(filePath, fileBuffer, {
+          contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12',
+          upsert: false
+        })
+      
+      if (uploadError) {
+        console.error('Error uploading to storage:', uploadError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to upload file to storage', details: uploadError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('documentos')
+        .getPublicUrl(filePath)
+      
+      const documentUrl = urlData.publicUrl
+      console.log(`File uploaded to: ${documentUrl}`)
+      
+      // Create document record
+      const { error: docError } = await supabase
+        .from('documentos')
+        .insert({
+          id_cuenta_cobranza,
+          id_tipo_documento: 44, // Archivo de notificación al SAT
+          url: documentUrl,
+          activo: true
+        })
+      
+      if (docError) {
+        console.error('Error creating document record:', docError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to create document record', details: docError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       
       return new Response(
         JSON.stringify({ 
           success: true, 
           type: 'file',
-          file: base64,
-          contentType: contentType,
-          filename: `notificacion_sat_${id_cuenta_cobranza}_${Date.now()}.xlsm`
+          url: documentUrl,
+          filename: filename
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
