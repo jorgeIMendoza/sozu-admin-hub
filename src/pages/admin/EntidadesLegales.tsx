@@ -232,10 +232,56 @@ export default function EntidadesLegales() {
     return canDeleteInfo?.canDelete ?? false;
   };
 
+  // Helper function to translate database errors to user-friendly messages
+  const getFriendlyErrorMessage = (error: any): string => {
+    const message = error?.message || '';
+    
+    if (message.includes('inmobiliariaId')) {
+      return 'Error interno de configuración. Por favor contacte al administrador.';
+    }
+    if (message.includes('duplicate key') || message.includes('already exists')) {
+      if (message.includes('email')) {
+        return 'Ya existe una entidad legal con este correo electrónico.';
+      }
+      if (message.includes('rfc')) {
+        return 'Ya existe una entidad legal con este RFC.';
+      }
+      return 'Ya existe un registro con estos datos.';
+    }
+    if (message.includes('violates foreign key')) {
+      return 'Uno de los registros relacionados no existe o fue eliminado.';
+    }
+    if (message.includes('null value in column')) {
+      const match = message.match(/column "(\w+)"/);
+      const field = match ? match[1] : 'campo requerido';
+      const fieldNames: Record<string, string> = {
+        nombre_legal: 'Razón Social',
+        email: 'Email',
+        telefono: 'Teléfono',
+        rfc: 'RFC',
+      };
+      return `El campo "${fieldNames[field] || field}" es obligatorio.`;
+    }
+    if (message.includes('schema cache')) {
+      return 'Error de configuración interna. Por favor intente de nuevo.';
+    }
+    
+    return 'Ocurrió un error inesperado. Por favor intente de nuevo.';
+  };
+
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      // Extract entity type and representatives from personData
-      const { entityType, representativeId, commercialRepresentativeId, tempBankAccounts, tempBeneficiaries, pendingDocuments, ...cleanPersonData } = personData;
+      // Extract entity type, representatives, and frontend-only fields from personData
+      const { 
+        entityType, 
+        representativeId, 
+        commercialRepresentativeId, 
+        inmobiliariaId, // Exclude this field - it's not in the personas schema
+        tempBankAccounts, 
+        tempBeneficiaries, 
+        pendingDocuments, 
+        ...cleanPersonData 
+      } = personData;
       
       // First, create the person record
       const { data: personResult, error: personError } = await supabase
@@ -365,9 +411,10 @@ export default function EntidadesLegales() {
       });
     },
     onError: (error: any) => {
+      console.error('Error creating entidad legal:', error);
       toast({
         title: "Error",
-        description: `Error al crear la entidad legal: ${error.message}`,
+        description: getFriendlyErrorMessage(error),
         variant: "destructive",
       });
     },
@@ -499,9 +546,10 @@ export default function EntidadesLegales() {
       });
     },
     onError: (error: any) => {
+      console.error('Error updating entidad legal:', error);
       toast({
         title: "Error",
-        description: `Error al actualizar la entidad legal: ${error.message}`,
+        description: getFriendlyErrorMessage(error),
         variant: "destructive",
       });
     },
