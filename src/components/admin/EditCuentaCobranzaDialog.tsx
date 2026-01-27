@@ -4873,7 +4873,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 <CardTitle className="flex items-center justify-between">
                   <span>Comisionistas</span>
                   <Badge variant="outline">
-                    {totalPorcentajeComisionistas.toFixed(2)}% / {porcentajeComision}%
+                    {totalPorcentajeComisionistas.toFixed(4)}% / {porcentajeComision}%
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -5035,7 +5035,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             </TableCell>
                             <TableCell>{comisionista.email_usuario}</TableCell>
                             <TableCell className="text-right">
-                              {comisionista.porcentaje_comision.toFixed(2)}%
+                              {comisionista.porcentaje_comision.toFixed(4)}%
                             </TableCell>
                             <TableCell className="text-right">
                               {cuentaDetalle?.precio_final ? 
