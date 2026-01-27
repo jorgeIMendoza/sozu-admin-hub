@@ -24,6 +24,7 @@ const ROL_SUPER_ADMIN = 1;
 const ROL_ADMIN_DATA = 10;
 const ESTATUS_INVENTARIO = 1;
 const ESTATUS_DISPONIBLE = 2;
+const ESTATUS_ASIGNADO = 10; // NADIE puede cambiar A este estatus, ni DESDE este estatus
 
 // Funciones para formatear moneda
 const formatCurrency = (value: string | number | undefined): string => {
@@ -487,7 +488,29 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
       const currentStatusId = parseInt(formData.id_estatus_disponibilidad);
       
       if (originalStatusId !== null && currentStatusId !== originalStatusId) {
-        // Si no es Super Admin o Admin de Data, rechazar
+        // REGLA 1: NADIE puede cambiar A "Asignado" - solo el sistema lo asigna
+        if (currentStatusId === ESTATUS_ASIGNADO) {
+          toast({
+            title: "Error",
+            description: "El estatus 'Asignado' solo puede ser establecido por el sistema al asignar una propiedad.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // REGLA 2: NADIE puede cambiar DESDE "Asignado" a otro estatus
+        if (originalStatusId === ESTATUS_ASIGNADO) {
+          toast({
+            title: "Error",
+            description: "No se puede cambiar el estatus de una propiedad que ya está 'Asignado'.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Si no es Super Admin o Admin de Data, rechazar cualquier cambio de estatus
         if (!canEditPropertyStatus) {
           toast({
             title: "Error",
@@ -498,7 +521,7 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
           return;
         }
         
-        // Super Admin puede cambiar a cualquier estatus, otros roles solo Inventario <-> Disponible
+        // Usuarios no-super solo pueden cambiar entre Inventario <-> Disponible
         if (!isSuperAdmin && (!allowedStatusIds.includes(currentStatusId) || !allowedStatusIds.includes(originalStatusId))) {
           toast({
             title: "Error",
@@ -792,42 +815,68 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
                     />
                   </div>
 
-                  {/* Campo de Estatus de propiedad - Solo editable por Super Admin y Admin de Data */}
+                  {/* Campo de Estatus de propiedad - Reglas especiales para "Asignado" */}
                   <div className="space-y-2">
                     <Label htmlFor="estatus_propiedad">Estatus de propiedad *</Label>
                     {(() => {
                       const userCanEdit = profile?.rol_id === ROL_SUPER_ADMIN || profile?.rol_id === ROL_ADMIN_DATA;
-                      // Super Admin puede editar cualquier estatus, otros roles solo Inventario/Disponible
-                      const statusIsEditable = isSuperAdmin || (originalStatusId !== null && allowedStatusIds.includes(originalStatusId));
+                      // Si la propiedad está en "Asignado", NADIE puede cambiarla
+                      const isAsignado = originalStatusId === ESTATUS_ASIGNADO;
+                      // Super Admin puede editar cualquier estatus (excepto Asignado), otros roles solo Inventario/Disponible
+                      const statusIsEditable = !isAsignado && (isSuperAdmin || (originalStatusId !== null && allowedStatusIds.includes(originalStatusId)));
                       const fieldEnabled = userCanEdit && statusIsEditable;
                       
                       return (
-                        <Select
-                          value={formData.id_estatus_disponibilidad}
-                          onValueChange={(val) => setFormData(prev => ({ ...prev, id_estatus_disponibilidad: val }))}
-                          disabled={!fieldEnabled}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona estatus" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {estatusDisponibilidad?.map((estatus) => {
-                              // Super Admin puede seleccionar cualquier estatus
-                              const isAllowed = isSuperAdmin || allowedStatusIds.includes(estatus.id);
-                              const isCurrent = estatus.id.toString() === formData.id_estatus_disponibilidad;
-                              return (
-                                <SelectItem 
-                                  key={estatus.id} 
-                                  value={estatus.id.toString()}
-                                  disabled={!isAllowed && !isCurrent}
-                                  className={!isAllowed && !isCurrent ? "opacity-50" : ""}
-                                >
-                                  {estatus.nombre}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
+                        <>
+                          <Select
+                            value={formData.id_estatus_disponibilidad}
+                            onValueChange={(val) => setFormData(prev => ({ ...prev, id_estatus_disponibilidad: val }))}
+                            disabled={!fieldEnabled}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona estatus" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {estatusDisponibilidad?.map((estatus) => {
+                                // NADIE puede seleccionar "Asignado" - solo el sistema lo asigna
+                                if (estatus.id === ESTATUS_ASIGNADO) {
+                                  const isCurrent = estatus.id.toString() === formData.id_estatus_disponibilidad;
+                                  // Solo mostrar si es el estatus actual (para que se vea el valor)
+                                  if (!isCurrent) return null;
+                                  return (
+                                    <SelectItem 
+                                      key={estatus.id} 
+                                      value={estatus.id.toString()}
+                                      disabled={true}
+                                      className="opacity-50"
+                                    >
+                                      {estatus.nombre} (solo sistema)
+                                    </SelectItem>
+                                  );
+                                }
+                                
+                                // Super Admin puede seleccionar cualquier estatus excepto Asignado
+                                const isAllowed = isSuperAdmin || allowedStatusIds.includes(estatus.id);
+                                const isCurrent = estatus.id.toString() === formData.id_estatus_disponibilidad;
+                                return (
+                                  <SelectItem 
+                                    key={estatus.id} 
+                                    value={estatus.id.toString()}
+                                    disabled={!isAllowed && !isCurrent}
+                                    className={!isAllowed && !isCurrent ? "opacity-50" : ""}
+                                  >
+                                    {estatus.nombre}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                          {isAsignado && (
+                            <p className="text-xs text-amber-600">
+                              El estatus "Asignado" no puede ser modificado manualmente.
+                            </p>
+                          )}
+                        </>
                       );
                     })()}
                   </div>
