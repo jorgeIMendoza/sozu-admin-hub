@@ -53,6 +53,7 @@ serve(async (req) => {
         numero_propiedad,
         id_estatus_disponibilidad,
         id_entidad_relacionada_dueno,
+        id_edificio_modelo,
         activo
       `)
       .eq('id', id_propiedad)
@@ -67,31 +68,53 @@ serve(async (req) => {
       );
     }
 
-    // 1b. Obtener el proyecto de la entidad relacionada
-    const { data: entidadRelacionada, error: entidadError } = await supabase
-      .from('entidades_relacionadas')
-      .select(`
-        id_proyecto,
-        proyectos!entidades_relacionadas_id_proyecto_fkey(id, nombre)
-      `)
-      .eq('id', propiedad.id_entidad_relacionada_dueno)
-      .single();
+    // 1b. Obtener el proyecto - primero intentar desde entidad_relacionada, luego desde edificio
+    let proyecto: { id: number; nombre: string } | null = null;
 
-    if (entidadError || !entidadRelacionada) {
-      console.error('❌ Error al obtener entidad relacionada:', entidadError);
-      return new Response(
-        JSON.stringify({ success: false, message: 'No se pudo obtener el proyecto de la propiedad' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+    // Intentar obtener desde entidad_relacionada_dueno
+    if (propiedad.id_entidad_relacionada_dueno) {
+      const { data: entidadRelacionada } = await supabase
+        .from('entidades_relacionadas')
+        .select(`
+          id_proyecto,
+          proyectos!entidades_relacionadas_id_proyecto_fkey(id, nombre)
+        `)
+        .eq('id', propiedad.id_entidad_relacionada_dueno)
+        .single();
+
+      if (entidadRelacionada?.proyectos) {
+        proyecto = entidadRelacionada.proyectos as any;
+      }
     }
 
-    const proyecto = (entidadRelacionada.proyectos as any);
+    // Si no se encontró, intentar obtener desde edificio_modelo -> edificio -> proyecto
+    if (!proyecto && propiedad.id_edificio_modelo) {
+      const { data: edificioModelo } = await supabase
+        .from('edificios_modelos')
+        .select(`
+          edificios!edificios_modelos_id_edificio_fkey(
+            id_proyecto,
+            proyectos!edificios_id_proyecto_fkey(id, nombre)
+          )
+        `)
+        .eq('id', propiedad.id_edificio_modelo)
+        .single();
+
+      const edificio = (edificioModelo?.edificios as any);
+      if (edificio?.proyectos) {
+        proyecto = edificio.proyectos as any;
+      }
+    }
+
     if (!proyecto) {
+      console.error('❌ No se pudo determinar el proyecto de la propiedad');
       return new Response(
-        JSON.stringify({ success: false, message: 'No se pudo obtener el proyecto de la propiedad' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ success: false, message: 'No se pudo obtener el proyecto de la propiedad. Verifique que la propiedad tenga un edificio/modelo o dueño asignado.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
+
+    console.log('📍 Proyecto encontrado:', proyecto.id, proyecto.nombre);
 
     // Validar que la propiedad esté en estatus "Disponible" (2) o "Listo" (3)
     if (propiedad.id_estatus_disponibilidad !== 2 && propiedad.id_estatus_disponibilidad !== 3) {
