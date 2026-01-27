@@ -314,7 +314,7 @@ export default function ComisionesPorPagarTab({
                                       <TableCell className="text-right">
                                         {formatCurrency(cuenta.montoComision)}
                                         <span className="text-muted-foreground text-xs ml-1">
-                                          ({cuenta.porcentajeComision}%)
+                                          ({Number(cuenta.porcentajeComision).toFixed(4)}%)
                                         </span>
                                       </TableCell>
                                       {(canUpdate || isSuperAdmin) && (
@@ -481,7 +481,7 @@ export default function ComisionesPorPagarTab({
                                         </div>
                                       </TableCell>
                                       <TableCell>{comisionista.email}</TableCell>
-                                      <TableCell className="text-right">{comisionista.porcentajeComision}%</TableCell>
+                                      <TableCell className="text-right">{Number(comisionista.porcentajeComision).toFixed(4)}%</TableCell>
                                       <TableCell className="text-right">
                                         {formatCurrency(comisionista.montoComision)}
                                       </TableCell>

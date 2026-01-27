@@ -511,7 +511,7 @@ export default function AprobacionComisiones() {
                     <div className="space-y-1">
                       <div className="font-medium">{formatMonto((cuenta.precio_final * porcentajeTotalPendiente) / 100)}</div>
                       <Badge variant={porcentajeTotalPendiente > 0 ? "default" : "secondary"}>
-                        {porcentajeTotalPendiente.toFixed(2)}%
+                        {porcentajeTotalPendiente.toFixed(4)}%
                       </Badge>
                     </div>
                   </TableCell>
@@ -519,7 +519,7 @@ export default function AprobacionComisiones() {
                     <div className="space-y-1">
                       <div className="font-medium">{formatMonto((cuenta.precio_final * porcentajeDispersar) / 100)}</div>
                       <Badge variant={porcentajeDispersar > 0 ? "default" : "secondary"}>
-                        {porcentajeDispersar.toFixed(2)}%
+                        {porcentajeDispersar.toFixed(4)}%
                       </Badge>
                     </div>
                   </TableCell>
@@ -581,7 +581,7 @@ export default function AprobacionComisiones() {
                                         <div className="space-y-1">
                                           <div className="font-medium">{formatMonto(montoFinal)}</div>
                                           <Badge variant="outline">
-                                            {comisionista.porcentaje_comision.toFixed(2)}%
+                                            {comisionista.porcentaje_comision.toFixed(4)}%
                                           </Badge>
                                         </div>
                                       </TableCell>
@@ -619,7 +619,7 @@ export default function AprobacionComisiones() {
                                       <div className="space-y-1">
                                         <div className="font-bold">{formatMonto((cuenta.precio_final * porcentajeDispersar) / 100)}</div>
                                         <Badge variant="default">
-                                          {porcentajeDispersar.toFixed(2)}%
+                                          {porcentajeDispersar.toFixed(4)}%
                                         </Badge>
                                       </div>
                                     </TableCell>

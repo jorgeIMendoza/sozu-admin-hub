@@ -685,7 +685,7 @@ export default function ComisionesExternas() {
                                         <TableCell className="text-right">
                                           {formatCurrency(cuenta.montoComision)}
                                           <span className="text-muted-foreground text-xs ml-1">
-                                            ({cuenta.porcentajeComision}%)
+                                            ({Number(cuenta.porcentajeComision).toFixed(4)}%)
                                           </span>
                                         </TableCell>
                                         <TableCell>
