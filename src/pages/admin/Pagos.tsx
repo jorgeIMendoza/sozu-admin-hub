@@ -1448,7 +1448,7 @@ export default function Pagos() {
 {paginatedCuentas.map(cuenta => <TableRow key={cuenta.id} className={
                       cuenta.id_estatus_disponibilidad === 11
                         ? "bg-amber-50 dark:bg-amber-950/30"
-                        : cuenta.restante <= 0.01 && !cuenta.motivo_cancelacion && cuenta.tiene_acuerdos && !cuenta.tiene_multas_pendientes && cuenta.precio_final > 0 
+                        : cuenta.restante <= 0.01 && !cuenta.motivo_cancelacion && !cuenta.tiene_multas_pendientes && (cuenta.tiene_acuerdos || cuenta.precio_final === 0)
                           ? "bg-green-50 dark:bg-green-950/20" 
                           : ""
                     }>
