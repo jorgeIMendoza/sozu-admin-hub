@@ -587,8 +587,22 @@ export default function RolesPermisos() {
     },
   });
 
+  // Permisos que NO aplican a ciertos submenus (hardcoded exclusions)
+  // Submenu 45 = Comisiones externas: no tiene exportar ni generar_oferta
+  const SUBMENU_PERMISSION_EXCLUSIONS: Record<number, string[]> = {
+    45: ['exportar', 'generar_oferta'],
+  };
+
   // Check if a permission is available for a submenu
   const isPermissionAvailableForSubmenu = (submenuId: number, permisoId: number): boolean => {
+    // Check hardcoded exclusions first
+    const exclusions = SUBMENU_PERMISSION_EXCLUSIONS[submenuId];
+    if (exclusions) {
+      const permiso = permisos.find(p => p.id === permisoId);
+      if (permiso && exclusions.includes(permiso.nombre)) {
+        return false;
+      }
+    }
     return availablePermissions.has(`${submenuId}-${permisoId}`);
   };
 
