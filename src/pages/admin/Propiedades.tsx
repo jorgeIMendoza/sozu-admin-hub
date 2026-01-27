@@ -4692,7 +4692,8 @@ const Propiedades = () => {
                             property.disponibilidad === "Vendido" || 
                             property.disponibilidad === "Pagada completamente" ||
                             property.disponibilidad === "En escrituración" ||
-                            property.disponibilidad === "Entregado") && (
+                            property.disponibilidad === "Entregado" ||
+                            property.disponibilidad === "Asignado") && (
                             <NewProductOfferDialog 
                               propertyId={property.id}
                               property={property}

@@ -59,7 +59,7 @@ export function OwnerHistoryDialog({
         .eq('activo', true);
 
       if (ofertasError) throw ofertasError;
-      if (!ofertasData || ofertasData.length === 0) return [];
+      if (!ofertasData || ofertasData.length === 0) return { entries: [], esFideicomiso: false };
 
       const ofertaIds = ofertasData.map(o => o.id);
 
@@ -74,9 +74,20 @@ export function OwnerHistoryDialog({
         .order('fecha_creacion', { ascending: true });
 
       if (cuentasError) throw cuentasError;
-      if (!cuentasData || cuentasData.length === 0) return [];
+      if (!cuentasData || cuentasData.length === 0) return { entries: [], esFideicomiso: false };
 
       const cuentaIds = cuentasData.map(c => c.id);
+
+      // 2.5. Check if any account has "Asignación" concept (id=15) - this means it's a fideicomiso
+      const { data: acuerdosAsignacion } = await supabase
+        .from('acuerdos_pago')
+        .select('id_cuenta_cobranza')
+        .in('id_cuenta_cobranza', cuentaIds)
+        .eq('id_concepto', 15) // Asignación
+        .eq('activo', true)
+        .limit(1);
+      
+      const esFideicomiso = (acuerdosAsignacion && acuerdosAsignacion.length > 0);
 
       // 3. Get maintenance accounts (fecha_entrega) for each main account
       const { data: cuentasMantenimiento } = await supabase
@@ -150,7 +161,7 @@ export function OwnerHistoryDialog({
       });
 
       // Build the history entries
-      const history: OwnerHistoryEntry[] = cuentasData.map(cuenta => {
+      const entries: OwnerHistoryEntry[] = cuentasData.map(cuenta => {
         const totalPagado = pagosPorCuenta[cuenta.id] || 0;
         const precioFinal = Number(cuenta.precio_final) || 0;
         const restante = +(precioFinal - totalPagado).toFixed(2);
@@ -169,7 +180,7 @@ export function OwnerHistoryDialog({
         };
       });
 
-      return history;
+      return { entries, esFideicomiso };
     },
     enabled: open,
     staleTime: 60 * 1000 // Cache for 1 minute
@@ -194,11 +205,15 @@ export function OwnerHistoryDialog({
     setOpen(true);
   };
 
+  // Determine if this property was ever part of a fideicomiso (from query or status)
+  const esFideicomiso = historyData?.esFideicomiso || esAsignado;
+  const entries = historyData?.entries || [];
+
   // Get the current owner name for delivered properties
   const getCurrentOwnerNames = () => {
-    if (!historyData || historyData.length === 0) return null;
+    if (!entries || entries.length === 0) return null;
     
-    const entregada = historyData.find(e => e.tiene_cuenta_mantenimiento);
+    const entregada = entries.find(e => e.tiene_cuenta_mantenimiento);
     if (entregada && entregada.compradores.length > 0) {
       return entregada.compradores.map(c => c.nombre_legal);
     }
@@ -247,8 +262,8 @@ export function OwnerHistoryDialog({
             <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-muted" />
 
             <div className="space-y-0">
-              {/* Original Owner - Only show if NOT Asignado status */}
-              {!esAsignado && (
+              {/* Original Owner - Only show if NOT fideicomiso */}
+              {!esFideicomiso && (
                 <div className="relative flex gap-4 pb-8">
                   {/* Timeline dot */}
                   <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
@@ -263,7 +278,7 @@ export function OwnerHistoryDialog({
                         </span>
                       </div>
                       <h3 className="text-lg font-semibold">{propietarioOriginal}</h3>
-                      {!historyData?.some(e => e.tiene_cuenta_mantenimiento) && !esAsignado && (
+                      {!entries?.some(e => e.tiene_cuenta_mantenimiento) && !esFideicomiso && (
                         <Badge variant="default" className="mt-2">
                           Propietario Actual
                         </Badge>
@@ -286,10 +301,10 @@ export function OwnerHistoryDialog({
               )}
 
               {/* History Entries */}
-              {!isLoading && historyData && historyData.map((entry, index) => {
+              {!isLoading && entries && entries.map((entry, index) => {
                 const isDelivered = entry.tiene_cuenta_mantenimiento;
-                const isLast = index === historyData.length - 1;
-                const isFideicomiso = esAsignado && !isDelivered;
+                const isLast = index === entries.length - 1;
+                const isEntryFideicomiso = esFideicomiso && !isDelivered;
                 
                 return (
                   <div key={entry.cuenta_id} className={cn("relative flex gap-4", !isLast && "pb-8")}>
@@ -298,7 +313,7 @@ export function OwnerHistoryDialog({
                       "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-lg transition-all",
                       isDelivered 
                         ? "bg-green-500 text-white" 
-                        : isFideicomiso
+                        : isEntryFideicomiso
                           ? "bg-blue-500 text-white"
                           : "bg-amber-500 text-white"
                     )}>
@@ -314,7 +329,7 @@ export function OwnerHistoryDialog({
                         "rounded-lg border p-4 shadow-sm transition-all",
                         isDelivered 
                           ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30" 
-                          : isFideicomiso
+                          : isEntryFideicomiso
                             ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
                             : "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30"
                       )}>
@@ -324,7 +339,7 @@ export function OwnerHistoryDialog({
                             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                               {isDelivered 
                                 ? 'Propietario Actual' 
-                                : isFideicomiso 
+                                : isEntryFideicomiso 
                                   ? 'Asignado a Fideicomisario'
                                   : 'Transacción en Proceso'}
                             </span>
@@ -332,7 +347,7 @@ export function OwnerHistoryDialog({
                               <Badge className="bg-green-600 hover:bg-green-700 text-white">
                                 Entregada
                               </Badge>
-                            ) : isFideicomiso ? (
+                            ) : isEntryFideicomiso ? (
                               <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
                                 Fideicomiso
                               </Badge>
@@ -341,7 +356,7 @@ export function OwnerHistoryDialog({
                                 En Proceso
                               </Badge>
                             )}
-                            {isFideicomiso && (
+                            {isEntryFideicomiso && (
                               <Badge variant="default" className="ml-auto">
                                 Propietario Actual
                               </Badge>
@@ -374,7 +389,7 @@ export function OwnerHistoryDialog({
                         )}
 
                         {/* Details grid - Show fideicomiso info OR account details */}
-                        {isFideicomiso ? (
+                        {isEntryFideicomiso ? (
                           <div className="border-t pt-3">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Building2 className="h-4 w-4" />
@@ -429,7 +444,7 @@ export function OwnerHistoryDialog({
               })}
 
               {/* No History Message */}
-              {!isLoading && (!historyData || historyData.length === 0) && (
+              {!isLoading && (!entries || entries.length === 0) && (
                 <div className="relative flex gap-4">
                   <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted">
                     <History className="h-5 w-5 text-muted-foreground" />
