@@ -788,19 +788,11 @@ export default function ComisionesExternas() {
                                         </Button>
                                       )}
                                       
-                                      {/* Marcar como pagada */}
-                                      {com.aprobada && com.urlFactura && !com.pagada && (canUpdate || isSuperAdmin) && (
-                                        <Button
-                                          variant="default"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedComision({ email: com.email_usuario, idCuenta: cuenta.id });
-                                            setPagoDialogOpen(true);
-                                          }}
-                                        >
-                                          Pagar
-                                        </Button>
+                                      {/* Mostrar estatus cuando hay factura */}
+                                      {com.aprobada && com.urlFactura && !com.pagada && (
+                                        <Badge variant="outline" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                                          Pendiente de pago
+                                        </Badge>
                                       )}
                                       
                                       {/* Ver evidencia de pago */}

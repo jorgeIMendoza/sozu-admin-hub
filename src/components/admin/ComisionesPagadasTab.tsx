@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronRight, Eye } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -182,7 +182,17 @@ export default function ComisionesPagadasTab({
                             <ChevronRight className="h-4 w-4" />
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{com.nombre}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {com.nombre}
+                            {com.esInmobiliaria && (
+                              <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
+                            )}
+                            {com.esExterno && !com.esInmobiliaria && (
+                              <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 dark:text-orange-400">Externo</Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{com.email}</TableCell>
                         <TableCell className="text-right font-bold text-green-600">
                           {formatCurrency(com.montoTotal)}
@@ -207,6 +217,7 @@ export default function ComisionesPagadasTab({
                                     <TableHead>Fecha Pago Enganche</TableHead>
                                     <TableHead className="text-right">Precio Final</TableHead>
                                     <TableHead className="text-right">Comisión</TableHead>
+                                    {com.esExterno && <TableHead>Factura</TableHead>}
                                     <TableHead>Evidencia</TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -232,6 +243,20 @@ export default function ComisionesPagadasTab({
                                         <span className="text-muted-foreground text-xs ml-1">
                                           ({cuenta.porcentajeComision}%)
                                         </span>
+                                      </TableCell>
+                                      <TableCell>
+                                        {com.esExterno && cuenta.urlFacturaExterna ? (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => window.open(cuenta.urlFacturaExterna, '_blank')}
+                                          >
+                                            <FileText className="h-4 w-4 mr-1" />
+                                            Ver
+                                          </Button>
+                                        ) : com.esExterno ? (
+                                          <span className="text-muted-foreground text-xs">-</span>
+                                        ) : null}
                                       </TableCell>
                                       <TableCell>
                                         {cuenta.urlEvidencia ? (
@@ -363,17 +388,44 @@ export default function ComisionesPagadasTab({
                                     <TableHead>Email</TableHead>
                                     <TableHead className="text-right">Porcentaje</TableHead>
                                     <TableHead className="text-right">Monto Comisión</TableHead>
+                                    <TableHead>Factura</TableHead>
                                     <TableHead>Evidencia</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {cuenta.comisionistas.map((comisionista: any) => (
                                     <TableRow key={comisionista.email}>
-                                      <TableCell className="font-medium">{comisionista.nombre}</TableCell>
+                                      <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                          {comisionista.nombre}
+                                          {comisionista.esInmobiliaria && (
+                                            <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
+                                          )}
+                                          {comisionista.esExterno && !comisionista.esInmobiliaria && (
+                                            <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 dark:text-orange-400">Externo</Badge>
+                                          )}
+                                        </div>
+                                      </TableCell>
                                       <TableCell>{comisionista.email}</TableCell>
-                                      <TableCell className="text-right">{comisionista.porcentajeComision}%</TableCell>
+                                      <TableCell className="text-right">{Number(comisionista.porcentajeComision).toFixed(4)}%</TableCell>
                                       <TableCell className="text-right">
                                         {formatCurrency(comisionista.montoComision)}
+                                      </TableCell>
+                                      <TableCell>
+                                        {comisionista.esExterno && comisionista.urlFacturaExterna ? (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => window.open(comisionista.urlFacturaExterna, '_blank')}
+                                          >
+                                            <FileText className="h-4 w-4 mr-1" />
+                                            Ver
+                                          </Button>
+                                        ) : comisionista.esExterno ? (
+                                          <span className="text-muted-foreground text-xs">Sin factura</span>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">-</span>
+                                        )}
                                       </TableCell>
                                       <TableCell>
                                         {comisionista.urlEvidencia ? (

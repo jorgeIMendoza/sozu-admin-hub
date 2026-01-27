@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronDown, ChevronRight, Upload, Eye } from "lucide-react";
+import { ChevronDown, ChevronRight, Upload, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -247,6 +247,9 @@ export default function ComisionesPorPagarTab({
                             {com.esInmobiliaria && (
                               <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
                             )}
+                            {com.esExterno && !com.esInmobiliaria && (
+                              <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 dark:text-orange-400">Externo</Badge>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>{com.email}</TableCell>
@@ -291,6 +294,7 @@ export default function ComisionesPorPagarTab({
                                     <TableHead>Fecha Pago Enganche</TableHead>
                                     <TableHead className="text-right">Precio Final</TableHead>
                                     <TableHead className="text-right">Comisión</TableHead>
+                                    {com.esExterno && <TableHead>Factura</TableHead>}
                                     {(canUpdate || isSuperAdmin) && <TableHead>Acciones</TableHead>}
                                   </TableRow>
                                 </TableHeader>
@@ -317,6 +321,22 @@ export default function ComisionesPorPagarTab({
                                           ({Number(cuenta.porcentajeComision).toFixed(4)}%)
                                         </span>
                                       </TableCell>
+                                      {com.esExterno && (
+                                        <TableCell>
+                                          {cuenta.urlFacturaExterna ? (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={() => window.open(cuenta.urlFacturaExterna, '_blank')}
+                                            >
+                                              <FileText className="h-4 w-4 mr-1" />
+                                              Ver Factura
+                                            </Button>
+                                          ) : (
+                                            <span className="text-muted-foreground text-xs">Sin factura</span>
+                                          )}
+                                        </TableCell>
+                                      )}
                                       {(canUpdate || isSuperAdmin) && (
                                         <TableCell>
                                           <Button
@@ -466,6 +486,7 @@ export default function ComisionesPorPagarTab({
                                     <TableHead>Email</TableHead>
                                     <TableHead className="text-right">Porcentaje</TableHead>
                                     <TableHead className="text-right">Monto Comisión</TableHead>
+                                    <TableHead>Factura</TableHead>
                                     {(canUpdate || isSuperAdmin) && <TableHead>Acciones</TableHead>}
                                   </TableRow>
                                 </TableHeader>
@@ -478,12 +499,31 @@ export default function ComisionesPorPagarTab({
                                           {comisionista.esInmobiliaria && (
                                             <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
                                           )}
+                                          {comisionista.esExterno && !comisionista.esInmobiliaria && (
+                                            <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 dark:text-orange-400">Externo</Badge>
+                                          )}
                                         </div>
                                       </TableCell>
                                       <TableCell>{comisionista.email}</TableCell>
                                       <TableCell className="text-right">{Number(comisionista.porcentajeComision).toFixed(4)}%</TableCell>
                                       <TableCell className="text-right">
                                         {formatCurrency(comisionista.montoComision)}
+                                      </TableCell>
+                                      <TableCell>
+                                        {comisionista.esExterno && comisionista.urlFacturaExterna ? (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => window.open(comisionista.urlFacturaExterna, '_blank')}
+                                          >
+                                            <FileText className="h-4 w-4 mr-1" />
+                                            Ver
+                                          </Button>
+                                        ) : comisionista.esExterno ? (
+                                          <span className="text-muted-foreground text-xs">Sin factura</span>
+                                        ) : (
+                                          <span className="text-muted-foreground text-xs">-</span>
+                                        )}
                                       </TableCell>
                                       {(canUpdate || isSuperAdmin) && (
                                         <TableCell>
