@@ -14,6 +14,7 @@ interface OwnerHistoryDialogProps {
   numeroPropiedad: string;
   propietarioOriginal: string;
   esPropietarioActualComprador?: boolean;
+  idEstatusDisponibilidad?: number;
   trigger?: React.ReactNode;
 }
 
@@ -38,9 +39,13 @@ export function OwnerHistoryDialog({
   numeroPropiedad,
   propietarioOriginal,
   esPropietarioActualComprador = false,
+  idEstatusDisponibilidad,
   trigger
 }: OwnerHistoryDialogProps) {
   const [open, setOpen] = useState(false);
+  
+  // Check if property is in "Asignado" status (fideicomiso)
+  const esAsignado = idEstatusDisponibilidad === 10;
 
   const { data: historyData, isLoading } = useQuery({
     queryKey: ['owner-history', propertyId],
@@ -242,29 +247,31 @@ export function OwnerHistoryDialog({
             <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-muted" />
 
             <div className="space-y-0">
-              {/* Original Owner - Always first */}
-              <div className="relative flex gap-4 pb-8">
-                {/* Timeline dot */}
-                <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                
-                <div className="flex-1 pt-1">
-                  <div className="rounded-lg border bg-card p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Dueño Original
-                      </span>
+              {/* Original Owner - Only show if NOT Asignado status */}
+              {!esAsignado && (
+                <div className="relative flex gap-4 pb-8">
+                  {/* Timeline dot */}
+                  <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  
+                  <div className="flex-1 pt-1">
+                    <div className="rounded-lg border bg-card p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Dueño Original
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-semibold">{propietarioOriginal}</h3>
+                      {!historyData?.some(e => e.tiene_cuenta_mantenimiento) && !esAsignado && (
+                        <Badge variant="default" className="mt-2">
+                          Propietario Actual
+                        </Badge>
+                      )}
                     </div>
-                    <h3 className="text-lg font-semibold">{propietarioOriginal}</h3>
-                    {!historyData?.some(e => e.tiene_cuenta_mantenimiento) && (
-                      <Badge variant="default" className="mt-2">
-                        Propietario Actual
-                      </Badge>
-                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Loading State */}
               {isLoading && (
@@ -282,6 +289,7 @@ export function OwnerHistoryDialog({
               {!isLoading && historyData && historyData.map((entry, index) => {
                 const isDelivered = entry.tiene_cuenta_mantenimiento;
                 const isLast = index === historyData.length - 1;
+                const isFideicomiso = esAsignado && !isDelivered;
                 
                 return (
                   <div key={entry.cuenta_id} className={cn("relative flex gap-4", !isLast && "pb-8")}>
@@ -290,7 +298,9 @@ export function OwnerHistoryDialog({
                       "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-lg transition-all",
                       isDelivered 
                         ? "bg-green-500 text-white" 
-                        : "bg-amber-500 text-white"
+                        : isFideicomiso
+                          ? "bg-blue-500 text-white"
+                          : "bg-amber-500 text-white"
                     )}>
                       {isDelivered ? (
                         <BadgeCheck className="h-5 w-5" />
@@ -304,21 +314,36 @@ export function OwnerHistoryDialog({
                         "rounded-lg border p-4 shadow-sm transition-all",
                         isDelivered 
                           ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30" 
-                          : "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30"
+                          : isFideicomiso
+                            ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
+                            : "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30"
                       )}>
                         {/* Header */}
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                              {isDelivered ? 'Propietario Actual' : 'Transacción en Proceso'}
+                              {isDelivered 
+                                ? 'Propietario Actual' 
+                                : isFideicomiso 
+                                  ? 'Asignado a Fideicomisario'
+                                  : 'Transacción en Proceso'}
                             </span>
                             {isDelivered ? (
                               <Badge className="bg-green-600 hover:bg-green-700 text-white">
                                 Entregada
                               </Badge>
+                            ) : isFideicomiso ? (
+                              <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
+                                Fideicomiso
+                              </Badge>
                             ) : (
                               <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
                                 En Proceso
+                              </Badge>
+                            )}
+                            {isFideicomiso && (
+                              <Badge variant="default" className="ml-auto">
+                                Propietario Actual
                               </Badge>
                             )}
                           </div>
@@ -348,41 +373,55 @@ export function OwnerHistoryDialog({
                           </div>
                         )}
 
-                        {/* Details grid */}
-                        <div className="grid grid-cols-2 gap-3 text-sm border-t pt-3">
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">Cuenta:</span>
-                            <span className="font-mono font-medium text-xs">
-                              {formatCuentaCobranzaId(entry.cuenta_id)}
-                            </span>
+                        {/* Details grid - Show fideicomiso info OR account details */}
+                        {isFideicomiso ? (
+                          <div className="border-t pt-3">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Building2 className="h-4 w-4" />
+                              <span>Esta propiedad forma parte de un <strong className="text-foreground">fideicomiso</strong></span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                              <CalendarCheck className="h-4 w-4" />
+                              <span>Fecha de asignación:</span>
+                              <span className="text-foreground">{formatDate(entry.fecha_creacion)}</span>
+                            </div>
                           </div>
-                          
-                          <div className="flex items-center gap-2">
-                            <CalendarCheck className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              {isDelivered ? 'Entrega:' : 'Inicio:'}
-                            </span>
-                            <span className="text-xs">
-                              {formatDate(isDelivered && entry.fecha_entrega ? entry.fecha_entrega : entry.fecha_creacion)}
-                            </span>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3 text-sm border-t pt-3">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Cuenta:</span>
+                              <span className="font-mono font-medium text-xs">
+                                {formatCuentaCobranzaId(entry.cuenta_id)}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                {isDelivered ? 'Entrega:' : 'Inicio:'}
+                              </span>
+                              <span className="text-xs">
+                                {formatDate(isDelivered && entry.fecha_entrega ? entry.fecha_entrega : entry.fecha_creacion)}
+                              </span>
+                            </div>
+                            
+                            <div>
+                              <span className="text-muted-foreground">Precio:</span>
+                              <span className="ml-2 font-medium">{formatCurrency(entry.precio_final)}</span>
+                            </div>
+                            
+                            <div>
+                              <span className="text-muted-foreground">Pagado:</span>
+                              <span className={cn(
+                                "ml-2 font-medium",
+                                entry.completamente_pagada ? "text-green-600 dark:text-green-400" : ""
+                              )}>
+                                {formatCurrency(entry.total_pagado)}
+                              </span>
+                            </div>
                           </div>
-                          
-                          <div>
-                            <span className="text-muted-foreground">Precio:</span>
-                            <span className="ml-2 font-medium">{formatCurrency(entry.precio_final)}</span>
-                          </div>
-                          
-                          <div>
-                            <span className="text-muted-foreground">Pagado:</span>
-                            <span className={cn(
-                              "ml-2 font-medium",
-                              entry.completamente_pagada ? "text-green-600 dark:text-green-400" : ""
-                            )}>
-                              {formatCurrency(entry.total_pagado)}
-                            </span>
-                          </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>

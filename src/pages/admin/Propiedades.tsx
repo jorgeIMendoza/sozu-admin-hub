@@ -4101,6 +4101,7 @@ const Propiedades = () => {
                                   numeroPropiedad={property.numero_propiedad}
                                   propietarioOriginal={property.propietario_original}
                                   esPropietarioActualComprador={mostrarComoComprador}
+                                  idEstatusDisponibilidad={property.id_estatus_disponibilidad}
                                 />
                               )}
                             </div>
