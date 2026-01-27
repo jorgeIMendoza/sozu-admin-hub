@@ -4693,7 +4693,7 @@ const Propiedades = () => {
                               property={property}
                             />
                           )}
-                          {(canUpdate || isSuperAdmin) && (property.disponibilidad === "Disponible" || property.disponibilidad === "Listo") && (
+                          {(canUpdate || isSuperAdmin) && property.disponibilidad === "Inventario" && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <AsignarPropiedadDialog 
@@ -4702,7 +4702,7 @@ const Propiedades = () => {
                                 />
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Asignar propiedad</p>
+                                <p>Agregar a fideicomiso</p>
                               </TooltipContent>
                             </Tooltip>
                           )}

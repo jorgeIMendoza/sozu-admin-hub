@@ -139,23 +139,23 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          title="Asignar propiedad"
+          title="Agregar a fideicomiso"
         >
           <UserCheck className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Asignar Propiedad</DialogTitle>
+          <DialogTitle>Agregar a Fideicomiso</DialogTitle>
           <DialogDescription>
-            Asigna la propiedad <span className="font-semibold">{propertyNumber}</span> a un comprador.
+            Agrega la propiedad <span className="font-semibold">{propertyNumber}</span> a un fideicomisario.
             Esta acción creará una cuenta de cobranza con precio $0 y cambiará el estatus a "Asignado".
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Comprador *</label>
+            <label className="text-sm font-medium">Fideicomisario *</label>
             {loadingCompradores ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -165,11 +165,14 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
                 value={selectedPersona}
                 onValueChange={setSelectedPersona}
                 options={compradoresOptions}
-                placeholder="Buscar comprador..."
-                emptyText="No se encontraron compradores"
+                placeholder="Buscar fideicomisario..."
+                emptyText="No se encontraron fideicomisarios"
                 searchPlaceholder="Buscar por nombre o RFC/CURP..."
               />
             )}
+            <p className="text-xs text-muted-foreground">
+              Nota: Los fideicomisarios deben estar dados de alta en el menú de Compradores.
+            </p>
           </div>
 
           <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900/50 p-4">
@@ -178,7 +181,7 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
             </h4>
             <ul className="text-sm text-amber-800 dark:text-amber-300 space-y-1 list-disc list-inside">
               <li>Un esquema de pago manual con monto $0</li>
-              <li>Una oferta con el comprador seleccionado</li>
+              <li>Una oferta con el fideicomisario seleccionado</li>
               <li>Una cuenta de cobranza con precio final $0</li>
               <li>Un acuerdo de pago tipo "Asignación" completado</li>
               <li>Cambio de estatus a "Asignado"</li>
@@ -204,10 +207,10 @@ export const AsignarPropiedadDialog = ({ propertyId, propertyNumber }: AsignarPr
             {isAssigning ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Asignando...
+                Agregando...
               </>
             ) : (
-              "Asignar Propiedad"
+              "Agregar a Fideicomiso"
             )}
           </Button>
         </DialogFooter>
