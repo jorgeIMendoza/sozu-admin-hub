@@ -13,12 +13,65 @@ import { Label } from "@/components/ui/label";
 import ComisionesPorPagarTab from "@/components/admin/ComisionesPorPagarTab";
 import ComisionesPagadasTab from "@/components/admin/ComisionesPagadasTab";
 
+// ID del rol "Agente Inmobiliario"
+const AGENTE_INMOBILIARIO_ROL_ID = 3;
+
+// Helper para obtener el tipo de documento de factura de comisión externa
+async function getTipoDocumentoFactura() {
+  const { data, error } = await supabase
+    .from('tipos_documento')
+    .select('id')
+    .eq('nombre', 'Factura de comisión externa')
+    .eq('activo', true)
+    .single();
+  
+  if (error) return null;
+  return data?.id;
+}
+
 // Helper para obtener todos los registros de comisionistas sin límite de 1000
 async function fetchAllComisionistas() {
   const batchSize = 1000;
   let allData: any[] = [];
   let from = 0;
   let hasMore = true;
+
+  // Obtener emails de agentes externos (agentes inmobiliarios e inmobiliarias)
+  const { data: agentesInmobiliarios } = await supabase
+    .from('usuarios')
+    .select('email')
+    .eq('rol_id', AGENTE_INMOBILIARIO_ROL_ID)
+    .eq('activo', true);
+
+  const emailsAgentesInmobiliarios = new Set(agentesInmobiliarios?.map(a => a.email) || []);
+
+  const { data: inmobiliarias } = await supabase
+    .from('personas')
+    .select('email')
+    .eq('tipo_persona', 'pm')
+    .eq('activo', true)
+    .not('email', 'is', null);
+
+  const emailsInmobiliarias = new Set(inmobiliarias?.map(i => i.email).filter(Boolean) || []);
+
+  // Obtener facturas de comisiones externas
+  const tipoDocFactura = await getTipoDocumentoFactura();
+  const facturasExternasMap = new Map<string, boolean>();
+
+  if (tipoDocFactura) {
+    const { data: facturas } = await supabase
+      .from('documentos')
+      .select('id_cuenta_cobranza, numero')
+      .eq('id_tipo_documento', tipoDocFactura)
+      .eq('activo', true);
+    
+    facturas?.forEach(f => {
+      if (f.numero && f.id_cuenta_cobranza) {
+        const key = `${f.numero}_${f.id_cuenta_cobranza}`;
+        facturasExternasMap.set(key, true);
+      }
+    });
+  }
 
   while (hasMore) {
     const { data, error } = await supabase
@@ -69,7 +122,22 @@ async function fetchAllComisionistas() {
     if (error) throw error;
 
     if (data && data.length > 0) {
-      allData = [...allData, ...data];
+      // Filtrar agentes externos: solo incluir si tienen factura cargada
+      const filteredData = data.filter((com: any) => {
+        const esAgenteExterno = emailsAgentesInmobiliarios.has(com.email_usuario) || 
+                                emailsInmobiliarias.has(com.email_usuario);
+        
+        if (esAgenteExterno) {
+          // Solo incluir si tiene factura cargada
+          const facturaKey = `${com.email_usuario}_${com.id_cuenta_cobranza}`;
+          return facturasExternasMap.has(facturaKey);
+        }
+        
+        // Si no es agente externo, incluir normalmente
+        return true;
+      });
+
+      allData = [...allData, ...filteredData];
       from += batchSize;
       hasMore = data.length === batchSize;
     } else {

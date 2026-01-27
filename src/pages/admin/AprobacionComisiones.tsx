@@ -217,18 +217,30 @@ export default function AprobacionComisiones() {
       // Paso 5: Obtener nombres de usuarios y personas para los comisionistas
       const comisionistaEmails = [...new Set(comisionistas?.map(c => c.email_usuario) || [])] as string[];
       
-      // Fetch from usuarios
+      // Fetch from usuarios con rol_id para identificar agentes inmobiliarios
       const { data: usuariosData } = comisionistaEmails.length > 0 
-        ? await supabase.from("usuarios").select("email, nombre").in("email", comisionistaEmails)
+        ? await supabase.from("usuarios").select("email, nombre, rol_id").in("email", comisionistaEmails)
         : { data: [] };
       
-      const usuariosMap = new Map<string, { nombre: string; esInmobiliaria: boolean }>();
+      // Identificar emails de agentes inmobiliarios (rol_id = 3)
+      const emailsAgentesInmobiliarios = new Set(
+        usuariosData?.filter(u => u.rol_id === 3).map(u => u.email) || []
+      );
+      
+      const usuariosMap = new Map<string, { nombre: string; esInmobiliaria: boolean; esAgenteInmobiliario: boolean }>();
       usuariosData?.forEach(u => {
-        usuariosMap.set(u.email, { nombre: u.nombre, esInmobiliaria: false });
+        usuariosMap.set(u.email, { 
+          nombre: u.nombre, 
+          esInmobiliaria: false,
+          esAgenteInmobiliario: u.rol_id === 3
+        });
       });
       
       // Find emails not in usuarios and fetch from personas (inmobiliarias)
       const emailsNotInUsuarios = comisionistaEmails.filter(email => !usuariosMap.has(email));
+      
+      // Set para emails de inmobiliarias
+      const emailsInmobiliarias = new Set<string>();
       
       if (emailsNotInUsuarios.length > 0) {
         const { data: personasData } = await supabase
@@ -238,9 +250,14 @@ export default function AprobacionComisiones() {
           .eq('activo', true);
         
         personasData?.forEach(p => {
+          const esInmobiliaria = p.tipo_persona === 'pm';
+          if (esInmobiliaria && p.email) {
+            emailsInmobiliarias.add(p.email);
+          }
           usuariosMap.set(p.email, { 
             nombre: p.nombre_legal, 
-            esInmobiliaria: p.tipo_persona === 'pm' 
+            esInmobiliaria,
+            esAgenteInmobiliario: false
           });
         });
       }
@@ -261,14 +278,21 @@ export default function AprobacionComisiones() {
           tipo = categoriaNombre === 'servicios' ? 'Servicio' : 'Producto';
         }
 
-        const comisionistasFiltered = (comisionistas?.filter(c => c.id_cuenta_cobranza === cuenta.id) || []).map(c => {
-          const userData = usuariosMap.get(c.email_usuario);
-          return {
-            ...c,
-            nombre: userData?.nombre || 'N/A',
-            esInmobiliaria: userData?.esInmobiliaria || false
-          };
-        });
+        // Filtrar comisionistas: excluir agentes externos (inmobiliarias y agentes inmobiliarios)
+        const comisionistasFiltered = (comisionistas?.filter(c => c.id_cuenta_cobranza === cuenta.id) || [])
+          .filter(c => {
+            // Excluir si es inmobiliaria o agente inmobiliario
+            const esAgenteExterno = emailsInmobiliarias.has(c.email_usuario) || emailsAgentesInmobiliarios.has(c.email_usuario);
+            return !esAgenteExterno;
+          })
+          .map(c => {
+            const userData = usuariosMap.get(c.email_usuario);
+            return {
+              ...c,
+              nombre: userData?.nombre || 'N/A',
+              esInmobiliaria: userData?.esInmobiliaria || false
+            };
+          });
 
         return {
           ...cuenta,

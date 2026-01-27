@@ -58,6 +58,7 @@ const Reservas = lazy(() => import("./pages/admin/Reservas"));
 const Contratos = lazy(() => import("./pages/admin/legal/Contratos"));
 const Comisiones = lazy(() => import("./pages/admin/Comisiones"));
 const AprobacionComisiones = lazy(() => import("./pages/admin/AprobacionComisiones"));
+const ComisionesExternas = lazy(() => import("./pages/admin/ComisionesExternas"));
 const PagarComisiones = lazy(() => import("./pages/admin/PagarComisiones"));
 const ReporteDiscrepancias = lazy(() => import("./pages/admin/ReporteDiscrepancias"));
 const RolesPermisos = lazy(() => import("./pages/admin/RolesPermisos"));
@@ -151,6 +152,7 @@ const App = () => (
                   <Route path="cuentas-cobranza/:id/detalle" element={<DetalleCuentaCobranza />} />
                   <Route path="comisiones" element={<Comisiones />} />
                   <Route path="aprobacion-comisiones" element={<AprobacionComisiones />} />
+                  <Route path="comisiones-externas" element={<ComisionesExternas />} />
                   <Route path="pagar-comisiones" element={<PagarComisiones />} />
                   <Route path="pagos" element={<ComingSoon title="Pagos" />} />
                   <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
