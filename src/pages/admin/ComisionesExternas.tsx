@@ -43,28 +43,48 @@ async function fetchExternalAgentCommissions() {
   let hasMore = true;
 
   // Obtener usuarios con rol Agente Inmobiliario
-  const { data: agentesInmobiliarios } = await supabase
+  const { data: agentesInmobiliarios, error: errorAgentes } = await supabase
     .from('usuarios')
     .select('email')
     .eq('rol_id', AGENTE_INMOBILIARIO_ROL_ID)
     .eq('activo', true);
 
+  if (errorAgentes) {
+    console.error('[ComisionesExternas] Error fetching agentes inmobiliarios:', errorAgentes);
+  }
+
   const emailsAgentes = agentesInmobiliarios?.map(a => a.email) || [];
+  console.log('[ComisionesExternas] Agentes Inmobiliarios encontrados:', emailsAgentes.length, emailsAgentes.slice(0, 5));
 
   // Obtener inmobiliarias (personas morales)
-  const { data: inmobiliarias } = await supabase
+  const { data: inmobiliarias, error: errorInmobiliarias } = await supabase
     .from('personas')
     .select('email')
     .eq('tipo_persona', 'pm')
     .eq('activo', true)
     .not('email', 'is', null);
 
+  if (errorInmobiliarias) {
+    console.error('[ComisionesExternas] Error fetching inmobiliarias:', errorInmobiliarias);
+  }
+
   const emailsInmobiliarias = inmobiliarias?.map(i => i.email).filter(Boolean) || [];
+  console.log('[ComisionesExternas] Inmobiliarias encontradas:', emailsInmobiliarias.length);
 
   // Combinar emails de agentes externos
   const emailsExternos = [...new Set([...emailsAgentes, ...emailsInmobiliarias])];
+  console.log('[ComisionesExternas] Total emails externos combinados:', emailsExternos.length);
+  
+  // Debug: verificar si los emails de la cuenta 1671 están incluidos
+  const emailsTest = ['jorge.externo@yopmail.com', 'contacto@vivaltainmobiliaria.com'];
+  emailsTest.forEach(email => {
+    console.log(`[ComisionesExternas] ¿${email} está en lista?`, emailsExternos.includes(email));
+  });
 
-  if (emailsExternos.length === 0) return [];
+  if (emailsExternos.length === 0) {
+    console.warn('[ComisionesExternas] No hay emails externos, retornando vacío');
+    return [];
+  }
 
   while (hasMore) {
     const { data, error } = await supabase
@@ -113,7 +133,18 @@ async function fetchExternalAgentCommissions() {
       .in("email_usuario", emailsExternos)
       .range(from, from + batchSize - 1);
 
-    if (error) throw error;
+    if (error) {
+      console.error('[ComisionesExternas] Error fetching comisionistas:', error);
+      throw error;
+    }
+
+    console.log(`[ComisionesExternas] Batch ${from}-${from + batchSize - 1}: ${data?.length || 0} registros`);
+    
+    // Debug: buscar específicamente cuenta 1671
+    const cuenta1671 = data?.filter((c: any) => c.id_cuenta_cobranza === 1671);
+    if (cuenta1671 && cuenta1671.length > 0) {
+      console.log('[ComisionesExternas] ¡Cuenta 1671 encontrada en batch!', cuenta1671);
+    }
 
     if (data && data.length > 0) {
       allData = [...allData, ...data];
@@ -123,6 +154,12 @@ async function fetchExternalAgentCommissions() {
       hasMore = false;
     }
   }
+
+  console.log('[ComisionesExternas] Total registros obtenidos:', allData.length);
+  
+  // Debug: verificar cuenta 1671 en datos finales
+  const final1671 = allData.filter((c: any) => c.id_cuenta_cobranza === 1671);
+  console.log('[ComisionesExternas] Cuenta 1671 en datos finales:', final1671.length, final1671);
 
   return allData;
 }
