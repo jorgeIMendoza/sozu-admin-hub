@@ -110,13 +110,17 @@ export default function AprobacionComisiones() {
   });
 
   const aprobarTodosComisionistasMutation = useMutation({
-    mutationFn: async (idCuenta: number) => {
+    mutationFn: async ({ idCuenta, emailsInternos }: { idCuenta: number; emailsInternos: string[] }) => {
+      // Solo aprobar comisionistas internos (no externos)
+      if (emailsInternos.length === 0) return idCuenta;
+      
       const { error } = await supabase
         .from("comisionistas")
         .update({ aprobada: true })
         .eq("id_cuenta_cobranza", idCuenta)
         .eq("activo", true)
-        .eq("aprobada", false);
+        .eq("aprobada", false)
+        .in("email_usuario", emailsInternos);
       
       if (error) throw error;
       return idCuenta;
@@ -127,12 +131,12 @@ export default function AprobacionComisiones() {
       // Registrar la aprobación masiva en el log de actividades
       await registrarAprobacion('comisionistas', {
         id_cuenta_cobranza: idCuenta,
-        tipo: 'masivo'
+        tipo: 'masivo_internos'
       }, 'aprobar_comisiones_masivo');
       
       toast({
         title: "Comisionistas aprobados",
-        description: "Todas las comisiones han sido aprobadas exitosamente"
+        description: "Todas las comisiones internas han sido aprobadas exitosamente"
       });
     },
     onError: (error) => {
@@ -278,19 +282,17 @@ export default function AprobacionComisiones() {
           tipo = categoriaNombre === 'servicios' ? 'Servicio' : 'Producto';
         }
 
-        // Filtrar comisionistas: excluir agentes externos (inmobiliarias y agentes inmobiliarios)
+        // Incluir todos los comisionistas pero marcar cuáles son externos
         const comisionistasFiltered = (comisionistas?.filter(c => c.id_cuenta_cobranza === cuenta.id) || [])
-          .filter(c => {
-            // Excluir si es inmobiliaria o agente inmobiliario
-            const esAgenteExterno = emailsInmobiliarias.has(c.email_usuario) || emailsAgentesInmobiliarios.has(c.email_usuario);
-            return !esAgenteExterno;
-          })
           .map(c => {
             const userData = usuariosMap.get(c.email_usuario);
+            const esAgenteExterno = emailsInmobiliarias.has(c.email_usuario) || emailsAgentesInmobiliarios.has(c.email_usuario);
             return {
               ...c,
               nombre: userData?.nombre || 'N/A',
-              esInmobiliaria: userData?.esInmobiliaria || false
+              esInmobiliaria: userData?.esInmobiliaria || false,
+              esAgenteInmobiliario: userData?.esAgenteInmobiliario || false,
+              esExterno: esAgenteExterno
             };
           });
 
@@ -533,13 +535,16 @@ export default function AprobacionComisiones() {
                           </div>
                         ) : (
                           <>
-                            {isPendientes && comisionistasPendientes.length > 0 && (
+                            {isPendientes && comisionistasPendientes.filter((c: any) => !c.esExterno).length > 0 && (
                               <div className="flex justify-end mb-4">
                                 <Button
-                                  onClick={() => aprobarTodosComisionistasMutation.mutate(cuenta.id)}
+                                  onClick={() => aprobarTodosComisionistasMutation.mutate({
+                                    idCuenta: cuenta.id,
+                                    emailsInternos: comisionistasPendientes.filter((c: any) => !c.esExterno).map((c: any) => c.email_usuario)
+                                  })}
                                   disabled={aprobarTodosComisionistasMutation.isPending}
                                 >
-                                  Aprobar Todos
+                                  Aprobar Todos (Internos)
                                 </Button>
                               </div>
                             )}
@@ -566,6 +571,9 @@ export default function AprobacionComisiones() {
                                           {comisionista.esInmobiliaria && (
                                             <Badge variant="secondary" className="text-xs">Inmobiliaria</Badge>
                                           )}
+                                          {comisionista.esAgenteInmobiliario && !comisionista.esInmobiliaria && (
+                                            <Badge variant="secondary" className="text-xs">Agente Inmobiliario</Badge>
+                                          )}
                                         </div>
                                       </TableCell>
                                       <TableCell>{comisionista.email_usuario}</TableCell>
@@ -582,6 +590,10 @@ export default function AprobacionComisiones() {
                                           <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
                                             <Check className="h-3 w-3 mr-1" />
                                             Aprobado
+                                          </Badge>
+                                        ) : comisionista.esExterno ? (
+                                          <Badge variant="outline" className="text-muted-foreground">
+                                            Ver en Comisiones Externas
                                           </Badge>
                                         ) : isPendientes ? (
                                           <Button
