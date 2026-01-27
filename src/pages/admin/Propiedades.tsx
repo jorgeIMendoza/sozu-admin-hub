@@ -1550,13 +1550,30 @@ const Propiedades = () => {
                          (paymentStatus?.especial?.status === 'pagado') ||
                          (paymentStatus?.cesion_derechos?.monto_pagado > 0),
         cuenta_sin_esquema: cuentaSinEsquema,
-        // Determinar propietario actual basado en si tiene cuenta de mantenimiento (indica entrega completada)
-        propietario: propietarioDisplay,
+        // Determinar propietario actual basado en estatus (9, 7, 8, 10 muestran comprador) o cuenta de mantenimiento
+        propietario: (() => {
+          const estatusId = property.estatus_disponibilidad?.id;
+          // Estatus que muestran al comprador: Pagada completamente(9), Escrituración(7), Entregado(8), Asignado(10)
+          const estatusQueMuestranComprador = [9, 7, 8, 10];
+          
+          if (estatusQueMuestranComprador.includes(estatusId) && cuentaCobranzaData?.id && compradoresPorCuenta[cuentaCobranzaData.id]?.length > 0) {
+            const compradores = compradoresPorCuenta[cuentaCobranzaData.id];
+            if (compradores.length === 1) {
+              return compradores[0].nombre;
+            }
+            return compradores[0].nombre + (compradores.length > 1 ? ` (+${compradores.length - 1})` : '');
+          }
+          return propietarioDisplay;
+        })(),
         propietario_original: propietarioDisplay,
         propietario_actual: (() => {
           // Si la cuenta tiene cuenta de mantenimiento asociada, el propietario actual son los compradores
           const tieneCuentaMantenimiento = cuentaCobranzaData?.id && cuentasConMantenimiento.has(cuentaCobranzaData.id);
-          if (tieneCuentaMantenimiento && compradoresPorCuenta[cuentaCobranzaData.id]?.length > 0) {
+          const estatusId = property.estatus_disponibilidad?.id;
+          // Estatus que muestran al comprador: Pagada completamente(9), Escrituración(7), Entregado(8), Asignado(10)
+          const estatusQueMuestranComprador = [9, 7, 8, 10];
+          
+          if ((tieneCuentaMantenimiento || estatusQueMuestranComprador.includes(estatusId)) && cuentaCobranzaData?.id && compradoresPorCuenta[cuentaCobranzaData.id]?.length > 0) {
             const compradores = compradoresPorCuenta[cuentaCobranzaData.id];
             if (compradores.length === 1) {
               return compradores[0].nombre;
