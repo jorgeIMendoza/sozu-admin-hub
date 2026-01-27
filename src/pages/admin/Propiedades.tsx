@@ -1119,25 +1119,10 @@ const Propiedades = () => {
       return acc;
     }, {});
     
-    // DEBUG: Log edificios_modelos result
-    console.log('[DEBUG] edificiosModelosResult.data count:', edificiosModelosResult.data?.length || 0);
-    console.log('[DEBUG] edificiosModelosResult.data sample:', edificiosModelosResult.data?.slice(0, 3));
-    console.log('[DEBUG] edificiosModelosResult.error:', edificiosModelosResult.error);
-    
     const edificiosModelosMap = (edificiosModelosResult.data || []).reduce((acc: any, em: any) => {
       acc[em.id] = em;
       return acc;
     }, {});
-    
-    // DEBUG: Log some ids we're looking for
-    const sampleEmIds = [...new Set(data.map(p => p.id_edificio_modelo).filter(Boolean))].slice(0, 5);
-    console.log('[DEBUG] Sample id_edificio_modelo from properties:', sampleEmIds);
-    console.log('[DEBUG] edificiosModelosMap has these ids?', sampleEmIds.map(id => ({ id, exists: !!edificiosModelosMap[id] })));
-    
-    // DEBUG: Log entidades result
-    console.log('[DEBUG] entidadesResult.data count:', entidadesResult.data?.length || 0);
-    console.log('[DEBUG] entidadesResult.data sample:', entidadesResult.data?.slice(0, 3));
-    console.log('[DEBUG] entidadesResult.error:', entidadesResult.error);
     
     const entidadesMap = (entidadesResult.data || []).reduce((acc: any, er: any) => {
       acc[er.id] = er;
@@ -1552,7 +1537,7 @@ const Propiedades = () => {
         cuenta_sin_esquema: cuentaSinEsquema,
         // Determinar propietario actual basado en estatus (9, 7, 8, 10 muestran comprador) o cuenta de mantenimiento
         propietario: (() => {
-          const estatusId = property.estatus_disponibilidad?.id;
+          const estatusId = property.estatus_disponibilidad?.id || property.id_estatus_disponibilidad;
           // Estatus que muestran al comprador: Pagada completamente(9), Escrituración(7), Entregado(8), Asignado(10)
           const estatusQueMuestranComprador = [9, 7, 8, 10];
           
@@ -1569,7 +1554,7 @@ const Propiedades = () => {
         propietario_actual: (() => {
           // Si la cuenta tiene cuenta de mantenimiento asociada, el propietario actual son los compradores
           const tieneCuentaMantenimiento = cuentaCobranzaData?.id && cuentasConMantenimiento.has(cuentaCobranzaData.id);
-          const estatusId = property.estatus_disponibilidad?.id;
+          const estatusId = property.estatus_disponibilidad?.id || property.id_estatus_disponibilidad;
           // Estatus que muestran al comprador: Pagada completamente(9), Escrituración(7), Entregado(8), Asignado(10)
           const estatusQueMuestranComprador = [9, 7, 8, 10];
           
@@ -1591,8 +1576,8 @@ const Propiedades = () => {
         modelo: property.edificios_modelos?.modelos?.nombre || 'Sin modelo',
         vista: property.vistas?.nombre || 'Sin vista',
         tipo_transaccion: property.tipos_transaccion?.nombre || '-',
-        disponibilidad: property.estatus_disponibilidad?.nombre || 'Sin estatus',
-        id_estatus_disponibilidad: property.estatus_disponibilidad?.id || 0,
+        disponibilidad: property.estatus_disponibilidad?.nombre || property.disponibilidad || 'Sin estatus',
+        id_estatus_disponibilidad: property.estatus_disponibilidad?.id || property.id_estatus_disponibilidad || 0,
         tieneOfertas: property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto === null),
         tieneOfertasProductos: property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto !== null),
         estacionamientos_count: estacionamientosCounts[property.id] || 0,
