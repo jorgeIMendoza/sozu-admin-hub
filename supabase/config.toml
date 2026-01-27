@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.trigger-sat-notification]
 verify_jwt = false
+
+[functions.generar-oferta-pdf]
+verify_jwt = false
