@@ -87,6 +87,7 @@ export default function Servicios() {
           id,
           id_persona,
           id_proyecto,
+          cuenta_madre_stp,
           personas!entidades_relacionadas_id_persona_fkey (
             nombre_legal
           ),
@@ -96,7 +97,8 @@ export default function Servicios() {
         `)
         .in('id_tipo_entidad', [4, 8, 13])
         .eq('activo', true)
-        .not('id_proyecto', 'is', null);
+        .not('id_proyecto', 'is', null)
+        .not('cuenta_madre_stp', 'is', null);
       if (error) throw error;
       
       // Filtrar solo entidades de proyectos de tipo "Servicios" (id_tipo_uso = 10)
@@ -106,7 +108,8 @@ export default function Servicios() {
       
       return filteredData.map((item: any) => ({
         id: item.id,
-        nombre_legal: item.personas?.nombre_legal || 'Sin nombre'
+        nombre_legal: item.personas?.nombre_legal || 'Sin nombre',
+        cuenta_madre_stp: item.cuenta_madre_stp
       })).sort((a, b) => 
         a.nombre_legal.localeCompare(b.nombre_legal)
       );
@@ -695,11 +698,25 @@ export default function Servicios() {
                   <SelectValue placeholder="Selecciona un dueño" />
                 </SelectTrigger>
                 <SelectContent>
-                  {entidadesRelacionadas.map((entidad: any) => (
-                    <SelectItem key={entidad.id} value={entidad.id.toString()}>
-                      {entidad.nombre_legal}
-                    </SelectItem>
-                  ))}
+                  {entidadesRelacionadas.length === 0 ? (
+                    <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                      No hay dueños con cuenta madre STP configurada
+                    </div>
+                  ) : (
+                    entidadesRelacionadas.map((entidad: any) => (
+                      <SelectItem key={entidad.id} value={entidad.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <span>{entidad.nombre_legal}</span>
+                          <span className="text-muted-foreground font-mono text-xs">
+                            {entidad.cuenta_madre_stp.slice(0, -4)}
+                            <span className="font-bold text-primary">
+                              {entidad.cuenta_madre_stp.slice(-4)}
+                            </span>
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

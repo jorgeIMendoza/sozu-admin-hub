@@ -380,6 +380,39 @@ export const ProjectLegalEntitiesSection = ({
         throw new Error("La cuenta madre STP debe tener exactamente 14 dígitos");
       }
 
+      // Validate that cuenta_madre_stp is not already in use by another entity
+      // in projects of type Productos (9), Servicios (10), or Mantenimientos (11)
+      if (cuentaMadre && isProductosOrServicios) {
+        const { data: existingEntities, error: checkError } = await supabase
+          .from("entidades_relacionadas")
+          .select(`
+            id, 
+            id_proyecto, 
+            proyectos!entidades_relacionadas_id_proyecto_fkey (
+              nombre,
+              id_tipo_uso
+            )
+          `)
+          .eq("cuenta_madre_stp", cuentaMadre)
+          .eq("activo", true)
+          .neq("id", entityId);
+
+        if (checkError) throw checkError;
+
+        // Filter only entities from Productos/Servicios/Mantenimientos projects
+        const conflictingEntities = (existingEntities || []).filter((e: any) => 
+          e.proyectos && [9, 10, 11].includes(e.proyectos.id_tipo_uso)
+        );
+
+        if (conflictingEntities.length > 0) {
+          const otherProject = conflictingEntities[0].proyectos?.nombre || "otro proyecto";
+          throw new Error(
+            `Esta cuenta madre STP ya está asignada a otra entidad en "${otherProject}". ` +
+            `Para evitar colisiones de CLABE, cada entidad de productos/servicios debe tener una cuenta madre única.`
+          );
+        }
+      }
+
       const { error } = await supabase
         .from("entidades_relacionadas")
         .update({ cuenta_madre_stp: cuentaMadre || null })
