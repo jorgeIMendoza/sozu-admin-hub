@@ -21,6 +21,21 @@ import { useActivityLogger } from "@/hooks/useActivityLogger";
 // ID del rol "Agente Inmobiliario"
 const AGENTE_INMOBILIARIO_ROL_ID = 3;
 
+// Dominios internos del grupo empresarial (usuarios con estos dominios NO son externos)
+const DOMINIOS_INTERNOS_GRUPO = [
+  'sozu.com',
+  'investimento.mx',
+  'tallwood.mx',
+  'daiku.mx'
+];
+
+// Helper para verificar si un email pertenece al grupo interno
+function esEmailDelGrupoInterno(email: string): boolean {
+  if (!email) return false;
+  const domain = email.split('@')[1]?.toLowerCase();
+  return DOMINIOS_INTERNOS_GRUPO.some(d => domain === d);
+}
+
 // Función para obtener la fecha límite de enganche
 function getFechaLimiteEnganche(): Date {
   const today = new Date();
@@ -203,17 +218,20 @@ export default function ComisionesExternas() {
         ? await supabase.from("usuarios").select("email, nombre, rol_id").in("email", comisionistaEmails)
         : { data: [] };
       
-      // Identificar emails de agentes inmobiliarios (rol_id = 3)
+      // Identificar emails de agentes inmobiliarios externos (rol_id = 3 Y NO son del grupo interno)
       const emailsAgentesInmobiliarios = new Set(
-        usuariosData?.filter(u => u.rol_id === AGENTE_INMOBILIARIO_ROL_ID).map(u => u.email) || []
+        usuariosData?.filter(u => 
+          u.rol_id === AGENTE_INMOBILIARIO_ROL_ID && !esEmailDelGrupoInterno(u.email)
+        ).map(u => u.email) || []
       );
       
       const usuariosMap = new Map<string, { nombre: string; esInmobiliaria: boolean; esAgenteInmobiliario: boolean }>();
       usuariosData?.forEach(u => {
+        const esAgenteExterno = u.rol_id === AGENTE_INMOBILIARIO_ROL_ID && !esEmailDelGrupoInterno(u.email);
         usuariosMap.set(u.email, { 
           nombre: u.nombre, 
           esInmobiliaria: false,
-          esAgenteInmobiliario: u.rol_id === AGENTE_INMOBILIARIO_ROL_ID
+          esAgenteInmobiliario: esAgenteExterno
         });
       });
       
