@@ -4071,13 +4071,15 @@ const Propiedades = () => {
                       case 'propietario':
                         // Solo mostrar comprador si el estatus es: 9 (Pagada completamente), 7 (Escrituración), 8 (Entregado), 10 (Asignado)
                         const estatusParaMostrarComprador = [9, 7, 8, 10];
-                        const mostrarComoComprador = property.tiene_cuenta_pagada && 
-                          estatusParaMostrarComprador.includes(property.id_estatus_disponibilidad);
+                        // Mostrar comprador si tiene cuenta de mantenimiento O si está en estatus Asignado (10)
+                        const mostrarComoComprador = (property.tiene_cuenta_pagada || property.id_estatus_disponibilidad === 10) && 
+                          estatusParaMostrarComprador.includes(property.id_estatus_disponibilidad) &&
+                          property.propietario_actual && property.propietario_actual !== property.propietario_original;
                         return (
                           <TableCell key={column.key}>
                             <div className="flex items-center gap-2">
                               <div className="flex flex-col">
-                                {/* Si tiene cuenta de mantenimiento Y estatus apropiado, mostrar nombre del comprador */}
+                                {/* Si tiene cuenta de mantenimiento O estatus Asignado, mostrar nombre del comprador */}
                                 {mostrarComoComprador ? (
                                   <>
                                     <span className="font-medium">{property.propietario_actual}</span>
