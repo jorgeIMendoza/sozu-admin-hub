@@ -1,9 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -34,7 +29,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Use the new endpoint that generates the file directly
+    // Use the endpoint that generates the file directly
     const webhookUrl = `${n8nBaseUrl}/extraerDatosXmlCsfYGeneraArchivo`
     console.log(`Calling N8N webhook: ${webhookUrl}`)
 
@@ -79,6 +74,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
+          type: 'file',
           file: base64,
           contentType: contentType,
           filename: `notificacion_sat_${id_cuenta_cobranza}_${Date.now()}.xlsm`
@@ -89,7 +85,7 @@ Deno.serve(async (req) => {
 
     // Otherwise treat as JSON response
     const responseText = await response.text()
-    console.log(`Raw N8N response (first 2000 chars): ${responseText.substring(0, 2000)}`)
+    console.log(`Raw N8N response: ${responseText.substring(0, 2000)}`)
     
     let result
     try {
@@ -102,8 +98,22 @@ Deno.serve(async (req) => {
       )
     }
     
-    console.log(`SAT notification response for cuenta_cobranza: ${id_cuenta_cobranza}`)
-    console.log(`Response structure keys: ${JSON.stringify(Object.keys(result))}`)
+    console.log(`SAT notification JSON response:`, JSON.stringify(result))
+    
+    // Check if this is the validation error response format
+    if (result.campos_con_error !== undefined || result.tiene_errores !== undefined) {
+      console.log(`Validation response detected - tiene_errores: ${result.tiene_errores}, total_errores: ${result.total_errores}`)
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          type: 'validation',
+          campos_con_error: result.campos_con_error || [],
+          tiene_errores: result.tiene_errores || false,
+          total_errores: result.total_errores || 0
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
     
     // Check if n8n returned an error message
     if (result.message && Object.keys(result).length === 1) {
@@ -114,9 +124,9 @@ Deno.serve(async (req) => {
       )
     }
     
-    // If n8n returns a file URL or success indicator, pass it through
+    // Generic success response
     return new Response(
-      JSON.stringify({ success: true, result }),
+      JSON.stringify({ success: true, type: 'unknown', result }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

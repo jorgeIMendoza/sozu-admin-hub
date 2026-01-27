@@ -49,6 +49,7 @@ export function SATNotificationDialog({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isCompradoresOpen, setIsCompradoresOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Array<{ campo: string; correcto: boolean; valor: string }> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -137,8 +138,35 @@ export function SATNotificationDialog({
 
       console.log('SAT generation response:', JSON.stringify(data, null, 2));
 
+      // Handle validation response (JSON with campo errors)
+      if (data.success && data.type === 'validation') {
+        console.log('Validation response received:', data);
+        const campos = data.campos_con_error || [];
+        const camposConError = campos.filter((c: any) => !c.correcto);
+        
+        if (data.tiene_errores || camposConError.length > 0) {
+          // Show validation errors table
+          setValidationErrors(campos);
+          toast({
+            title: "Errores de Validación",
+            description: `Se encontraron ${data.total_errores || camposConError.length} error(es) en los datos fiscales`,
+            variant: "destructive"
+          });
+        } else {
+          // No errors in validation, but no file was generated
+          toast({
+            title: "Validación Exitosa",
+            description: "Los datos fiscales son correctos, pero no se generó archivo"
+          });
+        }
+        return;
+      }
+
       // If the response contains a file (base64), download it and save
-      if (data.success && data.file) {
+      if (data.success && (data.type === 'file' || data.file)) {
+        // Clear any previous validation errors
+        setValidationErrors(null);
+        
         const filename = data.filename || `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
         
         // Convert base64 to blob
@@ -433,6 +461,64 @@ export function SATNotificationDialog({
                   </p>
                 </CollapsibleContent>
               </Collapsible>
+            )}
+
+            {/* Validation Errors Table */}
+            {validationErrors && validationErrors.length > 0 && (
+              <div className="space-y-2 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                <h4 className="font-medium text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Errores de Validación Fiscal
+                </h4>
+                <p className="text-xs text-red-600 dark:text-red-400 mb-2">
+                  Los siguientes campos presentan discrepancias entre el XML de la factura y la Constancia de Situación Fiscal:
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[150px]">Campo</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead className="text-center w-[80px]">Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {validationErrors.map((campo, index) => (
+                      <TableRow 
+                        key={`${campo.campo}-${index}`}
+                        className={!campo.correcto ? "bg-red-100 dark:bg-red-900/30" : ""}
+                      >
+                        <TableCell className="font-medium text-sm capitalize">
+                          {campo.campo.replace(/_/g, ' ')}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">
+                          {campo.valor || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {campo.correcto ? (
+                            <Badge variant="outline" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              OK
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs">
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Error
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setValidationErrors(null)}
+                  className="mt-2"
+                >
+                  Cerrar Errores
+                </Button>
+              </div>
             )}
 
             {/* Current status */}

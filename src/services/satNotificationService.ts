@@ -252,9 +252,19 @@ export const SATNotificationService = {
 
   /**
    * Generate SAT notification file by calling N8N webhook via Edge Function proxy
-   * Returns the URL of the generated file
+   * Returns the URL of the generated file OR validation errors
    */
-  async generate(cuentaCobranzaId: number): Promise<{ success: boolean; url?: string; error?: string }> {
+  async generate(cuentaCobranzaId: number): Promise<{ 
+    success: boolean; 
+    url?: string; 
+    error?: string;
+    type?: 'file' | 'validation';
+    validationResult?: {
+      campos_con_error: Array<{ campo: string; correcto: boolean; valor: string }>;
+      tiene_errores: boolean;
+      total_errores: number;
+    };
+  }> {
     try {
       // Get compradores for this cuenta to get the first one's documents
       const { data: compradores, error: compradoresError } = await supabase
@@ -318,8 +328,21 @@ export const SATNotificationService = {
         throw new Error(data.error || 'Error desconocido al generar la notificación');
       }
 
-      // If the response contains a file (base64), upload it to storage
-      if (data.file) {
+      // Handle validation response (JSON with errors)
+      if (data.type === 'validation') {
+        return { 
+          success: true, 
+          type: 'validation',
+          validationResult: {
+            campos_con_error: data.campos_con_error || [],
+            tiene_errores: data.tiene_errores || false,
+            total_errores: data.total_errores || 0
+          }
+        };
+      }
+
+      // Handle file response (binary Excel)
+      if (data.type === 'file' && data.file) {
         const filename = data.filename || `notificacion_sat_${cuentaCobranzaId}_${Date.now()}.xlsm`;
         
         // Convert base64 to blob
@@ -362,12 +385,7 @@ export const SATNotificationService = {
           throw new Error(`Error creating document record: ${docError.message}`);
         }
 
-        return { success: true, url: documentUrl };
-      }
-
-      // If N8N already handled the upload and returned a URL
-      if (data.result?.url) {
-        return { success: true, url: data.result.url };
+        return { success: true, type: 'file', url: documentUrl };
       }
 
       return { success: true };
