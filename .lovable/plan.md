@@ -1,122 +1,227 @@
 
-# Plan: Edge Function `generar-oferta-pdf`
+# Plan: Igualar PDF del Edge Function con el del Frontend
 
-## Objetivo
-Crear un Edge Function que genere PDFs de ofertas (propiedades y productos) de forma centralizada, permitiendo que sistemas externos puedan solicitar la generación via HTTP.
+## Análisis de Diferencias
 
-## Arquitectura Propuesta
+Después de revisar ambas implementaciones en detalle, he identificado las siguientes diferencias entre el PDF generado por el **frontend** (`ofertaPdfNativeService.ts`) y el generado por el **Edge Function** (`generar-oferta-pdf/index.ts`):
 
-```text
-┌─────────────────────┐     POST /generar-oferta-pdf     ┌──────────────────────┐
-│  Sistema Externo    │ ──────────────────────────────▶  │   Edge Function      │
-│  (n8n, API, etc.)   │                                  │  generar-oferta-pdf  │
-└─────────────────────┘                                  └──────────────────────┘
-                                                                    │
-                                                                    ▼
-                                                         ┌──────────────────────┐
-                                                         │  1. Fetch oferta     │
-                                                         │  2. Detect tipo      │
-                                                         │  3. Fetch all data   │
-                                                         │  4. Generate PDF     │
-                                                         │  5. Upload Storage   │
-                                                         │  6. Return URL       │
-                                                         └──────────────────────┘
-```
+### Diferencias Críticas - Ofertas de Propiedad
+
+| Característica | Frontend (jsPDF) | Edge Function (pdf-lib) | Estado |
+|---------------|------------------|-------------------------|--------|
+| **Iconos visuales** | Carga PNG icons (recamaras, baños, etc.) y los embebe en el PDF | Solo muestra texto (`"3 Recámaras • 2 Baños"`) sin iconos | ❌ Falta |
+| **Imagen del modelo** | Carga y muestra imagen del modelo desde `modelImages` | No incluye imagen del modelo | ❌ Falta |
+| **Vista/Orientación** | Consulta y muestra `vista.nombre` | No consulta la tabla `vistas` | ❌ Falta |
+| **Titular bancario** | Muestra `ownerData.nombre_legal` en sección bancaria | No consulta ni muestra el nombre del dueño | ❌ Falta |
+| **Tramos de mensualidad** | Soporta `tramos_mensualidad` con múltiples escalones | Solo calcula mensualidad uniforme | ❌ Falta |
+| **Esquemas en grid 2x2** | Cards con altura de 45mm en grid de 2 columnas | Cards con altura de 100mm, no encajan bien | ⚠️ Diferente |
+| **Multi-página** | Usa `checkNewPage()` y `pdf.addPage()` | Agrega página pero sin lógica correcta de Y | ⚠️ Bug |
+| **Sección efectivo** | Muestra cuenta madre del dueño para pago en efectivo | No incluye tarjeta de pago en efectivo | ❌ Falta |
+| **Balcón** | Muestra icono de balcón si `tieneBalcon` es true | No consulta ni muestra | ❌ Falta |
+
+### Diferencias Críticas - Ofertas de Producto
+
+| Característica | Frontend (jsPDF) | Edge Function (pdf-lib) | Estado |
+|---------------|------------------|-------------------------|--------|
+| **Titular bancario** | Muestra `ownerData.nombre_legal` | No lo consulta | ❌ Falta |
+| **Cuenta de efectivo** | Muestra tarjeta con datos de cuenta madre | Solo muestra STP temporal | ❌ Falta |
+| **Precio por m²** | Muestra si aplica | No incluido | ❌ Falta |
+| **Metraje** | Muestra si aplica | No incluido | ❌ Falta |
+
+---
 
 ## Cambios a Implementar
 
-### 1. Crear Edge Function `supabase/functions/generar-oferta-pdf/index.ts`
+### 1. Agregar Consultas de Datos Faltantes
 
-**Entrada (POST body)**:
-```json
-{
-  "offerId": 12345
+**Archivo:** `supabase/functions/generar-oferta-pdf/index.ts`
+
+a) **Consultar tabla `vistas`** para obtener orientación:
+```sql
+-- Ya incluida en propiedades, agregar:
+vistas (id, nombre)
+```
+
+b) **Consultar `modelImages`** (tabla `multimedia_modelo`):
+```sql
+SELECT url, ver_como_ubicacion_en_oferta
+FROM multimedia_modelo
+WHERE id_modelo = :modelId
+```
+
+c) **Consultar `ownerData`** para titular bancario:
+```sql
+-- Navegar desde proyecto → entidades_relacionadas → personas
+```
+
+d) **Consultar `ownerStpBankAccount`** para pago en efectivo:
+```sql
+-- Navegar desde personas → cuentas_bancarias
+```
+
+e) **Consultar `tieneBalcon`** desde propiedades características
+
+f) **Incluir `tramos_mensualidad`** en la consulta de esquemas_pago
+
+### 2. Embeber Iconos PNG en el PDF
+
+- Convertir los 6 iconos (`recamaras.png`, `banos.png`, etc.) a Base64 y embeber directamente en el código del Edge Function
+- Usar `pdfDoc.embedPng()` para incluirlos
+
+### 3. Agregar Imagen del Modelo
+
+- Consultar `multimedia_modelo` para obtener URL de imagen
+- Preferir imagen con `ver_como_ubicacion_en_oferta = true`
+- Usar `fetch()` + `pdfDoc.embedPng/Jpg()` para embeber
+
+### 4. Corregir Layout de Esquemas de Pago
+
+- Reducir altura de cards de 100mm a 45mm
+- Implementar lógica de `tramos_mensualidad` para mostrar escalones
+- Añadir lógica correcta de paginación
+
+### 5. Implementar Multi-Página Correctamente
+
+- Mantener referencia a `currentPage` al agregar páginas
+- Resetear `y` correctamente al cambiar de página
+- Asegurar que todos los `drawText` usen la página correcta
+
+### 6. Agregar Sección Bancaria Completa
+
+- Mostrar **Titular** en ambas tarjetas (STP y efectivo)
+- Agregar tarjeta de "Pago en efectivo" si `mostrar_seccion_efectivo_en_oferta` está activo
+- Incluir todos los datos: banco, titular, CLABE
+
+---
+
+## Estructura de Archivos Modificados
+
+```text
+supabase/functions/generar-oferta-pdf/
+└── index.ts  ← Modificar (~500+ líneas adicionales)
+```
+
+---
+
+## Detalle Técnico de Implementación
+
+### Sección 1: Nuevas Consultas SQL
+
+```typescript
+// Agregar a la consulta de propiedades:
+vistas (id, nombre)
+
+// Nueva consulta para model images:
+const { data: modelImages } = await supabase
+  .from('multimedia_modelo')
+  .select('url, ver_como_ubicacion_en_oferta')
+  .eq('id_modelo', modelo.id);
+
+// Consultar owner data del proyecto:
+const { data: entidadDueno } = await supabase
+  .from('entidades_relacionadas')
+  .select(`
+    personas!entidades_relacionadas_id_persona_fkey (
+      id, nombre_legal, email, telefono
+    )
+  `)
+  .eq('id_proyecto', proyecto.id)
+  .eq('tipo_entidad', 'propietario')
+  .single();
+
+// Consultar cuenta bancaria del dueño:
+const { data: ownerBankAccount } = await supabase
+  .from('cuentas_bancarias')
+  .select('numero_cuenta, cuenta_clabe, cuenta_swift, banco_nombre')
+  .eq('id_persona', ownerData.id)
+  .eq('es_cuenta_madre_stp', false)
+  .limit(1)
+  .single();
+```
+
+### Sección 2: Embeber Iconos Base64
+
+```typescript
+// En el Edge Function, incluir iconos como constantes Base64:
+const ICONS = {
+  recamaras: 'data:image/png;base64,iVBORw0KGgo...',
+  banos: 'data:image/png;base64,iVBORw0KGgo...',
+  // ... etc
+};
+
+// Función para embeber:
+async function embedIcon(pdfDoc: PDFDocument, iconKey: string) {
+  const base64Data = ICONS[iconKey].split(',')[1];
+  const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+  return await pdfDoc.embedPng(bytes);
 }
 ```
 
-**Salida (exitosa)**:
-```json
-{
-  "success": true,
-  "url_oferta": "https://...supabase.co/storage/v1/object/public/documentos/ofertas_temp/...",
-  "fileName": "O_000123_PropXYZ_Proyecto.pdf",
-  "expiresIn": "1 minute",
-  "tipoOferta": "propiedad" // o "producto"
+### Sección 3: Corregir Layout de Esquemas
+
+```typescript
+// Reducir altura y mejorar grid:
+const schemeHeight = scheme.tramos_mensualidad?.length > 0 
+  ? 45 + (scheme.tramos_mensualidad.length * 12)  // Altura dinámica
+  : 45;
+
+// Implementar tramos:
+if (scheme.tramos_mensualidad && scheme.tramos_mensualidad.length > 0) {
+  for (const tramo of scheme.tramos_mensualidad) {
+    page.drawText(`${tramo.numero_mensualidades} mensualidades:`, {...});
+    page.drawText(formatCurrency(tramo.monto), {...});
+    lineY -= 12;
+  }
 }
 ```
 
-**Lógica principal**:
-1. Recibir `offerId`
-2. Consultar tabla `ofertas` para obtener datos base
-3. Determinar si es oferta de propiedad (`id_producto IS NULL`) o producto (`id_producto IS NOT NULL`)
-4. Según el tipo, obtener todos los datos necesarios:
-   - **Propiedad**: propiedad, edificio, modelo, proyecto, esquemas de pago, estacionamientos, bodegas, datos del lead, datos del creador
-   - **Producto**: producto, categoría, propiedad relacionada, esquemas de pago, datos bancarios del dueño
-5. Generar PDF usando `pdf-lib` (compatible con Deno/Edge Functions)
-6. Subir a Storage bucket `documentos` en carpeta `ofertas_temp/`
-7. Programar eliminación automática después de 1 minuto
-8. Retornar URL pública
+### Sección 4: Multi-Página Correcta
 
-### 2. Actualizar `supabase/config.toml`
-Agregar configuración para la nueva función con `verify_jwt = false` (para permitir llamadas externas).
+```typescript
+let currentPage = page;
+const pages = [page];
 
-### 3. (Opcional) Crear servicio frontend `ofertaPdfEdgeFunctionService.ts`
-Un servicio que llame al Edge Function para unificar la generación desde el frontend también.
+function checkNewPage(neededHeight: number) {
+  if (y - neededHeight < margin) {
+    const newPage = pdfDoc.addPage([595.28, 841.89]);
+    pages.push(newPage);
+    currentPage = newPage;
+    y = height - margin;
+    return true;
+  }
+  return false;
+}
 
-## Detalles Técnicos
+// Usar currentPage en lugar de page para todos los draws
+currentPage.drawText(...);
+```
 
-### Librerías a usar en Edge Function
-- `pdf-lib` (ya usado en `generar-recibo-pago`) para generación de PDF
-- `@supabase/supabase-js` para consultas y storage
-
-### Datos a obtener por tipo
-
-**Oferta de Propiedad**:
-| Tabla | Campos clave |
-|-------|--------------|
-| ofertas | id, fecha_generacion, email_creador, id_esquema_pago_seleccionado, id_persona_lead, id_propiedad |
-| propiedades | numero_propiedad, precio_lista, m2_interiores, m2_exteriores, numero_piso, clabe_stp_tmp_apartado |
-| edificios_modelos → edificios → proyectos | nombre, url_logo |
-| modelos | nombre, numero_recamaras, numero_completo_banos |
-| esquemas_pago | todos los campos de esquema |
-| personas (lead) | nombre_legal, email, telefono, rfc |
-| personas/usuarios (creador) | nombre_legal, email, telefono |
-| estacionamientos | asociados a la propiedad |
-| bodegas | asociadas a la propiedad |
-
-**Oferta de Producto**:
-| Tabla | Campos clave |
-|-------|--------------|
-| ofertas | id, fecha_generacion, email_creador, id_esquema_pago_seleccionado, id_persona_lead, id_producto, clabe_stp_tmp_producto |
-| productos_servicios | nombre, precio_lista, id_categoria |
-| categorias_producto | nombre |
-| propiedades (relacionada) | numero_propiedad |
-| esquemas_pago | del producto |
-| entidades_relacionadas → personas | datos del dueño |
-| cuentas_bancarias | cuenta STP del dueño |
-
-### Estructura del PDF
-Se replicará la estructura visual actual de los servicios frontend:
-- Header con logo del proyecto
-- Datos de la propiedad/producto
-- Esquemas de pago (cards)
-- Datos bancarios (STP y efectivo)
-- Datos de contacto (agente y comprador)
-
-### Storage y URLs efímeras
-- Bucket: `documentos`
-- Carpeta: `ofertas_temp/`
-- Nombre archivo: `O_{offerId}_{propiedad/producto}_{timestamp}.pdf`
-- Auto-eliminación: 60 segundos (setTimeout como en `generar-recibo-pago`)
+---
 
 ## Estimación
-- **Complejidad**: Alta (port de ~900 líneas de lógica de frontend)
-- **Archivos nuevos**: 1 Edge Function (~700-900 líneas)
-- **Archivos modificados**: 1 (config.toml)
-- **Archivos opcionales**: 1 (servicio frontend)
 
-## Consideraciones
-- El Edge Function será más largo que `generar-recibo-pago` debido a los dos tipos de ofertas
-- Las imágenes (logo, firma) se obtienen via fetch y se embeben en el PDF
-- La validación de RFC se replica para mostrar/ocultar sección bancaria
-- Se mantiene compatibilidad con el formato actual de los PDFs generados en frontend
+- **Complejidad**: Alta
+- **Líneas adicionales**: ~400-500 líneas
+- **Tiempo estimado**: Implementación completa
+- **Archivos modificados**: 1 (`index.ts`)
+
+## Notas Importantes
+
+1. Los iconos se convertirán a Base64 y se incluirán directamente en el código para evitar dependencias externas
+2. La imagen del modelo se cargará dinámicamente desde Storage
+3. Se mantendrá compatibilidad 100% con el formato del frontend
+4. Se preservará la lógica de URL efímera (1 minuto)
+
+---
+
+## Resultado Esperado
+
+Después de implementar estos cambios, el PDF generado por el Edge Function será **visualmente idéntico** al generado por el frontend, incluyendo:
+
+- Iconos visuales para características (recámaras, baños, etc.)
+- Imagen del modelo en la sección de propiedad
+- Vista/orientación de la propiedad
+- Nombre del titular en datos bancarios
+- Tarjeta de pago en efectivo
+- Tramos de mensualidad en esquemas de pago
+- Paginación correcta para ofertas largas
