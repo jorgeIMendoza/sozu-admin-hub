@@ -382,6 +382,24 @@ export const ProjectLegalEntitiesSection = ({
       }
 
       if (cuentaMadre) {
+        // IDs for special projects: Productos (9), Servicios (10), Mantenimientos (11)
+        const SPECIAL_PROJECT_TYPES = [9, 10, 11];
+
+        // First, get the current project's id_tipo_uso to determine validation rules
+        let currentProjectTipoUso: number | null = null;
+        if (projectId) {
+          const { data: currentProject, error: projectError } = await supabase
+            .from("proyectos")
+            .select("id_tipo_uso")
+            .eq("id", projectId)
+            .single();
+          
+          if (projectError) throw projectError;
+          currentProjectTipoUso = currentProject?.id_tipo_uso;
+        }
+
+        const isCurrentProjectSpecial = currentProjectTipoUso !== null && SPECIAL_PROJECT_TYPES.includes(currentProjectTipoUso);
+
         // Fetch all entities with this cuenta_madre_stp (except the current one)
         const { data: existingEntities, error: checkError } = await supabase
           .from("entidades_relacionadas")
@@ -400,10 +418,7 @@ export const ProjectLegalEntitiesSection = ({
 
         if (checkError) throw checkError;
 
-        // IDs for special projects: Productos (9), Servicios (10), Mantenimientos (11)
-        const SPECIAL_PROJECT_TYPES = [9, 10, 11];
-
-        if (isProductosOrServicios) {
+        if (isCurrentProjectSpecial) {
           // For Productos/Servicios/Mantenimientos projects:
           // Only validate against OTHER Productos/Servicios/Mantenimientos projects
           const conflictingEntities = (existingEntities || []).filter((e: any) => 
