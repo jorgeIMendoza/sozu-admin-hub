@@ -88,25 +88,50 @@ export const ProjectModelSelectionSection = ({
     enabled: !!selectedBuildingId,
   });
 
-  // Query para obtener propietarios
+  // Query para obtener propietarios (Dueño vendedor, Aportante, y Dueños globales)
   const { data: propietarios } = useQuery({
     queryKey: ["propietarios", selectedProjectId],
     queryFn: async () => {
       if (!selectedProjectId) return [];
       
-      const { data, error } = await supabase
+      // Buscar entidades relacionadas del proyecto (Dueño vendedor=4, Aportante=15)
+      const { data: projectOwners, error: projectError } = await supabase
         .from("entidades_relacionadas")
         .select(`
           id,
           personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal)
         `)
         .eq("id_proyecto", parseInt(selectedProjectId))
-        .in("id_tipo_entidad", [4, 15]) // Dueño vendedor or Aportante
+        .in("id_tipo_entidad", [4, 15])
         .eq("activo", true)
         .order("personas(nombre_legal)");
       
-      if (error) throw error;
-      return data || [];
+      if (projectError) throw projectError;
+
+      // Buscar dueños globales (id_tipo_entidad=17, sin proyecto específico)
+      const { data: globalOwners, error: globalError } = await supabase
+        .from("entidades_relacionadas")
+        .select(`
+          id,
+          personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal)
+        `)
+        .eq("id_tipo_entidad", 17)
+        .is("id_proyecto", null)
+        .eq("activo", true);
+      
+      if (globalError) throw globalError;
+
+      // Combinar ambas listas
+      const combined = [...(projectOwners || []), ...(globalOwners || [])];
+      
+      // Eliminar duplicados por id de persona y ordenar
+      const unique = combined.filter((v, i, a) => 
+        a.findIndex(t => t.personas?.id === v.personas?.id) === i
+      ).sort((a, b) => 
+        (a.personas?.nombre_legal || '').localeCompare(b.personas?.nombre_legal || '')
+      );
+      
+      return unique;
     },
     enabled: !!selectedProjectId,
   });
