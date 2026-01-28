@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Shield, UserCheck, UserX, Key, Loader2, RotateCcw, Lock, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Shield, UserCheck, UserX, Key, Loader2, RotateCcw, Lock, Check, ChevronsUpDown, Pencil } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserProjectAccessDialog } from "@/components/admin/UserProjectAccessDialog";
 import { ChangeUserRoleDialog } from "@/components/admin/ChangeUserRoleDialog";
+import { EditUserDialog } from "@/components/admin/EditUserDialog";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 type Usuario = {
@@ -60,6 +61,7 @@ interface UsersTableProps {
   onActivate: (email: string) => void;
   onDeactivate: (email: string) => void;
   onChangeRole: (email: string, name: string, roleId: number | null) => void;
+  onEditUser: (email: string, name: string) => void;
   isInactiveTab?: boolean;
 }
 
@@ -71,6 +73,7 @@ function UsersTable({
   onActivate,
   onDeactivate,
   onChangeRole,
+  onEditUser,
   isInactiveTab 
 }: UsersTableProps) {
 
@@ -165,16 +168,28 @@ function UsersTable({
                     {!isCurrentUser && (
                       <>
                         {!isInactiveTab && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => onChangeRole(usuario.email, usuario.nombre || 'Sin nombre', usuario.rol_id)}
-                            title="Cambiar rol"
-                            className="hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-600"
-                          >
-                            <Shield className="h-3 w-3 mr-1" />
-                            Rol
-                          </Button>
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => onEditUser(usuario.email, usuario.nombre || '')}
+                              title="Editar usuario"
+                              className="hover:bg-blue-500/10 hover:border-blue-500 hover:text-blue-600"
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Editar
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => onChangeRole(usuario.email, usuario.nombre || 'Sin nombre', usuario.rol_id)}
+                              title="Cambiar rol"
+                              className="hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-600"
+                            >
+                              <Shield className="h-3 w-3 mr-1" />
+                              Rol
+                            </Button>
+                          </>
                         )}
                         {isInactiveTab ? (
                           <Button 
@@ -231,6 +246,7 @@ export default function Usuarios() {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [isChangeRoleDialogOpen, setIsChangeRoleDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
   const [selectedUserRoleId, setSelectedUserRoleId] = useState<number | null>(null);
@@ -739,6 +755,11 @@ export default function Usuarios() {
                       setSelectedUserRoleId(roleId);
                       setIsChangeRoleDialogOpen(true);
                     }}
+                    onEditUser={(email, name) => {
+                      setSelectedUserEmail(email);
+                      setSelectedUserName(name);
+                      setIsEditUserDialogOpen(true);
+                    }}
                   />
                 )}
               </TabsContent>
@@ -761,6 +782,11 @@ export default function Usuarios() {
                       setSelectedUserName(name);
                       setSelectedUserRoleId(roleId);
                       setIsChangeRoleDialogOpen(true);
+                    }}
+                    onEditUser={(email, name) => {
+                      setSelectedUserEmail(email);
+                      setSelectedUserName(name);
+                      setIsEditUserDialogOpen(true);
                     }}
                     isInactiveTab
                   />
@@ -1027,6 +1053,22 @@ export default function Usuarios() {
           userEmail={selectedUserEmail}
           userName={selectedUserName}
           currentRoleId={selectedUserRoleId}
+        />
+      )}
+
+      {/* Edit User Dialog */}
+      {selectedUserEmail && selectedUserName !== null && (
+        <EditUserDialog
+          open={isEditUserDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditUserDialogOpen(open);
+            if (!open) {
+              setSelectedUserEmail(null);
+              setSelectedUserName(null);
+            }
+          }}
+          userEmail={selectedUserEmail}
+          userName={selectedUserName}
         />
       )}
     </div>
