@@ -1678,19 +1678,19 @@ const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date; to: Date }>
           {isPagosMensualesReport && (
             <div className="space-y-4">
               <Label className="text-base font-semibold">Filtros</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="flex flex-wrap items-end gap-6">
                 {/* Month Range Filter */}
                 <div className="space-y-2">
                   <Label>Rango de Meses</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          className="flex-1 justify-start text-left font-normal"
+                          className="w-[180px] justify-start text-left font-normal"
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(dateRangeFilter.from, "MMMM yyyy", { locale: es })}
+                          <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{format(dateRangeFilter.from, "MMMM yyyy", { locale: es })}</span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -1707,15 +1707,15 @@ const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date; to: Date }>
                         />
                       </PopoverContent>
                     </Popover>
-                    <span className="text-muted-foreground">a</span>
+                    <span className="text-muted-foreground font-medium">a</span>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          className="flex-1 justify-start text-left font-normal"
+                          className="w-[180px] justify-start text-left font-normal"
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {format(dateRangeFilter.to, "MMMM yyyy", { locale: es })}
+                          <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{format(dateRangeFilter.to, "MMMM yyyy", { locale: es })}</span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -1743,7 +1743,7 @@ const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date; to: Date }>
                       value={metodoPagoFilter}
                       onValueChange={setMetodoPagoFilter}
                     >
-                      <SelectTrigger id="metodo_pago">
+                      <SelectTrigger id="metodo_pago" className="w-[200px]">
                         <SelectValue placeholder="Todos los métodos" />
                       </SelectTrigger>
                       <SelectContent>
