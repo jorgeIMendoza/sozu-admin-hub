@@ -307,13 +307,14 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
     enabled: !!propertyProject?.id
   });
 
-  // Fetch owners based on the custom query logic - filter by specific entity types and project
+  // Fetch owners based on the custom query logic - filter by specific entity types and project, plus global owners
   const { data: entidadesRelacionadas } = useQuery({
     queryKey: ['propietarios_filtered', propertyProject?.id],
     queryFn: async () => {
       if (!propertyProject?.id) return [];
       
-      const { data, error } = await supabase
+      // Buscar entidades relacionadas del proyecto
+      const { data: projectOwners, error: projectError } = await supabase
         .from('entidades_relacionadas')
         .select(`
           id,
@@ -336,8 +337,41 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         .eq('id_proyecto', propertyProject.id)
         .eq('activo', true);
       
-      if (error) throw error;
-      return data || [];
+      if (projectError) throw projectError;
+
+      // Buscar dueños globales (id_tipo_entidad=17, sin proyecto específico)
+      const { data: globalOwners, error: globalError } = await supabase
+        .from('entidades_relacionadas')
+        .select(`
+          id,
+          id_proyecto,
+          id_persona,
+          personas!fk_entrel_persona (
+            id,
+            nombre_legal
+          ),
+          tipos_entidad!id_tipo_entidad (
+            id,
+            nombre
+          )
+        `)
+        .eq('id_tipo_entidad', 17)
+        .is('id_proyecto', null)
+        .eq('activo', true);
+      
+      if (globalError) throw globalError;
+
+      // Combinar ambas listas
+      const combined = [...(projectOwners || []), ...(globalOwners || [])];
+      
+      // Eliminar duplicados por id de persona y ordenar
+      const unique = combined.filter((v, i, a) => 
+        a.findIndex(t => t.personas?.id === v.personas?.id) === i
+      ).sort((a, b) => 
+        (a.personas?.nombre_legal || '').localeCompare(b.personas?.nombre_legal || '')
+      );
+      
+      return unique;
     },
     enabled: !!propertyProject?.id
   });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, FileSpreadsheet, UserPlus } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
+import { ConvertirDuenoDialog } from "@/components/admin/ConvertirDuenoDialog";
 
 type Dueno = {
   id: number;
@@ -36,6 +37,7 @@ export default function Duenos() {
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [editingDueno, setEditingDueno] = useState<Dueno | null>(null);
   const [selectedDuenoForBankAccounts, setSelectedDuenoForBankAccounts] = useState<Dueno | null>(null);
   const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
@@ -501,6 +503,15 @@ export default function Duenos() {
               )}
               {(canCreate || isSuperAdmin) && (
                 <Button 
+                  variant="outline"
+                  onClick={() => setIsConvertDialogOpen(true)}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Convertir a Dueño
+                </Button>
+              )}
+              {(canCreate || isSuperAdmin) && (
+                <Button 
                   onClick={() => setIsNewDialogOpen(true)}
                   className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
                 >
@@ -617,6 +628,12 @@ export default function Duenos() {
         description={`¿Estás seguro de que deseas restaurar al dueño "${duenoToRestore?.nombre_legal}"?`}
         isLoading={restoreMutation.isPending}
         actionType="restore"
+      />
+
+      {/* Convertir a Dueño Dialog */}
+      <ConvertirDuenoDialog
+        open={isConvertDialogOpen}
+        onOpenChange={setIsConvertDialogOpen}
       />
     </div>
   );
