@@ -276,8 +276,8 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         nombre_firmante_recibos: values.nombre_firmante_recibos || null,
         url_imagen_portada: values.url_imagen_portada || null,
         costo_mantenimiento_m2: values.costo_mantenimiento_m2 ? parseFloat(values.costo_mantenimiento_m2) : 0,
-        monto_mensual_cuota_extraordinaria: values.monto_mensual_cuota_extraordinaria ? parseFloat(values.monto_mensual_cuota_extraordinaria) : null,
-        monto_garantia_renta: values.monto_garantia_renta ? parseFloat(values.monto_garantia_renta) : null,
+        monto_mensual_cuota_extraordinaria: values.monto_mensual_cuota_extraordinaria ? parseFloat(values.monto_mensual_cuota_extraordinaria) : 0,
+        monto_garantia_renta: values.monto_garantia_renta ? parseFloat(values.monto_garantia_renta) : 0,
       };
 
       const { data: newProject, error } = await supabase
