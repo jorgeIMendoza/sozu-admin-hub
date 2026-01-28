@@ -381,15 +381,15 @@ export const ProjectLegalEntitiesSection = ({
         throw new Error("La cuenta madre STP debe tener exactamente 14 dígitos");
       }
 
-      // Validate that cuenta_madre_stp is not already in use by another entity
-      // in projects of type Productos (9), Servicios (10), or Mantenimientos (11)
-      if (cuentaMadre && isProductosOrServicios) {
+      if (cuentaMadre) {
+        // Fetch all entities with this cuenta_madre_stp (except the current one)
         const { data: existingEntities, error: checkError } = await supabase
           .from("entidades_relacionadas")
           .select(`
             id, 
             id_proyecto, 
             proyectos!entidades_relacionadas_id_proyecto_fkey (
+              id,
               nombre,
               id_tipo_uso
             )
@@ -400,17 +400,37 @@ export const ProjectLegalEntitiesSection = ({
 
         if (checkError) throw checkError;
 
-        // Filter only entities from Productos/Servicios/Mantenimientos projects
-        const conflictingEntities = (existingEntities || []).filter((e: any) => 
-          e.proyectos && [9, 10, 11].includes(e.proyectos.id_tipo_uso)
-        );
+        // IDs for special projects: Productos (9), Servicios (10), Mantenimientos (11)
+        const SPECIAL_PROJECT_TYPES = [9, 10, 11];
 
-        if (conflictingEntities.length > 0) {
-          const otherProject = conflictingEntities[0].proyectos?.nombre || "otro proyecto";
-          throw new Error(
-            `Esta cuenta madre STP ya está asignada a otra entidad en "${otherProject}". ` +
-            `Para evitar colisiones de CLABE, cada entidad de productos/servicios debe tener una cuenta madre única.`
+        if (isProductosOrServicios) {
+          // For Productos/Servicios/Mantenimientos projects:
+          // Only validate against OTHER Productos/Servicios/Mantenimientos projects
+          const conflictingEntities = (existingEntities || []).filter((e: any) => 
+            e.proyectos && SPECIAL_PROJECT_TYPES.includes(e.proyectos.id_tipo_uso)
           );
+
+          if (conflictingEntities.length > 0) {
+            const otherProject = conflictingEntities[0].proyectos?.nombre || "otro proyecto";
+            throw new Error(
+              `Esta cuenta madre STP ya está asignada a otra entidad en "${otherProject}". ` +
+              `Para evitar colisiones de CLABE, cada entidad de productos/servicios debe tener una cuenta madre única.`
+            );
+          }
+        } else {
+          // For regular projects:
+          // Validate against entities in OTHER regular projects (exclude Productos/Servicios/Mantenimientos)
+          const conflictingEntities = (existingEntities || []).filter((e: any) => 
+            e.proyectos && !SPECIAL_PROJECT_TYPES.includes(e.proyectos.id_tipo_uso)
+          );
+
+          if (conflictingEntities.length > 0) {
+            const otherProject = conflictingEntities[0].proyectos?.nombre || "otro proyecto";
+            throw new Error(
+              `Esta cuenta madre STP ya está asignada a otra entidad en el proyecto "${otherProject}". ` +
+              `No se puede reutilizar la misma cuenta madre en diferentes proyectos regulares.`
+            );
+          }
         }
       }
 
