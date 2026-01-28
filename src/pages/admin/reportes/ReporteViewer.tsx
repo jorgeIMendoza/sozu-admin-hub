@@ -186,9 +186,11 @@ export default function ReporteViewer() {
   const [hasReportAccess, setHasReportAccess] = useState<boolean | null>(null);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
 const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>('');
-const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | null; to: Date | null }>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // First day of current month
-    to: new Date() // Today
+const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date; to: Date }>(() => {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { from: firstDayOfMonth, to: lastDayOfMonth };
   });
   
   // State for cuenta de cobranza dialog
@@ -325,11 +327,12 @@ const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | null; to: 
       // Build effective filters including date range filter for Pagos Mensuales
       const effectiveFiltros = { ...filtros };
       const isReporteMensual = reporte?.id === 8 || reporte?.nombre_archivo === 'reporte_mensual_pagos';
-      if (isReporteMensual && dateRangeFilter.from) {
-        effectiveFiltros['fecha_desde'] = format(dateRangeFilter.from, 'yyyy-MM-dd');
-        if (dateRangeFilter.to) {
-          effectiveFiltros['fecha_hasta'] = format(dateRangeFilter.to, 'yyyy-MM-dd');
-        }
+      if (isReporteMensual) {
+        // Always use first day of from month and last day of to month
+        const fromMonth = dateRangeFilter.from;
+        const toMonth = dateRangeFilter.to;
+        effectiveFiltros['fecha_desde'] = format(new Date(fromMonth.getFullYear(), fromMonth.getMonth(), 1), 'yyyy-MM-dd');
+        effectiveFiltros['fecha_hasta'] = format(new Date(toMonth.getFullYear(), toMonth.getMonth() + 1, 0), 'yyyy-MM-dd');
       }
 
       const processedQuery = applyFiltersToQuery(reporte.query_sql, effectiveFiltros);
@@ -1098,12 +1101,12 @@ const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | null; to: 
       // Exception: Restricted users (Representante de empresa dueña) must have their access filters applied
       let exportFilters: Record<string, string> = {};
       
-      if (isPagosMensualesReport && dateRangeFilter.from) {
-        // Pagos Mensuales report requires the date range filter
-        exportFilters['fecha_desde'] = format(dateRangeFilter.from, 'yyyy-MM-dd');
-        if (dateRangeFilter.to) {
-          exportFilters['fecha_hasta'] = format(dateRangeFilter.to, 'yyyy-MM-dd');
-        }
+      if (isPagosMensualesReport) {
+        // Pagos Mensuales report requires the date range filter - use first/last day of selected months
+        const fromMonth = dateRangeFilter.from;
+        const toMonth = dateRangeFilter.to;
+        exportFilters['fecha_desde'] = format(new Date(fromMonth.getFullYear(), fromMonth.getMonth(), 1), 'yyyy-MM-dd');
+        exportFilters['fecha_hasta'] = format(new Date(toMonth.getFullYear(), toMonth.getMonth() + 1, 0), 'yyyy-MM-dd');
       }
       
       // Only apply ownership filters for restricted users
@@ -1676,52 +1679,60 @@ const [dateRangeFilter, setDateRangeFilter] = useState<{ from: Date | null; to: 
             <div className="space-y-4">
               <Label className="text-base font-semibold">Filtros</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {/* Date Range Filter */}
+                {/* Month Range Filter */}
                 <div className="space-y-2">
-                  <Label htmlFor="fecha_rango">Rango de Fechas</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !dateRangeFilter.from && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRangeFilter.from ? (
-                          dateRangeFilter.to ? (
-                            <>
-                              {format(dateRangeFilter.from, "dd/MM/yyyy")} - {format(dateRangeFilter.to, "dd/MM/yyyy")}
-                            </>
-                          ) : (
-                            format(dateRangeFilter.from, "dd/MM/yyyy")
-                          )
-                        ) : (
-                          <span>Seleccionar rango</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={dateRangeFilter.from || new Date()}
-                        selected={{
-                          from: dateRangeFilter.from || undefined,
-                          to: dateRangeFilter.to || undefined,
-                        }}
-                        onSelect={(range) => {
-                          setDateRangeFilter({
-                            from: range?.from || null,
-                            to: range?.to || null,
-                          });
-                        }}
-                        numberOfMonths={2}
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label>Rango de Meses</Label>
+                  <div className="flex items-center gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="flex-1 justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(dateRangeFilter.from, "MMMM yyyy", { locale: es })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <MonthPicker
+                          value={dateRangeFilter.from}
+                          onChange={(date) => {
+                            if (date) {
+                              setDateRangeFilter(prev => ({
+                                from: date,
+                                to: date > prev.to ? date : prev.to
+                              }));
+                            }
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <span className="text-muted-foreground">a</span>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="flex-1 justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {format(dateRangeFilter.to, "MMMM yyyy", { locale: es })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <MonthPicker
+                          value={dateRangeFilter.to}
+                          onChange={(date) => {
+                            if (date) {
+                              setDateRangeFilter(prev => ({
+                                from: date < prev.from ? date : prev.from,
+                                to: date
+                              }));
+                            }
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 {/* Payment Method Filter */}
