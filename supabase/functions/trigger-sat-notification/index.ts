@@ -161,6 +161,12 @@ Deno.serve(async (req) => {
       )
     }
     
+    // N8N sometimes returns an array with a single object - unwrap it
+    if (Array.isArray(result) && result.length > 0) {
+      console.log('N8N returned an array, unwrapping first element')
+      result = result[0]
+    }
+    
     console.log(`SAT notification JSON response:`, JSON.stringify(result))
     
     // Check if this is the validation error response format
