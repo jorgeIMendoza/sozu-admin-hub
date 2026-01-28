@@ -57,24 +57,15 @@ export const ReventaDialog = ({
 
   const reventaMutation = useMutation({
     mutationFn: async () => {
-      // 1. Get the ID for "Re-venta" transaction type (note: has hyphen in database)
-      const { data: tipoReventa, error: tipoError } = await supabase
-        .from('tipos_transaccion')
-        .select('id')
-        .eq('nombre', 'Re-venta')
-        .eq('activo', true)
-        .single();
+      // Re-venta transaction type ID is 2 in the database
+      const ID_TIPO_REVENTA = 2;
 
-      if (tipoError || !tipoReventa) {
-        throw new Error('No se encontró el tipo de transacción "Re-venta"');
-      }
-
-      // 2. Update property: status to Disponible (2), transaction type to Reventa, clear CLABE
+      // Update property: status to Disponible (2), transaction type to Re-venta (2), clear CLABE
       const { error: updateError } = await supabase
         .from('propiedades')
         .update({
           id_estatus_disponibilidad: 2, // Disponible
-          id_tipo_transaccion: tipoReventa.id,
+          id_tipo_transaccion: ID_TIPO_REVENTA,
           precio_lista: nuevoPrecioLista / 100, // Convert from cents
           monto_apartado: nuevoMontoApartado / 100, // Convert from cents
           clabe_stp_tmp_apartado: null, // Clear temporary CLABE
@@ -86,7 +77,7 @@ export const ReventaDialog = ({
         throw updateError;
       }
 
-      return { tipoReventaId: tipoReventa.id };
+      return { tipoReventaId: ID_TIPO_REVENTA };
     },
     onSuccess: async () => {
       // Log the activity
