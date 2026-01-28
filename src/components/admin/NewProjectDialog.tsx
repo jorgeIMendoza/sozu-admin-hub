@@ -265,7 +265,7 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         direccion: values.direccion || null,
         id_tipo_uso: parseInt(values.id_tipo_uso),
         id_estatus_proyecto: isSpecialProject ? 1 : parseInt(values.id_estatus_proyecto),
-        precio_m2_actual: values.precio_m2_actual ? parseFloat(values.precio_m2_actual) : null,
+        precio_m2_actual: values.precio_m2_actual ? parseFloat(values.precio_m2_actual) : 0,
         fecha_lanzamiento: values.fecha_lanzamiento || null,
         fecha_inicio_construccion: values.fecha_inicio_construccion || null,
         fecha_entrega: values.fecha_entrega || null,
