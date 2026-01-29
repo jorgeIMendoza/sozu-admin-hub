@@ -70,7 +70,7 @@ interface UsersTableProps {
   onActivate: (email: string) => void;
   onDeactivate: (email: string) => void;
   onChangeRole: (email: string, name: string, roleId: number | null) => void;
-  onEditUser: (email: string, name: string) => void;
+  onEditUser: (email: string, name: string, roleId: number | null, personaId: number | null) => void;
   isInactiveTab?: boolean;
 }
 
@@ -186,8 +186,8 @@ function UsersTable({
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => onEditUser(usuario.email, usuario.nombre || '')}
-                              title="Editar usuario"
+                            onClick={() => onEditUser(usuario.email, usuario.nombre || '', usuario.rol_id, usuario.id_persona)}
+                            title="Editar usuario"
                               className="hover:bg-blue-500/10 hover:border-blue-500 hover:text-blue-600"
                             >
                               <Pencil className="h-3 w-3 mr-1" />
@@ -264,6 +264,7 @@ export default function Usuarios() {
   const [selectedUserEmail, setSelectedUserEmail] = useState<string | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
   const [selectedUserRoleId, setSelectedUserRoleId] = useState<number | null>(null);
+  const [selectedUserPersonaId, setSelectedUserPersonaId] = useState<number | null>(null);
   const [newUserForm, setNewUserForm] = useState({
     email: "",
     nombre: "",
@@ -738,19 +739,19 @@ export default function Usuarios() {
     const newRolId = parseInt(roleId);
     
     if (newRolId === ROLE_AGENTE_INTERNO) {
-      // Preselect Sozu and lock the field
+      // Preselect Sozu but allow changing it
       setNewUserForm(prev => ({ 
         ...prev, 
         rol_id: roleId,
         id_inmobiliaria: SOZU_INMOBILIARIA_ID.toString()
       }));
-      setIsInmobiliariaLocked(true);
+      setIsInmobiliariaLocked(false); // Don't lock, just preselect
     } else if (newRolId === ROLE_AGENTE_INMOBILIARIO) {
       // Allow selecting inmobiliaria
       setNewUserForm(prev => ({ 
         ...prev, 
         rol_id: roleId,
-        id_inmobiliaria: isInmobiliariaLocked ? "" : prev.id_inmobiliaria
+        id_inmobiliaria: prev.id_inmobiliaria
       }));
       setIsInmobiliariaLocked(false);
     } else {
@@ -949,9 +950,11 @@ export default function Usuarios() {
                       setSelectedUserRoleId(roleId);
                       setIsChangeRoleDialogOpen(true);
                     }}
-                    onEditUser={(email, name) => {
+                    onEditUser={(email, name, roleId, personaId) => {
                       setSelectedUserEmail(email);
                       setSelectedUserName(name);
+                      setSelectedUserRoleId(roleId || null);
+                      setSelectedUserPersonaId(personaId || null);
                       setIsEditUserDialogOpen(true);
                     }}
                   />
@@ -977,9 +980,11 @@ export default function Usuarios() {
                       setSelectedUserRoleId(roleId);
                       setIsChangeRoleDialogOpen(true);
                     }}
-                    onEditUser={(email, name) => {
+                    onEditUser={(email, name, roleId, personaId) => {
                       setSelectedUserEmail(email);
                       setSelectedUserName(name);
+                      setSelectedUserRoleId(roleId || null);
+                      setSelectedUserPersonaId(personaId || null);
                       setIsEditUserDialogOpen(true);
                     }}
                     isInactiveTab
@@ -1174,9 +1179,9 @@ export default function Usuarios() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {isInmobiliariaLocked && (
+                {newUserForm.rol_id === ROLE_AGENTE_INTERNO.toString() && newUserForm.id_inmobiliaria === SOZU_INMOBILIARIA_ID.toString() && (
                   <p className="text-xs text-muted-foreground">
-                    Los Agentes Internos se asignan automáticamente a Sozu.
+                    Los Agentes Internos se asignan por defecto a Sozu.
                   </p>
                 )}
               </div>
@@ -1322,10 +1327,14 @@ export default function Usuarios() {
             if (!open) {
               setSelectedUserEmail(null);
               setSelectedUserName(null);
+              setSelectedUserRoleId(null);
+              setSelectedUserPersonaId(null);
             }
           }}
           userEmail={selectedUserEmail}
           userName={selectedUserName}
+          userRoleId={selectedUserRoleId ?? undefined}
+          userPersonaId={selectedUserPersonaId ?? undefined}
         />
       )}
     </div>
