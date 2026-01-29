@@ -739,13 +739,13 @@ export default function Usuarios() {
     const newRolId = parseInt(roleId);
     
     if (newRolId === ROLE_AGENTE_INTERNO) {
-      // Preselect Sozu but allow changing it
+      // Preselect Sozu and LOCK the field
       setNewUserForm(prev => ({ 
         ...prev, 
         rol_id: roleId,
         id_inmobiliaria: SOZU_INMOBILIARIA_ID.toString()
       }));
-      setIsInmobiliariaLocked(false); // Don't lock, just preselect
+      setIsInmobiliariaLocked(true); // Lock for Agente Interno
     } else if (newRolId === ROLE_AGENTE_INMOBILIARIO) {
       // Allow selecting inmobiliaria
       setNewUserForm(prev => ({ 
@@ -1013,8 +1013,9 @@ export default function Usuarios() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+            {/* 1. Vincular a Persona (opcional) */}
             <div className="space-y-2">
-              <Label htmlFor="persona">Vincular a Agente/Inmobiliaria (opcional)</Label>
+              <Label htmlFor="persona">Vincular a Persona (opcional)</Label>
               <Combobox
                 value={newUserForm.id_persona}
                 onValueChange={handlePersonaSelect}
@@ -1032,38 +1033,8 @@ export default function Usuarios() {
                 </p>
               )}
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="nombre" className="flex items-center gap-2">
-                Nombre *
-                {isFieldsLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
-              </Label>
-              <Input
-                id="nombre"
-                value={newUserForm.nombre}
-                onChange={(e) => setNewUserForm(prev => ({ ...prev, nombre: e.target.value }))}
-                placeholder="Nombre completo"
-                disabled={isFieldsLocked}
-                className={isFieldsLocked ? "bg-muted" : ""}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2">
-                Email *
-                {isFieldsLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={newUserForm.email}
-                onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="usuario@email.com"
-                disabled={isFieldsLocked}
-                className={isFieldsLocked ? "bg-muted" : ""}
-              />
-            </div>
-            
+
+            {/* 2. Rol */}
             <div className="space-y-2">
               <Label htmlFor="rol" className="flex items-center gap-2">
                 Rol *
@@ -1124,10 +1095,11 @@ export default function Usuarios() {
               )}
             </div>
 
-            {/* Inmobiliaria selector - only show for Agente Interno or Agente Inmobiliario */}
+            {/* 3. Inmobiliaria selector - only show for Agente Interno or Agente Inmobiliario */}
             {(newUserForm.rol_id === ROLE_AGENTE_INTERNO.toString() || newUserForm.rol_id === ROLE_AGENTE_INMOBILIARIO.toString()) && (
               <div className="space-y-2">
                 <Label htmlFor="inmobiliaria" className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
                   Inmobiliaria *
                   {isInmobiliariaLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
                 </Label>
@@ -1139,7 +1111,7 @@ export default function Usuarios() {
                       disabled={isInmobiliariaLocked}
                       className={cn(
                         "w-full justify-between",
-                        isInmobiliariaLocked && "bg-muted",
+                        isInmobiliariaLocked && "bg-muted cursor-not-allowed",
                         !newUserForm.id_inmobiliaria && "text-muted-foreground"
                       )}
                     >
@@ -1179,13 +1151,46 @@ export default function Usuarios() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {newUserForm.rol_id === ROLE_AGENTE_INTERNO.toString() && newUserForm.id_inmobiliaria === SOZU_INMOBILIARIA_ID.toString() && (
+                {newUserForm.rol_id === ROLE_AGENTE_INTERNO.toString() && (
                   <p className="text-xs text-muted-foreground">
-                    Los Agentes Internos se asignan por defecto a Sozu.
+                    Los Agentes Internos se asignan automáticamente a Sozu.
                   </p>
                 )}
               </div>
             )}
+            
+            {/* 4. Nombre */}
+            <div className="space-y-2">
+              <Label htmlFor="nombre" className="flex items-center gap-2">
+                Nombre *
+                {isFieldsLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+              </Label>
+              <Input
+                id="nombre"
+                value={newUserForm.nombre}
+                onChange={(e) => setNewUserForm(prev => ({ ...prev, nombre: e.target.value }))}
+                placeholder="Nombre completo"
+                disabled={isFieldsLocked}
+                className={isFieldsLocked ? "bg-muted" : ""}
+              />
+            </div>
+            
+            {/* 5. Email */}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="flex items-center gap-2">
+                Email *
+                {isFieldsLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={newUserForm.email}
+                onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="usuario@email.com"
+                disabled={isFieldsLocked}
+                className={isFieldsLocked ? "bg-muted" : ""}
+              />
+            </div>
           </div>
 
           <DialogFooter>
