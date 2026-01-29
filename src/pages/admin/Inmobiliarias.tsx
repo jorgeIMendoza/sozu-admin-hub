@@ -341,6 +341,48 @@ export default function Inmobiliarias() {
         console.error('Error al crear usuario automático para inmobiliaria:', e);
       }
 
+      // Crear usuario para el representante legal si existe
+      if (representativeId) {
+        try {
+          const { data: repLegalData, error: repLegalError } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, email, telefono, clave_pais_telefono)')
+            .eq('id', representativeId)
+            .single();
+          
+          if (!repLegalError && repLegalData?.personas) {
+            const repPersona = repLegalData.personas as any;
+            
+            // Verificar si ya existe un usuario con ese email
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('email')
+              .eq('email', repPersona.email)
+              .maybeSingle();
+            
+            if (!existingUser && repPersona.email) {
+              // Crear usuario para el representante legal con rol Agente Inmobiliario (id: 3)
+              const { error: repUserError } = await supabase.functions.invoke('create-user', {
+                body: {
+                  email: repPersona.email,
+                  nombre: repPersona.nombre_legal,
+                  rol_id: 3, // Agente Inmobiliario
+                  id_persona: repPersona.id,
+                  telefono: repPersona.telefono || null,
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null
+                }
+              });
+              
+              if (repUserError) {
+                console.error('Error al crear usuario para representante legal:', repUserError);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error al crear usuario para representante legal:', e);
+        }
+      }
+
       // Crear usuario para el representante comercial si existe
       if (commercialRepresentativeId) {
         try {
@@ -361,13 +403,13 @@ export default function Inmobiliarias() {
               .eq('email', repPersona.email)
               .maybeSingle();
             
-            if (!existingUser) {
-              // Crear usuario para el representante comercial con rol Inmobiliaria (id: 4)
+            if (!existingUser && repPersona.email) {
+              // Crear usuario para el representante comercial con rol Agente Inmobiliario (id: 3)
               const { error: repUserError } = await supabase.functions.invoke('create-user', {
                 body: {
                   email: repPersona.email,
                   nombre: repPersona.nombre_legal,
-                  rol_id: 4, // Inmobiliaria
+                  rol_id: 3, // Agente Inmobiliario
                   id_persona: repPersona.id,
                   telefono: repPersona.telefono || null,
                   clave_pais_telefono: repPersona.clave_pais_telefono || null

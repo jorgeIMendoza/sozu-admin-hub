@@ -276,18 +276,33 @@ export default function Usuarios() {
   // Current user's email for highlighting
   const currentUserEmail = profile?.email || session?.user?.email;
 
-  // Fetch inmobiliarias for domain matching
+  // Fetch inmobiliarias for domain matching (from entidades_relacionadas with id_tipo_entidad = 5)
   const { data: inmobiliarias = [] } = useQuery({
     queryKey: ['inmobiliarias_dominios'],
     queryFn: async () => {
+      // First get persona IDs that are inmobiliarias
+      const { data: entidadesData, error: entidadesError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_persona')
+        .eq('id_tipo_entidad', 5) // Inmobiliaria
+        .eq('activo', true);
+      
+      if (entidadesError) throw entidadesError;
+      
+      const personaIds = (entidadesData || []).map(e => e.id_persona).filter(Boolean);
+      
+      if (personaIds.length === 0) return [];
+      
+      // Now get the personas with their emails
       const { data, error } = await supabase
         .from('personas')
         .select('id, nombre_legal, nombre_comercial, email')
-        .eq('tipo_persona', 'pm')
+        .in('id', personaIds)
         .eq('activo', true)
         .not('email', 'is', null);
       
       if (error) throw error;
+      
       return (data || []).map(item => ({
         id: item.id,
         nombre: item.nombre_comercial || item.nombre_legal,
