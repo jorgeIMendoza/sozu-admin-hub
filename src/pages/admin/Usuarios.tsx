@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Shield, UserCheck, UserX, Key, Loader2, RotateCcw, Lock, Check, ChevronsUpDown, Pencil } from "lucide-react";
+import { Plus, Search, Shield, UserCheck, UserX, Key, Loader2, RotateCcw, Lock, Check, ChevronsUpDown, Pencil, Building2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -264,6 +264,7 @@ export default function Usuarios() {
   const [isFieldsLocked, setIsFieldsLocked] = useState(false);
   const [selectedPersonaTipo, setSelectedPersonaTipo] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isMigratingInmobiliarias, setIsMigratingInmobiliarias] = useState(false);
 
   
   const { toast } = useToast();
@@ -699,13 +700,54 @@ export default function Usuarios() {
                 Gestiona los usuarios y sus roles de acceso
               </p>
             </div>
-            <Button 
-              onClick={() => setIsNewUserDialogOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Usuario
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={async () => {
+                  setIsMigratingInmobiliarias(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('migrate-inmobiliaria-users');
+                    if (error) throw error;
+                    
+                    toast({
+                      title: "Migración completada",
+                      description: data?.message || "Usuarios de inmobiliaria creados correctamente.",
+                    });
+                    
+                    // Log results
+                    console.log('Resultados migración:', data);
+                    
+                    // Refresh users list
+                    queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+                  } catch (error: any) {
+                    console.error('Error en migración:', error);
+                    toast({
+                      title: "Error en migración",
+                      description: error.message || "No se pudo completar la migración.",
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setIsMigratingInmobiliarias(false);
+                  }
+                }}
+                disabled={isMigratingInmobiliarias}
+                className="hover:bg-orange-500/10 hover:border-orange-500 hover:text-orange-600"
+              >
+                {isMigratingInmobiliarias ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Building2 className="w-4 h-4 mr-2" />
+                )}
+                Migrar Inmobiliarias
+              </Button>
+              <Button 
+                onClick={() => setIsNewUserDialogOpen(true)}
+                className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Usuario
+              </Button>
+            </div>
           </div>
         </CardHeader>
         
