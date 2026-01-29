@@ -60,7 +60,50 @@ export const ReventaDialog = ({
       // Re-venta transaction type ID is 2 in the database
       const ID_TIPO_REVENTA = 2;
 
-      // Update property: status to Disponible (2), transaction type to Re-venta (2), clear CLABE
+      // 1. Deactivate all existing cuentas_cobranza for this property
+      // First, get all ofertas for this property
+      const { data: ofertas, error: ofertasError } = await supabase
+        .from('ofertas')
+        .select('id')
+        .eq('id_propiedad', propertyId)
+        .eq('activo', true);
+
+      if (ofertasError) {
+        throw ofertasError;
+      }
+
+      if (ofertas && ofertas.length > 0) {
+        const ofertaIds = ofertas.map(o => o.id);
+        
+        // Deactivate all cuentas_cobranza linked to these ofertas
+        const { error: ccError } = await supabase
+          .from('cuentas_cobranza')
+          .update({ 
+            activo: false,
+            fecha_actualizacion: new Date().toISOString()
+          })
+          .in('id_oferta', ofertaIds);
+
+        if (ccError) {
+          console.error('Error deactivating cuentas_cobranza:', ccError);
+          // Continue anyway, as the property update is more important
+        }
+
+        // Deactivate the ofertas themselves
+        const { error: deactivateOfertasError } = await supabase
+          .from('ofertas')
+          .update({ 
+            activo: false,
+            fecha_actualizacion: new Date().toISOString()
+          })
+          .in('id', ofertaIds);
+
+        if (deactivateOfertasError) {
+          console.error('Error deactivating ofertas:', deactivateOfertasError);
+        }
+      }
+
+      // 2. Update property: status to Disponible (2), transaction type to Re-venta (2), clear CLABE
       const { error: updateError } = await supabase
         .from('propiedades')
         .update({
@@ -100,6 +143,9 @@ export const ReventaDialog = ({
 
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       queryClient.invalidateQueries({ queryKey: ['propiedades'] });
+      queryClient.invalidateQueries({ queryKey: ['cuentas_cobranza_paginadas'] });
+      queryClient.invalidateQueries({ queryKey: ['cuentas_cobranza_stats'] });
+      queryClient.invalidateQueries({ queryKey: ['ofertas'] });
       
       setOpen(false);
       onSuccess?.();
