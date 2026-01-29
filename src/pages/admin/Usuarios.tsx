@@ -131,11 +131,6 @@ function UsersTable({
                             Tú
                           </Badge>
                         )}
-                        {usuario.es_usuario_principal && (
-                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
-                            Usuario Principal
-                          </Badge>
-                        )}
                       </p>
                       {/* Solo mostrar inmobiliaria para Agente Inmobiliario (3) o Agente Interno (9) */}
                       {usuario.inmobiliaria_nombre && (usuario.rol_id === ROLE_AGENTE_INMOBILIARIO || usuario.rol_id === ROLE_AGENTE_INTERNO) ? (
@@ -151,7 +146,15 @@ function UsersTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {usuario.email}
+                  <div className="relative inline-flex items-center gap-1.5">
+                    {usuario.email}
+                    {usuario.es_usuario_principal && (
+                      <span 
+                        className="relative inline-block w-0 h-0 border-l-[6px] border-l-transparent border-b-[10px] border-b-green-500 border-r-[6px] border-r-transparent" 
+                        title="Usuario Principal de la Inmobiliaria"
+                      />
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge 
