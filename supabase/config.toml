@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.generar-oferta-pdf]
 verify_jwt = false
+
+[functions.migrate-inmobiliaria-users]
+verify_jwt = false
