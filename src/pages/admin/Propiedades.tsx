@@ -202,6 +202,7 @@ interface Property {
   modelo: string;
   vista: string;
   tipo_transaccion: string;
+  id_tipo_transaccion: number; // ID del tipo de transacción (2 = Re-venta)
   disponibilidad: string;
   id_estatus_disponibilidad: number;
   configuracion_modelo: {
@@ -1185,9 +1186,10 @@ const Propiedades = () => {
       ofertas: ofertasMap[property.id] || []
     }));
     
-    // Identify Reventa properties to get their previous buyer info
+    // Identify Reventa properties to get their previous buyer info (ID 2 = Re-venta)
+    const ID_TIPO_REVENTA = 2;
     const reventaPropertyIds = enrichedData
-      .filter((p: any) => p.tipos_transaccion?.nombre === "Re-venta")
+      .filter((p: any) => p.id_tipo_transaccion === ID_TIPO_REVENTA)
       .map((p: any) => p.id);
     
     // Get inactive ofertas for Reventa properties to find previous buyers
@@ -1636,7 +1638,7 @@ const Propiedades = () => {
         cuenta_sin_esquema: cuentaSinEsquema,
         // Determinar propietario actual basado en estatus (9, 7, 8, 10 muestran comprador) o cuenta de mantenimiento
         propietario: (() => {
-          const esReventa = property.tipos_transaccion?.nombre === "Re-venta";
+          const esReventa = property.id_tipo_transaccion === ID_TIPO_REVENTA;
           const estatusId = property.estatus_disponibilidad?.id || property.id_estatus_disponibilidad;
           // Estatus que muestran al comprador: Pagada completamente(9), Escrituración(7), Entregado(8), Asignado(10)
           const estatusQueMuestranComprador = [9, 7, 8, 10];
@@ -1667,7 +1669,7 @@ const Propiedades = () => {
         })(),
         propietario_original: propietarioDisplay,
         propietario_actual: (() => {
-          const esReventa = property.tipos_transaccion?.nombre === "Re-venta";
+          const esReventa = property.id_tipo_transaccion === ID_TIPO_REVENTA;
           
           // Para Reventa, obtener el comprador de la última oferta inactiva
           if (esReventa) {
@@ -1708,11 +1710,12 @@ const Propiedades = () => {
         modelo: property.edificios_modelos?.modelos?.nombre || 'Sin modelo',
         vista: property.vistas?.nombre || 'Sin vista',
         tipo_transaccion: property.tipos_transaccion?.nombre || '-',
+        id_tipo_transaccion: property.id_tipo_transaccion || 0,
         disponibilidad: property.estatus_disponibilidad?.nombre || property.disponibilidad || 'Sin estatus',
         id_estatus_disponibilidad: property.estatus_disponibilidad?.id || property.id_estatus_disponibilidad || 0,
         // Para Reventa, no mostrar ofertas activas (ya fueron desactivadas)
-        tieneOfertas: property.tipos_transaccion?.nombre === "Re-venta" ? false : (property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto === null)),
-        tieneOfertasProductos: property.tipos_transaccion?.nombre === "Re-venta" ? false : (property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto !== null)),
+        tieneOfertas: property.id_tipo_transaccion === ID_TIPO_REVENTA ? false : (property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto === null)),
+        tieneOfertasProductos: property.id_tipo_transaccion === ID_TIPO_REVENTA ? false : (property.ofertas && property.ofertas.some((o: any) => o.activo && o.id_producto !== null)),
         estacionamientos_count: estacionamientosCounts[property.id] || 0,
         bodegas_count: bodegasCounts[property.id] || 0,
         payment_status: paymentStatus,
@@ -4202,8 +4205,8 @@ const Propiedades = () => {
                         return <TableCell key={column.key} className="font-medium">{property.proyecto}</TableCell>;
                       
                       case 'propietario':
-                        // Check if property is Reventa, has maintenance account (has been transferred to buyer) OR specific status
-                        const esReventa = property.tipo_transaccion === "Re-venta";
+                        // Check if property is Reventa (ID 2), has maintenance account (has been transferred to buyer) OR specific status
+                        const esReventa = property.id_tipo_transaccion === 2;
                         // Solo mostrar comprador si el estatus es: 9 (Pagada completamente), 7 (Escrituración), 8 (Entregado), 10 (Asignado)
                         const estatusParaMostrarComprador = [9, 7, 8, 10];
                         // Para Reventa, siempre mostrar propietario_actual (comprador anterior) si existe y es diferente al desarrollador
@@ -4302,8 +4305,8 @@ const Propiedades = () => {
                         );
                       
                       case 'precio':
-                        // Para Reventa, siempre mostrar precio_lista
-                        const precioReventa = property.tipo_transaccion === "Re-venta";
+                        // Para Reventa (ID 2), siempre mostrar precio_lista
+                        const precioReventa = property.id_tipo_transaccion === 2;
                         return (
                           <TableCell key={column.key}>
                       <TooltipProvider>
@@ -4455,8 +4458,8 @@ const Propiedades = () => {
                       case 'cuenta_cobranza':
                         return (
                           <TableCell key={column.key}>
-                      {/* No mostrar cuenta de cobranza para propiedades en Reventa */}
-                      {property.tipo_transaccion === "Re-venta" ? (
+                      {/* No mostrar cuenta de cobranza para propiedades en Reventa (ID 2) */}
+                      {property.id_tipo_transaccion === 2 ? (
                         <Badge variant="outline" className="text-muted-foreground">N/A</Badge>
                       ) : property.cuenta_cobranza_id ? (
                         <div className="flex items-center gap-2">
