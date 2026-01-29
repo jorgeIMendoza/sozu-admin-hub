@@ -30,6 +30,7 @@ type Inmobiliaria = {
   representante_comercial_nombre?: string;
   numero_proyectos: number;
   numero_agentes: number;
+  numero_usuarios: number; // Count of users associated with this inmobiliaria
   entidad_relacionada_id: number;
   id_tipo_entidad: number;
   url_logo?: string;
@@ -114,6 +115,54 @@ export default function Inmobiliarias() {
     // Map to include entidad_relacionada_id
     const entidadMap = new Map(entidadesData?.map(e => [e.id_persona, e.id]) || []);
     
+    // Get all emails from inmobiliarias to find matching users
+    const inmobiliariaEmails = (data || []).map(item => item.email).filter(Boolean);
+    
+    // Get users with Inmobiliaria role (4) and their project access in batch queries
+    let projectCounts: { [email: string]: number } = {};
+    let userCounts: { [email: string]: number } = {};
+    
+    if (inmobiliariaEmails.length > 0) {
+      // Get users with rol_id = 4 (Inmobiliaria) whose email matches the inmobiliaria email
+      const { data: inmobiliariaUsers, error: usersError } = await supabase
+        .from('usuarios')
+        .select('email')
+        .eq('rol_id', 4)
+        .eq('activo', true)
+        .in('email', inmobiliariaEmails);
+      
+      if (!usersError && inmobiliariaUsers && inmobiliariaUsers.length > 0) {
+        const userEmails = inmobiliariaUsers.map(u => u.email);
+        
+        // Count users per email
+        userEmails.forEach(email => {
+          userCounts[email] = (userCounts[email] || 0) + 1;
+        });
+        
+        // Get project access for these users
+        const { data: projectAccessData, error: projectAccessError } = await supabase
+          .from('proyectos_acceso')
+          .select('usuario_id, proyecto_id')
+          .in('usuario_id', userEmails)
+          .eq('activo', true);
+        
+        if (!projectAccessError && projectAccessData) {
+          // Count unique projects per user email
+          const projectsByEmail: { [email: string]: Set<number> } = {};
+          projectAccessData.forEach(pa => {
+            if (!projectsByEmail[pa.usuario_id]) {
+              projectsByEmail[pa.usuario_id] = new Set();
+            }
+            projectsByEmail[pa.usuario_id].add(pa.proyecto_id);
+          });
+          
+          Object.entries(projectsByEmail).forEach(([email, projects]) => {
+            projectCounts[email] = projects.size;
+          });
+        }
+      }
+    }
+
     // Get agent counts for each inmobiliaria in a single query
     const inmobiliariaPersonaIds = (data || []).map(item => item.id).filter(Boolean);
     let agentCounts: { [key: number]: number } = {};
@@ -148,10 +197,11 @@ export default function Inmobiliarias() {
       activo: item.activo,
       id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
       id_entidad_relacionada_rep_com: item.id_entidad_relacionada_rep_com,
-      representante_legal_nombre: null, // Will be fetched lazily if needed
-      representante_comercial_nombre: null, // Will be fetched lazily if needed
-      numero_proyectos: 0, // Removed slow per-item query - can be calculated on demand
+      representante_legal_nombre: null,
+      representante_comercial_nombre: null,
+      numero_proyectos: projectCounts[item.email] || 0,
       numero_agentes: agentCounts[item.id] || 0,
+      numero_usuarios: userCounts[item.email] || 0,
       url_logo: item.url_logo,
     })) as Inmobiliaria[];
   };
@@ -815,9 +865,15 @@ export default function Inmobiliarias() {
                             variant="outline" 
                             size="sm"
                             onClick={() => handleDelete(inmobiliaria)}
-                            disabled={inmobiliaria.numero_proyectos > 0}
+                            disabled={inmobiliaria.numero_usuarios > 0 || inmobiliaria.numero_agentes > 0}
                             className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={inmobiliaria.numero_proyectos > 0 ? "No se puede eliminar: tiene proyectos relacionados" : "Eliminar inmobiliaria"}
+                            title={
+                              inmobiliaria.numero_usuarios > 0 
+                                ? "No se puede eliminar: tiene usuarios asignados" 
+                                : inmobiliaria.numero_agentes > 0
+                                  ? "No se puede eliminar: tiene agentes asignados"
+                                  : "Eliminar inmobiliaria"
+                            }
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
