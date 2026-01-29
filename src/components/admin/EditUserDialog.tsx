@@ -124,11 +124,17 @@ export function EditUserDialog({
     if (open) {
       setNombre(userName);
       setEmail(userEmail);
+    }
+  }, [open, userName, userEmail]);
+
+  // Set inmobiliaria when data is loaded
+  useEffect(() => {
+    if (open && isAgentRole && !isLoadingInmobiliaria) {
       const inmobId = currentInmobiliaria?.toString() || "";
       setSelectedInmobiliariaId(inmobId);
       setOriginalInmobiliariaId(inmobId);
     }
-  }, [open, userName, userEmail, currentInmobiliaria]);
+  }, [open, isAgentRole, isLoadingInmobiliaria, currentInmobiliaria]);
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ 
