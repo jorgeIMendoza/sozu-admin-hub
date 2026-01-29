@@ -48,10 +48,18 @@ type PersonaConTipo = {
   tipo_entidad: string;
 };
 
+type InmobiliariaOption = {
+  id: number;
+  nombre: string;
+};
+
 // Role IDs
 const ROLE_AGENTE_INTERNO = 9;
 const ROLE_AGENTE_INMOBILIARIO = 3;
 const ROLE_INMOBILIARIA = 4;
+
+// Sozu inmobiliaria ID (Real Estate Ventures)
+const SOZU_INMOBILIARIA_ID = 186;
 
 // UsersTable component for reuse in tabs
 interface UsersTableProps {
@@ -261,11 +269,13 @@ export default function Usuarios() {
     nombre: "",
     rol_id: "",
     id_persona: "",
+    id_inmobiliaria: "", // ID de la inmobiliaria para agentes
   });
   const [isFieldsLocked, setIsFieldsLocked] = useState(false);
   const [selectedPersonaTipo, setSelectedPersonaTipo] = useState<string | null>(null);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isMigratingInmobiliarias, setIsMigratingInmobiliarias] = useState(false);
+  const [isInmobiliariaLocked, setIsInmobiliariaLocked] = useState(false);
 
   
   const { toast } = useToast();
@@ -408,7 +418,37 @@ export default function Usuarios() {
     },
   });
 
-  // Deactivate user mutation
+  // Fetch inmobiliarias for the selector
+  const { data: inmobiliariasOptions = [] } = useQuery({
+    queryKey: ['inmobiliarias_options'],
+    queryFn: async () => {
+      const { data: entidadesData, error: entidadesError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_persona')
+        .eq('id_tipo_entidad', 5) // Inmobiliaria
+        .eq('activo', true);
+      
+      if (entidadesError) throw entidadesError;
+      
+      const personaIds = (entidadesData || []).map(e => e.id_persona).filter(Boolean);
+      
+      if (personaIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('personas')
+        .select('id, nombre_legal, nombre_comercial')
+        .in('id', personaIds)
+        .eq('activo', true)
+        .order('nombre_legal', { ascending: true });
+      
+      if (error) throw error;
+      
+      return (data || []).map(item => ({
+        id: item.id,
+        nombre: item.nombre_comercial || item.nombre_legal
+      })) as InmobiliariaOption[];
+    },
+  });
   const deactivateMutation = useMutation({
     mutationFn: async (email: string) => {
       const { error } = await supabase
@@ -557,15 +597,56 @@ export default function Usuarios() {
       return;
     }
 
+    // Validate inmobiliaria is required for agent roles
+    const rolId = parseInt(newUserForm.rol_id);
+    if ((rolId === ROLE_AGENTE_INTERNO || rolId === ROLE_AGENTE_INMOBILIARIO) && !newUserForm.id_inmobiliaria) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona una inmobiliaria para el agente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreatingUser(true);
 
     try {
+      // Validate email conflicts before creating
+      const emailLower = newUserForm.email.toLowerCase().trim();
+      
+      // Check if email already exists as a user
+      const { data: existingUser } = await supabase
+        .from('usuarios')
+        .select('email')
+        .ilike('email', emailLower)
+        .maybeSingle();
+      
+      if (existingUser) {
+        throw new Error(`El email ${emailLower} ya está registrado como usuario.`);
+      }
+      
+      // Check if email is used by an inmobiliaria (persona with tipo_entidad = 5)
+      const { data: inmobiliariaPersonas } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(email, nombre_legal)')
+        .eq('id_tipo_entidad', 5)
+        .eq('activo', true);
+      
+      const inmobiliariaWithEmail = (inmobiliariaPersonas || []).find((er: any) => 
+        er.personas?.email?.toLowerCase() === emailLower
+      );
+      
+      if (inmobiliariaWithEmail && rolId !== ROLE_INMOBILIARIA) {
+        throw new Error(`El email ${emailLower} pertenece a la inmobiliaria "${(inmobiliariaWithEmail as any).personas.nombre_legal}". No puedes crear un usuario con otro rol usando este email.`);
+      }
+
       const response = await supabase.functions.invoke('create-user', {
         body: {
           email: newUserForm.email,
           nombre: newUserForm.nombre,
-          rol_id: parseInt(newUserForm.rol_id),
+          rol_id: rolId,
           id_persona: newUserForm.id_persona ? parseInt(newUserForm.id_persona) : null,
+          id_inmobiliaria: newUserForm.id_inmobiliaria ? parseInt(newUserForm.id_inmobiliaria) : null,
         },
       });
 
@@ -605,9 +686,10 @@ export default function Usuarios() {
   };
 
   const resetNewUserForm = () => {
-    setNewUserForm({ email: "", nombre: "", rol_id: "", id_persona: "" });
+    setNewUserForm({ email: "", nombre: "", rol_id: "", id_persona: "", id_inmobiliaria: "" });
     setIsFieldsLocked(false);
     setSelectedPersonaTipo(null);
+    setIsInmobiliariaLocked(false);
   };
 
   const handlePersonaSelect = (personaId: string) => {
@@ -621,12 +703,16 @@ export default function Usuarios() {
     if (selectedPersona) {
       // Determine the role based on type and email
       let autoRolId = "";
+      let autoInmobiliariaId = "";
+      let lockInmobiliaria = false;
       
       if (selectedPersona.tipo_entidad === 'Agente') {
         // Check if email ends with @sozu.com
         const email = selectedPersona.email?.toLowerCase() || "";
         if (email.endsWith('@sozu.com')) {
           autoRolId = ROLE_AGENTE_INTERNO.toString();
+          autoInmobiliariaId = SOZU_INMOBILIARIA_ID.toString();
+          lockInmobiliaria = true;
         } else {
           autoRolId = ROLE_AGENTE_INMOBILIARIO.toString();
         }
@@ -639,9 +725,42 @@ export default function Usuarios() {
         email: selectedPersona.email || "",
         nombre: selectedPersona.nombre_legal || "",
         rol_id: autoRolId,
+        id_inmobiliaria: autoInmobiliariaId,
       });
       setSelectedPersonaTipo(selectedPersona.tipo_entidad);
       setIsFieldsLocked(true);
+      setIsInmobiliariaLocked(lockInmobiliaria);
+    }
+  };
+
+  // Handle role change to auto-set inmobiliaria for Agente Interno
+  const handleRoleChange = (roleId: string) => {
+    const newRolId = parseInt(roleId);
+    
+    if (newRolId === ROLE_AGENTE_INTERNO) {
+      // Preselect Sozu and lock the field
+      setNewUserForm(prev => ({ 
+        ...prev, 
+        rol_id: roleId,
+        id_inmobiliaria: SOZU_INMOBILIARIA_ID.toString()
+      }));
+      setIsInmobiliariaLocked(true);
+    } else if (newRolId === ROLE_AGENTE_INMOBILIARIO) {
+      // Allow selecting inmobiliaria
+      setNewUserForm(prev => ({ 
+        ...prev, 
+        rol_id: roleId,
+        id_inmobiliaria: isInmobiliariaLocked ? "" : prev.id_inmobiliaria
+      }));
+      setIsInmobiliariaLocked(false);
+    } else {
+      // Clear inmobiliaria for other roles
+      setNewUserForm(prev => ({ 
+        ...prev, 
+        rol_id: roleId,
+        id_inmobiliaria: ""
+      }));
+      setIsInmobiliariaLocked(false);
     }
   };
 
@@ -974,7 +1093,7 @@ export default function Usuarios() {
                             key={role.id}
                             value={role.nombre}
                             onSelect={() => {
-                              setNewUserForm(prev => ({ ...prev, rol_id: role.id.toString() }));
+                              handleRoleChange(role.id.toString());
                             }}
                           >
                             <Check
@@ -999,6 +1118,69 @@ export default function Usuarios() {
                 </p>
               )}
             </div>
+
+            {/* Inmobiliaria selector - only show for Agente Interno or Agente Inmobiliario */}
+            {(newUserForm.rol_id === ROLE_AGENTE_INTERNO.toString() || newUserForm.rol_id === ROLE_AGENTE_INMOBILIARIO.toString()) && (
+              <div className="space-y-2">
+                <Label htmlFor="inmobiliaria" className="flex items-center gap-2">
+                  Inmobiliaria *
+                  {isInmobiliariaLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      disabled={isInmobiliariaLocked}
+                      className={cn(
+                        "w-full justify-between",
+                        isInmobiliariaLocked && "bg-muted",
+                        !newUserForm.id_inmobiliaria && "text-muted-foreground"
+                      )}
+                    >
+                      {newUserForm.id_inmobiliaria
+                        ? inmobiliariasOptions.find((inmob) => inmob.id.toString() === newUserForm.id_inmobiliaria)?.nombre
+                        : "Seleccionar inmobiliaria..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar inmobiliaria..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontró la inmobiliaria.</CommandEmpty>
+                        <CommandGroup>
+                          {inmobiliariasOptions.map((inmob) => (
+                            <CommandItem
+                              key={inmob.id}
+                              value={inmob.nombre}
+                              onSelect={() => {
+                                setNewUserForm(prev => ({ ...prev, id_inmobiliaria: inmob.id.toString() }));
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newUserForm.id_inmobiliaria === inmob.id.toString()
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {inmob.nombre}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {isInmobiliariaLocked && (
+                  <p className="text-xs text-muted-foreground">
+                    Los Agentes Internos se asignan automáticamente a Sozu.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter>

@@ -368,6 +368,7 @@ export default function Inmobiliarias() {
                   nombre: repPersona.nombre_legal,
                   rol_id: 3, // Agente Inmobiliario
                   id_persona: repPersona.id,
+                  id_inmobiliaria: personResult.id, // Link to the new inmobiliaria
                   telefono: repPersona.telefono || null,
                   clave_pais_telefono: repPersona.clave_pais_telefono || null
                 }
@@ -376,6 +377,33 @@ export default function Inmobiliarias() {
               if (repUserError) {
                 console.error('Error al crear usuario para representante legal:', repUserError);
               }
+            }
+            
+            // Also update/create entidad_relacionada to link representative to inmobiliaria
+            const { data: existingAgentEntidad } = await supabase
+              .from('entidades_relacionadas')
+              .select('id')
+              .eq('id_persona', repPersona.id)
+              .eq('id_tipo_entidad', 19) // Agente
+              .eq('activo', true)
+              .maybeSingle();
+            
+            if (existingAgentEntidad) {
+              // Update existing to link to inmobiliaria
+              await supabase
+                .from('entidades_relacionadas')
+                .update({ id_persona_duena_lead: personResult.id })
+                .eq('id', existingAgentEntidad.id);
+            } else {
+              // Create new entidad_relacionada
+              await supabase
+                .from('entidades_relacionadas')
+                .insert({
+                  id_persona: repPersona.id,
+                  id_tipo_entidad: 19, // Agente
+                  id_persona_duena_lead: personResult.id,
+                  activo: true
+                });
             }
           }
         } catch (e) {
@@ -411,6 +439,7 @@ export default function Inmobiliarias() {
                   nombre: repPersona.nombre_legal,
                   rol_id: 3, // Agente Inmobiliario
                   id_persona: repPersona.id,
+                  id_inmobiliaria: personResult.id, // Link to the new inmobiliaria
                   telefono: repPersona.telefono || null,
                   clave_pais_telefono: repPersona.clave_pais_telefono || null
                 }
@@ -419,6 +448,33 @@ export default function Inmobiliarias() {
               if (repUserError) {
                 console.error('Error al crear usuario para representante comercial:', repUserError);
               }
+            }
+            
+            // Also update/create entidad_relacionada to link representative to inmobiliaria
+            const { data: existingAgentEntidad } = await supabase
+              .from('entidades_relacionadas')
+              .select('id')
+              .eq('id_persona', repPersona.id)
+              .eq('id_tipo_entidad', 19) // Agente
+              .eq('activo', true)
+              .maybeSingle();
+            
+            if (existingAgentEntidad) {
+              // Update existing to link to inmobiliaria
+              await supabase
+                .from('entidades_relacionadas')
+                .update({ id_persona_duena_lead: personResult.id })
+                .eq('id', existingAgentEntidad.id);
+            } else {
+              // Create new entidad_relacionada
+              await supabase
+                .from('entidades_relacionadas')
+                .insert({
+                  id_persona: repPersona.id,
+                  id_tipo_entidad: 19, // Agente
+                  id_persona_duena_lead: personResult.id,
+                  activo: true
+                });
             }
           }
         } catch (e) {
