@@ -34,6 +34,7 @@ type Inmobiliaria = {
   entidad_relacionada_id: number;
   id_tipo_entidad: number;
   url_logo?: string;
+  usuario_email?: string; // Email of the user with Inmobiliaria role (4) linked to this entity
 };
 
 type Agente = {
@@ -115,29 +116,33 @@ export default function Inmobiliarias() {
     // Map to include entidad_relacionada_id
     const entidadMap = new Map(entidadesData?.map(e => [e.id_persona, e.id]) || []);
     
-    // Get all emails from inmobiliarias to find matching users
-    const inmobiliariaEmails = (data || []).map(item => item.email).filter(Boolean);
+    // Get all persona IDs to find users linked to inmobiliarias via id_persona
+    const inmobiliariaPersonaIds = (data || []).map(item => item.id).filter(Boolean);
     
     // Get users with Inmobiliaria role (4) and their project access in batch queries
-    let projectCounts: { [email: string]: number } = {};
-    let userCounts: { [email: string]: number } = {};
+    let projectCounts: { [personaId: number]: number } = {};
+    let userCounts: { [personaId: number]: number } = {};
+    let userEmailsByPersonaId: { [personaId: number]: string } = {};
     
-    if (inmobiliariaEmails.length > 0) {
-      // Get users with rol_id = 4 (Inmobiliaria) whose email matches the inmobiliaria email
+    if (inmobiliariaPersonaIds.length > 0) {
+      // Get users with rol_id = 4 (Inmobiliaria) whose id_persona matches the inmobiliaria persona id
       const { data: inmobiliariaUsers, error: usersError } = await supabase
         .from('usuarios')
-        .select('email')
+        .select('email, id_persona')
         .eq('rol_id', 4)
         .eq('activo', true)
-        .in('email', inmobiliariaEmails);
+        .in('id_persona', inmobiliariaPersonaIds);
       
       if (!usersError && inmobiliariaUsers && inmobiliariaUsers.length > 0) {
-        const userEmails = inmobiliariaUsers.map(u => u.email);
-        
-        // Count users per email
-        userEmails.forEach(email => {
-          userCounts[email] = (userCounts[email] || 0) + 1;
+        // Map user emails by persona id
+        inmobiliariaUsers.forEach(u => {
+          if (u.id_persona) {
+            userEmailsByPersonaId[u.id_persona] = u.email;
+            userCounts[u.id_persona] = (userCounts[u.id_persona] || 0) + 1;
+          }
         });
+        
+        const userEmails = inmobiliariaUsers.map(u => u.email);
         
         // Get project access for these users
         const { data: projectAccessData, error: projectAccessError } = await supabase
@@ -147,7 +152,7 @@ export default function Inmobiliarias() {
           .eq('activo', true);
         
         if (!projectAccessError && projectAccessData) {
-          // Count unique projects per user email
+          // Count unique projects per user email, then map back to persona id
           const projectsByEmail: { [email: string]: Set<number> } = {};
           projectAccessData.forEach(pa => {
             if (!projectsByEmail[pa.usuario_id]) {
@@ -156,15 +161,17 @@ export default function Inmobiliarias() {
             projectsByEmail[pa.usuario_id].add(pa.proyecto_id);
           });
           
-          Object.entries(projectsByEmail).forEach(([email, projects]) => {
-            projectCounts[email] = projects.size;
+          // Map projects count by persona id
+          inmobiliariaUsers.forEach(u => {
+            if (u.id_persona && projectsByEmail[u.email]) {
+              projectCounts[u.id_persona] = projectsByEmail[u.email].size;
+            }
           });
         }
       }
     }
 
     // Get agent counts for each inmobiliaria in a single query
-    const inmobiliariaPersonaIds = (data || []).map(item => item.id).filter(Boolean);
     let agentCounts: { [key: number]: number } = {};
     
     if (inmobiliariaPersonaIds.length > 0) {
@@ -199,9 +206,10 @@ export default function Inmobiliarias() {
       id_entidad_relacionada_rep_com: item.id_entidad_relacionada_rep_com,
       representante_legal_nombre: null,
       representante_comercial_nombre: null,
-      numero_proyectos: projectCounts[item.email] || 0,
+      numero_proyectos: projectCounts[item.id] || 0,
       numero_agentes: agentCounts[item.id] || 0,
-      numero_usuarios: userCounts[item.email] || 0,
+      numero_usuarios: userCounts[item.id] || 0,
+      usuario_email: userEmailsByPersonaId[item.id] || null,
       url_logo: item.url_logo,
     })) as Inmobiliaria[];
   };
@@ -955,6 +963,7 @@ export default function Inmobiliarias() {
               <TableHead className="font-semibold text-foreground">Proyectos</TableHead>
               <TableHead className="font-semibold text-foreground">Agentes</TableHead>
               <TableHead className="font-semibold text-foreground">Email</TableHead>
+              <TableHead className="font-semibold text-foreground">Usuario</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground">Rep. Legal</TableHead>
               <TableHead className="font-semibold text-foreground">Rep. Comercial</TableHead>
@@ -1008,6 +1017,9 @@ export default function Inmobiliarias() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.email}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {inmobiliaria.usuario_email || <span className="text-muted-foreground/50">Sin usuario</span>}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.telefono || '-'}
