@@ -59,6 +59,9 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
 
   // Check if user is Super Admin
   const isSuperAdmin = userRole === 'Super Administrador';
+  
+  // Check if user is Agente Inmobiliario (role 3) - they inherit access from parent Inmobiliaria
+  const isAgenteInmobiliario = userRoleId === 3;
 
   // Fetch role configuration to check if ver_todos_proyectos_propiedades and ver_todos_duenos are enabled
   const { data: roleConfig, isLoading: loadingRoleConfig } = useQuery({
@@ -435,6 +438,46 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
                 </p>
               </AlertDescription>
             </Alert>
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        ) : isAgenteInmobiliario ? (
+          <div className="space-y-4">
+            <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+              <Users className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200">
+                <strong>El acceso a proyectos se hereda de la Inmobiliaria</strong>
+                <p className="mt-1 text-sm">
+                  Los Agentes Inmobiliarios heredan automáticamente el acceso a proyectos de su Inmobiliaria padre. 
+                  Para modificar los accesos, edita los permisos del usuario con rol "Inmobiliaria" correspondiente.
+                </p>
+              </AlertDescription>
+            </Alert>
+            
+            {/* Show current access in read-only mode */}
+            {userAccess && userAccess.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Proyectos con acceso actual:</Label>
+                <ScrollArea className="h-[200px] border rounded-md p-3">
+                  <div className="space-y-1">
+                    {proyectos?.filter(p => selectedProjects.includes(p.id)).map(proyecto => (
+                      <div key={proyecto.id} className="flex items-center gap-2 py-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {proyecto.nombre}
+                        </Badge>
+                      </div>
+                    ))}
+                    {selectedProjects.length === 0 && (
+                      <p className="text-sm text-muted-foreground">Sin acceso a proyectos</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+            
             <div className="flex justify-end">
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cerrar
