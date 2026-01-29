@@ -962,7 +962,6 @@ export default function Inmobiliarias() {
               <TableHead className="font-semibold text-foreground">Nombre Comercial</TableHead>
               <TableHead className="font-semibold text-foreground">Proyectos</TableHead>
               <TableHead className="font-semibold text-foreground">Agentes</TableHead>
-              <TableHead className="font-semibold text-foreground">Email</TableHead>
               <TableHead className="font-semibold text-foreground">Usuario</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground">Rep. Legal</TableHead>
@@ -1014,9 +1013,6 @@ export default function Inmobiliarias() {
                   ) : (
                     <span className="text-muted-foreground">0 agentes</span>
                   )}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {inmobiliaria.email}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.usuario_email || <span className="text-muted-foreground/50">Sin usuario</span>}
