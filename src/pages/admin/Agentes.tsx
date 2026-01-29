@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight, FileSpreadsheet, User } from "lucide-react";
 import { Button } from "@/components/ui/button";  
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,13 @@ type Agente = {
   entidad_relacionada_id?: number;
   id_inmobiliaria?: number;
   inmobiliaria_nombre?: string;
+  usuario_rol_id?: number | null;
+  usuario_rol_nombre?: string | null;
 };
+
+// Role IDs for agents
+const ROLE_AGENTE_INTERNO = 9;
+const ROLE_AGENTE_INMOBILIARIO = 3;
 
 const ITEMS_PER_PAGE = 50;
 
@@ -114,6 +120,29 @@ export default function Agentes() {
         }
       }
       
+      // Get user roles for agents (by id_persona)
+      const personaIds = (data || []).map((item: any) => item.id);
+      let userRolesMap: Record<number, { rol_id: number | null; rol_nombre: string | null }> = {};
+      
+      if (personaIds.length > 0) {
+        const { data: usuariosData } = await supabase
+          .from('usuarios')
+          .select('id_persona, rol_id, roles(nombre)')
+          .in('id_persona', personaIds)
+          .eq('activo', true);
+        
+        if (usuariosData) {
+          usuariosData.forEach((u: any) => {
+            if (u.id_persona) {
+              userRolesMap[u.id_persona] = {
+                rol_id: u.rol_id,
+                rol_nombre: (u.roles as any)?.nombre || null
+              };
+            }
+          });
+        }
+      }
+      
       return (data || []).map((item: any) => ({
         id: item.id,
         entidad_relacionada_id: item.entidades_relacionadas[0].id,
@@ -130,6 +159,8 @@ export default function Agentes() {
         representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
         id_inmobiliaria: item.entidades_relacionadas[0]?.id_persona_duena_lead || null,
         inmobiliaria_nombre: inmobiliariasMap[item.entidades_relacionadas[0]?.id_persona_duena_lead] || null,
+        usuario_rol_id: userRolesMap[item.id]?.rol_id || null,
+        usuario_rol_nombre: userRolesMap[item.id]?.rol_nombre || null,
       })) as (Agente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
@@ -178,19 +209,38 @@ export default function Agentes() {
       let inmobiliariasMap: Record<number, string> = {};
       if (inmobiliariaIds.length > 0) {
         const { data: inmobData } = await supabase
-          .from('entidades_relacionadas')
-          .select(`
-            id,
-            personas!entidades_relacionadas_id_persona_fkey (nombre_legal)
-          `)
+          .from('personas')
+          .select('id, nombre_legal')
           .in('id', inmobiliariaIds)
           .eq('activo', true);
         
         if (inmobData) {
           inmobiliariasMap = inmobData.reduce((acc: Record<number, string>, item: any) => {
-            acc[item.id] = item.personas?.nombre_legal || '';
+            acc[item.id] = item.nombre_legal || '';
             return acc;
           }, {});
+        }
+      }
+      
+      // Get user roles for agents (by id_persona)
+      const personaIds = (data || []).map((item: any) => item.id);
+      let userRolesMap: Record<number, { rol_id: number | null; rol_nombre: string | null }> = {};
+      
+      if (personaIds.length > 0) {
+        const { data: usuariosData } = await supabase
+          .from('usuarios')
+          .select('id_persona, rol_id, roles(nombre)')
+          .in('id_persona', personaIds);
+        
+        if (usuariosData) {
+          usuariosData.forEach((u: any) => {
+            if (u.id_persona) {
+              userRolesMap[u.id_persona] = {
+                rol_id: u.rol_id,
+                rol_nombre: (u.roles as any)?.nombre || null
+              };
+            }
+          });
         }
       }
       
@@ -209,6 +259,8 @@ export default function Agentes() {
         representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
         id_inmobiliaria: item.entidades_relacionadas[0]?.id_persona_duena_lead || null,
         inmobiliaria_nombre: inmobiliariasMap[item.entidades_relacionadas[0]?.id_persona_duena_lead] || null,
+        usuario_rol_id: userRolesMap[item.id]?.rol_id || null,
+        usuario_rol_nombre: userRolesMap[item.id]?.rol_nombre || null,
       })) as (Agente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
@@ -483,6 +535,7 @@ export default function Agentes() {
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
               <TableHead className="font-semibold text-foreground">Nombre</TableHead>
+              <TableHead className="font-semibold text-foreground">Tipo Agente</TableHead>
               <TableHead className="font-semibold text-foreground">Email</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground">Tipo persona</TableHead>
@@ -497,6 +550,21 @@ export default function Agentes() {
               <TableRow key={agente.id} className="hover:bg-muted/10 transition-colors">
                 <TableCell className="font-medium text-foreground">
                   {agente.nombre_legal}
+                </TableCell>
+                <TableCell>
+                  {agente.usuario_rol_id === ROLE_AGENTE_INTERNO ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300">
+                      <User className="h-3 w-3" />
+                      Interno
+                    </span>
+                  ) : agente.usuario_rol_id === ROLE_AGENTE_INMOBILIARIO ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                      <User className="h-3 w-3" />
+                      Inmobiliario
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Sin usuario</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agente.email}
