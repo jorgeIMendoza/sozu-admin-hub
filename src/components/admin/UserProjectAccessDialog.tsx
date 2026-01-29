@@ -62,6 +62,26 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
   
   // Check if user is Agente Inmobiliario (role 3) - they inherit access from parent Inmobiliaria
   const isAgenteInmobiliario = userRoleId === 3;
+  
+  // Check if user is Inmobiliaria (role 4) - their changes propagate to agents
+  const isInmobiliaria = userRoleId === 4;
+
+  // Query to get agent count for this inmobiliaria
+  const { data: agentCount } = useQuery({
+    queryKey: ['inmobiliaria-agent-count', userPersonaId],
+    queryFn: async () => {
+      if (!userPersonaId) return 0;
+      const { count, error } = await supabase
+        .from('entidades_relacionadas')
+        .select('*', { count: 'exact', head: true })
+        .eq('id_persona_duena_lead', userPersonaId)
+        .eq('id_tipo_entidad', 19) // Agente
+        .eq('activo', true);
+      if (error) return 0;
+      return count || 0;
+    },
+    enabled: open && isInmobiliaria && !!userPersonaId,
+  });
 
   // Fetch role configuration to check if ver_todos_proyectos_propiedades and ver_todos_duenos are enabled
   const { data: roleConfig, isLoading: loadingRoleConfig } = useQuery({
@@ -486,6 +506,17 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Info alert for Inmobiliaria role - changes propagate to agents */}
+            {isInmobiliaria && (agentCount ?? 0) > 0 && (
+              <Alert variant="default" className="border-green-500 bg-green-50 dark:bg-green-950/20">
+                <Users className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800 dark:text-green-200 text-sm">
+                  Los cambios de acceso se propagarán automáticamente a los{' '}
+                  <strong>{agentCount} agente{agentCount !== 1 ? 's' : ''}</strong> de esta inmobiliaria.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Info alert when role requires owner selection */}
             {!hasVerTodosDuenos && (
               <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">

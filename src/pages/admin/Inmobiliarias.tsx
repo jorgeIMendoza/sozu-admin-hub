@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, Building, Users } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, Building, Users, Copy } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1015,7 +1015,24 @@ export default function Inmobiliarias() {
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {inmobiliaria.usuario_email || <span className="text-muted-foreground/50">Sin usuario</span>}
+                  {inmobiliaria.usuario_email ? (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(inmobiliaria.usuario_email!);
+                        toast({
+                          title: "Copiado",
+                          description: "Email copiado al portapapeles",
+                        });
+                      }}
+                      className="flex items-center gap-1 hover:text-primary cursor-pointer transition-colors"
+                      title="Clic para copiar"
+                    >
+                      {inmobiliaria.usuario_email}
+                      <Copy className="h-3 w-3 opacity-50" />
+                    </button>
+                  ) : (
+                    <span className="text-muted-foreground/50">Sin usuario</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.telefono || '-'}
