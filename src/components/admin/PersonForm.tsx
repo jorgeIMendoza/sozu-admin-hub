@@ -53,7 +53,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [idTipoEntidad, setIdTipoEntidad] = useState(initialData?.id_tipo_entidad || getDefaultTipoEntidad(entityType));
   const [idRepresentanteLegal, setIdRepresentanteLegal] = useState(initialData?.id_entidad_relacionada_rep_leg || '');
   const [idRepresentanteComercial, setIdRepresentanteComercial] = useState(initialData?.id_entidad_relacionada_rep_com || '');
-  const [idInmobiliaria, setIdInmobiliaria] = useState(initialData?.id_inmobiliaria || '');
+  const [idInmobiliaria, setIdInmobiliaria] = useState(initialData?.id_inmobiliaria?.toString() || '');
   
   // Project selection for prospects (clients with tipo_entidad = 7)
   const [idProyecto, setIdProyecto] = useState(

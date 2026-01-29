@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,6 +45,7 @@ const ITEMS_PER_PAGE = 50;
 
 export default function Agentes() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [inmobiliariaFilter, setInmobiliariaFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("active");
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -443,11 +445,30 @@ export default function Agentes() {
     },
   });
 
-  const filterAgente = (agente: Agente) => 
-    agente.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agente.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agente.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    agente.inmobiliaria_nombre?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Get unique inmobiliarias for filter
+  const uniqueInmobiliarias = useMemo(() => {
+    const inmobMap = new Map<number, string>();
+    activeAgentes.forEach(a => {
+      if (a.id_inmobiliaria && a.inmobiliaria_nombre) {
+        inmobMap.set(a.id_inmobiliaria, a.inmobiliaria_nombre);
+      }
+    });
+    return Array.from(inmobMap.entries()).map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [activeAgentes]);
+
+  const filterAgente = (agente: Agente) => {
+    const matchesSearch = 
+      agente.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agente.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agente.telefono?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agente.inmobiliaria_nombre?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesInmobiliaria = inmobiliariaFilter === "all" || 
+      (inmobiliariaFilter === "none" && !agente.id_inmobiliaria) ||
+      agente.id_inmobiliaria?.toString() === inmobiliariaFilter;
+    
+    return matchesSearch && matchesInmobiliaria;
+  };
 
   const filteredActiveAgentes = activeAgentes.filter(filterAgente);
   const filteredDeletedAgentes = deletedAgentes.filter(filterAgente);
@@ -704,8 +725,8 @@ export default function Agentes() {
               <TabsTrigger value="deleted">Eliminados ({filteredDeletedAgentes.length})</TabsTrigger>
             </TabsList>
             
-            <div className="mb-6">
-              <div className="relative max-w-md">
+            <div className="mb-6 flex flex-wrap gap-4">
+              <div className="relative flex-1 min-w-[250px] max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   type="text"
@@ -715,6 +736,20 @@ export default function Agentes() {
                   className="pl-10 border-border focus:ring-primary/20"
                 />
               </div>
+              <Select value={inmobiliariaFilter} onValueChange={(value) => { setInmobiliariaFilter(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Filtrar por inmobiliaria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las inmobiliarias</SelectItem>
+                  <SelectItem value="none">Sin inmobiliaria</SelectItem>
+                  {uniqueInmobiliarias.map((inmob) => (
+                    <SelectItem key={inmob.id} value={inmob.id.toString()}>
+                      {inmob.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <TabsContent value="active" className="mt-6">
