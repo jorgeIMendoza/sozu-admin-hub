@@ -123,11 +123,12 @@ function UsersTable({
                           </Badge>
                         )}
                       </p>
-                      {usuario.inmobiliaria_nombre ? (
+                      {/* Solo mostrar inmobiliaria para Agente Inmobiliario (3) o Agente Interno (9) */}
+                      {usuario.inmobiliaria_nombre && (usuario.rol_id === ROLE_AGENTE_INMOBILIARIO || usuario.rol_id === ROLE_AGENTE_INTERNO) ? (
                         <p className="text-xs text-muted-foreground">
                           Inmobiliaria: {usuario.inmobiliaria_nombre}
                         </p>
-                      ) : usuario.personas?.nombre_legal && (
+                      ) : usuario.personas?.nombre_legal && (usuario.rol_id === ROLE_AGENTE_INMOBILIARIO || usuario.rol_id === ROLE_AGENTE_INTERNO) && (
                         <p className="text-xs text-muted-foreground">
                           Persona: {usuario.personas.nombre_legal}
                         </p>
