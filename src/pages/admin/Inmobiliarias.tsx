@@ -64,6 +64,21 @@ export default function Inmobiliarias() {
   const itemsPerPage = 10;
 
   const fetchInmobiliarias = async (activo: boolean) => {
+    // First get all personas that have an entidades_relacionadas record with id_tipo_entidad = 5
+    const { data: entidadesData, error: entidadesError } = await supabase
+      .from('entidades_relacionadas')
+      .select('id, id_persona')
+      .eq('id_tipo_entidad', 5) // Inmobiliaria
+      .eq('activo', true);
+    
+    if (entidadesError) throw entidadesError;
+    
+    const personaIds = (entidadesData || []).map(e => e.id_persona).filter(Boolean);
+    
+    if (personaIds.length === 0) {
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('personas')
       .select(`
@@ -77,10 +92,6 @@ export default function Inmobiliarias() {
         url_logo,
         id_entidad_relacionada_rep_leg,
         id_entidad_relacionada_rep_com,
-        entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
-          id,
-          id_tipo_entidad
-        ),
         representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
           id,
           personas!entidades_relacionadas_id_persona_fkey (
@@ -98,11 +109,13 @@ export default function Inmobiliarias() {
       `)
       .eq('activo', activo)
       .eq('tipo_persona', 'pm')
-      .eq('entidades_relacionadas.activo', true)
-      .eq('entidades_relacionadas.id_tipo_entidad', 5) // Inmobiliaria tipo_entidad = 5
+      .in('id', personaIds)
       .order('nombre_legal', { ascending: true });
     
     if (error) throw error;
+    
+    // Map to include entidad_relacionada_id
+    const entidadMap = new Map(entidadesData?.map(e => [e.id_persona, e.id]) || []);
     
     // Get email domains for each inmobiliaria to count projects
     const inmobiliariaPersonaIds = (data || []).map(item => item.id).filter(Boolean);
@@ -159,8 +172,8 @@ export default function Inmobiliarias() {
     
     return (data || []).map((item: any) => ({
       id: item.id,
-      entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
-      id_tipo_entidad: item.entidades_relacionadas[0]?.id_tipo_entidad,
+      entidad_relacionada_id: entidadMap.get(item.id),
+      id_tipo_entidad: 5, // Inmobiliaria
       nombre_legal: item.nombre_legal,
       nombre_comercial: item.nombre_comercial,
       email: item.email,
