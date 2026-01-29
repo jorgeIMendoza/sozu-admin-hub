@@ -960,7 +960,7 @@ export class OfertaPdfNativeService {
     );
   }
 
-  private async loadImageAsBase64(url: string, maxSizeKB: number = 150): Promise<string> {
+  private async loadImageAsBase64(url: string, maxSizeKB: number = 300): Promise<string> {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
@@ -973,8 +973,8 @@ export class OfertaPdfNativeService {
           return;
         }
 
-        // Calculate new dimensions - max 800px on longest side for PDF optimization
-        const maxDimension = 800;
+        // Calculate new dimensions - max 1000px on longest side
+        const maxDimension = 1000;
         let { width, height } = img;
         
         if (width > maxDimension || height > maxDimension) {
@@ -989,13 +989,21 @@ export class OfertaPdfNativeService {
         
         canvas.width = width;
         canvas.height = height;
+        
+        // CRITICAL: Fill with white background BEFORE drawing to prevent black areas
+        // This is needed because JPEG doesn't support transparency
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+        
+        // Now draw the image on top of white background
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Try different quality levels to stay under maxSizeKB
-        let quality = 0.6;
+        // Use higher quality to prevent black/corrupted images
+        let quality = 0.8;
         let dataUrl = canvas.toDataURL("image/jpeg", quality);
         
-        while (dataUrl.length / 1024 > maxSizeKB && quality > 0.1) {
+        // Only reduce quality if significantly over limit
+        while (dataUrl.length / 1024 > maxSizeKB && quality > 0.4) {
           quality -= 0.1;
           dataUrl = canvas.toDataURL("image/jpeg", quality);
         }

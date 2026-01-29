@@ -550,8 +550,8 @@ class HTMLToPDFService {
           return;
         }
 
-        // Calculate new dimensions (max 800px on longest side for aggressive compression)
-        const maxDimension = 800;
+        // Calculate new dimensions (max 1000px on longest side)
+        const maxDimension = 1000;
         let { width, height } = img;
         
         if (width > maxDimension || height > maxDimension) {
@@ -566,13 +566,21 @@ class HTMLToPDFService {
         
         canvas.width = width;
         canvas.height = height;
+        
+        // CRITICAL: Fill with white background BEFORE drawing to prevent black areas
+        // This is needed because JPEG doesn't support transparency
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Now draw the image on top of white background
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Try different quality levels to stay under maxSizeKB (start with 0.5)
-        let quality = 0.5;
+        // Use higher quality to prevent corrupted images
+        let quality = 0.8;
         let result = canvas.toDataURL('image/jpeg', quality);
         
-        while (result.length / 1024 > maxSizeKB && quality > 0.1) {
+        // Only reduce quality if significantly over limit
+        while (result.length / 1024 > maxSizeKB && quality > 0.4) {
           quality -= 0.1;
           result = canvas.toDataURL('image/jpeg', quality);
         }
@@ -809,16 +817,16 @@ class HTMLToPDFService {
         console.log(`Filtered ${imagesData.length - validImages.length} video files from model images`);
         
         if (validImages.length > 0) {
-          // Limit to first 3 images to prevent PDF bloat (more aggressive limit)
-          const limitedImages = validImages.slice(0, 3);
-          if (validImages.length > 3) {
-            console.log(`Limiting model images from ${validImages.length} to 3 for PDF size optimization`);
+          // Limit to first 5 images for PDF
+          const limitedImages = validImages.slice(0, 5);
+          if (validImages.length > 5) {
+            console.log(`Limiting model images from ${validImages.length} to 5 for PDF size optimization`);
           }
           
           modelImages = await Promise.all(
             limitedImages.map(async (img) => {
               try {
-                const base64Url = await this.convertImageToBase64(img.url, 150); // 150KB max per image (aggressive)
+                const base64Url = await this.convertImageToBase64(img.url, 300); // 300KB max per image
                 // Skip if conversion returned empty (video or failed)
                 if (!base64Url) return null;
                 return {
