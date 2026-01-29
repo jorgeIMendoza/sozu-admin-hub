@@ -4241,13 +4241,14 @@ const Propiedades = () => {
                                   </>
                                 )}
                               </div>
-                              {mostrarComoComprador && !esReventa && (
+                              {(mostrarComoComprador || esReventa) && (
                                 <OwnerHistoryDialog
                                   propertyId={property.id}
                                   numeroPropiedad={property.numero_propiedad}
                                   propietarioOriginal={property.propietario_original}
                                   esPropietarioActualComprador={mostrarComoComprador}
                                   idEstatusDisponibilidad={property.id_estatus_disponibilidad}
+                                  idTipoTransaccion={property.id_tipo_transaccion}
                                 />
                               )}
                             </div>

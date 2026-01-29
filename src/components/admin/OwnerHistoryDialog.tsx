@@ -15,6 +15,7 @@ interface OwnerHistoryDialogProps {
   propietarioOriginal: string;
   esPropietarioActualComprador?: boolean;
   idEstatusDisponibilidad?: number;
+  idTipoTransaccion?: number;
   trigger?: React.ReactNode;
 }
 
@@ -40,12 +41,15 @@ export function OwnerHistoryDialog({
   propietarioOriginal,
   esPropietarioActualComprador = false,
   idEstatusDisponibilidad,
+  idTipoTransaccion,
   trigger
 }: OwnerHistoryDialogProps) {
   const [open, setOpen] = useState(false);
   
   // Check if property is in "Asignado" status (fideicomiso)
   const esAsignado = idEstatusDisponibilidad === 10;
+  // Check if property is in "Reventa" status
+  const esReventa = idTipoTransaccion === 2;
 
   const { data: historyData, isLoading } = useQuery({
     queryKey: ['owner-history', propertyId],
@@ -274,11 +278,11 @@ export function OwnerHistoryDialog({
                     <div className="rounded-lg border bg-card p-4 shadow-sm">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Dueño Original
+                          Propietario de Origen
                         </span>
                       </div>
                       <h3 className="text-lg font-semibold">{propietarioOriginal}</h3>
-                      {!entries?.some(e => e.tiene_cuenta_mantenimiento) && !esFideicomiso && (
+                      {!entries?.some(e => e.tiene_cuenta_mantenimiento) && !esFideicomiso && !esReventa && entries.length === 0 && (
                         <Badge variant="default" className="mt-2">
                           Propietario Actual
                         </Badge>
@@ -305,9 +309,22 @@ export function OwnerHistoryDialog({
                 const isDelivered = entry.tiene_cuenta_mantenimiento;
                 const isLast = index === entries.length - 1;
                 const isEntryFideicomiso = esFideicomiso && !isDelivered;
+                // For resale: the last entry is "Propietario" (previous owner), we'll add a "Reventa" node after
+                const isLastBeforeReventa = esReventa && isLast;
+                // Determine if this entry is an intermediate owner (not first, not last if delivered)
+                const isIntermediateOwner = index > 0 && !isDelivered && !isLastBeforeReventa;
+                
+                // Determine the label for this entry
+                const getEntryLabel = () => {
+                  if (isDelivered && !esReventa) return 'Propietario Actual';
+                  if (isDelivered && esReventa) return 'Propietario';
+                  if (isEntryFideicomiso) return 'Asignado a Fideicomisario';
+                  if (isIntermediateOwner) return 'Propietario';
+                  return 'Propietario';
+                };
                 
                 return (
-                  <div key={entry.cuenta_id} className={cn("relative flex gap-4", !isLast && "pb-8")}>
+                  <div key={entry.cuenta_id} className={cn("relative flex gap-4", (!isLast || esReventa) && "pb-8")}>
                     {/* Timeline dot */}
                     <div className={cn(
                       "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-lg transition-all",
@@ -337,14 +354,14 @@ export function OwnerHistoryDialog({
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                              {isDelivered 
-                                ? 'Propietario Actual' 
-                                : isEntryFideicomiso 
-                                  ? 'Asignado a Fideicomisario'
-                                  : 'Transacción en Proceso'}
+                              {getEntryLabel()}
                             </span>
-                            {isDelivered ? (
+                            {isDelivered && !esReventa ? (
                               <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                                Entregada
+                              </Badge>
+                            ) : isDelivered && esReventa ? (
+                              <Badge variant="secondary">
                                 Entregada
                               </Badge>
                             ) : isEntryFideicomiso ? (
@@ -443,8 +460,34 @@ export function OwnerHistoryDialog({
                 );
               })}
 
+              {/* Reventa Node - shown at the end for resale properties */}
+              {!isLoading && esReventa && entries && entries.length > 0 && (
+                <div className="relative flex gap-4">
+                  {/* Timeline dot */}
+                  <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg">
+                    <History className="h-5 w-5" />
+                  </div>
+                  
+                  <div className="flex-1 pt-1">
+                    <div className="rounded-lg border border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30 p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Estado Actual
+                        </span>
+                        <Badge className="bg-orange-600 hover:bg-orange-700 text-white">
+                          En Reventa
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Esta propiedad está disponible para venta nuevamente.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* No History Message */}
-              {!isLoading && (!entries || entries.length === 0) && (
+              {!isLoading && (!entries || entries.length === 0) && !esReventa && (
                 <div className="relative flex gap-4">
                   <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted">
                     <History className="h-5 w-5 text-muted-foreground" />
@@ -455,7 +498,7 @@ export function OwnerHistoryDialog({
                         Esta propiedad no tiene historial de ventas registrado.
                       </p>
                       <p className="text-sm text-muted-foreground text-center mt-1">
-                        El único propietario es el dueño original.
+                        El único propietario es el propietario de origen.
                       </p>
                     </div>
                   </div>
