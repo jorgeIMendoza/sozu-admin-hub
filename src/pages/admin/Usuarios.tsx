@@ -276,44 +276,9 @@ export default function Usuarios() {
   // Current user's email for highlighting
   const currentUserEmail = profile?.email || session?.user?.email;
 
-  // Fetch inmobiliarias for domain matching (from entidades_relacionadas with id_tipo_entidad = 5)
-  const { data: inmobiliarias = [] } = useQuery({
-    queryKey: ['inmobiliarias_dominios'],
-    queryFn: async () => {
-      // First get persona IDs that are inmobiliarias
-      const { data: entidadesData, error: entidadesError } = await supabase
-        .from('entidades_relacionadas')
-        .select('id_persona')
-        .eq('id_tipo_entidad', 5) // Inmobiliaria
-        .eq('activo', true);
-      
-      if (entidadesError) throw entidadesError;
-      
-      const personaIds = (entidadesData || []).map(e => e.id_persona).filter(Boolean);
-      
-      if (personaIds.length === 0) return [];
-      
-      // Now get the personas with their emails
-      const { data, error } = await supabase
-        .from('personas')
-        .select('id, nombre_legal, nombre_comercial, email')
-        .in('id', personaIds)
-        .eq('activo', true)
-        .not('email', 'is', null);
-      
-      if (error) throw error;
-      
-      return (data || []).map(item => ({
-        id: item.id,
-        nombre: item.nombre_comercial || item.nombre_legal,
-        dominio: item.email?.toLowerCase().split('@')[1] || ''
-      })).filter(item => item.dominio);
-    },
-  });
-
-  // Fetch users
+  // Fetch users with their inmobiliaria info from entidades_relacionadas
   const { data: usuarios = [], isLoading: isLoadingUsuarios } = useQuery({
-    queryKey: ['usuarios', inmobiliarias],
+    queryKey: ['usuarios'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('usuarios')
@@ -332,26 +297,36 @@ export default function Usuarios() {
       
       if (error) throw error;
       
-      // Build domain to inmobiliaria map
-      const domainToInmobiliaria = new Map<string, string>();
-      inmobiliarias.forEach(inmob => {
-        if (inmob.dominio) {
-          domainToInmobiliaria.set(inmob.dominio, inmob.nombre);
-        }
-      });
+      // Get inmobiliaria info for agents (rol 3 and 9) from entidades_relacionadas
+      const agentPersonaIds = (data || [])
+        .filter(u => (u.rol_id === ROLE_AGENTE_INMOBILIARIO || u.rol_id === ROLE_AGENTE_INTERNO) && u.id_persona)
+        .map(u => u.id_persona as number);
+      
+      let inmobByPersona = new Map<number, string>();
+      
+      if (agentPersonaIds.length > 0) {
+        const { data: entidadesData } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona, id_persona_duena_lead, personas!entidades_relacionadas_id_persona_duena_lead_fkey(nombre_comercial, nombre_legal)')
+          .eq('id_tipo_entidad', 19) // Agente Inmobiliario
+          .eq('activo', true)
+          .in('id_persona', agentPersonaIds);
+        
+        (entidadesData || []).forEach((e: any) => {
+          if (e.id_persona && e.personas) {
+            inmobByPersona.set(e.id_persona, e.personas.nombre_comercial || e.personas.nombre_legal || '');
+          }
+        });
+      }
       
       // Filter to show only users with internal roles and add inmobiliaria info
       return ((data || []) as (Usuario & { roles: { nombre: string; es_rol_interno: boolean } | null })[])
         .filter(u => u.roles?.es_rol_interno === true)
-        .map(u => {
-          const userDomain = u.email?.toLowerCase().split('@')[1] || '';
-          return {
-            ...u,
-            inmobiliaria_nombre: domainToInmobiliaria.get(userDomain) || null
-          };
-        });
+        .map(u => ({
+          ...u,
+          inmobiliaria_nombre: u.id_persona ? inmobByPersona.get(u.id_persona) || null : null
+        }));
     },
-    enabled: inmobiliarias.length >= 0, // Run once inmobiliarias query completes
   });
 
   // Fetch roles (only internal roles)
