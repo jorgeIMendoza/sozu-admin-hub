@@ -70,8 +70,10 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
   // Check if user is Super Admin
   const isSuperAdmin = userRole === 'Super Administrador';
   
-  // Check if user is Agente Inmobiliario (role 3) - they inherit access from parent Inmobiliaria
+  // Check if user is Agente Inmobiliario (role 3) or Agente Interno (role 9) - they inherit access from parent Inmobiliaria
   const isAgenteInmobiliario = userRoleId === 3;
+  const isAgenteInterno = userRoleId === 9;
+  const isAgente = isAgenteInmobiliario || isAgenteInterno;
   
   // Check if user is Inmobiliaria (role 4) - their changes propagate to agents
   const isInmobiliaria = userRoleId === 4;
@@ -494,14 +496,14 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
               </Button>
             </div>
           </div>
-        ) : isAgenteInmobiliario ? (
+        ) : isAgente ? (
           <div className="space-y-4">
             <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
               <Users className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800 dark:text-blue-200">
                 <strong>El acceso a proyectos se hereda de la Inmobiliaria</strong>
                 <p className="mt-1 text-sm">
-                  Los Agentes Inmobiliarios heredan automáticamente el acceso a proyectos de su Inmobiliaria padre. 
+                  Los {isAgenteInterno ? 'Agentes Internos' : 'Agentes Inmobiliarios'} heredan automáticamente el acceso a proyectos de su Inmobiliaria padre. 
                   Para modificar los accesos, edita los permisos del usuario con rol "Inmobiliaria" correspondiente.
                 </p>
               </AlertDescription>
