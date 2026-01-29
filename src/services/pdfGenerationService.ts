@@ -219,6 +219,7 @@ export class PDFGenerationService {
         .eq('id_modelo', modeloData.id)
         .eq('ver_como_ubicacion_en_oferta', true)
         .eq('activo', true)
+        .eq('es_imagen', true) // Filter only images, exclude videos
         .maybeSingle();
       
       ubicacionImage = ubicacion?.url;

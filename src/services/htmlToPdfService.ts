@@ -800,6 +800,7 @@ class HTMLToPDFService {
         .select('url, ver_como_ubicacion_en_oferta')
         .eq('id_modelo', model.id)
         .eq('activo', true)
+        .eq('es_imagen', true) // Filter only images, exclude videos
         .order('ver_como_ubicacion_en_oferta', { ascending: false });
 
       if (imagesData && imagesData.length > 0) {
