@@ -16,6 +16,7 @@ interface OwnerHistoryDialogProps {
   esPropietarioActualComprador?: boolean;
   idEstatusDisponibilidad?: number;
   idTipoTransaccion?: number;
+  nombreTipoTransaccion?: string;
   trigger?: React.ReactNode;
 }
 
@@ -42,6 +43,7 @@ export function OwnerHistoryDialog({
   esPropietarioActualComprador = false,
   idEstatusDisponibilidad,
   idTipoTransaccion,
+  nombreTipoTransaccion,
   trigger
 }: OwnerHistoryDialogProps) {
   const [open, setOpen] = useState(false);
@@ -309,30 +311,42 @@ export function OwnerHistoryDialog({
                 const isDelivered = entry.tiene_cuenta_mantenimiento;
                 const isLast = index === entries.length - 1;
                 const isEntryFideicomiso = esFideicomiso && !isDelivered;
-                // For resale: the last entry is "Propietario" (previous owner), we'll add a "Reventa" node after
-                const isLastBeforeReventa = esReventa && isLast;
-                // Determine if this entry is an intermediate owner (not first, not last if delivered)
-                const isIntermediateOwner = index > 0 && !isDelivered && !isLastBeforeReventa;
+                // For resale: the last delivered entry is still the current owner
+                const isCurrentOwnerInResale = esReventa && isLast && isDelivered;
+                // Determine if this entry is an intermediate owner
+                const isIntermediateOwner = index > 0 && !isLast;
                 
                 // Determine the label for this entry
                 const getEntryLabel = () => {
-                  if (isDelivered && !esReventa) return 'Propietario Actual';
-                  if (isDelivered && esReventa) return 'Propietario';
-                  if (isEntryFideicomiso) return 'Asignado a Fideicomisario';
+                  if (isDelivered && isLast) return 'Propietario Actual';
+                  if (isEntryFideicomiso && isLast) return 'Propietario Actual';
                   if (isIntermediateOwner) return 'Propietario';
+                  if (!isDelivered && !isEntryFideicomiso) return 'Transacción en Proceso';
                   return 'Propietario';
                 };
                 
+                // Get badge content for this entry
+                const getBadgeContent = () => {
+                  if (isCurrentOwnerInResale && nombreTipoTransaccion) {
+                    return nombreTipoTransaccion;
+                  }
+                  if (isDelivered) return 'Entregada';
+                  if (isEntryFideicomiso) return 'Fideicomiso';
+                  return 'En Proceso';
+                };
+                
                 return (
-                  <div key={entry.cuenta_id} className={cn("relative flex gap-4", (!isLast || esReventa) && "pb-8")}>
+                  <div key={entry.cuenta_id} className={cn("relative flex gap-4", !isLast && "pb-8")}>
                     {/* Timeline dot */}
                     <div className={cn(
                       "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-lg transition-all",
-                      isDelivered 
-                        ? "bg-green-500 text-white" 
-                        : isEntryFideicomiso
-                          ? "bg-blue-500 text-white"
-                          : "bg-amber-500 text-white"
+                      isCurrentOwnerInResale
+                        ? "bg-orange-500 text-white"
+                        : isDelivered 
+                          ? "bg-green-500 text-white" 
+                          : isEntryFideicomiso
+                            ? "bg-blue-500 text-white"
+                            : "bg-amber-500 text-white"
                     )}>
                       {isDelivered ? (
                         <BadgeCheck className="h-5 w-5" />
@@ -344,11 +358,13 @@ export function OwnerHistoryDialog({
                     <div className="flex-1 pt-1">
                       <div className={cn(
                         "rounded-lg border p-4 shadow-sm transition-all",
-                        isDelivered 
-                          ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30" 
-                          : isEntryFideicomiso
-                            ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
-                            : "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30"
+                        isCurrentOwnerInResale
+                          ? "border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30"
+                          : isDelivered 
+                            ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30" 
+                            : isEntryFideicomiso
+                              ? "border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
+                              : "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/30"
                       )}>
                         {/* Header */}
                         <div className="flex items-center justify-between mb-3">
@@ -356,24 +372,24 @@ export function OwnerHistoryDialog({
                             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                               {getEntryLabel()}
                             </span>
-                            {isDelivered && !esReventa ? (
-                              <Badge className="bg-green-600 hover:bg-green-700 text-white">
-                                Entregada
+                            {isCurrentOwnerInResale ? (
+                              <Badge className="bg-orange-600 hover:bg-orange-700 text-white">
+                                {getBadgeContent()}
                               </Badge>
-                            ) : isDelivered && esReventa ? (
-                              <Badge variant="secondary">
-                                Entregada
+                            ) : isDelivered ? (
+                              <Badge className="bg-green-600 hover:bg-green-700 text-white">
+                                {getBadgeContent()}
                               </Badge>
                             ) : isEntryFideicomiso ? (
                               <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
-                                Fideicomiso
+                                {getBadgeContent()}
                               </Badge>
                             ) : (
                               <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
-                                En Proceso
+                                {getBadgeContent()}
                               </Badge>
                             )}
-                            {isEntryFideicomiso && (
+                            {isEntryFideicomiso && isLast && (
                               <Badge variant="default" className="ml-auto">
                                 Propietario Actual
                               </Badge>
@@ -460,31 +476,6 @@ export function OwnerHistoryDialog({
                 );
               })}
 
-              {/* Reventa Node - shown at the end for resale properties */}
-              {!isLoading && esReventa && entries && entries.length > 0 && (
-                <div className="relative flex gap-4">
-                  {/* Timeline dot */}
-                  <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white shadow-lg">
-                    <History className="h-5 w-5" />
-                  </div>
-                  
-                  <div className="flex-1 pt-1">
-                    <div className="rounded-lg border border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30 p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Estado Actual
-                        </span>
-                        <Badge className="bg-orange-600 hover:bg-orange-700 text-white">
-                          En Reventa
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Esta propiedad está disponible para venta nuevamente.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* No History Message */}
               {!isLoading && (!entries || entries.length === 0) && !esReventa && (

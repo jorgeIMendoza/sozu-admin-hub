@@ -4249,6 +4249,7 @@ const Propiedades = () => {
                                   esPropietarioActualComprador={mostrarComoComprador}
                                   idEstatusDisponibilidad={property.id_estatus_disponibilidad}
                                   idTipoTransaccion={property.id_tipo_transaccion}
+                                  nombreTipoTransaccion={property.tipo_transaccion}
                                 />
                               )}
                             </div>
