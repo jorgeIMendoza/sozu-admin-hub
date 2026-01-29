@@ -1064,8 +1064,8 @@ export default function Usuarios() {
               </Popover>
             </div>
 
-            {/* 2. Inmobiliaria - SOLO visible para Agente Interno (9) o Agente Inmobiliario (3) */}
-            {(parseInt(newUserForm.rol_id || '0') === ROLE_AGENTE_INTERNO || parseInt(newUserForm.rol_id || '0') === ROLE_AGENTE_INMOBILIARIO) && (
+            {/* 2. Inmobiliaria - SOLO visible para Agente Interno (9), Agente Inmobiliario (3) o Inmobiliaria (4) */}
+            {(parseInt(newUserForm.rol_id || '0') === ROLE_AGENTE_INTERNO || parseInt(newUserForm.rol_id || '0') === ROLE_AGENTE_INMOBILIARIO || parseInt(newUserForm.rol_id || '0') === ROLE_INMOBILIARIA) && (
               <div className="space-y-2">
                 <Label htmlFor="inmobiliaria" className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
