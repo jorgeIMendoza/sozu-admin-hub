@@ -173,6 +173,65 @@ serve(async (req) => {
 
     console.log("Usuario created successfully:", usuarioData);
 
+    // If this is an Agente Inmobiliario (rol_id = 3) linked to a persona,
+    // copy project access from the parent Inmobiliaria
+    if (rol_id === 3 && id_persona) {
+      try {
+        // Find the inmobiliaria that this agent belongs to via entidades_relacionadas
+        const { data: agenteEntidad } = await supabaseAdmin
+          .from("entidades_relacionadas")
+          .select("id_persona_duena_lead")
+          .eq("id_persona", id_persona)
+          .eq("id_tipo_entidad", 19) // Agente
+          .eq("activo", true)
+          .maybeSingle();
+
+        if (agenteEntidad?.id_persona_duena_lead) {
+          // Get the inmobiliaria's email
+          const { data: inmobiliariaPersona } = await supabaseAdmin
+            .from("personas")
+            .select("email")
+            .eq("id", agenteEntidad.id_persona_duena_lead)
+            .single();
+
+          if (inmobiliariaPersona?.email) {
+            // Get all project access from the inmobiliaria user
+            const { data: inmobiliariaAccess } = await supabaseAdmin
+              .from("proyectos_acceso")
+              .select("proyecto_id, id_entidad_relacionada_dueno")
+              .eq("usuario_id", inmobiliariaPersona.email)
+              .eq("activo", true);
+
+            if (inmobiliariaAccess && inmobiliariaAccess.length > 0) {
+              // Copy all project access to the new agent
+              const accessToInsert = inmobiliariaAccess.map((access: any) => ({
+                usuario_id: email,
+                proyecto_id: access.proyecto_id,
+                id_entidad_relacionada_dueno: access.id_entidad_relacionada_dueno,
+                activo: true
+              }));
+
+              const { error: accessError } = await supabaseAdmin
+                .from("proyectos_acceso")
+                .upsert(accessToInsert, { 
+                  onConflict: "usuario_id,proyecto_id",
+                  ignoreDuplicates: true 
+                });
+
+              if (accessError) {
+                console.error("Error copying project access to agent:", accessError);
+              } else {
+                console.log(`Copied ${accessToInsert.length} project access entries to agent ${email}`);
+              }
+            }
+          }
+        }
+      } catch (accessCopyError) {
+        console.error("Error in project access copy process:", accessCopyError);
+        // Don't fail user creation if access copy fails
+      }
+    }
+
     const message = existingAuthUser 
       ? `Usuario creado (auth existente). La contraseña no fue cambiada.`
       : `Usuario creado con contraseña temporal: ${defaultPassword}`;
