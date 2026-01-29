@@ -960,23 +960,48 @@ export class OfertaPdfNativeService {
     );
   }
 
-  private async loadImageAsBase64(url: string): Promise<string> {
+  private async loadImageAsBase64(url: string, maxSizeKB: number = 150): Promise<string> {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
 
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
         const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          const dataUrl = canvas.toDataURL("image/png");
-          resolve(dataUrl);
-        } else {
+        if (!ctx) {
           reject(new Error("Could not get canvas context"));
+          return;
         }
+
+        // Calculate new dimensions - max 800px on longest side for PDF optimization
+        const maxDimension = 800;
+        let { width, height } = img;
+        
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Try different quality levels to stay under maxSizeKB
+        let quality = 0.6;
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        
+        while (dataUrl.length / 1024 > maxSizeKB && quality > 0.1) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+        
+        console.log(`Image compressed to ${(dataUrl.length / 1024).toFixed(2)}KB at quality ${quality.toFixed(1)}`);
+        resolve(dataUrl);
       };
 
       img.onerror = () => {

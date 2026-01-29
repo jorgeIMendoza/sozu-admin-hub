@@ -550,8 +550,8 @@ class HTMLToPDFService {
           return;
         }
 
-        // Calculate new dimensions (max 1200px on longest side)
-        const maxDimension = 1200;
+        // Calculate new dimensions (max 800px on longest side for aggressive compression)
+        const maxDimension = 800;
         let { width, height } = img;
         
         if (width > maxDimension || height > maxDimension) {
@@ -568,8 +568,8 @@ class HTMLToPDFService {
         canvas.height = height;
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Try different quality levels to stay under maxSizeKB
-        let quality = 0.7;
+        // Try different quality levels to stay under maxSizeKB (start with 0.5)
+        let quality = 0.5;
         let result = canvas.toDataURL('image/jpeg', quality);
         
         while (result.length / 1024 > maxSizeKB && quality > 0.1) {
@@ -809,16 +809,16 @@ class HTMLToPDFService {
         console.log(`Filtered ${imagesData.length - validImages.length} video files from model images`);
         
         if (validImages.length > 0) {
-          // Limit to first 5 images to prevent PDF bloat
-          const limitedImages = validImages.slice(0, 5);
-          if (validImages.length > 5) {
-            console.log(`Limiting model images from ${validImages.length} to 5 for PDF size optimization`);
+          // Limit to first 3 images to prevent PDF bloat (more aggressive limit)
+          const limitedImages = validImages.slice(0, 3);
+          if (validImages.length > 3) {
+            console.log(`Limiting model images from ${validImages.length} to 3 for PDF size optimization`);
           }
           
           modelImages = await Promise.all(
             limitedImages.map(async (img) => {
               try {
-                const base64Url = await this.convertImageToBase64(img.url, 400); // 400KB max per image
+                const base64Url = await this.convertImageToBase64(img.url, 150); // 150KB max per image (aggressive)
                 // Skip if conversion returned empty (video or failed)
                 if (!base64Url) return null;
                 return {
