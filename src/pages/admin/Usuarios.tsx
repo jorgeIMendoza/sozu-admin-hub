@@ -1097,8 +1097,8 @@ export default function Usuarios() {
               )}
             </div>
 
-            {/* 3. Inmobiliaria - only show for Agente Interno or Agente Inmobiliario */}
-            {(newUserForm.rol_id === ROLE_AGENTE_INTERNO.toString() || newUserForm.rol_id === ROLE_AGENTE_INMOBILIARIO.toString()) && (
+            {/* 3. Inmobiliaria - SOLO visible para Agente Interno (9) o Agente Inmobiliario (3) */}
+            {(parseInt(newUserForm.rol_id || '0') === ROLE_AGENTE_INTERNO || parseInt(newUserForm.rol_id || '0') === ROLE_AGENTE_INMOBILIARIO) && (
               <div className="space-y-2">
                 <Label htmlFor="inmobiliaria" className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
@@ -1153,7 +1153,7 @@ export default function Usuarios() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {newUserForm.rol_id === ROLE_AGENTE_INTERNO.toString() && (
+                {parseInt(newUserForm.rol_id || '0') === ROLE_AGENTE_INTERNO && (
                   <p className="text-xs text-muted-foreground">
                     Los Agentes Internos se asignan automáticamente a Sozu.
                   </p>
