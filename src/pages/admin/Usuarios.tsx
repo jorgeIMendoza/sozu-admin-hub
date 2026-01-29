@@ -32,8 +32,9 @@ type Usuario = {
   id_persona: number | null;
   debe_cambiar_password: boolean;
   roles?: { nombre: string } | null;
-  personas?: { nombre_legal: string } | null;
+  personas?: { nombre_legal: string; email?: string | null } | null;
   inmobiliaria_nombre?: string | null; // Nombre de la inmobiliaria basado en el dominio del email
+  es_usuario_principal?: boolean; // Indica si es el usuario principal de la inmobiliaria
 };
 
 type Role = {
@@ -128,6 +129,11 @@ function UsersTable({
                         {isCurrentUser && (
                           <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">
                             Tú
+                          </Badge>
+                        )}
+                        {usuario.es_usuario_principal && (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+                            Usuario Principal
                           </Badge>
                         )}
                       </p>
@@ -302,7 +308,7 @@ export default function Usuarios() {
           id_persona,
           debe_cambiar_password,
           roles (nombre, es_rol_interno),
-          personas (nombre_legal)
+          personas (nombre_legal, email)
         `)
         .order('nombre', { ascending: true });
       
@@ -333,10 +339,18 @@ export default function Usuarios() {
       // Filter to show only users with internal roles and add inmobiliaria info
       return ((data || []) as (Usuario & { roles: { nombre: string; es_rol_interno: boolean } | null })[])
         .filter(u => u.roles?.es_rol_interno === true)
-        .map(u => ({
-          ...u,
-          inmobiliaria_nombre: u.id_persona ? inmobByPersona.get(u.id_persona) || null : null
-        }));
+        .map(u => {
+          // Check if user with Inmobiliaria role (4) is the main user (email matches persona email)
+          const esUsuarioPrincipal = u.rol_id === ROLE_INMOBILIARIA && 
+            u.personas?.email && 
+            u.email.toLowerCase() === u.personas.email.toLowerCase();
+          
+          return {
+            ...u,
+            inmobiliaria_nombre: u.id_persona ? inmobByPersona.get(u.id_persona) || null : null,
+            es_usuario_principal: esUsuarioPrincipal
+          };
+        });
     },
   });
 
