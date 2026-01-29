@@ -465,8 +465,20 @@ class HTMLToPDFService {
     pdf.addImage(imgData, 'PNG', xMargin, yMargin, contentWidth, contentHeight);
   }
 
-  private async convertImageToBase64(imageUrl: string): Promise<string> {
+  private isVideoUrl(url: string): boolean {
+    const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v', '.wmv'];
+    const lowerUrl = url.toLowerCase();
+    return videoExtensions.some(ext => lowerUrl.includes(ext));
+  }
+
+  private async convertImageToBase64(imageUrl: string, maxSizeKB: number = 500): Promise<string> {
     try {
+      // Skip videos - they should not be embedded in PDFs
+      if (this.isVideoUrl(imageUrl)) {
+        console.log('Skipping video file (not suitable for PDF):', imageUrl);
+        return ''; // Return empty to signal this should be filtered out
+      }
+
       console.log('Converting image to base64:', imageUrl);
       
       const response = await fetch(imageUrl, {
@@ -484,12 +496,27 @@ class HTMLToPDFService {
       
       const blob = await response.blob();
       
+      // Check if blob is too large (skip files > 5MB to prevent PDF bloat)
+      const maxBlobSizeMB = 5;
+      if (blob.size > maxBlobSizeMB * 1024 * 1024) {
+        console.warn(`Image too large (${(blob.size / 1024 / 1024).toFixed(2)}MB), compressing...`);
+        return await this.compressImageBlob(blob, maxSizeKB);
+      }
+      
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           if (typeof reader.result === 'string') {
-            console.log('Image converted to base64 successfully, length:', reader.result.length);
-            resolve(reader.result);
+            const sizeKB = reader.result.length / 1024;
+            console.log('Image converted to base64 successfully, size:', sizeKB.toFixed(2), 'KB');
+            
+            // If result is too large, compress it
+            if (sizeKB > maxSizeKB) {
+              console.log('Compressing large image...');
+              this.compressImageBlob(blob, maxSizeKB).then(resolve).catch(() => resolve(imageUrl));
+            } else {
+              resolve(reader.result);
+            }
           } else {
             console.error('Failed to convert image to base64 - result is not a string');
             resolve(imageUrl); // Return original URL as fallback
@@ -505,6 +532,62 @@ class HTMLToPDFService {
       console.error('Error converting image to base64:', error);
       return imageUrl; // Return original URL as fallback
     }
+  }
+
+  private async compressImageBlob(blob: Blob, maxSizeKB: number): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          resolve('');
+          return;
+        }
+
+        // Calculate new dimensions (max 1200px on longest side)
+        const maxDimension = 1200;
+        let { width, height } = img;
+        
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Try different quality levels to stay under maxSizeKB
+        let quality = 0.7;
+        let result = canvas.toDataURL('image/jpeg', quality);
+        
+        while (result.length / 1024 > maxSizeKB && quality > 0.1) {
+          quality -= 0.1;
+          result = canvas.toDataURL('image/jpeg', quality);
+        }
+        
+        console.log('Compressed image to', (result.length / 1024).toFixed(2), 'KB at quality', quality.toFixed(1));
+        resolve(result);
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve('');
+      };
+      
+      img.src = url;
+    });
   }
 
   private async fetchPropertyDetails(propertyId: number, offerId?: number): Promise<PropertyDetails> {
@@ -720,21 +803,36 @@ class HTMLToPDFService {
         .order('ver_como_ubicacion_en_oferta', { ascending: false });
 
       if (imagesData && imagesData.length > 0) {
-        // Convert all model images to base64 for better PDF rendering
-        modelImages = await Promise.all(
-          imagesData.map(async (img) => {
-            try {
-              const base64Url = await this.convertImageToBase64(img.url);
-              return {
-                url: base64Url,
-                ver_como_ubicacion_en_oferta: img.ver_como_ubicacion_en_oferta
-              };
-            } catch (error) {
-              console.error('Error converting model image to base64:', error);
-              return img; // Return original if conversion fails
-            }
-          })
-        );
+        // Filter out videos and convert images to base64 with compression
+        const validImages = imagesData.filter(img => !this.isVideoUrl(img.url));
+        console.log(`Filtered ${imagesData.length - validImages.length} video files from model images`);
+        
+        if (validImages.length > 0) {
+          // Limit to first 5 images to prevent PDF bloat
+          const limitedImages = validImages.slice(0, 5);
+          if (validImages.length > 5) {
+            console.log(`Limiting model images from ${validImages.length} to 5 for PDF size optimization`);
+          }
+          
+          modelImages = await Promise.all(
+            limitedImages.map(async (img) => {
+              try {
+                const base64Url = await this.convertImageToBase64(img.url, 400); // 400KB max per image
+                // Skip if conversion returned empty (video or failed)
+                if (!base64Url) return null;
+                return {
+                  url: base64Url,
+                  ver_como_ubicacion_en_oferta: img.ver_como_ubicacion_en_oferta
+                };
+              } catch (error) {
+                console.error('Error converting model image to base64:', error);
+                return null;
+              }
+            })
+          );
+          // Filter out null entries (failed conversions or videos)
+          modelImages = modelImages.filter(img => img !== null);
+        }
       }
     }
 
