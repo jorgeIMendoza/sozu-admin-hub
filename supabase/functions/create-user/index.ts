@@ -109,36 +109,75 @@ serve(async (req) => {
     // Default password
     const defaultPassword = "Temporal123!";
 
-    // Check if user already exists in auth.users
-    const { data: existingAuthUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingAuthUser = existingAuthUsers?.users?.find(u => u.email === email);
-
     let authUserId: string;
+    let existingAuthUser = false;
 
-    if (existingAuthUser) {
-      // User exists in auth but not in usuarios - use existing auth user
-      console.log("Auth user already exists, using existing:", existingAuthUser.id);
-      authUserId = existingAuthUser.id;
-    } else {
-      // Create new user in auth.users
-      const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: defaultPassword,
-        email_confirm: true,
-        user_metadata: {
-          nombre,
-          rol_id,
-        },
-      });
+    // Try to create the auth user first - this is more reliable than searching
+    const { data: authData, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: defaultPassword,
+      email_confirm: true,
+      user_metadata: {
+        nombre,
+        rol_id,
+      },
+    });
 
-      if (createAuthError) {
+    if (createAuthError) {
+      // Check if user already exists
+      if (createAuthError.message.includes('already been registered') || 
+          createAuthError.message.includes('already exists') ||
+          (createAuthError as any).code === 'email_exists') {
+        console.log("Auth user already exists, searching for existing user...");
+        
+        // Search through paginated results to find the existing user
+        let page = 1;
+        const perPage = 1000;
+        let foundUser = null;
+        
+        while (!foundUser) {
+          const { data: usersPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+            page,
+            perPage,
+          });
+          
+          if (listError || !usersPage?.users?.length) {
+            break;
+          }
+          
+          foundUser = usersPage.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+          
+          if (foundUser || usersPage.users.length < perPage) {
+            break;
+          }
+          page++;
+        }
+        
+        if (foundUser) {
+          authUserId = foundUser.id;
+          existingAuthUser = true;
+          console.log("Found existing auth user:", authUserId);
+          
+          // Optionally reset password to default
+          await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+            password: defaultPassword,
+          });
+          console.log("Reset password for existing auth user");
+        } else {
+          console.error("Auth user exists but could not be found in listing");
+          return new Response(
+            JSON.stringify({ error: "El usuario existe en auth pero no se pudo encontrar. Contacte soporte." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
         console.error("Error creating auth user:", createAuthError);
         return new Response(
           JSON.stringify({ error: `Error creating auth user: ${createAuthError.message}` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
+    } else {
       console.log("Auth user created:", authData.user?.id);
       authUserId = authData.user!.id;
     }
