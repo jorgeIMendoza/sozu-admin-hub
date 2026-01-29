@@ -1214,16 +1214,20 @@ const Propiedades = () => {
         }
       });
       
-      // Get cuentas_cobranza for these ofertas
+      // Get cuentas_cobranza for these ofertas (incluir inactivas ya que al poner en reventa se desactivan)
       const reventaOfertaIds = Object.values(reventaOfertasMap).map((o: any) => o.id);
       if (reventaOfertaIds.length > 0) {
         const { data: reventaCuentas } = await supabase
           .from('cuentas_cobranza')
           .select('id, id_oferta')
-          .in('id_oferta', reventaOfertaIds);
+          .in('id_oferta', reventaOfertaIds)
+          .order('fecha_creacion', { ascending: false }); // Get the most recent first
         
+        // Map by id_oferta, only keeping the first (most recent) cuenta for each oferta
         (reventaCuentas || []).forEach((cuenta: any) => {
-          reventaCuentasMap[cuenta.id_oferta] = cuenta;
+          if (!reventaCuentasMap[cuenta.id_oferta]) {
+            reventaCuentasMap[cuenta.id_oferta] = cuenta;
+          }
         });
         
         // Get compradores for these cuentas
@@ -4329,12 +4333,16 @@ const Propiedades = () => {
                         );
                       
                       case 'precio_m2':
+                        // Para Reventa (ID 2), usar precio_lista en lugar de precio_final
+                        const precioParaM2 = property.id_tipo_transaccion === 2 
+                          ? property.precio_lista 
+                          : (property.precio_final || property.precio_lista);
                         return (
                           <TableCell key={column.key}>
-                      {formatPrecioPorM2(
-                        property.precio_final || property.precio_lista,
-                        property.m2_interiores,
-                        property.m2_exteriores
+                            {formatPrecioPorM2(
+                              precioParaM2,
+                              property.m2_interiores,
+                              property.m2_exteriores
                             )}
                           </TableCell>
                         );
@@ -4403,11 +4411,15 @@ const Propiedades = () => {
                         );
                       
                       case 'ofertas_productos':
+                        // Para Reventa (ID 2), siempre mostrar N/A
+                        const esReventaProductos = property.id_tipo_transaccion === 2;
                         // Show product offers when property has existing offers OR is at least Apartado (id_estatus_disponibilidad > 3)
-                        const canShowProductOffers = property.id_estatus_disponibilidad > 3 || property.tieneOfertasProductos;
+                        const canShowProductOffers = !esReventaProductos && (property.id_estatus_disponibilidad > 3 || property.tieneOfertasProductos);
                         return (
                           <TableCell key={column.key}>
-                            {canShowProductOffers ? (
+                            {esReventaProductos ? (
+                              <Badge variant="outline" className="text-muted-foreground">N/A</Badge>
+                            ) : canShowProductOffers ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
