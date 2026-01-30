@@ -38,21 +38,11 @@ export default function MisPropiedades() {
 
       if (!personaData?.email) return [];
 
-      // Get the auth_user_id from the usuarios table
-      const { data: usuarioData } = await supabase
-        .from('usuarios')
-        .select('auth_user_id')
-        .eq('email', personaData.email)
-        .eq('activo', true)
-        .single();
-
-      if (!usuarioData?.auth_user_id) return [];
-
-      // Query proyectos_acceso using usuario_id
+      // Query proyectos_acceso using email directly (usuario_id stores email, not UUID)
       const { data, error } = await supabase
         .from('proyectos_acceso')
         .select('proyecto_id')
-        .eq('usuario_id', usuarioData.auth_user_id)
+        .eq('usuario_id', personaData.email)
         .eq('activo', true);
 
       if (error) throw error;
