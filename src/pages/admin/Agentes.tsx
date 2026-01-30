@@ -401,18 +401,30 @@ export default function Agentes() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
+      // Deactivate agent persona
       const { error } = await supabase
         .from('personas')
         .update({ activo: false })
         .eq('id', id);
       
       if (error) throw error;
+
+      // Also deactivate associated user if exists
+      const { error: userError } = await supabase
+        .from('usuarios')
+        .update({ activo: false })
+        .eq('id_persona', id);
+      
+      if (userError) {
+        console.error('Error deactivating user:', userError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agentes'] });
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       toast({
         title: "Éxito",
-        description: "Agente eliminado correctamente.",
+        description: "Agente eliminado y usuario desactivado correctamente.",
       });
     },
     onError: (error: any) => {
@@ -426,18 +438,30 @@ export default function Agentes() {
 
   const restoreMutation = useMutation({
     mutationFn: async (id: number) => {
+      // Reactivate agent persona
       const { error } = await supabase
         .from('personas')
         .update({ activo: true })
         .eq('id', id);
       
       if (error) throw error;
+
+      // Also reactivate associated user if exists
+      const { error: userError } = await supabase
+        .from('usuarios')
+        .update({ activo: true })
+        .eq('id_persona', id);
+      
+      if (userError) {
+        console.error('Error reactivating user:', userError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agentes'] });
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       toast({
         title: "Éxito",
-        description: "Agente restaurado correctamente.",
+        description: "Agente restaurado y usuario reactivado correctamente.",
       });
     },
     onError: (error: any) => {
@@ -904,6 +928,7 @@ export default function Agentes() {
         onConfirm={handleConfirmDelete}
         title="Eliminar Agente"
         description={`¿Estás seguro de que deseas eliminar al agente "${agenteToDelete?.nombre_legal}"? Esta acción se puede deshacer.`}
+        warningMessage={agenteToDelete?.usuario_rol_id ? "⚠️ El usuario asociado a este agente será desactivado y no podrá iniciar sesión en el sistema." : undefined}
         isLoading={deleteMutation.isPending}
       />
 
@@ -914,6 +939,7 @@ export default function Agentes() {
         onConfirm={handleConfirmRestore}
         title="Restaurar Agente"
         description={`¿Estás seguro de que deseas restaurar al agente "${agenteToRestore?.nombre_legal}"?`}
+        warningMessage={agenteToRestore?.usuario_rol_id ? "✅ El usuario asociado a este agente será reactivado y podrá iniciar sesión nuevamente." : undefined}
         isLoading={restoreMutation.isPending}
         actionType="restore"
       />
