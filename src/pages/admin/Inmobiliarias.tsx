@@ -385,7 +385,7 @@ export default function Inmobiliarias() {
 
       // Enviar notificación a N8N sobre la nueva inmobiliaria
       try {
-        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion1`;
+        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion`;
         console.log('Enviando notificación de nueva inmobiliaria a:', webhookUrl);
         
         // Obtener usuarios con rol Super Administrador (rol_id = 1)
