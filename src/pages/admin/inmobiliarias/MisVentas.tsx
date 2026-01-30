@@ -89,7 +89,7 @@ export default function MisVentas() {
       if (propiedadIds.length === 0) return [];
 
       // Now fetch cuentas_cobranza for these properties
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('cuentas_cobranza')
         .select(`
           id,
