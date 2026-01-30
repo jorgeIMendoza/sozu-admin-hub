@@ -8,7 +8,8 @@ import { Building2, Home, DollarSign, MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
-
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 interface ProjectData {
   id: number;
   nombre: string;
@@ -22,6 +23,8 @@ interface ProjectData {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const isInmobiliariaRole = profile?.rol_id === 4;
   
   // Project access control
   const { 
@@ -30,6 +33,20 @@ const Dashboard = () => {
     isLoading: isLoadingAccess, 
     hasNoAccess 
   } = useProjectAccess();
+
+  // Query para obtener datos de la inmobiliaria
+  const { data: inmobiliariaData } = useQuery({
+    queryKey: ['dashboard-inmobiliaria-data', profile?.id_persona],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('personas')
+        .select('nombre_legal, nombre_comercial, url_logo')
+        .eq('id', profile!.id_persona)
+        .single();
+      return data;
+    },
+    enabled: isInmobiliariaRole && !!profile?.id_persona,
+  });
 
   // Fetch Sozu-managed projects (Inmobiliaria = Real Estate Ventures)
   const { data: sozuProjectIds = [] } = useQuery({
@@ -283,9 +300,40 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header con logo/nombre para Inmobiliaria */}
+      {isInmobiliariaRole && inmobiliariaData && (
+        <Card className="border-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent shadow-md">
+          <CardContent className="py-6">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 ring-2 ring-primary/20">
+                {inmobiliariaData.url_logo && (
+                  <AvatarImage src={inmobiliariaData.url_logo} alt={inmobiliariaData.nombre_legal || ''} />
+                )}
+                <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+                  {(inmobiliariaData.nombre_comercial || inmobiliariaData.nombre_legal)?.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="text-2xl font-bold">
+                  {inmobiliariaData.nombre_comercial || inmobiliariaData.nombre_legal}
+                </h2>
+                {inmobiliariaData.nombre_comercial && inmobiliariaData.nombre_legal && 
+                  inmobiliariaData.nombre_comercial !== inmobiliariaData.nombre_legal && (
+                  <p className="text-sm text-muted-foreground">{inmobiliariaData.nombre_legal}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Proyectos gestionados por Sozu</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            {isInmobiliariaRole && inmobiliariaData
+              ? `Proyectos Comercializados por ${inmobiliariaData.nombre_comercial || inmobiliariaData.nombre_legal}`
+              : 'Proyectos gestionados por Sozu'}
+          </h1>
         </div>
       </div>
 
