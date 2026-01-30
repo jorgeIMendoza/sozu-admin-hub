@@ -52,10 +52,11 @@ export default function MisVentas() {
 
       if (!personaData?.email) return [];
 
-      const { data, error } = await (supabase as any)
+      // Query proyectos_acceso using usuario_id (which stores the user's email)
+      const { data, error } = await supabase
         .from('proyectos_acceso')
         .select('proyecto_id')
-        .eq('email', personaData.email)
+        .eq('usuario_id', personaData.email)
         .eq('activo', true);
 
       if (error) throw error;
