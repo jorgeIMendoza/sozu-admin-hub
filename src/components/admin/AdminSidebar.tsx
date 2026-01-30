@@ -77,11 +77,6 @@ const navigationItems: NavigationItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: "Pregunta a Aloris-IA",
-    href: "/admin/consultas-ia",
-    icon: Bot,
-  },
-  {
     title: "Inventarios",
     icon: Building2,
     children: [
@@ -182,11 +177,23 @@ const navigationItems: NavigationItem[] = [
   },
 ];
 
-// Este menú siempre va al final, sin importar qué otros menús se agreguen
+// Menú de Inmobiliarias
+const inmobiliariasMenuItem: NavigationItem = {
+  title: "Inmobiliarias",
+  icon: KeyRound,
+  children: [
+    { title: "Mis Agentes", href: "/admin/inmobiliarias/mis-agentes", icon: Briefcase },
+    { title: "Mis Propiedades", href: "/admin/inmobiliarias/mis-propiedades", icon: Building },
+    { title: "Mis Ventas", href: "/admin/inmobiliarias/mis-ventas", icon: BadgeDollarSign },
+  ]
+};
+
+// Este menú siempre va al final, sin importar qué otros menús se agreguen (solo para jorge.mendoza@sozu.com)
 const logsMenuItem: NavigationItem = {
   title: "Configuraciones/Logs",
   icon: Activity,
   children: [
+    { title: "Pregunta a Aloris-IA", href: "/admin/consultas-ia", icon: Bot },
     { title: "Logs de Actividad", href: "/admin/logs-actividad", icon: Activity },
     { title: "Rastreo CLABEs STP", href: "/admin/rastreo-clabes-stp", icon: CreditCard },
     { title: "Rastreo Pagos STP", href: "/admin/rastreo-pagos-stp", icon: CreditCard },
@@ -244,6 +251,16 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
     };
 
     const filteredMain = filterItems(navigationItems);
+    
+    // Agregar menú de Inmobiliarias si tiene permisos
+    const filteredInmobiliariasChildren = inmobiliariasMenuItem.children?.filter(child => {
+      if (isSuperAdmin) return true;
+      return isPathAllowed(child.href);
+    }) || [];
+    
+    if (filteredInmobiliariasChildren.length > 0) {
+      filteredMain.push({ ...inmobiliariasMenuItem, children: filteredInmobiliariasChildren });
+    }
     
     // Filtrar el menú de logs (solo para jorge.mendoza@sozu.com)
     if (userEmail === LOGS_ALLOWED_EMAIL) {
