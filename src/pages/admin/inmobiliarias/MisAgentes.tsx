@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit, Trash2, CreditCard, FileSpreadsheet } from "lucide-react";
+import { Search, Edit, Trash2, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
-import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
+
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
@@ -35,8 +35,6 @@ export default function MisAgentes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAgente, setEditingAgente] = useState<Agente | null>(null);
-  const [selectedAgenteForBankAccounts, setSelectedAgenteForBankAccounts] = useState<Agente | null>(null);
-  const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [agenteToDelete, setAgenteToDelete] = useState<Agente | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -280,16 +278,6 @@ export default function MisAgentes() {
                               <Edit className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSelectedAgenteForBankAccounts(agente);
-                              setIsBankAccountsDialogOpen(true);
-                            }}
-                          >
-                            <CreditCard className="h-4 w-4" />
-                          </Button>
                           {canDelete && (
                             <Button
                               variant="ghost"
@@ -358,17 +346,6 @@ export default function MisAgentes() {
         </DialogContent>
       </Dialog>
 
-      {/* Bank Accounts Dialog */}
-      <Dialog open={isBankAccountsDialogOpen} onOpenChange={setIsBankAccountsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Cuentas Bancarias - {selectedAgenteForBankAccounts?.nombre_legal}</DialogTitle>
-          </DialogHeader>
-          {selectedAgenteForBankAccounts && (
-            <BankAccountsSection personId={selectedAgenteForBankAccounts.id} />
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog

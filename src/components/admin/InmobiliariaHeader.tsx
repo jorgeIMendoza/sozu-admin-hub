@@ -211,14 +211,14 @@ export function InmobiliariaHeader({ onInmobiliariaChange, selectedInmobiliariaI
                           />
                           <div className="flex items-center gap-2">
                             {inmobiliaria.logo_url ? (
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={inmobiliaria.logo_url} alt={inmobiliaria.nombre_legal} />
+                              <Avatar className="h-6 w-6 ring-1 ring-border bg-muted">
+                                <AvatarImage src={inmobiliaria.logo_url} alt={inmobiliaria.nombre_legal} className="object-contain p-0.5" />
                                 <AvatarFallback className="text-[10px]">
                                   {inmobiliaria.nombre_legal.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                             ) : (
-                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted">
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted ring-1 ring-border">
                                 <Building2 className="h-3 w-3 text-muted-foreground" />
                               </div>
                             )}
