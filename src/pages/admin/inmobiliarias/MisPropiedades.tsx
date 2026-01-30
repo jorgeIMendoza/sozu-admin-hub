@@ -61,9 +61,10 @@ export default function MisPropiedades() {
         .from('propiedades')
         .select(`
           id,
-          numero_departamento,
+          numero_propiedad,
           precio_lista,
-          area_total,
+          m2_interiores,
+          m2_exteriores,
           activo,
           clabe_stp_tmp_apartado,
           edificios_modelos!inner (
@@ -87,9 +88,12 @@ export default function MisPropiedades() {
             id,
             nombre
           ),
-          persona_dueno:personas!propiedades_id_persona_dueno_fkey (
+          entidades_relacionadas!propiedades_id_entidad_relacionada_dueno_fkey (
             id,
-            nombre_legal
+            personas (
+              id,
+              nombre_legal
+            )
           ),
           cuentas_cobranza (
             id,
@@ -108,7 +112,7 @@ export default function MisPropiedades() {
         `)
         .eq('activo', true)
         .in('edificios_modelos.edificios.proyectos.id', projectIds)
-        .order('numero_departamento', { ascending: true });
+        .order('numero_propiedad', { ascending: true });
 
       if (error) throw error;
 
@@ -118,18 +122,20 @@ export default function MisPropiedades() {
           ?.filter((pago: any) => pago.activo)
           .reduce((sum: number, pago: any) => sum + (pago.monto || 0), 0) || 0;
 
+        const areaTotal = (Number(p.m2_interiores) || 0) + (Number(p.m2_exteriores) || 0);
+
         return {
           id: p.id,
           proyecto_nombre: p.edificios_modelos?.edificios?.proyectos?.nombre,
           edificio_nombre: p.edificios_modelos?.edificios?.nombre,
           modelo_nombre: p.edificios_modelos?.modelos?.nombre,
-          numero_departamento: p.numero_departamento,
-          area_total: p.area_total,
+          numero_departamento: p.numero_propiedad,
+          area_total: areaTotal > 0 ? areaTotal : null,
           recamaras: p.edificios_modelos?.modelos?.numero_recamaras,
           banos: p.edificios_modelos?.modelos?.numero_completo_banos,
           precio_lista: p.precio_lista,
           estatus_disponibilidad_nombre: p.estatus_disponibilidad?.nombre,
-          propietario_nombre: p.persona_dueno?.nombre_legal,
+          propietario_nombre: p.entidades_relacionadas?.personas?.nombre_legal,
           cuenta_cobranza_id: cuentaCobranza?.id,
           clabe_stp: cuentaCobranza?.clabe_stp || p.clabe_stp_tmp_apartado,
           precio_final: cuentaCobranza?.precio_final,
