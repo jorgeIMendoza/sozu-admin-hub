@@ -252,6 +252,9 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
 
     const filteredMain = filterItems(navigationItems);
     
+    // Find the index of "Entidades" to insert "Inmobiliarias" right after it
+    const entidadesIndex = filteredMain.findIndex(item => item.title === "Entidades");
+    
     // Agregar menú de Inmobiliarias si tiene permisos
     const filteredInmobiliariasChildren = inmobiliariasMenuItem.children?.filter(child => {
       if (isSuperAdmin) return true;
@@ -259,7 +262,14 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
     }) || [];
     
     if (filteredInmobiliariasChildren.length > 0) {
-      filteredMain.push({ ...inmobiliariasMenuItem, children: filteredInmobiliariasChildren });
+      const inmobiliariasItem = { ...inmobiliariasMenuItem, children: filteredInmobiliariasChildren };
+      if (entidadesIndex !== -1) {
+        // Insert right after Entidades
+        filteredMain.splice(entidadesIndex + 1, 0, inmobiliariasItem);
+      } else {
+        // Fallback: add at end if Entidades not found
+        filteredMain.push(inmobiliariasItem);
+      }
     }
     
     // Filtrar el menú de logs (solo para jorge.mendoza@sozu.com)
