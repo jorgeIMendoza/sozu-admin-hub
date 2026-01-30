@@ -546,31 +546,35 @@ export default function Inmobiliarias() {
       // Validate email uniqueness if email is being changed
       if (cleanPersonData.email && editingEntity) {
         const emailLower = cleanPersonData.email.toLowerCase().trim();
+        const currentEmail = editingEntity.email?.toLowerCase().trim();
         
-        // Check if email is already used by another user
-        const { data: existingUser } = await supabase
-          .from('usuarios')
-          .select('email')
-          .ilike('email', emailLower)
-          .maybeSingle();
+        // Only validate if email is actually being changed
+        if (emailLower !== currentEmail) {
+          // Check if email is already used by another user
+          const { data: existingUser } = await supabase
+            .from('usuarios')
+            .select('email')
+            .ilike('email', emailLower)
+            .maybeSingle();
+          
+          if (existingUser) {
+            throw new Error(`El email ${emailLower} ya está registrado como usuario del sistema. No puedes usar este email para la inmobiliaria.`);
+          }
         
-        if (existingUser) {
-          throw new Error(`El email ${emailLower} ya está registrado como usuario del sistema. No puedes usar este email para la inmobiliaria.`);
-        }
-        
-        // Check if email is used by another inmobiliaria (excluding current one)
-        const { data: inmobiliariaPersonas } = await supabase
-          .from('entidades_relacionadas')
-          .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, email, nombre_legal)')
-          .eq('id_tipo_entidad', 5)
-          .eq('activo', true);
-        
-        const otherInmobiliariaWithEmail = (inmobiliariaPersonas || []).find((er: any) => 
-          er.personas?.email?.toLowerCase() === emailLower && er.personas?.id !== editingEntity.id
-        );
-        
-        if (otherInmobiliariaWithEmail) {
-          throw new Error(`El email ${emailLower} ya pertenece a otra inmobiliaria: "${(otherInmobiliariaWithEmail as any).personas.nombre_legal}".`);
+          // Check if email is used by another inmobiliaria (excluding current one)
+          const { data: inmobiliariaPersonas } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, email, nombre_legal)')
+            .eq('id_tipo_entidad', 5)
+            .eq('activo', true);
+          
+          const otherInmobiliariaWithEmail = (inmobiliariaPersonas || []).find((er: any) => 
+            er.personas?.email?.toLowerCase() === emailLower && er.personas?.id !== editingEntity.id
+          );
+          
+          if (otherInmobiliariaWithEmail) {
+            throw new Error(`El email ${emailLower} ya pertenece a otra inmobiliaria: "${(otherInmobiliariaWithEmail as any).personas.nombre_legal}".`);
+          }
         }
       }
       
