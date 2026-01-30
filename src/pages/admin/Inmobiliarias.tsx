@@ -16,6 +16,7 @@ import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationD
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { Badge } from "@/components/ui/badge";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 
 type Inmobiliaria = {
   id: number;
@@ -380,6 +381,49 @@ export default function Inmobiliarias() {
         }
       } catch (e) {
         console.error('Error al crear usuario automático para inmobiliaria:', e);
+      }
+
+      // Enviar notificación a N8N sobre la nueva inmobiliaria
+      try {
+        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion1`;
+        console.log('Enviando notificación de nueva inmobiliaria a:', webhookUrl);
+        
+        const notificationPayload = {
+          tipo: "ambos",
+          from: "Notificaciones Sozu <notificaciones@sozu.com>",
+          email: "jorge.mendoza@sozu.com",
+          cc: "mencor.corp@gmail.com",
+          telefono: "+5217221514185,+5217221514185",
+          mensajeWA: `Se ha creado la Inmobiliaria *${cleanPersonData.nombre_legal}*, con el usuario: *${cleanPersonData.email}*`,
+          asunto: "Alta de Inmobiliaria",
+          mensaje: {
+            nombre: cleanPersonData.nombre_legal,
+            actividad: "Alta de inmobiliaria",
+            detalles: `<tr><td class='label'>Nombre:</td> <td class='value'>${cleanPersonData.nombre_legal}</td> </tr><tr><td class='label'>Usuario:</td><td class='value'>${cleanPersonData.email}</td></tr>`
+          },
+          templateId: 41353048,
+          nombre_archivo_adjunto: "",
+          tipo_mime: ""
+        };
+
+        const notificationResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-postmark-server-token': '8aac4f6f-e5af-4e2f-a318-c2723bf52bb8',
+            'apikey': 'FD9481D57CC7-43E0-8ACF-01BF7B8B19B7'
+          },
+          body: JSON.stringify(notificationPayload)
+        });
+
+        if (!notificationResponse.ok) {
+          console.error('Error al enviar notificación de nueva inmobiliaria:', notificationResponse.status);
+        } else {
+          console.log('Notificación de nueva inmobiliaria enviada correctamente');
+        }
+      } catch (notificationError) {
+        console.error('Error al enviar notificación de nueva inmobiliaria:', notificationError);
+        // No lanzar error para no bloquear la creación de la inmobiliaria
       }
 
       // Crear usuario para el representante legal si existe
