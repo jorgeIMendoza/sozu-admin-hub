@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, FileSpreadsheet, FileText } from "lucide-react";
+import { Search, FileSpreadsheet, Building2, Home, Filter, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,11 +15,16 @@ import { Loader2 } from "lucide-react";
 import { InmobiliariaHeader } from "@/components/admin/InmobiliariaHeader";
 
 const ITEMS_PER_PAGE = 50;
+// ID del estatus "Disponible" - las inmobiliarias solo ven propiedades disponibles
+const ESTATUS_DISPONIBLE_ID = 2;
 
 export default function MisPropiedades() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedInmobiliariaId, setSelectedInmobiliariaId] = useState<number | null>(null);
+  const [selectedProyecto, setSelectedProyecto] = useState<string>("all");
+  const [selectedModelo, setSelectedModelo] = useState<string>("all");
+  const [selectedRecamaras, setSelectedRecamaras] = useState<string>("all");
   const { canExport, canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/mis-propiedades');
   const { exportToExcel, isExporting } = useExportToExcel();
   const { profile } = useAuth();
@@ -75,7 +81,7 @@ export default function MisPropiedades() {
       const edificioModeloIds = (edificiosModelosData || []).map((em: any) => em.id);
       if (edificioModeloIds.length === 0) return [];
 
-      // Step 3: Get propiedades for those edificios_modelos - simplified query without problematic FK hints
+      // Step 3: Get propiedades for those edificios_modelos - ONLY with estatus "Disponible" (id=2)
       const { data, error } = await supabase
         .from('propiedades')
         .select(`
@@ -91,6 +97,7 @@ export default function MisPropiedades() {
           id_entidad_relacionada_dueno
         `)
         .eq('activo', true)
+        .eq('id_estatus_disponibilidad', ESTATUS_DISPONIBLE_ID)
         .in('id_edificio_modelo', edificioModeloIds)
         .order('numero_propiedad', { ascending: true });
 
@@ -311,18 +318,59 @@ export default function MisPropiedades() {
     enabled: projectIds.length > 0,
   });
 
+  // Extract unique values for filter dropdowns
+  const proyectos = useMemo(() => {
+    const uniqueProyectos = [...new Set(propiedades.map((p: any) => p.proyecto_nombre).filter(Boolean))];
+    return uniqueProyectos.sort();
+  }, [propiedades]);
+
+  const modelos = useMemo(() => {
+    let filtered = propiedades;
+    if (selectedProyecto !== "all") {
+      filtered = propiedades.filter((p: any) => p.proyecto_nombre === selectedProyecto);
+    }
+    const uniqueModelos = [...new Set(filtered.map((p: any) => p.modelo_nombre).filter(Boolean))];
+    return uniqueModelos.sort();
+  }, [propiedades, selectedProyecto]);
+
+  const recamarasOptions = useMemo(() => {
+    const uniqueRecamaras = [...new Set(propiedades.map((p: any) => p.recamaras).filter(Boolean))];
+    return uniqueRecamaras.sort((a, b) => a - b);
+  }, [propiedades]);
+
   const filteredPropiedades = useMemo(() => {
-    if (!searchTerm) return propiedades;
-    const term = searchTerm.toLowerCase();
-    return propiedades.filter((p: any) =>
-      p.proyecto_nombre?.toLowerCase().includes(term) ||
-      p.edificio_nombre?.toLowerCase().includes(term) ||
-      p.modelo_nombre?.toLowerCase().includes(term) ||
-      p.numero_departamento?.toLowerCase().includes(term) ||
-      p.propietario_nombre?.toLowerCase().includes(term) ||
-      p.clabe_stp?.includes(term)
-    );
-  }, [propiedades, searchTerm]);
+    let filtered = propiedades;
+
+    // Filter by proyecto
+    if (selectedProyecto !== "all") {
+      filtered = filtered.filter((p: any) => p.proyecto_nombre === selectedProyecto);
+    }
+
+    // Filter by modelo
+    if (selectedModelo !== "all") {
+      filtered = filtered.filter((p: any) => p.modelo_nombre === selectedModelo);
+    }
+
+    // Filter by recamaras
+    if (selectedRecamaras !== "all") {
+      filtered = filtered.filter((p: any) => String(p.recamaras) === selectedRecamaras);
+    }
+
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((p: any) =>
+        p.proyecto_nombre?.toLowerCase().includes(term) ||
+        p.edificio_nombre?.toLowerCase().includes(term) ||
+        p.modelo_nombre?.toLowerCase().includes(term) ||
+        p.numero_departamento?.toLowerCase().includes(term) ||
+        p.propietario_nombre?.toLowerCase().includes(term) ||
+        p.clabe_stp?.includes(term)
+      );
+    }
+
+    return filtered;
+  }, [propiedades, searchTerm, selectedProyecto, selectedModelo, selectedRecamaras]);
 
   const totalPages = Math.ceil(filteredPropiedades.length / ITEMS_PER_PAGE);
   const paginatedProps = filteredPropiedades.slice(
@@ -375,6 +423,16 @@ export default function MisPropiedades() {
     await exportToExcel({ data: exportData, filename: 'Mis_Propiedades' });
   };
 
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedProyecto("all");
+    setSelectedModelo("all");
+    setSelectedRecamaras("all");
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = selectedProyecto !== "all" || selectedModelo !== "all" || selectedRecamaras !== "all" || searchTerm !== "";
+
   const isLoading = loadingProjects || loadingProps;
 
   if (isLoading && !selectedInmobiliariaId) {
@@ -402,7 +460,7 @@ export default function MisPropiedades() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Mis Propiedades</h1>
           <p className="text-muted-foreground">
-            Propiedades de los proyectos a los que tienes acceso
+            Propiedades disponibles de los proyectos a los que tienes acceso
           </p>
         </div>
         {canExport && (
@@ -419,11 +477,15 @@ export default function MisPropiedades() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Propiedades ({filteredPropiedades.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Home className="h-5 w-5" />
+            Propiedades Disponibles ({filteredPropiedades.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative flex-1">
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="relative lg:col-span-2">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Buscar por proyecto, edificio, modelo, departamento..."
@@ -434,6 +496,70 @@ export default function MisPropiedades() {
                 }}
                 className="pl-10"
               />
+            </div>
+
+            <Select
+              value={selectedProyecto}
+              onValueChange={(value) => {
+                setSelectedProyecto(value);
+                setSelectedModelo("all"); // Reset modelo when proyecto changes
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Proyecto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los proyectos</SelectItem>
+                {proyectos.map((p) => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={selectedModelo}
+              onValueChange={(value) => {
+                setSelectedModelo(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <Home className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Modelo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los modelos</SelectItem>
+                {modelos.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="flex gap-2">
+              <Select
+                value={selectedRecamaras}
+                onValueChange={(value) => {
+                  setSelectedRecamaras(value);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Recámaras" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {recamarasOptions.map((r) => (
+                    <SelectItem key={r} value={String(r)}>{r} Rec.</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="icon" onClick={clearFilters} title="Limpiar filtros">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
