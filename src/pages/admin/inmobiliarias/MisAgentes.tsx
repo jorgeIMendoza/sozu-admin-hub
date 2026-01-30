@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit, Trash2, FileSpreadsheet, RotateCcw, UserX } from "lucide-react";
+import { Search, Edit, Trash2, FileSpreadsheet, RotateCcw, UserX, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,7 @@ const ITEMS_PER_PAGE = 50;
 
 export default function MisAgentes() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAgente, setEditingAgente] = useState<Agente | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -46,7 +47,7 @@ export default function MisAgentes() {
   const [selectedInmobiliariaId, setSelectedInmobiliariaId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canUpdate, canDelete, canExport } = usePagePermissions('/admin/inmobiliarias/mis-agentes');
+  const { canCreate, canUpdate, canDelete, canExport } = usePagePermissions('/admin/inmobiliarias/mis-agentes');
   const { exportToExcel, isExporting } = useExportToExcel();
   const { profile } = useAuth();
 
@@ -179,6 +180,82 @@ export default function MisAgentes() {
       })) as Agente[];
     },
     enabled: !!inmobiliariaId && canDelete,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (personData: any) => {
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId: formInmobiliariaId, ...cleanPersonData } = personData;
+      
+      // Create the persona
+      const { data: personResult, error: personError } = await supabase
+        .from('personas')
+        .insert([cleanPersonData])
+        .select()
+        .single();
+      
+      if (personError) throw personError;
+      
+      // Create the entidad_relacionada linking to the inmobiliaria
+      const { error: entidadError } = await supabase
+        .from('entidades_relacionadas')
+        .insert([{
+          id_persona: personResult.id,
+          id_tipo_entidad: 19, // Agente
+          id_proyecto: null,
+          id_persona_duena_lead: inmobiliariaId,
+          activo: true
+        }]);
+      
+      if (entidadError) throw entidadError;
+
+      // Set representative if provided
+      if (representativeId && cleanPersonData.tipo_persona === 'pm') {
+        const { error: updateError } = await supabase
+          .from('personas')
+          .update({ id_entidad_relacionada_rep_leg: representativeId })
+          .eq('id', personResult.id);
+          
+        if (updateError) throw updateError;
+      }
+
+      // Automatically create user with role Agente Inmobiliario (3)
+      try {
+        const { error: userError } = await supabase.functions.invoke('create-user', {
+          body: {
+            email: cleanPersonData.email,
+            nombre: cleanPersonData.nombre_legal,
+            rol_id: 3, // Agente Inmobiliario
+            id_persona: personResult.id,
+            telefono: cleanPersonData.telefono || null,
+            clave_pais_telefono: cleanPersonData.clave_pais_telefono || null,
+            id_inmobiliaria: inmobiliariaId
+          }
+        });
+        
+        if (userError) {
+          console.error('Error al crear usuario automático:', userError);
+        }
+      } catch (e) {
+        console.error('Error al crear usuario automático:', e);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mis-agentes-activos'] });
+      queryClient.invalidateQueries({ queryKey: ['mis-agentes-eliminados'] });
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      setIsNewDialogOpen(false);
+      toast({
+        title: "Éxito",
+        description: "Agente y usuario creados correctamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al crear el agente: ${error.message}`,
+        variant: "destructive",
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -357,16 +434,24 @@ export default function MisAgentes() {
             Gestiona los agentes de tu inmobiliaria
           </p>
         </div>
-        {canExport && (
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            disabled={isExporting || filteredAgentes.length === 0}
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            {isExporting ? 'Exportando...' : 'Exportar'}
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canCreate && inmobiliariaId && (
+            <Button onClick={() => setIsNewDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Agente
+            </Button>
+          )}
+          {canExport && (
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              disabled={isExporting || filteredAgentes.length === 0}
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              {isExporting ? 'Exportando...' : 'Exportar'}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -575,6 +660,21 @@ export default function MisAgentes() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Agent Dialog */}
+      <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo Agente</DialogTitle>
+          </DialogHeader>
+          <PersonForm
+            entityType="agente"
+            onSubmit={(data) => createMutation.mutate(data)}
+            onCancel={() => setIsNewDialogOpen(false)}
+            isLoading={createMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
