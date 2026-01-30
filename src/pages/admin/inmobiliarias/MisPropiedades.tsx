@@ -57,6 +57,25 @@ export default function MisPropiedades() {
     queryFn: async () => {
       if (projectIds.length === 0) return [];
 
+      // Step 1: Get edificios that belong to the projects
+      const { data: edificiosData } = await supabase
+        .from('edificios')
+        .select('id')
+        .in('id_proyecto', projectIds);
+
+      const edificioIds = (edificiosData || []).map((e: any) => e.id);
+      if (edificioIds.length === 0) return [];
+
+      // Step 2: Get edificios_modelos for those edificios
+      const { data: edificiosModelosData } = await supabase
+        .from('edificios_modelos')
+        .select('id')
+        .in('id_edificio', edificioIds);
+
+      const edificioModeloIds = (edificiosModelosData || []).map((em: any) => em.id);
+      if (edificioModeloIds.length === 0) return [];
+
+      // Step 3: Get propiedades for those edificios_modelos
       const { data, error } = await supabase
         .from('propiedades')
         .select(`
@@ -67,17 +86,18 @@ export default function MisPropiedades() {
           m2_exteriores,
           activo,
           clabe_stp_tmp_apartado,
+          id_edificio_modelo,
           edificios_modelos!fk_propiedades_edificio_modelo (
             id,
             edificios!fk_edificios_modelos_edificio (
               id,
               nombre,
-              proyectos!inner (
+              proyectos (
                 id,
                 nombre
               )
             ),
-            modelos!inner (
+            modelos!fk_edificios_modelos_modelo (
               id,
               nombre,
               numero_recamaras,
@@ -111,9 +131,8 @@ export default function MisPropiedades() {
           bodegas (count)
         `)
         .eq('activo', true)
-        .in('edificios_modelos.edificios.proyectos.id', projectIds)
+        .in('id_edificio_modelo', edificioModeloIds)
         .order('numero_propiedad', { ascending: true });
-
       if (error) throw error;
 
       return (data || []).map((p: any) => {
