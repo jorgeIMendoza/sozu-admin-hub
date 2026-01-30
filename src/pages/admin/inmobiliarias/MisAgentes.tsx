@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Edit, Trash2, FileSpreadsheet, RotateCcw } from "lucide-react";
+import { Search, Edit, Trash2, FileSpreadsheet, RotateCcw, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ type Agente = {
   rfc?: string;
   activo: boolean;
   entidad_relacionada_id?: number;
+  usuario_activo?: boolean | null;
 };
 
 const ITEMS_PER_PAGE = 50;
@@ -82,6 +83,25 @@ export default function MisAgentes() {
 
       if (error) throw error;
 
+      // Get user status for agents
+      const personaIds = (data || []).map((item: any) => item.id);
+      let userStatusMap: Record<number, boolean | null> = {};
+      
+      if (personaIds.length > 0) {
+        const { data: usuariosData } = await supabase
+          .from('usuarios')
+          .select('id_persona, activo')
+          .in('id_persona', personaIds);
+        
+        if (usuariosData) {
+          usuariosData.forEach((u: any) => {
+            if (u.id_persona) {
+              userStatusMap[u.id_persona] = u.activo;
+            }
+          });
+        }
+      }
+
       return (data || []).map((item: any) => ({
         id: item.id,
         entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
@@ -91,6 +111,7 @@ export default function MisAgentes() {
         clave_pais_telefono: item.clave_pais_telefono,
         rfc: item.rfc,
         activo: item.activo,
+        usuario_activo: userStatusMap[item.id] ?? null,
       })) as Agente[];
     },
     enabled: !!inmobiliariaId,
@@ -126,6 +147,25 @@ export default function MisAgentes() {
 
       if (error) throw error;
 
+      // Get user status for agents
+      const personaIds = (data || []).map((item: any) => item.id);
+      let userStatusMap: Record<number, boolean | null> = {};
+      
+      if (personaIds.length > 0) {
+        const { data: usuariosData } = await supabase
+          .from('usuarios')
+          .select('id_persona, activo')
+          .in('id_persona', personaIds);
+        
+        if (usuariosData) {
+          usuariosData.forEach((u: any) => {
+            if (u.id_persona) {
+              userStatusMap[u.id_persona] = u.activo;
+            }
+          });
+        }
+      }
+
       return (data || []).map((item: any) => ({
         id: item.id,
         entidad_relacionada_id: item.entidades_relacionadas[0]?.id,
@@ -135,6 +175,7 @@ export default function MisAgentes() {
         clave_pais_telefono: item.clave_pais_telefono,
         rfc: item.rfc,
         activo: item.activo,
+        usuario_activo: userStatusMap[item.id] ?? null,
       })) as Agente[];
     },
     enabled: !!inmobiliariaId && canDelete,
@@ -365,6 +406,7 @@ export default function MisAgentes() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nombre</TableHead>
+                      <TableHead>Estado Usuario</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Teléfono</TableHead>
                       <TableHead>RFC</TableHead>
@@ -374,7 +416,7 @@ export default function MisAgentes() {
                   <TableBody>
                     {paginatedAgentes.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           No se encontraron agentes
                         </TableCell>
                       </TableRow>
@@ -382,6 +424,18 @@ export default function MisAgentes() {
                       paginatedAgentes.map((agente) => (
                         <TableRow key={agente.id}>
                           <TableCell className="font-medium">{agente.nombre_legal}</TableCell>
+                          <TableCell>
+                            {agente.usuario_activo === false ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                                <UserX className="h-3 w-3" />
+                                Usuario desactivado
+                              </span>
+                            ) : agente.usuario_activo === true ? (
+                              <span className="text-xs text-muted-foreground">Activo</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sin usuario</span>
+                            )}
+                          </TableCell>
                           <TableCell>{agente.email}</TableCell>
                           <TableCell>
                             <PhoneDisplay
@@ -431,33 +485,46 @@ export default function MisAgentes() {
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Teléfono</TableHead>
-                        <TableHead>RFC</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Estado Usuario</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Teléfono</TableHead>
+                      <TableHead>RFC</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedAgentes.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                            No se encontraron agentes eliminados
-                          </TableCell>
-                        </TableRow>
-                      ) : (
+                    {paginatedAgentes.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          No se encontraron agentes eliminados
+                        </TableCell>
+                      </TableRow>
+                    ) : (
                         paginatedAgentes.map((agente) => (
-                          <TableRow key={agente.id}>
-                            <TableCell className="font-medium">{agente.nombre_legal}</TableCell>
-                            <TableCell>{agente.email}</TableCell>
-                            <TableCell>
-                              <PhoneDisplay
-                                clavePaisTelefono={agente.clave_pais_telefono}
-                                telefono={agente.telefono}
-                              />
-                            </TableCell>
-                            <TableCell>{agente.rfc || '-'}</TableCell>
+                        <TableRow key={agente.id}>
+                          <TableCell className="font-medium">{agente.nombre_legal}</TableCell>
+                          <TableCell>
+                            {agente.usuario_activo === false ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                                <UserX className="h-3 w-3" />
+                                Usuario desactivado
+                              </span>
+                            ) : agente.usuario_activo === true ? (
+                              <span className="text-xs text-muted-foreground">Activo</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sin usuario</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{agente.email}</TableCell>
+                          <TableCell>
+                            <PhoneDisplay
+                              clavePaisTelefono={agente.clave_pais_telefono}
+                              telefono={agente.telefono}
+                            />
+                          </TableCell>
+                          <TableCell>{agente.rfc || '-'}</TableCell>
                             <TableCell className="text-right">
                               <Button
                                 variant="ghost"

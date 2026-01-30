@@ -35,6 +35,7 @@ type Agente = {
   inmobiliaria_nombre?: string;
   usuario_rol_id?: number | null;
   usuario_rol_nombre?: string | null;
+  usuario_activo?: boolean | null;
 };
 
 // Role IDs for agents
@@ -124,21 +125,21 @@ export default function Agentes() {
       
       // Get user roles for agents (by id_persona)
       const personaIds = (data || []).map((item: any) => item.id);
-      let userRolesMap: Record<number, { rol_id: number | null; rol_nombre: string | null }> = {};
+      let userRolesMap: Record<number, { rol_id: number | null; rol_nombre: string | null; activo: boolean | null }> = {};
       
       if (personaIds.length > 0) {
         const { data: usuariosData } = await supabase
           .from('usuarios')
-          .select('id_persona, rol_id, roles(nombre)')
-          .in('id_persona', personaIds)
-          .eq('activo', true);
+          .select('id_persona, rol_id, activo, roles(nombre)')
+          .in('id_persona', personaIds);
         
         if (usuariosData) {
           usuariosData.forEach((u: any) => {
             if (u.id_persona) {
               userRolesMap[u.id_persona] = {
                 rol_id: u.rol_id,
-                rol_nombre: (u.roles as any)?.nombre || null
+                rol_nombre: (u.roles as any)?.nombre || null,
+                activo: u.activo
               };
             }
           });
@@ -163,6 +164,7 @@ export default function Agentes() {
         inmobiliaria_nombre: inmobiliariasMap[item.entidades_relacionadas[0]?.id_persona_duena_lead] || null,
         usuario_rol_id: userRolesMap[item.id]?.rol_id || null,
         usuario_rol_nombre: userRolesMap[item.id]?.rol_nombre || null,
+        usuario_activo: userRolesMap[item.id]?.activo ?? null,
       })) as (Agente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
@@ -226,12 +228,12 @@ export default function Agentes() {
       
       // Get user roles for agents (by id_persona)
       const personaIds = (data || []).map((item: any) => item.id);
-      let userRolesMap: Record<number, { rol_id: number | null; rol_nombre: string | null }> = {};
+      let userRolesMap: Record<number, { rol_id: number | null; rol_nombre: string | null; activo: boolean | null }> = {};
       
       if (personaIds.length > 0) {
         const { data: usuariosData } = await supabase
           .from('usuarios')
-          .select('id_persona, rol_id, roles(nombre)')
+          .select('id_persona, rol_id, activo, roles(nombre)')
           .in('id_persona', personaIds);
         
         if (usuariosData) {
@@ -239,7 +241,8 @@ export default function Agentes() {
             if (u.id_persona) {
               userRolesMap[u.id_persona] = {
                 rol_id: u.rol_id,
-                rol_nombre: (u.roles as any)?.nombre || null
+                rol_nombre: (u.roles as any)?.nombre || null,
+                activo: u.activo
               };
             }
           });
@@ -263,6 +266,7 @@ export default function Agentes() {
         inmobiliaria_nombre: inmobiliariasMap[item.entidades_relacionadas[0]?.id_persona_duena_lead] || null,
         usuario_rol_id: userRolesMap[item.id]?.rol_id || null,
         usuario_rol_nombre: userRolesMap[item.id]?.rol_nombre || null,
+        usuario_activo: userRolesMap[item.id]?.activo ?? null,
       })) as (Agente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
@@ -573,19 +577,27 @@ export default function Agentes() {
                   {agente.nombre_legal}
                 </TableCell>
                 <TableCell>
-                  {agente.usuario_rol_id === ROLE_AGENTE_INTERNO ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300">
-                      <User className="h-3 w-3" />
-                      Interno
-                    </span>
-                  ) : agente.usuario_rol_id === ROLE_AGENTE_INMOBILIARIO ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                      <User className="h-3 w-3" />
-                      Inmobiliario
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Sin usuario</span>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    {agente.usuario_rol_id === ROLE_AGENTE_INTERNO ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300 w-fit">
+                        <User className="h-3 w-3" />
+                        Interno
+                      </span>
+                    ) : agente.usuario_rol_id === ROLE_AGENTE_INMOBILIARIO ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 w-fit">
+                        <User className="h-3 w-3" />
+                        Inmobiliario
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin usuario</span>
+                    )}
+                    {agente.usuario_rol_id && agente.usuario_activo === false && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 w-fit">
+                        <UserX className="h-3 w-3" />
+                        Usuario desactivado
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agente.email}
