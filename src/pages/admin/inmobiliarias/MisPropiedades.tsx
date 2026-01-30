@@ -75,7 +75,7 @@ export default function MisPropiedades() {
       const edificioModeloIds = (edificiosModelosData || []).map((em: any) => em.id);
       if (edificioModeloIds.length === 0) return [];
 
-      // Step 3: Get propiedades for those edificios_modelos
+      // Step 3: Get propiedades for those edificios_modelos - simplified query without problematic FK hints
       const { data, error } = await supabase
         .from('propiedades')
         .select(`
@@ -87,36 +87,8 @@ export default function MisPropiedades() {
           activo,
           clabe_stp_tmp_apartado,
           id_edificio_modelo,
-          edificios_modelos!fk_propiedades_edificio_modelo (
-            id,
-            id_edificio,
-            id_modelo
-          ),
-          estatus_disponibilidad (
-            id,
-            nombre
-          ),
-          entidades_relacionadas!propiedades_id_entidad_relacionada_dueno_fkey (
-            id,
-            personas (
-              id,
-              nombre_legal
-            )
-          ),
-          cuentas_cobranza (
-            id,
-            precio_final,
-            clabe_stp,
-            pagos (
-              id,
-              monto,
-              activo
-            )
-          ),
-          ofertas (count),
-          ofertas_productos (count),
-          estacionamientos (count),
-          bodegas (count)
+          id_estatus_disponibilidad,
+          id_entidad_relacionada_dueno
         `)
         .eq('activo', true)
         .in('id_edificio_modelo', edificioModeloIds)
@@ -127,11 +99,149 @@ export default function MisPropiedades() {
         throw error;
       }
 
-      // Step 4: Get additional data for edificios and modelos separately
-      const edificioModeloIdsFromProps = [...new Set((data || []).map((p: any) => p.id_edificio_modelo).filter(Boolean))];
+      // Step 3.1: Get edificios_modelos data
+      const { data: edificiosModelosDetails } = await supabase
+        .from('edificios_modelos')
+        .select('id, id_edificio, id_modelo')
+        .in('id', edificioModeloIds);
+
+      const edificiosModelosMap = new Map((edificiosModelosDetails || []).map((em: any) => [em.id, em]));
+
+      // Step 3.2: Get estatus_disponibilidad
+      const estatusIds = [...new Set((data || []).map((p: any) => p.id_estatus_disponibilidad).filter(Boolean))];
+      const { data: estatusData } = await supabase
+        .from('estatus_disponibilidad')
+        .select('id, nombre')
+        .in('id', estatusIds);
+
+      const estatusMap = new Map((estatusData || []).map((e: any) => [e.id, e]));
+
+      // Step 3.3: Get entidades_relacionadas and personas for owners
+      const entidadIds = [...new Set((data || []).map((p: any) => p.id_entidad_relacionada_dueno).filter(Boolean))];
+      let personasMap = new Map();
+      if (entidadIds.length > 0) {
+        const { data: entidadesData } = await supabase
+          .from('entidades_relacionadas')
+          .select('id, id_persona')
+          .in('id', entidadIds);
+
+        const personaIds = [...new Set((entidadesData || []).map((e: any) => e.id_persona).filter(Boolean))];
+        if (personaIds.length > 0) {
+          const { data: personasData } = await supabase
+            .from('personas')
+            .select('id, nombre_legal')
+            .in('id', personaIds);
+
+          const personasDataMap = new Map((personasData || []).map((p: any) => [p.id, p]));
+          // Map entidad_id -> persona
+          for (const ent of (entidadesData || [])) {
+            personasMap.set(ent.id, personasDataMap.get(ent.id_persona));
+          }
+        }
+      }
+
+      // Step 3.4: Get cuentas_cobranza with pagos
+      const propIds = (data || []).map((p: any) => p.id);
       
-      // Fetch edificios info
-      const edificioIdsForDetails = [...new Set((data || []).map((p: any) => p.edificios_modelos?.id_edificio).filter(Boolean))];
+      // First get ofertas for these properties
+      const { data: ofertasData } = await supabase
+        .from('ofertas')
+        .select('id, id_propiedad')
+        .in('id_propiedad', propIds)
+        .eq('activo', true);
+
+      const ofertaIds = (ofertasData || []).map((o: any) => o.id);
+      
+      let cuentasMap = new Map();
+      if (ofertaIds.length > 0) {
+        const { data: cuentasData } = await supabase
+          .from('cuentas_cobranza')
+          .select('id, id_oferta, precio_final, clabe_stp')
+          .in('id_oferta', ofertaIds)
+          .eq('activo', true);
+
+        // Get pagos for cuentas
+        const cuentaIds = (cuentasData || []).map((c: any) => c.id);
+        let pagosMap = new Map();
+        if (cuentaIds.length > 0) {
+          const { data: pagosData } = await supabase
+            .from('pagos')
+            .select('id, id_cuenta_cobranza, monto, activo')
+            .in('id_cuenta_cobranza', cuentaIds)
+            .eq('activo', true);
+
+          for (const pago of (pagosData || [])) {
+            if (!pagosMap.has(pago.id_cuenta_cobranza)) {
+              pagosMap.set(pago.id_cuenta_cobranza, []);
+            }
+            pagosMap.get(pago.id_cuenta_cobranza).push(pago);
+          }
+        }
+
+        // Build cuenta with pagos, mapped by propiedad_id via oferta
+        const ofertaPropMap = new Map((ofertasData || []).map((o: any) => [o.id, o.id_propiedad]));
+        for (const cuenta of (cuentasData || [])) {
+          const propId = ofertaPropMap.get(cuenta.id_oferta);
+          if (propId) {
+            cuentasMap.set(propId, {
+              ...cuenta,
+              pagos: pagosMap.get(cuenta.id) || []
+            });
+          }
+        }
+      }
+
+      // Step 3.5: Get counts for ofertas, estacionamientos, bodegas
+      const { data: ofertasCountData } = await supabase
+        .from('ofertas')
+        .select('id_propiedad')
+        .in('id_propiedad', propIds)
+        .eq('activo', true)
+        .is('id_producto', null);
+
+      const ofertasCountMap = new Map();
+      for (const o of (ofertasCountData || [])) {
+        ofertasCountMap.set(o.id_propiedad, (ofertasCountMap.get(o.id_propiedad) || 0) + 1);
+      }
+
+      const { data: ofertasProdCountData } = await supabase
+        .from('ofertas')
+        .select('id_propiedad')
+        .in('id_propiedad', propIds)
+        .eq('activo', true)
+        .not('id_producto', 'is', null);
+
+      const ofertasProdCountMap = new Map();
+      for (const o of (ofertasProdCountData || [])) {
+        ofertasProdCountMap.set(o.id_propiedad, (ofertasProdCountMap.get(o.id_propiedad) || 0) + 1);
+      }
+
+      const { data: estCountData } = await supabase
+        .from('estacionamientos')
+        .select('id_propiedad')
+        .in('id_propiedad', propIds)
+        .eq('activo', true);
+
+      const estCountMap = new Map();
+      for (const e of (estCountData || [])) {
+        estCountMap.set(e.id_propiedad, (estCountMap.get(e.id_propiedad) || 0) + 1);
+      }
+
+      const { data: bodCountData } = await supabase
+        .from('bodegas')
+        .select('id_propiedad')
+        .in('id_propiedad', propIds)
+        .eq('activo', true);
+
+      const bodCountMap = new Map();
+      for (const b of (bodCountData || [])) {
+        bodCountMap.set(b.id_propiedad, (bodCountMap.get(b.id_propiedad) || 0) + 1);
+      }
+
+      // Step 4: Get additional data for edificios and modelos separately
+      const edificioIdsForDetails = [...new Set(
+        (data || []).map((p: any) => edificiosModelosMap.get(p.id_edificio_modelo)?.id_edificio).filter(Boolean)
+      )];
       const { data: edificiosDetails } = await supabase
         .from('edificios')
         .select('id, nombre, id_proyecto')
@@ -145,7 +255,9 @@ export default function MisPropiedades() {
         .in('id', proyectoIdsForDetails);
 
       // Fetch modelos info
-      const modeloIdsForDetails = [...new Set((data || []).map((p: any) => p.edificios_modelos?.id_modelo).filter(Boolean))];
+      const modeloIdsForDetails = [...new Set(
+        (data || []).map((p: any) => edificiosModelosMap.get(p.id_edificio_modelo)?.id_modelo).filter(Boolean)
+      )];
       const { data: modelosDetails } = await supabase
         .from('modelos')
         .select('id, nombre, numero_recamaras, numero_completo_banos')
@@ -157,19 +269,21 @@ export default function MisPropiedades() {
       const modelosMap = new Map((modelosDetails || []).map((m: any) => [m.id, m]));
 
       return (data || []).map((p: any) => {
-        const cuentaCobranza = p.cuentas_cobranza?.[0];
+        const edModelo = edificiosModelosMap.get(p.id_edificio_modelo);
+        const cuentaCobranza = cuentasMap.get(p.id);
         const totalPagado = cuentaCobranza?.pagos
-          ?.filter((pago: any) => pago.activo)
-          .reduce((sum: number, pago: any) => sum + (pago.monto || 0), 0) || 0;
+          ?.reduce((sum: number, pago: any) => sum + (pago.monto || 0), 0) || 0;
 
         const areaTotal = (Number(p.m2_interiores) || 0) + (Number(p.m2_exteriores) || 0);
 
         // Get edificio and proyecto from lookups
-        const edificioId = p.edificios_modelos?.id_edificio;
-        const modeloId = p.edificios_modelos?.id_modelo;
+        const edificioId = edModelo?.id_edificio;
+        const modeloId = edModelo?.id_modelo;
         const edificio = edificiosMap.get(edificioId);
         const proyecto = edificio ? proyectosMap.get(edificio.id_proyecto) : null;
         const modelo = modelosMap.get(modeloId);
+        const estatus = estatusMap.get(p.id_estatus_disponibilidad);
+        const propietarioPersona = personasMap.get(p.id_entidad_relacionada_dueno);
 
         return {
           id: p.id,
@@ -181,16 +295,16 @@ export default function MisPropiedades() {
           recamaras: modelo?.numero_recamaras,
           banos: modelo?.numero_completo_banos,
           precio_lista: p.precio_lista,
-          estatus_disponibilidad_nombre: p.estatus_disponibilidad?.nombre,
-          propietario_nombre: p.entidades_relacionadas?.personas?.nombre_legal,
+          estatus_disponibilidad_nombre: estatus?.nombre,
+          propietario_nombre: propietarioPersona?.nombre_legal,
           cuenta_cobranza_id: cuentaCobranza?.id,
           clabe_stp: cuentaCobranza?.clabe_stp || p.clabe_stp_tmp_apartado,
           precio_final: cuentaCobranza?.precio_final,
           total_pagado: totalPagado,
-          num_ofertas: p.ofertas?.[0]?.count || 0,
-          num_ofertas_productos: p.ofertas_productos?.[0]?.count || 0,
-          num_estacionamientos: p.estacionamientos?.[0]?.count || 0,
-          num_bodegas: p.bodegas?.[0]?.count || 0,
+          num_ofertas: ofertasCountMap.get(p.id) || 0,
+          num_ofertas_productos: ofertasProdCountMap.get(p.id) || 0,
+          num_estacionamientos: estCountMap.get(p.id) || 0,
+          num_bodegas: bodCountMap.get(p.id) || 0,
         };
       });
     },
