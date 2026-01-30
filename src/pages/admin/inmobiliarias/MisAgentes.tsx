@@ -18,6 +18,7 @@ import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { InmobiliariaHeader } from "@/components/admin/InmobiliariaHeader";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 type Agente = {
   id: number;
@@ -50,6 +51,7 @@ export default function MisAgentes() {
   const { canCreate, canUpdate, canDelete, canExport, canApprove } = usePagePermissions('/admin/inmobiliarias/mis-agentes');
   const { exportToExcel, isExporting } = useExportToExcel();
   const { profile } = useAuth();
+  const { registrarCreacion, registrarActualizacion, registrarEliminacion, registrarRestauracion } = useActivityLogger();
 
   const inmobiliariaId = selectedInmobiliariaId;
 
@@ -239,11 +241,19 @@ export default function MisAgentes() {
         console.error('Error al crear usuario automático:', e);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-activos'] });
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-eliminados'] });
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       setIsNewDialogOpen(false);
+      
+      // Registrar actividad
+      registrarCreacion('agente', {
+        nombre_legal: variables.nombre_legal,
+        email: variables.email,
+        inmobiliaria_id: inmobiliariaId
+      });
+      
       toast({
         title: "Éxito",
         description: "Agente y usuario creados correctamente.",
@@ -269,9 +279,16 @@ export default function MisAgentes() {
       
       if (updateError) throw updateError;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-activos'] });
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-eliminados'] });
+      
+      // Registrar actividad
+      registrarActualizacion('agente', 
+        { id: editingAgente?.id, nombre_legal: editingAgente?.nombre_legal }, 
+        { id: editingAgente?.id, nombre_legal: variables.nombre_legal, email: variables.email }
+      );
+      
       setIsEditDialogOpen(false);
       setEditingAgente(null);
       toast({
@@ -302,6 +319,16 @@ export default function MisAgentes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-activos'] });
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-eliminados'] });
+      
+      // Registrar actividad
+      if (agenteToDelete) {
+        registrarEliminacion('agente', {
+          id: agenteToDelete.id,
+          nombre_legal: agenteToDelete.nombre_legal,
+          email: agenteToDelete.email
+        });
+      }
+      
       setDeleteDialogOpen(false);
       setAgenteToDelete(null);
       toast({
@@ -339,6 +366,15 @@ export default function MisAgentes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-activos'] });
       queryClient.invalidateQueries({ queryKey: ['mis-agentes-eliminados'] });
+      
+      // Registrar actividad
+      if (agenteToRestore) {
+        registrarRestauracion('agente', 
+          { id: agenteToRestore.id, nombre_legal: agenteToRestore.nombre_legal, activo: false },
+          { id: agenteToRestore.id, nombre_legal: agenteToRestore.nombre_legal, activo: true }
+        );
+      }
+      
       setRestoreDialogOpen(false);
       setAgenteToRestore(null);
       toast({

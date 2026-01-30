@@ -17,6 +17,7 @@ import { BulkUploadAgentesDialog } from "@/components/admin/BulkUploadAgentesDia
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 type Agente = {
   id: number;
@@ -63,6 +64,7 @@ export default function Agentes() {
   const queryClient = useQueryClient();
   const { canCreate, canUpdate, canDelete, canExport, isSuperAdmin } = usePagePermissions('/admin/agentes');
   const { exportToExcel, isExporting } = useExportToExcel();
+  const { registrarCreacion, registrarActualizacion, registrarEliminacion, registrarRestauracion } = useActivityLogger();
 
   const { data: activeAgentes = [], isLoading: loadingActive } = useQuery({
     queryKey: ['agentes', 'active'],
@@ -333,10 +335,18 @@ export default function Agentes() {
         console.error('Error al crear usuario automático:', e);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['agentes'] });
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       setIsNewDialogOpen(false);
+      
+      // Registrar actividad
+      registrarCreacion('agente', {
+        nombre_legal: variables.nombre_legal,
+        email: variables.email,
+        inmobiliaria_id: variables.inmobiliariaId
+      });
+      
       toast({
         title: "Éxito",
         description: "Agente y usuario creados correctamente.",
@@ -381,9 +391,16 @@ export default function Agentes() {
         if (inmobError) throw inmobError;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['agentes'] });
       setIsEditDialogOpen(false);
+      
+      // Registrar actividad
+      registrarActualizacion('agente', 
+        { id: editingAgente?.id, nombre_legal: editingAgente?.nombre_legal }, 
+        { id: editingAgente?.id, nombre_legal: variables.nombre_legal, email: variables.email }
+      );
+      
       setEditingAgente(null);
       toast({
         title: "Éxito",
@@ -419,9 +436,22 @@ export default function Agentes() {
         console.error('Error deactivating user:', userError);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, id: number) => {
       queryClient.invalidateQueries({ queryKey: ['agentes'] });
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      
+      // Registrar actividad
+      const agente = agenteToDelete;
+      if (agente) {
+        registrarEliminacion('agente', {
+          id: agente.id,
+          nombre_legal: agente.nombre_legal,
+          email: agente.email
+        });
+      }
+      
+      setDeleteDialogOpen(false);
+      setAgenteToDelete(null);
       toast({
         title: "Éxito",
         description: "Agente eliminado y usuario desactivado correctamente.",
@@ -456,9 +486,21 @@ export default function Agentes() {
         console.error('Error reactivating user:', userError);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, id: number) => {
       queryClient.invalidateQueries({ queryKey: ['agentes'] });
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      
+      // Registrar actividad
+      const agente = agenteToRestore;
+      if (agente) {
+        registrarRestauracion('agente', 
+          { id: agente.id, nombre_legal: agente.nombre_legal, activo: false },
+          { id: agente.id, nombre_legal: agente.nombre_legal, activo: true }
+        );
+      }
+      
+      setRestoreDialogOpen(false);
+      setAgenteToRestore(null);
       toast({
         title: "Éxito",
         description: "Agente restaurado y usuario reactivado correctamente.",

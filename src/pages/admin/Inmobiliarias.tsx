@@ -15,6 +15,7 @@ import { PersonForm } from "@/components/admin/PersonForm";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { Badge } from "@/components/ui/badge";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 type Inmobiliaria = {
   id: number;
@@ -62,6 +63,7 @@ export default function Inmobiliarias() {
   const [selectedInmobiliariaForAgentes, setSelectedInmobiliariaForAgentes] = useState<Inmobiliaria | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarCreacion, registrarActualizacion, registrarEliminacion, registrarRestauracion } = useActivityLogger();
   
   const itemsPerPage = 10;
 
@@ -521,10 +523,18 @@ export default function Inmobiliarias() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       setIsNewDialogOpen(false);
+      
+      // Registrar actividad
+      registrarCreacion('inmobiliaria', {
+        nombre_legal: variables.nombre_legal,
+        email: variables.email,
+        rfc: variables.rfc
+      });
+      
       toast({
         title: "Éxito",
         description: "Inmobiliaria y usuarios creados correctamente.",
@@ -603,8 +613,15 @@ export default function Inmobiliarias() {
         if (repError) throw repError;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      
+      // Registrar actividad
+      registrarActualizacion('inmobiliaria', 
+        { id: editingEntity?.id, nombre_legal: editingEntity?.nombre_legal, email: editingEntity?.email }, 
+        { id: editingEntity?.id, nombre_legal: variables.nombre_legal, email: variables.email }
+      );
+      
       setIsEditDialogOpen(false);
       setEditingEntity(null);
       toast({
@@ -632,6 +649,16 @@ export default function Inmobiliarias() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      
+      // Registrar actividad
+      if (entityToDelete) {
+        registrarEliminacion('inmobiliaria', {
+          id: entityToDelete.id,
+          nombre_legal: entityToDelete.nombre_legal,
+          email: entityToDelete.email
+        });
+      }
+      
       setDeleteDialogOpen(false);
       setEntityToDelete(null);
       toast({
@@ -659,6 +686,15 @@ export default function Inmobiliarias() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      
+      // Registrar actividad
+      if (entityToRestore) {
+        registrarRestauracion('inmobiliaria', 
+          { id: entityToRestore.id, nombre_legal: entityToRestore.nombre_legal, activo: false },
+          { id: entityToRestore.id, nombre_legal: entityToRestore.nombre_legal, activo: true }
+        );
+      }
+      
       setRestoreDialogOpen(false);
       setEntityToRestore(null);
       toast({
