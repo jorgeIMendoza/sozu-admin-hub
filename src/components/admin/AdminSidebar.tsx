@@ -185,6 +185,7 @@ const inmobiliariasMenuItem: NavigationItem = {
   title: "Inmobiliarias",
   icon: KeyRound,
   children: [
+    { title: "Mi información", href: "/admin/inmobiliarias/mi-informacion", icon: User },
     { title: "Mis Agentes", href: "/admin/inmobiliarias/mis-agentes", icon: Briefcase },
     { title: "Mis Propiedades", href: "/admin/inmobiliarias/mis-propiedades", icon: Building },
     { title: "Mis Ventas", href: "/admin/inmobiliarias/mis-ventas", icon: BadgeDollarSign },

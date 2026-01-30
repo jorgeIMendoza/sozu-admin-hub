@@ -848,10 +848,10 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const isUser = entityType === 'user';
 
   // Check if this is one of the specific entity types that need new tab structure
-  const isSpecialEntityType = ['vendedor', 'comprador', 'dueno', 'residente', 'agente', 'administrador', 'representante_legal', 'administradora', 'legal'].includes(entityType);
+  const isSpecialEntityType = ['vendedor', 'comprador', 'dueno', 'residente', 'agente', 'administrador', 'representante_legal', 'administradora', 'legal', 'inmobiliaria'].includes(entityType);
   
-  // For administradora and legal entities, only show all tabs when editing (has id)
-  const isCreatingLegalOrAdmin = (entityType === 'administradora' || entityType === 'legal') && !initialData?.id;
+  // For administradora, legal and inmobiliaria entities, only show all tabs when editing (has id)
+  const isCreatingLegalOrAdmin = (entityType === 'administradora' || entityType === 'legal' || entityType === 'inmobiliaria') && !initialData?.id;
   const shouldShowAllTabs = isSpecialEntityType && !isCreatingLegalOrAdmin;
 
   return (
