@@ -95,6 +95,31 @@ export default function MiInformacion() {
 
       if (updateError) throw updateError;
 
+      // Sincronizar teléfono con usuarios si la inmobiliaria tiene usuario asociado
+      if (cleanPersonData.telefono !== undefined || cleanPersonData.clave_pais_telefono !== undefined) {
+        const { data: usuarioData } = await supabase
+          .from('usuarios')
+          .select('email')
+          .eq('id_persona', inmobiliariaId)
+          .maybeSingle();
+          
+        if (usuarioData?.email) {
+          const phoneUpdateData: Record<string, any> = {
+            fecha_actualizacion: new Date().toISOString()
+          };
+          if (cleanPersonData.telefono !== undefined) {
+            phoneUpdateData.telefono = cleanPersonData.telefono;
+          }
+          if (cleanPersonData.clave_pais_telefono !== undefined) {
+            phoneUpdateData.clave_pais_telefono = cleanPersonData.clave_pais_telefono;
+          }
+          await supabase
+            .from('usuarios')
+            .update(phoneUpdateData)
+            .eq('email', usuarioData.email);
+        }
+      }
+
       // Update representatives if provided
       const repUpdateData: any = {};
       if (representativeId !== undefined) {

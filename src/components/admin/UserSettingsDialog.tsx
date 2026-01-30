@@ -252,11 +252,26 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
       if (error) throw error;
 
-      // Update usuario name if changed
+      // Update usuario name and sync phone data if changed
+      const usuarioUpdateData: Record<string, any> = {};
+      
       if (data.nombre_legal) {
+        usuarioUpdateData.nombre = data.nombre_legal;
+      }
+      
+      // Sincronizar teléfono con tabla usuarios
+      if (data.telefono !== undefined) {
+        usuarioUpdateData.telefono = data.telefono;
+      }
+      if (data.clave_pais_telefono !== undefined) {
+        usuarioUpdateData.clave_pais_telefono = data.clave_pais_telefono;
+      }
+      
+      if (Object.keys(usuarioUpdateData).length > 0) {
+        usuarioUpdateData.fecha_actualizacion = new Date().toISOString();
         await supabase
           .from('usuarios')
-          .update({ nombre: data.nombre_legal })
+          .update(usuarioUpdateData)
           .eq('email', profile.email);
       }
 
