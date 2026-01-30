@@ -414,13 +414,23 @@ export default function Inmobiliarias() {
           .filter(Boolean)
           .join(',');
         
-        // Helper para formatear teléfonos con código de país
+        // Obtener códigos telefónicos de países desde la BD
+        const { data: paises } = await supabase
+          .from('paises')
+          .select('id, clave_pais_telefono')
+          .eq('activo', true);
+        
+        const codigosPorPais = new Map(
+          (paises || []).map(p => [p.id.trim(), p.clave_pais_telefono?.trim()])
+        );
+        
+        // Helper para formatear teléfonos con código de país desde BD
         const formatearTelefonos = (usuarios: any[]) => {
           return (usuarios || [])
             .filter(u => u.telefono)
             .map(u => {
               const clavePais = (u.clave_pais_telefono || 'MX').trim();
-              const codigoPais = clavePais === 'MX' ? '+52' : clavePais === 'US' || clavePais === 'CA' ? '+1' : `+${clavePais}`;
+              const codigoPais = codigosPorPais.get(clavePais) || '+52';
               return `${codigoPais}${u.telefono}`;
             })
             .join(',');
