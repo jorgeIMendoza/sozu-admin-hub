@@ -67,7 +67,7 @@ export default function MisPropiedades() {
           m2_exteriores,
           activo,
           clabe_stp_tmp_apartado,
-          edificios_modelos!inner (
+          edificios_modelos!fk_propiedades_edificio_modelo (
             id,
             edificios!inner (
               id,
