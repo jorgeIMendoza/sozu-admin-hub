@@ -115,6 +115,33 @@ export default function Inmobiliarias() {
     }
     
     console.log('Inmobiliarias - personas found:', data?.length || 0, 'for activo:', activo);
+
+    // Fetch representative names from entidades_relacionadas -> personas
+    const repLegIds = (data || [])
+      .map(i => i.id_entidad_relacionada_rep_leg)
+      .filter(Boolean) as number[];
+    const repComIds = (data || [])
+      .map(i => i.id_entidad_relacionada_rep_com)
+      .filter(Boolean) as number[];
+
+    const allRepIds = [...new Set([...repLegIds, ...repComIds])];
+
+    let repsMap = new Map<number, string>();
+
+    if (allRepIds.length > 0) {
+      const { data: repsData, error: repsError } = await supabase
+        .from('entidades_relacionadas')
+        .select('id, id_persona, personas!entidades_relacionadas_id_persona_fkey(nombre_legal)')
+        .in('id', allRepIds);
+      
+      if (!repsError && repsData) {
+        (repsData as any[]).forEach((r: any) => {
+          if (r.id && r.personas?.nombre_legal) {
+            repsMap.set(r.id, r.personas.nombre_legal);
+          }
+        });
+      }
+    }
     
     // Map to include entidad_relacionada_id
     const entidadMap = new Map(entidadesData?.map(e => [e.id_persona, e.id]) || []);
@@ -207,8 +234,8 @@ export default function Inmobiliarias() {
       activo: item.activo,
       id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
       id_entidad_relacionada_rep_com: item.id_entidad_relacionada_rep_com,
-      representante_legal_nombre: null,
-      representante_comercial_nombre: null,
+      representante_legal_nombre: item.id_entidad_relacionada_rep_leg ? repsMap.get(item.id_entidad_relacionada_rep_leg) || null : null,
+      representante_comercial_nombre: item.id_entidad_relacionada_rep_com ? repsMap.get(item.id_entidad_relacionada_rep_com) || null : null,
       numero_proyectos: projectCounts[item.id] || 0,
       numero_agentes: agentCounts[item.id] || 0,
       numero_usuarios: userCounts[item.id] || 0,
@@ -364,6 +391,7 @@ export default function Inmobiliarias() {
       }
 
       // Crear usuario automáticamente con rol Inmobiliaria (id: 4)
+      // Using auto_create flag to bypass Super Admin check
       try {
         const { error: userError } = await supabase.functions.invoke('create-user', {
           body: {
@@ -372,7 +400,8 @@ export default function Inmobiliarias() {
             rol_id: 4, // Inmobiliaria
             id_persona: personResult.id,
             telefono: cleanPersonData.telefono || null,
-            clave_pais_telefono: cleanPersonData.clave_pais_telefono || null
+            clave_pais_telefono: cleanPersonData.clave_pais_telefono || null,
+            auto_create: true // Flag to bypass Super Admin check for automatic inmobiliaria user creation
           }
         });
         

@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.migrate-inmobiliaria-users]
 verify_jwt = false
+
+[functions.migrate-brokers-users]
+verify_jwt = false

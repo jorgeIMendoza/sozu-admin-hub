@@ -290,8 +290,9 @@ export default function Usuarios() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   
   const [isInmobiliariaLocked, setIsInmobiliariaLocked] = useState(false);
-
-  
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false);
+  const [migrationResults, setMigrationResults] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { session, profile } = useAuth();
@@ -882,6 +883,32 @@ export default function Usuarios() {
     }));
   }, [personasConTipo]);
 
+  // Handle migration of missing users (Brokers and Brothers)
+  const handleMigration = async () => {
+    setIsMigrating(true);
+    setMigrationResults(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('migrate-brokers-users');
+      if (error) throw error;
+      
+      setMigrationResults(data);
+      
+      toast({
+        title: "Migración completada",
+        description: data.message || 'Migración completada exitosamente',
+      });
+      queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || 'Error al ejecutar la migración',
+        variant: "destructive",
+      });
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 px-4">
       <Card className="border-border shadow-lg">
@@ -897,6 +924,22 @@ export default function Usuarios() {
               </p>
             </div>
             <div className="flex gap-2">
+              {/* Migration button - only for Super Admin (rol_id === 1) */}
+              {profile?.rol_id === 1 && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setShowMigrationDialog(true)}
+                  disabled={isMigrating}
+                  className="border-amber-500/50 hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
+                >
+                  {isMigrating ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                  )}
+                  Migrar Usuarios Faltantes
+                </Button>
+              )}
               <Button 
                 onClick={() => setIsNewUserDialogOpen(true)}
                 className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
@@ -1358,6 +1401,65 @@ export default function Usuarios() {
           userPersonaId={selectedUserPersonaId ?? undefined}
         />
       )}
+
+      {/* Migration Confirmation Dialog */}
+      <AlertDialog open={showMigrationDialog} onOpenChange={setShowMigrationDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-amber-500" />
+              Migrar Usuarios Faltantes
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Esta acción creará los usuarios faltantes para <strong>Brokers and Brothers</strong>:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li><strong>contacto@brokersandbrothers.com</strong> - Rol: Inmobiliaria</li>
+                <li><strong>eduardo@brokersbrothers.com</strong> - Rol: Agente Inmobiliario</li>
+              </ul>
+              <p className="text-sm text-muted-foreground">
+                La contraseña temporal será: <code className="bg-muted px-1 py-0.5 rounded">Temporal123!</code>
+              </p>
+              {migrationResults && (
+                <div className="mt-4 p-3 bg-muted rounded-md text-sm">
+                  <p className="font-medium mb-2">Resultados:</p>
+                  <p>Usuarios creados: {migrationResults.summary?.usuariosCreados || 0} / {migrationResults.summary?.total || 0}</p>
+                  {migrationResults.results?.map((r: any, i: number) => (
+                    <p key={i} className={r.usuarioCreated ? 'text-green-600' : 'text-red-600'}>
+                      {r.email}: {r.usuarioCreated ? '✓ Creado' : `✗ ${r.error || 'Error'}`}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowMigrationDialog(false);
+              setMigrationResults(null);
+            }}>
+              {migrationResults ? 'Cerrar' : 'Cancelar'}
+            </AlertDialogCancel>
+            {!migrationResults && (
+              <AlertDialogAction
+                onClick={handleMigration}
+                disabled={isMigrating}
+                className="bg-amber-500 hover:bg-amber-600"
+              >
+                {isMigrating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Migrando...
+                  </>
+                ) : (
+                  'Ejecutar Migración'
+                )}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
