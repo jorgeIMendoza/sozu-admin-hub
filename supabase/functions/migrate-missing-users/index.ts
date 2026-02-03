@@ -325,15 +325,15 @@ Deno.serve(async (req) => {
         let authUserId: string;
         let authCreated = false;
 
-        // Check if auth user exists
-        const existingAuth = authUsersByEmail.get(user.email.toLowerCase());
+        // Check if auth user exists in our cached list
+        let existingAuth = authUsersByEmail.get(user.email.toLowerCase());
 
         if (existingAuth) {
-          console.log(`  → Auth user existe: ${existingAuth.id}`);
+          console.log(`  → Auth user existe en cache: ${existingAuth.id}`);
           authUserId = existingAuth.id;
         } else {
-          // Create auth user
-          console.log(`  → Creando auth user...`);
+          // Try to create auth user
+          console.log(`  → Intentando crear auth user...`);
           const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: user.email,
             password: TEMP_PASSWORD,
@@ -341,21 +341,62 @@ Deno.serve(async (req) => {
           });
 
           if (authError) {
-            console.error(`  ✗ Error creando auth user:`, authError.message);
-            results.push({
-              email: user.email,
-              nombre: user.nombre,
-              tipo: user.tipo,
-              success: false,
-              error: `Error auth: ${authError.message}`
-            });
-            failed++;
-            continue;
+            // If user already exists, try to find them by email
+            if (authError.message.includes('already been registered')) {
+              console.log(`  → Auth user ya existe, buscando por email...`);
+              
+              // Search through all users to find by email
+              let foundUser = null;
+              let page = 1;
+              const perPage = 1000;
+              
+              while (!foundUser) {
+                const { data: usersPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+                  page,
+                  perPage,
+                });
+                
+                if (listError || !usersPage?.users?.length) {
+                  break;
+                }
+                
+                foundUser = usersPage.users.find(u => u.email?.toLowerCase() === user.email.toLowerCase());
+                if (foundUser || usersPage.users.length < perPage) break;
+                page++;
+              }
+              
+              if (foundUser) {
+                console.log(`  → Auth user encontrado: ${foundUser.id}`);
+                authUserId = foundUser.id;
+              } else {
+                console.error(`  ✗ No se pudo encontrar auth user existente`);
+                results.push({
+                  email: user.email,
+                  nombre: user.nombre,
+                  tipo: user.tipo,
+                  success: false,
+                  error: `Auth user existe pero no se pudo encontrar`
+                });
+                failed++;
+                continue;
+              }
+            } else {
+              console.error(`  ✗ Error creando auth user:`, authError.message);
+              results.push({
+                email: user.email,
+                nombre: user.nombre,
+                tipo: user.tipo,
+                success: false,
+                error: `Error auth: ${authError.message}`
+              });
+              failed++;
+              continue;
+            }
+          } else {
+            authUserId = authData.user!.id;
+            authCreated = true;
+            console.log(`  → Auth user creado: ${authUserId}`);
           }
-
-          authUserId = authData.user!.id;
-          authCreated = true;
-          console.log(`  → Auth user creado: ${authUserId}`);
         }
 
         // Check if usuario already exists for this persona
