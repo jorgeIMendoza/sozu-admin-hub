@@ -52,39 +52,58 @@ async function findInmobiliariaByName(
 ): Promise<{ id: number; nombre: string } | null> {
   const normalizedInput = normalizeName(inputName);
   
-  // Obtener todas las inmobiliarias activas (entidades tipo 5)
-  const { data: inmobiliarias, error } = await supabaseAdmin
+  // Paso 1: Obtener todas las entidades tipo inmobiliaria (tipo 5)
+  const { data: entidades, error: entidadesError } = await supabaseAdmin
     .from('entidades_relacionadas')
-    .select('id, id_persona, personas!inner(id, nombre_legal, nombre_comercial)')
-    .eq('id_tipo_entidad', 5) // Tipo Inmobiliaria
+    .select('id, id_persona')
+    .eq('id_tipo_entidad', 5)
     .eq('activo', true);
 
-  if (error || !inmobiliarias) {
-    console.error('[bulk-create-agents] Error fetching inmobiliarias:', error);
+  if (entidadesError || !entidades || entidades.length === 0) {
+    console.error('[bulk-create-agents] Error fetching entidades:', entidadesError);
     return null;
   }
 
+  // Paso 2: Obtener los IDs de personas
+  const personaIds = entidades.map((e: { id_persona: number }) => e.id_persona);
+  
+  // Paso 3: Buscar personas por esos IDs
+  const { data: personas, error: personasError } = await supabaseAdmin
+    .from('personas')
+    .select('id, nombre_legal, nombre_comercial')
+    .in('id', personaIds)
+    .eq('activo', true);
+
+  if (personasError || !personas) {
+    console.error('[bulk-create-agents] Error fetching personas:', personasError);
+    return null;
+  }
+
+  console.log(`[bulk-create-agents] Buscando inmobiliaria: "${inputName}" (normalizado: "${normalizedInput}") entre ${personas.length} registros`);
+
   // Buscar con matching flexible
-  for (const inmo of inmobiliarias) {
-    const persona = inmo.personas as { id: number; nombre_legal: string; nombre_comercial: string | null };
-    const nombreLegal = persona?.nombre_legal || '';
-    const nombreComercial = persona?.nombre_comercial || '';
+  for (const persona of personas) {
+    const nombreLegal = persona.nombre_legal || '';
+    const nombreComercial = persona.nombre_comercial || '';
     
     const normalizedLegal = normalizeName(nombreLegal);
     const normalizedComercial = normalizeName(nombreComercial);
     
     // Priority 1: Exact match
     if (normalizedLegal === normalizedInput || normalizedComercial === normalizedInput) {
+      console.log(`[bulk-create-agents] Match exacto encontrado: ${nombreLegal} (ID: ${persona.id})`);
       return { id: persona.id, nombre: nombreLegal };
     }
     
-    // Priority 2: Contains match (para casos como "Brokers and Brothers" vs "Brokers and Brothers Inmobiliaria")
+    // Priority 2: Contains match
     if (normalizedLegal.includes(normalizedInput) || normalizedInput.includes(normalizedLegal) ||
         normalizedComercial.includes(normalizedInput) || normalizedInput.includes(normalizedComercial)) {
+      console.log(`[bulk-create-agents] Match parcial encontrado: ${nombreLegal} (ID: ${persona.id})`);
       return { id: persona.id, nombre: nombreLegal };
     }
   }
 
+  console.log(`[bulk-create-agents] No se encontró inmobiliaria para: "${inputName}"`);
   return null;
 }
 
