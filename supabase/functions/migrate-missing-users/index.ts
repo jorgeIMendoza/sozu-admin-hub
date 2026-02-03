@@ -83,160 +83,203 @@ Deno.serve(async (req) => {
 
     const usersToCreate: UserToCreate[] = [];
 
-    // 1. Find Inmobiliarias without user
-    console.log('Buscando inmobiliarias sin usuario...');
-    const { data: inmobiliariasWithoutUser, error: inmoError } = await supabaseAdmin.rpc('exec_sql', {
-      sql: `
-        SELECT p.id, p.nombre_legal, p.email
-        FROM personas p
-        JOIN entidades_relacionadas er ON er.id_persona = p.id
-        WHERE er.id_tipo_entidad = 5
-          AND er.activo = true
-          AND p.activo = true
-          AND p.email IS NOT NULL
-          AND p.email != ''
-          AND NOT EXISTS (
-            SELECT 1 FROM usuarios u 
-            WHERE u.email = p.email 
-              AND u.rol_id = 4 
-              AND u.activo = true
-          )
-      `
-    });
+    // 1. Get ALL active inmobiliarias
+    console.log('Buscando todas las inmobiliarias activas...');
+    const { data: allInmobiliarias, error: inmoError } = await supabaseAdmin
+      .from('entidades_relacionadas')
+      .select('id, id_persona')
+      .eq('id_tipo_entidad', 5)
+      .eq('activo', true);
 
-    // If RPC doesn't exist, use direct query approach
-    let inmobiliariasData: any[] = [];
     if (inmoError) {
-      console.log('RPC no disponible, usando consulta directa...');
-      
-      // Get all active inmobiliarias
-      const { data: allInmobiliarias } = await supabaseAdmin
-        .from('entidades_relacionadas')
-        .select('id_persona, personas!inner(id, nombre_legal, email, activo)')
-        .eq('id_tipo_entidad', 5)
-        .eq('activo', true);
-
-      // Get all existing users with rol_id = 4
-      const { data: existingInmoUsers } = await supabaseAdmin
-        .from('usuarios')
-        .select('email')
-        .eq('rol_id', ROL_INMOBILIARIA)
-        .eq('activo', true);
-
-      const existingEmails = new Set((existingInmoUsers || []).map(u => u.email?.toLowerCase()));
-
-      inmobiliariasData = (allInmobiliarias || [])
-        .filter(er => {
-          const persona = er.personas as any;
-          return persona?.activo && 
-                 persona?.email && 
-                 !existingEmails.has(persona.email.toLowerCase());
-        })
-        .map(er => ({
-          id: (er.personas as any).id,
-          nombre_legal: (er.personas as any).nombre_legal,
-          email: (er.personas as any).email
-        }));
-    } else {
-      inmobiliariasData = inmobiliariasWithoutUser || [];
+      console.error('Error fetching inmobiliarias:', inmoError);
+      throw inmoError;
     }
 
-    console.log(`Encontradas ${inmobiliariasData.length} inmobiliarias sin usuario`);
+    const inmobiliariaPersonaIds = (allInmobiliarias || []).map(er => er.id_persona).filter(Boolean);
+    console.log(`Total inmobiliarias activas: ${inmobiliariaPersonaIds.length}`);
 
-    for (const inmo of inmobiliariasData) {
-      usersToCreate.push({
-        email: inmo.email,
-        nombre: inmo.nombre_legal,
-        rol: 'Inmobiliaria',
-        rol_id: ROL_INMOBILIARIA,
-        tipo: 'inmobiliaria',
-        id_persona: inmo.id
-      });
+    if (inmobiliariaPersonaIds.length === 0) {
+      return new Response(
+        JSON.stringify({
+          dry_run: dryRun,
+          users_to_create: [],
+          total: 0,
+          message: 'No hay inmobiliarias activas'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    // Get personas data for all inmobiliarias
+    const { data: inmobiliariaPersonas, error: personasError } = await supabaseAdmin
+      .from('personas')
+      .select('id, nombre_legal, email, id_entidad_relacionada_rep_leg, id_entidad_relacionada_rep_com')
+      .in('id', inmobiliariaPersonaIds)
+      .eq('activo', true);
+
+    if (personasError) {
+      console.error('Error fetching personas:', personasError);
+      throw personasError;
+    }
+
+    console.log(`Personas de inmobiliarias encontradas: ${inmobiliariaPersonas?.length || 0}`);
+
+    // Get ALL existing users with rol_id = 4 (by id_persona, not email)
+    const { data: existingInmoUsers, error: usersError } = await supabaseAdmin
+      .from('usuarios')
+      .select('email, id_persona')
+      .eq('rol_id', ROL_INMOBILIARIA)
+      .eq('activo', true);
+
+    if (usersError) {
+      console.error('Error fetching existing users:', usersError);
+    }
+
+    // Create a Set of id_persona that already have users
+    const existingInmoPersonaIds = new Set(
+      (existingInmoUsers || [])
+        .map(u => u.id_persona)
+        .filter(Boolean)
+    );
+
+    console.log(`Usuarios Inmobiliaria existentes: ${existingInmoPersonaIds.size}`);
+
+    // Find inmobiliarias without users
+    let inmobiliariasWithoutUser = 0;
+    for (const persona of inmobiliariaPersonas || []) {
+      if (!existingInmoPersonaIds.has(persona.id)) {
+        // This inmobiliaria doesn't have a user
+        if (persona.email) {
+          inmobiliariasWithoutUser++;
+          usersToCreate.push({
+            email: persona.email,
+            nombre: persona.nombre_legal,
+            rol: 'Inmobiliaria',
+            rol_id: ROL_INMOBILIARIA,
+            tipo: 'inmobiliaria',
+            id_persona: persona.id
+          });
+        }
+      }
+    }
+
+    console.log(`Inmobiliarias sin usuario (con email): ${inmobiliariasWithoutUser}`);
 
     // 2. Find Representatives without user
     console.log('Buscando representantes sin usuario...');
     
-    // Get all active inmobiliarias with their representatives
-    const { data: inmobiliariasWithReps } = await supabaseAdmin
-      .from('personas')
-      .select(`
-        id,
-        nombre_legal,
-        id_entidad_relacionada_rep_leg,
-        id_entidad_relacionada_rep_com,
-        entidades_relacionadas!inner(id_tipo_entidad, activo)
-      `)
-      .eq('activo', true);
-
-    // Filter to only inmobiliarias (type 5)
-    const activeInmobiliarias = (inmobiliariasWithReps || []).filter(p => {
-      const er = p.entidades_relacionadas as any;
-      return Array.isArray(er) 
-        ? er.some((e: any) => e.id_tipo_entidad === 5 && e.activo)
-        : (er?.id_tipo_entidad === 5 && er?.activo);
-    });
-
     // Collect all representative entidad_relacionada IDs
-    const repIds: number[] = [];
+    const repLegIds: number[] = [];
+    const repComIds: number[] = [];
     const repToInmoMap: Map<number, number> = new Map();
 
-    for (const inmo of activeInmobiliarias) {
-      if (inmo.id_entidad_relacionada_rep_leg) {
-        repIds.push(inmo.id_entidad_relacionada_rep_leg);
-        repToInmoMap.set(inmo.id_entidad_relacionada_rep_leg, inmo.id);
+    for (const persona of inmobiliariaPersonas || []) {
+      if (persona.id_entidad_relacionada_rep_leg) {
+        repLegIds.push(persona.id_entidad_relacionada_rep_leg);
+        repToInmoMap.set(persona.id_entidad_relacionada_rep_leg, persona.id);
       }
-      if (inmo.id_entidad_relacionada_rep_com) {
-        repIds.push(inmo.id_entidad_relacionada_rep_com);
-        repToInmoMap.set(inmo.id_entidad_relacionada_rep_com, inmo.id);
+      if (persona.id_entidad_relacionada_rep_com) {
+        repComIds.push(persona.id_entidad_relacionada_rep_com);
+        repToInmoMap.set(persona.id_entidad_relacionada_rep_com, persona.id);
       }
     }
 
-    if (repIds.length > 0) {
+    const allRepIds = [...new Set([...repLegIds, ...repComIds])];
+    console.log(`Total representantes referenciados: ${allRepIds.length}`);
+
+    if (allRepIds.length > 0) {
       // Get persona data for all representatives
-      const { data: repEntidades } = await supabaseAdmin
+      const { data: repEntidades, error: repError } = await supabaseAdmin
         .from('entidades_relacionadas')
-        .select('id, id_persona, personas!inner(id, nombre_legal, email, activo)')
-        .in('id', repIds);
+        .select('id, id_persona')
+        .in('id', allRepIds);
 
-      // Get existing users with rol_id = 3
-      const { data: existingAgentUsers } = await supabaseAdmin
-        .from('usuarios')
-        .select('email')
-        .eq('rol_id', ROL_AGENTE_INMOBILIARIO)
-        .eq('activo', true);
+      if (repError) {
+        console.error('Error fetching rep entidades:', repError);
+      }
 
-      const existingAgentEmails = new Set((existingAgentUsers || []).map(u => u.email?.toLowerCase()));
+      const repPersonaIds = (repEntidades || []).map(r => r.id_persona).filter(Boolean);
+      
+      if (repPersonaIds.length > 0) {
+        // Get personas for representatives
+        const { data: repPersonas, error: repPersonasError } = await supabaseAdmin
+          .from('personas')
+          .select('id, nombre_legal, email')
+          .in('id', repPersonaIds)
+          .eq('activo', true);
 
-      const processedEmails = new Set<string>();
+        if (repPersonasError) {
+          console.error('Error fetching rep personas:', repPersonasError);
+        }
 
-      for (const rep of repEntidades || []) {
-        const persona = rep.personas as any;
-        if (!persona?.activo || !persona?.email) continue;
-        
-        const emailLower = persona.email.toLowerCase();
-        if (existingAgentEmails.has(emailLower) || processedEmails.has(emailLower)) continue;
-        
-        processedEmails.add(emailLower);
-
-        // Determine if this is rep_legal or rep_comercial
-        let tipo: 'rep_legal' | 'rep_comercial' = 'rep_legal';
-        for (const inmo of activeInmobiliarias) {
-          if (inmo.id_entidad_relacionada_rep_com === rep.id) {
-            tipo = 'rep_comercial';
-            break;
+        // Create map from entidad_relacionada.id to persona data
+        const entidadToPersonaMap = new Map<number, any>();
+        for (const er of repEntidades || []) {
+          const persona = (repPersonas || []).find(p => p.id === er.id_persona);
+          if (persona) {
+            entidadToPersonaMap.set(er.id, persona);
           }
         }
 
-        usersToCreate.push({
-          email: persona.email,
-          nombre: persona.nombre_legal,
-          rol: 'Agente Inmobiliario',
-          rol_id: ROL_AGENTE_INMOBILIARIO,
-          tipo,
-          id_persona: persona.id,
-          id_inmobiliaria: repToInmoMap.get(rep.id)
-        });
+        // Get existing users with rol_id = 3 (by id_persona)
+        const { data: existingAgentUsers, error: agentUsersError } = await supabaseAdmin
+          .from('usuarios')
+          .select('email, id_persona')
+          .eq('rol_id', ROL_AGENTE_INMOBILIARIO)
+          .eq('activo', true);
+
+        if (agentUsersError) {
+          console.error('Error fetching agent users:', agentUsersError);
+        }
+
+        const existingAgentPersonaIds = new Set(
+          (existingAgentUsers || [])
+            .map(u => u.id_persona)
+            .filter(Boolean)
+        );
+
+        console.log(`Usuarios Agente existentes: ${existingAgentPersonaIds.size}`);
+
+        const processedPersonaIds = new Set<number>();
+
+        // Check legal representatives
+        for (const repLegId of repLegIds) {
+          const persona = entidadToPersonaMap.get(repLegId);
+          if (!persona || !persona.email) continue;
+          if (existingAgentPersonaIds.has(persona.id)) continue;
+          if (processedPersonaIds.has(persona.id)) continue;
+          
+          processedPersonaIds.add(persona.id);
+          usersToCreate.push({
+            email: persona.email,
+            nombre: persona.nombre_legal,
+            rol: 'Agente Inmobiliario',
+            rol_id: ROL_AGENTE_INMOBILIARIO,
+            tipo: 'rep_legal',
+            id_persona: persona.id,
+            id_inmobiliaria: repToInmoMap.get(repLegId)
+          });
+        }
+
+        // Check commercial representatives
+        for (const repComId of repComIds) {
+          const persona = entidadToPersonaMap.get(repComId);
+          if (!persona || !persona.email) continue;
+          if (existingAgentPersonaIds.has(persona.id)) continue;
+          if (processedPersonaIds.has(persona.id)) continue;
+          
+          processedPersonaIds.add(persona.id);
+          usersToCreate.push({
+            email: persona.email,
+            nombre: persona.nombre_legal,
+            rol: 'Agente Inmobiliario',
+            rol_id: ROL_AGENTE_INMOBILIARIO,
+            tipo: 'rep_comercial',
+            id_persona: persona.id,
+            id_inmobiliaria: repToInmoMap.get(repComId)
+          });
+        }
       }
     }
 
@@ -254,7 +297,9 @@ Deno.serve(async (req) => {
             tipo: u.tipo
           })),
           total: usersToCreate.length,
-          message: 'Ejecuta con dry_run: false para crear los usuarios'
+          message: usersToCreate.length > 0 
+            ? 'Ejecuta con dry_run: false para crear los usuarios'
+            : 'No hay usuarios faltantes'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -311,6 +356,28 @@ Deno.serve(async (req) => {
           authUserId = authData.user!.id;
           authCreated = true;
           console.log(`  → Auth user creado: ${authUserId}`);
+        }
+
+        // Check if usuario already exists for this persona
+        const { data: existingUsuario } = await supabaseAdmin
+          .from('usuarios')
+          .select('email')
+          .eq('id_persona', user.id_persona)
+          .eq('rol_id', user.rol_id)
+          .eq('activo', true)
+          .maybeSingle();
+
+        if (existingUsuario) {
+          console.log(`  → Usuario ya existe para esta persona, saltando`);
+          results.push({
+            email: user.email,
+            nombre: user.nombre,
+            tipo: user.tipo,
+            success: false,
+            error: 'Usuario ya existe para esta persona'
+          });
+          failed++;
+          continue;
         }
 
         // Create usuario record
