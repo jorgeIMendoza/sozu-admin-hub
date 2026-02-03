@@ -5,7 +5,17 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // Generate build timestamp for versioning
+  const now = new Date();
+  const buildDate = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+  const buildTime = now.toISOString().slice(11, 16).replace(':', ''); // HHMM
+  
+  return {
+  define: {
+    __APP_VERSION__: JSON.stringify('2.4.0'),
+    __BUILD_TIMESTAMP__: JSON.stringify(`${buildDate}.${buildTime}`),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -123,4 +133,5 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}));
+};
+});

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/config";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAllowedMenus } from "@/hooks/useAllowedMenus";
@@ -459,7 +460,7 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{profile?.nombre || "Usuario"}</p>
               <p className="text-xs text-muted-foreground truncate">{profile?.rol_nombre || "Sin rol"}</p>
-              <p className="text-[10px] text-muted-foreground/60">v2.4.0</p>
+              <p className="text-[10px] text-muted-foreground/60">{APP_VERSION}</p>
             </div>
             <button
               onClick={handleSignOut}

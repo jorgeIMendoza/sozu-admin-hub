@@ -9,3 +9,6 @@ export const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || '
 
 // Environment Configuration
 export const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || 'produccion';
+
+// App Version (injected at build time)
+export const APP_VERSION = `v${__APP_VERSION__}-${__BUILD_TIMESTAMP__}`;
