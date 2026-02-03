@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.migrate-brokers-users]
 verify_jwt = false
+
+[functions.migrate-missing-users]
+verify_jwt = false
