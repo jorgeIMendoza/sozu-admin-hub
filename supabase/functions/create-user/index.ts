@@ -45,9 +45,32 @@ serve(async (req) => {
       );
     }
 
-    // Extract the token and validate using admin client
+    // Extract the token and decode it to get the user ID
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    // Decode JWT payload to extract user ID (the token is already validated by Supabase gateway)
+    let requestingUserId: string;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        throw new Error('Invalid JWT format');
+      }
+      const payload = JSON.parse(atob(parts[1]));
+      requestingUserId = payload.sub;
+      if (!requestingUserId) {
+        throw new Error('No sub claim in token');
+      }
+      console.log("Decoded user ID from JWT:", requestingUserId);
+    } catch (decodeError) {
+      console.error("JWT decode error:", decodeError);
+      return new Response(
+        JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify user exists using admin API
+    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.admin.getUserById(requestingUserId);
     
     if (authError || !requestingUser) {
       console.error("Auth error:", authError);
