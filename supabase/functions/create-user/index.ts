@@ -45,35 +45,25 @@ serve(async (req) => {
       );
     }
 
-    // Create a client with the user's auth context to validate their token
-    const supabaseUserClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    // Validate the token using getClaims
+    // Extract the token and validate using admin client
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseUserClient.auth.getClaims(token);
+    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
     
-    if (claimsError || !claimsData?.claims) {
-      console.error("Auth error:", claimsError);
+    if (authError || !requestingUser) {
+      console.error("Auth error:", authError);
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const requestingUserId = claimsData.claims.sub;
-    console.log("Authenticated user ID:", requestingUserId);
+    console.log("Authenticated user ID:", requestingUser.id);
 
     // Check if requesting user is a Super Admin
     const { data: adminCheck, error: adminCheckError } = await supabaseAdmin
       .from("usuarios")
       .select("rol_id, roles!inner(nombre)")
-      .eq("auth_user_id", requestingUserId)
+      .eq("auth_user_id", requestingUser.id)
       .single();
 
     if (adminCheckError || !adminCheck) {
