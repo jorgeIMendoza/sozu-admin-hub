@@ -321,9 +321,10 @@ export default function Usuarios() {
           auth_user_id,
           id_persona,
           debe_cambiar_password,
-          roles (nombre, es_rol_interno),
+          roles!inner (nombre, es_rol_interno),
           personas (nombre_legal, email)
         `)
+        .eq('roles.es_rol_interno', true)
         .order('nombre', { ascending: true });
       
       if (error) throw error;
@@ -350,9 +351,8 @@ export default function Usuarios() {
         });
       }
       
-      // Filter to show only users with internal roles and add inmobiliaria info
+      // Add inmobiliaria info to users (filtering already done at DB level)
       return ((data || []) as (Usuario & { roles: { nombre: string; es_rol_interno: boolean } | null })[])
-        .filter(u => u.roles?.es_rol_interno === true)
         .map(u => {
           // Check if user with Inmobiliaria role (4) is the main user (email matches persona email)
           const esUsuarioPrincipal = u.rol_id === ROLE_INMOBILIARIA && 
