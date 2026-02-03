@@ -247,7 +247,7 @@ export default function DetalleCuentaMantenimiento() {
         .select('id, fecha_pago, monto, clave_rastreo, id_metodos_pago, descripcion, url_recibo, url_cep')
         .eq('id_cuenta_cobranza', cuentaId)
         .eq('activo', true)
-        .order('fecha_creacion', { ascending: false });
+        .order('fecha_pago', { ascending: true });
 
       if (error) throw error;
 
