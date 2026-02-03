@@ -71,6 +71,7 @@ const SOZU_INMOBILIARIA_ID = 186;
 interface UsersTableProps {
   users: Usuario[];
   currentUserEmail: string | undefined;
+  currentUserRoleId: number | undefined;
   getRoleBadgeColor: (roleName: string | undefined) => string;
   onResetPassword: (email: string) => void;
   onActivate: (email: string) => void;
@@ -82,7 +83,8 @@ interface UsersTableProps {
 
 function UsersTable({ 
   users, 
-  currentUserEmail, 
+  currentUserEmail,
+  currentUserRoleId,
   getRoleBadgeColor, 
   onResetPassword, 
   onActivate,
@@ -91,6 +93,8 @@ function UsersTable({
   onEditUser,
   isInactiveTab 
 }: UsersTableProps) {
+  // Check if current user is Administrador de Proyecto (hide Rol button for this role)
+  const isAdminProyecto = currentUserRoleId === ROLE_ADMINISTRADOR_PROYECTO;
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -207,16 +211,18 @@ function UsersTable({
                               <Pencil className="h-3 w-3 mr-1" />
                               Editar
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => onChangeRole(usuario.email, usuario.nombre || 'Sin nombre', usuario.rol_id)}
-                              title="Cambiar rol"
-                              className="hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-600"
-                            >
-                              <Shield className="h-3 w-3 mr-1" />
-                              Rol
-                            </Button>
+                            {!isAdminProyecto && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => onChangeRole(usuario.email, usuario.nombre || 'Sin nombre', usuario.rol_id)}
+                                title="Cambiar rol"
+                                className="hover:bg-purple-500/10 hover:border-purple-500 hover:text-purple-600"
+                              >
+                                <Shield className="h-3 w-3 mr-1" />
+                                Rol
+                              </Button>
+                            )}
                           </>
                         )}
                         {isInactiveTab ? (
@@ -998,7 +1004,8 @@ export default function Usuarios() {
                   <>
                     <UsersTable 
                       users={paginatedActiveUsers} 
-                      currentUserEmail={currentUserEmail} 
+                      currentUserEmail={currentUserEmail}
+                      currentUserRoleId={currentUserRoleId}
                       getRoleBadgeColor={getRoleBadgeColor}
                       onResetPassword={handleOpenResetPassword}
                       onActivate={(email) => activateMutation.mutate(email)}
@@ -1081,7 +1088,8 @@ export default function Usuarios() {
                   <>
                     <UsersTable 
                       users={paginatedInactiveUsers} 
-                      currentUserEmail={currentUserEmail} 
+                      currentUserEmail={currentUserEmail}
+                      currentUserRoleId={currentUserRoleId}
                       getRoleBadgeColor={getRoleBadgeColor}
                       onResetPassword={handleOpenResetPassword}
                       onActivate={(email) => activateMutation.mutate(email)}
