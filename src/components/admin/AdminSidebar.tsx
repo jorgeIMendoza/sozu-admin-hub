@@ -459,7 +459,7 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{profile?.nombre || "Usuario"}</p>
               <p className="text-xs text-muted-foreground truncate">{profile?.rol_nombre || "Sin rol"}</p>
-              <p className="text-[10px] text-muted-foreground/60">{crypto.randomUUID().slice(0, 8)}</p>
+              <p className="text-[10px] text-muted-foreground/60">v2.4.0</p>
             </div>
             <button
               onClick={handleSignOut}
