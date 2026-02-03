@@ -75,6 +75,9 @@ const MisAgentes = lazy(() => import("./pages/admin/inmobiliarias/MisAgentes"));
 const MisPropiedades = lazy(() => import("./pages/admin/inmobiliarias/MisPropiedades"));
 const MisVentas = lazy(() => import("./pages/admin/inmobiliarias/MisVentas"));
 
+// Public pages
+const RegistroInmobiliaria = lazy(() => import("./pages/public/RegistroInmobiliaria"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -108,6 +111,9 @@ const App = () => (
                 {/* Auth Routes */}
                 <Route path="/auth/login" element={<Login />} />
                 <Route path="/auth/change-password" element={<ChangePassword />} />
+                
+                {/* Public Routes */}
+                <Route path="/registro-inmobiliaria" element={<RegistroInmobiliaria />} />
                 
                 {/* Admin Routes - Protected by Auth and Permissions */}
                 <Route path="/admin" element={

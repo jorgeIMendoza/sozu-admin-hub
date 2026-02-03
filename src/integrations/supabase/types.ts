@@ -4312,6 +4312,7 @@ export type Database = {
           direccion_num_ext: string | null
           direccion_num_int: string | null
           email: string | null
+          es_draft: boolean | null
           fecha_actualizacion: string
           fecha_creacion: string
           fecha_escritura: string | null
@@ -4362,6 +4363,7 @@ export type Database = {
           direccion_num_ext?: string | null
           direccion_num_int?: string | null
           email?: string | null
+          es_draft?: boolean | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_escritura?: string | null
@@ -4412,6 +4414,7 @@ export type Database = {
           direccion_num_ext?: string | null
           direccion_num_int?: string | null
           email?: string | null
+          es_draft?: boolean | null
           fecha_actualizacion?: string
           fecha_creacion?: string
           fecha_escritura?: string | null

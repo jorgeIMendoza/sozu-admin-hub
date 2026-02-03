@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, Building, Users, Copy, UserPlus } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, Building, Users, Copy, UserPlus, CheckCircle, FileCheck } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ type Inmobiliaria = {
   telefono?: string;
   rfc?: string;
   activo: boolean;
+  es_draft?: boolean;
   id_entidad_relacionada_rep_leg?: number;
   id_entidad_relacionada_rep_com?: number;
   representante_legal_nombre?: string;
@@ -84,7 +85,7 @@ export default function Inmobiliarias() {
   
   const itemsPerPage = 10;
 
-  const fetchInmobiliarias = async (activo: boolean) => {
+  const fetchInmobiliarias = async (activo: boolean, isDraft: boolean = false) => {
     // First get all personas that have an entidades_relacionadas record with id_tipo_entidad = 5
     const { data: entidadesData, error: entidadesError } = await supabase
       .from('entidades_relacionadas')
@@ -105,8 +106,8 @@ export default function Inmobiliarias() {
       return [];
     }
     
-    // Now get personas that match these IDs and the activo status
-    const { data, error } = await supabase
+    // Build query based on tab type
+    let query = supabase
       .from('personas')
       .select(`
         id,
@@ -116,6 +117,7 @@ export default function Inmobiliarias() {
         telefono,
         rfc,
         activo,
+        es_draft,
         url_logo,
         id_entidad_relacionada_rep_leg,
         id_entidad_relacionada_rep_com
@@ -125,12 +127,21 @@ export default function Inmobiliarias() {
       .in('id', personaIds)
       .order('nombre_legal', { ascending: true });
     
+    // For active tab: only non-draft records
+    // For draft tab: only draft records
+    // For deleted tab: all deleted records regardless of draft status
+    if (activo) {
+      query = query.eq('es_draft', isDraft);
+    }
+    
+    const { data, error } = await query;
+    
     if (error) {
       console.error('Error fetching personas:', error);
       throw error;
     }
     
-    console.log('Inmobiliarias - personas found:', data?.length || 0, 'for activo:', activo);
+    console.log('Inmobiliarias - personas found:', data?.length || 0, 'for activo:', activo, 'isDraft:', isDraft);
 
     // Fetch representative names from entidades_relacionadas -> personas
     const repLegIds = (data || [])
@@ -248,6 +259,7 @@ export default function Inmobiliarias() {
       telefono: item.telefono,
       rfc: item.rfc,
       activo: item.activo,
+      es_draft: item.es_draft,
       id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
       id_entidad_relacionada_rep_com: item.id_entidad_relacionada_rep_com,
       representante_legal_nombre: item.id_entidad_relacionada_rep_leg ? repsMap.get(item.id_entidad_relacionada_rep_leg) || null : null,
@@ -262,7 +274,12 @@ export default function Inmobiliarias() {
 
   const { data: activeInmobiliarias = [], isLoading: loadingActive } = useQuery({
     queryKey: ['inmobiliarias', 'active'],
-    queryFn: () => fetchInmobiliarias(true),
+    queryFn: () => fetchInmobiliarias(true, false),
+  });
+
+  const { data: draftInmobiliarias = [], isLoading: loadingDraft } = useQuery({
+    queryKey: ['inmobiliarias', 'draft'],
+    queryFn: () => fetchInmobiliarias(true, true),
   });
 
   const { data: deletedInmobiliarias = [], isLoading: loadingDeleted } = useQuery({
@@ -306,7 +323,11 @@ export default function Inmobiliarias() {
     enabled: !!selectedInmobiliariaForAgentes && isAgentesDialogOpen,
   });
 
-  const inmobiliarias = activeTab === 'active' ? activeInmobiliarias : deletedInmobiliarias;
+  const inmobiliarias = activeTab === 'active' 
+    ? activeInmobiliarias 
+    : activeTab === 'draft' 
+      ? draftInmobiliarias 
+      : deletedInmobiliarias;
   const filteredInmobiliarias = inmobiliarias.filter(inmob => 
     inmob.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     inmob.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -856,6 +877,81 @@ export default function Inmobiliarias() {
     },
   });
 
+  // Mutation to approve a draft inmobiliaria
+  const approveMutation = useMutation({
+    mutationFn: async (inmobiliaria: Inmobiliaria) => {
+      // 1. Update es_draft to false
+      const { error: updateError } = await supabase
+        .from('personas')
+        .update({ es_draft: false })
+        .eq('id', inmobiliaria.id);
+      
+      if (updateError) throw updateError;
+      
+      // 2. Create user for the inmobiliaria
+      const { error: userError, data: userResult } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: inmobiliaria.email,
+          nombre: inmobiliaria.nombre_legal,
+          rol_id: 4, // Inmobiliaria
+          id_persona: inmobiliaria.id,
+          telefono: inmobiliaria.telefono || null,
+          auto_create: true
+        }
+      });
+      
+      if (userError) {
+        console.error('Error creating user for approved inmobiliaria:', userError);
+        // Don't throw - we still want to approve even if user creation fails
+      }
+
+      // 3. Send notification to N8N
+      try {
+        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion`;
+        console.log('Sending notification for approved inmobiliaria to:', webhookUrl);
+        
+        const { data: superAdmins } = await supabase
+          .from('usuarios')
+          .select('email')
+          .eq('rol_id', 1)
+          .eq('activo', true);
+        
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo: 'inmobiliaria_aprobada',
+            inmobiliaria: {
+              nombre: inmobiliaria.nombre_legal || inmobiliaria.nombre_comercial,
+              email: inmobiliaria.email,
+              telefono: inmobiliaria.telefono
+            },
+            destinatarios: superAdmins?.map(u => u.email) || []
+          }),
+        });
+      } catch (notificationError) {
+        console.error('Error sending notification:', notificationError);
+      }
+      
+      return inmobiliaria;
+    },
+    onSuccess: (inmobiliaria) => {
+      queryClient.invalidateQueries({ queryKey: ['inmobiliarias'] });
+      
+      toast({
+        title: "Inmobiliaria aprobada",
+        description: `${inmobiliaria.nombre_legal} ha sido aprobada y se ha creado su usuario.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al aprobar la inmobiliaria: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEdit = (inmobiliaria: Inmobiliaria) => {
     setEditingEntity(inmobiliaria);
     setIsEditDialogOpen(true);
@@ -881,6 +977,10 @@ export default function Inmobiliarias() {
     if (entityToRestore) {
       restoreMutation.mutate(entityToRestore.id);
     }
+  };
+
+  const handleApproveDraft = (inmobiliaria: Inmobiliaria) => {
+    approveMutation.mutate(inmobiliaria);
   };
 
   // Prepare user confirmation - detect users that will be created
@@ -1057,13 +1157,21 @@ export default function Inmobiliarias() {
         
         <CardContent className="p-6">
           <Tabs defaultValue="active" value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className={`grid w-full mb-6 ${(canDelete || isSuperAdmin) ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <TabsList className={`grid w-full mb-6 ${(canDelete || isSuperAdmin) ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="active">
                 Activos ({searchTerm ? `${activeInmobiliarias.filter(inmob => 
                   inmob.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   inmob.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   inmob.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
                 ).length} de ${activeInmobiliarias.length}` : activeInmobiliarias.length})
+              </TabsTrigger>
+              <TabsTrigger value="draft">
+                <FileCheck className="w-4 h-4 mr-1" />
+                Draft ({searchTerm ? `${draftInmobiliarias.filter(inmob => 
+                  inmob.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  inmob.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  inmob.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
+                ).length} de ${draftInmobiliarias.length}` : draftInmobiliarias.length})
               </TabsTrigger>
               {(canDelete || isSuperAdmin) && (
                 <TabsTrigger value="deleted">
@@ -1090,6 +1198,11 @@ export default function Inmobiliarias() {
             </div>
 
             <TabsContent value="active" className="mt-6">
+              {renderTable()}
+              {renderPagination()}
+            </TabsContent>
+
+            <TabsContent value="draft" className="mt-6">
               {renderTable()}
               {renderPagination()}
             </TabsContent>
@@ -1400,10 +1513,18 @@ export default function Inmobiliarias() {
       return (
         <div className="text-center py-12">
           <div className="text-muted-foreground text-lg mb-2">
-            {activeTab === 'active' ? 'No hay inmobiliarias activas' : 'No hay inmobiliarias eliminadas'}
+            {activeTab === 'active' 
+              ? 'No hay inmobiliarias activas' 
+              : activeTab === 'draft'
+                ? 'No hay inmobiliarias en draft'
+                : 'No hay inmobiliarias eliminadas'}
           </div>
           <p className="text-muted-foreground/80 mb-4">
-            {activeTab === 'active' ? 'Agrega tu primera inmobiliaria para comenzar' : 'Las inmobiliarias eliminadas aparecerán aquí'}
+            {activeTab === 'active' 
+              ? 'Agrega tu primera inmobiliaria para comenzar' 
+              : activeTab === 'draft'
+                ? 'Las inmobiliarias registradas por el formulario público aparecerán aquí'
+                : 'Las inmobiliarias eliminadas aparecerán aquí'}
           </p>
           {activeTab === 'active' && (
             <Button 
@@ -1536,6 +1657,43 @@ export default function Inmobiliarias() {
                                   ? "No se puede eliminar: tiene agentes asignados"
                                   : "Eliminar inmobiliaria"
                             }
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </>
+                    ) : activeTab === 'draft' ? (
+                      <>
+                        {(canApprove || isSuperAdmin) && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleApproveDraft(inmobiliaria)}
+                            disabled={approveMutation.isPending}
+                            className="hover:bg-green-50 hover:border-green-400 hover:text-green-700 transition-colors"
+                            title="Aprobar y crear usuario"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Aprobar
+                          </Button>
+                        )}
+                        {(canUpdate || isSuperAdmin) && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEdit(inmobiliaria)}
+                            className="hover:bg-primary/10 hover:border-primary transition-colors"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {(canDelete || isSuperAdmin) && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDelete(inmobiliaria)}
+                            className="hover:bg-destructive/10 hover:border-destructive hover:text-destructive transition-colors"
+                            title="Eliminar inmobiliaria"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
