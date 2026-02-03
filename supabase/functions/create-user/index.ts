@@ -249,7 +249,6 @@ serve(async (req) => {
     console.log("Usuario created successfully:", usuarioData);
 
     // For agents (rol_id 3 or 9), handle the inmobiliaria linkage
-    const ROLE_AGENTE_INMOBILIARIO = 3;
     const ROLE_AGENTE_INTERNO = 9;
     
     if ((rol_id === ROLE_AGENTE_INMOBILIARIO || rol_id === ROLE_AGENTE_INTERNO) && id_inmobiliaria) {
