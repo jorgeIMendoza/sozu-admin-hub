@@ -75,20 +75,21 @@ serve(async (req) => {
     const body: CreateUserRequest = await req.json();
     const { email, nombre, rol_id, id_persona, id_inmobiliaria, telefono, clave_pais_telefono, auto_create } = body;
 
-    // Check if this is an automatic creation for Inmobiliaria role (bypasses Super Admin check)
+    // Check if this is an automatic creation for Inmobiliaria or Agente Inmobiliario role (bypasses Super Admin check)
     const ROLE_INMOBILIARIA = 4;
-    const isAutoCreateInmobiliaria = auto_create === true && rol_id === ROLE_INMOBILIARIA;
+    const ROLE_AGENTE_INMOBILIARIO = 3;
+    const isAutoCreate = auto_create === true && (rol_id === ROLE_INMOBILIARIA || rol_id === ROLE_AGENTE_INMOBILIARIO);
 
     const rolNombre = (adminCheck.roles as any)?.nombre;
-    if (!isAutoCreateInmobiliaria && rolNombre !== "Super Administrador") {
+    if (!isAutoCreate && rolNombre !== "Super Administrador") {
       return new Response(
         JSON.stringify({ error: "Only Super Administrators can create users" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (isAutoCreateInmobiliaria) {
-      console.log("Auto-create mode enabled for Inmobiliaria user creation");
+    if (isAutoCreate) {
+      console.log(`Auto-create mode enabled for ${rol_id === ROLE_INMOBILIARIA ? 'Inmobiliaria' : 'Agente Inmobiliario'} user creation`);
     }
 
     console.log("Creating user:", { email, nombre, rol_id, id_persona, id_inmobiliaria, auto_create });

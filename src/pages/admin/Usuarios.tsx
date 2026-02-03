@@ -293,6 +293,9 @@ export default function Usuarios() {
   const [isMigrating, setIsMigrating] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [migrationResults, setMigrationResults] = useState<any>(null);
+  const [migrationPreview, setMigrationPreview] = useState<any>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [selectedMigrationType, setSelectedMigrationType] = useState<'todos' | 'inmobiliarias' | 'rep_legales' | 'rep_comerciales'>('todos');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { session, profile } = useAuth();
@@ -883,12 +886,35 @@ export default function Usuarios() {
     }));
   }, [personasConTipo]);
 
-  // Handle migration of missing users (Brokers and Brothers)
+  // Load migration preview (dry_run)
+  const loadMigrationPreview = async () => {
+    setIsLoadingPreview(true);
+    setMigrationPreview(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('migrate-brokers-users', {
+        body: { dry_run: true, tipo: selectedMigrationType }
+      });
+      if (error) throw error;
+      setMigrationPreview(data);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || 'Error al obtener preview de migración',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  // Execute migration
   const handleMigration = async () => {
     setIsMigrating(true);
     setMigrationResults(null);
     try {
-      const { data, error } = await supabase.functions.invoke('migrate-brokers-users');
+      const { data, error } = await supabase.functions.invoke('migrate-brokers-users', {
+        body: { dry_run: false, tipo: selectedMigrationType }
+      });
       if (error) throw error;
       
       setMigrationResults(data);
@@ -907,6 +933,16 @@ export default function Usuarios() {
     } finally {
       setIsMigrating(false);
     }
+  };
+
+  // Open migration dialog and load preview
+  const openMigrationDialog = () => {
+    setShowMigrationDialog(true);
+    setMigrationResults(null);
+    setMigrationPreview(null);
+    setSelectedMigrationType('todos');
+    // Load preview after dialog opens
+    setTimeout(() => loadMigrationPreview(), 100);
   };
 
   return (
@@ -928,14 +964,14 @@ export default function Usuarios() {
               {profile?.rol_id === 1 && (
                 <Button 
                   variant="outline"
-                  onClick={() => setShowMigrationDialog(true)}
+                  onClick={openMigrationDialog}
                   disabled={isMigrating}
                   className="border-amber-500/50 hover:bg-amber-500/10 hover:border-amber-500 hover:text-amber-600"
                 >
                   {isMigrating ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
-                    <RotateCcw className="w-4 h-4 mr-2" />
+                    <Building2 className="w-4 h-4 mr-2" />
                   )}
                   Migrar Usuarios Faltantes
                 </Button>
@@ -1403,48 +1439,200 @@ export default function Usuarios() {
       )}
 
       {/* Migration Confirmation Dialog */}
-      <AlertDialog open={showMigrationDialog} onOpenChange={setShowMigrationDialog}>
-        <AlertDialogContent className="max-w-lg">
+      <AlertDialog open={showMigrationDialog} onOpenChange={(open) => {
+        setShowMigrationDialog(open);
+        if (!open) {
+          setMigrationResults(null);
+          setMigrationPreview(null);
+        }
+      }}>
+        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-amber-500" />
+              <Building2 className="h-5 w-5 text-amber-500" />
               Migrar Usuarios Faltantes
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                Esta acción creará los usuarios faltantes para <strong>Brokers and Brothers</strong>:
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li><strong>contacto@brokersandbrothers.com</strong> - Rol: Inmobiliaria</li>
-                <li><strong>eduardo@brokersbrothers.com</strong> - Rol: Agente Inmobiliario</li>
-              </ul>
-              <p className="text-sm text-muted-foreground">
-                La contraseña temporal será: <code className="bg-muted px-1 py-0.5 rounded">Temporal123!</code>
-              </p>
-              {migrationResults && (
-                <div className="mt-4 p-3 bg-muted rounded-md text-sm">
-                  <p className="font-medium mb-2">Resultados:</p>
-                  <p>Usuarios creados: {migrationResults.summary?.usuariosCreados || 0} / {migrationResults.summary?.total || 0}</p>
-                  {migrationResults.results?.map((r: any, i: number) => (
-                    <p key={i} className={r.usuarioCreated ? 'text-green-600' : 'text-red-600'}>
-                      {r.email}: {r.usuarioCreated ? '✓ Creado' : `✗ ${r.error || 'Error'}`}
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                {/* Type selector */}
+                {!migrationResults && (
+                  <div className="flex items-center gap-3">
+                    <Label htmlFor="migration-type" className="text-sm font-medium text-foreground">
+                      Tipo de migración:
+                    </Label>
+                    <Select 
+                      value={selectedMigrationType} 
+                      onValueChange={(value: 'todos' | 'inmobiliarias' | 'rep_legales' | 'rep_comerciales') => {
+                        setSelectedMigrationType(value);
+                        // Reload preview with new type
+                        setMigrationPreview(null);
+                        setTimeout(() => loadMigrationPreview(), 100);
+                      }}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="inmobiliarias">Solo Inmobiliarias</SelectItem>
+                        <SelectItem value="rep_legales">Solo Rep. Legales</SelectItem>
+                        <SelectItem value="rep_comerciales">Solo Rep. Comerciales</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Loading preview */}
+                {isLoadingPreview && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Analizando usuarios faltantes...</span>
+                  </div>
+                )}
+
+                {/* Preview section */}
+                {migrationPreview && !migrationResults && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="p-3 bg-purple-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-purple-600">
+                          {migrationPreview.summary?.inmobiliarias_sin_usuario || 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Inmobiliarias</p>
+                      </div>
+                      <div className="p-3 bg-blue-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600">
+                          {migrationPreview.summary?.rep_legales_sin_usuario || 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Rep. Legales</p>
+                      </div>
+                      <div className="p-3 bg-cyan-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-cyan-600">
+                          {migrationPreview.summary?.rep_comerciales_sin_usuario || 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Rep. Comerciales</p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-foreground">
+                      Se crearán <strong>{migrationPreview.summary?.a_procesar || 0}</strong> usuarios 
+                      con contraseña temporal: <code className="bg-muted px-1 py-0.5 rounded">Temporal123!</code>
                     </p>
-                  ))}
-                </div>
-              )}
+
+                    {/* Users list (scrollable if many) */}
+                    {migrationPreview.usuarios_a_crear?.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto border rounded-md">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50 sticky top-0">
+                            <tr>
+                              <th className="text-left p-2">Email</th>
+                              <th className="text-left p-2">Nombre</th>
+                              <th className="text-left p-2">Tipo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {migrationPreview.usuarios_a_crear.slice(0, 50).map((u: any, i: number) => (
+                              <tr key={i} className="border-t">
+                                <td className="p-2 font-mono text-xs">{u.email}</td>
+                                <td className="p-2">{u.nombre}</td>
+                                <td className="p-2">
+                                  <Badge variant="outline" className={
+                                    u.tipo === 'inmobiliaria' ? 'bg-purple-500/10 text-purple-600' :
+                                    u.tipo === 'rep_legal' ? 'bg-blue-500/10 text-blue-600' :
+                                    'bg-cyan-500/10 text-cyan-600'
+                                  }>
+                                    {u.tipo === 'inmobiliaria' ? 'Inmobiliaria' : 
+                                     u.tipo === 'rep_legal' ? 'Rep. Legal' : 'Rep. Comercial'}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {migrationPreview.usuarios_a_crear.length > 50 && (
+                          <p className="text-center text-xs text-muted-foreground py-2">
+                            ... y {migrationPreview.usuarios_a_crear.length - 50} más
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {migrationPreview.usuarios_a_crear?.length === 0 && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        ✓ No hay usuarios faltantes para migrar en esta categoría.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Results section */}
+                {migrationResults && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="p-3 bg-green-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-green-600">
+                          {migrationResults.summary?.usuarios_creados || 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Creados</p>
+                      </div>
+                      <div className="p-3 bg-blue-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600">
+                          {migrationResults.summary?.auth_users_creados || 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Auth Nuevos</p>
+                      </div>
+                      <div className="p-3 bg-red-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-red-600">
+                          {migrationResults.summary?.errores || 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Errores</p>
+                      </div>
+                    </div>
+
+                    {/* Results list */}
+                    {migrationResults.results?.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto border rounded-md">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50 sticky top-0">
+                            <tr>
+                              <th className="text-left p-2">Email</th>
+                              <th className="text-left p-2">Estado</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {migrationResults.results.map((r: any, i: number) => (
+                              <tr key={i} className="border-t">
+                                <td className="p-2 font-mono text-xs">{r.email}</td>
+                                <td className="p-2">
+                                  {r.usuarioCreated ? (
+                                    <span className="text-green-600">✓ Creado</span>
+                                  ) : (
+                                    <span className="text-red-600" title={r.error}>✗ {r.error?.slice(0, 30)}...</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
               setShowMigrationDialog(false);
               setMigrationResults(null);
+              setMigrationPreview(null);
             }}>
               {migrationResults ? 'Cerrar' : 'Cancelar'}
             </AlertDialogCancel>
-            {!migrationResults && (
+            {!migrationResults && migrationPreview?.usuarios_a_crear?.length > 0 && (
               <AlertDialogAction
                 onClick={handleMigration}
-                disabled={isMigrating}
+                disabled={isMigrating || isLoadingPreview}
                 className="bg-amber-500 hover:bg-amber-600"
               >
                 {isMigrating ? (
@@ -1453,7 +1641,7 @@ export default function Usuarios() {
                     Migrando...
                   </>
                 ) : (
-                  'Ejecutar Migración'
+                  `Crear ${migrationPreview.summary?.a_procesar || 0} Usuarios`
                 )}
               </AlertDialogAction>
             )}

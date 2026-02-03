@@ -538,7 +538,8 @@ export default function Inmobiliarias() {
                   id_persona: repPersona.id,
                   id_inmobiliaria: personResult.id, // Link to the new inmobiliaria
                   telefono: repPersona.telefono || null,
-                  clave_pais_telefono: repPersona.clave_pais_telefono || null
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null,
+                  auto_create: true // Bypass Super Admin check for automatic agent creation
                 }
               });
               
@@ -609,7 +610,8 @@ export default function Inmobiliarias() {
                   id_persona: repPersona.id,
                   id_inmobiliaria: personResult.id, // Link to the new inmobiliaria
                   telefono: repPersona.telefono || null,
-                  clave_pais_telefono: repPersona.clave_pais_telefono || null
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null,
+                  auto_create: true // Bypass Super Admin check for automatic agent creation
                 }
               });
               
