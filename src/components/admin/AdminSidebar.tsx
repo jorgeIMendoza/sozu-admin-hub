@@ -459,7 +459,7 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{profile?.nombre || "Usuario"}</p>
               <p className="text-xs text-muted-foreground truncate">{profile?.rol_nombre || "Sin rol"}</p>
-              <p className="text-[10px] text-muted-foreground/60">v1.0.0</p>
+              <p className="text-[10px] text-muted-foreground/60">{new Date().toISOString().slice(0, 10)}</p>
             </div>
             <button
               onClick={handleSignOut}

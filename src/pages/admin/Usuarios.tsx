@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -290,6 +291,10 @@ export default function Usuarios() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   
   const [isInmobiliariaLocked, setIsInmobiliariaLocked] = useState(false);
+  // Pagination state
+  const [currentPageActive, setCurrentPageActive] = useState(1);
+  const [currentPageInactive, setCurrentPageInactive] = useState(1);
+  const itemsPerPage = 50;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { session, profile } = useAuth();
@@ -645,6 +650,20 @@ export default function Usuarios() {
   const activeUsers = filteredUsuarios.filter(u => u.activo);
   const inactiveUsers = filteredUsuarios.filter(u => !u.activo);
 
+  // Pagination logic
+  const totalPagesActive = Math.ceil(activeUsers.length / itemsPerPage);
+  const totalPagesInactive = Math.ceil(inactiveUsers.length / itemsPerPage);
+  
+  const paginatedActiveUsers = activeUsers.slice(
+    (currentPageActive - 1) * itemsPerPage,
+    currentPageActive * itemsPerPage
+  );
+  
+  const paginatedInactiveUsers = inactiveUsers.slice(
+    (currentPageInactive - 1) * itemsPerPage,
+    currentPageInactive * itemsPerPage
+  );
+
   const handleCreateUser = async () => {
     if (!newUserForm.email || !newUserForm.nombre || !newUserForm.rol_id) {
       toast({
@@ -976,32 +995,80 @@ export default function Usuarios() {
                     No hay usuarios activos que coincidan con la búsqueda.
                   </div>
                 ) : (
-                  <UsersTable 
-                    users={activeUsers} 
-                    currentUserEmail={currentUserEmail} 
-                    getRoleBadgeColor={getRoleBadgeColor}
-                    onResetPassword={handleOpenResetPassword}
-                    onActivate={(email) => activateMutation.mutate(email)}
-                    onDeactivate={(email) => {
-                      const user = activeUsers.find(u => u.email === email);
-                      setSelectedUserEmail(email);
-                      setSelectedUserName(user?.nombre || email);
-                      setIsDeactivateDialogOpen(true);
-                    }}
-                    onChangeRole={(email, name, roleId) => {
-                      setSelectedUserEmail(email);
-                      setSelectedUserName(name);
-                      setSelectedUserRoleId(roleId);
-                      setIsChangeRoleDialogOpen(true);
-                    }}
-                    onEditUser={(email, name, roleId, personaId) => {
-                      setSelectedUserEmail(email);
-                      setSelectedUserName(name);
-                      setSelectedUserRoleId(roleId || null);
-                      setSelectedUserPersonaId(personaId || null);
-                      setIsEditUserDialogOpen(true);
-                    }}
-                  />
+                  <>
+                    <UsersTable 
+                      users={paginatedActiveUsers} 
+                      currentUserEmail={currentUserEmail} 
+                      getRoleBadgeColor={getRoleBadgeColor}
+                      onResetPassword={handleOpenResetPassword}
+                      onActivate={(email) => activateMutation.mutate(email)}
+                      onDeactivate={(email) => {
+                        const user = activeUsers.find(u => u.email === email);
+                        setSelectedUserEmail(email);
+                        setSelectedUserName(user?.nombre || email);
+                        setIsDeactivateDialogOpen(true);
+                      }}
+                      onChangeRole={(email, name, roleId) => {
+                        setSelectedUserEmail(email);
+                        setSelectedUserName(name);
+                        setSelectedUserRoleId(roleId);
+                        setIsChangeRoleDialogOpen(true);
+                      }}
+                      onEditUser={(email, name, roleId, personaId) => {
+                        setSelectedUserEmail(email);
+                        setSelectedUserName(name);
+                        setSelectedUserRoleId(roleId || null);
+                        setSelectedUserPersonaId(personaId || null);
+                        setIsEditUserDialogOpen(true);
+                      }}
+                    />
+                    {totalPagesActive > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          Mostrando {((currentPageActive - 1) * itemsPerPage) + 1} - {Math.min(currentPageActive * itemsPerPage, activeUsers.length)} de {activeUsers.length}
+                        </p>
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                onClick={() => setCurrentPageActive(p => Math.max(1, p - 1))}
+                                className={currentPageActive === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                            {Array.from({ length: Math.min(5, totalPagesActive) }, (_, i) => {
+                              let pageNum: number;
+                              if (totalPagesActive <= 5) {
+                                pageNum = i + 1;
+                              } else if (currentPageActive <= 3) {
+                                pageNum = i + 1;
+                              } else if (currentPageActive >= totalPagesActive - 2) {
+                                pageNum = totalPagesActive - 4 + i;
+                              } else {
+                                pageNum = currentPageActive - 2 + i;
+                              }
+                              return (
+                                <PaginationItem key={pageNum}>
+                                  <PaginationLink
+                                    onClick={() => setCurrentPageActive(pageNum)}
+                                    isActive={currentPageActive === pageNum}
+                                    className="cursor-pointer"
+                                  >
+                                    {pageNum}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            })}
+                            <PaginationItem>
+                              <PaginationNext 
+                                onClick={() => setCurrentPageActive(p => Math.min(totalPagesActive, p + 1))}
+                                className={currentPageActive === totalPagesActive ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
+                  </>
                 )}
               </TabsContent>
 
@@ -1011,28 +1078,76 @@ export default function Usuarios() {
                     No hay usuarios inactivos.
                   </div>
                 ) : (
-                  <UsersTable 
-                    users={inactiveUsers} 
-                    currentUserEmail={currentUserEmail} 
-                    getRoleBadgeColor={getRoleBadgeColor}
-                    onResetPassword={handleOpenResetPassword}
-                    onActivate={(email) => activateMutation.mutate(email)}
-                    onDeactivate={(email) => deactivateMutation.mutate(email)}
-                    onChangeRole={(email, name, roleId) => {
-                      setSelectedUserEmail(email);
-                      setSelectedUserName(name);
-                      setSelectedUserRoleId(roleId);
-                      setIsChangeRoleDialogOpen(true);
-                    }}
-                    onEditUser={(email, name, roleId, personaId) => {
-                      setSelectedUserEmail(email);
-                      setSelectedUserName(name);
-                      setSelectedUserRoleId(roleId || null);
-                      setSelectedUserPersonaId(personaId || null);
-                      setIsEditUserDialogOpen(true);
-                    }}
-                    isInactiveTab
-                  />
+                  <>
+                    <UsersTable 
+                      users={paginatedInactiveUsers} 
+                      currentUserEmail={currentUserEmail} 
+                      getRoleBadgeColor={getRoleBadgeColor}
+                      onResetPassword={handleOpenResetPassword}
+                      onActivate={(email) => activateMutation.mutate(email)}
+                      onDeactivate={(email) => deactivateMutation.mutate(email)}
+                      onChangeRole={(email, name, roleId) => {
+                        setSelectedUserEmail(email);
+                        setSelectedUserName(name);
+                        setSelectedUserRoleId(roleId);
+                        setIsChangeRoleDialogOpen(true);
+                      }}
+                      onEditUser={(email, name, roleId, personaId) => {
+                        setSelectedUserEmail(email);
+                        setSelectedUserName(name);
+                        setSelectedUserRoleId(roleId || null);
+                        setSelectedUserPersonaId(personaId || null);
+                        setIsEditUserDialogOpen(true);
+                      }}
+                      isInactiveTab
+                    />
+                    {totalPagesInactive > 1 && (
+                      <div className="flex items-center justify-between mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          Mostrando {((currentPageInactive - 1) * itemsPerPage) + 1} - {Math.min(currentPageInactive * itemsPerPage, inactiveUsers.length)} de {inactiveUsers.length}
+                        </p>
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                onClick={() => setCurrentPageInactive(p => Math.max(1, p - 1))}
+                                className={currentPageInactive === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                            {Array.from({ length: Math.min(5, totalPagesInactive) }, (_, i) => {
+                              let pageNum: number;
+                              if (totalPagesInactive <= 5) {
+                                pageNum = i + 1;
+                              } else if (currentPageInactive <= 3) {
+                                pageNum = i + 1;
+                              } else if (currentPageInactive >= totalPagesInactive - 2) {
+                                pageNum = totalPagesInactive - 4 + i;
+                              } else {
+                                pageNum = currentPageInactive - 2 + i;
+                              }
+                              return (
+                                <PaginationItem key={pageNum}>
+                                  <PaginationLink
+                                    onClick={() => setCurrentPageInactive(pageNum)}
+                                    isActive={currentPageInactive === pageNum}
+                                    className="cursor-pointer"
+                                  >
+                                    {pageNum}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            })}
+                            <PaginationItem>
+                              <PaginationNext 
+                                onClick={() => setCurrentPageInactive(p => Math.min(totalPagesInactive, p + 1))}
+                                className={currentPageInactive === totalPagesInactive ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
+                  </>
                 )}
               </TabsContent>
             </Tabs>

@@ -50,8 +50,9 @@ function getFechaLimiteEnganche(): Date {
   }
 }
 
-// Helper para obtener todas las cuentas de cobranza con comisión pagada (similar a AprobacionComisiones)
-async function fetchAllCuentasConComisionPagada() {
+// Helper para obtener todas las cuentas de cobranza con comisionistas externos
+// Ahora incluye tanto pagadas como no pagadas
+async function fetchAllCuentasConComisionistas() {
   const batchSize = 1000;
   let allData: any[] = [];
   let from = 0;
@@ -68,7 +69,6 @@ async function fetchAllCuentasConComisionPagada() {
         id_oferta,
         es_pagada_comision_venta
       `)
-      .eq("es_pagada_comision_venta", true)
       .is("id_cuenta_cobranza_padre", null)
       .order("id", { ascending: false })
       .range(from, from + batchSize - 1);
@@ -137,8 +137,8 @@ export default function ComisionesExternas() {
   const { data: cuentasConComisionistas, isLoading } = useQuery({
     queryKey: ["comisiones-externas"],
     queryFn: async () => {
-      // Paso 1: Obtener todas las cuentas donde la comisión está pagada
-      const cuentas = await fetchAllCuentasConComisionPagada();
+      // Paso 1: Obtener todas las cuentas (pagadas y no pagadas)
+      const cuentas = await fetchAllCuentasConComisionistas();
       if (!cuentas || cuentas.length === 0) return [];
 
       // Paso 2: Obtener ofertas relacionadas con propiedades y productos (en batches)
@@ -652,13 +652,14 @@ export default function ComisionesExternas() {
           <TableHead>Modelo</TableHead>
           <TableHead>No. Depto/Producto</TableHead>
           <TableHead>Precio final</TableHead>
+          <TableHead>Comisión Sozu</TableHead>
           <TableHead>Comisionistas Ext.</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {cuentas.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+            <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
               No hay comisiones externas {isPorPagar ? 'por pagar' : 'pagadas'}
             </TableCell>
           </TableRow>
@@ -690,6 +691,17 @@ export default function ComisionesExternas() {
                   <TableCell>{cuenta.numero_departamento || cuenta.producto_nombre || 'N/A'}</TableCell>
                   <TableCell>{formatMonto(cuenta.precio_final || 0)}</TableCell>
                   <TableCell>
+                    {cuenta.es_pagada_comision_venta ? (
+                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                        Pagada
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                        Pendiente
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Badge variant="secondary">
                       {comisionistasExternos.length} externo(s)
                     </Badge>
@@ -698,7 +710,7 @@ export default function ComisionesExternas() {
                 
                 {isExpanded && (
                   <TableRow key={`${cuenta.id}-expanded`}>
-                    <TableCell colSpan={9} className="bg-muted/30 p-4">
+                    <TableCell colSpan={10} className="bg-muted/30 p-4">
                       <div className="space-y-4">
                         {/* Comisionistas Externos */}
                         <div>

@@ -44,7 +44,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [nombreComercial, setNombreComercial] = useState(initialData?.nombre_comercial || '');
   const [email, setEmail] = useState(initialData?.email || '');
   const [telefono, setTelefono] = useState(initialData?.telefono || '');
-  const [clavePaisTelefono, setClavePaisTelefono] = useState(initialData?.clave_pais_telefono || '');
+  const [clavePaisTelefono, setClavePaisTelefono] = useState(initialData?.clave_pais_telefono || 'MX');
   const [tipoPersona, setTipoPersona] = useState(
     initialData?.tipo_persona || 
     (entityType === 'legal' || entityType === 'desarrollador' || entityType === 'inmobiliaria' || entityType === 'administradora' || entityType === 'banco' ? 'pm' : 
