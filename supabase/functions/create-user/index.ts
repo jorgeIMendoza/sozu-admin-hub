@@ -193,7 +193,6 @@ serve(async (req) => {
     }
 
     // For Inmobiliaria role (rol_id 4), if no id_persona is provided, try to find or create it
-    const ROLE_INMOBILIARIA = 4;
     let finalIdPersona = id_persona || null;
     
     if (rol_id === ROLE_INMOBILIARIA && !finalIdPersona) {
