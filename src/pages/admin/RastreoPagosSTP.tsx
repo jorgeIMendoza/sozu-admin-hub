@@ -20,6 +20,7 @@ interface PagoSTP {
   fecha_operacion: string | null;
   monto: number;
   cuenta_beneficiario: string;
+  cuenta_ordenante: string | null;
   nombre_ordenante: string | null;
   rfc_curp_ordenante: string | null;
   es_pago_aplicado: boolean;
@@ -57,7 +58,7 @@ export default function RastreoPagosSTP() {
     queryFn: async () => {
       let query = supabase
         .from("pagos_stp_raw")
-        .select("id, claverastreo, fecha_operacion, monto, cuenta_beneficiario, nombre_ordenante, rfc_curp_ordenante, es_pago_aplicado, razon_rechazo, fecha_creacion, id_tipo_pago")
+        .select("id, claverastreo, fecha_operacion, monto, cuenta_beneficiario, cuenta_ordenante, nombre_ordenante, rfc_curp_ordenante, es_pago_aplicado, razon_rechazo, fecha_creacion, id_tipo_pago")
         .order("fecha_creacion", { ascending: false })
         .limit(50);
 
@@ -323,6 +324,7 @@ export default function RastreoPagosSTP() {
                   <TableHead>Fecha Operación</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
                   <TableHead>CLABE STP</TableHead>
+                  <TableHead>Cuenta Ordenante</TableHead>
                   <TableHead>Nombre Ordenante</TableHead>
                   <TableHead>RFC Ordenante</TableHead>
                   <TableHead>Estatus</TableHead>
@@ -334,7 +336,7 @@ export default function RastreoPagosSTP() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       <div className="flex items-center justify-center">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                         <span className="ml-2">Cargando...</span>
@@ -343,7 +345,7 @@ export default function RastreoPagosSTP() {
                   </TableRow>
                 ) : pagos?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No se encontraron pagos con los filtros aplicados
                     </TableCell>
                   </TableRow>
@@ -387,6 +389,27 @@ export default function RastreoPagosSTP() {
                             )}
                           </Button>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {pago.cuenta_ordenante ? (
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-xs">{pago.cuenta_ordenante}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => handleCopy(pago.cuenta_ordenante!, `cuenta-ord-${pago.id}`)}
+                            >
+                              {copiedField === `cuenta-ord-${pago.id}` ? (
+                                <Check className="h-3 w-3 text-green-600" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="max-w-[150px] truncate" title={pago.nombre_ordenante || "-"}>
                         {pago.nombre_ordenante || "-"}
