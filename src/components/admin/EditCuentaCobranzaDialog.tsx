@@ -283,6 +283,28 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     }
   });
 
+  // Get sum of actual payments to calculate restante
+  const { data: sumaPagosReal } = useQuery({
+    queryKey: ["suma_pagos_real_modal", cuenta.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pagos')
+        .select('monto')
+        .eq('id_cuenta_cobranza', cuenta.id)
+        .eq('activo', true);
+      
+      if (error) throw error;
+      return data?.reduce((sum, p) => sum + Number(p.monto), 0) || 0;
+    },
+    staleTime: 30000,
+  });
+
+  // Calculate restante based on real payments
+  const restanteCalculado = useMemo(() => {
+    if (cuentaDetalle?.precio_final === undefined || sumaPagosReal === undefined) return undefined;
+    return Math.max(0, Number(cuentaDetalle.precio_final) - sumaPagosReal);
+  }, [cuentaDetalle?.precio_final, sumaPagosReal]);
+
   // Initialize comisión states when cuentaDetalle loads
   useEffect(() => {
     if (cuentaDetalle) {
@@ -2626,6 +2648,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                 cuentaId={cuenta.id}
                 propiedadId={propiedadDetalle.id}
                 estatusActual={estatusPropiedad.id_estatus_disponibilidad}
+                restante={restanteCalculado}
                 cuentaDetalle={cuentaDetalle}
               />
             )}

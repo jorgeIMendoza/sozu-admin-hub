@@ -13,6 +13,7 @@ import {
 interface PropertyProgressBadgeProps {
   cuentaId: number;
   estatusActual: number;
+  restante?: number;
   cuentaDetalle?: {
     numero_escritura?: string | null;
     fecha_escritura?: string | null;
@@ -50,6 +51,7 @@ interface TipoDocumentoRow {
 export function PropertyProgressBadge({
   cuentaId,
   estatusActual,
+  restante,
   cuentaDetalle,
 }: PropertyProgressBadgeProps) {
   const [selectedStage, setSelectedStage] = useState<StageData | null>(null);
@@ -175,6 +177,14 @@ export function PropertyProgressBadge({
       });
     }
 
+    // New condition: Saldo cubierto (validates real balance)
+    const saldoCubierto = (restante ?? 0) <= 0.01;
+    pagosConditions.push({
+      label: 'Saldo cubierto',
+      completed: saldoCubierto,
+      detail: saldoCubierto ? 'Sin saldo pendiente' : `Restante: $${(restante ?? 0).toFixed(2)}`
+    });
+
     pagosConditions.push({
       label: 'Compradores registrados',
       completed: hasCompradores,
@@ -209,12 +219,13 @@ export function PropertyProgressBadge({
       detail: estatusActual >= 7 ? 'Ya en escrituración' : estatusValidoEscrituracion ? 'Listo' : 'Debe estar Vendido o Pagada'
     });
 
+    // Use restante prop if available, otherwise use acuerdos-based check
     const pagosPendientes = acuerdosPago?.filter(a => a.id_concepto !== 9 && !a.pago_completado) ?? [];
-    const cuentaPagada = pagosPendientes.length === 0;
+    const cuentaPagada = restante !== undefined ? (restante <= 0.01) : (pagosPendientes.length === 0);
     escrituracionConditions.push({
       label: 'Cuenta pagada completamente',
       completed: cuentaPagada,
-      detail: cuentaPagada ? 'Todos los pagos completados' : `${pagosPendientes.length} pago(s) pendiente(s)`
+      detail: cuentaPagada ? 'Saldo cubierto' : (restante !== undefined ? `Restante: $${restante.toFixed(2)}` : `${pagosPendientes.length} pago(s) pendiente(s)`)
     });
 
     escrituracionConditions.push({
