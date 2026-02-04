@@ -32,7 +32,7 @@ export default function RegistroInmobiliaria() {
     razon_social: "",
     email: "",
     telefono: "",
-    clave_pais_telefono: "+52",
+    clave_pais_telefono: "MX",
   });
   const [representanteLegal, setRepresentanteLegal] = useState<RepresentanteLegal | null>(null);
   const [isRepLegalDialogOpen, setIsRepLegalDialogOpen] = useState(false);
@@ -226,8 +226,8 @@ export default function RegistroInmobiliaria() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="+52">🇲🇽 +52</SelectItem>
-                      <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                      <SelectItem value="MX">🇲🇽 +52</SelectItem>
+                      <SelectItem value="US">🇺🇸 +1</SelectItem>
                     </SelectContent>
                   </Select>
                   <Input

@@ -33,7 +33,7 @@ export function PublicRepresentanteLegalForm({
     nombre_legal: initialData?.nombre_legal || "",
     email: initialData?.email || "",
     telefono: initialData?.telefono || "",
-    clave_pais_telefono: initialData?.clave_pais_telefono || "+52",
+    clave_pais_telefono: initialData?.clave_pais_telefono || "MX",
     rfc: initialData?.rfc || "",
   });
 
@@ -97,8 +97,8 @@ export function PublicRepresentanteLegalForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="+52">🇲🇽 +52</SelectItem>
-              <SelectItem value="+1">🇺🇸 +1</SelectItem>
+              <SelectItem value="MX">🇲🇽 +52</SelectItem>
+              <SelectItem value="US">🇺🇸 +1</SelectItem>
             </SelectContent>
           </Select>
           <Input
