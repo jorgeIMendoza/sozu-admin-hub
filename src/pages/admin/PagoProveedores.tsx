@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +41,7 @@ export default function PagoProveedores() {
     search: '',
     fechaDesde: '',
     fechaHasta: '',
-    beneficiario: 'all'
+    beneficiario: ''
   });
   
   const { exportToExcel, isExporting } = useExportToExcel();
@@ -83,8 +83,8 @@ export default function PagoProveedores() {
       if (filters.fechaHasta) {
         countQuery = countQuery.lte('fecha_operacion', filters.fechaHasta);
       }
-      if (filters.beneficiario !== 'all') {
-        countQuery = countQuery.eq('cuenta_beneficiario', filters.beneficiario);
+      if (filters.beneficiario) {
+        countQuery = countQuery.ilike('cuenta_beneficiario', `%${filters.beneficiario}%`);
       }
       if (filters.search) {
         countQuery = countQuery.ilike('claverastreo', `%${filters.search}%`);
@@ -111,8 +111,8 @@ export default function PagoProveedores() {
       if (filters.fechaHasta) {
         dataQuery = dataQuery.lte('fecha_operacion', filters.fechaHasta);
       }
-      if (filters.beneficiario !== 'all') {
-        dataQuery = dataQuery.eq('cuenta_beneficiario', filters.beneficiario);
+      if (filters.beneficiario) {
+        dataQuery = dataQuery.ilike('cuenta_beneficiario', `%${filters.beneficiario}%`);
       }
       if (filters.search) {
         dataQuery = dataQuery.ilike('claverastreo', `%${filters.search}%`);
@@ -150,7 +150,7 @@ export default function PagoProveedores() {
       // Aplicar filtros
       if (filters.fechaDesde) query = query.gte('fecha_operacion', filters.fechaDesde);
       if (filters.fechaHasta) query = query.lte('fecha_operacion', filters.fechaHasta);
-      if (filters.beneficiario !== 'all') query = query.eq('cuenta_beneficiario', filters.beneficiario);
+      if (filters.beneficiario) query = query.ilike('cuenta_beneficiario', `%${filters.beneficiario}%`);
       if (filters.search) query = query.ilike('claverastreo', `%${filters.search}%`);
       
       const { data, error } = await query;
@@ -186,7 +186,7 @@ export default function PagoProveedores() {
       search: '',
       fechaDesde: '',
       fechaHasta: '',
-      beneficiario: 'all'
+      beneficiario: ''
     });
     setCurrentPage(1);
   };
@@ -203,7 +203,10 @@ export default function PagoProveedores() {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     try {
-      return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
+      // Parse date components directly to avoid timezone issues
+      const [year, month, day] = dateString.split('-').map(Number);
+      const localDate = new Date(year, month - 1, day);
+      return format(localDate, 'dd/MM/yyyy', { locale: es });
     } catch {
       return dateString;
     }
@@ -267,25 +270,15 @@ export default function PagoProveedores() {
             
             <div className="space-y-2">
               <Label htmlFor="beneficiario">Cuenta Beneficiario</Label>
-              <Select
+              <Input
+                id="beneficiario"
+                placeholder="Buscar cuenta beneficiario..."
                 value={filters.beneficiario}
-                onValueChange={(value) => {
-                  setFilters(prev => ({ ...prev, beneficiario: value }));
+                onChange={(e) => {
+                  setFilters(prev => ({ ...prev, beneficiario: e.target.value }));
                   setCurrentPage(1);
                 }}
-              >
-                <SelectTrigger id="beneficiario">
-                  <SelectValue placeholder="Todos los beneficiarios" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los beneficiarios</SelectItem>
-                  {proveedorCuentas.map((prov) => (
-                    <SelectItem key={prov.cuenta_stp_comisiones} value={prov.cuenta_stp_comisiones}>
-                      {prov.personas?.nombre_legal || prov.cuenta_stp_comisiones}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
             
             <div className="space-y-2">
@@ -315,7 +308,7 @@ export default function PagoProveedores() {
             </div>
           </div>
           
-          {(filters.search || filters.fechaDesde || filters.fechaHasta || filters.beneficiario !== 'all') && (
+          {(filters.search || filters.fechaDesde || filters.fechaHasta || filters.beneficiario) && (
             <div className="mt-4 flex justify-end">
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-2" />
