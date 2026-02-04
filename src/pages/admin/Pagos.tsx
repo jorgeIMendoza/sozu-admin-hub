@@ -1754,11 +1754,12 @@ export default function Pagos() {
                          </TableCell>
                          {/* Progress column - only for Propiedad */}
                          <TableCell>
-                           {cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad ? (
-                             <PropertyProgressBadge 
-                               cuentaId={cuenta.id} 
-                               estatusActual={cuenta.id_estatus_disponibilidad} 
-                             />
+                            {cuenta.tipo === 'Propiedad' && cuenta.id_estatus_disponibilidad ? (
+                              <PropertyProgressBadge 
+                                cuentaId={cuenta.id} 
+                                estatusActual={cuenta.id_estatus_disponibilidad}
+                                restante={cuenta.restante}
+                              />
                            ) : (
                              <span className="text-muted-foreground text-xs">N/A</span>
                            )}
