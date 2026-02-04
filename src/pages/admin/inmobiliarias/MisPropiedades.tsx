@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, FileSpreadsheet, Building2, Home, Filter, FileText } from "lucide-react";
+import { Search, FileSpreadsheet, Building2, Home, Filter, FileText, Car, Warehouse, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +11,11 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 import { InmobiliariaHeader } from "@/components/admin/InmobiliariaHeader";
+import { EstacionamientosDetailDialog } from "@/components/admin/EstacionamientosDetailDialog";
+import { BodegasDetailDialog } from "@/components/admin/BodegasDetailDialog";
+import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
+import { useToast } from "@/hooks/use-toast";
 
 const ITEMS_PER_PAGE = 50;
 // ID del estatus "Disponible" - las inmobiliarias solo ven propiedades disponibles
@@ -28,6 +31,14 @@ export default function MisPropiedades() {
   const { canExport, canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/mis-propiedades');
   const { exportToExcel, isExporting } = useExportToExcel();
   const { profile } = useAuth();
+  const { toast } = useToast();
+
+  // State for detail dialogs
+  const [estacionamientosDialogOpen, setEstacionamientosDialogOpen] = useState(false);
+  const [bodegasDialogOpen, setBodegasDialogOpen] = useState(false);
+  const [selectedPropertyEstacionamientos, setSelectedPropertyEstacionamientos] = useState<any[]>([]);
+  const [selectedPropertyBodegas, setSelectedPropertyBodegas] = useState<any[]>([]);
+  const [selectedPropertyForDetail, setSelectedPropertyForDetail] = useState<any | null>(null);
 
   // Get the projects the inmobiliaria has access to
   const { data: projectIds = [], isLoading: loadingProjects } = useQuery({
@@ -415,12 +426,115 @@ export default function MisPropiedades() {
       'Estatus': p.estatus_disponibilidad_nombre,
       'Cuenta Cobranza': p.cuenta_cobranza_id ? 'Sí' : 'No',
       'CLABE': p.clabe_stp || '-',
-      'Precio Final': p.precio_final || 0,
-      'Pagado': p.total_pagado || 0,
-      'Restante': (p.precio_final || 0) - (p.total_pagado || 0),
     }));
 
     await exportToExcel({ data: exportData, filename: 'Mis_Propiedades' });
+  };
+
+  // Función para obtener estacionamientos de una propiedad
+  const fetchPropertyEstacionamientos = async (propertyId: number) => {
+    const { data, error } = await supabase
+      .from('estacionamientos')
+      .select(`
+        id,
+        nombre,
+        m2,
+        ubicacion,
+        tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre),
+        productos_servicios!estacionamientos_id_producto_fkey(precio_lista)
+      `)
+      .eq('id_propiedad', propertyId)
+      .eq('activo', true)
+      .order('nombre');
+    
+    if (error) {
+      console.error('Error fetching estacionamientos:', error);
+      return [];
+    }
+
+    return (data || []).map((item: any) => {
+      const precioM2 = item.productos_servicios?.precio_lista ?? null;
+      const precioFinal = precioM2 !== null ? Number(item.m2 || 0) * Number(precioM2) : null;
+      return {
+        id: item.id,
+        nombre: item.nombre,
+        tipo_nombre: item.tipos_estacionamiento?.nombre || 'N/A',
+        m2: item.m2,
+        ubicacion: item.ubicacion,
+        precio_m2: precioM2,
+        precio_final: precioFinal
+      };
+    });
+  };
+
+  // Función para obtener bodegas de una propiedad
+  const fetchPropertyBodegas = async (propertyId: number) => {
+    const { data, error } = await supabase
+      .from('bodegas')
+      .select(`
+        id,
+        nombre,
+        m2,
+        ubicacion,
+        productos_servicios!bodegas_id_producto_fkey(precio_lista)
+      `)
+      .eq('id_propiedad', propertyId)
+      .eq('activo', true)
+      .order('nombre');
+    
+    if (error) {
+      console.error('Error fetching bodegas:', error);
+      return [];
+    }
+
+    return (data || []).map((item: any) => {
+      const precioM2 = item.productos_servicios?.precio_lista ?? null;
+      const precioFinal = precioM2 !== null && item.m2 ? Number(item.m2) * Number(precioM2) : null;
+      return {
+        id: item.id,
+        nombre: item.nombre,
+        m2: item.m2,
+        ubicacion: item.ubicacion,
+        precio_m2: precioM2,
+        precio_final: precioFinal
+      };
+    });
+  };
+
+  const handleViewEstacionamientos = async (property: any) => {
+    if (property.num_estacionamientos === 0) return;
+    
+    try {
+      const estacionamientos = await fetchPropertyEstacionamientos(property.id);
+      setSelectedPropertyEstacionamientos(estacionamientos);
+      setSelectedPropertyForDetail(property);
+      setEstacionamientosDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching estacionamientos:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los estacionamientos",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewBodegas = async (property: any) => {
+    if (property.num_bodegas === 0) return;
+    
+    try {
+      const bodegas = await fetchPropertyBodegas(property.id);
+      setSelectedPropertyBodegas(bodegas);
+      setSelectedPropertyForDetail(property);
+      setBodegasDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching bodegas:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las bodegas",
+        variant: "destructive",
+      });
+    }
   };
 
   const clearFilters = () => {
@@ -582,16 +696,13 @@ export default function MisPropiedades() {
                   <TableHead>Estatus</TableHead>
                   <TableHead>Cta. Cob.</TableHead>
                   <TableHead>CLABE</TableHead>
-                  <TableHead>Precio Final</TableHead>
-                  <TableHead>Pagado</TableHead>
-                  <TableHead>Restante</TableHead>
                   {canGenerateOffer && <TableHead>Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedProps.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canGenerateOffer ? 19 : 18} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={canGenerateOffer ? 16 : 15} className="text-center py-8 text-muted-foreground">
                       No se encontraron propiedades
                     </TableCell>
                   </TableRow>
@@ -606,8 +717,40 @@ export default function MisPropiedades() {
                       <TableCell>{p.area_total ? `${p.area_total} m²` : '-'}</TableCell>
                       <TableCell>{p.recamaras || 0}R/{p.banos || 0}B</TableCell>
                       <TableCell>{formatCurrency(p.precio_lista)}</TableCell>
-                      <TableCell>{p.num_estacionamientos || 0}</TableCell>
-                      <TableCell>{p.num_bodegas || 0}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewEstacionamientos(p)}
+                          disabled={p.num_estacionamientos === 0}
+                          className="p-0 h-auto font-normal"
+                        >
+                          <Badge 
+                            variant={p.num_estacionamientos > 0 ? "default" : "outline"}
+                            className={p.num_estacionamientos > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
+                          >
+                            {p.num_estacionamientos > 0 ? p.num_estacionamientos : "No"}
+                            {p.num_estacionamientos > 0 && <Car className="ml-1 h-3 w-3" />}
+                          </Badge>
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewBodegas(p)}
+                          disabled={p.num_bodegas === 0}
+                          className="p-0 h-auto font-normal"
+                        >
+                          <Badge 
+                            variant={p.num_bodegas > 0 ? "default" : "outline"}
+                            className={p.num_bodegas > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
+                          >
+                            {p.num_bodegas > 0 ? p.num_bodegas : "No"}
+                            {p.num_bodegas > 0 && <Warehouse className="ml-1 h-3 w-3" />}
+                          </Badge>
+                        </Button>
+                      </TableCell>
                       <TableCell>{p.num_ofertas || 0}</TableCell>
                       <TableCell>{p.num_ofertas_productos || 0}</TableCell>
                       <TableCell>
@@ -617,19 +760,23 @@ export default function MisPropiedades() {
                       </TableCell>
                       <TableCell>{p.cuenta_cobranza_id ? 'Sí' : 'No'}</TableCell>
                       <TableCell className="font-mono text-xs">{p.clabe_stp || '-'}</TableCell>
-                      <TableCell>{formatCurrency(p.precio_final)}</TableCell>
-                      <TableCell>{formatCurrency(p.total_pagado)}</TableCell>
-                      <TableCell>{formatCurrency((p.precio_final || 0) - (p.total_pagado || 0))}</TableCell>
                       {canGenerateOffer && (
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Generar Oferta"
-                            disabled={p.estatus_disponibilidad_nombre?.toLowerCase() !== 'disponible'}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
+                          {p.estatus_disponibilidad_nombre?.toLowerCase() === 'disponible' ? (
+                            <NewOfferDialog
+                              propertyId={p.id}
+                              propertyNumber={p.numero_departamento}
+                            />
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Generar Oferta"
+                              disabled
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
@@ -666,6 +813,21 @@ export default function MisPropiedades() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <EstacionamientosDetailDialog
+        open={estacionamientosDialogOpen}
+        onClose={() => setEstacionamientosDialogOpen(false)}
+        estacionamientos={selectedPropertyEstacionamientos}
+        propertyNumber={selectedPropertyForDetail?.numero_departamento || ""}
+      />
+      
+      <BodegasDetailDialog
+        open={bodegasDialogOpen}
+        onClose={() => setBodegasDialogOpen(false)}
+        bodegas={selectedPropertyBodegas}
+        propertyNumber={selectedPropertyForDetail?.numero_departamento || ""}
+      />
     </div>
   );
 }

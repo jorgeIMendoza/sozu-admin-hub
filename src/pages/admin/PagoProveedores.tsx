@@ -41,7 +41,6 @@ export default function PagoProveedores() {
     search: '',
     fechaDesde: '',
     fechaHasta: '',
-    empresa: 'all',
     beneficiario: 'all'
   });
   
@@ -60,27 +59,6 @@ export default function PagoProveedores() {
       if (error) throw error;
       return (data || []) as ProveedorCuenta[];
     }
-  });
-
-  // Query para obtener empresas únicas
-  const { data: empresasUnicas = [] } = useQuery({
-    queryKey: ['empresas-unicas-proveedores', proveedorCuentas],
-    queryFn: async () => {
-      if (proveedorCuentas.length === 0) return [];
-      const cuentas = proveedorCuentas.map(p => p.cuenta_stp_comisiones);
-      
-      const { data, error } = await supabase
-        .from('pagos_stp_raw')
-        .select('empresa')
-        .eq('es_pago_aplicado', true)
-        .in('cuenta_beneficiario', cuentas)
-        .not('empresa', 'is', null);
-      
-      if (error) throw error;
-      const uniqueEmpresas = [...new Set(data?.map(d => d.empresa).filter(Boolean))] as string[];
-      return uniqueEmpresas;
-    },
-    enabled: proveedorCuentas.length > 0
   });
 
   // Query principal con paginacion (sin limite de 1000)
@@ -105,14 +83,11 @@ export default function PagoProveedores() {
       if (filters.fechaHasta) {
         countQuery = countQuery.lte('fecha_operacion', filters.fechaHasta);
       }
-      if (filters.empresa !== 'all') {
-        countQuery = countQuery.eq('empresa', filters.empresa);
-      }
       if (filters.beneficiario !== 'all') {
         countQuery = countQuery.eq('cuenta_beneficiario', filters.beneficiario);
       }
       if (filters.search) {
-        countQuery = countQuery.or(`claverastreo.ilike.%${filters.search}%,nombre_beneficiario.ilike.%${filters.search}%,concepto_pago.ilike.%${filters.search}%`);
+        countQuery = countQuery.ilike('claverastreo', `%${filters.search}%`);
       }
       
       const { count } = await countQuery;
@@ -136,14 +111,11 @@ export default function PagoProveedores() {
       if (filters.fechaHasta) {
         dataQuery = dataQuery.lte('fecha_operacion', filters.fechaHasta);
       }
-      if (filters.empresa !== 'all') {
-        dataQuery = dataQuery.eq('empresa', filters.empresa);
-      }
       if (filters.beneficiario !== 'all') {
         dataQuery = dataQuery.eq('cuenta_beneficiario', filters.beneficiario);
       }
       if (filters.search) {
-        dataQuery = dataQuery.or(`claverastreo.ilike.%${filters.search}%,nombre_beneficiario.ilike.%${filters.search}%,concepto_pago.ilike.%${filters.search}%`);
+        dataQuery = dataQuery.ilike('claverastreo', `%${filters.search}%`);
       }
       
       const { data, error } = await dataQuery;
@@ -178,9 +150,8 @@ export default function PagoProveedores() {
       // Aplicar filtros
       if (filters.fechaDesde) query = query.gte('fecha_operacion', filters.fechaDesde);
       if (filters.fechaHasta) query = query.lte('fecha_operacion', filters.fechaHasta);
-      if (filters.empresa !== 'all') query = query.eq('empresa', filters.empresa);
       if (filters.beneficiario !== 'all') query = query.eq('cuenta_beneficiario', filters.beneficiario);
-      if (filters.search) query = query.or(`claverastreo.ilike.%${filters.search}%,nombre_beneficiario.ilike.%${filters.search}%,concepto_pago.ilike.%${filters.search}%`);
+      if (filters.search) query = query.ilike('claverastreo', `%${filters.search}%`);
       
       const { data, error } = await query;
       if (error) break;
@@ -215,7 +186,6 @@ export default function PagoProveedores() {
       search: '',
       fechaDesde: '',
       fechaHasta: '',
-      empresa: 'all',
       beneficiario: 'all'
     });
     setCurrentPage(1);
@@ -281,18 +251,41 @@ export default function PagoProveedores() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="search">Búsqueda</Label>
+              <Label htmlFor="search">Clave de Rastreo</Label>
               <Input
                 id="search"
-                placeholder="Clave, beneficiario, concepto..."
+                placeholder="Buscar clave de rastreo..."
                 value={filters.search}
                 onChange={(e) => {
                   setFilters(prev => ({ ...prev, search: e.target.value }));
                   setCurrentPage(1);
                 }}
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="beneficiario">Cuenta Beneficiario</Label>
+              <Select
+                value={filters.beneficiario}
+                onValueChange={(value) => {
+                  setFilters(prev => ({ ...prev, beneficiario: value }));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger id="beneficiario">
+                  <SelectValue placeholder="Todos los beneficiarios" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los beneficiarios</SelectItem>
+                  {proveedorCuentas.map((prov) => (
+                    <SelectItem key={prov.cuenta_stp_comisiones} value={prov.cuenta_stp_comisiones}>
+                      {prov.personas?.nombre_legal || prov.cuenta_stp_comisiones}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">
@@ -320,55 +313,9 @@ export default function PagoProveedores() {
                 }}
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="empresa">Empresa</Label>
-              <Select
-                value={filters.empresa}
-                onValueChange={(value) => {
-                  setFilters(prev => ({ ...prev, empresa: value }));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger id="empresa">
-                  <SelectValue placeholder="Todas las empresas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las empresas</SelectItem>
-                  {empresasUnicas.map((empresa) => (
-                    <SelectItem key={empresa} value={empresa}>
-                      {empresa}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="beneficiario">Beneficiario</Label>
-              <Select
-                value={filters.beneficiario}
-                onValueChange={(value) => {
-                  setFilters(prev => ({ ...prev, beneficiario: value }));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger id="beneficiario">
-                  <SelectValue placeholder="Todos los beneficiarios" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los beneficiarios</SelectItem>
-                  {proveedorCuentas.map((prov) => (
-                    <SelectItem key={prov.cuenta_stp_comisiones} value={prov.cuenta_stp_comisiones}>
-                      {prov.personas?.nombre_legal || prov.cuenta_stp_comisiones}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           
-          {(filters.search || filters.fechaDesde || filters.fechaHasta || filters.empresa !== 'all' || filters.beneficiario !== 'all') && (
+          {(filters.search || filters.fechaDesde || filters.fechaHasta || filters.beneficiario !== 'all') && (
             <div className="mt-4 flex justify-end">
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="h-4 w-4 mr-2" />
