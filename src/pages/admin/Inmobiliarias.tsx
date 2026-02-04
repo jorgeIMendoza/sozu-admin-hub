@@ -1079,7 +1079,7 @@ export default function Inmobiliarias() {
           mensaje: {
             nombre: inmobiliaria.nombre_legal || inmobiliaria.nombre_comercial,
             actividad: "Aprobación de inmobiliaria",
-            detalles: `<tr><td class='label'>Link:</td><td class='value'>https://admin.sozu.com/</td></tr><tr><td class='label'>Usuario:</td><td class='value'>${inmobiliaria.email}</td></tr><tr><td class='label'>Password:</td><td class='value'>Temporal123!</td></tr>`
+            detalles: `<tr><td class='label'>Link:</td><td class='value'>admin.sozu.com</td></tr><tr><td class='label'>Usuario:</td><td class='value'>${inmobiliaria.email}</td></tr><tr><td class='label'>Password:</td><td class='value'>Temporal123!</td></tr>`
           },
           templateId: 41353048
         };
