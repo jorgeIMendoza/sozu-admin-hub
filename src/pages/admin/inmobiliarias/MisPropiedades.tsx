@@ -549,10 +549,10 @@ export default function MisPropiedades() {
   const fetchPropertyOffers = async (propertyId: number): Promise<any[]> => {
     if (!selectedInmobiliariaId) return [];
     
-    // Get all offers for this property then filter
+    // Get all offers for this property
     const { data: offersData, error } = await supabase
       .from('ofertas')
-      .select('id, fecha_generacion, activo, id_persona_lead, email_creador, id_esquema_pago_seleccionado, clabe_stp_tmp_apartado, id_persona_duena_lead')
+      .select('id, fecha_generacion, activo, id_persona_lead, email_creador, id_esquema_pago_seleccionado')
       .eq('id_propiedad', propertyId)
       .is('id_producto', null)
       .eq('activo', true)
@@ -568,7 +568,7 @@ export default function MisPropiedades() {
     
     const { data: offersData, error } = await supabase
       .from('ofertas')
-      .select('id, fecha_generacion, activo, id_persona_lead, email_creador, id_esquema_pago_seleccionado, id_producto, clabe_stp_tmp_producto, id_persona_duena_lead')
+      .select('id, fecha_generacion, activo, id_persona_lead, email_creador, id_esquema_pago_seleccionado, id_producto, clabe_stp_tmp_producto')
       .eq('id_propiedad', propertyId)
       .not('id_producto', 'is', null)
       .eq('activo', true)
