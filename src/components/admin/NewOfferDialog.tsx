@@ -181,9 +181,11 @@ interface NewOfferDialogProps {
   propertyId: number;
   propertyNumber: string;
   forceManualMode?: boolean; // For resale properties that require manual mode only
+  hideManualMode?: boolean; // Hide the manual mode option (for inmobiliarias portal)
+  hidePdfOptions?: boolean; // Hide PDF visualization options (for inmobiliarias portal)
 }
 
-export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false }: NewOfferDialogProps) {
+export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false }: NewOfferDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1308,9 +1310,10 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Mode Selection - Manual available for all roles except Agente Inmobiliario */}
+            {/* Mode Selection - Manual available for all roles except Agente Inmobiliario, hidden if hideManualMode is true */}
             {(() => {
-              const canUseManualMode = profile?.rol_nombre !== 'Agente Inmobiliario';
+              // If hideManualMode is true, don't show the manual option
+              const canUseManualMode = !hideManualMode && profile?.rol_nombre !== 'Agente Inmobiliario';
               
               // If forceManualMode is true (Reventa), show only manual mode as a badge
               if (forceManualMode) {
@@ -1323,6 +1326,11 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                     </div>
                   </div>
                 );
+              }
+              
+              // If hideManualMode is true, don't show radio options, just show "Precargada" as the only option
+              if (hideManualMode) {
+                return null; // Don't show the mode selection at all
               }
               
               return (
@@ -2042,73 +2050,75 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
 
              <Separator />
 
-             {/* Opciones de visualización en PDF */}
-             <div className="space-y-4">
-               <h3 className="text-sm font-semibold">Opciones de visualización en PDF</h3>
-               <p className="text-xs text-muted-foreground">
-                 Selecciona qué información deseas mostrar en esta oferta
-               </p>
-               
-               {propertyDetails?.entidades_relacionadas?.proyectos?.mostrar_piso_en_oferta !== false && (
-                 <FormField
-                   control={form.control}
-                   name="mostrar_piso_en_oferta"
-                   render={({ field }) => (
-                     <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                       <FormControl>
-                         <Checkbox
-                           checked={field.value}
-                           onCheckedChange={field.onChange}
-                         />
-                       </FormControl>
-                       <div className="space-y-1 leading-none">
-                         <FormLabel>Mostrar nivel</FormLabel>
-                       </div>
-                     </FormItem>
-                   )}
-                 />
-               )}
-               
-               {propertyDetails?.entidades_relacionadas?.proyectos?.mostrar_precio_m2_en_oferta !== false && (
-                 <FormField
-                   control={form.control}
-                   name="mostrar_precio_m2_en_oferta"
-                   render={({ field }) => (
-                     <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                       <FormControl>
-                         <Checkbox
-                           checked={field.value}
-                           onCheckedChange={field.onChange}
-                         />
-                       </FormControl>
-                       <div className="space-y-1 leading-none">
-                         <FormLabel>Mostrar precio por m²</FormLabel>
-                       </div>
-                     </FormItem>
-                   )}
-                 />
-               )}
-               
-               {propertyDetails?.entidades_relacionadas?.proyectos?.mostrar_seccion_efectivo_en_oferta !== false && (
-                 <FormField
-                   control={form.control}
-                   name="mostrar_seccion_efectivo_en_oferta"
-                   render={({ field }) => (
-                     <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                       <FormControl>
-                         <Checkbox
-                           checked={field.value}
-                           onCheckedChange={field.onChange}
-                         />
-                       </FormControl>
-                       <div className="space-y-1 leading-none">
-                         <FormLabel>Mostrar sección de pago en efectivo</FormLabel>
-                       </div>
-                     </FormItem>
-                   )}
-                 />
-               )}
-             </div>
+             {/* Opciones de visualización en PDF - Hidden if hidePdfOptions is true */}
+             {!hidePdfOptions && (
+               <div className="space-y-4">
+                 <h3 className="text-sm font-semibold">Opciones de visualización en PDF</h3>
+                 <p className="text-xs text-muted-foreground">
+                   Selecciona qué información deseas mostrar en esta oferta
+                 </p>
+                 
+                 {propertyDetails?.entidades_relacionadas?.proyectos?.mostrar_piso_en_oferta !== false && (
+                   <FormField
+                     control={form.control}
+                     name="mostrar_piso_en_oferta"
+                     render={({ field }) => (
+                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                         <FormControl>
+                           <Checkbox
+                             checked={field.value}
+                             onCheckedChange={field.onChange}
+                           />
+                         </FormControl>
+                         <div className="space-y-1 leading-none">
+                           <FormLabel>Mostrar nivel</FormLabel>
+                         </div>
+                       </FormItem>
+                     )}
+                   />
+                 )}
+                 
+                 {propertyDetails?.entidades_relacionadas?.proyectos?.mostrar_precio_m2_en_oferta !== false && (
+                   <FormField
+                     control={form.control}
+                     name="mostrar_precio_m2_en_oferta"
+                     render={({ field }) => (
+                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                         <FormControl>
+                           <Checkbox
+                             checked={field.value}
+                             onCheckedChange={field.onChange}
+                           />
+                         </FormControl>
+                         <div className="space-y-1 leading-none">
+                           <FormLabel>Mostrar precio por m²</FormLabel>
+                         </div>
+                       </FormItem>
+                     )}
+                   />
+                 )}
+                 
+                 {propertyDetails?.entidades_relacionadas?.proyectos?.mostrar_seccion_efectivo_en_oferta !== false && (
+                   <FormField
+                     control={form.control}
+                     name="mostrar_seccion_efectivo_en_oferta"
+                     render={({ field }) => (
+                       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                         <FormControl>
+                           <Checkbox
+                             checked={field.value}
+                             onCheckedChange={field.onChange}
+                           />
+                         </FormControl>
+                         <div className="space-y-1 leading-none">
+                           <FormLabel>Mostrar sección de pago en efectivo</FormLabel>
+                         </div>
+                       </FormItem>
+                     )}
+                   />
+                 )}
+               </div>
+             )}
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button

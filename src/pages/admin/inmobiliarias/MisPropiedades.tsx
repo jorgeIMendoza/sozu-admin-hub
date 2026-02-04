@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +40,13 @@ export default function MisPropiedades() {
   const [selectedPropertyEstacionamientos, setSelectedPropertyEstacionamientos] = useState<any[]>([]);
   const [selectedPropertyBodegas, setSelectedPropertyBodegas] = useState<any[]>([]);
   const [selectedPropertyForDetail, setSelectedPropertyForDetail] = useState<any | null>(null);
+  
+  // State for offers dialogs
+  const [offersDialogOpen, setOffersDialogOpen] = useState(false);
+  const [productOffersDialogOpen, setProductOffersDialogOpen] = useState(false);
+  const [selectedPropertyOffers, setSelectedPropertyOffers] = useState<any[]>([]);
+  const [selectedPropertyProductOffers, setSelectedPropertyProductOffers] = useState<any[]>([]);
+  const [selectedPropertyForOffers, setSelectedPropertyForOffers] = useState<any | null>(null);
 
   // Get the projects the inmobiliaria has access to
   const { data: projectIds = [], isLoading: loadingProjects } = useQuery({
@@ -537,6 +545,63 @@ export default function MisPropiedades() {
     }
   };
 
+  // Fetch property offers (for agents of the selected inmobiliaria)
+  const fetchPropertyOffers = async (propertyId: number): Promise<any[]> => {
+    if (!selectedInmobiliariaId) return [];
+    
+    // Get all offers for this property then filter
+    const { data: offersData, error } = await supabase
+      .from('ofertas')
+      .select('id, fecha_generacion, activo, id_persona_lead, email_creador, id_esquema_pago_seleccionado, clabe_stp_tmp_apartado, id_persona_duena_lead')
+      .eq('id_propiedad', propertyId)
+      .is('id_producto', null)
+      .eq('activo', true)
+      .order('fecha_generacion', { ascending: false });
+    
+    if (error) throw error;
+    return offersData || [];
+  };
+
+  // Fetch property product offers
+  const fetchPropertyProductOffers = async (propertyId: number): Promise<any[]> => {
+    if (!selectedInmobiliariaId) return [];
+    
+    const { data: offersData, error } = await supabase
+      .from('ofertas')
+      .select('id, fecha_generacion, activo, id_persona_lead, email_creador, id_esquema_pago_seleccionado, id_producto, clabe_stp_tmp_producto, id_persona_duena_lead')
+      .eq('id_propiedad', propertyId)
+      .not('id_producto', 'is', null)
+      .eq('activo', true)
+      .order('fecha_generacion', { ascending: false });
+    
+    if (error) throw error;
+    return offersData || [];
+  };
+
+  const handleViewOffers = async (property: any) => {
+    if (property.num_ofertas === 0) return;
+    try {
+      const offers = await fetchPropertyOffers(property.id);
+      setSelectedPropertyOffers(offers);
+      setSelectedPropertyForOffers(property);
+      setOffersDialogOpen(true);
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudieron cargar las ofertas", variant: "destructive" });
+    }
+  };
+
+  const handleViewProductOffers = async (property: any) => {
+    if (property.num_ofertas_productos === 0) return;
+    try {
+      const offers = await fetchPropertyProductOffers(property.id);
+      setSelectedPropertyProductOffers(offers);
+      setSelectedPropertyForOffers(property);
+      setProductOffersDialogOpen(true);
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudieron cargar las ofertas de productos", variant: "destructive" });
+    }
+  };
+
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedProyecto("all");
@@ -751,8 +816,38 @@ export default function MisPropiedades() {
                           </Badge>
                         </Button>
                       </TableCell>
-                      <TableCell>{p.num_ofertas || 0}</TableCell>
-                      <TableCell>{p.num_ofertas_productos || 0}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewOffers(p)}
+                          disabled={p.num_ofertas === 0}
+                          className="p-0 h-auto font-normal"
+                        >
+                          <Badge 
+                            variant={p.num_ofertas > 0 ? "default" : "outline"}
+                            className={p.num_ofertas > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
+                          >
+                            {p.num_ofertas || 0}
+                          </Badge>
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewProductOffers(p)}
+                          disabled={p.num_ofertas_productos === 0}
+                          className="p-0 h-auto font-normal"
+                        >
+                          <Badge 
+                            variant={p.num_ofertas_productos > 0 ? "default" : "outline"}
+                            className={p.num_ofertas_productos > 0 ? "cursor-pointer hover:bg-primary/80" : ""}
+                          >
+                            {p.num_ofertas_productos || 0}
+                          </Badge>
+                        </Button>
+                      </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(p.estatus_disponibilidad_nombre)}>
                           {p.estatus_disponibilidad_nombre || '-'}
@@ -766,6 +861,8 @@ export default function MisPropiedades() {
                             <NewOfferDialog
                               propertyId={p.id}
                               propertyNumber={p.numero_departamento}
+                              hideManualMode={true}
+                              hidePdfOptions={true}
                             />
                           ) : (
                             <Button
@@ -828,6 +925,68 @@ export default function MisPropiedades() {
         bodegas={selectedPropertyBodegas}
         propertyNumber={selectedPropertyForDetail?.numero_departamento || ""}
       />
+
+      {/* Offers Dialog */}
+      <Dialog open={offersDialogOpen} onOpenChange={setOffersDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Ofertas Comerciales - {selectedPropertyForOffers?.numero_departamento}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            {selectedPropertyOffers.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No hay ofertas</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Creador</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedPropertyOffers.map((offer: any) => (
+                    <TableRow key={offer.id}>
+                      <TableCell>{new Date(offer.fecha_generacion).toLocaleDateString('es-MX')}</TableCell>
+                      <TableCell>{offer.email_creador}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Offers Dialog */}
+      <Dialog open={productOffersDialogOpen} onOpenChange={setProductOffersDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Ofertas de Productos - {selectedPropertyForOffers?.numero_departamento}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            {selectedPropertyProductOffers.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No hay ofertas de productos</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Creador</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedPropertyProductOffers.map((offer: any) => (
+                    <TableRow key={offer.id}>
+                      <TableCell>{new Date(offer.fecha_generacion).toLocaleDateString('es-MX')}</TableCell>
+                      <TableCell>{offer.email_creador}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
