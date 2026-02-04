@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, LogIn, AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import { z } from 'zod';
 import { checkForUpdates, clearCacheAndReload } from '@/utils/versionUtils';
+import { APP_VERSION } from '@/lib/config';
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'La contraseña es requerida'),
@@ -174,6 +175,10 @@ export default function Login() {
                 </>
               )}
             </Button>
+            
+            <p className="text-xs text-muted-foreground text-center mt-4">
+              {APP_VERSION}
+            </p>
           </form>
         </CardContent>
       </Card>
