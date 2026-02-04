@@ -137,6 +137,7 @@ const navigationItems: NavigationItem[] = [
       { title: "Aprobación de Comisiones", href: "/admin/aprobacion-comisiones", icon: BadgeDollarSign },
       { title: "Comisiones externas", href: "/admin/comisiones-externas", icon: Briefcase },
       { title: "Pagar comisiones", href: "/admin/pagar-comisiones", icon: CreditCard },
+      { title: "Pago Proveedores", href: "/admin/pago-proveedores", icon: Banknote },
     ]
   },
   {
