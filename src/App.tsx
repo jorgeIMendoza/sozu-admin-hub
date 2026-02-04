@@ -60,6 +60,7 @@ const Comisiones = lazy(() => import("./pages/admin/Comisiones"));
 const AprobacionComisiones = lazy(() => import("./pages/admin/AprobacionComisiones"));
 const ComisionesExternas = lazy(() => import("./pages/admin/ComisionesExternas"));
 const PagarComisiones = lazy(() => import("./pages/admin/PagarComisiones"));
+const PagoProveedores = lazy(() => import("./pages/admin/PagoProveedores"));
 const ReporteDiscrepancias = lazy(() => import("./pages/admin/ReporteDiscrepancias"));
 const RolesPermisos = lazy(() => import("./pages/admin/RolesPermisos"));
 const AccessDenied = lazy(() => import("./pages/admin/AccessDenied"));
@@ -164,6 +165,7 @@ const App = () => (
                   <Route path="aprobacion-comisiones" element={<AprobacionComisiones />} />
                   <Route path="comisiones-externas" element={<ComisionesExternas />} />
                   <Route path="pagar-comisiones" element={<PagarComisiones />} />
+                  <Route path="pago-proveedores" element={<PagoProveedores />} />
                   <Route path="pagos" element={<ComingSoon title="Pagos" />} />
                   <Route path="cuentas-bancarias" element={<ComingSoon title="Cuentas Bancarias" />} />
                   <Route path="documentos" element={<ComingSoon title="Documentos" />} />
