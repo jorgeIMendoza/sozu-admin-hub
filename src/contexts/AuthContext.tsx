@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { activityLoggerService } from '@/services/activityLoggerService';
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
 
 interface UserProfile {
   email: string;
@@ -31,6 +32,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Inactivity timeout: 5 minutes
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -39,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [permissionVersion, setPermissionVersion] = useState(0);
   const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
   const fetchProfile = useCallback(async () => {
     setIsProfileLoading(true);
     try {
@@ -287,6 +290,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setProfile(null);
   };
+
+  // Handle inactivity logout
+  const handleInactivityTimeout = useCallback(async () => {
+    console.log('Session expired due to inactivity');
+    await signOut();
+    // Redirect to login with inactivity reason
+    window.location.href = '/auth/login?reason=inactivity';
+  }, []);
+
+  // Auto-logout after inactivity - only active when user is logged in
+  useInactivityTimeout({
+    timeoutMs: INACTIVITY_TIMEOUT_MS,
+    onTimeout: handleInactivityTimeout,
+    enabled: !!user && !isLoading
+  });
 
   const updatePassword = async (newPassword: string) => {
     try {

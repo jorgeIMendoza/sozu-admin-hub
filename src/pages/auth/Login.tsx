@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, LogIn, AlertCircle } from 'lucide-react';
+import { Loader2, LogIn, AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import { z } from 'zod';
-
+import { checkForUpdates, clearCacheAndReload } from '@/utils/versionUtils';
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'La contraseña es requerida'),
@@ -19,11 +19,15 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
+  const [searchParams] = useSearchParams();
+  
+  // Check if user was logged out due to inactivity
+  const inactivityLogout = searchParams.get('reason') === 'inactivity';
   // If already logged in, redirect
   if (user) {
     const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin';
@@ -43,6 +47,16 @@ export default function Login() {
         setError(result.error.errors[0].message);
         setIsLoading(false);
         return;
+      }
+
+      // Check for app updates before login
+      const hasUpdate = await checkForUpdates();
+      if (hasUpdate) {
+        setIsUpdating(true);
+        setIsLoading(false);
+        // Clear cache and reload to get latest version
+        await clearCacheAndReload();
+        return; // Page will reload
       }
 
       const { error } = await signIn(email, password);
@@ -89,6 +103,24 @@ export default function Login() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {inactivityLogout && !error && !isUpdating && (
+              <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertDescription className="text-amber-700 dark:text-amber-300">
+                  Tu sesión expiró por inactividad. Por favor inicia sesión nuevamente.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {isUpdating && (
+              <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+                <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
+                <AlertDescription className="text-blue-700 dark:text-blue-300">
+                  Actualizando a la última versión...
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -124,11 +156,16 @@ export default function Login() {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || isUpdating}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Iniciando sesión...
+                </>
+              ) : isUpdating ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Actualizando...
                 </>
               ) : (
                 <>

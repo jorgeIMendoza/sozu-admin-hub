@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
-
+import { writeFileSync, mkdirSync } from 'fs';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Generate build timestamp for versioning
@@ -23,6 +23,24 @@ export default defineConfig(({ mode }) => {
   plugins: [
     react(), 
     mode === "development" && componentTagger(),
+    // Generate version.json on build
+    {
+      name: 'version-generator',
+      closeBundle() {
+        const versionString = `v2.4.0-${buildDate}.${buildTime}`;
+        const versionData = {
+          version: versionString,
+          buildTime: Date.now()
+        };
+        try {
+          mkdirSync('dist', { recursive: true });
+          writeFileSync('dist/version.json', JSON.stringify(versionData));
+          console.log(`Generated version.json with version: ${versionString}`);
+        } catch (e) {
+          console.log('Could not write version.json:', e);
+        }
+      }
+    },
     VitePWA({
       registerType: 'prompt',
       injectRegister: null,
