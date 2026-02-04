@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { activityLoggerService } from '@/services/activityLoggerService';
-import { useInactivityTimeout } from '@/hooks/useInactivityTimeout';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { User, Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { activityLoggerService } from "@/services/activityLoggerService";
+import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 
 interface UserProfile {
   email: string;
@@ -33,7 +33,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Inactivity timeout: 5 minutes
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -46,21 +46,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useCallback(async () => {
     setIsProfileLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_current_user_profile');
-      
+      const { data, error } = await supabase.rpc("get_current_user_profile");
+
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error("Error fetching profile:", error);
         setProfile(null);
         return;
       }
-      
+
       if (data && data.length > 0) {
         setProfile(data[0] as UserProfile);
       } else {
         setProfile(null);
       }
     } catch (err) {
-      console.error('Error in fetchProfile:', err);
+      console.error("Error in fetchProfile:", err);
       setProfile(null);
     } finally {
       setIsProfileLoading(false);
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const triggerPermissionRefresh = useCallback(() => {
-    setPermissionVersion(v => v + 1);
+    setPermissionVersion((v) => v + 1);
   }, []);
 
   const handleForceLogout = useCallback(async () => {
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setProfile(null);
     // Force reload to ensure clean state
-    window.location.href = '/auth/login';
+    window.location.href = "/auth/login";
   }, []);
 
   // Set up realtime subscriptions for permission changes
@@ -98,88 +98,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Create a single channel for all permission-related subscriptions
-    const channel = supabase.channel('auth-permission-updates');
+    const channel = supabase.channel("auth-permission-updates");
 
     // 1. Subscribe to user status changes (activo field)
     channel.on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'usuarios',
+        event: "UPDATE",
+        schema: "public",
+        table: "usuarios",
         filter: `email=eq.${userEmail}`,
       },
       (payload) => {
         const newRecord = payload.new as { activo?: boolean; rol_id?: number };
-        
+
         // If user was deactivated, force logout
         if (newRecord.activo === false) {
-          console.log('User deactivated, forcing logout');
+          console.log("User deactivated, forcing logout");
           handleForceLogout();
           return;
         }
 
         // If role changed, refresh profile and permissions
         if (newRecord.rol_id !== rolId) {
-          console.log('User role changed, refreshing permissions');
+          console.log("User role changed, refreshing permissions");
           fetchProfile();
           triggerPermissionRefresh();
         }
-      }
+      },
     );
 
     // 2. Subscribe to role permission changes (submenus_permisos)
     channel.on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: '*', // INSERT, UPDATE, DELETE
-        schema: 'public',
-        table: 'submenus_permisos',
+        event: "*", // INSERT, UPDATE, DELETE
+        schema: "public",
+        table: "submenus_permisos",
         filter: `rol_id=eq.${rolId}`,
       },
       () => {
-        console.log('Role permissions changed, refreshing');
+        console.log("Role permissions changed, refreshing");
         triggerPermissionRefresh();
-      }
+      },
     );
 
     // 3. Subscribe to role configuration changes
     channel.on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'roles',
+        event: "UPDATE",
+        schema: "public",
+        table: "roles",
         filter: `id=eq.${rolId}`,
       },
       () => {
-        console.log('Role configuration changed, refreshing');
+        console.log("Role configuration changed, refreshing");
         fetchProfile();
         triggerPermissionRefresh();
-      }
+      },
     );
 
     // 4. Subscribe to project access changes for this user
     if (userEmail) {
       channel.on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*', // INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'proyectos_acceso',
+          event: "*", // INSERT, UPDATE, DELETE
+          schema: "public",
+          table: "proyectos_acceso",
           filter: `usuario_id=eq.${userEmail}`,
         },
         () => {
-          console.log('Project access changed, refreshing');
+          console.log("Project access changed, refreshing");
           triggerPermissionRefresh();
-        }
+        },
       );
     }
 
     // Subscribe to the channel
     channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('Real-time permission subscriptions active');
+      if (status === "SUBSCRIBED") {
+        console.log("Real-time permission subscriptions active");
       }
     });
 
@@ -197,45 +197,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
     let profileFetchPromise: Promise<void> | null = null;
     let currentUserId: string | null = null;
-    
+
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        if (!isMounted) return;
-        
-        // Si es solo un refresh de token y el usuario es el mismo, solo actualizar sesión
-        // Esto evita re-cargar el perfil innecesariamente al cambiar de pestaña
-        if (event === 'TOKEN_REFRESHED' && currentUserId && newSession?.user?.id === currentUserId) {
-          setSession(newSession);
-          return; // No disparar re-carga de perfil
-        }
-        
-        currentUserId = newSession?.user?.id ?? null;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (!isMounted) return;
+
+      // Si es solo un refresh de token y el usuario es el mismo, solo actualizar sesión
+      // Esto evita re-cargar el perfil innecesariamente al cambiar de pestaña
+      if (event === "TOKEN_REFRESHED" && currentUserId && newSession?.user?.id === currentUserId) {
         setSession(newSession);
-        setUser(newSession?.user ?? null);
-        
-        if (newSession?.user) {
-          // Defer profile fetch to avoid Supabase deadlock
-          profileFetchPromise = fetchProfile().finally(() => {
-            if (isMounted) {
-              setIsLoading(false);
-            }
-          });
-        } else {
-          setProfile(null);
-          setIsLoading(false);
-        }
+        return; // No disparar re-carga de perfil
       }
-    );
+
+      currentUserId = newSession?.user?.id ?? null;
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+
+      if (newSession?.user) {
+        // Defer profile fetch to avoid Supabase deadlock
+        profileFetchPromise = fetchProfile().finally(() => {
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        });
+      } else {
+        setProfile(null);
+        setIsLoading(false);
+      }
+    });
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!isMounted) return;
-      
+
       currentUserId = session?.user?.id ?? null;
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchProfile().finally(() => {
           if (isMounted) {
@@ -259,32 +259,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
       });
-      
+
       if (error) {
         // Registrar intento fallido
-        activityLoggerService.registrarInicioSesion(email, 'error', error.message);
+        activityLoggerService.registrarInicioSesion(email, "error", error.message);
         return { error };
       }
-      
+
       // Registrar inicio de sesión exitoso
-      activityLoggerService.registrarInicioSesion(email, 'exito');
+      activityLoggerService.registrarInicioSesion(email, "exito");
       return { error: null };
     } catch (err) {
-      activityLoggerService.registrarInicioSesion(email, 'error', (err as Error).message);
+      activityLoggerService.registrarInicioSesion(email, "error", (err as Error).message);
       return { error: err as Error };
     }
   };
 
   const signOut = async () => {
-    const userEmail = profile?.email || user?.email || 'desconocido';
+    const userEmail = profile?.email || user?.email || "desconocido";
     activityLoggerService.registrarCierreSesion(userEmail);
-    
+
     // Clean up realtime channel
     if (realtimeChannelRef.current) {
       supabase.removeChannel(realtimeChannelRef.current);
       realtimeChannelRef.current = null;
     }
-    
+
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -293,17 +293,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Handle inactivity logout
   const handleInactivityTimeout = useCallback(async () => {
-    console.log('Session expired due to inactivity');
+    console.log("Session expired due to inactivity");
     await signOut();
     // Redirect to login with inactivity reason
-    window.location.href = '/auth/login?reason=inactivity';
+    window.location.href = "/auth/login?reason=inactivity";
   }, []);
 
   // Auto-logout after inactivity - only active when user is logged in
   useInactivityTimeout({
     timeoutMs: INACTIVITY_TIMEOUT_MS,
     onTimeout: handleInactivityTimeout,
-    enabled: !!user && !isLoading
+    enabled: !!user && !isLoading,
   });
 
   const updatePassword = async (newPassword: string) => {
@@ -311,17 +311,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
-      
+
       if (error) {
         return { error };
       }
-      
+
       // Mark password as changed in usuarios table
-      await supabase.rpc('mark_password_changed');
-      
+      await supabase.rpc("mark_password_changed");
+
       // Refresh profile to get updated debe_cambiar_password
       await fetchProfile();
-      
+
       return { error: null };
     } catch (err) {
       return { error: err as Error };
@@ -352,7 +352,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
