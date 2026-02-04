@@ -935,7 +935,6 @@ export default function MisPropiedades() {
                   <TableHead>Of. Com.</TableHead>
                   <TableHead>Of. Prod.</TableHead>
                   <TableHead>Estatus</TableHead>
-                  <TableHead>Cta. Cob.</TableHead>
                   <TableHead>CLABE</TableHead>
                   {canGenerateOffer && <TableHead>Acciones</TableHead>}
                 </TableRow>
@@ -943,7 +942,7 @@ export default function MisPropiedades() {
               <TableBody>
                 {paginatedProps.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canGenerateOffer ? 16 : 15} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={canGenerateOffer ? 15 : 14} className="text-center py-8 text-muted-foreground">
                       No se encontraron propiedades
                     </TableCell>
                   </TableRow>
@@ -1029,7 +1028,6 @@ export default function MisPropiedades() {
                           {p.estatus_disponibilidad_nombre || '-'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{p.cuenta_cobranza_id ? 'Sí' : 'No'}</TableCell>
                       <TableCell className="font-mono text-xs">{p.clabe_stp || '-'}</TableCell>
                       {canGenerateOffer && (
                         <TableCell>
