@@ -1145,8 +1145,105 @@ export default function Inmobiliarias() {
     }
   };
 
+  // State for approval confirmation dialog
+  const [approveConfirmDialog, setApproveConfirmDialog] = useState<{
+    isOpen: boolean;
+    inmobiliaria: Inmobiliaria | null;
+    usersToCreate: UserToCreate[];
+    isLoading: boolean;
+  }>({ isOpen: false, inmobiliaria: null, usersToCreate: [], isLoading: false });
+
+  const handlePrepareApproval = async (inmobiliaria: Inmobiliaria) => {
+    setApproveConfirmDialog({ isOpen: true, inmobiliaria, usersToCreate: [], isLoading: true });
+    
+    const usersToCreate: UserToCreate[] = [];
+    
+    // User for inmobiliaria
+    usersToCreate.push({
+      email: inmobiliaria.email,
+      nombre: inmobiliaria.nombre_legal,
+      rol: 'Inmobiliaria',
+      tipo: 'inmobiliaria'
+    });
+    
+    // Check legal representative
+    if (inmobiliaria.id_entidad_relacionada_rep_leg) {
+      try {
+        const { data } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(nombre_legal, email)')
+          .eq('id', inmobiliaria.id_entidad_relacionada_rep_leg)
+          .single();
+        
+        if (data?.personas) {
+          const persona = data.personas as any;
+          if (persona.email) {
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('email')
+              .eq('email', persona.email)
+              .maybeSingle();
+            
+            if (!existingUser) {
+              usersToCreate.push({
+                email: persona.email,
+                nombre: persona.nombre_legal,
+                rol: 'Agente Inmobiliario',
+                tipo: 'rep_legal'
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching legal representative:', e);
+      }
+    }
+    
+    // Check commercial representative
+    if (inmobiliaria.id_entidad_relacionada_rep_com) {
+      try {
+        const { data } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(nombre_legal, email)')
+          .eq('id', inmobiliaria.id_entidad_relacionada_rep_com)
+          .single();
+        
+        if (data?.personas) {
+          const persona = data.personas as any;
+          if (persona.email) {
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('email')
+              .eq('email', persona.email)
+              .maybeSingle();
+            
+            if (!existingUser) {
+              usersToCreate.push({
+                email: persona.email,
+                nombre: persona.nombre_legal,
+                rol: 'Agente Inmobiliario',
+                tipo: 'rep_comercial'
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching commercial representative:', e);
+      }
+    }
+    
+    setApproveConfirmDialog({ isOpen: true, inmobiliaria, usersToCreate, isLoading: false });
+  };
+
+  const handleConfirmApproval = () => {
+    if (approveConfirmDialog.inmobiliaria) {
+      approveMutation.mutate(approveConfirmDialog.inmobiliaria);
+      setApproveConfirmDialog({ isOpen: false, inmobiliaria: null, usersToCreate: [], isLoading: false });
+    }
+  };
+
   const handleApproveDraft = (inmobiliaria: Inmobiliaria) => {
-    approveMutation.mutate(inmobiliaria);
+    handlePrepareApproval(inmobiliaria);
   };
 
   // Prepare user confirmation - detect users that will be created
@@ -1491,6 +1588,67 @@ export default function Inmobiliarias() {
                 </TableBody>
               </Table>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Confirmation Dialog */}
+      <Dialog 
+        open={approveConfirmDialog.isOpen} 
+        onOpenChange={(open) => !open && setApproveConfirmDialog({ isOpen: false, inmobiliaria: null, usersToCreate: [], isLoading: false })}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Confirmar Aprobación
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {approveConfirmDialog.isLoading ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Cargando información de usuarios...
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Se crearán los siguientes usuarios:
+                </p>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {approveConfirmDialog.usersToCreate.map((user, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">{user.nombre}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      <Badge variant={user.tipo === 'inmobiliaria' ? 'default' : 'secondary'}>
+                        {user.rol}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Password temporal:</strong> <code className="bg-background px-1 rounded">Temporal123!</code>
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setApproveConfirmDialog({ isOpen: false, inmobiliaria: null, usersToCreate: [], isLoading: false })}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleConfirmApproval}
+              disabled={approveMutation.isPending || approveConfirmDialog.isLoading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {approveMutation.isPending ? 'Aprobando...' : 'Confirmar Aprobación'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

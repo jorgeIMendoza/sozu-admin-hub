@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useParams, Link } from "react-router-dom";
+import { PersonForm } from "@/components/admin/PersonForm";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
@@ -556,6 +557,9 @@ export default function DetalleCuentaCobranza() {
   const [editCuentaDialog, setEditCuentaDialog] = useState(false);
   const [agenteVendedorDialog, setAgenteVendedorDialog] = useState(false);
   const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState(false);
+  // Comprador edit modal states
+  const [editingComprador, setEditingComprador] = useState<any>(null);
+  const [isCompradorDialogOpen, setIsCompradorDialogOpen] = useState(false);
   const [isRecalculatingAplicaciones, setIsRecalculatingAplicaciones] = useState(false);
   // Estado para edición de clave_rastreo
   const [editingClaveRastreo, setEditingClaveRastreo] = useState<{ [pagoId: number]: string }>({});
@@ -2060,6 +2064,61 @@ export default function DetalleCuentaCobranza() {
   // Only set ultimoPagoSTP if the most recent payment is STP
   const ultimoPagoSTP = ultimoPagoEsSTP ? ultimoPago : null;
 
+  // Mutation to update comprador
+  const updateCompradorMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { error } = await supabase
+        .from('personas')
+        .update({
+          nombre_legal: data.nombre_legal,
+          email: data.email,
+          telefono: data.telefono,
+          clave_pais_telefono: data.clave_pais_telefono,
+          rfc: data.rfc,
+          curp: data.curp,
+          fecha_nacimiento: data.fecha_nacimiento,
+          nacionalidad: data.nacionalidad,
+          estado_civil: data.estado_civil,
+          genero: data.genero,
+          regimen_fiscal: data.regimen_fiscal,
+          uso_cfdi: data.uso_cfdi,
+          direccion_fiscal: data.direccion_fiscal,
+          codigo_postal: data.codigo_postal,
+          colonia: data.colonia,
+          municipio: data.municipio,
+          estado: data.estado,
+          pais: data.pais,
+        })
+        .eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Comprador actualizado correctamente" });
+      setIsCompradorDialogOpen(false);
+      setEditingComprador(null);
+      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuentaId] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Handle RFC click to open comprador edit dialog
+  const handleRfcClick = async (idPersona: number) => {
+    const { data, error } = await supabase
+      .from('personas')
+      .select('*')
+      .eq('id', idPersona)
+      .single();
+    
+    if (!error && data) {
+      setEditingComprador(data);
+      setIsCompradorDialogOpen(true);
+    } else {
+      toast({ title: "Error", description: "No se pudo cargar la información del comprador", variant: "destructive" });
+    }
+  };
+
   // Mutation to delete payment application (physical deletion)
   const deletePaymentMutation = useMutation({
     mutationFn: async (aplicacionId: number) => {
@@ -3445,7 +3504,16 @@ export default function DetalleCuentaCobranza() {
                               </TooltipProvider>
                             )}
                           </div>
-                          {comprador.rfc && (
+                          {comprador.rfc && comprador.id_persona && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs cursor-pointer hover:bg-primary/10 text-primary"
+                              onClick={() => handleRfcClick(comprador.id_persona!)}
+                            >
+                              {comprador.rfc}
+                            </Badge>
+                          )}
+                          {comprador.rfc && !comprador.id_persona && (
                             <Badge variant="outline" className="text-xs">{comprador.rfc}</Badge>
                           )}
                         </div>
@@ -4912,6 +4980,30 @@ export default function DetalleCuentaCobranza() {
         multa={editMultaDialog.multa}
         cuentaId={cuentaId}
       />
+
+      {/* Comprador Edit Dialog */}
+      <Dialog open={isCompradorDialogOpen} onOpenChange={setIsCompradorDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Comprador</DialogTitle>
+          </DialogHeader>
+          {editingComprador && (
+            <PersonForm
+              initialData={{
+                ...editingComprador,
+                representativeId: editingComprador?.id_entidad_relacionada_rep_leg
+              }}
+              onSubmit={(data) => updateCompradorMutation.mutate({ ...data, id: editingComprador.id })}
+              isLoading={updateCompradorMutation.isPending}
+              onCancel={() => {
+                setIsCompradorDialogOpen(false);
+                setEditingComprador(null);
+              }}
+              entityType="comprador"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
