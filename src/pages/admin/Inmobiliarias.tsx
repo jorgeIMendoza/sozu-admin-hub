@@ -32,6 +32,7 @@ type Inmobiliaria = {
   nombre_comercial?: string;
   email: string;
   telefono?: string;
+  clave_pais_telefono?: string;
   rfc?: string;
   activo: boolean;
   es_draft?: boolean;
@@ -115,6 +116,7 @@ export default function Inmobiliarias() {
         nombre_comercial,
         email,
         telefono,
+        clave_pais_telefono,
         rfc,
         activo,
         es_draft,
@@ -257,6 +259,7 @@ export default function Inmobiliarias() {
       nombre_comercial: item.nombre_comercial,
       email: item.email,
       telefono: item.telefono,
+      clave_pais_telefono: item.clave_pais_telefono,
       rfc: item.rfc,
       activo: item.activo,
       es_draft: item.es_draft,
@@ -896,6 +899,7 @@ export default function Inmobiliarias() {
           rol_id: 4, // Inmobiliaria
           id_persona: inmobiliaria.id,
           telefono: inmobiliaria.telefono || null,
+          clave_pais_telefono: inmobiliaria.clave_pais_telefono || null,
           auto_create: true
         }
       });
@@ -905,29 +909,191 @@ export default function Inmobiliarias() {
         // Don't throw - we still want to approve even if user creation fails
       }
 
-      // 3. Send notification to N8N
+      // 3. Create user for legal representative if exists
+      if (inmobiliaria.id_entidad_relacionada_rep_leg) {
+        try {
+          const { data: repLegalData, error: repLegalError } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, email, telefono, clave_pais_telefono)')
+            .eq('id', inmobiliaria.id_entidad_relacionada_rep_leg)
+            .single();
+          
+          if (!repLegalError && repLegalData?.personas) {
+            const repPersona = repLegalData.personas as any;
+            
+            // Check if user already exists
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('email')
+              .eq('email', repPersona.email)
+              .maybeSingle();
+            
+            if (!existingUser && repPersona.email) {
+              // Create user for legal rep with role Agente Inmobiliario (id: 3)
+              const { error: repUserError } = await supabase.functions.invoke('create-user', {
+                body: {
+                  email: repPersona.email,
+                  nombre: repPersona.nombre_legal,
+                  rol_id: 3, // Agente Inmobiliario
+                  id_persona: repPersona.id,
+                  id_inmobiliaria: inmobiliaria.id,
+                  telefono: repPersona.telefono || null,
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null,
+                  auto_create: true
+                }
+              });
+              
+              if (repUserError) {
+                console.error('Error creating user for legal representative:', repUserError);
+              }
+            }
+            
+            // Update/create entidad_relacionada to link rep to inmobiliaria
+            const { data: existingAgentEntidad } = await supabase
+              .from('entidades_relacionadas')
+              .select('id')
+              .eq('id_persona', repPersona.id)
+              .eq('id_tipo_entidad', 19) // Agente
+              .eq('activo', true)
+              .maybeSingle();
+            
+            if (existingAgentEntidad) {
+              await supabase
+                .from('entidades_relacionadas')
+                .update({ id_persona_duena_lead: inmobiliaria.id })
+                .eq('id', existingAgentEntidad.id);
+            } else {
+              await supabase
+                .from('entidades_relacionadas')
+                .insert({
+                  id_persona: repPersona.id,
+                  id_tipo_entidad: 19, // Agente
+                  id_persona_duena_lead: inmobiliaria.id,
+                  activo: true
+                });
+            }
+          }
+        } catch (e) {
+          console.error('Error creating user for legal representative:', e);
+        }
+      }
+
+      // 4. Create user for commercial representative if exists
+      if (inmobiliaria.id_entidad_relacionada_rep_com) {
+        try {
+          const { data: repComercialData, error: repComercialError } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, email, telefono, clave_pais_telefono)')
+            .eq('id', inmobiliaria.id_entidad_relacionada_rep_com)
+            .single();
+          
+          if (!repComercialError && repComercialData?.personas) {
+            const repPersona = repComercialData.personas as any;
+            
+            // Check if user already exists
+            const { data: existingUser } = await supabase
+              .from('usuarios')
+              .select('email')
+              .eq('email', repPersona.email)
+              .maybeSingle();
+            
+            if (!existingUser && repPersona.email) {
+              // Create user for commercial rep with role Agente Inmobiliario (id: 3)
+              const { error: repUserError } = await supabase.functions.invoke('create-user', {
+                body: {
+                  email: repPersona.email,
+                  nombre: repPersona.nombre_legal,
+                  rol_id: 3, // Agente Inmobiliario
+                  id_persona: repPersona.id,
+                  id_inmobiliaria: inmobiliaria.id,
+                  telefono: repPersona.telefono || null,
+                  clave_pais_telefono: repPersona.clave_pais_telefono || null,
+                  auto_create: true
+                }
+              });
+              
+              if (repUserError) {
+                console.error('Error creating user for commercial representative:', repUserError);
+              }
+            }
+            
+            // Update/create entidad_relacionada to link rep to inmobiliaria
+            const { data: existingAgentEntidad } = await supabase
+              .from('entidades_relacionadas')
+              .select('id')
+              .eq('id_persona', repPersona.id)
+              .eq('id_tipo_entidad', 19) // Agente
+              .eq('activo', true)
+              .maybeSingle();
+            
+            if (existingAgentEntidad) {
+              await supabase
+                .from('entidades_relacionadas')
+                .update({ id_persona_duena_lead: inmobiliaria.id })
+                .eq('id', existingAgentEntidad.id);
+            } else {
+              await supabase
+                .from('entidades_relacionadas')
+                .insert({
+                  id_persona: repPersona.id,
+                  id_tipo_entidad: 19, // Agente
+                  id_persona_duena_lead: inmobiliaria.id,
+                  activo: true
+                });
+            }
+          }
+        } catch (e) {
+          console.error('Error creating user for commercial representative:', e);
+        }
+      }
+
+      // 5. Send notification to N8N with new format
       try {
         const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion`;
         console.log('Sending notification for approved inmobiliaria to:', webhookUrl);
         
-        const { data: superAdmins } = await supabase
-          .from('usuarios')
-          .select('email')
-          .eq('rol_id', 1)
+        // Get country codes from paises table
+        const { data: paises } = await supabase
+          .from('paises')
+          .select('id, clave_pais_telefono')
           .eq('activo', true);
+        
+        const codigosPorPais = new Map(
+          (paises || []).map(p => [p.id.trim(), p.clave_pais_telefono?.trim()])
+        );
+        
+        // Format inmobiliaria phone with country code
+        const clavePaisInmobiliaria = (inmobiliaria.clave_pais_telefono || 'MX').trim();
+        const codigoPaisInmobiliaria = codigosPorPais.get(clavePaisInmobiliaria) || '+52';
+        const telefonoFormateado = inmobiliaria.telefono 
+          ? `${codigoPaisInmobiliaria}${inmobiliaria.telefono}` 
+          : '';
+        
+        const notificationPayload = {
+          tipo: "ambos",
+          from: "Notificaciones Sozu <notificaciones@sozu.com>",
+          email: inmobiliaria.email,
+          telefono: telefonoFormateado,
+          mensajeWA: `Tu inmobiliaria *${inmobiliaria.nombre_legal}* ha sido aprobada.\nUsuario: ${inmobiliaria.email}\nPassword: Temporal123!`,
+          asunto: "Aprobación de Inmobiliaria",
+          mensaje: {
+            nombre: inmobiliaria.nombre_legal || inmobiliaria.nombre_comercial,
+            actividad: "Aprobación de inmobiliaria",
+            detalles: `<tr><td class='label'>Link:</td><td class='value'>https://admin.sozu.com/</td></tr><tr><td class='label'>Usuario:</td><td class='value'>${inmobiliaria.email}</td></tr><tr><td class='label'>Password:</td><td class='value'>Temporal123!</td></tr>`
+          },
+          templateId: 41353048
+        };
+
+        console.log('Notification payload:', notificationPayload);
         
         await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tipo: 'inmobiliaria_aprobada',
-            inmobiliaria: {
-              nombre: inmobiliaria.nombre_legal || inmobiliaria.nombre_comercial,
-              email: inmobiliaria.email,
-              telefono: inmobiliaria.telefono
-            },
-            destinatarios: superAdmins?.map(u => u.email) || []
-          }),
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-postmark-server-token': '8aac4f6f-e5af-4e2f-a318-c2723bf52bb8',
+            'apikey': 'FD9481D57CC7-43E0-8ACF-01BF7B8B19B7'
+          },
+          body: JSON.stringify(notificationPayload),
         });
       } catch (notificationError) {
         console.error('Error sending notification:', notificationError);
@@ -940,7 +1106,7 @@ export default function Inmobiliarias() {
       
       toast({
         title: "Inmobiliaria aprobada",
-        description: `${inmobiliaria.nombre_legal} ha sido aprobada y se ha creado su usuario.`,
+        description: `${inmobiliaria.nombre_legal} ha sido aprobada y se han creado los usuarios correspondientes.`,
       });
     },
     onError: (error: any) => {
@@ -1616,6 +1782,11 @@ export default function Inmobiliarias() {
                       {inmobiliaria.usuario_email}
                       <Copy className="h-3 w-3 opacity-50" />
                     </button>
+                  ) : activeTab === 'draft' ? (
+                    <div className="flex flex-col">
+                      <span className="text-muted-foreground">{inmobiliaria.email}</span>
+                      <span className="text-xs text-muted-foreground/50">(Sin usuario)</span>
+                    </div>
                   ) : (
                     <span className="text-muted-foreground/50">Sin usuario</span>
                   )}
