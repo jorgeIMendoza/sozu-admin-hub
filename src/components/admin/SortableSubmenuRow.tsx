@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isValidRoute } from '@/utils/validRoutes';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 import {
   Tooltip,
   TooltipContent,
@@ -66,6 +67,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
   const [soloUsuarioA, setSoloUsuarioA] = useState(submenu.solo_usuarioa || false);
   const [menuId, setMenuId] = useState(submenu.menu_id);
   const [isUpdating, setIsUpdating] = useState(false);
+  const { registrarActualizacion, registrarEliminacion } = useActivityLogger();
 
   const {
     attributes,
@@ -115,6 +117,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
       return;
     }
     
+    const valorAnterior = { nombre: submenu.nombre };
     setIsUpdating(true);
     const { error } = await supabase
       .from('submenus')
@@ -124,7 +127,9 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     if (error) {
       toast.error('Error al actualizar nombre');
       setNombre(submenu.nombre);
+      await registrarActualizacion('submenu', valorAnterior, { nombre }, 'actualizar_submenu', 'error', error.message);
     } else {
+      await registrarActualizacion('submenu', valorAnterior, { id: submenu.id, nombre }, 'actualizar_submenu');
       onUpdate();
     }
     setIsUpdating(false);
@@ -133,6 +138,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
   const handleRutaBlur = async () => {
     if (vistaFrontEnd === (submenu.vista_front_end || '')) return;
     
+    const valorAnterior = { vista_front_end: submenu.vista_front_end };
     setIsUpdating(true);
     const { error } = await supabase
       .from('submenus')
@@ -142,7 +148,9 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     if (error) {
       toast.error('Error al actualizar ruta');
       setVistaFrontEnd(submenu.vista_front_end || '');
+      await registrarActualizacion('submenu', valorAnterior, { vista_front_end: vistaFrontEnd }, 'actualizar_submenu', 'error', error.message);
     } else {
+      await registrarActualizacion('submenu', valorAnterior, { id: submenu.id, vista_front_end: vistaFrontEnd }, 'actualizar_submenu');
       onUpdate();
     }
     setIsUpdating(false);
@@ -152,6 +160,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     const newId = parseInt(newMenuId);
     if (newId === submenu.menu_id) return;
     
+    const valorAnterior = { menu_id: submenu.menu_id };
     setMenuId(newId);
     setIsUpdating(true);
     
@@ -163,7 +172,9 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     if (error) {
       toast.error('Error al mover submenu');
       setMenuId(submenu.menu_id);
+      await registrarActualizacion('submenu', valorAnterior, { menu_id: newId }, 'mover_submenu', 'error', error.message);
     } else {
+      await registrarActualizacion('submenu', valorAnterior, { id: submenu.id, menu_id: newId }, 'mover_submenu');
       toast.success('Submenu movido');
       onUpdate();
     }
@@ -178,6 +189,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
       return;
     }
     
+    const valorAnterior = { activo: submenu.activo };
     setActivo(checked);
     setIsUpdating(true);
     
@@ -189,13 +201,16 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     if (error) {
       toast.error('Error al actualizar estado');
       setActivo(submenu.activo);
+      await registrarActualizacion('submenu', valorAnterior, { activo: checked }, 'actualizar_submenu', 'error', error.message);
     } else {
+      await registrarActualizacion('submenu', valorAnterior, { id: submenu.id, activo: checked }, 'actualizar_submenu');
       onUpdate();
     }
     setIsUpdating(false);
   };
 
   const handleSoloUsuarioAChange = async (checked: boolean) => {
+    const valorAnterior = { solo_usuarioa: submenu.solo_usuarioa };
     setSoloUsuarioA(checked);
     setIsUpdating(true);
     
@@ -207,7 +222,9 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     if (error) {
       toast.error('Error al actualizar restricción');
       setSoloUsuarioA(submenu.solo_usuarioa || false);
+      await registrarActualizacion('submenu', valorAnterior, { solo_usuarioa: checked }, 'actualizar_submenu', 'error', error.message);
     } else {
+      await registrarActualizacion('submenu', valorAnterior, { id: submenu.id, solo_usuarioa: checked }, 'actualizar_submenu');
       onUpdate();
     }
     setIsUpdating(false);
@@ -220,6 +237,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     }
     
     setIsUpdating(true);
+    const valorAnterior = { id: submenu.id, nombre: submenu.nombre, vista_front_end: submenu.vista_front_end };
     
     // First delete related permissions
     await supabase
@@ -234,7 +252,9 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
 
     if (error) {
       toast.error('Error al eliminar submenu');
+      await registrarEliminacion('submenu', valorAnterior, 'eliminar_submenu', 'error', error.message);
     } else {
+      await registrarEliminacion('submenu', valorAnterior, 'eliminar_submenu');
       toast.success('Submenu eliminado');
       onUpdate();
     }

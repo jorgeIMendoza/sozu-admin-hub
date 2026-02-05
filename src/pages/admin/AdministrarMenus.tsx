@@ -12,6 +12,7 @@ import { SortableSubmenuRow } from '@/components/admin/SortableSubmenuRow';
 import { NewSubmenuDialog } from '@/components/admin/NewSubmenuDialog';
 import { SubmenuPermissionsDialog } from '@/components/admin/SubmenuPermissionsDialog';
 import { toast } from 'sonner';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface Menu {
   id: number;
@@ -36,6 +37,7 @@ export default function AdministrarMenus() {
   const [showNewSubmenuDialog, setShowNewSubmenuDialog] = useState(false);
   const [selectedMenuForNewSubmenu, setSelectedMenuForNewSubmenu] = useState<number | null>(null);
   const [selectedSubmenuForPermissions, setSelectedSubmenuForPermissions] = useState<Submenu | null>(null);
+  const { registrarActualizacion } = useActivityLogger();
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -93,6 +95,7 @@ export default function AdministrarMenus() {
     const newIndex = menus.findIndex(m => m.id === over.id);
     
     const newMenus = arrayMove(menus, oldIndex, newIndex);
+    const valorAnterior = { orden: menus.map(m => ({ id: m.id, orden: m.orden })) };
     
     try {
       const updates = newMenus.map((menu, index) => 
@@ -102,9 +105,11 @@ export default function AdministrarMenus() {
           .eq('id', menu.id)
       );
       await Promise.all(updates);
+      await registrarActualizacion('menus', valorAnterior, { orden: newMenus.map((m, i) => ({ id: m.id, orden: i + 1 })) }, 'reordenar_menus');
       toast.success('Orden actualizado');
       refetch();
     } catch (error) {
+      await registrarActualizacion('menus', valorAnterior, {}, 'reordenar_menus', 'error', error instanceof Error ? error.message : 'Error');
       toast.error('Error al reordenar');
     }
   };
@@ -118,6 +123,7 @@ export default function AdministrarMenus() {
     const newIndex = menuSubmenus.findIndex(s => `submenu-${s.id}` === over.id);
     
     const newSubmenus = arrayMove(menuSubmenus, oldIndex, newIndex);
+    const valorAnterior = { menu_id: menuId, orden: menuSubmenus.map(s => ({ id: s.id, orden: s.orden })) };
     
     try {
       const updates = newSubmenus.map((submenu, index) => 
@@ -127,9 +133,11 @@ export default function AdministrarMenus() {
           .eq('id', submenu.id)
       );
       await Promise.all(updates);
+      await registrarActualizacion('submenus', valorAnterior, { menu_id: menuId, orden: newSubmenus.map((s, i) => ({ id: s.id, orden: i + 1 })) }, 'reordenar_submenus');
       toast.success('Orden actualizado');
       refetch();
     } catch (error) {
+      await registrarActualizacion('submenus', valorAnterior, {}, 'reordenar_submenus', 'error', error instanceof Error ? error.message : 'Error');
       toast.error('Error al reordenar');
     }
   };

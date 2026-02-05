@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface Role {
   id: number;
@@ -511,6 +512,7 @@ export default function RolesPermisos() {
   
   const queryClient = useQueryClient();
   const { triggerPermissionRefresh } = useAuth();
+  const { registrarCreacion, registrarActualizacion, registrarEliminacion, registrarRestauracion } = useActivityLogger();
   const isSuperAdminSelected = selectedRoleId === SUPER_ADMIN_ROLE_ID;
 
   // Fetch roles (only internal roles)
@@ -627,13 +629,15 @@ export default function RolesPermisos() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      await registrarCreacion('rol', { id: data.id, nombre: data.nombre }, 'crear_rol');
       queryClient.invalidateQueries({ queryKey: ['roles-management'] });
       toast.success('Rol creado correctamente');
       setIsNewRoleDialogOpen(false);
       setNewRoleName("");
     },
-    onError: (error) => {
+    onError: async (error) => {
+      await registrarCreacion('rol', { nombre: newRoleName }, 'crear_rol', 'error', error.message);
       toast.error(`Error al crear el rol: ${error.message}`);
     },
   });
@@ -647,14 +651,17 @@ export default function RolesPermisos() {
         .eq('id', id);
       
       if (error) throw error;
+      return { id, nombre };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      await registrarActualizacion('rol', { id: data.id, nombre: editingRole?.nombre }, { id: data.id, nombre: data.nombre }, 'actualizar_rol');
       queryClient.invalidateQueries({ queryKey: ['roles-management'] });
       toast.success('Rol actualizado correctamente');
       setIsEditRoleDialogOpen(false);
       setEditingRole(null);
     },
-    onError: (error) => {
+    onError: async (error) => {
+      await registrarActualizacion('rol', { nombre: editingRole?.nombre }, { nombre: editingRole?.nombre }, 'actualizar_rol', 'error', error.message);
       toast.error(`Error al actualizar el rol: ${error.message}`);
     },
   });
@@ -668,8 +675,10 @@ export default function RolesPermisos() {
         .eq('id', id);
       
       if (error) throw error;
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: async (id) => {
+      await registrarEliminacion('rol', { id, nombre: roleToDelete?.nombre }, 'eliminar_rol');
       queryClient.invalidateQueries({ queryKey: ['roles-management'] });
       toast.success('Rol eliminado correctamente');
       setIsDeleteDialogOpen(false);
@@ -678,7 +687,8 @@ export default function RolesPermisos() {
         setSelectedRoleId(null);
       }
     },
-    onError: (error) => {
+    onError: async (error) => {
+      await registrarEliminacion('rol', { id: roleToDelete?.id, nombre: roleToDelete?.nombre }, 'eliminar_rol', 'error', error.message);
       toast.error(`Error al eliminar el rol: ${error.message}`);
     },
   });
@@ -686,18 +696,22 @@ export default function RolesPermisos() {
   // Reactivate role mutation
   const reactivateRoleMutation = useMutation({
     mutationFn: async (id: number) => {
+      const role = roles.find(r => r.id === id);
       const { error } = await supabase
         .from('roles')
         .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
         .eq('id', id);
       
       if (error) throw error;
+      return { id, nombre: role?.nombre };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      await registrarRestauracion('rol', { id: data.id, activo: false }, { id: data.id, activo: true, nombre: data.nombre }, 'reactivar_rol');
       queryClient.invalidateQueries({ queryKey: ['roles-management'] });
       toast.success('Rol reactivado correctamente');
     },
-    onError: (error) => {
+    onError: async (error) => {
+      await registrarRestauracion('rol', { activo: false }, { activo: true }, 'reactivar_rol', 'error', error.message);
       toast.error(`Error al reactivar el rol: ${error.message}`);
     },
   });
@@ -844,7 +858,14 @@ export default function RolesPermisos() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      const selectedRole = roles.find(r => r.id === selectedRoleId);
+      const cambios = Object.fromEntries(pendingChanges);
+      await registrarActualizacion('submenus_permisos', 
+        { rol_id: selectedRoleId, rol_nombre: selectedRole?.nombre }, 
+        { rol_id: selectedRoleId, rol_nombre: selectedRole?.nombre, cambios }, 
+        'guardar_permisos_rol'
+      );
       // Invalidar permisos del rol actual
       queryClient.invalidateQueries({ queryKey: ['role-permisos', selectedRoleId] });
       // Invalidar queries de permisos de usuario para que se reflejen los cambios inmediatamente
@@ -856,7 +877,15 @@ export default function RolesPermisos() {
       toast.success('Permisos guardados correctamente');
       setPendingChanges(new Map());
     },
-    onError: (error) => {
+    onError: async (error) => {
+      const selectedRole = roles.find(r => r.id === selectedRoleId);
+      await registrarActualizacion('submenus_permisos', 
+        { rol_id: selectedRoleId, rol_nombre: selectedRole?.nombre }, 
+        {}, 
+        'guardar_permisos_rol',
+        'error',
+        error.message
+      );
       toast.error(`Error al guardar permisos: ${error.message}`);
     },
   });

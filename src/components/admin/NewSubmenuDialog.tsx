@@ -11,6 +11,7 @@ import { AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { isValidRoute } from '@/utils/validRoutes';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface Menu {
   id: number;
@@ -45,6 +46,7 @@ export function NewSubmenuDialog({ open, onOpenChange, menus, existingSubmenus =
   const [selectedPermisos, setSelectedPermisos] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const { registrarCreacion } = useActivityLogger();
 
   useEffect(() => {
     const fetchPermisos = async () => {
@@ -143,11 +145,25 @@ export function NewSubmenuDialog({ open, onOpenChange, menus, existingSubmenus =
 
       if (permisosError) throw permisosError;
 
+      await registrarCreacion('submenu', {
+        id: submenuData.id,
+        nombre,
+        menu_id: parseInt(menuId),
+        vista_front_end: vistaFrontEnd,
+        solo_usuarioA: soloUsuarioA,
+        permisos: selectedPermisos
+      }, 'crear_submenu');
+      
       toast.success('Submenu creado exitosamente');
       handleClose();
       onSuccess();
     } catch (error) {
       console.error('Error creating submenu:', error);
+      await registrarCreacion('submenu', {
+        nombre,
+        menu_id: parseInt(menuId),
+        vista_front_end: vistaFrontEnd,
+      }, 'crear_submenu', 'error', error instanceof Error ? error.message : 'Error desconocido');
       toast.error('Error al crear submenu');
     } finally {
       setIsLoading(false);

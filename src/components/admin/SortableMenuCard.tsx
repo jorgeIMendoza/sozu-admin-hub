@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface Menu {
   id: number;
@@ -26,6 +27,7 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
   const [nombre, setNombre] = useState(menu.nombre);
   const [activo, setActivo] = useState(menu.activo);
   const [isUpdating, setIsUpdating] = useState(false);
+  const { registrarActualizacion } = useActivityLogger();
 
   const {
     attributes,
@@ -51,6 +53,7 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
     if (nombre === menu.nombre) return;
     
     setIsUpdating(true);
+    const valorAnterior = { nombre: menu.nombre };
     const { error } = await supabase
       .from('menus')
       .update({ nombre, fecha_actualizacion: new Date().toISOString() })
@@ -59,7 +62,9 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
     if (error) {
       toast.error('Error al actualizar nombre');
       setNombre(menu.nombre);
+      await registrarActualizacion('menu', valorAnterior, { nombre }, 'actualizar_menu', 'error', error.message);
     } else {
+      await registrarActualizacion('menu', valorAnterior, { id: menu.id, nombre }, 'actualizar_menu');
       onUpdate();
     }
     setIsUpdating(false);
@@ -73,6 +78,7 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
       return;
     }
     
+    const valorAnterior = { activo: menu.activo };
     setActivo(checked);
     setIsUpdating(true);
     
@@ -84,7 +90,9 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
     if (error) {
       toast.error('Error al actualizar estado');
       setActivo(menu.activo);
+      await registrarActualizacion('menu', valorAnterior, { activo: checked }, 'actualizar_menu', 'error', error.message);
     } else {
+      await registrarActualizacion('menu', valorAnterior, { id: menu.id, activo: checked }, 'actualizar_menu');
       onUpdate();
     }
     setIsUpdating(false);

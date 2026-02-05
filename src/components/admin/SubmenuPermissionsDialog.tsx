@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface Submenu {
   id: number;
@@ -37,6 +38,7 @@ export function SubmenuPermissionsDialog({ submenu, onClose }: SubmenuPermission
   const [selectedPermissions, setSelectedPermissions] = useState<Set<number>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const { registrarActualizacion } = useActivityLogger();
 
   const { data: permissions = [] } = useQuery({
     queryKey: ['all-permissions'],
@@ -103,6 +105,7 @@ export function SubmenuPermissionsDialog({ submenu, onClose }: SubmenuPermission
     if (!submenu) return;
     
     setIsSaving(true);
+    const valorAnterior = { submenu_id: submenu.id, permisos: Array.from(availablePermissions) };
     try {
       // Delete all existing available permissions for this submenu
       await supabase
@@ -125,12 +128,26 @@ export function SubmenuPermissionsDialog({ submenu, onClose }: SubmenuPermission
         if (error) throw error;
       }
       
+      await registrarActualizacion(
+        'submenus_permisos_disponibles', 
+        valorAnterior, 
+        { submenu_id: submenu.id, submenu_nombre: submenu.nombre, permisos: Array.from(selectedPermissions) }, 
+        'configurar_permisos_disponibles'
+      );
       toast.success('Permisos disponibles actualizados');
       queryClient.invalidateQueries({ queryKey: ['submenu-available-permissions', submenu.id] });
       queryClient.invalidateQueries({ queryKey: ['available-permissions-per-submenu'] });
       onClose();
     } catch (error) {
       console.error('Error saving available permissions:', error);
+      await registrarActualizacion(
+        'submenus_permisos_disponibles', 
+        valorAnterior, 
+        { submenu_id: submenu.id, permisos: Array.from(selectedPermissions) }, 
+        'configurar_permisos_disponibles',
+        'error',
+        error instanceof Error ? error.message : 'Error desconocido'
+      );
       toast.error('Error al guardar permisos');
     } finally {
       setIsSaving(false);
