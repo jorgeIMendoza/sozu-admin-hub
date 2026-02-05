@@ -546,23 +546,23 @@ export default function RolesPermisos() {
     queryFn: async () => {
       const { data: menusData, error: menusError } = await supabase
         .from('menus')
-        .select('id, nombre')
+        .select('id, nombre, orden')
         .eq('activo', true)
-        .order('id');
+        .order('orden');
       
       if (menusError) throw menusError;
 
       const { data: submenusData, error: submenusError } = await supabase
         .from('submenus')
-        .select('id, nombre, menu_id')
+        .select('id, nombre, menu_id, orden')
         .eq('activo', true)
-        .order('id');
+        .order('orden');
       
       if (submenusError) throw submenusError;
 
       return (menusData || []).map(menu => ({
         ...menu,
-        submenus: (submenusData || []).filter(s => s.menu_id === menu.id)
+        submenus: (submenusData || []).filter(s => s.menu_id === menu.id).sort((a, b) => (a.orden ?? 100) - (b.orden ?? 100))
       })) as Menu[];
     },
   });

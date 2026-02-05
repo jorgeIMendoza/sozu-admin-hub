@@ -73,7 +73,7 @@
    '/admin/aprobacion-comisiones': BadgeDollarSign,
    '/admin/comisiones-externas': Briefcase,
    '/admin/pagar-comisiones': CreditCard,
-   '/admin/pago-proveedores': Banknote,
+  '/admin/pago-proveedores': Banknote,
    '/admin/cuentas-mantenimiento': Wrench,
    '/admin/reservas': Calendar,
    '/admin/notarios/revision-documentacion': FileText,
