@@ -57,6 +57,10 @@ interface SubmenuPermiso {
 
 const SUPER_ADMIN_ROLE_ID = 1;
 
+// Menu IDs that should be hidden from permissions management
+// Menu 13 = Configuraciones/Logs - access controlled by hardcoded email only
+const HIDDEN_MENU_IDS = [13];
+
 // Component for managing report access per role
 const ReportesSelector = ({ rolId, isSuperAdmin }: { rolId: number; isSuperAdmin: boolean }) => {
   const queryClient = useQueryClient();
@@ -563,7 +567,7 @@ export default function RolesPermisos() {
       return (menusData || []).map(menu => ({
         ...menu,
         submenus: (submenusData || []).filter(s => s.menu_id === menu.id).sort((a, b) => (a.orden ?? 100) - (b.orden ?? 100))
-      })) as Menu[];
+      })).filter(menu => !HIDDEN_MENU_IDS.includes(menu.id)) as Menu[];
     },
   });
 
