@@ -49,6 +49,9 @@ interface Menu {
   activo: boolean;
 }
 
+// Submenu IDs that cannot be deactivated or deleted for safety
+const PROTECTED_SUBMENU_IDS = [56]; // Administrar Menus
+
 interface SortableSubmenuRowProps {
   submenu: Submenu;
   menus: Menu[];
@@ -167,7 +170,14 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
     setIsUpdating(false);
   };
 
+  const isProtectedSubmenu = PROTECTED_SUBMENU_IDS.includes(submenu.id);
+
   const handleActivoChange = async (checked: boolean) => {
+    if (isProtectedSubmenu && !checked) {
+      toast.error('Este submenú no puede ser desactivado por seguridad');
+      return;
+    }
+    
     setActivo(checked);
     setIsUpdating(true);
     
@@ -204,6 +214,11 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
   };
 
   const handleDelete = async () => {
+    if (isProtectedSubmenu) {
+      toast.error('Este submenú no puede ser eliminado por seguridad');
+      return;
+    }
+    
     setIsUpdating(true);
     
     // First delete related permissions
@@ -292,7 +307,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
         <Switch
           checked={activo}
           onCheckedChange={handleActivoChange}
-          disabled={isUpdating}
+          disabled={isUpdating || isProtectedSubmenu}
           className="scale-75"
         />
       </div>
@@ -311,8 +326,8 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
       
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isUpdating}>
-            <Trash2 className="h-3 w-3 text-destructive" />
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isUpdating || isProtectedSubmenu}>
+            <Trash2 className={`h-3 w-3 ${isProtectedSubmenu ? 'text-muted-foreground' : 'text-destructive'}`} />
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>

@@ -216,16 +216,18 @@ const DASHBOARD_MENU_ID = 1;
           .eq('activo', true)
           .order('orden');
 
-    // Obtener menus con campo orden
+    // Obtener menus activos con campo orden
     const { data: menusData } = await supabase
       .from('menus')
-      .select('id, nombre, orden')
+      .select('id, nombre, orden, activo')
       .eq('activo', true);
 
-    // Crear mapa de orden de menus
+    // Crear mapa de orden de menus y set de menus activos
     const menuOrdenMap = new Map<number, number>();
+    const activeMenuIds = new Set<number>();
     menusData?.forEach(m => {
       menuOrdenMap.set(m.id, m.orden ?? 100);
+      activeMenuIds.add(m.id);
     });
  
        if (submenusError) {
@@ -234,32 +236,37 @@ const DASHBOARD_MENU_ID = 1;
          return;
        }
  
-        // Filtrar submenus por permisos
-        const filteredSubmenus = (submenusData as unknown as RawSubmenu[])?.filter(submenu => {
-          // Filtrar submenus solo_usuarioA
-          if (submenu.solo_usuarioA && userEmail !== USUARIO_A_EMAIL) {
-            return false;
-          }
-          
-          // Super Admin ve todo
-          if (isSuperAdmin) {
-            // Excepto menu de logs que es solo para jorge.mendoza@sozu.com
-            if (submenu.menu_id === LOGS_MENU_ID && userEmail !== USUARIO_A_EMAIL) {
-              return false;
-            }
-            return true;
-          }
+         // Filtrar submenus por permisos
+         const filteredSubmenus = (submenusData as unknown as RawSubmenu[])?.filter(submenu => {
+           // Solo incluir submenus de menus activos
+           if (!activeMenuIds.has(submenu.menu_id)) {
+             return false;
+           }
+           
+           // Filtrar submenus solo_usuarioA
+           if (submenu.solo_usuarioA && userEmail !== USUARIO_A_EMAIL) {
+             return false;
+           }
+           
+           // Super Admin ve todo
+           if (isSuperAdmin) {
+             // Excepto menu de logs que es solo para jorge.mendoza@sozu.com
+             if (submenu.menu_id === LOGS_MENU_ID && userEmail !== USUARIO_A_EMAIL) {
+               return false;
+             }
+             return true;
+           }
 
-          // Filtrar por permisos
-          const hasPermission = allowedSubmenuIds.includes(submenu.id);
-          
-          // Menu de logs solo para jorge.mendoza@sozu.com
-          if (submenu.menu_id === LOGS_MENU_ID && userEmail !== USUARIO_A_EMAIL) {
-            return false;
-          }
+           // Filtrar por permisos
+           const hasPermission = allowedSubmenuIds.includes(submenu.id);
+           
+           // Menu de logs solo para jorge.mendoza@sozu.com
+           if (submenu.menu_id === LOGS_MENU_ID && userEmail !== USUARIO_A_EMAIL) {
+             return false;
+           }
 
-          return hasPermission;
-        }) || [];
+           return hasPermission;
+         }) || [];
  
        // Agrupar por menu
        const menuMap = new Map<number, { menuNombre: string; children: DynamicMenuChild[] }>();

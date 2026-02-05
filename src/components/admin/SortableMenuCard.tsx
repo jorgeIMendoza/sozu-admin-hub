@@ -19,6 +19,9 @@ interface SortableMenuCardProps {
   onUpdate: () => void;
 }
 
+// Menu IDs that cannot be deactivated for safety
+const PROTECTED_MENU_IDS = [13]; // Configuraciones/Logs
+
 export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
   const [nombre, setNombre] = useState(menu.nombre);
   const [activo, setActivo] = useState(menu.activo);
@@ -62,7 +65,14 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
     setIsUpdating(false);
   };
 
+  const isProtectedMenu = PROTECTED_MENU_IDS.includes(menu.id);
+
   const handleActivoChange = async (checked: boolean) => {
+    if (isProtectedMenu && !checked) {
+      toast.error('Este menú no puede ser desactivado por seguridad');
+      return;
+    }
+    
     setActivo(checked);
     setIsUpdating(true);
     
@@ -110,7 +120,7 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
           <Switch
             checked={activo}
             onCheckedChange={handleActivoChange}
-            disabled={isUpdating}
+            disabled={isUpdating || isProtectedMenu}
           />
         </div>
       </div>
