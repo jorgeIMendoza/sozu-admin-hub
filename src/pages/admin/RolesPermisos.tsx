@@ -892,6 +892,11 @@ export default function RolesPermisos() {
 
   // Check if permission is active for current role
   const hasPermission = (submenuId: number, permisoId: number): boolean => {
+    // Super Admin has all permissions implicitly
+    if (isSuperAdminSelected) {
+      return true;
+    }
+    
     const key = `${submenuId}-${permisoId}`;
     if (pendingChanges.has(key)) {
       return pendingChanges.get(key)!;

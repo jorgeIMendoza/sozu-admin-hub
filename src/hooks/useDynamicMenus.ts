@@ -236,37 +236,26 @@ const DASHBOARD_MENU_ID = 1;
          return;
        }
  
-         // Filtrar submenus por permisos
-         const filteredSubmenus = (submenusData as unknown as RawSubmenu[])?.filter(submenu => {
-           // Solo incluir submenus de menus activos
-           if (!activeMenuIds.has(submenu.menu_id)) {
-             return false;
-           }
-           
-           // Filtrar submenus solo_usuarioA
-           if (submenu.solo_usuarioA && userEmail !== USUARIO_A_EMAIL) {
-             return false;
-           }
-           
-           // Super Admin ve todo
-           if (isSuperAdmin) {
-             // Excepto menu de logs que es solo para jorge.mendoza@sozu.com
-             if (submenu.menu_id === LOGS_MENU_ID && userEmail !== USUARIO_A_EMAIL) {
-               return false;
-             }
-             return true;
-           }
+          // Filtrar submenus por permisos
+          const filteredSubmenus = (submenusData as unknown as RawSubmenu[])?.filter(submenu => {
+            // Solo incluir submenus de menus activos
+            if (!activeMenuIds.has(submenu.menu_id)) {
+              return false;
+            }
+            
+            // Filtrar submenus con solo_usuarioa=true: solo jorge.mendoza puede verlos
+            if (submenu.solo_usuarioA && userEmail !== USUARIO_A_EMAIL) {
+              return false;
+            }
+            
+            // Super Admin ve todo (excepto los ya filtrados por solo_usuarioA)
+            if (isSuperAdmin) {
+              return true;
+            }
 
-           // Filtrar por permisos
-           const hasPermission = allowedSubmenuIds.includes(submenu.id);
-           
-           // Menu de logs solo para jorge.mendoza@sozu.com
-           if (submenu.menu_id === LOGS_MENU_ID && userEmail !== USUARIO_A_EMAIL) {
-             return false;
-           }
-
-           return hasPermission;
-         }) || [];
+            // Para otros roles, verificar si tienen permiso
+            return allowedSubmenuIds.includes(submenu.id);
+          }) || [];
  
        // Agrupar por menu
        const menuMap = new Map<number, { menuNombre: string; children: DynamicMenuChild[] }>();
