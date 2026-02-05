@@ -342,7 +342,7 @@ export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: So
         />
       </div>
       
-      <span className="text-xs text-muted-foreground">#{submenu.id}</span>
+      <span className="text-xs text-muted-foreground min-w-[50px] text-right">Orden: {submenu.orden}</span>
       
       <AlertDialog>
         <AlertDialogTrigger asChild>
