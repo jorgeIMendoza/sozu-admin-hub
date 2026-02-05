@@ -235,15 +235,40 @@ export default function ComisionesExternas() {
         });
       });
       
-      // Find emails not in usuarios and fetch from personas (inmobiliarias)
-      const emailsNotInUsuarios = comisionistaEmails.filter(email => !usuariosMap.has(email));
+      // IMPORTANTE: Buscar inmobiliarias en personas para TODOS los emails de comisionistas
+      // Las inmobiliarias pueden tener registro en usuarios Y en personas
       const emailsInmobiliarias = new Set<string>();
       
-      if (emailsNotInUsuarios.length > 0) {
+      if (comisionistaEmails.length > 0) {
         const { data: personasData } = await supabase
           .from('personas')
           .select('email, nombre_legal, tipo_persona')
-          .in('email', emailsNotInUsuarios)
+          .in('email', comisionistaEmails)
+          .eq('tipo_persona', 'pm')
+          .eq('activo', true);
+        
+        personasData?.forEach(p => {
+          if (p.email) {
+            emailsInmobiliarias.add(p.email);
+            // Actualizar el map con información de inmobiliaria
+            const existingData = usuariosMap.get(p.email);
+            usuariosMap.set(p.email, { 
+              nombre: existingData?.nombre || p.nombre_legal, 
+              esInmobiliaria: true,
+              esAgenteInmobiliario: existingData?.esAgenteInmobiliario || false
+            });
+          }
+        });
+      }
+      
+      // Buscar nombres para emails que no están en usuarios ni en personas
+      const emailsNotInMap = comisionistaEmails.filter(email => !usuariosMap.has(email));
+      
+      if (emailsNotInMap.length > 0) {
+        const { data: personasData } = await supabase
+          .from('personas')
+          .select('email, nombre_legal, tipo_persona')
+          .in('email', emailsNotInMap)
           .eq('activo', true);
         
         personasData?.forEach(p => {
