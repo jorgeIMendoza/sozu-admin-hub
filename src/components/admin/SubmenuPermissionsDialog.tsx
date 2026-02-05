@@ -84,12 +84,17 @@ export function SubmenuPermissionsDialog({ submenu, onClose }: SubmenuPermission
     enabled: !!submenu,
   });
 
-  // Initialize selected permissions when data loads
+  // Initialize selected permissions when data loads - only when submenu changes
   useEffect(() => {
-    if (!currentPermissions || currentPermissions.length === 0) {
+    if (!submenu) {
       setSelectedPermissions({});
       return;
     }
+  }, [submenu?.id]);
+
+  // Sync permissions when currentPermissions data is fetched
+  useEffect(() => {
+    if (!currentPermissions || !submenu) return;
     
     const permMap: Record<number, Set<number>> = {};
     currentPermissions.forEach(cp => {
@@ -99,7 +104,8 @@ export function SubmenuPermissionsDialog({ submenu, onClose }: SubmenuPermission
       permMap[cp.rol_id].add(cp.permiso_id);
     });
     setSelectedPermissions(permMap);
-  }, [submenu?.id, JSON.stringify(currentPermissions)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingCurrentPermissions, submenu?.id]);
 
   const togglePermission = (roleId: number, permissionId: number) => {
     setSelectedPermissions(prev => {
