@@ -95,14 +95,27 @@ export default function LogsActividad() {
   // Fetch filter options
   const fetchFilterOptions = async () => {
     try {
-      // Get unique usuarios using RPC or aggregate - limit increased
+     // Get unique usuarios from logs - these are the emails that have activity
+     // This already includes deleted users since we're reading from logs, not from usuarios table
       const { data: usuariosData } = await supabase
         .from('logs_actividad')
         .select('usuario_id')
         .not('usuario_id', 'is', null)
-        .limit(5000);
+       .limit(10000);
       
-      const uniqueUsuarios = [...new Set(usuariosData?.map(u => u.usuario_id).filter(Boolean) || [])].sort();
+     // Get unique emails and sort them
+     const uniqueUsuariosFromLogs = [...new Set(usuariosData?.map(u => u.usuario_id).filter(Boolean) || [])];
+     
+     // Also fetch all users (including deleted/inactive) to have a complete list
+     const { data: allUsersData } = await supabase
+       .from('usuarios')
+       .select('email')
+       .not('email', 'is', null);
+     
+     const allUserEmails = allUsersData?.map(u => u.email).filter(Boolean) || [];
+     
+     // Combine both sources and deduplicate
+     const uniqueUsuarios = [...new Set([...uniqueUsuariosFromLogs, ...allUserEmails])].sort() as string[];
       setAvailableUsuarios(uniqueUsuarios as string[]);
 
       // Get unique workflows - use raw SQL via RPC for distinct values
