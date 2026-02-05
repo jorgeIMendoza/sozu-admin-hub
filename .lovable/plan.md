@@ -1,80 +1,118 @@
 
-# Plan: Crear Menú "Configuraciones/Logs" con 4 Submenus
+# Plan: Agregar Submenu "Versión Producción" y Sincronización de Versiones
 
-## Resumen
+## Resumen del Problema
 
-Crear el menú faltante "Configuraciones/Logs" (ID 13) con los 4 submenus que aparecen en la imagen:
+La versión mostrada en el sidebar (ej: `v2.4.0-260205.0131`) corresponde al **build actual de preview**, mientras que producción tiene una versión diferente (`v2.4.0-260205.0132`). Esto confunde al usuario porque no sabe qué versión está realmente en producción.
+
+## Solución Propuesta
+
+Crear un nuevo submenu **"Versión Producción"** dentro de "Configuraciones/Logs" que muestre:
+- La versión actual del ambiente local
+- La versión actual publicada en producción (obtenida del `version.json` de producción)
+- Estado de sincronización entre ambas versiones
+- Historial de últimas publicaciones (opcional)
+
+## Arquitectura de la Solución
 
 ```text
-Configuraciones/Logs (Menu ID: 13)
-├── Pregunta a Aloris-IA    → /admin/consultas-ia
-├── Logs de Actividad       → /admin/logs-actividad
-├── Rastreo CLABEs STP      → /admin/rastreo-clabes-stp
-└── Rastreo Pagos STP       → /admin/rastreo-pagos-stp
+Configuraciones/Logs
+├── Pregunta a Aloris-IA
+├── Logs de Actividad
+├── Rastreo CLABEs STP
+├── Rastreo Pagos STP
+└── Versión Producción    ← NUEVO
 ```
-
-## Verificación del Frontend
-
-El código ya está preparado:
-- Iconos mapeados en `useDynamicMenus.ts` líneas 87-90
-- Icono del menú 13: Activity (línea 113)
-- Restricción por email ya implementada (solo jorge.mendoza@sozu.com)
 
 ## Detalles Técnicos
 
-### Migración de Base de Datos
+### 1. Nueva Página: VersionProduccion.tsx
+
+Crear la página `src/pages/admin/VersionProduccion.tsx` que:
+- Muestre la versión local (del build actual)
+- Consulte `https://sozu-admin.lovable.app/version.json` para obtener la versión de producción
+- Compare ambas versiones y muestre el estado
+
+| Campo | Valor de Ejemplo |
+|-------|------------------|
+| Versión Local | v2.4.0-260205.0131 |
+| Versión Producción | v2.4.0-260205.0132 |
+| Estado | ⚠️ Diferente / ✅ Sincronizado |
+| Última Publicación | 2026-02-05 01:32:00 |
+
+### 2. Agregar Ruta en App.tsx
+
+```typescript
+const VersionProduccion = lazy(() => import("./pages/admin/VersionProduccion"));
+
+// En las rutas:
+<Route path="version-produccion" element={<VersionProduccion />} />
+```
+
+### 3. Agregar Submenu en Base de Datos
 
 ```sql
--- Crear menú Configuraciones/Logs
-INSERT INTO public.menus (id, nombre, orden, activo)
-VALUES (13, 'Configuraciones/Logs', 13, true)
-ON CONFLICT (id) DO NOTHING;
-
--- Crear los 4 submenus
-INSERT INTO public.submenus (id, nombre, menu_id, vista_front_end, orden, activo) VALUES
-(51, 'Pregunta a Aloris-IA', 13, '/admin/consultas-ia', 51, true),
-(52, 'Logs de Actividad', 13, '/admin/logs-actividad', 52, true),
-(53, 'Rastreo CLABEs STP', 13, '/admin/rastreo-clabes-stp', 53, true),
-(54, 'Rastreo Pagos STP', 13, '/admin/rastreo-pagos-stp', 54, true)
+INSERT INTO public.submenus (id, nombre, menu_id, vista_front_end, orden, activo)
+OVERRIDING SYSTEM VALUE
+VALUES (55, 'Versión Producción', 13, '/admin/version-produccion', 55, true)
 ON CONFLICT (id) DO NOTHING;
 ```
 
-### Mapeo de Iconos (Ya Existente)
-
-| Ruta | Icono |
-|------|-------|
-| /admin/consultas-ia | Bot |
-| /admin/logs-actividad | Activity |
-| /admin/rastreo-clabes-stp | CreditCard |
-| /admin/rastreo-pagos-stp | CreditCard |
-
-### Restricción de Acceso (Ya Existente)
-
-El código en `useDynamicMenus.ts` ya filtra este menú:
+### 4. Agregar Icono en useDynamicMenus.ts
 
 ```typescript
-const LOGS_ALLOWED_EMAIL = 'jorge.mendoza@sozu.com';
-const LOGS_MENU_ID = 13;
+// En iconMapByPath:
+'/admin/version-produccion': GitBranch,
+```
 
-// En el filtrado:
-if (submenu.menu_id === LOGS_MENU_ID && userEmail !== LOGS_ALLOWED_EMAIL) {
-  return false;
+### 5. Servicio de Versión de Producción
+
+Actualizar `src/utils/versionUtils.ts` para incluir:
+
+```typescript
+const PRODUCTION_URL = 'https://sozu-admin.lovable.app';
+
+export async function fetchProductionVersion(): Promise<{ version: string; buildTime: number } | null> {
+  try {
+    const response = await fetch(`${PRODUCTION_URL}/version.json?t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 ```
 
-Solo el usuario `jorge.mendoza@sozu.com` podrá ver este menú.
+## Diseño de la Página
+
+La página mostrará:
+
+1. **Cards de Versión**
+   - Versión Local con badge del ambiente
+   - Versión Producción con timestamp de build
+
+2. **Indicador de Estado**
+   - Verde si están sincronizadas
+   - Amarillo si hay diferencia
+
+3. **Botón de Refrescar**
+   - Para recargar la versión de producción
 
 ## Archivos a Modificar
 
 | Archivo | Cambio |
 |---------|--------|
-| Nueva migración SQL | Insertar menú 13 y 4 submenus |
-
-No se requieren cambios en código frontend - todo está preparado.
+| `src/pages/admin/VersionProduccion.tsx` | Crear nueva página |
+| `src/App.tsx` | Agregar ruta lazy |
+| `src/hooks/useDynamicMenus.ts` | Agregar icono `GitBranch` |
+| `src/utils/versionUtils.ts` | Agregar función `fetchProductionVersion` |
+| Nueva migración SQL | Insertar submenu ID 55 |
 
 ## Resultado Esperado
 
-Después de aplicar la migración:
-1. El usuario jorge.mendoza@sozu.com verá el menú "Configuraciones/Logs"
-2. Dentro aparecerán los 4 submenus en el orden correcto
-3. Otros usuarios no verán este menú
+1. El usuario `jorge.mendoza@sozu.com` verá un nuevo submenu "Versión Producción"
+2. Al hacer clic, verá una comparación clara entre la versión local y producción
+3. Podrá identificar inmediatamente si hay diferencias entre ambientes
