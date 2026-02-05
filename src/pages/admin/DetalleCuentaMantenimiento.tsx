@@ -19,6 +19,7 @@ import { NewMultaMantenimientoDialog } from "@/components/admin/NewMultaMantenim
 import { NewReservaDialog } from "@/components/admin/NewReservaDialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface AcuerdoPago {
   id: number;
@@ -83,6 +84,7 @@ export default function DetalleCuentaMantenimiento() {
   const [generatingEstadoCuenta, setGeneratingEstadoCuenta] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarSubidaDocumento } = useActivityLogger();
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
     queryKey: ["cuenta_mantenimiento_detalle", cuentaId],
@@ -520,6 +522,14 @@ export default function DetalleCuentaMantenimiento() {
 
       if (updateError) throw updateError;
 
+      await registrarSubidaDocumento({
+        tipo: 'evidencia_pago_mantenimiento',
+        id_pago: pagoId,
+        id_cuenta_mantenimiento: cuentaId,
+        nombre_archivo: file.name,
+        url: publicUrl
+      });
+
       toast({
         title: "Evidencia subida",
         description: "La evidencia de pago se ha guardado correctamente",
@@ -528,6 +538,13 @@ export default function DetalleCuentaMantenimiento() {
       queryClient.invalidateQueries({ queryKey: ["pagos_mantenimiento", cuentaId] });
     } catch (error) {
       console.error("Error uploading evidence:", error);
+      
+      await registrarSubidaDocumento(
+        { tipo: 'evidencia_pago_mantenimiento', id_pago: pagoId, id_cuenta_mantenimiento: cuentaId, nombre_archivo: file.name },
+        'error',
+        error instanceof Error ? error.message : 'Error desconocido'
+      );
+
       toast({
         title: "Error",
         description: "No se pudo subir la evidencia de pago",
