@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Plus, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Settings, Shield } from 'lucide-react';
 import { DndContext, DragEndEvent, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { SortableMenuCard } from '@/components/admin/SortableMenuCard';
 import { SortableSubmenuRow } from '@/components/admin/SortableSubmenuRow';
 import { NewSubmenuDialog } from '@/components/admin/NewSubmenuDialog';
+import { SubmenuPermissionsDialog } from '@/components/admin/SubmenuPermissionsDialog';
 import { toast } from 'sonner';
 
 interface Menu {
@@ -33,6 +34,8 @@ export default function AdministrarMenus() {
   const queryClient = useQueryClient();
   const [expandedMenus, setExpandedMenus] = useState<Set<number>>(new Set());
   const [showNewSubmenuDialog, setShowNewSubmenuDialog] = useState(false);
+  const [selectedMenuForNewSubmenu, setSelectedMenuForNewSubmenu] = useState<number | null>(null);
+  const [selectedSubmenuForPermissions, setSelectedSubmenuForPermissions] = useState<Submenu | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -61,7 +64,6 @@ export default function AdministrarMenus() {
         .select('id, nombre, vista_front_end, menu_id, orden, activo')
         .order('orden');
       if (error) throw error;
-      // Cast to include solo_usuarioA which exists in DB but not in generated types yet
       return data as unknown as Submenu[];
     },
   });
@@ -92,7 +94,6 @@ export default function AdministrarMenus() {
     
     const newMenus = arrayMove(menus, oldIndex, newIndex);
     
-    // Update orden in DB
     try {
       const updates = newMenus.map((menu, index) => 
         supabase
@@ -118,7 +119,6 @@ export default function AdministrarMenus() {
     
     const newSubmenus = arrayMove(menuSubmenus, oldIndex, newIndex);
     
-    // Update orden in DB
     try {
       const updates = newSubmenus.map((submenu, index) => 
         supabase
@@ -134,6 +134,11 @@ export default function AdministrarMenus() {
     }
   };
 
+  const handleAddSubmenu = (menuId: number) => {
+    setSelectedMenuForNewSubmenu(menuId);
+    setShowNewSubmenuDialog(true);
+  };
+
   const isLoading = loadingMenus || loadingSubmenus;
 
   return (
@@ -143,10 +148,6 @@ export default function AdministrarMenus() {
           <Settings className="h-6 w-6" />
           <h1 className="text-2xl font-bold">Administrar Menus</h1>
         </div>
-        <Button onClick={() => setShowNewSubmenuDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Submenu
-        </Button>
       </div>
 
       {isLoading ? (
@@ -154,109 +155,128 @@ export default function AdministrarMenus() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Menus Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Menus (Grupos)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleMenuDragEnd}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Estructura de Navegación</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleMenuDragEnd}
+            >
+              <SortableContext
+                items={menus.map(m => m.id)}
+                strategy={verticalListSortingStrategy}
               >
-                <SortableContext
-                  items={menus.map(m => m.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {menus.map(menu => (
-                      <SortableMenuCard
-                        key={menu.id}
-                        menu={menu}
-                        onUpdate={refetch}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </CardContent>
-          </Card>
-
-          {/* Submenus Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Submenus (por grupo)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {menus.map(menu => {
-                  const menuSubmenus = submenus.filter(s => s.menu_id === menu.id);
-                  const isExpanded = expandedMenus.has(menu.id);
-                  
-                  return (
-                    <Collapsible key={menu.id} open={isExpanded} onOpenChange={() => toggleMenu(menu.id)}>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-between h-auto py-2 px-3"
-                        >
-                          <span className="font-medium">{menu.nombre}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              ({menuSubmenus.length})
-                            </span>
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
+                <div className="space-y-3">
+                  {menus.map(menu => {
+                    const menuSubmenus = submenus.filter(s => s.menu_id === menu.id);
+                    const isExpanded = expandedMenus.has(menu.id);
+                    
+                    return (
+                      <div key={menu.id} className="border rounded-lg overflow-hidden">
+                        {/* Menu Header - Sortable */}
+                        <div className="flex items-center gap-2 bg-card">
+                          <div className="flex-1">
+                            <SortableMenuCard
+                              menu={menu}
+                              onUpdate={refetch}
+                            />
                           </div>
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="ml-4 mt-2 space-y-1">
-                          {menuSubmenus.length === 0 ? (
-                            <p className="text-sm text-muted-foreground py-2">
-                              Sin submenus
-                            </p>
-                          ) : (
-                            <DndContext
-                              sensors={sensors}
-                              collisionDetection={closestCenter}
-                              onDragEnd={(e) => handleSubmenuDragEnd(e, menu.id)}
-                            >
-                              <SortableContext
-                                items={menuSubmenus.map(s => `submenu-${s.id}`)}
-                                strategy={verticalListSortingStrategy}
+                          <Collapsible open={isExpanded} onOpenChange={() => toggleMenu(menu.id)}>
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mr-2"
                               >
-                                {menuSubmenus.map(submenu => (
-                                  <SortableSubmenuRow
-                                    key={submenu.id}
-                                    submenu={submenu}
-                                    onUpdate={refetch}
-                                  />
-                                ))}
-                              </SortableContext>
-                            </DndContext>
-                          )}
+                                <span className="text-xs text-muted-foreground mr-1">
+                                  ({menuSubmenus.length})
+                                </span>
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </CollapsibleTrigger>
+                          </Collapsible>
                         </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                        
+                        {/* Submenus - Collapsible */}
+                        <Collapsible open={isExpanded}>
+                          <CollapsibleContent>
+                            <div className="border-t bg-muted/30 p-3 space-y-2">
+                              {menuSubmenus.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-2 text-center">
+                                  Sin submenus
+                                </p>
+                              ) : (
+                                <DndContext
+                                  sensors={sensors}
+                                  collisionDetection={closestCenter}
+                                  onDragEnd={(e) => handleSubmenuDragEnd(e, menu.id)}
+                                >
+                                  <SortableContext
+                                    items={menuSubmenus.map(s => `submenu-${s.id}`)}
+                                    strategy={verticalListSortingStrategy}
+                                  >
+                                    {menuSubmenus.map(submenu => (
+                                      <div key={submenu.id} className="flex items-center gap-1">
+                                        <div className="flex-1">
+                                          <SortableSubmenuRow
+                                            submenu={submenu}
+                                            onUpdate={refetch}
+                                          />
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7"
+                                          onClick={() => setSelectedSubmenuForPermissions(submenu)}
+                                          title="Configurar permisos"
+                                        >
+                                          <Shield className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </SortableContext>
+                                </DndContext>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full mt-2"
+                                onClick={() => handleAddSubmenu(menu.id)}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Agregar Submenu
+                              </Button>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </div>
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </CardContent>
+        </Card>
       )}
 
       <NewSubmenuDialog
         open={showNewSubmenuDialog}
         onOpenChange={setShowNewSubmenuDialog}
         menus={menus}
+        preselectedMenuId={selectedMenuForNewSubmenu}
         onSuccess={refetch}
+      />
+
+      <SubmenuPermissionsDialog
+        submenu={selectedSubmenuForPermissions}
+        onClose={() => setSelectedSubmenuForPermissions(null)}
       />
     </div>
   );

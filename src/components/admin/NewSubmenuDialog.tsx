@@ -26,10 +26,11 @@ interface NewSubmenuDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   menus: Menu[];
+  preselectedMenuId?: number | null;
   onSuccess: () => void;
 }
 
-export function NewSubmenuDialog({ open, onOpenChange, menus, onSuccess }: NewSubmenuDialogProps) {
+export function NewSubmenuDialog({ open, onOpenChange, menus, preselectedMenuId, onSuccess }: NewSubmenuDialogProps) {
   const [menuId, setMenuId] = useState<string>('');
   const [nombre, setNombre] = useState('');
   const [vistaFrontEnd, setVistaFrontEnd] = useState('');
@@ -46,8 +47,12 @@ export function NewSubmenuDialog({ open, onOpenChange, menus, onSuccess }: NewSu
     };
     if (open) {
       fetchPermisos();
+      // Set preselected menu if provided
+      if (preselectedMenuId) {
+        setMenuId(preselectedMenuId.toString());
+      }
     }
-  }, [open]);
+  }, [open, preselectedMenuId]);
 
   const resetForm = () => {
     setMenuId('');
