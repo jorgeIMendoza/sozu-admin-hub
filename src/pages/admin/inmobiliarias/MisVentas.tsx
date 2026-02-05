@@ -116,30 +116,102 @@
  
        let propiedadesMap: Record<number, any> = {};
        if (propiedadIds.length > 0) {
-         const { data: propiedadesData } = await (supabase as any)
+          // First get properties with their edificio_modelo ids
+          const { data: propiedadesData } = await (supabase as any)
            .from('propiedades')
            .select(`
              id,
              numero_propiedad,
-             edificios_modelos (
-               modelos (nombre),
-               edificios (
-                 nombre,
-                 proyectos (nombre)
-               )
-             )
+              id_edificio_modelo
            `)
            .in('id', propiedadIds);
  
-         propiedadesMap = (propiedadesData || []).reduce((acc: any, p: any) => {
-           acc[p.id] = {
-             numero_propiedad: p.numero_propiedad,
-             modelo_nombre: p.edificios_modelos?.modelos?.nombre,
-             edificio_nombre: p.edificios_modelos?.edificios?.nombre,
-             proyecto_nombre: p.edificios_modelos?.edificios?.proyectos?.nombre,
-           };
-           return acc;
-         }, {});
+          // Get unique edificio_modelo ids
+          const edificioModeloIds = [...new Set(
+            (propiedadesData || [])
+              .map((p: any) => p.id_edificio_modelo)
+              .filter(Boolean)
+          )] as number[];
+ 
+          // Get edificios_modelos with their relationships
+          let edificioModelosMap: Record<number, any> = {};
+          if (edificioModeloIds.length > 0) {
+            const { data: edificioModelosData } = await supabase
+              .from('edificios_modelos')
+              .select('id, id_edificio, id_modelo')
+              .in('id', edificioModeloIds);
+ 
+            // Get edificio ids and modelo ids
+            const edificioIds = [...new Set((edificioModelosData || []).map((em: any) => em.id_edificio).filter(Boolean))] as number[];
+            const modeloIds = [...new Set((edificioModelosData || []).map((em: any) => em.id_modelo).filter(Boolean))] as number[];
+ 
+            // Fetch edificios with proyectos
+            let edificiosMap: Record<number, any> = {};
+            if (edificioIds.length > 0) {
+              const { data: edificiosData } = await supabase
+                .from('edificios')
+                .select('id, nombre, id_proyecto')
+                .in('id', edificioIds);
+ 
+              const proyectoIds = [...new Set((edificiosData || []).map((e: any) => e.id_proyecto).filter(Boolean))] as number[];
+              
+              let proyectosMap: Record<number, string> = {};
+              if (proyectoIds.length > 0) {
+                const { data: proyectosData } = await supabase
+                  .from('proyectos')
+                  .select('id, nombre')
+                  .in('id', proyectoIds);
+                proyectosMap = (proyectosData || []).reduce((acc: any, p: any) => {
+                  acc[p.id] = p.nombre;
+                  return acc;
+                }, {});
+              }
+ 
+              edificiosMap = (edificiosData || []).reduce((acc: any, e: any) => {
+                acc[e.id] = {
+                  nombre: e.nombre,
+                  proyecto_nombre: proyectosMap[e.id_proyecto] || '-',
+                };
+                return acc;
+              }, {});
+            }
+ 
+            // Fetch modelos
+            let modelosMap: Record<number, string> = {};
+            if (modeloIds.length > 0) {
+              const { data: modelosData } = await supabase
+                .from('modelos')
+                .select('id, nombre')
+                .in('id', modeloIds);
+              modelosMap = (modelosData || []).reduce((acc: any, m: any) => {
+                acc[m.id] = m.nombre;
+                return acc;
+              }, {});
+            }
+ 
+            // Build edificioModelosMap
+            edificioModelosMap = (edificioModelosData || []).reduce((acc: any, em: any) => {
+              const edificio = edificiosMap[em.id_edificio] || {};
+              acc[em.id] = {
+                edificio_nombre: edificio.nombre || '-',
+                proyecto_nombre: edificio.proyecto_nombre || '-',
+                modelo_nombre: modelosMap[em.id_modelo] || '-',
+              };
+              return acc;
+            }, {});
+          }
+ 
+          // Build propiedadesMap
+          propiedadesMap = (propiedadesData || []).reduce((acc: any, p: any) => {
+            const emInfo = edificioModelosMap[p.id_edificio_modelo] || {};
+            acc[p.id] = {
+              numero_propiedad: p.numero_propiedad,
+              modelo_nombre: emInfo.modelo_nombre || '-',
+              edificio_nombre: emInfo.edificio_nombre || '-',
+              proyecto_nombre: emInfo.proyecto_nombre || '-',
+            };
+            return acc;
+          }, {});
        }
  
        // Get product info for product-based ofertas
