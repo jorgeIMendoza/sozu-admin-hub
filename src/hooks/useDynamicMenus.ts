@@ -137,7 +137,7 @@ interface RawSubmenu {
   vista_front_end: string | null;
   menu_id: number;
   orden: number;
-  solo_usuarioA?: boolean;
+  solo_usuarioa?: boolean;
   menus: {
     id: number;
     nombre: string;
@@ -208,6 +208,7 @@ const DASHBOARD_MENU_ID = 1;
             vista_front_end,
             menu_id,
             orden,
+            solo_usuarioa,
             menus!inner (
               id,
               nombre
@@ -244,7 +245,7 @@ const DASHBOARD_MENU_ID = 1;
             }
             
             // Filtrar submenus con solo_usuarioa=true: solo jorge.mendoza puede verlos
-            if (submenu.solo_usuarioA && userEmail !== USUARIO_A_EMAIL) {
+            if (submenu.solo_usuarioa && userEmail !== USUARIO_A_EMAIL) {
               return false;
             }
             
