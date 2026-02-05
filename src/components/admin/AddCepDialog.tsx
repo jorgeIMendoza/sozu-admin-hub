@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, FileText } from "lucide-react";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface AddCepDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarSubidaDocumento } = useActivityLogger();
 
   const updateCepMutation = useMutation({
     mutationFn: async (cepUrl: string) => {
@@ -103,8 +105,25 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
 
       // Update payment record
       await updateCepMutation.mutateAsync(publicUrl);
+
+      // Log success
+      await registrarSubidaDocumento({
+        tipo: 'cep_pago',
+        id_pago: paymentId,
+        id_cuenta_cobranza: cuentaCobranzaId,
+        nombre_archivo: selectedFile.name,
+        url: publicUrl
+      });
     } catch (error) {
       console.error('Error in handleUpload:', error);
+      
+      // Log error
+      await registrarSubidaDocumento(
+        { tipo: 'cep_pago', id_pago: paymentId, id_cuenta_cobranza: cuentaCobranzaId, nombre_archivo: selectedFile?.name },
+        'error',
+        error instanceof Error ? error.message : 'Error desconocido'
+      );
+
       toast({
         title: "Error",
         description: "No se pudo subir el archivo. Por favor intenta de nuevo.",

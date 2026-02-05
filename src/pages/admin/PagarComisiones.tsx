@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import ComisionesPorPagarTab from "@/components/admin/ComisionesPorPagarTab";
 import ComisionesPagadasTab from "@/components/admin/ComisionesPagadasTab";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 // ID del rol "Agente Inmobiliario"
 const AGENTE_INMOBILIARIO_ROL_ID = 3;
@@ -159,6 +160,7 @@ async function fetchAllComisionistas() {
 export default function PagarComisiones() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { registrarPago } = useActivityLogger();
   const [filtroGeneral, setFiltroGeneral] = useState("");
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
   const [selectedComisionista, setSelectedComisionista] = useState<{ email: string; idCuenta: number } | null>(null);
@@ -209,7 +211,15 @@ export default function PagarComisiones() {
       
       return updateData;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data, variables) => {
+      // Log the payment
+      await registrarPago({
+        tipo: 'comision_interna',
+        email_comisionista: variables.email,
+        id_cuenta_cobranza: variables.idCuenta,
+        url_evidencia: data?.[0]?.url_evidencia_pago || null
+      });
+
       queryClient.invalidateQueries({ queryKey: ["pagar-comisiones"] });
       queryClient.invalidateQueries({ queryKey: ["totales-comisiones"] });
       toast({
@@ -283,7 +293,17 @@ export default function PagarComisiones() {
       
       return resultados;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data, variables) => {
+      // Log each payment
+      for (const cuenta of variables.cuentas) {
+        await registrarPago({
+          tipo: 'comision_interna_multiple',
+          email_comisionista: cuenta.email,
+          id_cuenta_cobranza: cuenta.idCuenta,
+          url_evidencia: data?.find(d => d.id_cuenta_cobranza === cuenta.idCuenta)?.url_evidencia_pago || null
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["pagar-comisiones"] });
       queryClient.invalidateQueries({ queryKey: ["totales-comisiones"] });
       toast({

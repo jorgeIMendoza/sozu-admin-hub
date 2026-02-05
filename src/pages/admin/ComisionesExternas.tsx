@@ -106,7 +106,7 @@ async function getTipoDocumentoFactura() {
 export default function ComisionesExternas() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { registrarAprobacion } = useActivityLogger();
+  const { registrarAprobacion, registrarPago } = useActivityLogger();
   const { canApprove, canUpdate, isSuperAdmin } = usePagePermissions('/admin/comisiones-externas');
   
   const [filtroGeneral, setFiltroGeneral] = useState("");
@@ -496,7 +496,14 @@ export default function ComisionesExternas() {
       
       return { email, idCuenta };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      // Log the external commission payment
+      await registrarPago({
+        tipo: 'comision_externa',
+        email_comisionista: data.email,
+        id_cuenta_cobranza: data.idCuenta
+      });
+
       queryClient.invalidateQueries({ queryKey: ["comisiones-externas"] });
       
       toast({

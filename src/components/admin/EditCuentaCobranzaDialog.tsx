@@ -50,6 +50,7 @@ import { PersonForm } from './PersonForm';
 import { DocumentsTab } from './DocumentsTab';
 import { ConfirmEscrituraDialog } from './ConfirmEscrituraDialog';
 import { FacturasTab } from './FacturasTab';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface Comprador {
   porcentaje_copropiedad: number;
@@ -190,6 +191,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { canUpdate: canUpdateCuenta, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
+  const { registrarActualizacion, registrarEliminacion } = useActivityLogger();
   const [activeTab, setActiveTab] = useState('propiedad');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
@@ -2015,8 +2017,17 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
       return { id, monto, diferencia, lastPaymentUpdated: lastPayment?.id !== id };
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       console.log('Amount update successful:', data);
+      
+      // Log the update
+      await registrarActualizacion(
+        'acuerdo_pago',
+        { id: variables.id, monto: data?.diferencia ? variables.monto - data.diferencia : null },
+        { id: variables.id, monto: variables.monto, id_cuenta_cobranza: cuenta.id },
+        'actualizar_monto_acuerdo'
+      );
+      
       toast.success("Monto actualizado exitosamente");
       setEditingAmount(null);
       setEditingMonto('');
@@ -2051,8 +2062,17 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       if (error) throw error;
       return data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       console.log('Date update successful:', data);
+      
+      // Log the update
+      await registrarActualizacion(
+        'acuerdo_pago',
+        { id: variables.id, fecha_pago: null },
+        { id: variables.id, fecha_pago: variables.fecha_pago?.toISOString().split('T')[0], id_cuenta_cobranza: cuenta.id },
+        'actualizar_fecha_acuerdo'
+      );
+      
       toast.success("Fecha actualizada exitosamente");
       setEditingAcuerdo(null);
       setEditingDate(undefined);
@@ -2315,6 +2335,20 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       return remainingAcuerdos;
     },
     onSuccess: async (remainingAcuerdos) => {
+      // Log the deletion
+      if (acuerdoToDelete) {
+        await registrarEliminacion(
+          'acuerdo_pago',
+          { 
+            id: acuerdoToDelete.id, 
+            concepto: acuerdoToDelete.concepto, 
+            monto: acuerdoToDelete.monto,
+            id_cuenta_cobranza: cuenta.id 
+          },
+          'eliminar_acuerdo_pago'
+        );
+      }
+      
       toast.success("Pago eliminado exitosamente");
       
       // Refresh acuerdos data and recalculate dates

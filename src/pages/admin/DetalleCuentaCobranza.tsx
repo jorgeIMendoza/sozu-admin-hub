@@ -586,7 +586,7 @@ export default function DetalleCuentaCobranza() {
   const queryClient = useQueryClient();
   const { canUpdate, canDelete, isSuperAdmin } = usePagePermissions('/admin/cuentas-cobranza');
   const { canGenerateOffer: canGenerateOfferPropiedades } = usePagePermissions('/admin/propiedades');
-  const { registrarCreacion, registrarActualizacion } = useActivityLogger();
+  const { registrarCreacion, registrarActualizacion, registrarSubidaDocumento } = useActivityLogger();
 
 
   const { data: cuentaDetalle, isLoading: cuentaLoading } = useQuery({
@@ -2299,6 +2299,8 @@ export default function DetalleCuentaCobranza() {
     }
   };
 
+  
+
   const handleUploadEvidence = async (pagoId: number, file: File) => {
     try {
       setUploadingEvidence(pagoId);
@@ -2327,6 +2329,15 @@ export default function DetalleCuentaCobranza() {
 
       if (updateError) throw updateError;
 
+      // Log success
+      await registrarSubidaDocumento({
+        tipo: 'evidencia_pago_cobranza',
+        id_pago: pagoId,
+        id_cuenta_cobranza: cuentaId,
+        nombre_archivo: file.name,
+        url: publicUrl
+      });
+
       toast({
         title: "Evidencia subida",
         description: "La evidencia de pago se ha guardado correctamente",
@@ -2336,6 +2347,14 @@ export default function DetalleCuentaCobranza() {
       queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaId] });
     } catch (error) {
       console.error("Error uploading evidence:", error);
+      
+      // Log error
+      await registrarSubidaDocumento(
+        { tipo: 'evidencia_pago_cobranza', id_pago: pagoId, id_cuenta_cobranza: cuentaId, nombre_archivo: file.name },
+        'error',
+        error instanceof Error ? error.message : 'Error desconocido'
+      );
+
       toast({
         title: "Error",
         description: "No se pudo subir la evidencia de pago",
@@ -2351,6 +2370,10 @@ export default function DetalleCuentaCobranza() {
     const claveRastreo = editingClaveRastreo[pagoId]?.trim();
     if (!claveRastreo) return;
 
+    // Get old value for logging
+    const oldClaveRastreo = acuerdosPago?.flatMap(a => a.aplicaciones || [])
+      .find(app => app.pago?.id === pagoId)?.pago?.clave_rastreo || null;
+
     setSavingClaveRastreo(pagoId);
     try {
       const { error } = await supabase
@@ -2359,6 +2382,14 @@ export default function DetalleCuentaCobranza() {
         .eq('id', pagoId);
 
       if (error) throw error;
+
+      // Log success
+      await registrarActualizacion(
+        'pago',
+        { id: pagoId, clave_rastreo: oldClaveRastreo },
+        { id: pagoId, clave_rastreo: claveRastreo, id_cuenta_cobranza: cuentaId },
+        'guardar_clave_rastreo'
+      );
 
       toast({
         title: "Clave guardada",
@@ -2377,6 +2408,17 @@ export default function DetalleCuentaCobranza() {
       queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaId] });
     } catch (error) {
       console.error("Error saving clave_rastreo:", error);
+      
+      // Log error
+      await registrarActualizacion(
+        'pago',
+        { id: pagoId, clave_rastreo: oldClaveRastreo },
+        { id: pagoId, clave_rastreo: claveRastreo },
+        'guardar_clave_rastreo',
+        'error',
+        error instanceof Error ? error.message : 'Error desconocido'
+      );
+
       toast({
         title: "Error",
         description: "No se pudo guardar la clave de rastreo",
