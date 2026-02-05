@@ -302,15 +302,19 @@ type Venta = {
         if (inmobiliariaEmail) {
           const { data: comisionistasData } = await (supabase as any)
             .from('comisionistas')
-            .select('id_cuenta_cobranza, porcentaje_comision, monto_comision')
+            .select('id_cuenta_cobranza, porcentaje_comision')
             .in('id_cuenta_cobranza', cuentaIds)
-            .eq('email_comisionista', inmobiliariaEmail)
+            .eq('email_usuario', inmobiliariaEmail)
             .eq('activo', true);
 
           comisionistasMap = (comisionistasData || []).reduce((acc: any, c: any) => {
+            // Get precio_final from cuenta to calculate monto
+            const cuenta = cuentasData.find((cc: any) => cc.id === c.id_cuenta_cobranza);
+            const precioFinal = cuenta?.precio_final || 0;
+            const porcentaje = Number(c.porcentaje_comision) || 0;
             acc[c.id_cuenta_cobranza] = {
-              porcentaje: Number(c.porcentaje_comision) || 0,
-              monto: Number(c.monto_comision) || 0,
+              porcentaje: porcentaje,
+              monto: precioFinal * (porcentaje / 100),
             };
             return acc;
           }, {});
