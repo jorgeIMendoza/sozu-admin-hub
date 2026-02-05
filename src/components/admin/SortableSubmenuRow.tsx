@@ -24,6 +24,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Submenu {
   id: number;
@@ -35,16 +42,26 @@ interface Submenu {
   solo_usuarioA?: boolean;
 }
 
+interface Menu {
+  id: number;
+  nombre: string;
+  orden: number;
+  activo: boolean;
+}
+
 interface SortableSubmenuRowProps {
   submenu: Submenu;
+  menus: Menu[];
+  allSubmenus: Submenu[];
   onUpdate: () => void;
 }
 
-export function SortableSubmenuRow({ submenu, onUpdate }: SortableSubmenuRowProps) {
+export function SortableSubmenuRow({ submenu, menus, allSubmenus, onUpdate }: SortableSubmenuRowProps) {
   const [nombre, setNombre] = useState(submenu.nombre);
   const [vistaFrontEnd, setVistaFrontEnd] = useState(submenu.vista_front_end || '');
   const [activo, setActivo] = useState(submenu.activo);
   const [soloUsuarioA, setSoloUsuarioA] = useState(submenu.solo_usuarioA || false);
+  const [menuId, setMenuId] = useState(submenu.menu_id);
   const [isUpdating, setIsUpdating] = useState(false);
 
   const {
@@ -67,12 +84,33 @@ export function SortableSubmenuRow({ submenu, onUpdate }: SortableSubmenuRowProp
     setVistaFrontEnd(submenu.vista_front_end || '');
     setActivo(submenu.activo);
     setSoloUsuarioA(submenu.solo_usuarioA || false);
+    setMenuId(submenu.menu_id);
   }, [submenu]);
 
   const routeIsValid = isValidRoute(vistaFrontEnd);
 
+  // Validar nombre duplicado
+  const isNameDuplicate = (newName: string) => {
+    const normalizedName = newName.trim().toLowerCase();
+    // Verificar contra otros submenus
+    const duplicateSubmenu = allSubmenus.find(
+      s => s.id !== submenu.id && s.nombre.trim().toLowerCase() === normalizedName
+    );
+    // Verificar contra menus
+    const duplicateMenu = menus.find(
+      m => m.nombre.trim().toLowerCase() === normalizedName
+    );
+    return duplicateSubmenu || duplicateMenu;
+  };
+
   const handleNombreBlur = async () => {
     if (nombre === submenu.nombre) return;
+    
+    if (isNameDuplicate(nombre)) {
+      toast.error('Ya existe un menú o submenú con ese nombre');
+      setNombre(submenu.nombre);
+      return;
+    }
     
     setIsUpdating(true);
     const { error } = await supabase
@@ -102,6 +140,28 @@ export function SortableSubmenuRow({ submenu, onUpdate }: SortableSubmenuRowProp
       toast.error('Error al actualizar ruta');
       setVistaFrontEnd(submenu.vista_front_end || '');
     } else {
+      onUpdate();
+    }
+    setIsUpdating(false);
+  };
+
+  const handleMenuChange = async (newMenuId: string) => {
+    const newId = parseInt(newMenuId);
+    if (newId === submenu.menu_id) return;
+    
+    setMenuId(newId);
+    setIsUpdating(true);
+    
+    const { error } = await supabase
+      .from('submenus')
+      .update({ menu_id: newId, fecha_actualizacion: new Date().toISOString() })
+      .eq('id', submenu.id);
+
+    if (error) {
+      toast.error('Error al mover submenu');
+      setMenuId(submenu.menu_id);
+    } else {
+      toast.success('Submenu movido');
       onUpdate();
     }
     setIsUpdating(false);
@@ -186,7 +246,7 @@ export function SortableSubmenuRow({ submenu, onUpdate }: SortableSubmenuRowProp
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         onBlur={handleNombreBlur}
-        className="max-w-[150px] h-7 text-sm"
+        className="max-w-[130px] h-7 text-sm"
         placeholder="Nombre"
         disabled={isUpdating}
       />
@@ -196,7 +256,7 @@ export function SortableSubmenuRow({ submenu, onUpdate }: SortableSubmenuRowProp
           value={vistaFrontEnd}
           onChange={(e) => setVistaFrontEnd(e.target.value)}
           onBlur={handleRutaBlur}
-          className="max-w-[200px] h-7 text-sm"
+          className="max-w-[180px] h-7 text-sm"
           placeholder="/admin/..."
           disabled={isUpdating}
         />
@@ -213,6 +273,19 @@ export function SortableSubmenuRow({ submenu, onUpdate }: SortableSubmenuRowProp
           </Tooltip>
         )}
       </div>
+
+      <Select value={menuId.toString()} onValueChange={handleMenuChange} disabled={isUpdating}>
+        <SelectTrigger className="w-[120px] h-7 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {menus.map(menu => (
+            <SelectItem key={menu.id} value={menu.id.toString()} className="text-xs">
+              {menu.nombre}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       
       <div className="flex items-center gap-1">
         <span className="text-xs text-muted-foreground">Activo</span>

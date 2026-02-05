@@ -86,19 +86,20 @@ export function SubmenuPermissionsDialog({ submenu, onClose }: SubmenuPermission
 
   // Initialize selected permissions when data loads
   useEffect(() => {
-    if (currentPermissions.length > 0) {
-      const permMap: Record<number, Set<number>> = {};
-      currentPermissions.forEach(cp => {
-        if (!permMap[cp.rol_id]) {
-          permMap[cp.rol_id] = new Set();
-        }
-        permMap[cp.rol_id].add(cp.permiso_id);
-      });
-      setSelectedPermissions(permMap);
-    } else {
+    if (!currentPermissions || currentPermissions.length === 0) {
       setSelectedPermissions({});
+      return;
     }
-  }, [currentPermissions]);
+    
+    const permMap: Record<number, Set<number>> = {};
+    currentPermissions.forEach(cp => {
+      if (!permMap[cp.rol_id]) {
+        permMap[cp.rol_id] = new Set();
+      }
+      permMap[cp.rol_id].add(cp.permiso_id);
+    });
+    setSelectedPermissions(permMap);
+  }, [submenu?.id, JSON.stringify(currentPermissions)]);
 
   const togglePermission = (roleId: number, permissionId: number) => {
     setSelectedPermissions(prev => {

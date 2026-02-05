@@ -61,7 +61,7 @@ export default function AdministrarMenus() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('submenus')
-        .select('id, nombre, vista_front_end, menu_id, orden, activo')
+        .select('id, nombre, vista_front_end, menu_id, orden, activo, solo_usuarioA')
         .order('orden');
       if (error) throw error;
       return data as unknown as Submenu[];
@@ -227,6 +227,8 @@ export default function AdministrarMenus() {
                                         <div className="flex-1">
                                           <SortableSubmenuRow
                                             submenu={submenu}
+                                            menus={menus}
+                                            allSubmenus={submenus}
                                             onUpdate={refetch}
                                           />
                                         </div>
@@ -270,6 +272,7 @@ export default function AdministrarMenus() {
         open={showNewSubmenuDialog}
         onOpenChange={setShowNewSubmenuDialog}
         menus={menus}
+        existingSubmenus={submenus}
         preselectedMenuId={selectedMenuForNewSubmenu}
         onSuccess={refetch}
       />

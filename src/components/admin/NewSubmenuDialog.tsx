@@ -17,6 +17,11 @@ interface Menu {
   nombre: string;
 }
 
+interface Submenu {
+  id: number;
+  nombre: string;
+}
+
 interface Permiso {
   id: number;
   nombre: string;
@@ -26,11 +31,12 @@ interface NewSubmenuDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   menus: Menu[];
+  existingSubmenus?: Submenu[];
   preselectedMenuId?: number | null;
   onSuccess: () => void;
 }
 
-export function NewSubmenuDialog({ open, onOpenChange, menus, preselectedMenuId, onSuccess }: NewSubmenuDialogProps) {
+export function NewSubmenuDialog({ open, onOpenChange, menus, existingSubmenus = [], preselectedMenuId, onSuccess }: NewSubmenuDialogProps) {
   const [menuId, setMenuId] = useState<string>('');
   const [nombre, setNombre] = useState('');
   const [vistaFrontEnd, setVistaFrontEnd] = useState('');
@@ -67,8 +73,23 @@ export function NewSubmenuDialog({ open, onOpenChange, menus, preselectedMenuId,
     onOpenChange(false);
   };
 
+  // Validar nombre duplicado
+  const isNameDuplicate = () => {
+    const normalizedName = nombre.trim().toLowerCase();
+    // Verificar contra submenus existentes
+    const duplicateSubmenu = existingSubmenus.find(
+      s => s.nombre.trim().toLowerCase() === normalizedName
+    );
+    // Verificar contra menus
+    const duplicateMenu = menus.find(
+      m => m.nombre.trim().toLowerCase() === normalizedName
+    );
+    return duplicateSubmenu || duplicateMenu;
+  };
+
   const routeIsValid = isValidRoute(vistaFrontEnd);
-  const isFormValid = menuId && nombre.length >= 3 && vistaFrontEnd.startsWith('/admin/') && selectedPermisos.length > 0;
+  const nameDuplicate = isNameDuplicate();
+  const isFormValid = menuId && nombre.length >= 3 && vistaFrontEnd.startsWith('/admin/') && selectedPermisos.length > 0 && !nameDuplicate;
 
   const handlePermisoToggle = (permisoId: number) => {
     setSelectedPermisos(prev => 
@@ -180,6 +201,9 @@ export function NewSubmenuDialog({ open, onOpenChange, menus, preselectedMenuId,
               />
               {nombre.length > 0 && nombre.length < 3 && (
                 <p className="text-xs text-destructive">Mínimo 3 caracteres</p>
+              )}
+              {nombre.length >= 3 && nameDuplicate && (
+                <p className="text-xs text-destructive">Ya existe un menú o submenú con ese nombre</p>
               )}
             </div>
             
