@@ -560,6 +560,7 @@ export default function RolesPermisos() {
         .from('submenus')
         .select('id, nombre, menu_id, orden')
         .eq('activo', true)
+        .or('solo_usuarioA.is.null,solo_usuarioA.eq.false')
         .order('orden');
       
       if (submenusError) throw submenusError;
