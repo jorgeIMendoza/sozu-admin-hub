@@ -6,10 +6,15 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { writeFileSync, mkdirSync } from 'fs';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Generate build timestamp for versioning
+  // Generate build timestamp for versioning (using LOCAL time, not UTC)
   const now = new Date();
-  const buildDate = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
-  const buildTime = now.toISOString().slice(11, 16).replace(':', ''); // HHMM
+  const year = String(now.getFullYear()).slice(2); // YY
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // MM (0-indexed)
+  const day = String(now.getDate()).padStart(2, '0'); // DD
+  const hours = String(now.getHours()).padStart(2, '0'); // HH
+  const minutes = String(now.getMinutes()).padStart(2, '0'); // MM
+  const buildDate = `${year}${month}${day}`; // YYMMDD in local time
+  const buildTime = `${hours}${minutes}`; // HHMM in local time
   
   return {
   define: {

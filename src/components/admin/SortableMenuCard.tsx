@@ -115,7 +115,7 @@ export function SortableMenuCard({ menu, onUpdate }: SortableMenuCardProps) {
         </div>
       </div>
       
-      <span className="text-xs text-muted-foreground">ID: {menu.id}</span>
+      <span className="text-xs text-muted-foreground">Orden: {menu.orden}</span>
     </div>
   );
 }
