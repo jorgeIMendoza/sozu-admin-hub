@@ -764,6 +764,31 @@ export default function Inmobiliarias() {
       
       if (updateError) throw updateError;
       
+      // Sincronizar teléfono con usuarios si la inmobiliaria tiene usuario asociado
+      if (editingEntity?.id && (cleanPersonData.telefono !== undefined || cleanPersonData.clave_pais_telefono !== undefined)) {
+        const { data: usuarioData } = await supabase
+          .from('usuarios')
+          .select('email')
+          .eq('id_persona', editingEntity.id)
+          .maybeSingle();
+          
+        if (usuarioData?.email) {
+          const phoneUpdateData: Record<string, any> = {
+            fecha_actualizacion: new Date().toISOString()
+          };
+          if (cleanPersonData.telefono !== undefined) {
+            phoneUpdateData.telefono = cleanPersonData.telefono;
+          }
+          if (cleanPersonData.clave_pais_telefono !== undefined) {
+            phoneUpdateData.clave_pais_telefono = cleanPersonData.clave_pais_telefono;
+          }
+          await supabase
+            .from('usuarios')
+            .update(phoneUpdateData)
+            .eq('email', usuarioData.email);
+        }
+      }
+      
       // Update representantes
       const repUpdateData: any = {};
       if (representativeId !== undefined) {
@@ -1118,9 +1143,77 @@ export default function Inmobiliarias() {
     },
   });
 
-  const handleEdit = (inmobiliaria: Inmobiliaria) => {
-    setEditingEntity(inmobiliaria);
-    setIsEditDialogOpen(true);
+  const handleEdit = async (inmobiliaria: Inmobiliaria) => {
+    // Fetch all persona fields for editing
+    try {
+      const { data: fullPersonaData, error } = await supabase
+        .from('personas')
+        .select(`
+          id,
+          nombre_legal,
+          nombre_comercial,
+          email,
+          telefono,
+          clave_pais_telefono,
+          rfc,
+          curp,
+          tipo_persona,
+          sexo,
+          fecha_nacimiento,
+          id_estado_civil,
+          ocupacion,
+          id_pais_nacimiento,
+          id_estado_nacimiento,
+          id_municipio_nacimiento,
+          direccion_calle,
+          direccion_num_ext,
+          direccion_num_int,
+          direccion_colonia,
+          direccion_codigo_postal,
+          direccion_id_pais,
+          direccion_id_estado,
+          direccion_id_municipio,
+          direccion_fiscal_calle,
+          direccion_fiscal_num_ext,
+          direccion_fiscal_num_int,
+          direccion_fiscal_colonia,
+          direccion_fiscal_codigo_postal,
+          direccion_fiscal_id_pais,
+          direccion_fiscal_id_estado,
+          direccion_fiscal_id_municipio,
+          uso_cfdi,
+          regimen,
+          numero_escritura,
+          numero_libro,
+          folio_mercantil,
+          fecha_escritura,
+          fecha_registro,
+          id_notario,
+          url_logo,
+          activo,
+          es_draft,
+          id_entidad_relacionada_rep_leg,
+          id_entidad_relacionada_rep_com
+        `)
+        .eq('id', inmobiliaria.id)
+        .single();
+      
+      if (error) throw error;
+      
+      // Merge with inmobiliaria data (to keep additional computed fields like entidad_relacionada_id)
+      setEditingEntity({
+        ...inmobiliaria,
+        ...fullPersonaData,
+      } as Inmobiliaria);
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching full persona data:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos completos de la inmobiliaria.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDelete = (inmobiliaria: Inmobiliaria) => {
