@@ -484,6 +484,7 @@ export default function Comisiones() {
                 <TableHead>Proyecto</TableHead>
                 <TableHead>Edificio</TableHead>
                 <TableHead>Modelo</TableHead>
+                <TableHead>Producto</TableHead>
                 <TableHead>No. Departamento</TableHead>
                 <TableHead>Entidad Dueña</TableHead>
                 <TableHead>STP de Comisión</TableHead>
@@ -510,8 +511,9 @@ export default function Comisiones() {
                     <TableCell>{comision.proyecto_nombre || "-"}</TableCell>
                     <TableCell>{comision.edificio_nombre || "-"}</TableCell>
                     <TableCell>{comision.modelo_nombre || "-"}</TableCell>
+                    <TableCell>{comision.producto_nombre || "-"}</TableCell>
                     <TableCell>
-                      {comision.numero_departamento || comision.producto_nombre || "-"}
+                      {comision.numero_departamento || "-"}
                     </TableCell>
                     <TableCell>
                       {comision.nombre_dueno || "-"}
