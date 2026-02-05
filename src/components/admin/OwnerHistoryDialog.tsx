@@ -54,15 +54,22 @@ export function OwnerHistoryDialog({
   const esReventa = idTipoTransaccion === 2;
 
   const { data: historyData, isLoading } = useQuery({
-    queryKey: ['owner-history', propertyId],
+    queryKey: ['owner-history', propertyId, esReventa],
     queryFn: async () => {
       // 1. First get ofertas for this property (not products)
-      const { data: ofertasData, error: ofertasError } = await supabase
+      // For Re-venta properties, we need to include inactive ofertas to show history
+      let ofertasQuery = supabase
         .from('ofertas')
         .select('id')
         .eq('id_propiedad', propertyId)
-        .is('id_producto', null)
-        .eq('activo', true);
+        .is('id_producto', null);
+      
+      // Only filter by activo=true if NOT in reventa
+      if (!esReventa) {
+        ofertasQuery = ofertasQuery.eq('activo', true);
+      }
+      
+      const { data: ofertasData, error: ofertasError } = await ofertasQuery;
 
       if (ofertasError) throw ofertasError;
       if (!ofertasData || ofertasData.length === 0) return { entries: [], esFideicomiso: false };
@@ -70,14 +77,21 @@ export function OwnerHistoryDialog({
       const ofertaIds = ofertasData.map(o => o.id);
 
       // 2. Get cuentas_cobranza for these ofertas (only main accounts, not maintenance)
-      const { data: cuentasData, error: cuentasError } = await supabase
+      // For Re-venta, include inactive cuentas to show the previous owner history
+      let cuentasQuery = supabase
         .from('cuentas_cobranza')
         .select('id, precio_final, fecha_creacion, id_oferta')
         .in('id_oferta', ofertaIds)
-        .eq('activo', true)
-        .is('id_tipo_cancelacion', null)
+        .is('id_tipo_cancelacion', null) // Exclude cancelled accounts
         .is('id_cuenta_cobranza_padre', null)
         .order('fecha_creacion', { ascending: true });
+      
+      // Only filter by activo=true if NOT in reventa
+      if (!esReventa) {
+        cuentasQuery = cuentasQuery.eq('activo', true);
+      }
+      
+      const { data: cuentasData, error: cuentasError } = await cuentasQuery;
 
       if (cuentasError) throw cuentasError;
       if (!cuentasData || cuentasData.length === 0) return { entries: [], esFideicomiso: false };

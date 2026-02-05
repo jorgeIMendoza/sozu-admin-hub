@@ -655,17 +655,52 @@ export default function MisPropiedades() {
   };
 
   // Fetch property offers (for agents of the selected inmobiliaria) - with full details
+  // IMPORTANT: Excludes offers linked to cancelled accounts AND offers created before the cancelled account
   const fetchPropertyOffers = async (propertyId: number): Promise<any[]> => {
     if (!selectedInmobiliariaId) return [];
     
-    // Use the database function to get offers with agent information
+    // Step 1: Find the most recent cancelled cuenta for this property to get the cutoff date
+    const { data: cancelledCuentas } = await supabase
+      .from('cuentas_cobranza')
+      .select('id, id_oferta, fecha_creacion')
+      .eq('activo', false)
+      .not('id_tipo_cancelacion', 'is', null)
+      .order('fecha_creacion', { ascending: false });
+    
+    // Get ofertas for this property to find which cuentas belong to it
+    const { data: propertyOfertas } = await supabase
+      .from('ofertas')
+      .select('id, fecha_creacion')
+      .eq('id_propiedad', propertyId)
+      .is('id_producto', null);
+    
+    const propertyOfertaIds = new Set((propertyOfertas || []).map(o => o.id));
+    
+    // Find the most recent cancelled cuenta for this property
+    const cancelledForProperty = (cancelledCuentas || []).find(c => propertyOfertaIds.has(c.id_oferta));
+    const cutoffDate = cancelledForProperty?.fecha_creacion || null;
+    
+    // Step 2: Use the database function to get offers with agent information
     const { data: offersData, error } = await supabase
       .rpc('get_offers_with_agent' as any, { property_id: propertyId });
     
     if (error) throw error;
 
-    // Enrich offers with additional data
-    const enrichedOffers = await Promise.all((offersData || []).map(async (offer: any) => {
+    // Step 3: Filter out offers that should not be shown
+    const filteredOffers = (offersData || []).filter((offer: any) => {
+      // If there's a cutoff date, only show offers created AFTER the cancelled cuenta
+      if (cutoffDate) {
+        const offerDate = new Date(offer.fecha_generacion);
+        const cutoff = new Date(cutoffDate);
+        if (offerDate <= cutoff) {
+          return false; // Exclude offers created before or at the same time as the cancelled cuenta
+        }
+      }
+      return true;
+    });
+
+    // Step 4: Enrich offers with additional data
+    const enrichedOffers = await Promise.all(filteredOffers.map(async (offer: any) => {
       let enrichedOffer = { ...offer };
       
       // Get offer display options
@@ -690,11 +725,15 @@ export default function MisPropiedades() {
         try {
           const { data: cuentaData } = await supabase
             .from('cuentas_cobranza')
-            .select('id, activo')
+            .select('id, activo, id_tipo_cancelacion')
             .eq('clabe_stp', offer.cuenta_clabe_stp)
             .single();
           
           if (cuentaData) {
+            // Skip offers with cancelled cuentas
+            if (cuentaData.id_tipo_cancelacion !== null) {
+              return null; // Will be filtered out below
+            }
             enrichedOffer.cuenta_cobranza_id = cuentaData.id;
             enrichedOffer.cuenta_activo = cuentaData.activo;
           }
@@ -706,7 +745,8 @@ export default function MisPropiedades() {
       return enrichedOffer;
     }));
 
-    return enrichedOffers;
+    // Filter out null entries (cancelled cuentas)
+    return enrichedOffers.filter(offer => offer !== null);
   };
 
   // Fetch property product offers with full details
