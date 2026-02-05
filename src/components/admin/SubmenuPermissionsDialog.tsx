@@ -127,6 +127,7 @@ export function SubmenuPermissionsDialog({ submenu, onClose }: SubmenuPermission
       
       toast.success('Permisos disponibles actualizados');
       queryClient.invalidateQueries({ queryKey: ['submenu-available-permissions', submenu.id] });
+      queryClient.invalidateQueries({ queryKey: ['available-permissions-per-submenu'] });
       onClose();
     } catch (error) {
       console.error('Error saving available permissions:', error);
