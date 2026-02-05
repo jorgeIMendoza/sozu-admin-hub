@@ -682,7 +682,8 @@ export default function ComisionesExternas() {
           <TableHead>Proyecto</TableHead>
           <TableHead>Edificio</TableHead>
           <TableHead>Modelo</TableHead>
-          <TableHead>No. Depto/Producto</TableHead>
+          <TableHead>Producto</TableHead>
+          <TableHead>No. Depto</TableHead>
           <TableHead>Precio final</TableHead>
           <TableHead>Comisión Sozu</TableHead>
           <TableHead>Comisionistas Ext.</TableHead>
@@ -691,7 +692,7 @@ export default function ComisionesExternas() {
       <TableBody>
         {cuentas.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+            <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
               No hay comisiones externas {isPorPagar ? 'por pagar' : 'pagadas'}
             </TableCell>
           </TableRow>
@@ -720,7 +721,8 @@ export default function ComisionesExternas() {
                   <TableCell>{cuenta.proyecto_nombre || 'N/A'}</TableCell>
                   <TableCell>{cuenta.edificio_nombre || 'N/A'}</TableCell>
                   <TableCell>{cuenta.modelo_nombre || 'N/A'}</TableCell>
-                  <TableCell>{cuenta.numero_departamento || cuenta.producto_nombre || 'N/A'}</TableCell>
+                  <TableCell>{cuenta.producto_nombre || '-'}</TableCell>
+                  <TableCell>{cuenta.numero_departamento || '-'}</TableCell>
                   <TableCell>{formatMonto(cuenta.precio_final || 0)}</TableCell>
                   <TableCell>
                     {cuenta.es_pagada_comision_venta ? (

@@ -15,22 +15,23 @@
  
  const ITEMS_PER_PAGE = 50;
  
- type Venta = {
-   id: number;
-   cuenta_cobranza_id: number;
-   proyecto_nombre: string;
-   edificio_nombre: string;
-   modelo_nombre: string;
-   numero_propiedad: string;
-   precio_final: number;
-   porcentaje_comision: number;
-   monto_comision: number;
-   iva_incluido: boolean;
-   agente_nombre: string;
-   agente_email: string;
-   tiene_factura: boolean;
-   factura_url: string | null;
- };
+type Venta = {
+  id: number;
+  cuenta_cobranza_id: number;
+  proyecto_nombre: string;
+  edificio_nombre: string;
+  modelo_nombre: string;
+  numero_propiedad: string;
+  producto_nombre: string;
+  precio_final: number;
+  porcentaje_comision: number;
+  monto_comision: number;
+  iva_incluido: boolean;
+  agente_nombre: string;
+  agente_email: string;
+  tiene_factura: boolean;
+  factura_url: string | null;
+};
  
  export default function MisVentas() {
    const [searchTerm, setSearchTerm] = useState("");
@@ -315,38 +316,40 @@
          const porcentaje = cuenta.porcentaje_comision_venta || 0;
          const montoComision = precioFinal * (porcentaje / 100);
  
-         return {
-           id: cuenta.id,
-           cuenta_cobranza_id: cuenta.id,
-           proyecto_nombre: propInfo?.proyecto_nombre || '-',
-           edificio_nombre: propInfo?.edificio_nombre || '-',
-           modelo_nombre: prodInfo?.nombre || propInfo?.modelo_nombre || '-',
-           numero_propiedad: specificProductName || propInfo?.numero_propiedad || '-',
-           precio_final: precioFinal,
-           porcentaje_comision: porcentaje,
-           monto_comision: montoComision,
-           iva_incluido: cuenta.iva_incluido || false,
-           agente_nombre: agentMap[oferta?.email_creador?.toLowerCase()] || oferta?.email_creador || '-',
-           agente_email: oferta?.email_creador || '-',
-           tiene_factura: !!facturasMap[cuenta.id],
-           factura_url: facturasMap[cuenta.id] || null,
-         } as Venta;
+        return {
+            id: cuenta.id,
+            cuenta_cobranza_id: cuenta.id,
+            proyecto_nombre: propInfo?.proyecto_nombre || '-',
+            edificio_nombre: propInfo?.edificio_nombre || '-',
+            modelo_nombre: propInfo?.modelo_nombre || '-',
+            numero_propiedad: propInfo?.numero_propiedad || '-',
+            producto_nombre: specificProductName || prodInfo?.nombre || '-',
+            precio_final: precioFinal,
+            porcentaje_comision: porcentaje,
+            monto_comision: montoComision,
+            iva_incluido: cuenta.iva_incluido || false,
+            agente_nombre: agentMap[oferta?.email_creador?.toLowerCase()] || oferta?.email_creador || '-',
+            agente_email: oferta?.email_creador || '-',
+            tiene_factura: !!facturasMap[cuenta.id],
+            factura_url: facturasMap[cuenta.id] || null,
+          } as Venta;
        });
      },
      enabled: agentEmails.length > 0,
    });
  
    const filteredVentas = useMemo(() => {
-     if (!searchTerm) return ventas;
-     const term = searchTerm.toLowerCase();
-     return ventas.filter((v: Venta) =>
-       v.proyecto_nombre?.toLowerCase().includes(term) ||
-       v.edificio_nombre?.toLowerCase().includes(term) ||
-       v.modelo_nombre?.toLowerCase().includes(term) ||
-       v.numero_propiedad?.toLowerCase().includes(term) ||
-       v.agente_nombre?.toLowerCase().includes(term) ||
-       String(v.cuenta_cobranza_id).includes(term)
-     );
+    if (!searchTerm) return ventas;
+    const term = searchTerm.toLowerCase();
+    return ventas.filter((v: Venta) =>
+      v.proyecto_nombre?.toLowerCase().includes(term) ||
+      v.edificio_nombre?.toLowerCase().includes(term) ||
+      v.modelo_nombre?.toLowerCase().includes(term) ||
+      v.numero_propiedad?.toLowerCase().includes(term) ||
+      v.producto_nombre?.toLowerCase().includes(term) ||
+      v.agente_nombre?.toLowerCase().includes(term) ||
+      String(v.cuenta_cobranza_id).includes(term)
+    );
    }, [ventas, searchTerm]);
  
    const totalPages = Math.ceil(filteredVentas.length / ITEMS_PER_PAGE);
@@ -370,19 +373,20 @@
    };
  
    const handleExport = async () => {
-     const exportData = filteredVentas.map((v: Venta) => ({
-       'Cuenta': v.cuenta_cobranza_id,
-       'Proyecto': v.proyecto_nombre,
-       'Edificio': v.edificio_nombre,
-       'Modelo': v.modelo_nombre,
-       'No. Depto/Producto': v.numero_propiedad,
-       'Agente': v.agente_nombre,
-       'Precio Final': v.precio_final,
-       'Comisión %': v.porcentaje_comision,
-       'Comisión $': v.monto_comision,
-       'IVA Incluido': v.iva_incluido ? 'Sí' : 'No',
-       'Factura Subida': v.tiene_factura ? 'Sí' : 'No',
-     }));
+    const exportData = filteredVentas.map((v: Venta) => ({
+      'Cuenta': v.cuenta_cobranza_id,
+      'Proyecto': v.proyecto_nombre,
+      'Edificio': v.edificio_nombre,
+      'Modelo': v.modelo_nombre,
+      'Producto': v.producto_nombre,
+      'No. Depto': v.numero_propiedad,
+      'Agente': v.agente_nombre,
+      'Precio Final': v.precio_final,
+      'Comisión %': v.porcentaje_comision,
+      'Comisión $': v.monto_comision,
+      'IVA Incluido': v.iva_incluido ? 'Sí' : 'No',
+      'Factura Subida': v.tiene_factura ? 'Sí' : 'No',
+    }));
  
      await exportToExcel({ data: exportData, filename: 'Mis_Ventas_Comisiones' });
    };
@@ -544,35 +548,37 @@
            <div className="rounded-md border overflow-x-auto">
              <Table>
                <TableHeader>
-                 <TableRow>
-                   <TableHead>Cuenta</TableHead>
-                   <TableHead>Proyecto</TableHead>
-                   <TableHead>Edificio</TableHead>
-                   <TableHead>Modelo</TableHead>
-                   <TableHead>No. Depto/Producto</TableHead>
-                   <TableHead>Precio Final</TableHead>
-                   <TableHead>Comisión</TableHead>
-                   <TableHead>Acciones</TableHead>
-                 </TableRow>
+                <TableRow>
+                    <TableHead>Cuenta</TableHead>
+                    <TableHead>Proyecto</TableHead>
+                    <TableHead>Edificio</TableHead>
+                    <TableHead>Modelo</TableHead>
+                    <TableHead>Producto</TableHead>
+                    <TableHead>No. Depto</TableHead>
+                    <TableHead>Precio Final</TableHead>
+                    <TableHead>Comisión</TableHead>
+                    <TableHead>Acciones</TableHead>
+                  </TableRow>
                </TableHeader>
                <TableBody>
                  {paginatedVentas.length === 0 ? (
-                   <TableRow>
-                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                       {selectedInmobiliariaId 
-                         ? (isLoading ? 'Cargando ventas...' : 'No se encontraron ventas de agentes de esta inmobiliaria')
-                         : 'Selecciona una inmobiliaria para ver sus ventas'
-                       }
-                     </TableCell>
-                   </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        {selectedInmobiliariaId 
+                          ? (isLoading ? 'Cargando ventas...' : 'No se encontraron ventas de agentes de esta inmobiliaria')
+                          : 'Selecciona una inmobiliaria para ver sus ventas'
+                        }
+                      </TableCell>
+                    </TableRow>
                  ) : (
                    paginatedVentas.map((v: Venta) => (
-                     <TableRow key={v.id}>
-                       <TableCell className="font-mono font-medium">{v.cuenta_cobranza_id}</TableCell>
-                       <TableCell className="font-medium">{v.proyecto_nombre}</TableCell>
-                       <TableCell>{v.edificio_nombre}</TableCell>
-                       <TableCell>{v.modelo_nombre}</TableCell>
-                       <TableCell>{v.numero_propiedad}</TableCell>
+                      <TableRow key={v.id}>
+                        <TableCell className="font-mono font-medium">{v.cuenta_cobranza_id}</TableCell>
+                        <TableCell className="font-medium">{v.proyecto_nombre}</TableCell>
+                        <TableCell>{v.edificio_nombre}</TableCell>
+                        <TableCell>{v.modelo_nombre}</TableCell>
+                        <TableCell>{v.producto_nombre}</TableCell>
+                        <TableCell>{v.numero_propiedad}</TableCell>
                        <TableCell>{formatCurrency(v.precio_final)}</TableCell>
                        <TableCell>
                          <div className="flex flex-col gap-1">
