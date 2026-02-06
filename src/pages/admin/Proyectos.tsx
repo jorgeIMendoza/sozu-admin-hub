@@ -1,5 +1,5 @@
 import { NewProjectDialog } from "@/components/admin/NewProjectDialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,7 +10,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import { Search, Edit, Trash2, Eye, Image, Video, MapPin, Lock } from "lucide-react";
+import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
 import { ProjectMultimediaModal } from "@/components/admin/ProjectMultimediaModal";
@@ -36,6 +38,7 @@ const formatCurrencyFull = (value: number): string => {
 };
 
 const Proyectos = () => {
+  const queryClient = useQueryClient();
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProjectMultimedia, setSelectedProjectMultimedia] = useState<{
@@ -60,14 +63,37 @@ const Proyectos = () => {
   const [desarrolladorFilter, setDesarrolladorFilter] = useState("");
   const [ciudadFilter, setCiudadFilter] = useState("");
   const [estatusFilter, setEstatusFilter] = useState("all");
+  const [sozuFilter, setSozuFilter] = useState("all");
   
   // Pagination states
   const [currentPageActive, setCurrentPageActive] = useState(1);
   const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
   const itemsPerPage = 25;
 
+  // Query to get Sozu project IDs (inmobiliaria with id_tipo_entidad = 5)
+  const { data: sozuProjectIds = new Set<number>() } = useQuery({
+    queryKey: ["sozu-project-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_proyecto')
+        .eq('id_tipo_entidad', 5)
+        .eq('activo', true);
+      
+      if (error) {
+        console.error("Error fetching Sozu projects:", error);
+        return new Set<number>();
+      }
+      
+      return new Set(
+        data?.map(e => e.id_proyecto).filter((id): id is number => id !== null && id !== undefined) || []
+      );
+    },
+    staleTime: 60000,
+  });
+
   const { data: activeProjectsData, refetch: refetchActive } = useQuery({
-    queryKey: ["projects", "active", currentPageActive, searchTerm, nombreFilter, ciudadFilter, estatusFilter, accessibleProjectIds],
+    queryKey: ["projects", "active", currentPageActive, searchTerm, nombreFilter, ciudadFilter, estatusFilter, sozuFilter, accessibleProjectIds, Array.from(sozuProjectIds)],
     queryFn: async () => {
       // If user has no access and is not admin, return empty
       if (hasNoAccess) {
@@ -90,6 +116,7 @@ const Proyectos = () => {
           fecha_inicio_construccion,
           id_tipo_uso,
           id_estatus_proyecto,
+          publicar,
           direccion_id_pais,
           direccion_id_estado,
           direccion_id_municipio,
@@ -172,6 +199,13 @@ const Proyectos = () => {
         query = query.eq("id_estatus_proyecto", parseInt(estatusFilter));
       }
       
+      // Apply Sozu filter
+      if (sozuFilter === "sozu" && sozuProjectIds.size > 0) {
+        query = query.in("id", Array.from(sozuProjectIds));
+      } else if (sozuFilter === "no-sozu" && sozuProjectIds.size > 0) {
+        // Filter out Sozu projects - we'll do this client-side after fetch
+      }
+      
       const { data, error, count } = await query
         .order("nombre", { ascending: true })
         .range(from, to);
@@ -182,12 +216,17 @@ const Proyectos = () => {
       }
       
       // Add precio_m2_actual from raw query if available
-      const projects = ((data || []) as any[]).map((project: any) => ({
+      let projects = ((data || []) as any[]).map((project: any) => ({
         ...project,
         precio_m2_actual: project.precio_m2_actual || null
       }));
       
-      return { projects, count: count || 0 };
+      // Client-side filter for "no-sozu"
+      if (sozuFilter === "no-sozu" && sozuProjectIds.size > 0) {
+        projects = projects.filter(p => !sozuProjectIds.has(p.id));
+      }
+      
+      return { projects, count: sozuFilter === "no-sozu" ? projects.length : (count || 0) };
     },
     enabled: !isLoadingAccess,
   });
@@ -214,6 +253,7 @@ const Proyectos = () => {
           fecha_inicio_construccion,
           id_tipo_uso,
           id_estatus_proyecto,
+          publicar,
           direccion_id_pais,
           direccion_id_estado,
           direccion_id_municipio,
@@ -332,11 +372,11 @@ const Proyectos = () => {
   // Reset pages when filters change
   useEffect(() => {
     setCurrentPageActive(1);
-  }, [searchTerm, nombreFilter, ciudadFilter, estatusFilter]);
+  }, [searchTerm, nombreFilter, ciudadFilter, estatusFilter, sozuFilter]);
 
   useEffect(() => {
     setCurrentPageDeleted(1);
-  }, [searchTerm, nombreFilter, ciudadFilter, estatusFilter]);
+  }, [searchTerm, nombreFilter, ciudadFilter, estatusFilter, sozuFilter]);
 
   // Query para obtener estatus de proyecto para el filtro
   const { data: estatusProyecto = [] } = useQuery({
@@ -355,6 +395,28 @@ const Proyectos = () => {
       return data || [];
     },
   });
+
+  const handleTogglePublicar = async (projectId: number, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("proyectos")
+        .update({ publicar: !currentValue })
+        .eq("id", projectId);
+
+      if (error) {
+        console.error("Error toggling publicar:", error);
+        toast.error("Error al cambiar el estado de publicación");
+        return;
+      }
+
+      toast.success(!currentValue ? "Proyecto publicado" : "Proyecto despublicado");
+      refetchActive();
+      refetchDeleted();
+    } catch (error) {
+      console.error("Error toggling publicar:", error);
+      toast.error("Error al cambiar el estado de publicación");
+    }
+  };
 
 
   const handleProjectAdded = () => {
@@ -612,6 +674,8 @@ const Proyectos = () => {
                 <TableHead>Precio Promedio por M2</TableHead>
                 <TableHead>Multimedia</TableHead>
                 <TableHead>Estatus</TableHead>
+                <TableHead>Sozu</TableHead>
+                <TableHead>Publicar</TableHead>
                 {hasAnyActionPermission && <TableHead>Acciones</TableHead>}
               </TableRow>
             </TableHeader>
@@ -732,6 +796,24 @@ const Proyectos = () => {
                         {project.estatus_proyecto?.nombre || "Sin estatus"}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {sozuProjectIds.has(project.id) ? (
+                        <Badge variant="default">Sozu</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {sozuProjectIds.has(project.id) ? (
+                        <Switch
+                          checked={!!project.publicar}
+                          onCheckedChange={() => handleTogglePublicar(project.id, !!project.publicar)}
+                          disabled={isDeletedTab}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
                     {hasAnyActionPermission && (
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -845,7 +927,7 @@ const Proyectos = () => {
           </div>
 
       {/* Filtros específicos */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
         <div>
           <label className="text-sm font-medium mb-2 block">Nombre del Proyecto</label>
           <Input
@@ -883,6 +965,19 @@ const Proyectos = () => {
                   {estatus.nombre}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-sm font-medium mb-2 block">Inmobiliaria Sozu</label>
+          <Select value={sozuFilter} onValueChange={setSozuFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="sozu">Solo Sozu</SelectItem>
+              <SelectItem value="no-sozu">No Sozu</SelectItem>
             </SelectContent>
           </Select>
         </div>
