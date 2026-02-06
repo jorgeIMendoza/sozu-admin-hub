@@ -22,24 +22,24 @@ export default function MiInformacion() {
   const { data: resolvedInmobiliariaId, isLoading: isLoadingResolution } = useQuery({
     queryKey: ['resolve-inmobiliaria-id', profile?.id_persona, profile?.email],
     queryFn: async () => {
-      if (!profile?.id_persona) return null;
+      // Primary user: check if user's persona IS the inmobiliaria (tipo_entidad = 5)
+      if (profile?.id_persona) {
+        const { data: entidadData } = await supabase
+          .from('entidades_relacionadas')
+          .select('id')
+          .eq('id_persona', profile.id_persona)
+          .eq('id_tipo_entidad', 5)
+          .eq('activo', true)
+          .maybeSingle();
 
-      // First check if user's persona IS the inmobiliaria (tipo_entidad = 5)
-      const { data: entidadData } = await supabase
-        .from('entidades_relacionadas')
-        .select('id')
-        .eq('id_persona', profile.id_persona)
-        .eq('id_tipo_entidad', 5)
-        .eq('activo', true)
-        .maybeSingle();
-
-      if (entidadData) {
-        // User IS the inmobiliaria
-        return profile.id_persona;
+        if (entidadData) {
+          // User IS the inmobiliaria
+          return profile.id_persona;
+        }
       }
 
-      // Secondary user: look up inmobiliaria via proyectos_acceso -> entidades_relacionadas
-      if (profile.email) {
+      // Secondary user (may have no id_persona): look up inmobiliaria via proyectos_acceso -> entidades_relacionadas
+      if (profile?.email) {
         const { data: proyectoAcceso } = await supabase
           .from('proyectos_acceso')
           .select('id_entidad_relacionada_dueno')
@@ -65,7 +65,8 @@ export default function MiInformacion() {
 
       return null;
     },
-    enabled: !isSuperAdmin && !!profile?.id_persona,
+    // Enable for non-SuperAdmin users with either id_persona OR email
+    enabled: !isSuperAdmin && !!(profile?.id_persona || profile?.email),
   });
 
   // Get the inmobiliaria ID based on user type
