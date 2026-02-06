@@ -19,9 +19,6 @@ interface BankAccountsSectionProps {
 }
 
 export function BankAccountsSection({ personId, showStpCheckbox = false, projectId }: BankAccountsSectionProps) {
-  // Log every render to debug personId issues
-  console.log('[BankAccountsSection] RENDER with personId:', personId, 'type:', typeof personId);
-  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
@@ -37,8 +34,6 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
 
   // Ensure personId is a valid number
   const validPersonId = typeof personId === 'number' && personId > 0 ? personId : null;
-  
-  console.log('[BankAccountsSection] validPersonId:', validPersonId);
 
   // Fetch available banks
   const { data: banks = [] } = useQuery({
@@ -59,11 +54,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
   const { data: bankAccounts = [], isLoading: loadingAccounts, refetch: refetchBankAccounts } = useQuery({
     queryKey: ['bankAccounts', validPersonId],
     queryFn: async () => {
-      console.log('[BankAccountsSection] Fetching bank accounts for validPersonId:', validPersonId);
-      if (!validPersonId) {
-        console.warn('[BankAccountsSection] No valid personId provided, returning empty array');
-        return [];
-      }
+      if (!validPersonId) return [];
       const { data, error } = await supabase
         .from('cuentas_bancarias')
         .select(`
@@ -74,11 +65,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
         .eq('activo', true)
         .order('fecha_creacion', { ascending: false });
       
-      if (error) {
-        console.error('[BankAccountsSection] Error fetching bank accounts:', error);
-        throw error;
-      }
-      console.log('[BankAccountsSection] Fetched bank accounts:', data?.length || 0, 'accounts');
+      if (error) throw error;
       return data || [];
     },
     enabled: !!validPersonId,
@@ -145,10 +132,8 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
 
   const addMutation = useMutation({
     mutationFn: async (accountData: typeof newAccount) => {
-      console.log('[BankAccountsSection] Adding bank account for validPersonId:', validPersonId, 'original personId:', personId, accountData);
-      
       if (!validPersonId) {
-        throw new Error('No se puede agregar cuenta: ID de persona no disponible o inválido');
+        throw new Error('No se puede agregar cuenta: ID de persona no disponible');
       }
       
       // If trying to set STP account, check if this person already has one
@@ -164,7 +149,6 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
         cuenta_clabe: accountData.cuenta_clabe || null,
         cuenta_swift: accountData.cuenta_swift || null
       };
-      console.log('[BankAccountsSection] Insert data:', insertData);
       
       const { data, error } = await supabase
         .from('cuentas_bancarias')
@@ -172,19 +156,12 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
         .select()
         .single();
       
-      if (error) {
-        console.error('[BankAccountsSection] Insert error:', error);
-        throw error;
-      }
-      console.log('[BankAccountsSection] Insert success:', data);
+      if (error) throw error;
       return data;
     },
     onSuccess: async () => {
-      // Force refetch and invalidate with both possible keys
-      console.log('[BankAccountsSection] onSuccess - invalidating queries for validPersonId:', validPersonId);
       await refetchBankAccounts();
-      queryClient.invalidateQueries({ queryKey: ['bankAccounts', validPersonId] });
-      queryClient.invalidateQueries({ queryKey: ['bankAccounts', personId] });
+      queryClient.invalidateQueries({ queryKey: ['bankAccounts'] });
       setNewAccount({
         id_banco: "",
         numero_cuenta: "",
@@ -197,7 +174,6 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
       toast({ title: "Cuenta bancaria agregada exitosamente" });
     },
     onError: (error: any) => {
-      console.error('[BankAccountsSection] Add mutation error:', error);
       toast({ 
         title: "Error al agregar cuenta bancaria", 
         description: error.message || 'Error desconocido',
@@ -208,7 +184,6 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
 
   const updateMutation = useMutation({
     mutationFn: async (accountData: any) => {
-      console.log('[BankAccountsSection] Updating bank account:', accountData);
       const { data, error } = await supabase
         .from('cuentas_bancarias')
         .update({
@@ -223,48 +198,35 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
         .select()
         .single();
       
-      if (error) {
-        console.error('[BankAccountsSection] Update error:', error);
-        throw error;
-      }
-      console.log('[BankAccountsSection] Update success:', data);
+      if (error) throw error;
       return data;
     },
     onSuccess: async () => {
-      console.log('[BankAccountsSection] Update onSuccess - refetching');
       await refetchBankAccounts();
-      queryClient.invalidateQueries({ queryKey: ['bankAccounts', validPersonId] });
+      queryClient.invalidateQueries({ queryKey: ['bankAccounts'] });
       setEditingAccount(null);
       toast({ title: "Cuenta bancaria actualizada exitosamente" });
     },
     onError: (error: any) => {
-      console.error('[BankAccountsSection] Update mutation error:', error);
       toast({ title: "Error al actualizar cuenta bancaria", description: error.message, variant: "destructive" });
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (accountId: number) => {
-      console.log('[BankAccountsSection] Deleting bank account:', accountId);
       const { error } = await supabase
         .from('cuentas_bancarias')
         .update({ activo: false })
         .eq('id', accountId);
       
-      if (error) {
-        console.error('[BankAccountsSection] Delete error:', error);
-        throw error;
-      }
-      console.log('[BankAccountsSection] Delete success');
+      if (error) throw error;
     },
     onSuccess: async () => {
-      console.log('[BankAccountsSection] Delete onSuccess - refetching');
       await refetchBankAccounts();
-      queryClient.invalidateQueries({ queryKey: ['bankAccounts', validPersonId] });
+      queryClient.invalidateQueries({ queryKey: ['bankAccounts'] });
       toast({ title: "Cuenta bancaria eliminada exitosamente" });
     },
     onError: (error: any) => {
-      console.error('[BankAccountsSection] Delete mutation error:', error);
       toast({ title: "Error al eliminar cuenta bancaria", description: error.message, variant: "destructive" });
     }
   });

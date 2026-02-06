@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Upload, X, ExternalLink, ImageOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,52 +16,49 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
   const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState(false);
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🔧 handleFileUpload llamado');
-    const file = event.target.files?.[0];
-    console.log('🔧 Archivo seleccionado:', file);
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      console.log('🔧 Iniciando upload del archivo:', file.name);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `projects/images/${fileName}`;
-
-      console.log('🔧 Subiendo a:', filePath);
-      const { error: uploadError } = await supabase.storage
-        .from('documentos')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('documentos')
-        .getPublicUrl(filePath);
-
-      console.log('🔧 URL pública generada:', data.publicUrl);
-      onChange(data.publicUrl);
-      toast({ title: "Imagen subida exitosamente" });
-    } catch (error) {
-      console.error('🔧 Error uploading file:', error);
-      toast({ title: "Error al subir imagen", variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const clearImage = () => {
     setImageError(false);
     onChange("");
   };
 
-  const handleUploadClick = () => {
-    console.log('🔧 handleUploadClick llamado');
-    console.log('🔧 fileInputRef.current:', fileInputRef.current);
-    fileInputRef.current?.click();
+  const handleUpload = async () => {
+    const tempInput = document.createElement('input');
+    tempInput.type = 'file';
+    tempInput.accept = accept;
+    
+    tempInput.onchange = async (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      if (target.files && target.files[0]) {
+        const file = target.files[0];
+        setUploading(true);
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Date.now()}.${fileExt}`;
+          const filePath = `projects/images/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('documentos')
+            .upload(filePath, file);
+
+          if (uploadError) throw uploadError;
+
+          const { data } = supabase.storage
+            .from('documentos')
+            .getPublicUrl(filePath);
+
+          onChange(data.publicUrl);
+          toast({ title: "Archivo subido exitosamente" });
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          toast({ title: "Error al subir archivo", variant: "destructive" });
+        } finally {
+          setUploading(false);
+        }
+      }
+    };
+    
+    tempInput.click();
   };
 
   return (
@@ -109,100 +106,21 @@ export function ImageUploadField({ label, value, onChange, accept = "image/*" }:
       ) : (
         <div 
           className="border-2 border-dashed border-muted-foreground/25 rounded-md p-6 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
-          onClick={handleUploadClick}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleUpload();
+          }}
         >
           <Upload className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-          <p className="text-sm text-muted-foreground mb-2">
-            Haz clic para subir {label.toLowerCase()}
+          <p className="text-sm text-muted-foreground">
+            {uploading ? "Subiendo..." : `Haz clic para subir ${label.toLowerCase()}`}
           </p>
         </div>
       )}
       
-      <div className="flex gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={accept}
-          onChange={(event) => {
-            console.log('🔧 onChange del input file disparado');
-            console.log('🔧 event.target.files:', event.target.files);
-            handleFileUpload(event);
-          }}
-          disabled={uploading}
-          className="hidden"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          disabled={uploading}
-          onClick={async (e) => {
-            console.log('🔧 Click en botón Subir detectado');
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('🔧 Creando input temporal...');
-            
-            // Crear un input temporal para evitar problemas con el modal
-            const tempInput = document.createElement('input');
-            tempInput.type = 'file';
-            tempInput.accept = accept;
-            
-            // Crear una promesa para manejar la selección de archivo
-            const fileSelected = new Promise((resolve) => {
-              tempInput.onchange = async (event: Event) => {
-                console.log('🔧 onChange del input temporal disparado');
-                const target = event.target as HTMLInputElement;
-                console.log('🔧 target.files:', target.files);
-                
-                if (target.files && target.files[0]) {
-                  const file = target.files[0];
-                  console.log('🔧 Archivo seleccionado:', file.name);
-                  
-                  // Llamar directamente a la lógica de upload
-                  setUploading(true);
-                  try {
-                    console.log('🔧 Iniciando upload del archivo:', file.name);
-                    const fileExt = file.name.split('.').pop();
-                    const fileName = `${Date.now()}.${fileExt}`;
-                    const filePath = `projects/images/${fileName}`;
-
-                    console.log('🔧 Subiendo a:', filePath);
-                    const { error: uploadError } = await supabase.storage
-                      .from('documentos')
-                      .upload(filePath, file);
-
-                    if (uploadError) throw uploadError;
-
-                    const { data } = supabase.storage
-                      .from('documentos')
-                      .getPublicUrl(filePath);
-
-                    console.log('🔧 URL pública generada:', data.publicUrl);
-                    console.log('🔍 [DEBUG ImageUploadField] Llamando onChange con URL:', data.publicUrl);
-                    onChange(data.publicUrl);
-                    console.log('🔍 [DEBUG ImageUploadField] onChange ejecutado correctamente');
-                    toast({ title: "Imagen subida exitosamente" });
-                  } catch (error) {
-                    console.error('🔧 Error uploading file:', error);
-                    toast({ title: "Error al subir imagen", variant: "destructive" });
-                  } finally {
-                    setUploading(false);
-                  }
-                }
-                resolve(true);
-              };
-            });
-            
-            console.log('🔧 Haciendo click en input temporal...');
-            tempInput.click();
-          }}
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          {uploading ? "Subiendo..." : "Subir"}
-        </Button>
-      </div>
-      
       {uploading && (
-        <p className="text-xs text-muted-foreground">Subiendo imagen...</p>
+        <p className="text-xs text-muted-foreground">Subiendo...</p>
       )}
     </div>
   );
