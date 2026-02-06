@@ -159,6 +159,8 @@ export default function ComisionesExternas() {
                 id,
                 numero_propiedad,
                 id_edificio_modelo,
+                id_estatus_disponibilidad,
+                estatus_disponibilidad!propiedades_id_estatus_disponibilidad_fkey(id, nombre),
                 edificios_modelos!propiedades_id_edificio_modelo_fkey(
                   id,
                   id_edificio,
@@ -372,6 +374,9 @@ export default function ComisionesExternas() {
         // Verificar si tiene al menos un comisionista externo
         const tieneComisionistaExterno = comisionistasFiltered.some(c => c.esExterno);
 
+        const estatusDisponibilidad = propiedad?.estatus_disponibilidad?.nombre || null;
+        const idEstatusDisponibilidad = propiedad?.id_estatus_disponibilidad || null;
+
         return {
           ...cuenta,
           proyecto_nombre: proyecto?.nombre,
@@ -381,6 +386,8 @@ export default function ComisionesExternas() {
           producto_nombre: producto?.nombre,
           tipo,
           fechaPagoEnganche,
+          estatus_disponibilidad: estatusDisponibilidad,
+          id_estatus_disponibilidad: idEstatusDisponibilidad,
           comisionistas: comisionistasFiltered,
           tieneComisionistaExterno
         };
@@ -684,6 +691,7 @@ export default function ComisionesExternas() {
           <TableHead>Modelo</TableHead>
           <TableHead>Producto</TableHead>
           <TableHead>No. Depto</TableHead>
+          <TableHead>Estatus</TableHead>
           <TableHead>Precio final</TableHead>
           <TableHead>Comisión Sozu</TableHead>
           <TableHead>Comisionistas Ext.</TableHead>
@@ -692,7 +700,7 @@ export default function ComisionesExternas() {
       <TableBody>
         {cuentas.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+            <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
               No hay comisiones externas {isPorPagar ? 'por pagar' : 'pagadas'}
             </TableCell>
           </TableRow>
@@ -723,6 +731,18 @@ export default function ComisionesExternas() {
                   <TableCell>{cuenta.modelo_nombre || 'N/A'}</TableCell>
                   <TableCell>{cuenta.producto_nombre || '-'}</TableCell>
                   <TableCell>{cuenta.numero_departamento || '-'}</TableCell>
+                  <TableCell>
+                    {cuenta.estatus_disponibilidad ? (
+                      <Badge variant="outline" className={
+                        cuenta.id_estatus_disponibilidad === 5 ? 'bg-green-500/10 text-green-600 border-green-500/20' :
+                        cuenta.id_estatus_disponibilidad === 9 ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
+                        cuenta.id_estatus_disponibilidad === 4 ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' :
+                        ''
+                      }>
+                        {cuenta.estatus_disponibilidad}
+                      </Badge>
+                    ) : '-'}
+                  </TableCell>
                   <TableCell>{formatMonto(cuenta.precio_final || 0)}</TableCell>
                   <TableCell>
                     {cuenta.es_pagada_comision_venta ? (
@@ -744,7 +764,7 @@ export default function ComisionesExternas() {
                 
                 {isExpanded && (
                   <TableRow key={`${cuenta.id}-expanded`}>
-                    <TableCell colSpan={10} className="bg-muted/30 p-4">
+                    <TableCell colSpan={12} className="bg-muted/30 p-4">
                       <div className="space-y-4">
                         {/* Comisionistas Externos */}
                         <div>
@@ -802,7 +822,7 @@ export default function ComisionesExternas() {
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex gap-1">
-                                      {/* Aprobar */}
+                                      {/* Aprobar - solo habilitado si estatus es Vendido (id=5) */}
                                       {!com.aprobada && (canApprove || isSuperAdmin) && (
                                         <Button
                                           variant="outline"
@@ -811,7 +831,8 @@ export default function ComisionesExternas() {
                                             e.stopPropagation();
                                             aprobarMutation.mutate({ email: com.email_usuario, idCuenta: cuenta.id });
                                           }}
-                                          disabled={aprobarMutation.isPending}
+                                          disabled={aprobarMutation.isPending || cuenta.id_estatus_disponibilidad !== 5}
+                                          title={cuenta.id_estatus_disponibilidad !== 5 ? 'Solo se puede aprobar cuando la propiedad está en estatus Vendido' : ''}
                                         >
                                           <Check className="h-4 w-4 mr-1" />
                                           Aprobar
