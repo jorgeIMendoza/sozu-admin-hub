@@ -231,8 +231,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
     }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!newAccount.id_banco || !newAccount.numero_cuenta) {
       toast({ title: "Por favor completa los campos requeridos", variant: "destructive" });
       return;
@@ -263,8 +262,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
     addMutation.mutate(newAccount);
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEditSubmit = () => {
     if (!editingAccount.id_banco || !editingAccount.numero_cuenta) {
       toast({ title: "Por favor completa los campos requeridos", variant: "destructive" });
       return;
@@ -330,13 +328,12 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
             <CardTitle>Editar Cuenta Bancaria</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="edit_id_banco">Banco *</Label>
                 <Select 
                   value={editingAccount.id_banco} 
                   onValueChange={(value) => setEditingAccount(prev => ({ ...prev, id_banco: value }))}
-                  required
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un banco" />
@@ -359,7 +356,6 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                   onChange={(e) => setEditingAccount(prev => ({ ...prev, numero_cuenta: e.target.value }))}
                   placeholder={editingAccount.es_cuenta_fisica_para_stp ? "18 dígitos exactos" : "Entre 8 y 34 caracteres"}
                   maxLength={18}
-                  required
                 />
               </div>
 
@@ -413,7 +409,15 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
               )}
 
               <div className="flex gap-2">
-                <Button type="submit" disabled={updateMutation.isPending}>
+                <Button 
+                  type="button" 
+                  disabled={updateMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleEditSubmit();
+                  }}
+                >
                   {updateMutation.isPending ? "Actualizando..." : "Actualizar"}
                 </Button>
                 <Button 
@@ -424,7 +428,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                   Cancelar
                 </Button>
               </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -435,13 +439,12 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
             <CardTitle>Nueva Cuenta Bancaria</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="id_banco">Banco *</Label>
                 <Select 
                   value={newAccount.id_banco} 
                   onValueChange={(value) => setNewAccount(prev => ({ ...prev, id_banco: value }))}
-                  required
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un banco" />
@@ -464,7 +467,6 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                   onChange={(e) => setNewAccount(prev => ({ ...prev, numero_cuenta: e.target.value }))}
                   placeholder={newAccount.es_cuenta_fisica_para_stp ? "18 dígitos exactos" : "Entre 8 y 34 caracteres"}
                   maxLength={18}
-                  required
                 />
               </div>
 
@@ -518,7 +520,15 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
               )}
 
               <div className="flex gap-2">
-                <Button type="submit" disabled={addMutation.isPending}>
+                <Button 
+                  type="button" 
+                  disabled={addMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSubmit();
+                  }}
+                >
                   {addMutation.isPending ? "Guardando..." : "Guardar"}
                 </Button>
                 <Button 
@@ -529,7 +539,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                   Cancelar
                 </Button>
               </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -562,7 +572,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
                     </p>
                   )}
                    {shouldShowStpCheckbox && account.es_cuenta_fisica_para_stp && (
-                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
                       Cuenta física para STP
                     </Badge>
                   )}
