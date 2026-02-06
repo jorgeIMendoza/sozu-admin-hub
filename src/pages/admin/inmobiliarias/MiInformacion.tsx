@@ -18,9 +18,9 @@ export default function MiInformacion() {
   const queryClient = useQueryClient();
   const [selectedInmobiliariaId, setSelectedInmobiliariaId] = useState<number | null>(null);
 
-  // Resolve the inmobiliaria ID: could be profile.id_persona (primary) or via entidades_relacionadas (secondary)
+  // Resolve the inmobiliaria ID: could be profile.id_persona (primary) or via proyectos_acceso (secondary)
   const { data: resolvedInmobiliariaId, isLoading: isLoadingResolution } = useQuery({
-    queryKey: ['resolve-inmobiliaria-id', profile?.id_persona],
+    queryKey: ['resolve-inmobiliaria-id', profile?.id_persona, profile?.email],
     queryFn: async () => {
       if (!profile?.id_persona) return null;
 
@@ -38,17 +38,29 @@ export default function MiInformacion() {
         return profile.id_persona;
       }
 
-      // Check if this is a secondary user linked to an inmobiliaria (tipo_entidad = 30)
-      const { data: linkData } = await supabase
-        .from('entidades_relacionadas')
-        .select('id_persona_duena_lead')
-        .eq('id_persona', profile.id_persona)
-        .eq('id_tipo_entidad', 30)
-        .eq('activo', true)
-        .maybeSingle();
+      // Secondary user: look up inmobiliaria via proyectos_acceso -> entidades_relacionadas
+      if (profile.email) {
+        const { data: proyectoAcceso } = await supabase
+          .from('proyectos_acceso')
+          .select('id_entidad_relacionada_dueno')
+          .eq('usuario_id', profile.email)
+          .eq('activo', true)
+          .not('id_entidad_relacionada_dueno', 'is', null)
+          .limit(1)
+          .maybeSingle();
 
-      if (linkData?.id_persona_duena_lead) {
-        return linkData.id_persona_duena_lead;
+        if (proyectoAcceso?.id_entidad_relacionada_dueno) {
+          const { data: entidadDuena } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona')
+            .eq('id', proyectoAcceso.id_entidad_relacionada_dueno)
+            .eq('activo', true)
+            .maybeSingle();
+
+          if (entidadDuena?.id_persona) {
+            return entidadDuena.id_persona;
+          }
+        }
       }
 
       return null;

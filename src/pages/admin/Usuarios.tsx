@@ -357,19 +357,53 @@ export default function Usuarios() {
           }
         });
 
-        // Query for secondary Inmobiliaria users (tipo 30)
-        const { data: secondaryInmobEntidadesData } = await supabase
-          .from('entidades_relacionadas')
-          .select('id_persona, id_persona_duena_lead, personas!entidades_relacionadas_id_persona_duena_lead_fkey(nombre_comercial, nombre_legal)')
-          .eq('id_tipo_entidad', 30) // Usuario Inmobiliaria Secundario
-          .eq('activo', true)
-          .in('id_persona', personaIdsForLookup);
-        
-        (secondaryInmobEntidadesData || []).forEach((e: any) => {
-          if (e.id_persona && e.personas) {
-            inmobByPersona.set(e.id_persona, e.personas.nombre_comercial || e.personas.nombre_legal || '');
+        // For secondary Inmobiliaria users: look up via proyectos_acceso
+        // Get their emails to do a separate query
+        const secondaryInmobEmails = (data || [])
+          .filter(u => u.rol_id === ROLE_INMOBILIARIA && u.id_persona && !inmobByPersona.has(u.id_persona))
+          .map(u => u.email);
+
+        if (secondaryInmobEmails.length > 0) {
+          // Get proyectos_acceso records for these users
+          const { data: proyectosAcceso } = await supabase
+            .from('proyectos_acceso')
+            .select('usuario_id, id_entidad_relacionada_dueno')
+            .in('usuario_id', secondaryInmobEmails)
+            .eq('activo', true)
+            .not('id_entidad_relacionada_dueno', 'is', null);
+
+          if (proyectosAcceso && proyectosAcceso.length > 0) {
+            // Get unique entidad IDs
+            const entidadIds = [...new Set(proyectosAcceso.map(p => p.id_entidad_relacionada_dueno).filter(Boolean))];
+
+            // Fetch inmobiliaria names from these entidades
+            const { data: entidadesData } = await supabase
+              .from('entidades_relacionadas')
+              .select('id, id_persona, personas!entidades_relacionadas_id_persona_fkey(nombre_comercial, nombre_legal)')
+              .in('id', entidadIds)
+              .eq('activo', true);
+
+            // Create map of entidad_id -> nombre
+            const entidadNombres = new Map<number, string>();
+            (entidadesData || []).forEach((e: any) => {
+              if (e.id && e.personas) {
+                entidadNombres.set(e.id, e.personas.nombre_comercial || e.personas.nombre_legal || '');
+              }
+            });
+
+            // Map user email to inmobiliaria name
+            proyectosAcceso.forEach((pa: any) => {
+              const nombre = entidadNombres.get(pa.id_entidad_relacionada_dueno);
+              if (nombre) {
+                // Find the user's persona id
+                const usuario = (data || []).find(u => u.email === pa.usuario_id);
+                if (usuario?.id_persona) {
+                  inmobByPersona.set(usuario.id_persona, nombre);
+                }
+              }
+            });
           }
-        });
+        }
 
         // For primary Inmobiliaria users (rol 4), their persona IS the inmobiliaria
         // Get the inmobiliaria name from their own persona record

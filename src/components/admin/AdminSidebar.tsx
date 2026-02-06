@@ -63,25 +63,34 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
         }
       }
 
-      // Secondary user: look up inmobiliaria via entidades_relacionadas (tipo 30)
-      // or via the persona linkage
-      if (profile.id_persona) {
-        const { data: linkData, error: linkError } = await supabase
-          .from('entidades_relacionadas')
-          .select('id_persona_duena_lead, personas!entidades_relacionadas_id_persona_duena_lead_fkey(id, nombre_legal, nombre_comercial, url_logo)')
-          .eq('id_persona', profile.id_persona)
-          .eq('id_tipo_entidad', 30) // Usuario Inmobiliaria Secundario
+      // Secondary user: look up inmobiliaria via proyectos_acceso -> entidades_relacionadas
+      if (profile.email) {
+        const { data: proyectoAcceso } = await supabase
+          .from('proyectos_acceso')
+          .select('id_entidad_relacionada_dueno')
+          .eq('usuario_id', profile.email)
           .eq('activo', true)
+          .not('id_entidad_relacionada_dueno', 'is', null)
+          .limit(1)
           .maybeSingle();
 
-        if (!linkError && linkData?.personas) {
-          const inmob = linkData.personas as any;
-          return {
-            nombre_legal: inmob.nombre_legal,
-            nombre_comercial: inmob.nombre_comercial,
-            logo_url: inmob.url_logo,
-            inmobiliaria_id: inmob.id,
-          };
+        if (proyectoAcceso?.id_entidad_relacionada_dueno) {
+          const { data: entidadDuena } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, nombre_legal, nombre_comercial, url_logo)')
+            .eq('id', proyectoAcceso.id_entidad_relacionada_dueno)
+            .eq('activo', true)
+            .maybeSingle();
+
+          if (entidadDuena?.personas) {
+            const inmob = entidadDuena.personas as any;
+            return {
+              nombre_legal: inmob.nombre_legal,
+              nombre_comercial: inmob.nombre_comercial,
+              logo_url: inmob.url_logo,
+              inmobiliaria_id: inmob.id,
+            };
+          }
         }
       }
 

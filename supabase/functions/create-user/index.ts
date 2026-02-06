@@ -280,14 +280,12 @@ serve(async (req) => {
     // Determine if this is a secondary Inmobiliaria user (rol 4 with id_inmobiliaria but id_persona doesn't match)
     const isSecondaryInmobiliariaUser = rol_id === ROLE_INMOBILIARIA && id_inmobiliaria && finalIdPersona !== id_inmobiliaria;
     
+    // Handle agents and secondary Inmobiliaria users
     if (((rol_id === ROLE_AGENTE_INMOBILIARIO || rol_id === ROLE_AGENTE_INTERNO) && id_inmobiliaria) || isSecondaryInmobiliariaUser) {
-      // Determine entity type: 19 for Agents, 30 for secondary Inmobiliaria users
-      const entityTypeId = (rol_id === ROLE_AGENTE_INMOBILIARIO || rol_id === ROLE_AGENTE_INTERNO) ? 19 : 30;
       try {
         let personaIdToUse = finalIdPersona;
         
-        // If no id_persona was provided, create a new persona record (for agents)
-        // Secondary Inmobiliaria users don't need their own persona
+        // If no id_persona was provided, create a new persona record (for agents only)
         if (!personaIdToUse && (rol_id === ROLE_AGENTE_INMOBILIARIO || rol_id === ROLE_AGENTE_INTERNO)) {
           const { data: newPersona, error: personaError } = await supabaseAdmin
             .from("personas")
@@ -317,15 +315,15 @@ serve(async (req) => {
           }
         }
         
-        // For agents, create entidad_relacionada with tipo 19
-        // For secondary Inmobiliaria users, create entidad_relacionada with tipo 30
-        if (personaIdToUse || isSecondaryInmobiliariaUser) {
+        // For agents only, create entidad_relacionada with tipo 19
+        // Secondary Inmobiliaria users don't need entidad_relacionada, they inherit via proyectos_acceso
+        if (personaIdToUse && (rol_id === ROLE_AGENTE_INMOBILIARIO || rol_id === ROLE_AGENTE_INTERNO)) {
           // Check if entidad_relacionada already exists
           const { data: existingEntidad } = await supabaseAdmin
             .from("entidades_relacionadas")
             .select("id, id_persona_duena_lead")
-            .eq("id_persona", personaIdToUse || 0) // For secondary inmob users, persona might not exist
-            .eq("id_tipo_entidad", entityTypeId)
+            .eq("id_persona", personaIdToUse)
+            .eq("id_tipo_entidad", 19)
             .eq("activo", true)
             .maybeSingle();
           
@@ -339,13 +337,13 @@ serve(async (req) => {
               
               console.log(`Updated entity ${personaIdToUse} with inmobiliaria ${id_inmobiliaria}`);
             }
-          } else if (personaIdToUse) {
-            // Create new entidad_relacionada
+          } else {
+            // Create new entidad_relacionada for agent
             const { error: entidadError } = await supabaseAdmin
               .from("entidades_relacionadas")
               .insert({
                 id_persona: personaIdToUse,
-                id_tipo_entidad: entityTypeId,
+                id_tipo_entidad: 19,
                 id_persona_duena_lead: id_inmobiliaria,
                 activo: true
               });
@@ -353,49 +351,49 @@ serve(async (req) => {
             if (entidadError) {
               console.error("Error creating entidad_relacionada:", entidadError);
             } else {
-              console.log(`Created entidad_relacionada (type ${entityTypeId}) linking ${personaIdToUse} to inmobiliaria ${id_inmobiliaria}`);
-            }
-          }
-
-          // Copy project access from the inmobiliaria
-          const { data: inmobiliariaPersona } = await supabaseAdmin
-            .from("personas")
-            .select("email")
-            .eq("id", id_inmobiliaria)
-            .single();
-
-          if (inmobiliariaPersona?.email) {
-            const { data: inmobiliariaAccess } = await supabaseAdmin
-              .from("proyectos_acceso")
-              .select("proyecto_id, id_entidad_relacionada_dueno")
-              .eq("usuario_id", inmobiliariaPersona.email)
-              .eq("activo", true);
-
-            if (inmobiliariaAccess && inmobiliariaAccess.length > 0) {
-              const accessToInsert = inmobiliariaAccess.map((access: any) => ({
-                usuario_id: email,
-                proyecto_id: access.proyecto_id,
-                id_entidad_relacionada_dueno: access.id_entidad_relacionada_dueno,
-                activo: true
-              }));
-
-              const { error: accessError } = await supabaseAdmin
-                .from("proyectos_acceso")
-                .upsert(accessToInsert, { 
-                  onConflict: "usuario_id,proyecto_id",
-                  ignoreDuplicates: true 
-                });
-
-              if (accessError) {
-                console.error("Error copying project access:", accessError);
-              } else {
-                console.log(`Copied ${accessToInsert.length} project access entries to user ${email}`);
-              }
+              console.log(`Created entidad_relacionada (type 19) linking ${personaIdToUse} to inmobiliaria ${id_inmobiliaria}`);
             }
           }
         }
-      } catch (agentLinkError) {
-        console.error("Error in agent-inmobiliaria linking process:", agentLinkError);
+
+        // Copy project access from the inmobiliaria (for both agents and secondary Inmobiliaria users)
+        const { data: inmobiliariaPersona } = await supabaseAdmin
+          .from("personas")
+          .select("email")
+          .eq("id", id_inmobiliaria)
+          .single();
+
+        if (inmobiliariaPersona?.email) {
+          const { data: inmobiliariaAccess } = await supabaseAdmin
+            .from("proyectos_acceso")
+            .select("proyecto_id, id_entidad_relacionada_dueno")
+            .eq("usuario_id", inmobiliariaPersona.email)
+            .eq("activo", true);
+
+          if (inmobiliariaAccess && inmobiliariaAccess.length > 0) {
+            const accessToInsert = inmobiliariaAccess.map((access: any) => ({
+              usuario_id: email,
+              proyecto_id: access.proyecto_id,
+              id_entidad_relacionada_dueno: access.id_entidad_relacionada_dueno,
+              activo: true
+            }));
+
+            const { error: accessError } = await supabaseAdmin
+              .from("proyectos_acceso")
+              .upsert(accessToInsert, { 
+                onConflict: "usuario_id,proyecto_id",
+                ignoreDuplicates: true 
+              });
+
+            if (accessError) {
+              console.error("Error copying project access:", accessError);
+            } else {
+              console.log(`Copied ${accessToInsert.length} project access entries to user ${email}`);
+            }
+          }
+        }
+      } catch (linkError) {
+        console.error("Error in inmobiliaria linking process:", linkError);
         // Don't fail user creation if linking fails
       }
     } else if (rol_id === ROLE_AGENTE_INMOBILIARIO && finalIdPersona && !id_inmobiliaria) {
