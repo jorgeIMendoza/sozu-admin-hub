@@ -691,7 +691,8 @@ export default function ComisionesExternas() {
           <TableHead>Modelo</TableHead>
           <TableHead>Producto</TableHead>
           <TableHead>No. Depto</TableHead>
-          <TableHead>Estatus</TableHead>
+          <TableHead>Estatus de propiedad</TableHead>
+          <TableHead>Estatus de comisión</TableHead>
           <TableHead>Precio final</TableHead>
           <TableHead>Comisión Sozu</TableHead>
           <TableHead>Comisionistas Ext.</TableHead>
@@ -700,7 +701,7 @@ export default function ComisionesExternas() {
       <TableBody>
         {cuentas.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+            <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
               No hay comisiones externas {isPorPagar ? 'por pagar' : 'pagadas'}
             </TableCell>
           </TableRow>
@@ -743,6 +744,26 @@ export default function ComisionesExternas() {
                       </Badge>
                     ) : '-'}
                   </TableCell>
+                  <TableCell>
+                    {(() => {
+                      // Determinar estatus de comisión basado en comisionistas externos
+                      const allPagadas = comisionistasExternos.length > 0 && comisionistasExternos.every((c: any) => c.pagada);
+                      const anyConFactura = comisionistasExternos.some((c: any) => c.urlFactura && c.aprobada && !c.pagada);
+                      const anyAprobadaSinFactura = comisionistasExternos.some((c: any) => c.aprobada && !c.urlFactura && !c.pagada);
+                      const anySinAprobar = comisionistasExternos.some((c: any) => !c.aprobada);
+
+                      if (allPagadas) {
+                        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Pagada</Badge>;
+                      } else if (anyConFactura) {
+                        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">Pendiente de pago</Badge>;
+                      } else if (anyAprobadaSinFactura) {
+                        return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">Aprobado/Sin factura</Badge>;
+                      } else if (anySinAprobar) {
+                        return <Badge variant="outline" className="bg-muted text-muted-foreground">Sin aprobar</Badge>;
+                      }
+                      return <Badge variant="outline">-</Badge>;
+                    })()}
+                  </TableCell>
                   <TableCell>{formatMonto(cuenta.precio_final || 0)}</TableCell>
                   <TableCell>
                     {cuenta.es_pagada_comision_venta ? (
@@ -764,7 +785,7 @@ export default function ComisionesExternas() {
                 
                 {isExpanded && (
                   <TableRow key={`${cuenta.id}-expanded`}>
-                    <TableCell colSpan={12} className="bg-muted/30 p-4">
+                    <TableCell colSpan={13} className="bg-muted/30 p-4">
                       <div className="space-y-4">
                         {/* Comisionistas Externos */}
                         <div>
@@ -777,7 +798,7 @@ export default function ComisionesExternas() {
                                 <TableHead>Tipo</TableHead>
                                 <TableHead>% Comisión</TableHead>
                                 <TableHead>Monto</TableHead>
-                                <TableHead>Estado</TableHead>
+                                 <TableHead>Estatus de comisión</TableHead>
                                 <TableHead>Factura</TableHead>
                                 <TableHead>Acciones</TableHead>
                               </TableRow>
@@ -796,11 +817,13 @@ export default function ComisionesExternas() {
                                   <TableCell>{formatMonto(com.montoComision)}</TableCell>
                                   <TableCell>
                                     {com.pagada ? (
-                                      <Badge className="bg-green-500">Pagada</Badge>
-                                    ) : com.aprobada ? (
-                                      <Badge className="bg-blue-500">Aprobada</Badge>
+                                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Pagada</Badge>
+                                    ) : com.aprobada && com.urlFactura ? (
+                                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">Pendiente de pago</Badge>
+                                    ) : com.aprobada && !com.urlFactura ? (
+                                      <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">Aprobado/Sin factura</Badge>
                                     ) : (
-                                      <Badge variant="outline">Pendiente</Badge>
+                                      <Badge variant="outline" className="bg-muted text-muted-foreground">Sin aprobar</Badge>
                                     )}
                                   </TableCell>
                                   <TableCell>
