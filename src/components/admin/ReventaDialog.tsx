@@ -60,50 +60,11 @@ export const ReventaDialog = ({
       // Re-venta transaction type ID is 2 in the database
       const ID_TIPO_REVENTA = 2;
 
-      // 1. Deactivate all existing cuentas_cobranza for this property
-      // First, get all ofertas for this property
-      const { data: ofertas, error: ofertasError } = await supabase
-        .from('ofertas')
-        .select('id')
-        .eq('id_propiedad', propertyId)
-        .eq('activo', true);
+      // NOTE: We do NOT deactivate cuentas_cobranza or ofertas here.
+      // They should remain active until the draft property is approved.
+      // The cancellation will happen when the draft is approved.
 
-      if (ofertasError) {
-        throw ofertasError;
-      }
-
-      if (ofertas && ofertas.length > 0) {
-        const ofertaIds = ofertas.map(o => o.id);
-        
-        // Deactivate all cuentas_cobranza linked to these ofertas
-        const { error: ccError } = await supabase
-          .from('cuentas_cobranza')
-          .update({ 
-            activo: false,
-            fecha_actualizacion: new Date().toISOString()
-          })
-          .in('id_oferta', ofertaIds);
-
-        if (ccError) {
-          console.error('Error deactivating cuentas_cobranza:', ccError);
-          // Continue anyway, as the property update is more important
-        }
-
-        // Deactivate the ofertas themselves
-        const { error: deactivateOfertasError } = await supabase
-          .from('ofertas')
-          .update({ 
-            activo: false,
-            fecha_actualizacion: new Date().toISOString()
-          })
-          .in('id', ofertaIds);
-
-        if (deactivateOfertasError) {
-          console.error('Error deactivating ofertas:', deactivateOfertasError);
-        }
-      }
-
-      // 2. Update property: status to Disponible (2), transaction type to Re-venta (2), clear CLABE, and set to Draft
+      // Update property: status to Disponible (2), transaction type to Re-venta (2), clear CLABE, and set to Draft
       const { error: updateError } = await supabase
         .from('propiedades')
         .update({
