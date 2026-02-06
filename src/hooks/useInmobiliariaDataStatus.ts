@@ -150,7 +150,7 @@ export function useInmobiliariaDataStatus(inmobiliariaId: number | null | undefi
         inmobiliariaDocTypes.has(REQUIRED_DOCS.PODER_NOTARIAL) || 
         repLegalDocTypes.has(REQUIRED_DOCS.PODER_NOTARIAL);
       if (!hasPoderNotarial) {
-        docsMissing.push('Poder Notarial Rep. Legal');
+        docsMissing.push('Poder Notarial (puede cargarse aquí o en Rep. Legal)');
       }
 
       if (docsMissing.length > 0) {
