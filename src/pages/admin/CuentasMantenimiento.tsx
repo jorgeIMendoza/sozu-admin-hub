@@ -31,6 +31,17 @@ export default function CuentasMantenimiento() {
   
   const [inputValue, setInputValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Input values (immediate UI state)
+  const [idCuentaInput, setIdCuentaInput] = useState("");
+  const [propietariosInput, setPropietariosInput] = useState("");
+  const [clabeInput, setClabeInput] = useState("");
+  const [proyectoInput, setProyectoInput] = useState("");
+  const [noPropiedadInput, setNoPropiedadInput] = useState("");
+  const [modeloInput, setModeloInput] = useState("");
+  const [claveCatastralInput, setClaveCatastralInput] = useState("");
+  
+  // Debounced filter values (sent to RPC)
   const [idCuentaFilter, setIdCuentaFilter] = useState("");
   const [propietariosFilter, setPropietariosFilter] = useState("");
   const [clabeFilter, setClabeFilter] = useState("");
@@ -76,6 +87,21 @@ export default function CuentasMantenimiento() {
     return () => clearTimeout(timer);
   }, [inputValue]);
 
+  // Debounce column filters
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIdCuentaFilter(idCuentaInput);
+      setPropietariosFilter(propietariosInput);
+      setClabeFilter(clabeInput);
+      setProyectoFilter(proyectoInput);
+      setNoPropiedadFilter(noPropiedadInput);
+      setModeloFilter(modeloInput);
+      setClaveCatastralFilter(claveCatastralInput);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [idCuentaInput, propietariosInput, clabeInput, proyectoInput, noPropiedadInput, modeloInput, claveCatastralInput]);
+
   // Función para normalizar saldos pequeños a cero
   const normalizarSaldo = (saldo: number): number => {
     return Math.abs(saldo) < 0.01 ? 0 : saldo;
@@ -107,6 +133,16 @@ export default function CuentasMantenimiento() {
   }, [isLoading, inputValue]);
 
   const clearFilters = () => {
+    // Clear input values
+    setIdCuentaInput("");
+    setPropietariosInput("");
+    setClabeInput("");
+    setProyectoInput("");
+    setNoPropiedadInput("");
+    setModeloInput("");
+    setClaveCatastralInput("");
+    setInputValue("");
+    // Clear debounced values immediately
     setIdCuentaFilter("");
     setPropietariosFilter("");
     setClabeFilter("");
@@ -115,12 +151,11 @@ export default function CuentasMantenimiento() {
     setModeloFilter("");
     setClaveCatastralFilter("");
     setSearchTerm("");
-    setInputValue("");
   };
 
-  const hasActiveFilters = idCuentaFilter || propietariosFilter || 
-                          clabeFilter || proyectoFilter || noPropiedadFilter || 
-                          modeloFilter || claveCatastralFilter || searchTerm;
+  const hasActiveFilters = idCuentaInput || propietariosInput || 
+                          clabeInput || proyectoInput || noPropiedadInput || 
+                          modeloInput || claveCatastralInput || inputValue;
 
   // Helper function to generate pagination items with ellipsis
   const getPaginationItems = (currentPage: number, totalPages: number) => {
@@ -245,56 +280,56 @@ export default function CuentasMantenimiento() {
                 <label className="text-sm font-medium mb-2 block">ID Cuenta</label>
                 <Input
                   placeholder="Filtrar por ID..."
-                  value={idCuentaFilter}
-                  onChange={(e) => setIdCuentaFilter(e.target.value)}
+                  value={idCuentaInput}
+                  onChange={(e) => setIdCuentaInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Propietarios</label>
                 <Input
                   placeholder="Filtrar por propietario..."
-                  value={propietariosFilter}
-                  onChange={(e) => setPropietariosFilter(e.target.value)}
+                  value={propietariosInput}
+                  onChange={(e) => setPropietariosInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">CLABE STP</label>
                 <Input
                   placeholder="Filtrar por CLABE..."
-                  value={clabeFilter}
-                  onChange={(e) => setClabeFilter(e.target.value)}
+                  value={clabeInput}
+                  onChange={(e) => setClabeInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Proyecto</label>
                 <Input
                   placeholder="Filtrar por proyecto..."
-                  value={proyectoFilter}
-                  onChange={(e) => setProyectoFilter(e.target.value)}
+                  value={proyectoInput}
+                  onChange={(e) => setProyectoInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">No. Propiedad</label>
                 <Input
                   placeholder="Filtrar por propiedad..."
-                  value={noPropiedadFilter}
-                  onChange={(e) => setNoPropiedadFilter(e.target.value)}
+                  value={noPropiedadInput}
+                  onChange={(e) => setNoPropiedadInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Modelo</label>
                 <Input
                   placeholder="Filtrar por modelo..."
-                  value={modeloFilter}
-                  onChange={(e) => setModeloFilter(e.target.value)}
+                  value={modeloInput}
+                  onChange={(e) => setModeloInput(e.target.value)}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Clave Catastral</label>
                 <Input
                   placeholder="Filtrar por clave..."
-                  value={claveCatastralFilter}
-                  onChange={(e) => setClaveCatastralFilter(e.target.value)}
+                  value={claveCatastralInput}
+                  onChange={(e) => setClaveCatastralInput(e.target.value)}
                 />
               </div>
             </div>
