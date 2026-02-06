@@ -33,6 +33,7 @@ type Venta = {
   factura_url: string | null;
   comision_aprobada: boolean;
   comision_pagada: boolean;
+  estatus_propiedad: string;
 };
  
  export default function MisVentas() {
@@ -85,11 +86,10 @@ type Venta = {
        const emails = agentEmails.map((a: any) => a.email);
  
        // Get ofertas created by these agents
-       const { data: ofertasData, error: ofertasError } = await supabase
-         .from('ofertas')
-         .select('id, email_creador, id_propiedad, id_producto')
-         .in('email_creador', emails)
-         .eq('activo', true);
+        const { data: ofertasData, error: ofertasError } = await supabase
+          .from('ofertas')
+          .select('id, email_creador, id_propiedad, id_producto')
+          .in('email_creador', emails);
  
        if (ofertasError) throw ofertasError;
        if (!ofertasData || ofertasData.length === 0) return [];
@@ -117,17 +117,17 @@ type Venta = {
          .filter((o: any) => o.id_propiedad)
          .map((o: any) => o.id_propiedad);
  
-       let propiedadesMap: Record<number, any> = {};
-       if (propiedadIds.length > 0) {
-          // First get properties with their edificio_modelo ids
-          const { data: propiedadesData } = await (supabase as any)
-           .from('propiedades')
-           .select(`
-             id,
-             numero_propiedad,
-              id_edificio_modelo
-           `)
-           .in('id', propiedadIds);
+        let propiedadesMap: Record<number, any> = {};
+        if (propiedadIds.length > 0) {
+           const { data: propiedadesData } = await (supabase as any)
+            .from('propiedades')
+            .select(`
+              id,
+              numero_propiedad,
+              id_edificio_modelo,
+              id_estatus_disponibilidad
+            `)
+            .in('id', propiedadIds);
  
           // Get unique edificio_modelo ids
           const edificioModeloIds = [...new Set(
@@ -204,6 +204,20 @@ type Venta = {
             }, {});
           }
  
+          // Fetch estatus_disponibilidad names
+          const estatusIds = [...new Set((propiedadesData || []).map((p: any) => p.id_estatus_disponibilidad).filter(Boolean))] as number[];
+          let estatusMap: Record<number, string> = {};
+          if (estatusIds.length > 0) {
+            const { data: estatusData } = await supabase
+              .from('estatus_disponibilidad')
+              .select('id, nombre')
+              .in('id', estatusIds);
+            estatusMap = (estatusData || []).reduce((acc: any, e: any) => {
+              acc[e.id] = e.nombre;
+              return acc;
+            }, {});
+          }
+
           // Build propiedadesMap
           propiedadesMap = (propiedadesData || []).reduce((acc: any, p: any) => {
             const emInfo = edificioModelosMap[p.id_edificio_modelo] || {};
@@ -212,6 +226,7 @@ type Venta = {
               modelo_nombre: emInfo.modelo_nombre || '-',
               edificio_nombre: emInfo.edificio_nombre || '-',
               proyecto_nombre: emInfo.proyecto_nombre || '-',
+              estatus_propiedad: estatusMap[p.id_estatus_disponibilidad] || '-',
             };
             return acc;
           }, {});
@@ -393,7 +408,8 @@ type Venta = {
             factura_url: facturasMap[cuenta.id] || null,
             comision_aprobada: comisionAprobada,
             comision_pagada: comisionPagada,
-          } as Venta;
+            estatus_propiedad: propInfo?.estatus_propiedad || '-',
+           } as Venta;
         });
       },
       enabled: agentEmails.length > 0 && !!selectedInmobiliariaId,
@@ -616,6 +632,7 @@ type Venta = {
                      <TableHead>Modelo</TableHead>
                      <TableHead>Producto</TableHead>
                      <TableHead>No. Depto</TableHead>
+                     <TableHead>Estatus</TableHead>
                      <TableHead>Agente Vendedor</TableHead>
                      <TableHead>Precio Final</TableHead>
                       <TableHead>Comisión</TableHead>
@@ -626,7 +643,7 @@ type Venta = {
                <TableBody>
                   {paginatedVentas.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                       <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                          {selectedInmobiliariaId 
                            ? (isLoading ? 'Cargando ventas...' : 'No se encontraron ventas de agentes de esta inmobiliaria')
                            : 'Selecciona una inmobiliaria para ver sus ventas'
@@ -642,6 +659,15 @@ type Venta = {
                          <TableCell>{v.modelo_nombre}</TableCell>
                          <TableCell>{v.producto_nombre}</TableCell>
                          <TableCell>{v.numero_propiedad}</TableCell>
+                         <TableCell>
+                           <Badge variant={
+                             v.estatus_propiedad === 'Vendido' || v.estatus_propiedad === 'Pagada completamente' ? 'default' :
+                             v.estatus_propiedad === 'Disponible' ? 'secondary' :
+                             v.estatus_propiedad === 'Apartado' ? 'outline' : 'secondary'
+                           } className="text-xs">
+                             {v.estatus_propiedad}
+                           </Badge>
+                         </TableCell>
                          <TableCell>
                            <div className="flex flex-col">
                              <span className="font-medium">{v.agente_vendedor_nombre}</span>

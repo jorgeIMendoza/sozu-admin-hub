@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, FileSpreadsheet, UserPlus } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { ConvertirVendedorDialog } from "@/components/admin/ConvertirVendedorDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +41,7 @@ export default function Vendedores() {
   const [editingVendedor, setEditingVendedor] = useState<Vendedor | null>(null);
   const [selectedVendedorForBankAccounts, setSelectedVendedorForBankAccounts] = useState<Vendedor | null>(null);
   const [isBankAccountsDialogOpen, setIsBankAccountsDialogOpen] = useState(false);
+  const [isConvertirDialogOpen, setIsConvertirDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendedorToDelete, setVendedorToDelete] = useState<Vendedor | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
@@ -506,6 +508,15 @@ export default function Vendedores() {
               )}
               {(canCreate || isSuperAdmin) && (
                 <Button 
+                  variant="outline"
+                  onClick={() => setIsConvertirDialogOpen(true)}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Convertir a Vendedor
+                </Button>
+              )}
+              {(canCreate || isSuperAdmin) && (
+                <Button 
                   onClick={() => setIsNewDialogOpen(true)}
                   className="bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300 hover:scale-105 font-semibold px-6"
                 >
@@ -621,6 +632,11 @@ export default function Vendedores() {
         description={`¿Estás seguro de que deseas restaurar al vendedor "${vendedorToRestore?.nombre_legal}"?`}
         isLoading={restoreMutation.isPending}
         actionType="restore"
+      />
+
+      <ConvertirVendedorDialog
+        open={isConvertirDialogOpen}
+        onOpenChange={setIsConvertirDialogOpen}
       />
     </div>
   );

@@ -193,9 +193,9 @@ export class EstadoCuentaMantenimientoService {
     };
 
     const formatDate = (date: string) => {
-      // Add T12:00:00 to avoid timezone issues when parsing date-only strings
-      const dateStr = date.includes('T') ? date : `${date}T12:00:00`;
-      return new Date(dateStr).toLocaleDateString("es-MX");
+      // Parse date string manually to avoid timezone shifts
+      const [year, month, day] = date.split('T')[0].split('-').map(Number);
+      return new Date(year, month - 1, day).toLocaleDateString("es-MX");
     };
 
     const checkNewPage = (neededHeight: number) => {
@@ -424,7 +424,9 @@ export class EstadoCuentaMantenimientoService {
       // Concepto - format with month if it's maintenance
       let conceptoText = acuerdo.conceptos_pago?.nombre || "N/A";
       if (acuerdo.fecha_pago && conceptoText.toLowerCase().includes("mantenimiento")) {
-        const fecha = new Date(acuerdo.fecha_pago);
+        // Parse date manually to avoid timezone month shifts
+        const [, monthNum] = acuerdo.fecha_pago.split('-').map(Number);
+        const fecha = new Date(2000, monthNum - 1, 1); // Use fixed year, only need month name
         const mes = fecha.toLocaleDateString("es-MX", { month: "long" });
         conceptoText = `${conceptoText} - ${mes.charAt(0).toUpperCase() + mes.slice(1)}`;
       }
