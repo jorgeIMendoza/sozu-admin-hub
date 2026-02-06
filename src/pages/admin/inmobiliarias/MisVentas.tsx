@@ -32,6 +32,7 @@ type Venta = {
   tiene_factura: boolean;
   factura_url: string | null;
   comision_aprobada: boolean;
+  comision_pagada: boolean;
 };
  
  export default function MisVentas() {
@@ -299,17 +300,16 @@ type Venta = {
         const inmobiliariaEmail = inmobiliariaData?.email?.toLowerCase();
 
         // Get comisionistas for these cuentas where the commissionist is the inmobiliaria
-        let comisionistasMap: Record<number, { porcentaje: number; monto: number; aprobada: boolean }> = {};
+        let comisionistasMap: Record<number, { porcentaje: number; monto: number; aprobada: boolean; pagada: boolean }> = {};
         if (inmobiliariaEmail) {
           const { data: comisionistasData } = await (supabase as any)
             .from('comisionistas')
-            .select('id_cuenta_cobranza, porcentaje_comision, aprobada')
+            .select('id_cuenta_cobranza, porcentaje_comision, aprobada, pagada')
             .in('id_cuenta_cobranza', cuentaIds)
             .eq('email_usuario', inmobiliariaEmail)
             .eq('activo', true);
 
           comisionistasMap = (comisionistasData || []).reduce((acc: any, c: any) => {
-            // Get precio_final from cuenta to calculate monto
             const cuenta = cuentasData.find((cc: any) => cc.id === c.id_cuenta_cobranza);
             const precioFinal = cuenta?.precio_final || 0;
             const porcentaje = Number(c.porcentaje_comision) || 0;
@@ -317,6 +317,7 @@ type Venta = {
               porcentaje: porcentaje,
               monto: precioFinal * (porcentaje / 100),
               aprobada: c.aprobada === true,
+              pagada: c.pagada === true,
             };
             return acc;
           }, {});
@@ -368,6 +369,7 @@ type Venta = {
           const porcentaje = comisionistaInfo?.porcentaje || 0;
           const montoComision = comisionistaInfo?.monto || 0;
           const comisionAprobada = comisionistaInfo?.aprobada || false;
+          const comisionPagada = comisionistaInfo?.pagada || false;
 
           // Get agent vendedor name from usuarios table
           const emailCreador = oferta?.email_creador?.toLowerCase();
@@ -390,6 +392,7 @@ type Venta = {
             tiene_factura: !!facturasMap[cuenta.id],
             factura_url: facturasMap[cuenta.id] || null,
             comision_aprobada: comisionAprobada,
+            comision_pagada: comisionPagada,
           } as Venta;
         });
       },
@@ -615,14 +618,15 @@ type Venta = {
                      <TableHead>No. Depto</TableHead>
                      <TableHead>Agente Vendedor</TableHead>
                      <TableHead>Precio Final</TableHead>
-                     <TableHead>Comisión</TableHead>
-                     <TableHead>Acciones</TableHead>
+                      <TableHead>Comisión</TableHead>
+                      <TableHead>Estatus de comisión</TableHead>
+                      <TableHead>Acciones</TableHead>
                    </TableRow>
                 </TableHeader>
                <TableBody>
                   {paginatedVentas.length === 0 ? (
                      <TableRow>
-                       <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                       <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                          {selectedInmobiliariaId 
                            ? (isLoading ? 'Cargando ventas...' : 'No se encontraron ventas de agentes de esta inmobiliaria')
                            : 'Selecciona una inmobiliaria para ver sus ventas'
@@ -658,8 +662,19 @@ type Venta = {
                              </Badge>
                            </div>
                          </div>
-                       </TableCell>
-                       <TableCell>
+                        </TableCell>
+                        <TableCell>
+                          {v.comision_pagada ? (
+                            <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Pagada</Badge>
+                          ) : v.comision_aprobada && v.tiene_factura ? (
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">Pendiente de pago</Badge>
+                          ) : v.comision_aprobada && !v.tiene_factura ? (
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">Aprobado/Sin factura</Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-muted text-muted-foreground">Sin aprobar</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
                          {v.tiene_factura ? (
                            <Button
                              variant="ghost"
