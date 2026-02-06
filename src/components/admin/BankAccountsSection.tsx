@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,8 @@ interface BankAccountsSectionProps {
 export function BankAccountsSection({ personId, showStpCheckbox = false, projectId, onEditingStateChange }: BankAccountsSectionProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isAdding, setIsAddingInternal] = useState(false);
-  const [editingAccount, setEditingAccountInternal] = useState<any>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<any>(null);
   const [newAccount, setNewAccount] = useState({
     id_banco: "",
     numero_cuenta: "",
@@ -33,16 +33,18 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
     es_cuenta_fisica_para_stp: false
   });
 
-  // Wrapper functions to notify parent of editing state changes
-  const setIsAdding = (value: boolean) => {
-    setIsAddingInternal(value);
-    onEditingStateChange?.(value || !!editingAccount);
-  };
+  // Notify parent when editing state changes
+  useEffect(() => {
+    const isEditing = isAdding || !!editingAccount;
+    onEditingStateChange?.(isEditing);
+  }, [isAdding, editingAccount, onEditingStateChange]);
 
-  const setEditingAccount = (value: any) => {
-    setEditingAccountInternal(value);
-    onEditingStateChange?.(isAdding || !!value);
-  };
+  // Reset editing state when component unmounts
+  useEffect(() => {
+    return () => {
+      onEditingStateChange?.(false);
+    };
+  }, [onEditingStateChange]);
 
   // Ensure personId is a valid number
   const validPersonId = typeof personId === 'number' && personId > 0 ? personId : null;
