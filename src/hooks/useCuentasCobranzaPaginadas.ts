@@ -108,6 +108,7 @@ interface CuentaCobranzaRPCResult {
   cash_payments: Array<{ fecha_pago: string; monto: number }> | null;
   collection_id: number | null;
   total_count: number;
+  motivo_cancelacion: string | null;
 }
 
 export function useCuentasCobranzaPaginadas({
@@ -232,6 +233,7 @@ export function useCuentasCobranzaPaginadas({
           id_proyecto: row.id_proyecto || undefined,
           id_entidad_relacionada_dueno: row.id_entidad_relacionada_dueno || undefined,
           collection_id: row.collection_id || undefined,
+          motivo_cancelacion: row.motivo_cancelacion || null,
           compradores,
         };
       });

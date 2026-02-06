@@ -6366,8 +6366,8 @@ export type Database = {
           p_id_cuenta?: string
           p_modelo?: string
           p_no_propiedad?: string
-          p_page?: number
-          p_per_page?: number
+          p_page: number
+          p_per_page: number
           p_producto?: string
           p_proyecto?: string
           p_proyecto_ids?: number[]
@@ -6399,6 +6399,7 @@ export type Database = {
           id_proyecto: number
           metraje: number
           modelo: string
+          motivo_cancelacion: string
           numero_propiedad: string
           pagado: number
           precio_final: number
