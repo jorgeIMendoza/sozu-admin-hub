@@ -31,6 +31,7 @@ type Venta = {
   agente_vendedor_email: string;
   tiene_factura: boolean;
   factura_url: string | null;
+  comision_aprobada: boolean;
 };
  
  export default function MisVentas() {
@@ -298,11 +299,11 @@ type Venta = {
         const inmobiliariaEmail = inmobiliariaData?.email?.toLowerCase();
 
         // Get comisionistas for these cuentas where the commissionist is the inmobiliaria
-        let comisionistasMap: Record<number, { porcentaje: number; monto: number }> = {};
+        let comisionistasMap: Record<number, { porcentaje: number; monto: number; aprobada: boolean }> = {};
         if (inmobiliariaEmail) {
           const { data: comisionistasData } = await (supabase as any)
             .from('comisionistas')
-            .select('id_cuenta_cobranza, porcentaje_comision')
+            .select('id_cuenta_cobranza, porcentaje_comision, aprobada')
             .in('id_cuenta_cobranza', cuentaIds)
             .eq('email_usuario', inmobiliariaEmail)
             .eq('activo', true);
@@ -315,6 +316,7 @@ type Venta = {
             acc[c.id_cuenta_cobranza] = {
               porcentaje: porcentaje,
               monto: precioFinal * (porcentaje / 100),
+              aprobada: c.aprobada === true,
             };
             return acc;
           }, {});
@@ -341,7 +343,14 @@ type Venta = {
           return acc;
         }, {});
 
-        return cuentasData.map((cuenta: any) => {
+        // Only include accounts that have a comisionista assigned with monto > 0
+        return cuentasData
+          .filter((cuenta: any) => {
+            const comisionistaInfo = comisionistasMap[cuenta.id];
+            // Only show if there's a comisionista and commission amount > 0
+            return comisionistaInfo && comisionistaInfo.monto > 0;
+          })
+          .map((cuenta: any) => {
           const oferta = ofertasMap[cuenta.id_oferta];
           const propInfo = oferta?.id_propiedad ? propiedadesMap[oferta.id_propiedad] : null;
           const prodInfo = oferta?.id_producto ? productosMap[oferta.id_producto] : null;
@@ -358,6 +367,7 @@ type Venta = {
           const comisionistaInfo = comisionistasMap[cuenta.id];
           const porcentaje = comisionistaInfo?.porcentaje || 0;
           const montoComision = comisionistaInfo?.monto || 0;
+          const comisionAprobada = comisionistaInfo?.aprobada || false;
 
           // Get agent vendedor name from usuarios table
           const emailCreador = oferta?.email_creador?.toLowerCase();
@@ -379,6 +389,7 @@ type Venta = {
             agente_vendedor_email: oferta?.email_creador || '-',
             tiene_factura: !!facturasMap[cuenta.id],
             factura_url: facturasMap[cuenta.id] || null,
+            comision_aprobada: comisionAprobada,
           } as Venta;
         });
       },
@@ -659,23 +670,24 @@ type Venta = {
                              <Check className="h-4 w-4 mr-1" />
                              <FileText className="h-4 w-4" />
                            </Button>
-                         ) : (
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => handleUploadClick(v.cuenta_cobranza_id)}
-                             disabled={uploadingForCuenta === v.cuenta_cobranza_id}
-                           >
-                             {uploadingForCuenta === v.cuenta_cobranza_id ? (
-                               <Loader2 className="h-4 w-4 animate-spin" />
-                             ) : (
-                               <>
-                                 <Upload className="h-4 w-4 mr-1" />
-                                 Factura
-                               </>
-                             )}
-                           </Button>
-                         )}
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUploadClick(v.cuenta_cobranza_id)}
+                              disabled={uploadingForCuenta === v.cuenta_cobranza_id || !v.comision_aprobada}
+                              title={!v.comision_aprobada ? "La comisión debe ser aprobada primero en Comisiones Externas" : "Subir factura"}
+                            >
+                              {uploadingForCuenta === v.cuenta_cobranza_id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Upload className="h-4 w-4 mr-1" />
+                                  Factura
+                                </>
+                              )}
+                            </Button>
+                          )}
                        </TableCell>
                      </TableRow>
                    ))
