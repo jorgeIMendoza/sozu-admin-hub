@@ -1959,7 +1959,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   onDocumentAdded={() => {
                     toast.success("El documento se ha agregado correctamente.");
                   }}
-                  isReadOnly={documentsReadOnly}
+                  hideStatusChange={documentsReadOnly}
                 />
                    </div>
                  </TabsContent>

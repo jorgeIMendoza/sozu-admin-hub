@@ -47,6 +47,7 @@ interface DocumentsTabProps {
   propiedadId?: number; // ID de la propiedad asociada
   onGenerateFinalInvoice?: (idPersona: number, idDocumento: number) => Promise<void>; // Callback para generar factura final
   isReadOnly?: boolean; // Modo solo lectura cuando la propiedad está entregada
+  hideStatusChange?: boolean; // Ocultar botón de cambiar estatus (pero permitir eliminar)
 }
 
 interface TipoDocumento {
@@ -82,7 +83,8 @@ export function DocumentsTab({
   compradores = [],
   propiedadId,
   onGenerateFinalInvoice,
-  isReadOnly = false
+  isReadOnly = false,
+  hideStatusChange = false
 }: DocumentsTabProps) {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -1292,8 +1294,7 @@ export function DocumentsTab({
                               </Tooltip>
                             </TooltipProvider>
                             
-                            {!isReadOnly && (
-                              <>
+                            {!isReadOnly && !hideStatusChange && (
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -1317,6 +1318,8 @@ export function DocumentsTab({
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
+                            )}
+                            {!isReadOnly && (
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -1334,7 +1337,6 @@ export function DocumentsTab({
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                              </>
                             )}
                           </div>
                         </TableCell>
