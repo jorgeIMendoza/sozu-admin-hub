@@ -273,6 +273,7 @@ export default function MiInformacion() {
                 onCancel={() => {}}
                 entityType="inmobiliaria"
                 fixedEntityType={true}
+                documentsReadOnly={!isSuperAdmin}
               />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
