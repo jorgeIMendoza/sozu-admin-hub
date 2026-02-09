@@ -62,6 +62,18 @@ export default function Login() {
         return;
       }
 
+      // Check if the email belongs to a blocked role BEFORE attempting auth
+      // Uses SECURITY DEFINER function that works without authentication
+      const { data: isBlocked } = await supabase.rpc('check_email_blocked_role', {
+        p_email: email.trim()
+      });
+
+      if (isBlocked) {
+        setIsBlocked(true);
+        setIsLoading(false);
+        return;
+      }
+
       // Check for app updates before login
       const hasUpdate = await checkForUpdates();
       if (hasUpdate) {
@@ -75,31 +87,12 @@ export default function Login() {
       
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
-          // Before showing "incorrect credentials", check if this email belongs to a blocked role
-          // Query as anon won't work due to RLS, so we try a different approach:
-          // We'll show the generic error. The blocked check happens after successful auth.
           setError('Email o contraseña incorrectos');
         } else if (error.message.includes('Email not confirmed')) {
           setError('Por favor confirma tu email antes de iniciar sesión');
         } else {
           setError(error.message);
         }
-        setIsLoading(false);
-        return;
-      }
-
-      // Auth succeeded — now check if user has a blocked role
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('rol_id, roles!inner(nombre)')
-        .eq('email', email.trim().toLowerCase())
-        .eq('activo', true)
-        .maybeSingle();
-
-      if (usuario && BLOCKED_ROLE_NAMES.includes((usuario as any).roles?.nombre)) {
-        // Sign out immediately and show blocked screen
-        await supabase.auth.signOut();
-        setIsBlocked(true);
         setIsLoading(false);
         return;
       }
