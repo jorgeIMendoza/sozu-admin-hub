@@ -2092,11 +2092,17 @@ export default function DetalleCuentaCobranza() {
         .eq('id', data.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast({ title: "Comprador actualizado correctamente" });
       setIsCompradorDialogOpen(false);
       setEditingComprador(null);
       queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuentaId] });
+      registrarActualizacion(
+        'comprador',
+        { id: variables.id, nombre_legal: editingComprador?.nombre_legal },
+        { id: variables.id, nombre_legal: variables.nombre_legal, curp: variables.curp, rfc: variables.rfc, email: variables.email },
+        'actualizar_comprador_cuenta_cobranza'
+      );
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
