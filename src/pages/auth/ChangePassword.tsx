@@ -49,9 +49,10 @@ export default function ChangePassword() {
     }
   }, [authLoading, session, profile, navigate]);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/auth/login';
+  const handleSignOut = () => {
+    supabase.auth.signOut().finally(() => {
+      window.location.href = '/auth/login';
+    });
   };
 
   // Show loading while checking auth state

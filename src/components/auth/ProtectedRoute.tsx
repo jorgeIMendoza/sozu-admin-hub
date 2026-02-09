@@ -15,9 +15,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, isLoading, mustChangePassword, profile } = useAuth();
   const location = useLocation();
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/auth/login';
+  const handleGoToLogin = () => {
+    supabase.auth.signOut().finally(() => {
+      window.location.href = '/auth/login';
+    });
   };
 
   if (isLoading) {
@@ -64,7 +65,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
             Tu tipo de usuario no tiene acceso a este sistema.
             Contacta al administrador si crees que esto es un error.
           </p>
-          <Button variant="destructive" onClick={handleSignOut}>
+          <Button variant="destructive" onClick={handleGoToLogin}>
             <LogIn className="mr-2 h-4 w-4" />
             Iniciar Sesión
           </Button>
