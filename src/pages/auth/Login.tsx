@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, LogIn, AlertCircle, RefreshCw, Clock } from 'lucide-react';
+import { Loader2, LogIn, AlertCircle, RefreshCw, Clock, ShieldAlert, LogOut } from 'lucide-react';
 import { z } from 'zod';
 import { checkForUpdates, clearCacheAndReload } from '@/utils/versionUtils';
 import { APP_VERSION } from '@/lib/config';
+
+const BLOCKED_ROLE_NAMES = ['Cliente', 'Directores'];
+
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'La contraseña es requerida'),
@@ -21,6 +25,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
@@ -36,6 +41,12 @@ export default function Login() {
     return null;
   }
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setIsBlocked(false);
+    setError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -46,6 +57,20 @@ export default function Login() {
       const result = loginSchema.safeParse({ email, password });
       if (!result.success) {
         setError(result.error.errors[0].message);
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if the email belongs to a blocked role BEFORE attempting auth
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('rol_id, roles!inner(nombre)')
+        .eq('email', email.trim().toLowerCase())
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (usuario && BLOCKED_ROLE_NAMES.includes((usuario as any).roles?.nombre)) {
+        setIsBlocked(true);
         setIsLoading(false);
         return;
       }
@@ -82,6 +107,27 @@ export default function Login() {
       setIsLoading(false);
     }
   };
+
+  if (isBlocked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center p-8 bg-card rounded-lg shadow-lg max-w-md space-y-4">
+          <ShieldAlert className="h-16 w-16 text-destructive mx-auto" />
+          <h1 className="text-2xl font-bold text-destructive">
+            Acceso No Autorizado
+          </h1>
+          <p className="text-muted-foreground">
+            Tu tipo de usuario no tiene acceso a este sistema.
+            Contacta al administrador si crees que esto es un error.
+          </p>
+          <Button variant="destructive" onClick={handleSignOut}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar Sesión
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">

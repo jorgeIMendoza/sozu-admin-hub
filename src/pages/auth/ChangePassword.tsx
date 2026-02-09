@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, KeyRound, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, KeyRound, AlertCircle, CheckCircle, ShieldAlert, LogOut } from 'lucide-react';
 import { z } from 'zod';
+
+const BLOCKED_ROLE_NAMES = ['Cliente', 'Directores'];
 
 const passwordSchema = z.object({
   newPassword: z
@@ -46,6 +49,11 @@ export default function ChangePassword() {
     }
   }, [authLoading, session, profile, navigate]);
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/auth/login';
+  };
+
   // Show loading while checking auth state
   if (authLoading) {
     return (
@@ -58,6 +66,28 @@ export default function ChangePassword() {
   // Don't render if no session
   if (!session) {
     return null;
+  }
+
+  // Block users with restricted roles
+  if (profile && BLOCKED_ROLE_NAMES.includes(profile.rol_nombre)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center p-8 bg-card rounded-lg shadow-lg max-w-md space-y-4">
+          <ShieldAlert className="h-16 w-16 text-destructive mx-auto" />
+          <h1 className="text-2xl font-bold text-destructive">
+            Acceso No Autorizado
+          </h1>
+          <p className="text-muted-foreground">
+            Tu tipo de usuario no tiene acceso a este sistema.
+            Contacta al administrador si crees que esto es un error.
+          </p>
+          <Button variant="destructive" onClick={handleSignOut}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar Sesión
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
