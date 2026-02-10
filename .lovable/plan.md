@@ -1,32 +1,72 @@
 
 
-## Plan: Ocultar boton "Recalcular" cuando no hay acuerdos pendientes
+## Plan: Campo precio_m2_actual editable solo cuando todas las propiedades estan vendidas o mas
 
 ### Problema
-El boton "Recalcular Aplicaciones" aparece en cuentas como CM-1366 donde hay saldo a favor ($27,900) pero todos los acuerdos ya estan completamente pagados. No tiene sentido recalcular si no hay acuerdos pendientes que puedan recibir fondos.
+El campo "Precio por m2 actual" esta siempre deshabilitado en el formulario de edicion de proyecto. Se requiere que sea editable, pero solo cuando **todas** las propiedades del proyecto tengan `id_estatus_disponibilidad > 3` (es decir, ya pasaron de Inventario/Disponible/Apartando).
 
-### Solucion
-Cambiar la condicion de visibilidad del boton para que ademas de verificar que hay excedente, tambien verifique que existen acuerdos sin pagar.
+### Cambios
 
-### Cambio
+**Archivo: `src/components/admin/EditProjectDialog.tsx`**
 
-**Archivo: `src/pages/admin/DetalleCuentaMantenimiento.tsx`**
+1. **Agregar query para verificar si hay propiedades con estatus <= 3**
 
-Linea 799 - Cambiar la condicion del boton de:
+   Dentro del componente, agregar una consulta que cuente propiedades del proyecto con `id_estatus_disponibilidad <= 3`:
 
-```tsx
-{excedente > 0.01 && (
-```
+   ```typescript
+   const { data: propiedadesPendientes } = useQuery({
+     queryKey: ["propiedades-pendientes-proyecto", project.id],
+     queryFn: async () => {
+       const { count, error } = await supabase
+         .from("propiedades")
+         .select("id", { count: "exact", head: true })
+         .eq("id_proyecto", project.id)
+         .lte("id_estatus_disponibilidad", 3)
+         .eq("activo", true);
+       if (error) throw error;
+       return count ?? 0;
+     },
+     enabled: open,
+   });
 
-A:
+   const todasVendidas = propiedadesPendientes === 0;
+   ```
 
-```tsx
-{excedente > 0.01 && acuerdosData?.some(a => !a.pago_completado) && (
-```
+   Nota: `id_proyecto` se obtendra a traves del edificio. Se verificara la ruta exacta de relacion (propiedades -> edificios_modelos -> edificios -> proyecto) y se usara un RPC o join si es necesario. Si no hay campo directo, se hara la consulta encadenada.
 
-Esto asegura que el boton solo aparece cuando:
-1. Hay dinero pagado sin aplicar (excedente > $0.01)
-2. Existen acuerdos pendientes donde se pueda redistribuir ese dinero
+2. **Hacer el campo condicionalmente editable** (lineas 543-557)
 
-En el caso de CM-1366 (todos los acuerdos pagados), el boton se oculta. En CM-1365 (acuerdos sin pagar con fondos flotando), el boton sigue visible.
+   Cambiar el input de siempre `disabled` a condicionalmente habilitado:
+
+   ```tsx
+   <FormItem>
+     <FormLabel>
+       Precio por m2 actual 
+       {!todasVendidas && " (se habilita cuando todas las propiedades esten vendidas)"}
+     </FormLabel>
+     <FormControl>
+       <Input 
+         type="text" 
+         placeholder="0.00" 
+         value={formattedValue}
+         disabled={!todasVendidas}
+         className={!todasVendidas ? "bg-muted" : ""}
+         readOnly={!todasVendidas}
+         onChange={(e) => {
+           const raw = e.target.value.replace(/[^0-9.]/g, '');
+           field.onChange(raw);
+         }}
+       />
+     </FormControl>
+     <FormMessage />
+   </FormItem>
+   ```
+
+### Modificacion del trigger (migracion SQL)
+
+Se creara una migracion para actualizar la funcion `actualizar_precio_m2_proyecto()` cambiando la condicion de estatus 4 (Apartado) a estatus 5 (Vendido).
+
+### Actualizacion de Bottura
+
+Se ejecutara el UPDATE para corregir el precio_m2_actual de Bottura a $80,939.95 basado en la propiedad con el precio/m2 mas alto ya vendida.
 
