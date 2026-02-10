@@ -133,6 +133,12 @@ export function DocumentsTab({
   });
   const [documentToDelete, setDocumentToDelete] = useState<Documento | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Context for pending status change that triggers delivery flow
+  const [pendingStatusChange, setPendingStatusChange] = useState<{
+    documentId: number;
+    newStatus: number;
+    comment: string;
+  } | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -841,7 +847,126 @@ export function DocumentsTab({
     setStatusChangeDialog(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Update document status
+      // 🔹 Check if this is a category 7 doc being validated as the last one
+      if (newStatus === 2 && entityType === 'cuenta_cobranza' && entityId) {
+        // Check if document belongs to category 7
+        const isCategory7 = documento.id_categoria_documento === 7;
+
+        if (isCategory7) {
+          // Get all category 7 document type IDs
+          const { data: tiposCat7 } = await supabase
+            .from('tipos_documento')
+            .select('id')
+            .eq('id_categoria_documento', 7)
+            .eq('activo', true);
+
+          if (tiposCat7) {
+            const cat7Ids = tiposCat7.map(t => t.id);
+
+            const { data: allCat7Docs } = await supabase
+              .from('documentos')
+              .select('id, id_estatus_verificacion')
+              .eq('id_cuenta_cobranza', entityId)
+              .in('id_tipo_documento', cat7Ids)
+              .eq('activo', true);
+
+            // Count unverified excluding the current one being validated
+            const otherUnverified = allCat7Docs?.filter(
+              d => d.id_estatus_verificacion !== 2 && d.id !== documento.id
+            ) || [];
+
+            if (otherUnverified.length === 0) {
+              // This is the last one! Save context and open confirm entrega dialog
+              setPendingStatusChange({
+                documentId: documento.id,
+                newStatus,
+                comment: comment || `Estatus cambiado a Validado`,
+              });
+              setDocumentoPendienteVerificar(documento);
+              setAdminValidation({ isLoading: true, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+              setShowConfirmEntrega(true);
+              setStatusChangeDialog({ isOpen: false, document: null, isLoading: false });
+
+              // Run admin validation async
+              (async () => {
+                try {
+                  const cuentaResp = await supabase
+                    .from('cuentas_cobranza')
+                    .select('id_oferta')
+                    .eq('id', entityId)
+                    .single();
+
+                  if (!cuentaResp.data?.id_oferta) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+
+                  const ofertaResp = await supabase
+                    .from('ofertas')
+                    .select('id_propiedad')
+                    .eq('id', cuentaResp.data.id_oferta)
+                    .single();
+
+                  if (!ofertaResp.data?.id_propiedad) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+
+                  const propResp = await supabase
+                    .from('propiedades')
+                    .select('id_entidad_relacionada_dueno')
+                    .eq('id', ofertaResp.data.id_propiedad)
+                    .single();
+
+                  if (!propResp.data?.id_entidad_relacionada_dueno) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+
+                  const entRelResp = await supabase
+                    .from('entidades_relacionadas')
+                    .select('id_proyecto')
+                    .eq('id', propResp.data.id_entidad_relacionada_dueno)
+                    .single();
+
+                  if (!entRelResp.data?.id_proyecto) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                    return;
+                  }
+
+                  const adminResp = await supabase
+                    .from('entidades_relacionadas')
+                    .select('id, cuenta_madre_stp, personas!fk_entrel_persona!inner(nombre_legal)')
+                    .eq('id_proyecto', entRelResp.data.id_proyecto)
+                    .eq('id_tipo_entidad', 6)
+                    .eq('activo', true)
+                    .maybeSingle();
+
+                  if (!adminResp.data) {
+                    setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                  } else {
+                    const personaData = adminResp.data.personas as any;
+                    setAdminValidation({
+                      isLoading: false,
+                      hasAdmin: true,
+                      adminName: personaData?.nombre_legal || 'Administradora',
+                      hasCuentaMadre: !!adminResp.data.cuenta_madre_stp,
+                      cuentaMadre: adminResp.data.cuenta_madre_stp || null
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error validando administradora:', error);
+                  setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                }
+              })();
+
+              return; // Don't do normal update - wait for confirm entrega
+            }
+          }
+        }
+      }
+
+      // Normal flow: update document status directly
       const { error: updateError } = await supabase
         .from('documentos')
         .update({ id_estatus_verificacion: newStatus })
@@ -1479,6 +1604,7 @@ export function DocumentsTab({
         if (!open) {
           setDocumentoPendienteVerificar(null);
           setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+          setPendingStatusChange(null);
         }
       }}>
         <AlertDialogContent>
@@ -1578,13 +1704,34 @@ export function DocumentsTab({
                     .eq('id', documentoPendienteVerificar.id);
                   
                   if (verifyError) throw verifyError;
+
+                  // 3. If this came from status change dialog, insert the comment
+                  if (pendingStatusChange && pendingStatusChange.documentId === documentoPendienteVerificar.id) {
+                    const { error: commentError } = await supabase
+                      .from('comentarios_verificacion_documento')
+                      .insert({
+                        id_documento: pendingStatusChange.documentId,
+                        id_estatus_verificacion: pendingStatusChange.newStatus,
+                        comentario: pendingStatusChange.comment,
+                        email_usuario: user?.email || null,
+                        activo: true
+                      });
+                    
+                    if (commentError) {
+                      console.error('Error insertando comentario:', commentError);
+                    }
+                    setPendingStatusChange(null);
+                  }
                   
-                  // 3. Recargar documentos
+                  // 4. Recargar documentos
                   await loadDocumentos();
                   
-                  // 4. Limpiar estado
+                  // 5. Limpiar estado
                   setDocumentoPendienteVerificar(null);
                   setAdminValidation({ isLoading: false, hasAdmin: false, adminName: null, hasCuentaMadre: false, cuentaMadre: null });
+                  
+                  // 6. Notify parent
+                  onDocumentAdded?.();
                 } catch (error: any) {
                   toast({
                     variant: "destructive",
