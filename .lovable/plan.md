@@ -1,72 +1,64 @@
 
 
-## Plan: Campo precio_m2_actual editable solo cuando todas las propiedades estan vendidas o mas
+## Plan: Corregir el dialogo de cambio de estatus de documento
 
 ### Problema
-El campo "Precio por m2 actual" esta siempre deshabilitado en el formulario de edicion de proyecto. Se requiere que sea editable, pero solo cuando **todas** las propiedades del proyecto tengan `id_estatus_disponibilidad > 3` (es decir, ya pasaron de Inventario/Disponible/Apartando).
+Cuando se intenta rechazar o expirar un documento, el dialogo no valida correctamente y permite cerrar sin guardar cambios. El documento no se actualiza realmente.
 
-### Cambios
+### Causa raiz
+El componente `AlertDialogAction` de Radix UI cierra automaticamente el dialogo al hacer click, **antes** de que la logica de validacion o la operacion asincrona puedan ejecutarse. Esto causa:
 
-**Archivo: `src/components/admin/EditProjectDialog.tsx`**
+1. Si no se pone comentario obligatorio, el dialogo se cierra igual (sin mostrar error)
+2. La operacion asincrona puede no completarse porque el estado se resetea al cerrarse
 
-1. **Agregar query para verificar si hay propiedades con estatus <= 3**
+### Solucion
 
-   Dentro del componente, agregar una consulta que cuente propiedades del proyecto con `id_estatus_disponibilidad <= 3`:
+**Archivo: `src/components/admin/DocumentStatusChangeDialog.tsx`**
 
-   ```typescript
-   const { data: propiedadesPendientes } = useQuery({
-     queryKey: ["propiedades-pendientes-proyecto", project.id],
-     queryFn: async () => {
-       const { count, error } = await supabase
-         .from("propiedades")
-         .select("id", { count: "exact", head: true })
-         .eq("id_proyecto", project.id)
-         .lte("id_estatus_disponibilidad", 3)
-         .eq("activo", true);
-       if (error) throw error;
-       return count ?? 0;
-     },
-     enabled: open,
-   });
+Agregar `e.preventDefault()` en el `onClick` del `AlertDialogAction` para evitar el cierre automatico, y solo cerrar manualmente despues de que la operacion sea exitosa:
 
-   const todasVendidas = propiedadesPendientes === 0;
-   ```
+```tsx
+<AlertDialogAction
+  onClick={(e) => {
+    e.preventDefault();  // Evitar cierre automatico
+    handleConfirm();
+  }}
+  disabled={isLoading || selectedStatus === currentStatus.toString()}
+>
+```
 
-   Nota: `id_proyecto` se obtendra a traves del edificio. Se verificara la ruta exacta de relacion (propiedades -> edificios_modelos -> edificios -> proyecto) y se usara un RPC o join si es necesario. Si no hay campo directo, se hara la consulta encadenada.
+Tambien agregar un estado `isSubmitting` local para manejar el loading dentro del dialogo y evitar doble click:
 
-2. **Hacer el campo condicionalmente editable** (lineas 543-557)
+```tsx
+const [isSubmitting, setIsSubmitting] = useState(false);
 
-   Cambiar el input de siempre `disabled` a condicionalmente habilitado:
+const handleConfirm = async () => {
+  const newStatusId = parseInt(selectedStatus);
+  
+  if (newStatusId !== 2 && !comment.trim()) {
+    setError("El comentario es obligatorio para este estatus");
+    return;  // Ahora si previene el avance
+  }
+  
+  setError("");
+  setIsSubmitting(true);
+  
+  try {
+    await onConfirm(newStatusId, comment.trim());
+    
+    // Registrar actividad (solo si fue exitoso)
+    // ... activity logger code ...
+    
+    setComment("");
+    setSelectedStatus(currentStatus.toString());
+    onClose();  // Cerrar manualmente solo en exito
+  } catch (err) {
+    // Mantener dialogo abierto en caso de error
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+```
 
-   ```tsx
-   <FormItem>
-     <FormLabel>
-       Precio por m2 actual 
-       {!todasVendidas && " (se habilita cuando todas las propiedades esten vendidas)"}
-     </FormLabel>
-     <FormControl>
-       <Input 
-         type="text" 
-         placeholder="0.00" 
-         value={formattedValue}
-         disabled={!todasVendidas}
-         className={!todasVendidas ? "bg-muted" : ""}
-         readOnly={!todasVendidas}
-         onChange={(e) => {
-           const raw = e.target.value.replace(/[^0-9.]/g, '');
-           field.onChange(raw);
-         }}
-       />
-     </FormControl>
-     <FormMessage />
-   </FormItem>
-   ```
-
-### Modificacion del trigger (migracion SQL)
-
-Se creara una migracion para actualizar la funcion `actualizar_precio_m2_proyecto()` cambiando la condicion de estatus 4 (Apartado) a estatus 5 (Vendido).
-
-### Actualizacion de Bottura
-
-Se ejecutara el UPDATE para corregir el precio_m2_actual de Bottura a $80,939.95 basado en la propiedad con el precio/m2 mas alto ya vendida.
-
+### Resumen
+Un solo archivo modificado: `DocumentStatusChangeDialog.tsx`. El cambio clave es `e.preventDefault()` en el boton de confirmacion para que Radix no cierre el dialogo automaticamente, permitiendo la validacion y la espera de la operacion asincrona.
