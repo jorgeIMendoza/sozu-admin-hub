@@ -1388,6 +1388,7 @@ export type Database = {
           metodo_pago: string | null
           monto: number
           monto_evidencia: string | null
+          preprosesado: boolean | null
           procesado: boolean | null
           texto_evidencia: string | null
           url_evidencia: string | null
@@ -1403,6 +1404,7 @@ export type Database = {
           metodo_pago?: string | null
           monto: number
           monto_evidencia?: string | null
+          preprosesado?: boolean | null
           procesado?: boolean | null
           texto_evidencia?: string | null
           url_evidencia?: string | null
@@ -1418,6 +1420,7 @@ export type Database = {
           metodo_pago?: string | null
           monto?: number
           monto_evidencia?: string | null
+          preprosesado?: boolean | null
           procesado?: boolean | null
           texto_evidencia?: string | null
           url_evidencia?: string | null

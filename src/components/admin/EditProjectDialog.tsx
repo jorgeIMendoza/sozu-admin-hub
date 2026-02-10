@@ -112,6 +112,45 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
   // Determinar si es proyecto de tipo Productos, Servicios o Mantenimientos
   const isSpecialProject = form.watch("id_tipo_uso") === "9" || form.watch("id_tipo_uso") === "10" || form.watch("id_tipo_uso") === "11";
 
+  // Query para verificar si todas las propiedades del proyecto tienen estatus > 3
+  const { data: propiedadesPendientes } = useQuery({
+    queryKey: ["propiedades-pendientes-proyecto", projectId],
+    queryFn: async () => {
+      // Obtener edificios del proyecto
+      const { data: edificios, error: edError } = await supabase
+        .from("edificios")
+        .select("id")
+        .eq("id_proyecto", projectId)
+        .eq("activo", true);
+      if (edError) throw edError;
+      if (!edificios || edificios.length === 0) return 0;
+
+      // Obtener edificios_modelos de esos edificios
+      const edificioIds = edificios.map(e => e.id);
+      const { data: edModelos, error: emError } = await supabase
+        .from("edificios_modelos")
+        .select("id")
+        .in("id_edificio", edificioIds)
+        .eq("activo", true);
+      if (emError) throw emError;
+      if (!edModelos || edModelos.length === 0) return 0;
+
+      // Contar propiedades con estatus <= 3
+      const emIds = edModelos.map(em => em.id);
+      const { count, error } = await supabase
+        .from("propiedades")
+        .select("id", { count: "exact", head: true })
+        .in("id_edificio_modelo", emIds)
+        .lte("id_estatus_disponibilidad", 3)
+        .eq("activo", true);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: open,
+  });
+
+  const todasVendidas = propiedadesPendientes === 0;
+
   const { data: project, isLoading: isLoadingProject } = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () => {
@@ -541,15 +580,22 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
                               
                               return (
                                 <FormItem>
-                                  <FormLabel>Precio por m² actual (calculado automáticamente)</FormLabel>
+                                  <FormLabel>
+                                    Precio por m² actual
+                                    {!todasVendidas && " (se habilita cuando todas las propiedades estén vendidas)"}
+                                  </FormLabel>
                                   <FormControl>
                                     <Input 
                                       type="text" 
                                       placeholder="0.00" 
                                       value={formattedValue}
-                                      disabled
-                                      className="bg-muted"
-                                      readOnly
+                                      disabled={!todasVendidas}
+                                      className={!todasVendidas ? "bg-muted" : ""}
+                                      readOnly={!todasVendidas}
+                                      onChange={(e) => {
+                                        const raw = e.target.value.replace(/[^0-9.]/g, '');
+                                        field.onChange(raw);
+                                      }}
                                     />
                                   </FormControl>
                                   <FormMessage />
