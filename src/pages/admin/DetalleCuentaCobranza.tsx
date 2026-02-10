@@ -27,7 +27,7 @@ import { EditPaymentDialog } from "@/components/admin/EditPaymentDialog";
 import { TransferPaymentDialog } from "@/components/admin/TransferPaymentDialog";
 import { formatCuentaCobranzaId, formatOfertaId } from "@/utils/cuentaCobranzaUtils";
 import { ReciboPagoService } from "@/services/reciboPagoService";
-import { EstadoCuentaService } from "@/services/estadoCuentaService";
+import { EstadoCuentaEdgeFunctionService } from "@/services/estadoCuentaEdgeFunctionService";
 import { EnDemandaDialog } from "@/components/admin/EnDemandaDialog";
 import { JuicioTerminadoDialog } from "@/components/admin/JuicioTerminadoDialog";
 import { EditCuentaCobranzaDialog } from "@/components/admin/EditCuentaCobranzaDialog";
@@ -2846,7 +2846,7 @@ export default function DetalleCuentaCobranza() {
                   if (!id) return;
                   try {
                     setIsGeneratingEstadoCuenta(true);
-                    const service = new EstadoCuentaService();
+                    const service = new EstadoCuentaEdgeFunctionService();
                     await service.generateEstadoCuenta({
                       id_cuenta: parseInt(id)
                     });

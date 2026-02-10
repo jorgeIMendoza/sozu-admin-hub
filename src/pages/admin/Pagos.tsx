@@ -25,7 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
-import { EstadoCuentaService } from "@/services/estadoCuentaService";
+import { EstadoCuentaEdgeFunctionService } from "@/services/estadoCuentaEdgeFunctionService";
 import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
@@ -471,7 +471,7 @@ export default function Pagos() {
   const handleDownloadEstadoCuenta = async (idCuenta: number) => {
     try {
       setIsGeneratingEstadoCuenta(idCuenta);
-      const service = new EstadoCuentaService();
+      const service = new EstadoCuentaEdgeFunctionService();
       await service.generateEstadoCuenta({
         id_cuenta: idCuenta
       });
