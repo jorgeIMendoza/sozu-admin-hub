@@ -4,7 +4,6 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { AvisoDestinatariosSection } from "@/components/admin/AvisoDestinatariosSection";
+import { RichTextEditor } from "@/components/admin/RichTextEditor";
 
 interface Aviso {
   id: number;
@@ -64,7 +64,7 @@ export default function AdministrarAvisos() {
   const [cronExpression, setCronExpression] = useState("");
   const [activo, setActivo] = useState(true);
   const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
-  const [destinatariosPorRol, setDestinatariosPorRol] = useState<Record<number, Destinatario[]>>({});
+  const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
 
   const fetchAvisos = async () => {
     setIsLoading(true);
@@ -83,7 +83,7 @@ export default function AdministrarAvisos() {
   const openCreate = () => {
     setEditingAviso(null);
     setNombre(""); setAsunto(""); setMensajeHtml(""); setTipoEnvio("manual");
-    setCronExpression(""); setActivo(true); setSelectedRoles([]); setDestinatariosPorRol({});
+    setCronExpression(""); setActivo(true); setSelectedRoles([]); setDestinatarios([]);
     setDialogOpen(true);
   };
 
@@ -93,16 +93,22 @@ export default function AdministrarAvisos() {
     setTipoEnvio(aviso.tipo_envio); setCronExpression(aviso.cron_expression || "");
     setActivo(aviso.activo);
 
+    // Load existing roles and their correos
     const { data } = await supabase.from('avisos_roles_destinatarios').select('id_rol, correos').eq('id_aviso', aviso.id);
     const rolIds: number[] = [];
-    const destMap: Record<number, Destinatario[]> = {};
+    const allDests: Destinatario[] = [];
     data?.forEach(r => {
       rolIds.push(r.id_rol);
       const correos = r.correos as any;
-      destMap[r.id_rol] = correos?.destinatarios || [];
+      const dests: Destinatario[] = correos?.destinatarios || [];
+      dests.forEach(d => {
+        if (!allDests.some(x => x.email === d.email)) {
+          allDests.push(d);
+        }
+      });
     });
     setSelectedRoles(rolIds);
-    setDestinatariosPorRol(destMap);
+    setDestinatarios(allDests);
     setDialogOpen(true);
   };
 
@@ -133,14 +139,15 @@ export default function AdministrarAvisos() {
       avisoId = data.id;
     }
 
-    // Update roles with correos
+    // Save roles with correos - store all destinatarios under each selected role
     await supabase.from('avisos_roles_destinatarios').delete().eq('id_aviso', avisoId);
     if (selectedRoles.length > 0) {
+      const correosJson = JSON.parse(JSON.stringify({ destinatarios }));
       await supabase.from('avisos_roles_destinatarios').insert(
         selectedRoles.map(id_rol => ({
           id_aviso: avisoId,
           id_rol,
-          correos: JSON.parse(JSON.stringify({ destinatarios: destinatariosPorRol[id_rol] || [] })),
+          correos: correosJson,
         }))
       );
     }
@@ -167,34 +174,24 @@ export default function AdministrarAvisos() {
     setSelectedRoles(prev =>
       prev.includes(rolId) ? prev.filter(r => r !== rolId) : [...prev, rolId]
     );
-    // Initialize empty destinatarios for new role if needed
-    if (!selectedRoles.includes(rolId)) {
-      setDestinatariosPorRol(prev => ({ ...prev, [rolId]: prev[rolId] || [] }));
-    }
-  };
-
-  // Flatten all destinatarios for the section component
-  const allDestinatarios = selectedRoles.flatMap(rolId => destinatariosPorRol[rolId] || []);
-  // Deduplicate by email
-  const uniqueDestinatarios = allDestinatarios.filter(
-    (d, i, arr) => arr.findIndex(x => x.email === d.email) === i
-  );
-
-  const handleDestinatariosChange = (newDests: Destinatario[]) => {
-    // Store all destinatarios under the first selected role, or create a general bucket
-    const targetRol = selectedRoles[0];
-    if (targetRol) {
-      setDestinatariosPorRol(prev => ({ ...prev, [targetRol]: newDests }));
-      // Clear other roles' destinatarios to avoid duplication
-      const cleaned: Record<number, Destinatario[]> = { [targetRol]: newDests };
-      selectedRoles.slice(1).forEach(r => { cleaned[r] = []; });
-      setDestinatariosPorRol(cleaned);
-    }
   };
 
   const filtered = avisos.filter(a => a.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
 
   if (permLoading) return <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+
+  // Build preview HTML with subject header
+  const previewHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #f3f4f6; padding: 12px 16px; border-bottom: 2px solid #e5e7eb;">
+        <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">Asunto:</div>
+        <div style="font-size: 14px; font-weight: 600; color: #111827;">${asunto || '(Sin asunto)'}</div>
+      </div>
+      <div style="padding: 16px;">
+        ${mensajeHtml || '<p style="color:#999;">El contenido aparecerá aquí...</p>'}
+      </div>
+    </div>
+  `;
 
   return (
     <div className="space-y-6">
@@ -250,7 +247,7 @@ export default function AdministrarAvisos() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAviso ? 'Editar Aviso' : 'Nuevo Aviso'}</DialogTitle>
           </DialogHeader>
@@ -262,13 +259,12 @@ export default function AdministrarAvisos() {
                 <Input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre del aviso" />
               </div>
               <div>
-                <Label>Asunto</Label>
+                <Label>Asunto del email</Label>
                 <Input value={asunto} onChange={e => setAsunto(e.target.value)} placeholder="Asunto del email" />
               </div>
               <div>
-                <Label>Mensaje HTML</Label>
-                <Textarea value={mensajeHtml} onChange={e => setMensajeHtml(e.target.value)}
-                  placeholder="<h1>Hola</h1><p>Tu mensaje aquí...</p>" rows={10} className="font-mono text-xs" />
+                <Label>Contenido del mensaje</Label>
+                <RichTextEditor value={mensajeHtml} onChange={setMensajeHtml} />
               </div>
               <div>
                 <Label>Tipo de envío</Label>
@@ -303,16 +299,16 @@ export default function AdministrarAvisos() {
                 roles={roles}
                 selectedRoles={selectedRoles}
                 onToggleRole={toggleRole}
-                destinatarios={uniqueDestinatarios}
-                onDestinatariosChange={handleDestinatariosChange}
+                destinatarios={destinatarios}
+                onDestinatariosChange={setDestinatarios}
               />
             </div>
 
             <div>
-              <Label>Vista previa</Label>
-              <div className="border rounded-lg mt-2 bg-background overflow-hidden" style={{ height: '500px' }}>
+              <Label>Vista previa del email</Label>
+              <div className="border rounded-lg mt-2 bg-background overflow-hidden" style={{ height: '600px' }}>
                 <iframe
-                  srcDoc={mensajeHtml || '<p style="color:#999;padding:20px;">El preview aparecerá aquí...</p>'}
+                  srcDoc={previewHtml}
                   className="w-full h-full"
                   sandbox=""
                   title="Preview"
