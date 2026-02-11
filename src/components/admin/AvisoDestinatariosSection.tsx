@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Plus, Loader2, Users, Mail, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Loader2, Users, Mail, ChevronDown, ChevronUp, Search, CheckSquare, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Destinatario {
@@ -40,6 +40,33 @@ export function AvisoDestinatariosSection({
   const [showAll, setShowAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Pool: all recipients ever loaded (from roles or manual). Persists even after deselection.
+  const [pool, setPool] = useState<Destinatario[]>([]);
+  // Set of selected emails
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+
+  // Sync pool and selectedEmails from parent's destinatarios on mount / when destinatarios change externally
+  useEffect(() => {
+    if (destinatarios.length > 0) {
+      setPool(prev => {
+        const merged = [...prev];
+        for (const d of destinatarios) {
+          if (!merged.some(p => p.email === d.email)) {
+            merged.push(d);
+          }
+        }
+        return merged;
+      });
+      setSelectedEmails(new Set(destinatarios.map(d => d.email)));
+    }
+  }, []); // Only on mount
+
+  // Notify parent whenever selection changes
+  const notifyParent = useCallback((newSelected: Set<string>, currentPool: Destinatario[]) => {
+    const selected = currentPool.filter(d => newSelected.has(d.email));
+    onDestinatariosChange(selected);
+  }, [onDestinatariosChange]);
+
   const handleToggleRole = async (rolId: number) => {
     const wasSelected = selectedRoles.includes(rolId);
     onToggleRole(rolId);
@@ -54,17 +81,26 @@ export function AvisoDestinatariosSection({
         .not("email", "is", null);
 
       if (usuarios && usuarios.length > 0) {
-        const newDestinatarios = usuarios
-          .filter((u) => u.email && !destinatarios.some((d) => d.email === u.email))
-          .map((u) => ({
-            nombre: u.nombre || u.email,
-            email: u.email!,
-          }));
+        const newItems = usuarios
+          .filter((u) => u.email && !pool.some((d) => d.email === u.email))
+          .map((u) => ({ nombre: u.nombre || u.email, email: u.email! }));
 
-        if (newDestinatarios.length > 0) {
-          onDestinatariosChange([...destinatarios, ...newDestinatarios]);
+        const updatedPool = [...pool, ...newItems];
+        setPool(updatedPool);
+
+        // Auto-select all new items
+        const newSelected = new Set(selectedEmails);
+        for (const item of newItems) newSelected.add(item.email);
+        // Also select existing pool items that match this role
+        for (const u of usuarios) {
+          if (u.email) newSelected.add(u.email);
+        }
+        setSelectedEmails(newSelected);
+        notifyParent(newSelected, updatedPool);
+
+        if (newItems.length > 0) {
           toast({
-            title: `${newDestinatarios.length} destinatarios agregados`,
+            title: `${newItems.length} destinatarios agregados`,
             description: `Se cargaron los usuarios activos del rol seleccionado`,
           });
         }
@@ -73,8 +109,26 @@ export function AvisoDestinatariosSection({
     }
   };
 
-  const removeDestinatario = (email: string) => {
-    onDestinatariosChange(destinatarios.filter((d) => d.email !== email));
+  const toggleEmail = (email: string) => {
+    const newSelected = new Set(selectedEmails);
+    if (newSelected.has(email)) {
+      newSelected.delete(email);
+    } else {
+      newSelected.add(email);
+    }
+    setSelectedEmails(newSelected);
+    notifyParent(newSelected, pool);
+  };
+
+  const selectAll = () => {
+    const all = new Set(pool.map(d => d.email));
+    setSelectedEmails(all);
+    notifyParent(all, pool);
+  };
+
+  const deselectAll = () => {
+    setSelectedEmails(new Set());
+    onDestinatariosChange([]);
   };
 
   const addManual = () => {
@@ -82,25 +136,29 @@ export function AvisoDestinatariosSection({
       toast({ title: "Error", description: "El email es requerido", variant: "destructive" });
       return;
     }
-    if (destinatarios.some((d) => d.email === manualEmail.trim())) {
+    if (pool.some((d) => d.email === manualEmail.trim())) {
       toast({ title: "Error", description: "Este email ya está en la lista", variant: "destructive" });
       return;
     }
-    onDestinatariosChange([
-      ...destinatarios,
-      { nombre: manualNombre.trim() || manualEmail.trim(), email: manualEmail.trim() },
-    ]);
+    const newItem = { nombre: manualNombre.trim() || manualEmail.trim(), email: manualEmail.trim() };
+    const updatedPool = [...pool, newItem];
+    setPool(updatedPool);
+    const newSelected = new Set(selectedEmails);
+    newSelected.add(newItem.email);
+    setSelectedEmails(newSelected);
+    notifyParent(newSelected, updatedPool);
     setManualNombre("");
     setManualEmail("");
   };
 
-  const VISIBLE_COUNT = 5;
-  const filteredDestinatarios = destinatarios.filter(d =>
+  const VISIBLE_COUNT = 10;
+  const filteredPool = pool.filter(d =>
     d.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     d.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  const visibleDestinatarios = showAll ? filteredDestinatarios : filteredDestinatarios.slice(0, VISIBLE_COUNT);
-  const hasMore = filteredDestinatarios.length > VISIBLE_COUNT;
+  const visibleItems = showAll ? filteredPool : filteredPool.slice(0, VISIBLE_COUNT);
+  const hasMore = filteredPool.length > VISIBLE_COUNT;
+  const selectedCount = selectedEmails.size;
 
   return (
     <div className="space-y-4">
@@ -155,64 +213,81 @@ export function AvisoDestinatariosSection({
 
       {/* Destinatarios list */}
       <div>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <Label>Destinatarios</Label>
           <Badge variant="secondary" className="text-xs">
             <Mail className="h-3 w-3 mr-1" />
-            {destinatarios.length} correo{destinatarios.length !== 1 ? "s" : ""}
+            {selectedCount} de {pool.length} seleccionado{selectedCount !== 1 ? "s" : ""}
           </Badge>
-          {destinatarios.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-6 text-xs text-destructive hover:text-destructive"
-              onClick={() => onDestinatariosChange([])}
-            >
-              Limpiar todos
-            </Button>
+          {pool.length > 0 && (
+            <div className="flex gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={selectAll}
+              >
+                <CheckSquare className="h-3 w-3 mr-1" />
+                Todos
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs text-destructive hover:text-destructive"
+                onClick={deselectAll}
+              >
+                <Square className="h-3 w-3 mr-1" />
+                Ninguno
+              </Button>
+            </div>
           )}
         </div>
-        <div className="mb-2">
-          <Input
-            placeholder="Buscar por nombre o email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="text-sm"
-          />
-        </div>
-        <div className="border rounded p-2 max-h-64 overflow-y-auto space-y-1">
-          {destinatarios.length === 0 ? (
+        {pool.length > 0 && (
+          <div className="mb-2 relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre o email..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setShowAll(false); }}
+              className="text-sm pl-8 h-8"
+            />
+          </div>
+        )}
+        <div className="border rounded p-2 max-h-72 overflow-y-auto space-y-0.5">
+          {pool.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-4">
               <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
               Selecciona roles o agrega destinatarios manualmente
             </p>
+          ) : filteredPool.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">
+              No se encontraron resultados para "{searchTerm}"
+            </p>
           ) : (
             <>
-              {visibleDestinatarios.map((d) => (
-                <div
-                  key={d.email}
-                  className="flex items-center justify-between text-sm bg-muted/50 rounded px-2 py-1 group"
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span className="truncate">
+              {visibleItems.map((d) => {
+                const isSelected = selectedEmails.has(d.email);
+                return (
+                  <label
+                    key={d.email}
+                    className={`flex items-center gap-2 text-sm rounded px-2 py-1.5 cursor-pointer transition-colors ${
+                      isSelected ? "bg-primary/10" : "hover:bg-muted/50"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleEmail(d.email)}
+                      className="shrink-0"
+                    />
+                    <span className="truncate flex-1">
                       <span className="font-medium">{d.nombre}</span>
                       <span className="text-muted-foreground ml-1 text-xs">({d.email})</span>
                     </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 shrink-0 opacity-50 group-hover:opacity-100"
-                    onClick={() => removeDestinatario(d.email)}
-                    title="Quitar destinatario"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
+                  </label>
+                );
+              })}
               {hasMore && (
                 <Button
                   type="button"
@@ -223,11 +298,11 @@ export function AvisoDestinatariosSection({
                 >
                   {showAll ? (
                     <>
-                   <ChevronUp className="h-3 w-3 mr-1" /> Mostrar menos
+                      <ChevronUp className="h-3 w-3 mr-1" /> Mostrar menos
                     </>
                   ) : (
                     <>
-                      <ChevronDown className="h-3 w-3 mr-1" /> Ver {filteredDestinatarios.length - VISIBLE_COUNT} más
+                      <ChevronDown className="h-3 w-3 mr-1" /> Ver {filteredPool.length - VISIBLE_COUNT} más
                     </>
                   )}
                 </Button>
