@@ -255,7 +255,7 @@ Deno.serve(async (req) => {
       page.drawRectangle({ x, y: y - 14, width: 2, height: 14 * 2.5, color: primaryColor });
 
       page.drawText(item.label, { x: x + 6, y: y + 8, size: 6, font: helvetica, color: lightGrayColor });
-      page.drawText(item.value.substring(0, 25), { x: x + 6, y: y - 2, size: 8, font: helveticaBold, color: primaryColor });
+      page.drawText(item.value.substring(0, 35), { x: x + 6, y: y - 2, size: 8, font: helveticaBold, color: primaryColor });
     }
 
     y -= 28;
@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
     y -= 14;
 
     // Column widths
-    const aCols = [100, 55, 55, 55, 55, 40]; // Concepto, Fecha, Monto, Pagado, Pendiente, Estado
+    const aCols = [175, 70, 70, 70, 70, 60]; // Concepto, Fecha, Monto, Pagado, Pendiente, Estado
     const aHeaders = ['CONCEPTO', 'FECHA', 'MONTO', 'PAGADO', 'PENDIENTE', 'ESTADO'];
 
     // Header bg
