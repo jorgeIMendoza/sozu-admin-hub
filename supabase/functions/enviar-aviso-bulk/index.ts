@@ -49,9 +49,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Extract unique emails from correos JSON
+    // Extract unique recipients from correos JSON
     const emailSet = new Set<string>();
-    const emails: string[] = [];
+    const recipients: { nombre: string; email: string }[] = [];
     
     for (const row of rolesData) {
       const correos = row.correos as any;
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       for (const dest of destinatarios) {
         if (dest.email && !emailSet.has(dest.email)) {
           emailSet.add(dest.email);
-          emails.push(dest.email);
+          recipients.push({ nombre: dest.nombre || '', email: dest.email });
         }
       }
     }
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         id_aviso: aviso_id,
         tipo_trigger,
         ejecutado_por: ejecutado_por || null,
-        total_destinatarios: emails.length,
+        total_destinatarios: recipients.length,
         estado: 'enviando',
       })
       .select('id')
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (emails.length === 0) {
+    if (recipients.length === 0) {
       await supabaseAdmin
         .from('avisos_ejecuciones')
         .update({ estado: 'completado', total_enviados: 0, total_errores: 0 })
@@ -112,31 +112,42 @@ Deno.serve(async (req) => {
     let totalErrores = 0;
     const BATCH_SIZE = 500;
 
-    for (let i = 0; i < emails.length; i += BATCH_SIZE) {
-      const batch = emails.slice(i, i + BATCH_SIZE);
-      const messages = batch.map(email => ({
+    for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+      const batch = recipients.slice(i, i + BATCH_SIZE);
+      const messages = batch.map(recipient => ({
         From: 'notificaciones@sozu.mx',
-        To: email,
-        Subject: aviso.asunto,
-        HtmlBody: aviso.mensaje_html,
+        To: recipient.email,
+        TemplateId: 36978552,
+        TemplateModel: {
+          mensaje: {
+            nombre: recipient.nombre || '',
+            texto: aviso.mensaje_html,
+            asunto: aviso.asunto,
+          },
+        },
         MessageStream: 'outbound',
       }));
 
       try {
-        const res = await fetch('https://api.postmarkapp.com/email/batch', {
+        const res = await fetch('https://api.postmarkapp.com/email/batchWithTemplates', {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             'X-Postmark-Server-Token': POSTMARK_TOKEN,
           },
-          body: JSON.stringify(messages),
+          body: JSON.stringify({ Messages: messages }),
         });
 
         const results = await res.json();
 
         if (Array.isArray(results)) {
           results.forEach((r: any) => {
+            if (r.ErrorCode === 0) totalEnviados++;
+            else totalErrores++;
+          });
+        } else if (results?.Messages && Array.isArray(results.Messages)) {
+          results.Messages.forEach((r: any) => {
             if (r.ErrorCode === 0) totalEnviados++;
             else totalErrores++;
           });
@@ -161,7 +172,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ejecucion_id: ejecucion.id,
-      total_destinatarios: emails.length,
+      total_destinatarios: recipients.length,
       total_enviados: totalEnviados,
       total_errores: totalErrores,
     }), {
