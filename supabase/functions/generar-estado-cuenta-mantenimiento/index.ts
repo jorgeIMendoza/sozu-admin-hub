@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
 
     // Column widths - proportional to original jsPDF layout (total = contentWidth = 515)
     // Original ratios: Concepto=60, Fecha=28, Monto=28, Pagado=28, Pendiente=28, Estado=18 (total=190)
-    const aCols = [140, 75, 75, 70, 85, 70]; // = 515
+    const aCols = [130, 70, 80, 75, 85, 75]; // = 515
     const aHeaders = ['CONCEPTO', 'FECHA', 'MONTO', 'PAGADO', 'PENDIENTE', 'ESTADO'];
 
     // Header bg
@@ -318,12 +318,8 @@ Deno.serve(async (req) => {
 
     let colX = margin;
     for (let i = 0; i < aHeaders.length; i++) {
-      const align = i >= 2 && i <= 4 ? 'right' : (i === 5 ? 'center' : 'left');
-      let tx = colX + 4;
-      if (align === 'right') {
-        const hw = helveticaBold.widthOfTextAtSize(aHeaders[i], 7);
-        tx = colX + aCols[i] - 4 - hw;
-      } else if (align === 'center') tx = colX + aCols[i] / 2 - helveticaBold.widthOfTextAtSize(aHeaders[i], 7) / 2;
+      // All headers left-aligned with padding to avoid any overlap
+      const tx = colX + 4;
       page.drawText(aHeaders[i], { x: tx, y, size: 7, font: helveticaBold, color: grayColor });
       colX += aCols[i];
     }
