@@ -119,14 +119,15 @@ export default function EnviarAvisos() {
               <TableHead>Asunto</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Programación</TableHead>
+              <TableHead className="text-right">Destinatarios</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No hay avisos activos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay avisos activos</TableCell></TableRow>
             ) : filtered.map(aviso => (
               <TableRow key={aviso.id}>
                 <TableCell className="font-medium">{aviso.nombre}</TableCell>
@@ -146,6 +147,7 @@ export default function EnviarAvisos() {
                     <span className="text-muted-foreground text-sm">—</span>
                   )}
                 </TableCell>
+                <TableCell className="text-right">{aviso.destinatarios_count}</TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="ghost" size="icon" onClick={() => setPreviewAviso(aviso)}>
                     <Eye className="h-4 w-4" />
