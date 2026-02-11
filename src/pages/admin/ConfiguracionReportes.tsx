@@ -162,12 +162,12 @@ export default function ConfiguracionReportes() {
       return;
     }
 
-    // Validar que inicie con SELECT
+    // Validar que inicie con SELECT o WITH (CTEs)
     const cleanQueryStart = formData.query_sql.trim().toUpperCase();
-    if (!cleanQueryStart.startsWith('SELECT')) {
+    if (!cleanQueryStart.startsWith('SELECT') && !cleanQueryStart.startsWith('WITH')) {
       setQueryValidation({ 
         valid: false, 
-        message: "Solo se permiten consultas SELECT. El query debe iniciar con SELECT."
+        message: "Solo se permiten consultas SELECT. El query debe iniciar con SELECT o WITH."
       });
       return;
     }
