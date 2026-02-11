@@ -201,8 +201,8 @@ export default function ConfiguracionReportes() {
       
       // Remover bloques completos con placeholders como {{AND id = :id_filtro}}
       cleanQuery = cleanQuery.replace(/\{\{[^}]+\}\}/g, '');
-      // Reemplazar placeholders sueltos :nombre_filtro con valores de prueba
-      cleanQuery = cleanQuery.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, '1');
+      // Reemplazar placeholders sueltos :nombre_filtro con valores de prueba (ignorar :: que son casts de PostgreSQL)
+      cleanQuery = cleanQuery.replace(/(?<!:):([a-zA-Z_][a-zA-Z0-9_]*)/g, '1');
       
       // Normalizar todos los espacios en blanco (incluyendo saltos de línea) a un solo espacio
       cleanQuery = cleanQuery.replace(/\s+/g, ' ').trim();
