@@ -173,10 +173,12 @@ async function handleJwtMode(req: Request, authHeader: string) {
   }
 
   const rolNombre = (requestingUserData.roles as any)?.nombre;
-  console.log('User role:', rolNombre);
+  const requestingRolId = requestingUserData.rol_id;
+  console.log('User role:', rolNombre, 'rol_id:', requestingRolId);
 
-  if (rolNombre !== 'Super Administrador') {
-    return jsonResponse({ error: 'Solo los Super Administradores pueden resetear contraseñas' }, 403);
+  // Only Super Administrador (1) and Administrador de Proyecto (2) can reset passwords
+  if (requestingRolId !== 1 && requestingRolId !== 2) {
+    return jsonResponse({ error: 'No tienes permisos para resetear contraseñas' }, 403);
   }
 
   // Parse body
@@ -196,6 +198,12 @@ async function handleJwtMode(req: Request, authHeader: string) {
   if (targetUserError || !targetUser) {
     console.error('Error finding target user:', targetUserError);
     return jsonResponse({ error: 'Usuario no encontrado en la base de datos' }, 404);
+  }
+
+  // Administrador de Proyecto can only reset Agente Inmobiliario (3) and Inmobiliaria (4)
+  if (requestingRolId === 2 && ![3, 4].includes(targetUser.rol_id)) {
+    console.error(`Administrador de Proyecto cannot reset rol_id ${targetUser.rol_id}`);
+    return jsonResponse({ error: 'Solo puedes resetear contraseñas de usuarios con rol Inmobiliaria o Agente Inmobiliario' }, 403);
   }
 
   const result = await resetPassword(supabaseAdmin, email, targetUser.auth_user_id, targetUser.nombre);
