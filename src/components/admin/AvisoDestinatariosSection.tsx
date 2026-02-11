@@ -48,6 +48,7 @@ export function AvisoDestinatariosSection({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "selected" | "unselected">("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [roleSearchTerm, setRoleSearchTerm] = useState("");
 
   const [pool, setPool] = useState<PoolItem[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
@@ -190,8 +191,19 @@ export function AvisoDestinatariosSection({
         <p className="text-xs text-muted-foreground mb-2">
           Al seleccionar un rol, se precargan sus usuarios activos como destinatarios.
         </p>
-        <div className="grid grid-cols-2 gap-1 mt-1 max-h-40 overflow-y-auto border rounded p-2">
-          {roles.map((rol) => (
+        <div className="relative mb-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Buscar rol..."
+            value={roleSearchTerm}
+            onChange={(e) => setRoleSearchTerm(e.target.value)}
+            className="text-sm pl-8 h-8"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto border rounded p-2">
+          {roles
+            .filter(r => r.nombre.toLowerCase().includes(roleSearchTerm.toLowerCase()))
+            .map((rol) => (
             <label
               key={rol.id}
               className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted p-1 rounded"
