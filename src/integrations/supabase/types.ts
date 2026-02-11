@@ -241,6 +241,89 @@ export type Database = {
           },
         ]
       }
+      avisos: {
+        Row: {
+          activo: boolean
+          asunto: string
+          cron_expression: string | null
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          mensaje_html: string
+          nombre: string
+          tipo_envio: string
+        }
+        Insert: {
+          activo?: boolean
+          asunto: string
+          cron_expression?: string | null
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: never
+          mensaje_html: string
+          nombre: string
+          tipo_envio?: string
+        }
+        Update: {
+          activo?: boolean
+          asunto?: string
+          cron_expression?: string | null
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: never
+          mensaje_html?: string
+          nombre?: string
+          tipo_envio?: string
+        }
+        Relationships: []
+      }
+      avisos_ejecuciones: {
+        Row: {
+          aviso_id: number
+          detalle_error: string | null
+          ejecutado_por: string | null
+          estado: string
+          fecha_ejecucion: string
+          id: number
+          tipo_trigger: string
+          total_destinatarios: number | null
+          total_enviados: number | null
+          total_errores: number | null
+        }
+        Insert: {
+          aviso_id: number
+          detalle_error?: string | null
+          ejecutado_por?: string | null
+          estado?: string
+          fecha_ejecucion?: string
+          id?: never
+          tipo_trigger: string
+          total_destinatarios?: number | null
+          total_enviados?: number | null
+          total_errores?: number | null
+        }
+        Update: {
+          aviso_id?: number
+          detalle_error?: string | null
+          ejecutado_por?: string | null
+          estado?: string
+          fecha_ejecucion?: string
+          id?: never
+          tipo_trigger?: string
+          total_destinatarios?: number | null
+          total_enviados?: number | null
+          total_errores?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_ejecuciones_aviso_id_fkey"
+            columns: ["aviso_id"]
+            isOneToOne: false
+            referencedRelation: "avisos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avisos_legales: {
         Row: {
           activo: boolean
@@ -275,6 +358,39 @@ export type Database = {
             columns: ["id_proyecto"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avisos_roles_destinatarios: {
+        Row: {
+          aviso_id: number
+          id: number
+          rol_id: number
+        }
+        Insert: {
+          aviso_id: number
+          id?: never
+          rol_id: number
+        }
+        Update: {
+          aviso_id?: number
+          id?: never
+          rol_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_roles_destinatarios_aviso_id_fkey"
+            columns: ["aviso_id"]
+            isOneToOne: false
+            referencedRelation: "avisos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avisos_roles_destinatarios_rol_id_fkey"
+            columns: ["rol_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
