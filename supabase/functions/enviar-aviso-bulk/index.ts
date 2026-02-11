@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
       const batch = recipients.slice(i, i + BATCH_SIZE);
       const messages = batch.map(recipient => ({
-        From: 'notificaciones@sozu.mx',
+        From: 'notificaciones@sozu.com',
         To: recipient.email,
         TemplateId: 36978552,
         TemplateModel: {
