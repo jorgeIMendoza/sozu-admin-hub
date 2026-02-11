@@ -96,7 +96,8 @@ export const SATNotificationService = {
     // Parse numeric values properly (Supabase returns numeric as string)
     const totalPagado = (pagosData || []).reduce((sum, p) => sum + (parseFloat(String(p.monto)) || 0), 0);
     const precioFinal = parseFloat(String(cuenta.precio_final)) || 0;
-    const estaPagadaCompletamente = precioFinal > 0 && totalPagado >= precioFinal;
+    const restante = precioFinal - totalPagado;
+    const estaPagadaCompletamente = precioFinal > 0 && restante <= 0.01;
     
     console.log('[SAT Service] Payment check:', { totalPagado, precioFinal, estaPagadaCompletamente });
 
