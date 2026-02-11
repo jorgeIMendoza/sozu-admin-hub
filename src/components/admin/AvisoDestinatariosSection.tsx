@@ -39,6 +39,7 @@ export function AvisoDestinatariosSection({
   const [manualEmail, setManualEmail] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "selected" | "unselected">("all");
 
   // Pool: all recipients ever loaded (from roles or manual). Persists even after deselection.
   const [pool, setPool] = useState<Destinatario[]>([]);
@@ -152,10 +153,14 @@ export function AvisoDestinatariosSection({
   };
 
   const VISIBLE_COUNT = 10;
-  const filteredPool = pool.filter(d =>
-    d.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPool = pool.filter(d => {
+    const matchesSearch = d.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" ||
+      (statusFilter === "selected" && selectedEmails.has(d.email)) ||
+      (statusFilter === "unselected" && !selectedEmails.has(d.email));
+    return matchesSearch && matchesStatus;
+  });
   const visibleItems = showAll ? filteredPool : filteredPool.slice(0, VISIBLE_COUNT);
   const hasMore = filteredPool.length > VISIBLE_COUNT;
   const selectedCount = selectedEmails.size;
@@ -245,14 +250,36 @@ export function AvisoDestinatariosSection({
           )}
         </div>
         {pool.length > 0 && (
-          <div className="mb-2 relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre o email..."
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setShowAll(false); }}
-              className="text-sm pl-8 h-8"
-            />
+          <div className="flex gap-2 mb-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre o email..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setShowAll(false); }}
+                className="text-sm pl-8 h-8"
+              />
+            </div>
+            <div className="flex border rounded-md overflow-hidden shrink-0">
+              {([
+                { value: "all" as const, label: "Todos" },
+                { value: "selected" as const, label: "✓" },
+                { value: "unselected" as const, label: "✗" },
+              ]).map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { setStatusFilter(opt.value); setShowAll(false); }}
+                  className={`px-2 h-8 text-xs transition-colors ${
+                    statusFilter === opt.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background hover:bg-muted"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         <div className="border rounded p-2 max-h-72 overflow-y-auto space-y-0.5">
