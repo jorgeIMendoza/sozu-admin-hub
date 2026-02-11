@@ -239,9 +239,7 @@ Deno.serve(async (req) => {
 
     // Send notification to admins about the new draft inmobiliaria
     try {
-      const N8N_WEBHOOK_BASE_URL = Deno.env.get('N8N_WEBHOOK_BASE_URL') || 'https://automatizacion-n8n.fbqqbe.easypanel.host/webhook';
-      const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion`;
-      console.log('Sending draft inmobiliaria notification to:', webhookUrl);
+      console.log('Sending draft inmobiliaria notification via enviar-notificacion edge function');
 
       // Get Super Admin users (rol_id = 1)
       const { data: superAdmins } = await supabase
@@ -312,12 +310,11 @@ Deno.serve(async (req) => {
 
       console.log('Notification payload:', JSON.stringify(notificationPayload));
 
-      const notificationResponse = await fetch(webhookUrl, {
+      const notificationResponse = await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-postmark-server-token': '8aac4f6f-e5af-4e2f-a318-c2723bf52bb8',
-          'apikey': 'FD9481D57CC7-43E0-8ACF-01BF7B8B19B7'
+          'Authorization': `Bearer ${supabaseServiceKey}`
         },
         body: JSON.stringify(notificationPayload)
       });

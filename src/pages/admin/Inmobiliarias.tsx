@@ -16,7 +16,7 @@ import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationD
 import { BankAccountsSection } from "@/components/admin/BankAccountsSection";
 import { Badge } from "@/components/ui/badge";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
-import { N8N_WEBHOOK_BASE_URL } from "@/lib/config";
+
 import { UserConfirmationDialog } from "@/components/admin/UserConfirmationDialog";
 
 type UserToCreate = {
@@ -452,10 +452,8 @@ export default function Inmobiliarias() {
         console.error('Error al crear usuario automático para inmobiliaria:', e);
       }
 
-      // Enviar notificación a N8N sobre la nueva inmobiliaria
+      // Enviar notificación via edge function segura
       try {
-        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion`;
-        console.log('Enviando notificación de nueva inmobiliaria a:', webhookUrl);
         
         // Obtener usuarios con rol Super Administrador (rol_id = 1)
         const { data: superAdmins } = await supabase
@@ -529,18 +527,12 @@ export default function Inmobiliarias() {
 
         console.log('Payload de notificación:', notificationPayload);
 
-        const notificationResponse = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-postmark-server-token': '8aac4f6f-e5af-4e2f-a318-c2723bf52bb8',
-            'apikey': 'FD9481D57CC7-43E0-8ACF-01BF7B8B19B7'
-          },
-          body: JSON.stringify(notificationPayload)
+        const { error: notifError } = await supabase.functions.invoke('enviar-notificacion', {
+          body: notificationPayload
         });
 
-        if (!notificationResponse.ok) {
-          console.error('Error al enviar notificación de nueva inmobiliaria:', notificationResponse.status);
+        if (notifError) {
+          console.error('Error al enviar notificación de nueva inmobiliaria:', notifError);
         } else {
           console.log('Notificación de nueva inmobiliaria enviada correctamente');
         }
@@ -1072,10 +1064,8 @@ export default function Inmobiliarias() {
         }
       }
 
-      // 5. Send notification to N8N with new format
+      // 5. Send notification via edge function
       try {
-        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/manda_notificacion`;
-        console.log('Sending notification for approved inmobiliaria to:', webhookUrl);
         
         // Get country codes from paises table
         const { data: paises } = await supabase
@@ -1111,14 +1101,8 @@ export default function Inmobiliarias() {
 
         console.log('Notification payload:', notificationPayload);
         
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'x-postmark-server-token': '8aac4f6f-e5af-4e2f-a318-c2723bf52bb8',
-            'apikey': 'FD9481D57CC7-43E0-8ACF-01BF7B8B19B7'
-          },
-          body: JSON.stringify(notificationPayload),
+        await supabase.functions.invoke('enviar-notificacion', {
+          body: notificationPayload
         });
       } catch (notificationError) {
         console.error('Error sending notification:', notificationError);
