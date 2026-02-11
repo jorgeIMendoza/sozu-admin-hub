@@ -140,18 +140,20 @@ Deno.serve(async (req) => {
         });
 
         const results = await res.json();
+        console.log('Postmark response status:', res.status, 'body:', JSON.stringify(results).substring(0, 500));
 
-        if (Array.isArray(results)) {
-          results.forEach((r: any) => {
-            if (r.ErrorCode === 0) totalEnviados++;
-            else totalErrores++;
-          });
-        } else if (results?.Messages && Array.isArray(results.Messages)) {
-          results.Messages.forEach((r: any) => {
-            if (r.ErrorCode === 0) totalEnviados++;
-            else totalErrores++;
+        const messageResults = Array.isArray(results) ? results : (results?.Messages || []);
+        if (messageResults.length > 0) {
+          messageResults.forEach((r: any) => {
+            if (r.ErrorCode === 0) {
+              totalEnviados++;
+            } else {
+              totalErrores++;
+              console.error('Postmark email error:', { to: r.To, errorCode: r.ErrorCode, message: r.Message });
+            }
           });
         } else {
+          console.error('Postmark unexpected response:', JSON.stringify(results).substring(0, 500));
           totalErrores += batch.length;
         }
       } catch (err) {
