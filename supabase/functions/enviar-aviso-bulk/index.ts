@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
     // Send in batches of 500
     let totalEnviados = 0;
     let totalErrores = 0;
+    const errorMessages: string[] = [];
     const BATCH_SIZE = 500;
 
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
@@ -149,18 +150,26 @@ Deno.serve(async (req) => {
               totalEnviados++;
             } else {
               totalErrores++;
+              const errMsg = `[${r.ErrorCode}] ${r.Message || 'Error desconocido'}`;
+              errorMessages.push(errMsg);
               console.error('Postmark email error:', { to: r.To, errorCode: r.ErrorCode, message: r.Message });
             }
           });
         } else {
           console.error('Postmark unexpected response:', JSON.stringify(results).substring(0, 500));
+          errorMessages.push('Respuesta inesperada de Postmark');
           totalErrores += batch.length;
         }
       } catch (err) {
         console.error('Postmark batch error:', err);
+        errorMessages.push(`Error de red: ${err.message}`);
         totalErrores += batch.length;
       }
     }
+
+    const detalleError = totalErrores > 0 
+      ? errorMessages.slice(0, 5).join(' | ') 
+      : null;
 
     await supabaseAdmin
       .from('avisos_ejecuciones')
@@ -168,7 +177,7 @@ Deno.serve(async (req) => {
         estado: totalErrores > 0 ? (totalEnviados > 0 ? 'completado' : 'error') : 'completado',
         total_enviados: totalEnviados,
         total_errores: totalErrores,
-        detalle_error: totalErrores > 0 ? `${totalErrores} emails fallaron` : null,
+        detalle_error: detalleError,
       })
       .eq('id', ejecucion.id);
 

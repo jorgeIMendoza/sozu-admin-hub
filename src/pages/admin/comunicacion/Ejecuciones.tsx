@@ -127,13 +127,14 @@ export default function Ejecuciones() {
               <TableHead className="text-right">Enviados</TableHead>
               <TableHead className="text-right">Errores</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead>Detalle Error</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay ejecuciones</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No hay ejecuciones</TableCell></TableRow>
             ) : filtered.map(e => (
               <TableRow key={e.id}>
                 <TableCell className="text-sm">{new Date(e.fecha_ejecucion).toLocaleString('es-MX')}</TableCell>
@@ -146,6 +147,9 @@ export default function Ejecuciones() {
                 <TableCell className="text-right">{e.total_errores ?? 0}</TableCell>
                 <TableCell>
                   <Badge variant={estadoColors[e.estado] || 'outline'}>{e.estado}</Badge>
+                </TableCell>
+                <TableCell className="text-sm text-destructive max-w-xs truncate" title={e.detalle_error || ''}>
+                  {e.detalle_error || '—'}
                 </TableCell>
               </TableRow>
             ))}
