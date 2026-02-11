@@ -1,46 +1,52 @@
 
-## Renombrar columnas para seguir nomenclatura consistente
+## Plan: Mostrar el número de correos a enviar en el diálogo de confirmación
 
-### Cambios en base de datos (migración SQL)
+### Análisis Actual
+- La página `EnviarAvisos.tsx` carga una lista de avisos activos desde la tabla `avisos`
+- El diálogo de confirmación (línea 160) muestra "a todos los destinatarios configurados" sin número específico
+- Los destinatarios están almacenados en `avisos_roles_destinatarios.correos` (campo JSONB)
+- La edge function `enviar-aviso-bulk` calcula el total en tiempo de envío
 
-**Tabla `avisos_roles_destinatarios`:**
-- `aviso_id` --> `id_aviso`
-- `rol_id` --> `id_rol`
+### Solución Propuesta
 
-**Tabla `avisos_ejecuciones`:**
-- `aviso_id` --> `id_aviso`
-- `ejecutado_por` cambia de tipo `uuid` a `text` (para almacenar el email del usuario)
+**1. Extender el tipo `Aviso` y la consulta inicial**
+   - Agregar un campo `destinatarios_count: number | null` al interfaz `Aviso`
+   - Modificar la consulta `fetchAvisos` para obtener también `avisos_roles_destinatarios` relacionados
+   - Calcular el total de destinatarios únicos desde el campo `correos` JSONB
 
-### Archivos a modificar
+**2. Crear una función auxiliar para contar destinatarios**
+   - Función que reciba los datos de `avisos_roles_destinatarios` 
+   - Extraiga emails únicos del campo `correos` (siguiendo la misma lógica que la edge function)
+   - Retorne el conteo
 
-1. **`supabase/functions/enviar-aviso-bulk/index.ts`**
-   - Cambiar `.select('rol_id')` por `.select('id_rol')`
-   - Cambiar `.eq('aviso_id', aviso_id)` por `.eq('id_aviso', aviso_id)` en la consulta a `avisos_roles_destinatarios`
-   - Cambiar el campo `aviso_id` por `id_aviso` en el insert a `avisos_ejecuciones`
+**3. Actualizar el diálogo de confirmación**
+   - Mostrar el número exacto: "¿Enviar a {N} destinatarios?" 
+   - Incluir un fallback para avisos sin destinatarios configurados
+   - Mostrar un aviso si no hay destinatarios (desactivar botón de envío)
 
-2. **`src/pages/admin/comunicacion/AdministrarAvisos.tsx`**
-   - Cambiar `.select('rol_id').eq('aviso_id', ...)` por `.select('id_rol').eq('id_aviso', ...)`
-   - Cambiar `.delete().eq('aviso_id', ...)` por `.delete().eq('id_aviso', ...)`
-   - Cambiar el insert a usar `id_aviso` e `id_rol`
-   - Actualizar el mapeo `r.rol_id` a `r.id_rol`
+**4. Mejorar la experiencia de carga**
+   - Mostrar un skeleton/placeholder mientras se calcula el conteo
+   - Los datos se cargan con la página inicial, sin peticiones adicionales
 
-3. **`src/pages/admin/comunicacion/EnviarAvisos.tsx`**
-   - Cambiar `ejecutado_por: user?.id` por `ejecutado_por: user?.email` en el body del invoke
+### Cambios Técnicos
+- **Archivo**: `src/pages/admin/comunicacion/EnviarAvisos.tsx`
+  - Extender interfaz `Aviso` con `destinatarios_count`
+  - Modificar `fetchAvisos()` para hacer una consulta JOINada con `avisos_roles_destinatarios`
+  - Agregar función `extractDestinatariosCount()` que parsee el JSONB
+  - Actualizar el diálogo de confirmación para mostrar el número
+  - Agregar validación: mostrar alerta si el aviso no tiene destinatarios
 
-4. **`src/pages/admin/comunicacion/Ejecuciones.tsx`**
-   - Cambiar `e.aviso_id` por `e.id_aviso` en el filtro
-   - Actualizar la interfaz `Ejecucion` para usar `id_aviso`
-
-### Detalle técnico de la migración SQL
-
-```sql
--- avisos_roles_destinatarios: renombrar columnas
-ALTER TABLE avisos_roles_destinatarios RENAME COLUMN aviso_id TO id_aviso;
-ALTER TABLE avisos_roles_destinatarios RENAME COLUMN rol_id TO id_rol;
-
--- avisos_ejecuciones: renombrar y cambiar tipo
-ALTER TABLE avisos_ejecuciones RENAME COLUMN aviso_id TO id_aviso;
-ALTER TABLE avisos_ejecuciones ALTER COLUMN ejecutado_por TYPE text USING ejecutado_por::text;
+### Flujo de Datos
+```
+1. fetchAvisos() → Query avisos + avisos_roles_destinatarios
+2. Para cada aviso, extrae destinatarios del campo correos
+3. Cuenta emails únicos y guarda en estado
+4. Al hacer clic en "Enviar", muestra diálogo con el número exacto
+5. Usuario confirma y se ejecuta enviar-aviso-bulk
 ```
 
-Las foreign keys se actualizan automaticamente al renombrar columnas con `RENAME COLUMN`.
+### Edge Cases
+- Avisos sin roles/destinatarios configurados → mostrar 0 y desactivar botón
+- Cambios en destinatarios entre refresh → Los datos son estáticos por página load
+- Múltiples roles con mismo email → Sistema de deduplicación ya implementado en edge function
+
