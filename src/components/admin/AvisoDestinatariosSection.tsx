@@ -38,6 +38,7 @@ export function AvisoDestinatariosSection({
   const [manualNombre, setManualNombre] = useState("");
   const [manualEmail, setManualEmail] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const handleToggleRole = async (rolId: number) => {
     const wasSelected = selectedRoles.includes(rolId);
@@ -94,8 +95,12 @@ export function AvisoDestinatariosSection({
   };
 
   const VISIBLE_COUNT = 5;
-  const visibleDestinatarios = showAll ? destinatarios : destinatarios.slice(0, VISIBLE_COUNT);
-  const hasMore = destinatarios.length > VISIBLE_COUNT;
+  const filteredDestinatarios = destinatarios.filter(d =>
+    d.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    d.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const visibleDestinatarios = showAll ? filteredDestinatarios : filteredDestinatarios.slice(0, VISIBLE_COUNT);
+  const hasMore = filteredDestinatarios.length > VISIBLE_COUNT;
 
   return (
     <div className="space-y-4">
@@ -150,7 +155,7 @@ export function AvisoDestinatariosSection({
 
       {/* Destinatarios list */}
       <div>
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-2">
           <Label>Destinatarios</Label>
           <Badge variant="secondary" className="text-xs">
             <Mail className="h-3 w-3 mr-1" />
@@ -167,6 +172,14 @@ export function AvisoDestinatariosSection({
               Limpiar todos
             </Button>
           )}
+        </div>
+        <div className="mb-2">
+          <Input
+            placeholder="Buscar por nombre o email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="text-sm"
+          />
         </div>
         <div className="border rounded p-2 max-h-64 overflow-y-auto space-y-1">
           {destinatarios.length === 0 ? (
@@ -210,11 +223,11 @@ export function AvisoDestinatariosSection({
                 >
                   {showAll ? (
                     <>
-                      <ChevronUp className="h-3 w-3 mr-1" /> Mostrar menos
+                   <ChevronUp className="h-3 w-3 mr-1" /> Mostrar menos
                     </>
                   ) : (
                     <>
-                      <ChevronDown className="h-3 w-3 mr-1" /> Ver {destinatarios.length - VISIBLE_COUNT} más
+                      <ChevronDown className="h-3 w-3 mr-1" /> Ver {filteredDestinatarios.length - VISIBLE_COUNT} más
                     </>
                   )}
                 </Button>
