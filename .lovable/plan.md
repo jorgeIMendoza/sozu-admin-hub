@@ -1,74 +1,35 @@
 
 
-## Plan: Modificar Edge Function `reset-user-password` para soportar dos modos
+## Correccion: Permitir que "Administrador de Proyecto" resetee contrasenas de Inmobiliaria y Agente Inmobiliario
 
-### Problema actual
-La funcion solo permite reseteo de contrasena por Super Administradores autenticados con JWT. Sistemas externos como n8n no tienen un JWT de Super Admin disponible.
+### Problema
+La linea 178 de `reset-user-password/index.ts` solo permite el rol "Super Administrador" en modo JWT. Cualquier otro rol recibe un 403.
 
 ### Solucion
-Modificar la funcion existente para soportar **dos modos de operacion**:
+Modificar la validacion de roles en `handleJwtMode` para:
 
-1. **Modo autenticado (JWT)**: Flujo actual sin cambios - Super Admins pueden resetear cualquier usuario
-2. **Modo externo (API Key)**: Sistemas como n8n envian un header `x-api-key` con un secreto compartido. Solo permite resetear usuarios con rol **Cliente**
+- **Super Administrador (ID 1)**: puede resetear cualquier usuario (sin cambios)
+- **Administrador de Proyecto (ID 2)**: puede resetear unicamente usuarios con rol Inmobiliaria (ID 4) o Agente Inmobiliario (ID 3). Si intenta resetear otro rol, se rechaza con 403.
+- **Cualquier otro rol**: se rechaza con 403
 
-### Seguridad
-- Se creara un nuevo secreto `RESET_PASSWORD_API_KEY` en Supabase que se configurara tambien en n8n
-- El modo API Key solo funciona para usuarios con rol "Cliente" (rol ID 23) - no puede resetear administradores ni otros roles internos
-- Si no se envia ni JWT ni API Key, se rechaza con 401
+### Cambio tecnico
 
-### Archivo a modificar
-
-**`supabase/functions/reset-user-password/index.ts`**
-
-Logica actualizada:
+En `supabase/functions/reset-user-password/index.ts`, reemplazar la validacion actual (lineas 178-180):
 
 ```text
-1. Leer headers: Authorization y x-api-key
-2. Si hay x-api-key:
-   a. Validar contra secreto RESET_PASSWORD_API_KEY
-   b. Parsear body { email }
-   c. Buscar usuario en tabla usuarios
-   d. Verificar que su rol sea "Cliente" (ID 23) - si no, rechazar con 403
-   e. Ejecutar reset (mismo flujo actual: crear auth user si no existe, o updateUserById)
-   f. Marcar debe_cambiar_password = true
-3. Si hay Authorization (JWT):
-   a. Flujo actual sin cambios (solo Super Admin, puede resetear cualquier rol)
-4. Si no hay ninguno: 401
+// Antes:
+if (rolNombre !== 'Super Administrador') -> 403
+
+// Despues:
+if (rolNombre === 'Super Administrador') -> permitir sin restriccion
+else if (requestingUserData.rol_id === 2) -> mover findUserByEmail antes de esta validacion, verificar que targetUser.rol_id sea 3 o 4
+else -> 403
 ```
 
-### Secreto nuevo
-- Nombre: `RESET_PASSWORD_API_KEY`
-- Valor: lo define el usuario (se usara el mismo valor en n8n como header `x-api-key`)
+Esto requiere reorganizar el flujo para que la consulta del usuario objetivo se haga antes de la verificacion de permisos cuando el solicitante es Administrador de Proyecto.
 
-### Uso desde n8n (sin JWT)
-
-```bash
-curl -X POST \
-  https://tzmhgfjmddkfyffkkmto.supabase.co/functions/v1/reset-user-password \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: <TU_API_KEY>" \
-  -d '{"email": "cliente@ejemplo.com"}'
-```
-
-### Respuesta
-Misma estructura actual:
-```json
-{
-  "success": true,
-  "message": "Contrasena reseteada exitosamente. Nueva contrasena temporal: Temporal123!"
-}
-```
-
-O si el usuario no es Cliente:
-```json
-{
-  "error": "Esta API key solo permite resetear usuarios con rol Cliente"
-}
-```
-
-### Resumen de cambios
+### Resumen
 | Archivo | Cambio |
 |---|---|
-| `supabase/functions/reset-user-password/index.ts` | Agregar modo API Key para clientes |
-| Secreto `RESET_PASSWORD_API_KEY` | Crear nuevo secreto en Supabase |
+| `supabase/functions/reset-user-password/index.ts` | Permitir rol_id 2 resetear usuarios con rol_id 3 o 4 |
 
