@@ -30,17 +30,20 @@
    Shield,
    Wrench,
    Activity,
-   KeyRound,
-   ScrollText,
-   Bot,
-   UserPlus,
-   BarChart3,
-   ClipboardList,
-   DollarSign,
-   Cog,
-   ShoppingCart,
-   GitBranch,
- } from 'lucide-react';
+    KeyRound,
+    ScrollText,
+    Bot,
+    UserPlus,
+    BarChart3,
+    ClipboardList,
+    DollarSign,
+    Cog,
+    ShoppingCart,
+    GitBranch,
+    Mail,
+    Send,
+    History,
+  } from 'lucide-react';
  
  // Mapeo de iconos por vista_front_end o menu_id
  const iconMapByPath: Record<string, LucideIcon> = {
@@ -97,6 +100,9 @@
   '/admin/inmobiliarias/mis-propiedades': Building,
   '/admin/inmobiliarias/mis-ventas': BadgeDollarSign,
   '/admin/administrar-menus': Settings,
+  '/admin/comunicacion/administrar-avisos': Mail,
+  '/admin/comunicacion/enviar-avisos': Send,
+  '/admin/comunicacion/ejecuciones': History,
 };
  
  // Mapeo de iconos por menu_id para los grupos
@@ -113,8 +119,9 @@
    10: Settings,        // Sistema
    11: BarChart3,       // Reportes
    12: KeyRound,        // Inmobiliarias (portal)
-   13: Activity,        // Configuraciones/Logs
- };
+    13: Activity,        // Configuraciones/Logs
+    14: Mail,            // Comunicación
+  };
  
  export interface DynamicMenuItem {
    title: string;

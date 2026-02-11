@@ -62,3 +62,9 @@ verify_jwt = false
 
 [functions.generar-estado-cuenta]
 verify_jwt = false
+
+[functions.enviar-aviso-bulk]
+verify_jwt = false
+
+[functions.ejecutar-avisos-cron]
+verify_jwt = false

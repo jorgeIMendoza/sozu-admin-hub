@@ -77,6 +77,9 @@ const MisAgentes = lazy(() => import("./pages/admin/inmobiliarias/MisAgentes"));
 const MisPropiedades = lazy(() => import("./pages/admin/inmobiliarias/MisPropiedades"));
 const MisVentas = lazy(() => import("./pages/admin/inmobiliarias/MisVentas"));
 const AdministrarMenus = lazy(() => import("./pages/admin/AdministrarMenus"));
+const AdministrarAvisos = lazy(() => import("./pages/admin/comunicacion/AdministrarAvisos"));
+const EnviarAvisos = lazy(() => import("./pages/admin/comunicacion/EnviarAvisos"));
+const EjecucionesAvisos = lazy(() => import("./pages/admin/comunicacion/Ejecuciones"));
 
 // Public pages
 const RegistroInmobiliaria = lazy(() => import("./pages/public/RegistroInmobiliaria"));
@@ -189,6 +192,9 @@ const App = () => (
                   <Route path="inmobiliarias/mis-propiedades" element={<MisPropiedades />} />
                   <Route path="inmobiliarias/mis-ventas" element={<MisVentas />} />
                   <Route path="administrar-menus" element={<AdministrarMenus />} />
+                  <Route path="comunicacion/administrar-avisos" element={<AdministrarAvisos />} />
+                  <Route path="comunicacion/enviar-avisos" element={<EnviarAvisos />} />
+                  <Route path="comunicacion/ejecuciones" element={<EjecucionesAvisos />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -62,6 +62,9 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/administrar-menus',
   '/admin/cuentas-mantenimiento/:id/detalle',
   '/admin/cuentas-cobranza/:id/detalle',
+  '/admin/comunicacion/administrar-avisos',
+  '/admin/comunicacion/enviar-avisos',
+  '/admin/comunicacion/ejecuciones',
 ]);
 
 export function isValidRoute(route: string): boolean {
