@@ -1,76 +1,34 @@
 
 
-## Plan: Usar Template de Postmark con variables dinámicas
+## Plan: Hacer clickeable los errores y mejorar el detalle guardado
 
-### Problema Actual
-La edge function `enviar-aviso-bulk` envía correos usando `HtmlBody` directo con el endpoint `/email/batch`. No usa templates de Postmark, por lo que los placeholders no se reemplazan.
+### Problema
+Cuando un envio tiene errores parciales (ej: 550 enviados + 11 errores), el estado queda como "completado" y no se puede ver el detalle de los errores porque el dialogo solo se abre cuando el estado es "error".
 
-### Cambios Requeridos
+Ademas, el detalle guardado no incluye a que correos fallaron, solo el codigo de error de Postmark.
+
+### Cambios
+
+**1. UI - Hacer clickeable la columna de Errores (no el estado)**
+- En la columna "Errores", cuando `total_errores > 0` y hay `detalle_error`, mostrar el numero como un badge rojo clickeable que abre el dialogo de detalle
+- El badge de estado se queda como indicador visual sin interaccion
+
+**2. Edge Function - Guardar el email que fallo junto con el error**
+- En `enviar-aviso-bulk/index.ts`, cambiar el formato del error guardado para incluir el correo destinatario que fallo
+- Formato actual: `[400] The 'From' address...`
+- Formato nuevo: `correo@ejemplo.com: [400] The 'From' address...`
+- Tambien aumentar el limite de 5 a 20 errores guardados para tener mas visibilidad
+
+---
+
+### Detalle tecnico
+
+**Archivo: `src/pages/admin/comunicacion/Ejecuciones.tsx`**
+- Linea 165: Cambiar la celda de errores para que sea clickeable cuando hay errores
+- De: `{e.total_errores ?? 0}`
+- A: Badge destructive clickeable si `total_errores > 0 && detalle_error`
 
 **Archivo: `supabase/functions/enviar-aviso-bulk/index.ts`**
+- En el loop de resultados de Postmark (~linea 119), incluir el email del destinatario en el mensaje de error
+- Cambiar `errorMessages.slice(0, 5)` a `errorMessages.slice(0, 20)` para capturar mas detalle
 
-1. **Cambiar el endpoint de Postmark** de `/email/batch` a `/email/batchWithTemplates`
-2. **Usar el TemplateId `36978552`** en lugar de enviar HTML directo
-3. **Construir el TemplateModel** con la estructura requerida por cada destinatario:
-   ```json
-   {
-     "mensaje": {
-       "nombre": "Nombre del destinatario",
-       "texto": "<strong>El mensaje HTML del aviso</strong>",
-       "asunto": "Asunto del mensaje"
-     }
-   }
-   ```
-4. **Mapear los datos del destinatario**: El campo `nombre` se tomara del array de destinatarios en `correos` JSONB (cada entrada ya tiene `nombre` y `email`)
-5. **El campo `texto`** sera el `mensaje_html` del aviso
-6. **El campo `asunto`** sera el `asunto` del aviso
-
-### Cambio clave en el codigo
-
-Antes (actual):
-```javascript
-const messages = batch.map(email => ({
-  From: 'notificaciones@sozu.mx',
-  To: email,
-  Subject: aviso.asunto,
-  HtmlBody: aviso.mensaje_html,
-  MessageStream: 'outbound',
-}));
-// POST a /email/batch
-```
-
-Despues (propuesto):
-```javascript
-const messages = batch.map(recipient => ({
-  From: 'notificaciones@sozu.mx',
-  To: recipient.email,
-  TemplateId: 36978552,
-  TemplateModel: {
-    mensaje: {
-      nombre: recipient.nombre || '',
-      texto: aviso.mensaje_html,
-      asunto: aviso.asunto,
-    },
-  },
-  MessageStream: 'outbound',
-}));
-// POST a /email/batchWithTemplates
-```
-
-### Ajuste en la recoleccion de destinatarios
-
-Actualmente solo se guardan los emails en un array de strings. Se cambiara para guardar objetos `{ nombre, email }` para poder pasar el nombre al template:
-
-```javascript
-// Antes: emails: string[]
-// Despues: recipients: { nombre: string; email: string }[]
-```
-
-La deduplicacion seguira siendo por email, pero se conservara el nombre asociado.
-
-### Resumen de cambios
-- **1 archivo modificado**: `supabase/functions/enviar-aviso-bulk/index.ts`
-  - Recolectar recipients como objetos `{nombre, email}` en lugar de solo strings
-  - Cambiar endpoint a `/email/batchWithTemplates`
-  - Usar `TemplateId: 36978552` con el `TemplateModel` especificado
-  - Eliminar `Subject` y `HtmlBody` del mensaje (el template los maneja)
