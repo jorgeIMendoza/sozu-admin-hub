@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Send, Search, Eye, Clock } from "lucide-react";
 
+interface AvisoRolDestinatario {
+  correos: { destinatarios?: { nombre?: string; email?: string }[] } | null;
+}
+
 interface Aviso {
   id: number;
   nombre: string;
@@ -18,7 +22,19 @@ interface Aviso {
   tipo_envio: string;
   cron_expression: string | null;
   activo: boolean;
+  destinatarios_count: number;
 }
+
+const countUniqueEmails = (roles: AvisoRolDestinatario[]): number => {
+  const emailSet = new Set<string>();
+  for (const row of roles) {
+    const destinatarios = (row.correos as any)?.destinatarios || [];
+    for (const dest of destinatarios) {
+      if (dest.email) emailSet.add(dest.email);
+    }
+  }
+  return emailSet.size;
+};
 
 export default function EnviarAvisos() {
   const { isLoading: permLoading } = usePagePermissions('/admin/comunicacion/enviar-avisos');
@@ -34,8 +50,16 @@ export default function EnviarAvisos() {
 
   const fetchAvisos = async () => {
     setIsLoading(true);
-    const { data } = await supabase.from('avisos').select('*').eq('activo', true).order('nombre');
-    setAvisos(data || []);
+    const { data } = await supabase
+      .from('avisos')
+      .select('*, avisos_roles_destinatarios(correos)')
+      .eq('activo', true)
+      .order('nombre');
+    const mapped = (data || []).map((a: any) => ({
+      ...a,
+      destinatarios_count: countUniqueEmails(a.avisos_roles_destinatarios || []),
+    }));
+    setAvisos(mapped);
     setIsLoading(false);
   };
 
@@ -157,10 +181,16 @@ export default function EnviarAvisos() {
           <DialogHeader>
             <DialogTitle>Confirmar envío</DialogTitle>
           </DialogHeader>
-          <p>¿Enviar el aviso <strong>"{confirmAviso?.nombre}"</strong> a todos los destinatarios configurados?</p>
+          <p>
+            ¿Enviar el aviso <strong>"{confirmAviso?.nombre}"</strong> a{' '}
+            <strong>{confirmAviso?.destinatarios_count ?? 0}</strong> destinatario{confirmAviso?.destinatarios_count !== 1 ? 's' : ''}?
+          </p>
+          {confirmAviso?.destinatarios_count === 0 && (
+            <p className="text-sm text-destructive">Este aviso no tiene destinatarios configurados.</p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmAviso(null)}>Cancelar</Button>
-            <Button onClick={() => confirmAviso && handleSend(confirmAviso)}>
+            <Button onClick={() => confirmAviso && handleSend(confirmAviso)} disabled={confirmAviso?.destinatarios_count === 0}>
               <Send className="h-4 w-4 mr-1" />Confirmar Envío
             </Button>
           </DialogFooter>
