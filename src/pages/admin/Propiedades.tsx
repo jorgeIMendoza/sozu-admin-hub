@@ -1018,20 +1018,35 @@ const Propiedades = () => {
       const existingUrl = await ofertaPdfStorageService.getExistingUrl(offer.id);
       
       if (existingUrl) {
-        // URL exists, just download
-        toast({
-          title: "Descargando PDF",
-          description: "Descargando el PDF de la oferta...",
-        });
+        // Validar que los datos críticos no hayan cambiado
+        const validation = await ofertaPdfStorageService.validateOfferDataAndInvalidateIfNeeded(offer.id);
         
-        const filename = existingUrl.split('/').pop() || `oferta-${offer.id}.pdf`;
-        await ofertaPdfStorageService.downloadFromUrl(existingUrl, filename);
-        
-        toast({
-          title: "PDF descargado",
-          description: "El PDF se ha descargado exitosamente.",
-        });
-      } else {
+        if (validation.wasInvalidated) {
+          // URL fue invalidada, regenerar PDF
+          toast({
+            title: "Regenerando PDF",
+            description: "Los datos de la oferta han sido actualizados, regenerando...",
+          });
+        } else {
+          // URL sigue siendo válida, descargar directamente
+          toast({
+            title: "Descargando PDF",
+            description: "Descargando el PDF de la oferta...",
+          });
+          
+          const filename = existingUrl.split('/').pop() || `oferta-${offer.id}.pdf`;
+          await ofertaPdfStorageService.downloadFromUrl(existingUrl, filename);
+          
+          toast({
+            title: "PDF descargado",
+            description: "El PDF se ha descargado exitosamente.",
+          });
+          return;
+        }
+      }
+      
+      // No hay URL o fue invalidada, generar nuevo PDF
+      {
         // No URL, generate new PDF
         toast({
           title: "Generando PDF",
