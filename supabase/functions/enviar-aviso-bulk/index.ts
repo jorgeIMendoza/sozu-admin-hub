@@ -87,11 +87,17 @@ Deno.serve(async (req) => {
     if (recipients.length === 0) {
       await supabaseAdmin
         .from('avisos_ejecuciones')
-        .update({ estado: 'completado', total_enviados: 0, total_errores: 0 })
+        .update({ 
+          estado: 'error', 
+          total_enviados: 0, 
+          total_errores: 0,
+          detalle_error: 'No hay destinatarios configurados para este aviso. Edite el aviso y agregue al menos un destinatario.',
+        })
         .eq('id', ejecucion.id);
 
-      return new Response(JSON.stringify({ message: 'No hay destinatarios', ejecucion_id: ejecucion.id }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      console.error(`Aviso ${aviso_id}: No hay destinatarios configurados`);
+      return new Response(JSON.stringify({ error: 'No hay destinatarios configurados', ejecucion_id: ejecucion.id }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 

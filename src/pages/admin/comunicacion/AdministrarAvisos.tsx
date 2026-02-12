@@ -295,8 +295,8 @@ export default function AdministrarAvisos() {
 
     // Save roles with correos - store all destinatarios under each selected role
     await supabase.from('avisos_roles_destinatarios').delete().eq('id_aviso', avisoId);
+    const correosJson = JSON.parse(JSON.stringify({ destinatarios }));
     if (selectedRoles.length > 0) {
-      const correosJson = JSON.parse(JSON.stringify({ destinatarios }));
       await supabase.from('avisos_roles_destinatarios').insert(
         selectedRoles.map(id_rol => ({
           id_aviso: avisoId,
@@ -304,6 +304,17 @@ export default function AdministrarAvisos() {
           correos: correosJson,
         }))
       );
+    } else if (destinatarios.length > 0) {
+      // Save manual destinatarios without a specific role (use rol 0 as placeholder)
+      // We need at least one row to store the correos JSON
+      const { data: firstRole } = await supabase.from('roles').select('id').eq('activo', true).limit(1).single();
+      if (firstRole) {
+        await supabase.from('avisos_roles_destinatarios').insert({
+          id_aviso: avisoId,
+          id_rol: firstRole.id,
+          correos: correosJson,
+        });
+      }
     }
 
     toast({ title: editingAviso ? "Aviso actualizado" : "Aviso creado" });
