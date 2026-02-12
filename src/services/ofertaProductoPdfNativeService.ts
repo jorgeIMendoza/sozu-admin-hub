@@ -398,7 +398,7 @@ export class OfertaProductoPdfNativeService {
         pdf.text(scheme.nombre, schemeX + 4, schemeY);
         
         // Draw approval status badge next to scheme name
-        if (data.offerData.id_esquema_pago_seleccionado && data.id_estatus_aprobacion && data.estatus_aprobacion_nombre) {
+        if (isSelected && data.offerData.id_esquema_pago_seleccionado && data.id_estatus_aprobacion && data.estatus_aprobacion_nombre) {
           const statusColors: Record<number, { bg: [number, number, number]; text: [number, number, number] }> = {
             1: { bg: [255, 243, 205], text: [133, 100, 4] },
             2: { bg: [212, 237, 218], text: [21, 87, 36] },
