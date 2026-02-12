@@ -8,11 +8,13 @@ import { writeFileSync, mkdirSync } from 'fs';
 export default defineConfig(({ mode }) => {
   // Generate build timestamp for versioning (using LOCAL time, not UTC)
   const now = new Date();
-  const year = String(now.getFullYear()).slice(2); // YY
-  const month = String(now.getMonth() + 1).padStart(2, '0'); // MM (0-indexed)
-  const day = String(now.getDate()).padStart(2, '0'); // DD
-  const hours = String(now.getHours()).padStart(2, '0'); // HH
-  const minutes = String(now.getMinutes()).padStart(2, '0'); // MM
+  // Forzar zona horaria Mexico (UTC-6)
+  const mexicoTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+  const year = String(mexicoTime.getUTCFullYear()).slice(2); // YY
+  const month = String(mexicoTime.getUTCMonth() + 1).padStart(2, '0'); // MM
+  const day = String(mexicoTime.getUTCDate()).padStart(2, '0'); // DD
+  const hours = String(mexicoTime.getUTCHours()).padStart(2, '0'); // HH
+  const minutes = String(mexicoTime.getUTCMinutes()).padStart(2, '0'); // MM
   const buildDate = `${year}${month}${day}`; // YYMMDD in local time
   const buildTime = `${hours}${minutes}`; // HHMM in local time
   
