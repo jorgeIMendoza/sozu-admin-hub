@@ -167,11 +167,11 @@ export class OfertaPdfStorageService {
       return { isValid: false, reason: 'Se detectó CLABE STP en la propiedad que podría no estar reflejada en el PDF' };
     }
 
-    // Caso 3: Si el estatus de aprobación no es el default (2=Aprobada),
-    // siempre invalidar ya que no guardamos con qué estatus se generó el PDF
-    // Solo aplica cuando hay esquema de pago seleccionado
-    if (oferta.id_esquema_pago_seleccionado && oferta.id_estatus_aprobacion && oferta.id_estatus_aprobacion !== 2) {
-      return { isValid: false, reason: 'El estatus de aprobación ha cambiado y debe reflejarse en el PDF' };
+    // Caso 3: Si hay esquema de pago seleccionado y estatus de aprobación,
+    // invalidar para asegurar que el badge de estatus se muestre en el PDF.
+    // Esto regenera PDFs que fueron generados antes de que el badge existiera.
+    if (oferta.id_esquema_pago_seleccionado && oferta.id_estatus_aprobacion) {
+      return { isValid: false, reason: 'El PDF debe incluir el badge de estatus de aprobación' };
     }
 
     return { isValid: true };
