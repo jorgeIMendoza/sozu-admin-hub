@@ -52,7 +52,11 @@ const STAGES = [
   { key: 'cierre', label: 'Cierre de Venta', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
 ];
 
-const MIN_DATE = '2026-01-01';
+const MIN_DATE = (() => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return d.toISOString().slice(0, 10);
+})();
 
 function isVigente(fechaGeneracion: string): boolean {
   const fecha = new Date(fechaGeneracion);

@@ -9,7 +9,11 @@ import { MultiSelectFilter } from '@/components/ui/multi-select-filter';
 import { TrendingUp, ShoppingCart, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const MIN_DATE = '2026-01-01';
+const MIN_DATE = (() => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return d.toISOString().slice(0, 10);
+})();
 
 function isVigente(fechaGeneracion: string): boolean {
   const fecha = new Date(fechaGeneracion);
@@ -303,7 +307,7 @@ export default function DashboardEjecutivo() {
                   <span className="text-sm font-medium">Total Ofertas</span>
                 </div>
                 <p className="text-2xl font-bold">{ofertas.length}</p>
-                <p className="text-xs text-muted-foreground">Desde Ene 2026</p>
+                <p className="text-xs text-muted-foreground">Últimos 3 meses</p>
               </CardContent>
             </Card>
           </div>
