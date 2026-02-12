@@ -29,6 +29,7 @@ interface OfertaCard {
   proyecto_nombre?: string;
   proyecto_id?: number;
   lead_nombre?: string;
+  inmobiliaria_nombre?: string;
   precio?: number | null;
   estatus_disponibilidad?: number;
   cuenta_cobranza_id?: number;
@@ -163,10 +164,10 @@ export default function WorkflowOfertas() {
             const personIds = usuarios.map((u: any) => u.id_persona).filter(Boolean);
             const { data: personas } = await supabase
               .from('personas')
-              .select('id, nombre, apellido_paterno')
+              .select('id, nombre_legal, nombre_comercial')
               .in('id', personIds) as any;
             const personMap = new Map<number, string>();
-            (personas || []).forEach((p: any) => personMap.set(p.id, `${p.nombre} ${p.apellido_paterno || ''}`.trim()));
+            (personas || []).forEach((p: any) => personMap.set(p.id, p.nombre_legal || p.nombre_comercial || ''));
 
             setAgentes(usuarios.map((u: any) => ({
               email: u.email,
@@ -212,7 +213,7 @@ export default function WorkflowOfertas() {
           ? (supabase.from('propiedades').select('id, numero, precio_lista, id_estatus_disponibilidad, id_edificio_modelo').in('id', propiedadIds) as any)
           : { data: [] },
         personaLeadIds.length > 0
-          ? (supabase.from('personas' as any).select('id, nombre_legal, nombre, apellido_paterno').in('id', personaLeadIds))
+          ? (supabase.from('personas' as any).select('id, nombre_legal, nombre_comercial').in('id', personaLeadIds))
           : { data: [] },
         propiedadIds.length > 0
           ? (supabase.from('cuentas_cobranza' as any).select('id, id_propiedad, contrato_draft').in('id_propiedad', propiedadIds).eq('activo', true))
@@ -266,11 +267,55 @@ export default function WorkflowOfertas() {
       const propMap = new Map<number, any>();
       (propRes.data || []).forEach((p: any) => propMap.set(p.id, p));
 
-       const leadMap = new Map<number, string>();
-       (leadsRes.data || []).forEach((l: any) => {
-         const nombre = l.nombre_legal || `${l.nombre} ${l.apellido_paterno || ''}`.trim() || 'Sin nombre';
-         leadMap.set(l.id, nombre);
-       });
+      const leadMap = new Map<number, string>();
+      (leadsRes.data || []).forEach((l: any) => {
+        const nombre = l.nombre_legal || l.nombre_comercial || 'Sin nombre';
+        leadMap.set(l.id, nombre);
+      });
+
+      // Get inmobiliaria for each email_creador
+      const uniqueEmails = [...new Set(ofertasData.map((o: any) => o.email_creador).filter(Boolean))] as string[];
+      const inmobByEmail = new Map<string, string>();
+      if (uniqueEmails.length > 0) {
+        const { data: usrData } = await supabase
+          .from('usuarios')
+          .select('email, id_persona')
+          .in('email', uniqueEmails)
+          .eq('activo', true) as any;
+        if (usrData && usrData.length > 0) {
+          const emailToPersona = new Map<string, number>();
+          usrData.forEach((u: any) => { if (u.id_persona) emailToPersona.set(u.email, u.id_persona); });
+          const agentPersonaIds = [...new Set(usrData.map((u: any) => u.id_persona).filter(Boolean))] as number[];
+          if (agentPersonaIds.length > 0) {
+            const { data: erData } = await supabase
+              .from('entidades_relacionadas')
+              .select('id_persona, id_persona_duena_lead')
+              .in('id_persona', agentPersonaIds)
+              .eq('id_tipo_entidad', 19)
+              .eq('activo', true) as any;
+            if (erData && erData.length > 0) {
+              const personaToOwner = new Map<number, number>();
+              erData.forEach((er: any) => { personaToOwner.set(er.id_persona, er.id_persona_duena_lead); });
+              const ownerIds = [...new Set(erData.map((er: any) => er.id_persona_duena_lead).filter(Boolean))] as number[];
+              if (ownerIds.length > 0) {
+                const { data: inmobPersonas } = await supabase
+                  .from('personas')
+                  .select('id, nombre_comercial, nombre_legal')
+                  .in('id', ownerIds) as any;
+                const ownerMap = new Map<number, string>();
+                (inmobPersonas || []).forEach((p: any) => ownerMap.set(p.id, p.nombre_comercial || p.nombre_legal || ''));
+                emailToPersona.forEach((personaId, email) => {
+                  const ownerId = personaToOwner.get(personaId);
+                  if (ownerId) {
+                    const inmobNombre = ownerMap.get(ownerId);
+                    if (inmobNombre) inmobByEmail.set(email, inmobNombre);
+                  }
+                });
+              }
+            }
+          }
+        }
+      }
 
       const cuentaByProp = new Map<number, any>();
       (cuentasRes.data || []).forEach((c: any) => {
@@ -297,6 +342,7 @@ export default function WorkflowOfertas() {
           proyecto_nombre: proy?.nombre || '',
           proyecto_id: proyId,
           lead_nombre: o.id_persona_lead ? (leadMap.get(o.id_persona_lead) || 'Sin nombre') : 'Sin prospecto',
+          inmobiliaria_nombre: inmobByEmail.get(o.email_creador) || '',
           precio: prop?.precio_lista,
           estatus_disponibilidad: prop?.id_estatus_disponibilidad,
           cuenta_cobranza_id: cuenta?.id,
@@ -477,6 +523,11 @@ export default function WorkflowOfertas() {
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Building2 className="h-3 w-3" /><span className="truncate">{oferta.email_creador}</span>
                             </div>
+                            {oferta.inmobiliaria_nombre && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Building2 className="h-3 w-3 text-primary" /><span className="truncate font-medium">{oferta.inmobiliaria_nombre}</span>
+                              </div>
+                            )}
                             {oferta.precio && (
                               <div className="flex items-center gap-1 text-xs font-semibold">
                                 <DollarSign className="h-3 w-3" /><span>${oferta.precio.toLocaleString('es-MX')}</span>
