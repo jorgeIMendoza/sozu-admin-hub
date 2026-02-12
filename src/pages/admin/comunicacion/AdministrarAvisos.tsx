@@ -39,35 +39,119 @@ interface Destinatario {
 const DIAS_SEMANA: Record<string, string> = { '0': 'domingo', '1': 'lunes', '2': 'martes', '3': 'miércoles', '4': 'jueves', '5': 'viernes', '6': 'sábado', '7': 'domingo' };
 const MESES: Record<string, string> = { '1': 'enero', '2': 'febrero', '3': 'marzo', '4': 'abril', '5': 'mayo', '6': 'junio', '7': 'julio', '8': 'agosto', '9': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre' };
 
-function describeCron(expr: string): string {
+function validateCronField(field: string, min: number, max: number, name: string): { valid: boolean; error?: string } {
+  if (field === '*') return { valid: true };
+  // handle step: */n or range/n
+  const stepMatch = field.match(/^(.+)\/(\d+)$/);
+  let base = field;
+  if (stepMatch) {
+    const step = parseInt(stepMatch[2], 10);
+    if (isNaN(step) || step < 1) return { valid: false, error: `${name}: paso inválido "${stepMatch[2]}"` };
+    base = stepMatch[1];
+    if (base === '*') return { valid: true };
+  }
+  // split by comma for lists
+  const parts = base.split(',');
+  for (const part of parts) {
+    if (part.includes('-')) {
+      const [a, b] = part.split('-');
+      const na = parseInt(a, 10), nb = parseInt(b, 10);
+      if (isNaN(na) || isNaN(nb)) return { valid: false, error: `${name}: valor no numérico en rango "${part}"` };
+      if (na < min || na > max || nb < min || nb > max) return { valid: false, error: `${name}: debe estar entre ${min} y ${max}` };
+      if (na > nb) return { valid: false, error: `${name}: rango invertido "${part}"` };
+    } else {
+      const n = parseInt(part, 10);
+      if (isNaN(n)) return { valid: false, error: `${name}: valor inválido "${part}"` };
+      if (n < min || n > max) return { valid: false, error: `${name}: debe estar entre ${min} y ${max}` };
+    }
+  }
+  return { valid: true };
+}
+
+function validateCron(expr: string): { valid: boolean; error?: string } {
   const parts = expr.trim().split(/\s+/);
-  if (parts.length !== 5) return 'Expresión cron inválida';
+  if (parts.length !== 5) return { valid: false, error: 'Debe tener 5 campos: minuto hora día-mes mes día-semana' };
+  const ranges = [
+    { name: 'Minuto', min: 0, max: 59 },
+    { name: 'Hora', min: 0, max: 23 },
+    { name: 'Día del mes', min: 1, max: 31 },
+    { name: 'Mes', min: 1, max: 12 },
+    { name: 'Día de semana', min: 0, max: 7 },
+  ];
+  for (let i = 0; i < 5; i++) {
+    const r = validateCronField(parts[i], ranges[i].min, ranges[i].max, ranges[i].name);
+    if (!r.valid) return r;
+  }
+  return { valid: true };
+}
+
+function formatList(items: string[], joinWord = 'y'): string {
+  if (items.length <= 1) return items.join('');
+  return items.slice(0, -1).join(', ') + ` ${joinWord} ` + items[items.length - 1];
+}
+
+function describeCron(expr: string): string {
+  const v = validateCron(expr);
+  if (!v.valid) return v.error || 'Expresión cron inválida';
+
+  const parts = expr.trim().split(/\s+/);
   const [min, hour, dom, mon, dow] = parts;
 
+  // Time part
   let time = '';
-  if (min !== '*' && hour !== '*') time = `a las ${hour}:${min.padStart(2, '0')}`;
-  else if (hour !== '*') time = `a las ${hour}:00`;
-  else if (min.startsWith('*/')) time = `cada ${min.slice(2)} minutos`;
-  else if (min !== '*') time = `en el minuto ${min}`;
+  if (min.startsWith('*/') && hour === '*') {
+    time = `cada ${min.slice(2)} minutos`;
+  } else if (hour.startsWith('*/')) {
+    time = `cada ${hour.slice(2)} horas`;
+  } else if (min !== '*' && hour !== '*') {
+    time = `a las ${hour}:${min.padStart(2, '0')}`;
+  } else if (hour !== '*') {
+    time = `a las ${hour}:00`;
+  } else if (min !== '*') {
+    time = `en el minuto ${min}`;
+  }
 
+  // Day of week
   let when = '';
   if (dow !== '*') {
-    const days = dow.split(',').map(d => {
-      if (d.includes('-')) { const [a, b] = d.split('-'); return `${DIAS_SEMANA[a] || a} a ${DIAS_SEMANA[b] || b}`; }
+    const dayParts = dow.replace(/\/\d+$/, '').split(',').map(d => {
+      if (d.includes('-')) {
+        const [a, b] = d.split('-');
+        return `${DIAS_SEMANA[a] || a} a ${DIAS_SEMANA[b] || b}`;
+      }
       return DIAS_SEMANA[d] || d;
     });
-    when = `los ${days.join(', ')}`;
+    when = `los ${formatList(dayParts)}`;
   }
+
+  // Day of month
   if (dom !== '*') {
-    when += (when ? ' y ' : '') + `el día ${dom} del mes`;
+    const domParts = dom.replace(/\/\d+$/, '').split(',').map(d => {
+      if (d.includes('-')) { const [a, b] = d.split('-'); return `${a} al ${b}`; }
+      return d;
+    });
+    const domStr = domParts.length === 1 && !dom.includes('-')
+      ? `el día ${domParts[0]} del mes`
+      : `los días ${formatList(domParts)} del mes`;
+    when += (when ? ' y ' : '') + domStr;
   }
+
+  // Month
   if (mon !== '*') {
-    const months = mon.split(',').map(m => MESES[m] || m);
-    when += (when ? ' en ' : 'en ') + months.join(', ');
+    const monParts = mon.replace(/\/\d+$/, '').split(',').map(m => {
+      if (m.includes('-')) {
+        const [a, b] = m.split('-');
+        const na = MESES[a] || a, nb = MESES[b] || b;
+        const diff = parseInt(b, 10) - parseInt(a, 10);
+        return diff === 1 ? `${na} y ${nb}` : `${na} a ${nb}`;
+      }
+      return MESES[m] || m;
+    });
+    when += (when ? ' en ' : 'en ') + formatList(monParts);
   }
 
   if (!when && !time) return 'Cada minuto';
-  if (!when && hour === '*' && min.startsWith('*/')) return time;
+  if (!when && (min.startsWith('*/') || hour.startsWith('*/'))) return time.charAt(0).toUpperCase() + time.slice(1);
   if (!when) return `Todos los días ${time}`;
   return `${when.charAt(0).toUpperCase() + when.slice(1)} ${time}`.trim();
 }
@@ -98,6 +182,7 @@ export default function AdministrarAvisos() {
   const [mensajeHtml, setMensajeHtml] = useState("");
   const [tipoEnvio, setTipoEnvio] = useState("manual");
   const [cronExpression, setCronExpression] = useState("");
+  const [cronError, setCronError] = useState("");
   const [activo, setActivo] = useState(true);
   const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
@@ -119,8 +204,7 @@ export default function AdministrarAvisos() {
   const openCreate = () => {
     setEditingAviso(null);
     setNombre(""); setAsunto(""); setMensajeHtml(""); setTipoEnvio("manual");
-    setCronExpression(""); setActivo(true); setSelectedRoles([]); setDestinatarios([]);
-    setDialogOpen(true);
+    setCronExpression(""); setCronError(""); setActivo(true); setSelectedRoles([]); setDestinatarios([]);
   };
 
   const openEdit = async (aviso: Aviso) => {
@@ -153,9 +237,16 @@ export default function AdministrarAvisos() {
       toast({ title: "Error", description: "Nombre, asunto y mensaje son requeridos", variant: "destructive" });
       return;
     }
-    if (tipoEnvio === 'automatico' && !cronExpression) {
-      toast({ title: "Error", description: "La expresión cron es requerida para envío automático", variant: "destructive" });
-      return;
+    if (tipoEnvio === 'automatico') {
+      if (!cronExpression) {
+        toast({ title: "Error", description: "La expresión cron es requerida para envío automático", variant: "destructive" });
+        return;
+      }
+      const cronValidation = validateCron(cronExpression);
+      if (!cronValidation.valid) {
+        toast({ title: "Expresión cron inválida", description: cronValidation.error, variant: "destructive" });
+        return;
+      }
     }
 
     const payload = {
@@ -321,10 +412,20 @@ export default function AdministrarAvisos() {
                         onClick={() => setCronExpression(p.value)}>{p.label}</Button>
                     ))}
                   </div>
-                  <Input value={cronExpression} onChange={e => setCronExpression(e.target.value)}
+                  <Input value={cronExpression} onChange={e => {
+                    const val = e.target.value;
+                    setCronExpression(val);
+                    if (val.trim()) {
+                      const result = validateCron(val);
+                      setCronError(result.valid ? "" : result.error || "Expresión inválida");
+                    } else {
+                      setCronError("");
+                    }
+                  }}
                     placeholder="* * * * *" className="font-mono" />
                   <p className="text-xs text-muted-foreground">Formato: minuto hora día-mes mes día-semana</p>
-                  {cronExpression && (
+                  {cronError && <p className="text-sm text-destructive">{cronError}</p>}
+                  {!cronError && cronExpression && (
                     <p className="text-sm font-medium text-primary">{describeCron(cronExpression)}</p>
                   )}
                 </div>
