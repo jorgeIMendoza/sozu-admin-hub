@@ -341,8 +341,8 @@ export default function WorkflowOfertas() {
           propiedad_nombre: prop ? `${proy?.nombre || ''} - ${prop.numero}` : `Propiedad ${o.id_propiedad}`,
           proyecto_nombre: proy?.nombre || '',
           proyecto_id: proyId,
-          lead_nombre: o.id_persona_lead ? (leadMap.get(o.id_persona_lead) || 'Sin nombre') : 'Sin prospecto',
-          inmobiliaria_nombre: inmobByEmail.get(o.email_creador) || '',
+           lead_nombre: o.id_persona_lead ? (leadMap.get(o.id_persona_lead) || 'Sin nombre') : 'Sin prospecto',
+           inmobiliaria_nombre: inmobByEmail.get(o.email_creador) || 'Interno',
           precio: prop?.precio_lista,
           estatus_disponibilidad: prop?.id_estatus_disponibilidad,
           cuenta_cobranza_id: cuenta?.id,
@@ -524,8 +524,15 @@ export default function WorkflowOfertas() {
                               <Building2 className="h-3 w-3" /><span className="truncate">{oferta.email_creador}</span>
                             </div>
                             {oferta.inmobiliaria_nombre && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Building2 className="h-3 w-3 text-primary" /><span className="truncate font-medium">{oferta.inmobiliaria_nombre}</span>
+                              <div className="flex items-center gap-1 text-xs">
+                                <Building2 className="h-3 w-3" />
+                                <span className={`truncate font-medium ${
+                                  oferta.inmobiliaria_nombre === 'Interno'
+                                    ? 'text-orange-600 dark:text-orange-400'
+                                    : 'text-primary'
+                                }`}>
+                                  {oferta.inmobiliaria_nombre}
+                                </span>
                               </div>
                             )}
                             {oferta.precio && (
