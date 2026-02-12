@@ -65,6 +65,8 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/comunicacion/administrar-avisos',
   '/admin/comunicacion/enviar-avisos',
   '/admin/comunicacion/ejecuciones',
+  '/admin/crm/workflow-ofertas',
+  '/admin/crm/dashboard-ejecutivo',
 ]);
 
 export function isValidRoute(route: string): boolean {

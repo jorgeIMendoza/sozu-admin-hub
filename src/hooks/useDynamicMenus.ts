@@ -103,6 +103,8 @@
   '/admin/comunicacion/administrar-avisos': Mail,
   '/admin/comunicacion/enviar-avisos': Send,
   '/admin/comunicacion/ejecuciones': History,
+  '/admin/crm/workflow-ofertas': ClipboardList,
+  '/admin/crm/dashboard-ejecutivo': BarChart3,
 };
  
  // Mapeo de iconos por menu_id para los grupos
@@ -121,6 +123,7 @@
    12: KeyRound,        // Inmobiliarias (portal)
     13: Activity,        // Configuraciones/Logs
     14: Mail,            // Comunicación
+    15: Briefcase,        // CRM
   };
  
  export interface DynamicMenuItem {
