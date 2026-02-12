@@ -36,6 +36,42 @@ interface Destinatario {
   email: string;
 }
 
+const DIAS_SEMANA: Record<string, string> = { '0': 'domingo', '1': 'lunes', '2': 'martes', '3': 'miércoles', '4': 'jueves', '5': 'viernes', '6': 'sábado', '7': 'domingo' };
+const MESES: Record<string, string> = { '1': 'enero', '2': 'febrero', '3': 'marzo', '4': 'abril', '5': 'mayo', '6': 'junio', '7': 'julio', '8': 'agosto', '9': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre' };
+
+function describeCron(expr: string): string {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return 'Expresión cron inválida';
+  const [min, hour, dom, mon, dow] = parts;
+
+  let time = '';
+  if (min !== '*' && hour !== '*') time = `a las ${hour}:${min.padStart(2, '0')}`;
+  else if (hour !== '*') time = `a las ${hour}:00`;
+  else if (min.startsWith('*/')) time = `cada ${min.slice(2)} minutos`;
+  else if (min !== '*') time = `en el minuto ${min}`;
+
+  let when = '';
+  if (dow !== '*') {
+    const days = dow.split(',').map(d => {
+      if (d.includes('-')) { const [a, b] = d.split('-'); return `${DIAS_SEMANA[a] || a} a ${DIAS_SEMANA[b] || b}`; }
+      return DIAS_SEMANA[d] || d;
+    });
+    when = `los ${days.join(', ')}`;
+  }
+  if (dom !== '*') {
+    when += (when ? ' y ' : '') + `el día ${dom} del mes`;
+  }
+  if (mon !== '*') {
+    const months = mon.split(',').map(m => MESES[m] || m);
+    when += (when ? ' en ' : 'en ') + months.join(', ');
+  }
+
+  if (!when && !time) return 'Cada minuto';
+  if (!when && hour === '*' && min.startsWith('*/')) return time;
+  if (!when) return `Todos los días ${time}`;
+  return `${when.charAt(0).toUpperCase() + when.slice(1)} ${time}`.trim();
+}
+
 const CRON_PRESETS = [
   { label: 'Cada hora', value: '0 * * * *' },
   { label: 'Cada día 9am', value: '0 9 * * *' },
@@ -288,6 +324,9 @@ export default function AdministrarAvisos() {
                   <Input value={cronExpression} onChange={e => setCronExpression(e.target.value)}
                     placeholder="* * * * *" className="font-mono" />
                   <p className="text-xs text-muted-foreground">Formato: minuto hora día-mes mes día-semana</p>
+                  {cronExpression && (
+                    <p className="text-sm font-medium text-primary">{describeCron(cronExpression)}</p>
+                  )}
                 </div>
               )}
               <div className="flex items-center gap-2">
