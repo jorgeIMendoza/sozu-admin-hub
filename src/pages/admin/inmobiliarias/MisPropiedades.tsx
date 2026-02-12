@@ -20,6 +20,7 @@ import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import { generateOfferPDF } from "@/services/htmlToPdfService";
+import { CambiarEstatusAprobacionDialog } from "@/components/admin/CambiarEstatusAprobacionDialog";
 
 const ITEMS_PER_PAGE = 50;
 // ID del estatus "Disponible" - las inmobiliarias solo ven propiedades disponibles
@@ -47,6 +48,7 @@ export default function MisPropiedades() {
   // State for offers dialogs
   const [offersDialogOpen, setOffersDialogOpen] = useState(false);
   const [productOffersDialogOpen, setProductOffersDialogOpen] = useState(false);
+  const [cambiarEstatusOfferId, setCambiarEstatusOfferId] = useState<number | null>(null);
   const [selectedPropertyOffers, setSelectedPropertyOffers] = useState<any[]>([]);
   const [selectedPropertyProductOffers, setSelectedPropertyProductOffers] = useState<any[]>([]);
   const [selectedPropertyForOffers, setSelectedPropertyForOffers] = useState<any | null>(null);
@@ -1423,6 +1425,17 @@ export default function MisPropiedades() {
                                 3: "bg-red-100 text-red-800 border-red-300",
                                 4: "bg-blue-100 text-blue-800 border-blue-300",
                               };
+                              if (offer.id_estatus_aprobacion === 1) {
+                                return (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`${estatusColors[1]} cursor-pointer hover:opacity-80`}
+                                    onClick={() => setCambiarEstatusOfferId(offer.id)}
+                                  >
+                                    {offer.estatus_aprobacion_nombre || 'Aprobación pendiente'} ✎
+                                  </Badge>
+                                );
+                              }
                               return (
                                 <Badge variant="outline" className={estatusColors[offer.id_estatus_aprobacion] || ""}>
                                   {offer.estatus_aprobacion_nombre || `ID: ${offer.id_estatus_aprobacion}`}
@@ -1545,6 +1558,17 @@ export default function MisPropiedades() {
                               3: "bg-red-100 text-red-800 border-red-300",
                               4: "bg-blue-100 text-blue-800 border-blue-300",
                             };
+                            if (offer.id_estatus_aprobacion === 1) {
+                              return (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`${estatusColors[1]} cursor-pointer hover:opacity-80`}
+                                  onClick={() => setCambiarEstatusOfferId(offer.id)}
+                                >
+                                  {(offer as any).estatus_aprobacion?.nombre || 'Aprobación pendiente'} ✎
+                                </Badge>
+                              );
+                            }
                             return (
                               <Badge variant="outline" className={estatusColors[offer.id_estatus_aprobacion] || ""}>
                                 {(offer as any).estatus_aprobacion?.nombre || `ID: ${offer.id_estatus_aprobacion}`}
@@ -1579,6 +1603,16 @@ export default function MisPropiedades() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <CambiarEstatusAprobacionDialog
+        open={!!cambiarEstatusOfferId}
+        onOpenChange={(open) => { if (!open) setCambiarEstatusOfferId(null); }}
+        offerId={cambiarEstatusOfferId || 0}
+        onSuccess={() => {
+          // Refresh by re-opening the offers dialog data
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

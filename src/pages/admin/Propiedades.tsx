@@ -45,6 +45,7 @@ import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { OwnerHistoryDialog } from "@/components/admin/OwnerHistoryDialog";
 import { ReventaDialog } from "@/components/admin/ReventaDialog";
 import { RefreshCw } from "lucide-react";
+import { CambiarEstatusAprobacionDialog } from "@/components/admin/CambiarEstatusAprobacionDialog";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -388,6 +389,7 @@ const Propiedades = () => {
   const [selectedPropertyOffers, setSelectedPropertyOffers] = useState<any[] | null>(null);
   const [selectedPropertyProductOffers, setSelectedPropertyProductOffers] = useState<any[] | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+  const [cambiarEstatusOfferId, setCambiarEstatusOfferId] = useState<number | null>(null);
   const [selectedPropertyForOffers, setSelectedPropertyForOffers] = useState<Property | null>(null);
   const [selectedPropertyForProductOffers, setSelectedPropertyForProductOffers] = useState<Property | null>(null);
   const [offersDialogOpen, setOffersDialogOpen] = useState(false);
@@ -5937,6 +5939,17 @@ const Propiedades = () => {
                                 3: "bg-red-100 text-red-800 border-red-300",
                                 4: "bg-blue-100 text-blue-800 border-blue-300",
                               };
+                              if (offer.id_estatus_aprobacion === 1) {
+                                return (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`${estatusColors[1]} cursor-pointer hover:opacity-80`}
+                                    onClick={() => setCambiarEstatusOfferId(offer.id)}
+                                  >
+                                    {offer.estatus_aprobacion_nombre || 'Aprobación pendiente'} ✎
+                                  </Badge>
+                                );
+                              }
                               return (
                                 <Badge variant="outline" className={estatusColors[offer.id_estatus_aprobacion] || ""}>
                                   {offer.estatus_aprobacion_nombre || `ID: ${offer.id_estatus_aprobacion}`}
@@ -6320,6 +6333,17 @@ const Propiedades = () => {
                               3: "bg-red-100 text-red-800 border-red-300",
                               4: "bg-blue-100 text-blue-800 border-blue-300",
                             };
+                            if (offer.id_estatus_aprobacion === 1) {
+                              return (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`${estatusColors[1]} cursor-pointer hover:opacity-80`}
+                                  onClick={() => setCambiarEstatusOfferId(offer.id)}
+                                >
+                                  {(offer as any).estatus_aprobacion?.nombre || 'Aprobación pendiente'} ✎
+                                </Badge>
+                              );
+                            }
                             return (
                               <Badge variant="outline" className={estatusColors[offer.id_estatus_aprobacion] || ""}>
                                 {(offer as any).estatus_aprobacion?.nombre || `ID: ${offer.id_estatus_aprobacion}`}
@@ -6587,6 +6611,21 @@ const Propiedades = () => {
           </AlertDialogContent>
         </AlertDialog>
       </TooltipProvider>
+
+      <CambiarEstatusAprobacionDialog
+        open={!!cambiarEstatusOfferId}
+        onOpenChange={(open) => { if (!open) setCambiarEstatusOfferId(null); }}
+        offerId={cambiarEstatusOfferId || 0}
+        onSuccess={async () => {
+          if (selectedPropertyId) {
+            const updatedOffers = await fetchPropertyOffers(selectedPropertyId);
+            setSelectedPropertyOffers(updatedOffers);
+            const updatedProductOffers = await fetchPropertyProductOffers(selectedPropertyId);
+            setSelectedPropertyProductOffers(updatedProductOffers);
+          }
+          refetchActivos();
+        }}
+      />
       </div>
     </TooltipProvider>
   );
