@@ -212,7 +212,7 @@ export default function WorkflowOfertas() {
           ? (supabase.from('propiedades').select('id, numero, precio_lista, id_estatus_disponibilidad, id_edificio_modelo').in('id', propiedadIds) as any)
           : { data: [] },
         personaLeadIds.length > 0
-          ? (supabase.from('personas' as any).select('id, nombre, apellido_paterno').in('id', personaLeadIds))
+          ? (supabase.from('personas' as any).select('id, nombre_legal, nombre, apellido_paterno').in('id', personaLeadIds))
           : { data: [] },
         propiedadIds.length > 0
           ? (supabase.from('cuentas_cobranza' as any).select('id, id_propiedad, contrato_draft').in('id_propiedad', propiedadIds).eq('activo', true))
@@ -266,8 +266,11 @@ export default function WorkflowOfertas() {
       const propMap = new Map<number, any>();
       (propRes.data || []).forEach((p: any) => propMap.set(p.id, p));
 
-      const leadMap = new Map<number, string>();
-      (leadsRes.data || []).forEach((l: any) => leadMap.set(l.id, `${l.nombre} ${l.apellido_paterno || ''}`.trim()));
+       const leadMap = new Map<number, string>();
+       (leadsRes.data || []).forEach((l: any) => {
+         const nombre = l.nombre_legal || `${l.nombre} ${l.apellido_paterno || ''}`.trim() || 'Sin nombre';
+         leadMap.set(l.id, nombre);
+       });
 
       const cuentaByProp = new Map<number, any>();
       (cuentasRes.data || []).forEach((c: any) => {
