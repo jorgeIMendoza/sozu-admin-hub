@@ -145,6 +145,17 @@ class HTMLToPDFService {
         this.fetchBodegas(offerData.propertyId)
       ]);
 
+      // Fetch approval status name
+      let estatus_aprobacion_nombre: string | null = null;
+      if (offerDetails.id_estatus_aprobacion) {
+        const { data: estatusData } = await supabase
+          .from('estatus_aprobacion')
+          .select('nombre')
+          .eq('id', offerDetails.id_estatus_aprobacion)
+          .single();
+        estatus_aprobacion_nombre = estatusData?.nombre || null;
+      }
+
       console.log('Data fetched successfully, generating PDF...');
       console.log('Project logo URL being used:', propertyDetails.projectData?.url_logo);
       console.log('Project name:', propertyDetails.projectData?.nombre);
@@ -158,6 +169,8 @@ class HTMLToPDFService {
         leadEmail: offerData.leadEmail,
         email_creador: offerData.creatorEmail,
         id_esquema_pago_seleccionado: offerDetails.id_esquema_pago_seleccionado,
+        id_estatus_aprobacion: offerDetails.id_estatus_aprobacion,
+        estatus_aprobacion_nombre,
       };
 
     console.log('Property details before PDF generation:', {
@@ -218,6 +231,17 @@ class HTMLToPDFService {
         this.fetchLegalNotices(offerData.propertyId)
       ]);
 
+      // Fetch approval status name for product offers
+      let estatus_aprobacion_nombre_prod: string | null = null;
+      if (offerDetails.id_estatus_aprobacion) {
+        const { data: estatusData } = await supabase
+          .from('estatus_aprobacion')
+          .select('nombre')
+          .eq('id', offerDetails.id_estatus_aprobacion)
+          .single();
+        estatus_aprobacion_nombre_prod = estatusData?.nombre || null;
+      }
+
       const templateOfferData = {
         id: offerData.offerId,
         fecha_generacion: offerDetails.fecha_generacion,
@@ -228,6 +252,8 @@ class HTMLToPDFService {
         id_esquema_pago_seleccionado: offerDetails.id_esquema_pago_seleccionado,
         clabe_stp_tmp_producto: offerDetails.clabe_stp_tmp_producto,
         clabe_stp: clabeStp,
+        id_estatus_aprobacion: offerDetails.id_estatus_aprobacion,
+        estatus_aprobacion_nombre: estatus_aprobacion_nombre_prod,
       };
 
       await this.generateProductPDFFromHTML(
@@ -254,6 +280,8 @@ class HTMLToPDFService {
       leadName: string;
       leadEmail: string;
       email_creador: string;
+      id_estatus_aprobacion?: number | null;
+      estatus_aprobacion_nombre?: string | null;
     },
     propertyDetails: PropertyDetails,
     paymentSchemes: PaymentScheme[],
@@ -281,6 +309,8 @@ class HTMLToPDFService {
       leadName: string;
       leadEmail: string;
       email_creador: string;
+      id_estatus_aprobacion?: number | null;
+      estatus_aprobacion_nombre?: string | null;
     },
     propertyDetails: PropertyDetails,
     paymentSchemes: PaymentScheme[],
@@ -321,6 +351,8 @@ class HTMLToPDFService {
       leadInfo,
       estacionamientos,
       bodegas,
+      id_estatus_aprobacion: offerData.id_estatus_aprobacion,
+      estatus_aprobacion_nombre: offerData.estatus_aprobacion_nombre,
     });
     
     // Upload to storage and save URL in DB
@@ -1417,6 +1449,8 @@ class HTMLToPDFService {
       id_esquema_pago_seleccionado?: number | null;
       clabe_stp_tmp_producto?: string | null;
       clabe_stp?: string | null;
+      id_estatus_aprobacion?: number | null;
+      estatus_aprobacion_nombre?: string | null;
     },
     propertyDetails: PropertyDetails,
     productDetails: any,
@@ -1438,6 +1472,8 @@ class HTMLToPDFService {
       creatorInfo,
       leadInfo,
       legalNotices,
+      id_estatus_aprobacion: offerData.id_estatus_aprobacion,
+      estatus_aprobacion_nombre: offerData.estatus_aprobacion_nombre,
     });
     
     // Upload to storage and save URL in DB

@@ -173,6 +173,17 @@ Deno.serve(async (req) => {
 
     console.log('Oferta found:', { id: oferta.id, id_propiedad: oferta.id_propiedad, id_producto: oferta.id_producto });
 
+    // Fetch approval status name
+    let estatus_aprobacion_nombre: string | null = null;
+    if (oferta.id_estatus_aprobacion) {
+      const { data: estatusData } = await supabase
+        .from('estatus_aprobacion')
+        .select('nombre')
+        .eq('id', oferta.id_estatus_aprobacion)
+        .single();
+      estatus_aprobacion_nombre = estatusData?.nombre || null;
+    }
+
     // Determine offer type
     const isProductOffer = oferta.id_producto !== null;
     const tipoOferta = isProductOffer ? 'producto' : 'propiedad';
@@ -184,11 +195,11 @@ Deno.serve(async (req) => {
     let fileName: string;
 
     if (isProductOffer) {
-      const result = await generateProductOfferPdf(supabase, oferta);
+      const result = await generateProductOfferPdf(supabase, oferta, estatus_aprobacion_nombre);
       pdfBytes = result.pdfBytes;
       fileName = result.fileName;
     } else {
-      const result = await generatePropertyOfferPdf(supabase, oferta);
+      const result = await generatePropertyOfferPdf(supabase, oferta, estatus_aprobacion_nombre);
       pdfBytes = result.pdfBytes;
       fileName = result.fileName;
     }
@@ -257,7 +268,7 @@ Deno.serve(async (req) => {
 });
 
 // ================== PROPERTY OFFER PDF GENERATION ==================
-async function generatePropertyOfferPdf(supabase: any, oferta: any): Promise<{ pdfBytes: Uint8Array; fileName: string }> {
+async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_aprobacion_nombre: string | null = null): Promise<{ pdfBytes: Uint8Array; fileName: string }> {
   console.log('Generating property offer PDF...');
 
   // Fetch property with full relationship path INCLUDING vistas
@@ -867,6 +878,44 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any): Promise<{ p
           font: helveticaBold,
           color: black,
         });
+        
+        // Draw approval status badge
+        if (oferta.id_estatus_aprobacion && estatus_aprobacion_nombre) {
+          const statusColorsMap: Record<number, { bg: { r: number; g: number; b: number }; text: { r: number; g: number; b: number } }> = {
+            1: { bg: { r: 1, g: 0.953, b: 0.804 }, text: { r: 0.522, g: 0.392, b: 0.016 } },
+            2: { bg: { r: 0.831, g: 0.929, b: 0.855 }, text: { r: 0.082, g: 0.341, b: 0.141 } },
+            3: { bg: { r: 0.973, g: 0.843, b: 0.855 }, text: { r: 0.447, g: 0.110, b: 0.141 } },
+            4: { bg: { r: 0.800, g: 0.898, b: 1 }, text: { r: 0, g: 0.251, b: 0.522 } },
+          };
+          const sColors = statusColorsMap[oferta.id_estatus_aprobacion] || statusColorsMap[1];
+          const nameW = helveticaBold.widthOfTextAtSize(scheme.nombre, 10);
+          const badgeText = estatus_aprobacion_nombre;
+          const badgeFontSize = 6;
+          const badgeTextW = helvetica.widthOfTextAtSize(badgeText, badgeFontSize);
+          const badgePad = 4;
+          const badgeW = badgeTextW + badgePad * 2;
+          const badgeH = 10;
+          const badgeX = schemeX + padding + nameW + 4;
+          const badgeY = lineY - 2;
+          
+          currentPage.drawRectangle({
+            x: badgeX,
+            y: badgeY,
+            width: badgeW,
+            height: badgeH,
+            color: rgb(sColors.bg.r, sColors.bg.g, sColors.bg.b),
+            borderColor: rgb(sColors.text.r, sColors.text.g, sColors.text.b),
+            borderWidth: 0.3,
+          });
+          currentPage.drawText(badgeText, {
+            x: badgeX + badgePad,
+            y: badgeY + 3,
+            size: badgeFontSize,
+            font: helvetica,
+            color: rgb(sColors.text.r, sColors.text.g, sColors.text.b),
+          });
+        }
+        
         lineY -= 14;
       }
 
@@ -1224,7 +1273,7 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any): Promise<{ p
 }
 
 // ================== PRODUCT OFFER PDF GENERATION ==================
-async function generateProductOfferPdf(supabase: any, oferta: any): Promise<{ pdfBytes: Uint8Array; fileName: string }> {
+async function generateProductOfferPdf(supabase: any, oferta: any, estatus_aprobacion_nombre: string | null = null): Promise<{ pdfBytes: Uint8Array; fileName: string }> {
   console.log('Generating product offer PDF...');
 
   // Fetch product details
@@ -1706,6 +1755,44 @@ async function generateProductOfferPdf(supabase: any, oferta: any): Promise<{ pd
           font: helveticaBold,
           color: black,
         });
+        
+        // Draw approval status badge
+        if (oferta.id_estatus_aprobacion && estatus_aprobacion_nombre) {
+          const statusColorsMap: Record<number, { bg: { r: number; g: number; b: number }; text: { r: number; g: number; b: number } }> = {
+            1: { bg: { r: 1, g: 0.953, b: 0.804 }, text: { r: 0.522, g: 0.392, b: 0.016 } },
+            2: { bg: { r: 0.831, g: 0.929, b: 0.855 }, text: { r: 0.082, g: 0.341, b: 0.141 } },
+            3: { bg: { r: 0.973, g: 0.843, b: 0.855 }, text: { r: 0.447, g: 0.110, b: 0.141 } },
+            4: { bg: { r: 0.800, g: 0.898, b: 1 }, text: { r: 0, g: 0.251, b: 0.522 } },
+          };
+          const sColors = statusColorsMap[oferta.id_estatus_aprobacion] || statusColorsMap[1];
+          const nameW = helveticaBold.widthOfTextAtSize(scheme.nombre, 10);
+          const badgeText = estatus_aprobacion_nombre;
+          const badgeFontSize = 6;
+          const badgeTextW = helvetica.widthOfTextAtSize(badgeText, badgeFontSize);
+          const badgePad = 4;
+          const badgeW = badgeTextW + badgePad * 2;
+          const badgeH = 10;
+          const badgeX = schemeX + padding + nameW + 4;
+          const badgeY = lineY - 2;
+          
+          currentPage.drawRectangle({
+            x: badgeX,
+            y: badgeY,
+            width: badgeW,
+            height: badgeH,
+            color: rgb(sColors.bg.r, sColors.bg.g, sColors.bg.b),
+            borderColor: rgb(sColors.text.r, sColors.text.g, sColors.text.b),
+            borderWidth: 0.3,
+          });
+          currentPage.drawText(badgeText, {
+            x: badgeX + badgePad,
+            y: badgeY + 3,
+            size: badgeFontSize,
+            font: helvetica,
+            color: rgb(sColors.text.r, sColors.text.g, sColors.text.b),
+          });
+        }
+        
         lineY -= 14;
       }
 

@@ -800,7 +800,7 @@ export default function MisPropiedades() {
       try {
         const { data: offerData } = await supabase
           .from('ofertas')
-          .select('mostrar_piso_en_oferta, mostrar_precio_m2_en_oferta, mostrar_seccion_efectivo_en_oferta')
+          .select('mostrar_piso_en_oferta, mostrar_precio_m2_en_oferta, mostrar_seccion_efectivo_en_oferta, id_estatus_aprobacion, estatus_aprobacion!ofertas_id_estatus_aprobacion_fkey(nombre)')
           .eq('id', offer.id)
           .single();
         
@@ -808,6 +808,8 @@ export default function MisPropiedades() {
           enrichedOffer.mostrar_piso_en_oferta = offerData.mostrar_piso_en_oferta;
           enrichedOffer.mostrar_precio_m2_en_oferta = offerData.mostrar_precio_m2_en_oferta;
           enrichedOffer.mostrar_seccion_efectivo_en_oferta = offerData.mostrar_seccion_efectivo_en_oferta;
+          enrichedOffer.id_estatus_aprobacion = offerData.id_estatus_aprobacion;
+          enrichedOffer.estatus_aprobacion_nombre = (offerData as any).estatus_aprobacion?.nombre || null;
         }
       } catch (err) {
         console.warn('Error fetching display options for offer:', offer.id);
@@ -857,6 +859,8 @@ export default function MisPropiedades() {
         id_esquema_pago_seleccionado,
         id_producto,
         clabe_stp_tmp_producto,
+        id_estatus_aprobacion,
+        estatus_aprobacion!ofertas_id_estatus_aprobacion_fkey(nombre),
         productos_servicios!ofertas_id_producto_fkey(nombre, precio_lista),
         esquemas_pago!ofertas_id_esquema_pago_seleccionado_fkey(nombre)
       `)
@@ -1374,9 +1378,10 @@ export default function MisPropiedades() {
                       <TableHead>Agente</TableHead>
                       <TableHead>Lead</TableHead>
                       <TableHead>Fecha</TableHead>
-                      <TableHead>Esquema de Pago</TableHead>
-                      <TableHead>Cuenta de Cobranza</TableHead>
-                      <TableHead>Descarga</TableHead>
+                       <TableHead>Esquema de Pago</TableHead>
+                       <TableHead>Estatus Aprob.</TableHead>
+                       <TableHead>Cuenta de Cobranza</TableHead>
+                       <TableHead>Descarga</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1408,6 +1413,23 @@ export default function MisPropiedades() {
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground text-sm">Sin esquema</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {offer.id_estatus_aprobacion ? (() => {
+                              const estatusColors: Record<number, string> = {
+                                1: "bg-yellow-100 text-yellow-800 border-yellow-300",
+                                2: "bg-green-100 text-green-800 border-green-300",
+                                3: "bg-red-100 text-red-800 border-red-300",
+                                4: "bg-blue-100 text-blue-800 border-blue-300",
+                              };
+                              return (
+                                <Badge variant="outline" className={estatusColors[offer.id_estatus_aprobacion] || ""}>
+                                  {offer.estatus_aprobacion_nombre || `ID: ${offer.id_estatus_aprobacion}`}
+                                </Badge>
+                              );
+                            })() : (
+                              <span className="text-muted-foreground text-sm">-</span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -1479,8 +1501,9 @@ export default function MisPropiedades() {
                     <TableHead>Producto/Servicio</TableHead>
                     <TableHead>Lead</TableHead>
                     <TableHead>Fecha</TableHead>
-                    <TableHead>Esquema de Pago</TableHead>
-                    <TableHead>Cuenta de Cobranza</TableHead>
+                     <TableHead>Esquema de Pago</TableHead>
+                     <TableHead>Estatus Aprob.</TableHead>
+                     <TableHead>Cuenta de Cobranza</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1512,6 +1535,23 @@ export default function MisPropiedades() {
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-sm">Sin esquema</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {offer.id_estatus_aprobacion ? (() => {
+                            const estatusColors: Record<number, string> = {
+                              1: "bg-yellow-100 text-yellow-800 border-yellow-300",
+                              2: "bg-green-100 text-green-800 border-green-300",
+                              3: "bg-red-100 text-red-800 border-red-300",
+                              4: "bg-blue-100 text-blue-800 border-blue-300",
+                            };
+                            return (
+                              <Badge variant="outline" className={estatusColors[offer.id_estatus_aprobacion] || ""}>
+                                {(offer as any).estatus_aprobacion?.nombre || `ID: ${offer.id_estatus_aprobacion}`}
+                              </Badge>
+                            );
+                          })() : (
+                            <span className="text-muted-foreground text-sm">-</span>
                           )}
                         </TableCell>
                         <TableCell>

@@ -22,6 +22,7 @@ interface OfferFullData {
   rfc_comprador: string | null;
   clabe_stp_propiedad: string | null;
   proyecto_mostrar_efectivo: boolean | null;
+  id_estatus_aprobacion: number | null;
 }
 
 export class OfertaPdfStorageService {
@@ -57,7 +58,8 @@ export class OfertaPdfStorageService {
         id_persona_lead,
         id_propiedad,
         id_producto,
-        mostrar_seccion_efectivo_en_oferta
+        mostrar_seccion_efectivo_en_oferta,
+        id_estatus_aprobacion
       `)
       .eq('id', offerId)
       .single();
@@ -110,6 +112,7 @@ export class OfertaPdfStorageService {
       rfc_comprador: rfcComprador,
       clabe_stp_propiedad: clabeStp,
       proyecto_mostrar_efectivo: proyectoMostrarEfectivo,
+      id_estatus_aprobacion: oferta.id_estatus_aprobacion ?? null,
     };
   }
 
@@ -159,6 +162,12 @@ export class OfertaPdfStorageService {
       // La oferta no guardó mostrar_seccion_efectivo pero la propiedad tiene CLABE
       // Esto sugiere que la CLABE se agregó después
       return { isValid: false, reason: 'Se detectó CLABE STP en la propiedad que podría no estar reflejada en el PDF' };
+    }
+
+    // Caso 3: Si el estatus de aprobación no es el default (2=Aprobada),
+    // siempre invalidar ya que no guardamos con qué estatus se generó el PDF
+    if (oferta.id_estatus_aprobacion && oferta.id_estatus_aprobacion !== 2) {
+      return { isValid: false, reason: 'El estatus de aprobación ha cambiado y debe reflejarse en el PDF' };
     }
 
     return { isValid: true };
