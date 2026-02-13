@@ -28,6 +28,7 @@ interface OfertaCard {
   id_persona_lead: number | null;
   // Enriched
   propiedad_nombre?: string;
+  producto_nombre?: string;
   proyecto_nombre?: string;
   proyecto_id?: number;
   lead_nombre?: string;
@@ -222,8 +223,9 @@ export default function WorkflowOfertas() {
 
       const propiedadIds = [...new Set(ofertasData.map((o: any) => o.id_propiedad).filter(Boolean))] as number[];
       const personaLeadIds = [...new Set(ofertasData.map((o: any) => o.id_persona_lead).filter(Boolean))] as number[];
+      const productoIds = [...new Set(ofertasData.map((o: any) => o.id_producto).filter(Boolean))] as number[];
 
-      const [propRes, leadsRes, cuentasRes, cuentasSinDocRes] = await Promise.all([
+      const [propRes, leadsRes, cuentasRes, productosRes] = await Promise.all([
         propiedadIds.length > 0
           ? (supabase.from('propiedades').select('id, numero_propiedad, precio_lista, id_estatus_disponibilidad, id_edificio_modelo').in('id', propiedadIds) as any)
           : { data: [] },
@@ -233,7 +235,9 @@ export default function WorkflowOfertas() {
         propiedadIds.length > 0
           ? (supabase.from('cuentas_cobranza' as any).select('id, id_propiedad, contrato_draft').in('id_propiedad', propiedadIds).eq('activo', true))
           : { data: [] },
-        { data: [] },
+        productoIds.length > 0
+          ? (supabase.from('productos_servicios').select('id, nombre, precio_lista, id_proyecto').in('id', productoIds) as any)
+          : { data: [] },
       ]);
 
       // Get edificios_modelos -> edificios -> proyectos
@@ -266,6 +270,14 @@ export default function WorkflowOfertas() {
         }
       }
 
+      // Also fetch projects for products that aren't already in proyectoMap
+      const productoProjIds = [...new Set((productosRes.data || []).map((p: any) => p.id_proyecto).filter(Boolean))] as number[];
+      const missingProjIds = productoProjIds.filter(id => !proyectoMap.has(id));
+      if (missingProjIds.length > 0) {
+        const { data: projs } = await supabase.from('proyectos').select('id, nombre').in('id', missingProjIds);
+        (projs || []).forEach((p: any) => proyectoMap.set(p.id, p));
+      }
+
       // Check for signed contracts (tipo_documento=42) on cuentas
       const cuentaIds = (cuentasRes.data || []).map((c: any) => c.id);
       let cuentaContratoFirmado = new Set<number>();
@@ -281,6 +293,9 @@ export default function WorkflowOfertas() {
 
       const propMap = new Map<number, any>();
       (propRes.data || []).forEach((p: any) => propMap.set(p.id, p));
+
+      const productoMap = new Map<number, any>();
+      (productosRes.data || []).forEach((p: any) => productoMap.set(p.id, p));
 
       const leadMap = new Map<number, string>();
       (leadsRes.data || []).forEach((l: any) => {
@@ -350,10 +365,12 @@ export default function WorkflowOfertas() {
 
       const enriched: OfertaCard[] = ofertasData.map((o: any) => {
         const prop = o.id_propiedad ? propMap.get(o.id_propiedad) : null;
+        const producto = o.id_producto ? productoMap.get(o.id_producto) : null;
         const cuenta = o.id_propiedad ? cuentaByProp.get(o.id_propiedad) : null;
-        const proyId = prop?.id_edificio_modelo ? edModeloToProyecto.get(prop.id_edificio_modelo) : undefined;
+        const proyId = prop?.id_edificio_modelo ? edModeloToProyecto.get(prop.id_edificio_modelo) : (producto?.id_proyecto || undefined);
         const proy = proyId ? proyectoMap.get(proyId) : undefined;
         const esquema = o.id_esquema_pago_seleccionado ? esquemaMap.get(o.id_esquema_pago_seleccionado) : null;
+        const isProducto = !!o.id_producto;
 
         const card: OfertaCard = {
           id: o.id,
@@ -368,11 +385,12 @@ export default function WorkflowOfertas() {
           id_producto: o.id_producto || null,
           id_persona_lead: o.id_persona_lead,
           propiedad_nombre: prop ? prop.numero_propiedad : `${o.id_propiedad}`,
+          producto_nombre: producto?.nombre || undefined,
           proyecto_nombre: proy?.nombre || '',
           proyecto_id: proyId,
           lead_nombre: o.id_persona_lead ? (leadMap.get(o.id_persona_lead) || 'Sin nombre') : 'Sin prospecto',
           inmobiliaria_nombre: inmobByEmail.get(o.email_creador) || 'Interno',
-          precio: prop?.precio_lista,
+          precio: isProducto ? (producto?.precio_lista || null) : (prop?.precio_lista || null),
           estatus_disponibilidad: prop?.id_estatus_disponibilidad,
           cuenta_cobranza_id: cuenta?.id,
           contrato_draft: cuenta?.contrato_draft,
@@ -581,7 +599,11 @@ export default function WorkflowOfertas() {
                       stageOfertas.map(oferta => (
                         <Card key={oferta.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedOferta(oferta)}>
                           <CardContent className="p-3 space-y-1.5">
-                            <p className="font-medium text-sm truncate">{oferta.proyecto_nombre ? `${oferta.proyecto_nombre} - ${oferta.propiedad_nombre}` : oferta.propiedad_nombre}</p>
+                            <p className="font-medium text-sm truncate">
+                              {oferta.id_producto
+                                ? `${oferta.producto_nombre || 'Producto'} (${oferta.propiedad_nombre})`
+                                : (oferta.proyecto_nombre ? `${oferta.proyecto_nombre} - ${oferta.propiedad_nombre}` : oferta.propiedad_nombre)}
+                            </p>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <User className="h-3 w-3" /><span className="truncate">{oferta.lead_nombre}</span>
                             </div>
@@ -635,11 +657,13 @@ export default function WorkflowOfertas() {
             </div>
             <DialogTitle>
               {selectedOferta?.id_producto
-                ? `Detalle de Oferta OP-${String(selectedOferta?.id).padStart(6, '0')}`
-                : `Detalle de Oferta O-${String(selectedOferta?.id).padStart(6, '0')}`}
+                ? `OP-${String(selectedOferta?.id).padStart(6, '0')}`
+                : `O-${String(selectedOferta?.id).padStart(6, '0')}`}
             </DialogTitle>
             <DialogDescription>
-              {selectedOferta?.proyecto_nombre ? `${selectedOferta.proyecto_nombre} - ${selectedOferta.propiedad_nombre}` : selectedOferta?.propiedad_nombre}
+              {selectedOferta?.id_producto
+                ? selectedOferta?.producto_nombre || 'Producto'
+                : (selectedOferta?.proyecto_nombre ? `${selectedOferta.proyecto_nombre} - ${selectedOferta.propiedad_nombre}` : selectedOferta?.propiedad_nombre)}
             </DialogDescription>
           </DialogHeader>
           {selectedOferta && (() => {
@@ -649,59 +673,104 @@ export default function WorkflowOfertas() {
             const precioFinal = selectedOferta.precio || 0;
             const descAumento = selectedOferta.porcentaje_descuento_aumento || 0;
             const precioConAjuste = precioFinal * (1 + descAumento / 100);
+            const isProducto = !!selectedOferta.id_producto;
 
             return (
               <div className="space-y-4">
                 {/* Dates */}
-                <div className="flex gap-4 text-sm">
-                  <div>
+                <div className="flex gap-4 text-sm bg-muted/50 rounded-md px-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-muted-foreground">Creación:</span>{' '}
                     {format(fechaCreacion, 'dd MMM yyyy', { locale: es })}
                   </div>
-                  <div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-muted-foreground">Vigencia:</span>{' '}
                     {format(fechaVigencia, 'dd MMM yyyy', { locale: es })}
                   </div>
                 </div>
 
-                <div className="text-sm space-y-0.5">
-                  <p><span className="text-muted-foreground">Propiedad:</span> {selectedOferta.propiedad_nombre}</p>
-                  <p><span className="text-muted-foreground">Proyecto:</span> {selectedOferta.proyecto_nombre}</p>
-                  {selectedOferta.precio != null && <p><span className="text-muted-foreground">Precio de lista:</span> ${selectedOferta.precio.toLocaleString('es-MX')}</p>}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm mb-1 flex items-center gap-1"><User className="h-4 w-4" /> Prospecto</h4>
-                  <p className="text-sm pl-5">{selectedOferta.lead_nombre}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm mb-1 flex items-center gap-1"><User className="h-4 w-4" /> Agente</h4>
-                  <p className="text-sm pl-5">{selectedOferta.email_creador}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm mb-1 flex items-center gap-1"><FileText className="h-4 w-4" /> Esquema de Pago</h4>
+                {/* Property / Product info */}
+                <div className="border rounded-md p-3 space-y-1">
+                  <h4 className="font-semibold text-sm flex items-center gap-1.5 mb-1">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    {isProducto ? 'Producto' : 'Propiedad'}
+                  </h4>
                   <div className="text-sm space-y-0.5 pl-5">
+                    {isProducto ? (
+                      <>
+                        <p><span className="text-muted-foreground">Nombre:</span> {selectedOferta.producto_nombre || '—'}</p>
+                        <p><span className="text-muted-foreground">Propiedad:</span> {selectedOferta.propiedad_nombre}</p>
+                      </>
+                    ) : (
+                      <p><span className="text-muted-foreground">No. Propiedad:</span> {selectedOferta.propiedad_nombre}</p>
+                    )}
+                    <p><span className="text-muted-foreground">Proyecto:</span> {selectedOferta.proyecto_nombre || '—'}</p>
+                    {precioFinal > 0 && <p><span className="text-muted-foreground">Precio de lista:</span> ${precioFinal.toLocaleString('es-MX')}</p>}
+                  </div>
+                </div>
+
+                {/* Prospecto & Agente */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="border rounded-md p-3">
+                    <h4 className="font-semibold text-sm flex items-center gap-1.5 mb-1">
+                      <User className="h-4 w-4 text-primary" /> Prospecto
+                    </h4>
+                    <p className="text-sm pl-5 truncate">{selectedOferta.lead_nombre}</p>
+                  </div>
+                  <div className="border rounded-md p-3">
+                    <h4 className="font-semibold text-sm flex items-center gap-1.5 mb-1">
+                      <User className="h-4 w-4 text-primary" /> Agente
+                    </h4>
+                    <p className="text-sm pl-5 truncate">{selectedOferta.email_creador}</p>
+                  </div>
+                </div>
+
+                {/* Esquema de Pago */}
+                <div className="border rounded-md p-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-1.5 mb-2">
+                    <DollarSign className="h-4 w-4 text-primary" /> Esquema de Pago
+                  </h4>
+                  <div className="text-sm space-y-1 pl-5">
                     {!selectedOferta.id_esquema_pago_seleccionado ? (
-                      <p className="text-muted-foreground">Sin esquema seleccionado</p>
+                      <p className="text-muted-foreground italic">Sin esquema seleccionado</p>
                     ) : (
                       <>
                         {selectedOferta.esquema_nombre && !selectedOferta.esquema_es_manual && (
-                          <p><span className="text-muted-foreground">Esquema:</span> {selectedOferta.esquema_nombre}</p>
+                          <p className="font-medium mb-1">{selectedOferta.esquema_nombre}</p>
                         )}
-                        {selectedOferta.porcentaje_enganche != null && selectedOferta.porcentaje_enganche > 0 && (
-                          <p><span className="text-muted-foreground">Enganche:</span> {selectedOferta.porcentaje_enganche}% — ${(precioConAjuste * selectedOferta.porcentaje_enganche / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</p>
-                        )}
-                        {selectedOferta.porcentaje_mensualidades != null && selectedOferta.porcentaje_mensualidades > 0 && (
-                          <p><span className="text-muted-foreground">Mensualidades:</span> {selectedOferta.porcentaje_mensualidades}% — ${(precioConAjuste * selectedOferta.porcentaje_mensualidades / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })} ({selectedOferta.numero_mensualidades} meses)</p>
-                        )}
-                        {selectedOferta.porcentaje_entrega != null && selectedOferta.porcentaje_entrega > 0 && (
-                          <p><span className="text-muted-foreground">Entrega:</span> {selectedOferta.porcentaje_entrega}% — ${(precioConAjuste * selectedOferta.porcentaje_entrega / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</p>
-                        )}
-                        {descAumento !== 0 && (
-                          <p><span className="text-muted-foreground">{descAumento > 0 ? 'Incremento' : 'Descuento'}:</span> {Math.abs(descAumento)}% — ${Math.abs(precioFinal * descAumento / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</p>
-                        )}
+                        <div className="space-y-1 bg-muted/30 rounded-md p-2">
+                          {selectedOferta.porcentaje_enganche != null && selectedOferta.porcentaje_enganche > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Enganche ({selectedOferta.porcentaje_enganche}%)</span>
+                              <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_enganche / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                          )}
+                          {selectedOferta.porcentaje_mensualidades != null && selectedOferta.porcentaje_mensualidades > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Mensualidades ({selectedOferta.porcentaje_mensualidades}%) · {selectedOferta.numero_mensualidades} meses</span>
+                              <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_mensualidades / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                          )}
+                          {selectedOferta.porcentaje_entrega != null && selectedOferta.porcentaje_entrega > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">Entrega ({selectedOferta.porcentaje_entrega}%)</span>
+                              <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_entrega / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                          )}
+                          {descAumento !== 0 && (
+                            <div className="flex justify-between items-center border-t pt-1 mt-1">
+                              <span className={descAumento < 0 ? 'text-green-600' : 'text-destructive'}>{descAumento > 0 ? 'Incremento' : 'Descuento'} ({Math.abs(descAumento)}%)</span>
+                              <span className={`font-medium ${descAumento < 0 ? 'text-green-600' : 'text-destructive'}`}>{descAumento < 0 ? '-' : '+'}${Math.abs(precioFinal * descAumento / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
-                    {selectedOferta.comentario_justificacion && <p className="italic text-muted-foreground mt-1">"{selectedOferta.comentario_justificacion}"</p>}
+                    {selectedOferta.comentario_justificacion && (
+                      <p className="italic text-muted-foreground mt-2 text-xs border-l-2 pl-2">"{selectedOferta.comentario_justificacion}"</p>
+                    )}
                   </div>
                 </div>
                 {selectedOferta.stage !== 'cierre' && selectedOferta.stage !== 'expiradas' && (
