@@ -46,33 +46,26 @@ export default function DashboardEjecutivo() {
   const [selectedAgentes, setSelectedAgentes] = useState<string[]>([]);
   const [proyectos, setProyectos] = useState<{ id: number; nombre: string }[]>([]);
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
+  const inmobIdByEmailRef = useRef(new Map<string, number>());
+  const agentNamesByEmailRef = useRef(new Map<string, string>());
 
   const isSuperAdmin = profile?.rol_nombre === 'Super Administrador';
   const isInmobiliaria = profile?.rol_id === 4;
   const isAgente = profile?.rol_id === 3 || profile?.rol_id === 9;
 
   useEffect(() => {
-    if (!profile) return;
-    const loadFilters = async () => {
-      if (isSuperAdmin) {
-        const { data } = await (supabase.from('personas' as any).select('id, nombre, apellido_paterno').eq('activo', true).eq('id_tipo_persona', 4));
-        if (data) setInmobiliarias(data.map((i: any) => ({ id: i.id, nombre: `${i.nombre} ${i.apellido_paterno || ''}`.trim() })));
-      }
-      if (isSuperAdmin) {
-        const { data } = await supabase.from('proyectos').select('id, nombre').eq('activo', true).order('nombre');
-        if (data) setProyectos(data);
-      } else {
-        const { data } = await supabase.from('proyectos_acceso').select('proyecto_id').eq('usuario_id', profile.email).eq('activo', true) as any;
-        if (data) {
-          const ids = data.map((a: any) => a.proyecto_id).filter(Boolean);
-          if (ids.length > 0) {
-            const { data: projs } = await supabase.from('proyectos').select('id, nombre').in('id', ids).eq('activo', true);
-            if (projs) { setProyectos(projs); if (projs.length === 1) setSelectedProyectos([String(projs[0].id)]); }
-          }
+    if (!profile || isSuperAdmin) return;
+    const loadProjectAccess = async () => {
+      const { data } = await supabase.from('proyectos_acceso').select('proyecto_id').eq('usuario_id', profile.email).eq('activo', true) as any;
+      if (data) {
+        const ids = data.map((a: any) => a.proyecto_id).filter(Boolean);
+        if (ids.length > 0) {
+          const { data: projs } = await supabase.from('proyectos').select('id, nombre').in('id', ids).eq('activo', true);
+          if (projs) { setProyectos(projs); if (projs.length === 1) setSelectedProyectos([String(projs[0].id)]); }
         }
       }
     };
-    loadFilters();
+    loadProjectAccess();
   }, [profile, isSuperAdmin]);
 
   useEffect(() => {
@@ -110,12 +103,9 @@ export default function DashboardEjecutivo() {
 
       if (isAgente) query = query.eq('email_creador', profile.email);
       else if (isInmobiliaria && agentes.length > 0) {
-        const emails = selectedAgentes.length > 0 ? selectedAgentes : agentes.map(a => a.email);
-        query = query.in('email_creador', emails);
-      } else if (isSuperAdmin) {
-        if (selectedAgentes.length > 0) query = query.in('email_creador', selectedAgentes);
-        else if (selectedInmobiliaria !== 'all' && agentes.length > 0) query = query.in('email_creador', agentes.map(a => a.email));
+        query = query.in('email_creador', agentes.map(a => a.email));
       }
+      // Super admin: load all, filter client-side
 
       const { data: ofertasData } = await query;
       if (!ofertasData) { setOfertas([]); setLoading(false); return; }
@@ -152,25 +142,111 @@ export default function DashboardEjecutivo() {
         return { ...o, proyecto_id: projId, proyecto_nombre: projId ? proyectoMap.get(projId)?.nombre : '', precio: prop?.precio_lista, estatus_disponibilidad: prop?.id_estatus_disponibilidad };
       });
 
-      let filtered = enriched;
-      if (selectedProyectos.length > 0) {
-        const ids = selectedProyectos.map(Number);
-        filtered = filtered.filter(o => o.proyecto_id && ids.includes(o.proyecto_id));
+      // For super admin: resolve agents and inmobiliarias from offer data
+      if (isSuperAdmin) {
+        const uniqueEmails = [...new Set(ofertasData.map((o: any) => o.email_creador).filter(Boolean))] as string[];
+        const inmobIdByEmail = new Map<string, number>();
+        const agentNames = new Map<string, string>();
+        if (uniqueEmails.length > 0) {
+          const { data: usrData } = await supabase.from('usuarios').select('email, id_persona').in('email', uniqueEmails).eq('activo', true) as any;
+          if (usrData && usrData.length > 0) {
+            const emailToPersona = new Map<string, number>();
+            usrData.forEach((u: any) => { if (u.id_persona) emailToPersona.set(u.email, u.id_persona); });
+            const agentPersonaIds = [...new Set(usrData.map((u: any) => u.id_persona).filter(Boolean))] as number[];
+            if (agentPersonaIds.length > 0) {
+              const [persRes, erRes] = await Promise.all([
+                supabase.from('personas').select('id, nombre, apellido_paterno').in('id', agentPersonaIds) as any,
+                supabase.from('entidades_relacionadas').select('id_persona, id_persona_duena_lead').in('id_persona', agentPersonaIds).eq('id_tipo_entidad', 19).eq('activo', true) as any,
+              ]);
+              const pm = new Map<number, string>();
+              (persRes.data || []).forEach((p: any) => pm.set(p.id, `${p.nombre} ${p.apellido_paterno || ''}`.trim()));
+              emailToPersona.forEach((pid, email) => { const n = pm.get(pid); if (n) agentNames.set(email, n); });
+              if (erRes.data && erRes.data.length > 0) {
+                const personaToOwner = new Map<number, number>();
+                erRes.data.forEach((er: any) => personaToOwner.set(er.id_persona, er.id_persona_duena_lead));
+                const ownerIds = [...new Set(erRes.data.map((er: any) => er.id_persona_duena_lead).filter(Boolean))] as number[];
+                if (ownerIds.length > 0) {
+                  const { data: inmobPersonas } = await supabase.from('personas').select('id, nombre_comercial, nombre_legal').in('id', ownerIds) as any;
+                  const ownerMap = new Map<number, string>();
+                  (inmobPersonas || []).forEach((p: any) => ownerMap.set(p.id, p.nombre_comercial || p.nombre_legal || ''));
+                  emailToPersona.forEach((personaId, email) => {
+                    const ownerId = personaToOwner.get(personaId);
+                    if (ownerId) inmobIdByEmail.set(email, ownerId);
+                  });
+                  const inmobSet = new Map<number, { id: number; nombre: string }>();
+                  inmobIdByEmail.forEach((ownerId) => {
+                    const nombre = ownerMap.get(ownerId);
+                    if (nombre) inmobSet.set(ownerId, { id: ownerId, nombre });
+                  });
+                  setInmobiliarias(Array.from(inmobSet.values()).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+                }
+              }
+            }
+          }
+        }
+        inmobIdByEmailRef.current = inmobIdByEmail;
+        agentNamesByEmailRef.current = agentNames;
       }
-      setOfertas(filtered);
+
+      // Derive available proyectos
+      if (isSuperAdmin) {
+        const proySet = new Map<number, { id: number; nombre: string }>();
+        enriched.forEach(o => {
+          if (o.proyecto_id && o.proyecto_nombre) {
+            proySet.set(o.proyecto_id, { id: o.proyecto_id, nombre: o.proyecto_nombre });
+          }
+        });
+        setProyectos(Array.from(proySet.values()).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      }
+
+      setOfertas(enriched);
     } catch (err) { console.error(err); toast.error('Error cargando datos'); }
     finally { setLoading(false); }
-  }, [profile, isAgente, isInmobiliaria, isSuperAdmin, agentes, selectedAgentes, selectedInmobiliaria, selectedProyectos]);
+  }, [profile, isAgente, isInmobiliaria, isSuperAdmin, agentes]);
 
   const hasLoadedRef = useRef(false);
   const prevDepsRef = useRef<string>('');
   useEffect(() => {
-    const depsKey = JSON.stringify({ isAgente, isInmobiliaria, isSuperAdmin, selectedAgentes, selectedInmobiliaria, selectedProyectos, agentesLen: agentes.length });
+    const depsKey = JSON.stringify({ isAgente, isInmobiliaria, isSuperAdmin, agentesLen: agentes.length });
     if (hasLoadedRef.current && depsKey === prevDepsRef.current) return;
     prevDepsRef.current = depsKey;
     hasLoadedRef.current = true;
     loadData();
   }, [loadData]);
+
+  // Derive available agentes for super admin
+  const availableAgentes = useMemo(() => {
+    if (!isSuperAdmin) return agentes;
+    let source = ofertas;
+    if (selectedInmobiliaria !== 'all') {
+      const inmobId = Number(selectedInmobiliaria);
+      source = source.filter(o => inmobIdByEmailRef.current.get(o.email_creador) === inmobId);
+    }
+    const map = new Map<string, string>();
+    source.forEach(o => {
+      if (!map.has(o.email_creador)) {
+        map.set(o.email_creador, agentNamesByEmailRef.current.get(o.email_creador) || o.email_creador);
+      }
+    });
+    return Array.from(map.entries()).map(([email, nombre]) => ({ email, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [ofertas, isSuperAdmin, selectedInmobiliaria, agentes]);
+
+  // Client-side filtering
+  const filteredOfertas = useMemo(() => {
+    let result = ofertas;
+    if (isSuperAdmin && selectedInmobiliaria !== 'all') {
+      const inmobId = Number(selectedInmobiliaria);
+      result = result.filter(o => inmobIdByEmailRef.current.get(o.email_creador) === inmobId);
+    }
+    if (selectedAgentes.length > 0) {
+      result = result.filter(o => selectedAgentes.includes(o.email_creador));
+    }
+    if (selectedProyectos.length > 0) {
+      const projIds = selectedProyectos.map(Number);
+      result = result.filter(o => o.proyecto_id && projIds.includes(o.proyecto_id));
+    }
+    return result;
+  }, [ofertas, isSuperAdmin, selectedInmobiliaria, selectedAgentes, selectedProyectos]);
 
   const stageSummary = useMemo(() => {
     const stages = [
@@ -181,31 +257,34 @@ export default function DashboardEjecutivo() {
       { label: 'En Revisión', filter: (o: OfertaData) => !!o.id_esquema_pago_seleccionado && o.id_estatus_aprobacion === 4 && isVigente(o.fecha_generacion), color: '#8b5cf6' },
       { label: 'Vendidas', filter: (o: OfertaData) => o.estatus_disponibilidad === 5, color: '#059669' },
     ];
-    return stages.map(s => ({ label: s.label, count: ofertas.filter(s.filter).length, color: s.color }));
-  }, [ofertas]);
+    return stages.map(s => ({ label: s.label, count: filteredOfertas.filter(s.filter).length, color: s.color }));
+  }, [filteredOfertas]);
 
   const byProject = useMemo(() => {
     const map = new Map<string, number>();
-    ofertas.forEach(o => { const n = o.proyecto_nombre || 'Sin proyecto'; map.set(n, (map.get(n) || 0) + 1); });
+    filteredOfertas.forEach(o => { const n = o.proyecto_nombre || 'Sin proyecto'; map.set(n, (map.get(n) || 0) + 1); });
     return Array.from(map.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-  }, [ofertas]);
+  }, [filteredOfertas]);
 
   const byAgent = useMemo(() => {
     const map = new Map<string, number>();
-    ofertas.forEach(o => { const a = agentes.find(ag => ag.email === o.email_creador); const n = a?.nombre || o.email_creador; map.set(n, (map.get(n) || 0) + 1); });
+    filteredOfertas.forEach(o => {
+      const n = agentNamesByEmailRef.current.get(o.email_creador) || availableAgentes.find(a => a.email === o.email_creador)?.nombre || o.email_creador;
+      map.set(n, (map.get(n) || 0) + 1);
+    });
     return Array.from(map.entries()).map(([name, count]) => ({ name: name.length > 20 ? name.substring(0, 20) + '...' : name, count })).sort((a, b) => b.count - a.count).slice(0, 10);
-  }, [ofertas, agentes]);
+  }, [filteredOfertas, availableAgentes]);
 
   const potentialValue = useMemo(() => {
     const byProp = new Map<number, number>();
-    ofertas.filter(o => o.id_esquema_pago_seleccionado && o.precio && o.id_propiedad).forEach(o => {
+    filteredOfertas.filter(o => o.id_esquema_pago_seleccionado && o.precio && o.id_propiedad).forEach(o => {
       const cur = byProp.get(o.id_propiedad!) || 0;
       if (o.precio! > cur) byProp.set(o.id_propiedad!, o.precio!);
     });
     return Array.from(byProp.values()).reduce((s, v) => s + v, 0);
-  }, [ofertas]);
+  }, [filteredOfertas]);
 
-  const soldOffers = useMemo(() => ofertas.filter(o => o.estatus_disponibilidad === 5), [ofertas]);
+  const soldOffers = useMemo(() => filteredOfertas.filter(o => o.estatus_disponibilidad === 5), [filteredOfertas]);
   const soldValue = useMemo(() => {
     const byProp = new Map<number, number>();
     soldOffers.filter(o => o.precio && o.id_propiedad).forEach(o => {
@@ -216,10 +295,10 @@ export default function DashboardEjecutivo() {
   }, [soldOffers]);
 
   // MultiSelectFilter adapters
-  const agenteOptions = agentes.map(a => a.nombre || a.email);
+  const agenteOptions = availableAgentes.map(a => a.nombre || a.email);
   const agenteNameToEmail = new Map<string, string>();
-  agentes.forEach(a => agenteNameToEmail.set(a.nombre || a.email, a.email));
-  const selectedAgenteNames = selectedAgentes.map(email => agentes.find(a => a.email === email)?.nombre || email);
+  availableAgentes.forEach(a => agenteNameToEmail.set(a.nombre || a.email, a.email));
+  const selectedAgenteNames = selectedAgentes.map(email => availableAgentes.find(a => a.email === email)?.nombre || email);
 
   const proyectoOptions = proyectos.map(p => p.nombre);
   const proyNameToId = new Map<string, string>();
@@ -245,7 +324,7 @@ export default function DashboardEjecutivo() {
                 </Select>
               </div>
             )}
-            {(isSuperAdmin || isInmobiliaria) && agentes.length > 0 && (
+            {(isSuperAdmin || isInmobiliaria) && availableAgentes.length > 0 && (
               <div className="min-w-[200px]">
                 <label className="text-sm font-medium mb-1 block">Agentes</label>
                 <MultiSelectFilter options={agenteOptions} values={selectedAgenteNames}

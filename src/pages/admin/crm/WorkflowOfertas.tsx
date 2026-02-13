@@ -114,46 +114,33 @@ export default function WorkflowOfertas() {
   const [selectedAgentes, setSelectedAgentes] = useState<string[]>([]);
   const [proyectos, setProyectos] = useState<{ id: number; nombre: string }[]>([]);
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
+  const inmobIdByEmailRef = useRef(new Map<string, number>());
 
   const isSuperAdmin = profile?.rol_nombre === 'Super Administrador';
   const isInmobiliaria = profile?.rol_id === 4;
   const isAgente = profile?.rol_id === 3 || profile?.rol_id === 9;
 
-  // Load filters
+  // Load project access for non-super-admin roles
   useEffect(() => {
-    if (!profile) return;
-    const loadFilters = async () => {
-      if (isSuperAdmin) {
-        const { data } = await (supabase
-          .from('personas' as any)
-          .select('id, nombre_legal, nombre_comercial')
-          .eq('activo', true)
-          .eq('id_tipo_persona', 4));
-        if (data) setInmobiliarias(data.map((i: any) => ({ id: i.id, nombre: i.nombre_comercial || i.nombre_legal || 'Sin nombre' })));
-      }
-
-      if (isSuperAdmin) {
-        const { data } = await supabase.from('proyectos').select('id, nombre').eq('activo', true).order('nombre');
-        if (data) setProyectos(data);
-      } else {
-        const { data } = await supabase
-          .from('proyectos_acceso')
-          .select('proyecto_id')
-          .eq('usuario_id', profile.email)
-          .eq('activo', true) as any;
-        if (data) {
-          const projIds = data.map((a: any) => a.proyecto_id).filter(Boolean);
-          if (projIds.length > 0) {
-            const { data: projs } = await supabase.from('proyectos').select('id, nombre').in('id', projIds).eq('activo', true);
-            if (projs) {
-              setProyectos(projs);
-              if (projs.length === 1) setSelectedProyectos([String(projs[0].id)]);
-            }
+    if (!profile || isSuperAdmin) return;
+    const loadProjectAccess = async () => {
+      const { data } = await supabase
+        .from('proyectos_acceso')
+        .select('proyecto_id')
+        .eq('usuario_id', profile.email)
+        .eq('activo', true) as any;
+      if (data) {
+        const projIds = data.map((a: any) => a.proyecto_id).filter(Boolean);
+        if (projIds.length > 0) {
+          const { data: projs } = await supabase.from('proyectos').select('id, nombre').in('id', projIds).eq('activo', true);
+          if (projs) {
+            setProyectos(projs);
+            if (projs.length === 1) setSelectedProyectos([String(projs[0].id)]);
           }
         }
       }
     };
-    loadFilters();
+    loadProjectAccess();
   }, [profile, isSuperAdmin]);
 
   // Load agentes
@@ -214,12 +201,9 @@ export default function WorkflowOfertas() {
 
       if (isAgente) query = query.eq('email_creador', profile.email);
       else if (isInmobiliaria && agentes.length > 0) {
-        const emails = selectedAgentes.length > 0 ? selectedAgentes : agentes.map(a => a.email);
-        query = query.in('email_creador', emails);
-      } else if (isSuperAdmin) {
-        if (selectedAgentes.length > 0) query = query.in('email_creador', selectedAgentes);
-        else if (selectedInmobiliaria !== 'all' && agentes.length > 0) query = query.in('email_creador', agentes.map(a => a.email));
+        query = query.in('email_creador', agentes.map(a => a.email));
       }
+      // Super admin: load all ofertas, filter client-side
 
       const { data: ofertasData, error } = await query;
       if (error) { console.error(error); toast.error('Error al cargar ofertas'); setLoading(false); return; }
@@ -321,6 +305,7 @@ export default function WorkflowOfertas() {
       // Get inmobiliaria and agent name for each email_creador
       const uniqueEmails = [...new Set(ofertasData.map((o: any) => o.email_creador).filter(Boolean))] as string[];
       const inmobByEmail = new Map<string, string>();
+      const inmobIdByEmail = new Map<string, number>();
       const agentNameByEmail = new Map<string, { nombre: string; telefono: string }>();
       if (uniqueEmails.length > 0) {
         const { data: usrData } = await supabase
@@ -370,6 +355,7 @@ export default function WorkflowOfertas() {
                 emailToPersona.forEach((personaId, email) => {
                   const ownerId = personaToOwner.get(personaId);
                   if (ownerId) {
+                    inmobIdByEmail.set(email, ownerId);
                     const inmobNombre = ownerMap.get(ownerId);
                     if (inmobNombre) inmobByEmail.set(email, inmobNombre);
                   }
@@ -442,41 +428,95 @@ export default function WorkflowOfertas() {
         return card;
       });
 
-      let filtered = enriched;
-      if (selectedProyectos.length > 0) {
-        const projIds = selectedProyectos.map(Number);
-        filtered = filtered.filter(o => o.proyecto_id && projIds.includes(o.proyecto_id));
+      // Store inmob mapping for client-side filtering
+      inmobIdByEmailRef.current = inmobIdByEmail;
+
+      // Derive available inmobiliarias from enriched data (super admin)
+      if (isSuperAdmin) {
+        const inmobSet = new Map<number, { id: number; nombre: string }>();
+        enriched.forEach(o => {
+          const ownerId = inmobIdByEmail.get(o.email_creador);
+          if (ownerId && o.inmobiliaria_nombre && o.inmobiliaria_nombre !== 'Interno') {
+            inmobSet.set(ownerId, { id: ownerId, nombre: o.inmobiliaria_nombre });
+          }
+        });
+        setInmobiliarias(Array.from(inmobSet.values()).sort((a, b) => a.nombre.localeCompare(b.nombre)));
       }
 
-      setOfertas(filtered);
+      // Derive available proyectos from enriched data
+      if (isSuperAdmin) {
+        const proySet = new Map<number, { id: number; nombre: string }>();
+        enriched.forEach(o => {
+          if (o.proyecto_id && o.proyecto_nombre) {
+            proySet.set(o.proyecto_id, { id: o.proyecto_id, nombre: o.proyecto_nombre });
+          }
+        });
+        setProyectos(Array.from(proySet.values()).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      }
+
+      setOfertas(enriched);
     } catch (err) {
       console.error(err);
       toast.error('Error al cargar ofertas');
     } finally {
       setLoading(false);
     }
-  }, [profile, isAgente, isInmobiliaria, isSuperAdmin, agentes, selectedAgentes, selectedInmobiliaria, selectedProyectos]);
+  }, [profile, isAgente, isInmobiliaria, isSuperAdmin, agentes]);
 
   const hasLoadedRef = useRef(false);
   const prevDepsRef = useRef<string>('');
   useEffect(() => {
-    const depsKey = JSON.stringify({ isAgente, isInmobiliaria, isSuperAdmin, selectedAgentes, selectedInmobiliaria, selectedProyectos, agentesLen: agentes.length });
+    const depsKey = JSON.stringify({ isAgente, isInmobiliaria, isSuperAdmin, agentesLen: agentes.length });
     if (hasLoadedRef.current && depsKey === prevDepsRef.current) return;
     prevDepsRef.current = depsKey;
     hasLoadedRef.current = true;
     loadOfertas();
   }, [loadOfertas]);
 
+  // Derive available agentes from loaded ofertas (super admin)
+  const availableAgentes = useMemo(() => {
+    if (!isSuperAdmin) return agentes;
+    let source = ofertas;
+    if (selectedInmobiliaria !== 'all') {
+      const inmobId = Number(selectedInmobiliaria);
+      source = source.filter(o => inmobIdByEmailRef.current.get(o.email_creador) === inmobId);
+    }
+    const map = new Map<string, string>();
+    source.forEach(o => {
+      if (!map.has(o.email_creador)) {
+        map.set(o.email_creador, o.agente_nombre || o.email_creador);
+      }
+    });
+    return Array.from(map.entries()).map(([email, nombre]) => ({ email, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [ofertas, isSuperAdmin, selectedInmobiliaria, agentes]);
+
+  // Client-side filtering
+  const filteredOfertas = useMemo(() => {
+    let result = ofertas;
+    if (isSuperAdmin && selectedInmobiliaria !== 'all') {
+      const inmobId = Number(selectedInmobiliaria);
+      result = result.filter(o => inmobIdByEmailRef.current.get(o.email_creador) === inmobId);
+    }
+    if (selectedAgentes.length > 0) {
+      result = result.filter(o => selectedAgentes.includes(o.email_creador));
+    }
+    if (selectedProyectos.length > 0) {
+      const projIds = selectedProyectos.map(Number);
+      result = result.filter(o => o.proyecto_id && projIds.includes(o.proyecto_id));
+    }
+    return result;
+  }, [ofertas, isSuperAdmin, selectedInmobiliaria, selectedAgentes, selectedProyectos]);
+
   const ofertasByStage = useMemo(() => {
     const groups: Record<string, OfertaCard[]> = {};
     STAGES.forEach(s => { groups[s.key] = []; });
-    ofertas.forEach(o => { if (o.stage && groups[o.stage]) groups[o.stage].push(o); });
+    filteredOfertas.forEach(o => { if (o.stage && groups[o.stage]) groups[o.stage].push(o); });
 
     // Deduplicate "cierre": only offers with cuenta_cobranza, one per property/product
     if (groups['cierre'] && groups['cierre'].length > 0) {
       const seen = new Set<string>();
       groups['cierre'] = groups['cierre']
-        .filter(o => !!o.cuenta_cobranza_id) // must have active cuenta_cobranza
+        .filter(o => !!o.cuenta_cobranza_id)
         .filter(o => {
           const key = o.id_producto
             ? `prod-${o.id_producto}-${o.id_propiedad || 'none'}`
@@ -488,7 +528,7 @@ export default function WorkflowOfertas() {
     }
 
     return groups;
-  }, [ofertas]);
+  }, [filteredOfertas]);
 
   // Auto-collapse empty columns, auto-expand when they get offers
   useEffect(() => {
@@ -536,10 +576,10 @@ export default function WorkflowOfertas() {
   };
 
   // Build agent label map for filter display
-  const agenteOptions = agentes.map(a => a.nombre || a.email);
+  const agenteOptions = availableAgentes.map(a => a.nombre || a.email);
   const agenteNameToEmail = new Map<string, string>();
-  agentes.forEach(a => agenteNameToEmail.set(a.nombre || a.email, a.email));
-  const selectedAgenteNames = selectedAgentes.map(email => agentes.find(a => a.email === email)?.nombre || email);
+  availableAgentes.forEach(a => agenteNameToEmail.set(a.nombre || a.email, a.email));
+  const selectedAgenteNames = selectedAgentes.map(email => availableAgentes.find(a => a.email === email)?.nombre || email);
 
   const proyectoOptions = proyectos.map(p => p.nombre);
   const proyNameToId = new Map<string, string>();
@@ -567,7 +607,7 @@ export default function WorkflowOfertas() {
               </div>
             )}
 
-            {(isSuperAdmin || isInmobiliaria) && agentes.length > 0 && (
+            {(isSuperAdmin || isInmobiliaria) && availableAgentes.length > 0 && (
               <div className="min-w-[200px]">
                 <label className="text-sm font-medium mb-1 block">Agentes</label>
                 <MultiSelectFilter
