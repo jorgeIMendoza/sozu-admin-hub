@@ -18,6 +18,7 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { Badge } from "@/components/ui/badge";
 
 type Agente = {
   id: number;
