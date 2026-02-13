@@ -37,6 +37,7 @@ type Agente = {
   usuario_rol_id?: number | null;
   usuario_rol_nombre?: string | null;
   usuario_activo?: boolean | null;
+  porcentaje_comision?: number | null;
 };
 
 // Role IDs for agents
@@ -85,7 +86,8 @@ export default function Agentes() {
           entidades_relacionadas!entidades_relacionadas_id_persona_fkey!inner (
             id,
             id_tipo_entidad,
-            id_persona_duena_lead
+            id_persona_duena_lead,
+            porcentaje_comision
           ),
           representante_legal:entidades_relacionadas!fk_personas_entidad_relacionada_rep_leg (
             id,
@@ -167,6 +169,7 @@ export default function Agentes() {
         usuario_rol_id: userRolesMap[item.id]?.rol_id || null,
         usuario_rol_nombre: userRolesMap[item.id]?.rol_nombre || null,
         usuario_activo: userRolesMap[item.id]?.activo ?? null,
+        porcentaje_comision: item.entidades_relacionadas[0]?.porcentaje_comision ?? null,
       })) as (Agente & { entidad_relacionada_id: number; id_tipo_entidad: number })[];
     },
   });
@@ -278,7 +281,7 @@ export default function Agentes() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, porcentaje_comision, ...cleanPersonData } = personData;
       
       const { data: personResult, error: personError } = await supabase
         .from('personas')
@@ -288,6 +291,8 @@ export default function Agentes() {
       
       if (personError) throw personError;
       
+      const isInternalAgent = cleanPersonData.email?.toLowerCase().endsWith('@sozu.com');
+      
       const { data: entidadResult, error: entidadError } = await supabase
         .from('entidades_relacionadas')
         .insert([{
@@ -295,6 +300,7 @@ export default function Agentes() {
           id_tipo_entidad: 19, // Agente
           id_proyecto: null,
           id_persona_duena_lead: inmobiliariaId || null,
+          porcentaje_comision: isInternalAgent ? (porcentaje_comision || 0) : null,
           activo: true
         }])
         .select()
@@ -312,7 +318,6 @@ export default function Agentes() {
       }
 
       // Determinar rol basado en el dominio del email
-      const isInternalAgent = cleanPersonData.email?.toLowerCase().endsWith('@sozu.com');
       const rolId = isInternalAgent ? 9 : 3; // 9 = Agente Interno, 3 = Agente Inmobiliario
 
       // Crear usuario automáticamente
@@ -363,7 +368,7 @@ export default function Agentes() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, ...cleanPersonData } = personData;
+      const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, porcentaje_comision, ...cleanPersonData } = personData;
       
       const { error: updateError } = await supabase
         .from('personas')
@@ -381,14 +386,19 @@ export default function Agentes() {
         if (repError) throw repError;
       }
 
-      // Update inmobiliaria on entidades_relacionadas
-      if (inmobiliariaId !== undefined && (editingAgente as any)?.entidad_relacionada_id) {
-        const { error: inmobError } = await supabase
-          .from('entidades_relacionadas')
-          .update({ id_persona_duena_lead: inmobiliariaId || null })
-          .eq('id', (editingAgente as any).entidad_relacionada_id);
-          
-        if (inmobError) throw inmobError;
+      // Update inmobiliaria and porcentaje_comision on entidades_relacionadas
+      if ((editingAgente as any)?.entidad_relacionada_id) {
+        const updateData: any = {};
+        if (inmobiliariaId !== undefined) updateData.id_persona_duena_lead = inmobiliariaId || null;
+        if (porcentaje_comision !== undefined) updateData.porcentaje_comision = porcentaje_comision;
+        
+        if (Object.keys(updateData).length > 0) {
+          const { error: inmobError } = await supabase
+            .from('entidades_relacionadas')
+            .update(updateData)
+            .eq('id', (editingAgente as any).entidad_relacionada_id);
+          if (inmobError) throw inmobError;
+        }
       }
     },
     onSuccess: (_, variables: any) => {
@@ -633,6 +643,7 @@ export default function Agentes() {
               <TableHead className="font-semibold text-foreground">Tipo persona</TableHead>
               <TableHead className="font-semibold text-foreground">RFC</TableHead>
               <TableHead className="font-semibold text-foreground">Inmobiliaria</TableHead>
+              <TableHead className="font-semibold text-foreground">Comisión (%)</TableHead>
               <TableHead className="font-semibold text-foreground">Representante legal</TableHead>
               <TableHead className="font-semibold text-foreground text-center">Acciones</TableHead>
             </TableRow>
@@ -692,6 +703,13 @@ export default function Agentes() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agente.inmobiliaria_nombre || 'N/A'}
+                </TableCell>
+                <TableCell>
+                  {agente.usuario_rol_id === ROLE_AGENTE_INTERNO && agente.porcentaje_comision != null ? (
+                    <Badge variant="secondary" className="text-sm">{agente.porcentaje_comision}%</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agente.representante_legal_nombre || 'N/A'}

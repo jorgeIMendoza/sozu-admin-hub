@@ -264,46 +264,96 @@ serve(async (req) => {
 
     console.log('✅ Oferta creada:', oferta.id);
 
-    // 7. Buscar porcentaje de comisión de la inmobiliaria del agente vendedor
+    // 7. Buscar porcentaje de comisión de la Inmobiliaria legal entity del proyecto
     let porcentajeComisionVenta = 0;
     try {
-      // Buscar el usuario por email
+      const { data: inmobiliariaEntity } = await supabase
+        .from('entidades_relacionadas')
+        .select('porcentaje_comision')
+        .eq('id_proyecto', proyecto.id)
+        .eq('id_tipo_entidad', 5) // Inmobiliaria
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (inmobiliariaEntity?.porcentaje_comision != null) {
+        porcentajeComisionVenta = inmobiliariaEntity.porcentaje_comision;
+        console.log('📊 Porcentaje de comisión de la Inmobiliaria del proyecto:', porcentajeComisionVenta);
+      }
+    } catch (comisionError) {
+      console.error('⚠️ Error al buscar comisión de inmobiliaria del proyecto:', comisionError);
+    }
+
+    // 7b. Determinar el agente vendedor y su tipo para comisionistas
+    let agenteComisionData: { email: string; porcentaje: number; esInmobiliaria: boolean; emailInmobiliaria?: string } | null = null;
+    try {
       const { data: usuarioData } = await supabase
         .from('usuarios')
-        .select('id_persona')
+        .select('id_persona, rol_id, email')
         .eq('email', email_usuario)
         .eq('activo', true)
         .maybeSingle();
 
       if (usuarioData?.id_persona) {
-        // Buscar si es agente (tipo 19) y obtener su inmobiliaria (id_persona_duena_lead)
-        const { data: agenteData } = await supabase
-          .from('entidades_relacionadas')
-          .select('id_persona_duena_lead')
-          .eq('id_persona', usuarioData.id_persona)
-          .eq('id_tipo_entidad', 19)
-          .eq('activo', true)
-          .maybeSingle();
-
-        if (agenteData?.id_persona_duena_lead) {
-          // Buscar la inmobiliaria (tipo 5) para obtener porcentaje_comision
-          const { data: inmobiliariaData } = await supabase
+        if (usuarioData.rol_id === 9) {
+          // Agente Interno (Sozu) - usar su propio porcentaje_comision
+          const { data: agenteEntity } = await supabase
             .from('entidades_relacionadas')
             .select('porcentaje_comision')
-            .eq('id_persona', agenteData.id_persona_duena_lead)
-            .eq('id_tipo_entidad', 5)
+            .eq('id_persona', usuarioData.id_persona)
+            .eq('id_tipo_entidad', 19)
             .eq('activo', true)
             .maybeSingle();
 
-          if (inmobiliariaData?.porcentaje_comision != null) {
-            porcentajeComisionVenta = inmobiliariaData.porcentaje_comision;
-            console.log('📊 Porcentaje de comisión de inmobiliaria:', porcentajeComisionVenta);
+          const porcentajeAgente = agenteEntity?.porcentaje_comision || 0;
+          if (porcentajeAgente > 0) {
+            agenteComisionData = {
+              email: email_usuario,
+              porcentaje: porcentajeAgente,
+              esInmobiliaria: false
+            };
+          }
+          console.log('📊 Agente interno detectado con porcentaje:', porcentajeAgente);
+        } else if (usuarioData.rol_id === 3) {
+          // Agente Inmobiliario - buscar su inmobiliaria
+          const { data: agenteData } = await supabase
+            .from('entidades_relacionadas')
+            .select('id_persona_duena_lead')
+            .eq('id_persona', usuarioData.id_persona)
+            .eq('id_tipo_entidad', 19)
+            .eq('activo', true)
+            .maybeSingle();
+
+          if (agenteData?.id_persona_duena_lead) {
+            // Buscar la inmobiliaria (tipo 5) para obtener porcentaje_comision y email
+            const { data: inmobiliariaData } = await supabase
+              .from('entidades_relacionadas')
+              .select('porcentaje_comision')
+              .eq('id_persona', agenteData.id_persona_duena_lead)
+              .eq('id_tipo_entidad', 5)
+              .eq('activo', true)
+              .maybeSingle();
+
+            const { data: inmobiliariaPersona } = await supabase
+              .from('personas')
+              .select('email')
+              .eq('id', agenteData.id_persona_duena_lead)
+              .maybeSingle();
+
+            const porcentajeInmob = inmobiliariaData?.porcentaje_comision || 0;
+            if (porcentajeInmob > 0 && inmobiliariaPersona?.email) {
+              agenteComisionData = {
+                email: inmobiliariaPersona.email,
+                porcentaje: porcentajeInmob,
+                esInmobiliaria: true,
+                emailInmobiliaria: inmobiliariaPersona.email
+              };
+            }
+            console.log('📊 Agente inmobiliario con inmobiliaria, porcentaje:', porcentajeInmob);
           }
         }
       }
     } catch (comisionError) {
-      console.error('⚠️ Error al buscar comisión de inmobiliaria:', comisionError);
-      // Continue with 0 if lookup fails
+      console.error('⚠️ Error al buscar datos del agente para comisionistas:', comisionError);
     }
 
     // 8. Crear cuenta de cobranza
@@ -443,6 +493,30 @@ serve(async (req) => {
       }
     } else {
       console.log('ℹ️ Ya existe entidad de comprador para persona:', id_persona);
+    }
+
+    // 12. Agregar comisionista si aplica (solo si porcentaje > 0)
+    if (agenteComisionData && agenteComisionData.porcentaje > 0) {
+      try {
+        const { error: comisionistaError } = await supabase
+          .from('comisionistas')
+          .insert({
+            id_cuenta_cobranza: cuentaCobranza.id,
+            email_usuario: agenteComisionData.email,
+            porcentaje_comision: agenteComisionData.porcentaje,
+            activo: true
+          });
+
+        if (comisionistaError) {
+          console.error('❌ Error al insertar comisionista:', comisionistaError);
+        } else {
+          console.log('✅ Comisionista agregado:', agenteComisionData.email, 'con', agenteComisionData.porcentaje, '%');
+        }
+      } catch (comErr) {
+        console.error('⚠️ Error al agregar comisionista:', comErr);
+      }
+    } else {
+      console.log('ℹ️ No se agregó comisionista (sin datos o porcentaje 0)');
     }
 
     console.log('🎉 Proceso de asignación completado exitosamente');

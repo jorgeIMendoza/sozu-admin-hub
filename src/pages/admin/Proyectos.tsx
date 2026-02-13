@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Search, Edit, Trash2, Eye, Image, Video, MapPin, Lock } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
 import { ProjectMultimediaModal } from "@/components/admin/ProjectMultimediaModal";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
@@ -70,27 +70,35 @@ const Proyectos = () => {
   const [currentPageDeleted, setCurrentPageDeleted] = useState(1);
   const itemsPerPage = 25;
 
-  // Query to get Sozu project IDs (inmobiliaria with id_tipo_entidad = 5)
-  const { data: sozuProjectIds = new Set<number>() } = useQuery({
-    queryKey: ["sozu-project-ids"],
+  // Query to get project inmobiliaria names (entidades with id_tipo_entidad = 5)
+  const { data: inmobiliariaProjectMap = new Map<number, string>() } = useQuery({
+    queryKey: ["inmobiliaria-project-map"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('entidades_relacionadas')
-        .select('id_proyecto')
+        .select('id_proyecto, personas!entidades_relacionadas_id_persona_fkey(nombre_comercial, nombre_legal)')
         .eq('id_tipo_entidad', 5)
         .eq('activo', true);
       
       if (error) {
-        console.error("Error fetching Sozu projects:", error);
-        return new Set<number>();
+        console.error("Error fetching inmobiliaria projects:", error);
+        return new Map<number, string>();
       }
       
-      return new Set(
-        data?.map(e => e.id_proyecto).filter((id): id is number => id !== null && id !== undefined) || []
-      );
+      const map = new Map<number, string>();
+      data?.forEach(e => {
+        if (e.id_proyecto != null) {
+          const persona = e.personas as any;
+          map.set(e.id_proyecto, persona?.nombre_comercial || persona?.nombre_legal || 'Inmobiliaria');
+        }
+      });
+      return map;
     },
     staleTime: 60000,
   });
+
+  // Derive sozuProjectIds from the map for backward compatibility
+  const sozuProjectIds = useMemo(() => new Set(inmobiliariaProjectMap.keys()), [inmobiliariaProjectMap]);
 
   const { data: activeProjectsData, refetch: refetchActive } = useQuery({
     queryKey: ["projects", "active", currentPageActive, searchTerm, nombreFilter, ciudadFilter, estatusFilter, sozuFilter, accessibleProjectIds, Array.from(sozuProjectIds)],
@@ -674,7 +682,7 @@ const Proyectos = () => {
                 <TableHead>Precio Promedio por M2</TableHead>
                 <TableHead>Multimedia</TableHead>
                 <TableHead>Estatus</TableHead>
-                <TableHead>Sozu</TableHead>
+                <TableHead>Comercializada por</TableHead>
                 <TableHead>Publicar</TableHead>
                 {hasAnyActionPermission && <TableHead>Acciones</TableHead>}
               </TableRow>
@@ -797,8 +805,8 @@ const Proyectos = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {sozuProjectIds.has(project.id) ? (
-                        <Badge variant="default">Sozu</Badge>
+                      {inmobiliariaProjectMap.has(project.id) ? (
+                        <Badge variant="default">{inmobiliariaProjectMap.get(project.id)}</Badge>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
                       )}
@@ -969,15 +977,15 @@ const Proyectos = () => {
           </Select>
         </div>
         <div>
-          <label className="text-sm font-medium mb-2 block">Inmobiliaria Sozu</label>
+          <label className="text-sm font-medium mb-2 block">Comercializada por</label>
           <Select value={sozuFilter} onValueChange={setSozuFilter}>
             <SelectTrigger>
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="sozu">Solo Sozu</SelectItem>
-              <SelectItem value="no-sozu">No Sozu</SelectItem>
+              <SelectItem value="sozu">Con Inmobiliaria</SelectItem>
+              <SelectItem value="no-sozu">Sin Inmobiliaria</SelectItem>
             </SelectContent>
           </Select>
         </div>

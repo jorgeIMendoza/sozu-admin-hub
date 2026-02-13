@@ -129,6 +129,7 @@ export const ProjectLegalEntitiesSection = ({
           personas!entidades_relacionadas_id_persona_fkey (
             id,
             nombre_legal,
+            nombre_comercial,
             email,
             telefono
           ),
@@ -739,9 +740,20 @@ export const ProjectLegalEntitiesSection = ({
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           <div className="flex-1">
-                            <h4 className="font-semibold text-lg">
-                              {entity.personas?.nombre_legal}
-                            </h4>
+                            {(entity.personas as any)?.nombre_comercial ? (
+                              <>
+                                <h4 className="font-semibold text-lg">
+                                  {(entity.personas as any).nombre_comercial}
+                                </h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {entity.personas?.nombre_legal}
+                                </p>
+                              </>
+                            ) : (
+                              <h4 className="font-semibold text-lg">
+                                {entity.personas?.nombre_legal}
+                              </h4>
+                            )}
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant="outline">
                                 {entity.tipos_entidad?.nombre}
