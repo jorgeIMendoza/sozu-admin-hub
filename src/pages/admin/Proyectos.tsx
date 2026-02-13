@@ -984,8 +984,8 @@ const Proyectos = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="sozu">Con Inmobiliaria</SelectItem>
-              <SelectItem value="no-sozu">Sin Inmobiliaria</SelectItem>
+              <SelectItem value="sozu">Sozu</SelectItem>
+              <SelectItem value="no-sozu">No Sozu</SelectItem>
             </SelectContent>
           </Select>
         </div>
