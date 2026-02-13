@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { MultiSelectFilter } from '@/components/ui/multi-select-filter';
-import { TrendingUp, ShoppingCart, BarChart3 } from 'lucide-react';
+import { TrendingUp, ShoppingCart, BarChart3, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const MIN_DATE = (() => {
@@ -29,6 +30,7 @@ interface OfertaData {
   id_esquema_pago_seleccionado: number | null;
   id_estatus_aprobacion: number | null;
   id_propiedad: number | null;
+  id_producto: number | null;
   proyecto_id?: number;
   proyecto_nombre?: string;
   precio?: number | null;
@@ -46,6 +48,7 @@ export default function DashboardEjecutivo() {
   const [selectedAgentes, setSelectedAgentes] = useState<string[]>([]);
   const [proyectos, setProyectos] = useState<{ id: number; nombre: string }[]>([]);
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
+  const [selectedTipoOferta, setSelectedTipoOferta] = useState<string>('all');
   const inmobIdByEmailRef = useRef(new Map<string, number>());
   const agentNamesByEmailRef = useRef(new Map<string, string>());
 
@@ -98,7 +101,7 @@ export default function DashboardEjecutivo() {
     setLoading(true);
     try {
       let query = supabase.from('ofertas')
-        .select('id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad')
+        .select('id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto')
         .eq('activo', true).gte('fecha_generacion', MIN_DATE);
 
       if (isAgente) query = query.eq('email_creador', profile.email);
@@ -245,8 +248,13 @@ export default function DashboardEjecutivo() {
       const projIds = selectedProyectos.map(Number);
       result = result.filter(o => o.proyecto_id && projIds.includes(o.proyecto_id));
     }
+    if (selectedTipoOferta === 'propiedad') {
+      result = result.filter(o => !!(o as any).id_propiedad && !(o as any).id_producto);
+    } else if (selectedTipoOferta === 'producto') {
+      result = result.filter(o => !!(o as any).id_producto);
+    }
     return result;
-  }, [ofertas, isSuperAdmin, selectedInmobiliaria, selectedAgentes, selectedProyectos]);
+  }, [ofertas, isSuperAdmin, selectedInmobiliaria, selectedAgentes, selectedProyectos, selectedTipoOferta]);
 
   const stageSummary = useMemo(() => {
     const stages = [
@@ -345,6 +353,25 @@ export default function DashboardEjecutivo() {
                   placeholder="Todos los proyectos" />
               )}
             </div>
+
+            <div className="min-w-[160px]">
+              <label className="text-sm font-medium mb-1 block">Tipo de Oferta</label>
+              <Select value={selectedTipoOferta} onValueChange={setSelectedTipoOferta}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="propiedad">Propiedades</SelectItem>
+                  <SelectItem value="producto">Productos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(selectedInmobiliaria !== 'all' || selectedAgentes.length > 0 || selectedProyectos.length > 0 || selectedTipoOferta !== 'all') && (
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedInmobiliaria('all'); setSelectedAgentes([]); setSelectedProyectos([]); setSelectedTipoOferta('all'); }} className="text-xs h-10">
+                <X className="h-3 w-3 mr-1" />
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

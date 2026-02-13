@@ -8,7 +8,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText, Mail, Phone } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText, Mail, Phone, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -114,6 +114,7 @@ export default function WorkflowOfertas() {
   const [selectedAgentes, setSelectedAgentes] = useState<string[]>([]);
   const [proyectos, setProyectos] = useState<{ id: number; nombre: string }[]>([]);
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
+  const [selectedTipoOferta, setSelectedTipoOferta] = useState<string>('all');
   const inmobIdByEmailRef = useRef(new Map<string, number>());
 
   const isSuperAdmin = profile?.rol_nombre === 'Super Administrador';
@@ -504,8 +505,13 @@ export default function WorkflowOfertas() {
       const projIds = selectedProyectos.map(Number);
       result = result.filter(o => o.proyecto_id && projIds.includes(o.proyecto_id));
     }
+    if (selectedTipoOferta === 'propiedad') {
+      result = result.filter(o => !o.id_producto);
+    } else if (selectedTipoOferta === 'producto') {
+      result = result.filter(o => !!o.id_producto);
+    }
     return result;
-  }, [ofertas, isSuperAdmin, selectedInmobiliaria, selectedAgentes, selectedProyectos]);
+  }, [ofertas, isSuperAdmin, selectedInmobiliaria, selectedAgentes, selectedProyectos, selectedTipoOferta]);
 
   const ofertasByStage = useMemo(() => {
     const groups: Record<string, OfertaCard[]> = {};
@@ -586,6 +592,15 @@ export default function WorkflowOfertas() {
   proyectos.forEach(p => proyNameToId.set(p.nombre, String(p.id)));
   const selectedProyNames = selectedProyectos.map(id => proyectos.find(p => String(p.id) === id)?.nombre || id);
 
+  const hasActiveFilters = selectedInmobiliaria !== 'all' || selectedAgentes.length > 0 || selectedProyectos.length > 0 || selectedTipoOferta !== 'all';
+
+  const clearAllFilters = () => {
+    setSelectedInmobiliaria('all');
+    setSelectedAgentes([]);
+    setSelectedProyectos([]);
+    setSelectedTipoOferta('all');
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Workflow de Ofertas</h1>
@@ -641,6 +656,25 @@ export default function WorkflowOfertas() {
                 />
               )}
             </div>
+
+            <div className="min-w-[160px]">
+              <label className="text-sm font-medium mb-1 block">Tipo de Oferta</label>
+              <Select value={selectedTipoOferta} onValueChange={setSelectedTipoOferta}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="propiedad">Propiedades</SelectItem>
+                  <SelectItem value="producto">Productos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-xs h-10">
+                <X className="h-3 w-3 mr-1" />
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
