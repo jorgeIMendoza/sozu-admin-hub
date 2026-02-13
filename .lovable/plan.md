@@ -1,64 +1,40 @@
 
 
-## Plan: Porcentaje de Comision para Inmobiliarias
+## Add Offer Link to Property Info Section in Cuenta de Cobranza Detail
 
-### Resumen
-Agregar el campo "Porcentaje de Comision" a las inmobiliarias, con valor default de 2.00%, editable al crear y editar. Al generar una cuenta de cobranza (via `asignar-propiedad`), si el agente vendedor pertenece a una inmobiliaria, usar su porcentaje de comision. Ademas, actualizar todas las inmobiliarias existentes con porcentaje_comision=2.
+### What will change
 
----
+In the "Informacion de la Propiedad" (or Product) card of the Cuenta de Cobranza detail page, a new field "Oferta" will be added showing the offer ID with proper nomenclature:
+- **Property offers**: `O-000001`
+- **Product/Service offers**: `OP-000001`
 
-### Cambios
+Clicking on it will trigger the existing download-or-regenerate flow (same pattern used in Pagos.tsx).
 
-#### 1. Migracion SQL: Actualizar inmobiliarias existentes
-- Ejecutar `UPDATE entidades_relacionadas SET porcentaje_comision = 2 WHERE id_tipo_entidad = 5 AND activo = true`
+### Implementation Details
 
-#### 2. `src/pages/admin/Inmobiliarias.tsx` - Agregar campo porcentaje_comision
+**File: `src/pages/admin/DetalleCuentaCobranza.tsx`**
 
-**En el createMutation:**
-- Al insertar en `entidades_relacionadas`, agregar `porcentaje_comision: personData.porcentaje_comision || 2.00`
-- Pasar el campo desde PersonForm
+1. **Add a loading state** for offer download (e.g., `downloadingOferta`).
 
-**En el updateMutation:**
-- Despues de actualizar la persona, tambien actualizar `entidades_relacionadas` con el nuevo `porcentaje_comision` si cambio
+2. **Add an `handleDownloadOferta` function** replicating the proven pattern from `Pagos.tsx`:
+   - Import `ofertaPdfStorageService` dynamically.
+   - Check if the offer already has a URL via `getExistingUrl(ofertaId)`.
+   - If URL exists, validate with `validateOfferDataAndInvalidateIfNeeded(ofertaId)`:
+     - If invalidated: regenerate the PDF via `generateOfferPDF` (dynamically imported from `htmlToPdfService`).
+     - If still valid: download directly via `downloadFromUrl`.
+   - If no URL: generate new PDF via `generateOfferPDF`, distinguishing between property and product offers using `cuentaDetalle.tipo_cuenta` and the offer's `id_producto`.
+   - The function will use `cuentaDetalle.oferta_id` and existing data (`id_propiedad`, compradores, etc.) to call the generation service.
 
-**En el handleEdit:**
-- Al cargar datos para edicion, tambien consultar `entidades_relacionadas` para obtener el `porcentaje_comision` actual
+3. **Add the "Oferta" field in the property info grid** (in both the property and product/service branches):
+   - Display the formatted offer ID using inline formatting: `O-{padded}` or `OP-{padded}` based on `cuentaDetalle.tipo_cuenta`.
+   - Render as a clickable `Button` (variant="link") with a `FileText` icon.
+   - Show a loading spinner when `downloadingOferta` is true.
+   - Place it after "No. Propiedad" for property accounts and after "Categoria" for product accounts.
 
-**En los Dialogs de crear/editar:**
-- Agregar un campo numerico "Porcentaje de Comision (%)" con valor default 2.00, debajo o al lado del PersonForm dentro del DialogContent
+### Technical Notes
 
-#### 3. `src/components/admin/PersonForm.tsx` - Soporte para porcentaje_comision (solo para inmobiliarias)
-
-Agregar estado y campo condicional cuando `entityType === 'inmobiliaria'`:
-- Estado: `porcentajeComision` con default 2.00
-- Renderizar un input numerico "Porcentaje de Comision (%)" en la seccion de datos basicos
-- Incluir en el objeto de submit como `porcentaje_comision`
-
-#### 4. `supabase/functions/asignar-propiedad/index.ts` - Usar porcentaje de inmobiliaria
-
-Al crear la cuenta de cobranza (linea ~268-281):
-- Despues de crear la oferta, buscar si el `email_usuario` (agente vendedor) tiene un usuario con `id_persona`
-- Buscar si esa persona tiene una entidad_relacionada de tipo Agente (19) con `id_persona_duena_lead` (que apunta a la inmobiliaria)
-- Si tiene inmobiliaria, buscar la entidad_relacionada de tipo 5 (Inmobiliaria) para esa persona y obtener su `porcentaje_comision`
-- Usar ese valor como `porcentaje_comision_venta` en la cuenta de cobranza en vez de 0
-
----
-
-### Detalle tecnico
-
-**Flujo de datos:**
-
-1. Inmobiliaria se crea/edita -> `entidades_relacionadas.porcentaje_comision` se guarda (default: 2.00)
-2. Agente vendedor genera una asignacion -> `asignar-propiedad` edge function:
-   - Identifica al agente via `email_usuario`
-   - Busca `usuarios.id_persona` para ese email
-   - Busca `entidades_relacionadas` tipo 19 (Agente) donde `id_persona = usuario.id_persona` para encontrar `id_persona_duena_lead` (la inmobiliaria)
-   - Busca `entidades_relacionadas` tipo 5 donde `id_persona = id_persona_duena_lead` para obtener `porcentaje_comision`
-   - Usa ese valor en `porcentaje_comision_venta` de la nueva cuenta de cobranza
-
-**Archivos a modificar:**
-- `supabase/migrations/` - nueva migracion para UPDATE masivo
-- `src/pages/admin/Inmobiliarias.tsx` - campo en create/edit, lectura del valor
-- `src/components/admin/PersonForm.tsx` - campo condicional para inmobiliarias
-- `supabase/functions/asignar-propiedad/index.ts` - logica para buscar comision de inmobiliaria
+- The nomenclature follows the existing app convention: `O-` prefix for property offers, `OP-` for product/service offers (not `OF-` which is used in a different context for payment scheme badges).
+- The download/regenerate logic mirrors `Pagos.tsx` lines 516-648, which already handles the same cuenta-cobranza-to-offer relationship.
+- No new dependencies or database changes required.
+- Single file change: `src/pages/admin/DetalleCuentaCobranza.tsx`.
 
