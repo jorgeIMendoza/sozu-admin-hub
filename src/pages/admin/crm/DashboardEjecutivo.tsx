@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -162,7 +162,15 @@ export default function DashboardEjecutivo() {
     finally { setLoading(false); }
   }, [profile, isAgente, isInmobiliaria, isSuperAdmin, agentes, selectedAgentes, selectedInmobiliaria, selectedProyectos]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const hasLoadedRef = useRef(false);
+  const prevDepsRef = useRef<string>('');
+  useEffect(() => {
+    const depsKey = JSON.stringify({ isAgente, isInmobiliaria, isSuperAdmin, selectedAgentes, selectedInmobiliaria, selectedProyectos, agentesLen: agentes.length });
+    if (hasLoadedRef.current && depsKey === prevDepsRef.current) return;
+    prevDepsRef.current = depsKey;
+    hasLoadedRef.current = true;
+    loadData();
+  }, [loadData]);
 
   const stageSummary = useMemo(() => {
     const stages = [

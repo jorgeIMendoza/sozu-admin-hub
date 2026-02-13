@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -457,12 +457,36 @@ export default function WorkflowOfertas() {
     }
   }, [profile, isAgente, isInmobiliaria, isSuperAdmin, agentes, selectedAgentes, selectedInmobiliaria, selectedProyectos]);
 
-  useEffect(() => { loadOfertas(); }, [loadOfertas]);
+  const hasLoadedRef = useRef(false);
+  const prevDepsRef = useRef<string>('');
+  useEffect(() => {
+    const depsKey = JSON.stringify({ isAgente, isInmobiliaria, isSuperAdmin, selectedAgentes, selectedInmobiliaria, selectedProyectos, agentesLen: agentes.length });
+    if (hasLoadedRef.current && depsKey === prevDepsRef.current) return;
+    prevDepsRef.current = depsKey;
+    hasLoadedRef.current = true;
+    loadOfertas();
+  }, [loadOfertas]);
 
   const ofertasByStage = useMemo(() => {
     const groups: Record<string, OfertaCard[]> = {};
     STAGES.forEach(s => { groups[s.key] = []; });
     ofertas.forEach(o => { if (o.stage && groups[o.stage]) groups[o.stage].push(o); });
+
+    // Deduplicate "cierre": only offers with cuenta_cobranza, one per property/product
+    if (groups['cierre'] && groups['cierre'].length > 0) {
+      const seen = new Set<string>();
+      groups['cierre'] = groups['cierre']
+        .filter(o => !!o.cuenta_cobranza_id) // must have active cuenta_cobranza
+        .filter(o => {
+          const key = o.id_producto
+            ? `prod-${o.id_producto}-${o.id_propiedad || 'none'}`
+            : `prop-${o.id_propiedad}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    }
+
     return groups;
   }, [ofertas]);
 
