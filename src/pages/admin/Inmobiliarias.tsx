@@ -719,7 +719,19 @@ export default function Inmobiliarias() {
 
   const updateMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { representativeId, commercialRepresentativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, inmobiliariaId, ...cleanPersonData } = personData;
+      const { representativeId, commercialRepresentativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, inmobiliariaId, porcentaje_comision, ...cleanPersonData } = personData;
+      
+      // Update porcentaje_comision in entidades_relacionadas if provided
+      if (porcentaje_comision !== undefined && editingEntity?.id) {
+        const { error: comisionError } = await supabase
+          .from('entidades_relacionadas')
+          .update({ porcentaje_comision })
+          .eq('id_persona', editingEntity.id)
+          .eq('id_tipo_entidad', 5)
+          .eq('activo', true);
+        
+        if (comisionError) throw comisionError;
+      }
       
       // Validate email uniqueness if email is being changed
       if (cleanPersonData.email && editingEntity) {
