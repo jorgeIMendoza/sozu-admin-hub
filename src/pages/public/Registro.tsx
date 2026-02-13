@@ -236,7 +236,7 @@ export default function Registro() {
 
               <div className="text-center pt-2">
                 <a
-                  href="https://admin.sozu.com/auth/login"
+                  href="https://inmobiliarias.sozu.com/auth/login"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   ¿Ya tienes cuenta? Inicia sesión
