@@ -225,15 +225,12 @@ export default function WorkflowOfertas() {
       const personaLeadIds = [...new Set(ofertasData.map((o: any) => o.id_persona_lead).filter(Boolean))] as number[];
       const productoIds = [...new Set(ofertasData.map((o: any) => o.id_producto).filter(Boolean))] as number[];
 
-      const [propRes, leadsRes, cuentasRes, productosRes] = await Promise.all([
+      const [propRes, leadsRes, productosRes] = await Promise.all([
         propiedadIds.length > 0
           ? (supabase.from('propiedades').select('id, numero_propiedad, precio_lista, id_estatus_disponibilidad, id_edificio_modelo').in('id', propiedadIds) as any)
           : { data: [] },
         personaLeadIds.length > 0
           ? (supabase.from('personas' as any).select('id, nombre_legal, nombre_comercial').in('id', personaLeadIds))
-          : { data: [] },
-        propiedadIds.length > 0
-          ? (supabase.from('cuentas_cobranza' as any).select('id, id_propiedad, contrato_draft').in('id_propiedad', propiedadIds).eq('activo', true))
           : { data: [] },
         productoIds.length > 0
           ? (supabase.from('productos_servicios').select('id, nombre, precio_lista, id_proyecto').in('id', productoIds) as any)
@@ -278,17 +275,31 @@ export default function WorkflowOfertas() {
         (projs || []).forEach((p: any) => proyectoMap.set(p.id, p));
       }
 
-      // Check for signed contracts (tipo_documento=42) on cuentas
-      const cuentaIds = (cuentasRes.data || []).map((c: any) => c.id);
+      // Fetch cuentas_cobranza by id_oferta (the actual FK)
+      const ofertaIds = ofertasData.map((o: any) => o.id);
+      let cuentaByOferta = new Map<number, any>();
       let cuentaContratoFirmado = new Set<number>();
-      if (cuentaIds.length > 0) {
-        const { data: docs } = await supabase
-          .from('documentos')
-          .select('id_cuenta_cobranza, id_tipo_documento')
-          .in('id_cuenta_cobranza', cuentaIds)
-          .eq('id_tipo_documento', 42)
+      if (ofertaIds.length > 0) {
+        const { data: cuentasData } = await supabase
+          .from('cuentas_cobranza')
+          .select('id, id_oferta, contrato_draft')
+          .in('id_oferta', ofertaIds)
           .eq('activo', true) as any;
-        (docs || []).forEach((d: any) => cuentaContratoFirmado.add(d.id_cuenta_cobranza));
+        (cuentasData || []).forEach((c: any) => {
+          if (c.id_oferta) cuentaByOferta.set(c.id_oferta, c);
+        });
+
+        // Check for signed contracts (tipo_documento=42)
+        const cuentaIds = (cuentasData || []).map((c: any) => c.id);
+        if (cuentaIds.length > 0) {
+          const { data: docs } = await supabase
+            .from('documentos')
+            .select('id_cuenta_cobranza, id_tipo_documento')
+            .in('id_cuenta_cobranza', cuentaIds)
+            .eq('id_tipo_documento', 42)
+            .eq('activo', true) as any;
+          (docs || []).forEach((d: any) => cuentaContratoFirmado.add(d.id_cuenta_cobranza));
+        }
       }
 
       const propMap = new Map<number, any>();
@@ -347,10 +358,7 @@ export default function WorkflowOfertas() {
         }
       }
 
-      const cuentaByProp = new Map<number, any>();
-      (cuentasRes.data || []).forEach((c: any) => {
-        if (!cuentaByProp.has(c.id_propiedad)) cuentaByProp.set(c.id_propiedad, c);
-      });
+      // cuentaByOferta already built above
 
       // Fetch esquemas_pago details
       const esquemaIds = [...new Set(ofertasData.map((o: any) => o.id_esquema_pago_seleccionado).filter(Boolean))] as number[];
@@ -366,7 +374,7 @@ export default function WorkflowOfertas() {
       const enriched: OfertaCard[] = ofertasData.map((o: any) => {
         const prop = o.id_propiedad ? propMap.get(o.id_propiedad) : null;
         const producto = o.id_producto ? productoMap.get(o.id_producto) : null;
-        const cuenta = o.id_propiedad ? cuentaByProp.get(o.id_propiedad) : null;
+        const cuenta = cuentaByOferta.get(o.id) || null;
         const proyId = prop?.id_edificio_modelo ? edModeloToProyecto.get(prop.id_edificio_modelo) : (producto?.id_proyecto || undefined);
         const proy = proyId ? proyectoMap.get(proyId) : undefined;
         const esquema = o.id_esquema_pago_seleccionado ? esquemaMap.get(o.id_esquema_pago_seleccionado) : null;
@@ -660,11 +668,7 @@ export default function WorkflowOfertas() {
                 ? `OP-${String(selectedOferta?.id).padStart(6, '0')}`
                 : `O-${String(selectedOferta?.id).padStart(6, '0')}`}
             </DialogTitle>
-            <DialogDescription>
-              {selectedOferta?.id_producto
-                ? selectedOferta?.producto_nombre || 'Producto'
-                : (selectedOferta?.proyecto_nombre ? `${selectedOferta.proyecto_nombre} - ${selectedOferta.propiedad_nombre}` : selectedOferta?.propiedad_nombre)}
-            </DialogDescription>
+            <DialogDescription className="sr-only">Detalle de oferta</DialogDescription>
           </DialogHeader>
           {selectedOferta && (() => {
             const fechaCreacion = new Date(selectedOferta.fecha_creacion);
