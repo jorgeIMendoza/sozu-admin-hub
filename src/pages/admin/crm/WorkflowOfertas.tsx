@@ -8,7 +8,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EyeOff, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -40,7 +40,7 @@ interface OfertaCard {
 }
 
 const STAGES = [
-  { key: 'expiradas', label: 'Expiradas', color: 'bg-muted text-muted-foreground', hideable: true },
+  { key: 'expiradas', label: 'Expiradas', color: 'bg-muted text-muted-foreground' },
   { key: 'nuevas', label: 'Nuevas Ofertas', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
   { key: 'pendientes', label: 'Pendientes de Aprobación', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
   { key: 'aprobadas', label: 'Aprobadas', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
@@ -88,7 +88,8 @@ export default function WorkflowOfertas() {
   const { profile } = useAuth();
   const [ofertas, setOfertas] = useState<OfertaCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showExpiradas, setShowExpiradas] = useState(false);
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set(['expiradas']));
+  const [manuallyToggled, setManuallyToggled] = useState<Set<string>>(new Set());
   const [selectedOferta, setSelectedOferta] = useState<OfertaCard | null>(null);
 
   // Filters
@@ -381,6 +382,29 @@ export default function WorkflowOfertas() {
     return groups;
   }, [ofertas]);
 
+  // Auto-collapse empty columns, auto-expand when they get offers
+  useEffect(() => {
+    setCollapsedStages(prev => {
+      const next = new Set(prev);
+      STAGES.forEach(stage => {
+        if (manuallyToggled.has(stage.key)) return; // respect manual toggle
+        const count = ofertasByStage[stage.key]?.length || 0;
+        if (count === 0) next.add(stage.key);
+        else if (stage.key !== 'expiradas') next.delete(stage.key);
+      });
+      return next;
+    });
+  }, [ofertasByStage, manuallyToggled]);
+
+  const toggleStage = (key: string) => {
+    setManuallyToggled(prev => new Set(prev).add(key));
+    setCollapsedStages(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   const getNextStepChecklist = (oferta: OfertaCard): { text: string; done: boolean }[] => {
     switch (oferta.stage) {
       case 'nuevas':
@@ -488,29 +512,34 @@ export default function WorkflowOfertas() {
         <ScrollArea className="w-full">
           <div className="flex gap-4 pb-4 min-w-max">
             {STAGES.map(stage => {
-              if (stage.key === 'expiradas' && !showExpiradas) {
+              const stageOfertas = ofertasByStage[stage.key] || [];
+              const isCollapsed = collapsedStages.has(stage.key);
+
+              if (isCollapsed) {
                 return (
-                  <div key={stage.key} className="min-w-[60px]">
-                    <Button variant="outline" size="sm" className="h-full min-h-[200px] flex flex-col gap-2"
-                      onClick={() => setShowExpiradas(true)} title="Mostrar expiradas">
-                      <EyeOff className="h-4 w-4" />
-                      <span className="[writing-mode:vertical-lr] text-xs">Expiradas ({ofertasByStage[stage.key]?.length || 0})</span>
-                    </Button>
+                  <div key={stage.key} className="min-w-[48px]">
+                    <button
+                      className={`h-full min-h-[200px] w-12 rounded-lg border flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-80 ${stage.color}`}
+                      onClick={() => toggleStage(stage.key)}
+                      title={`Mostrar ${stage.label}`}
+                    >
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                      <span className="[writing-mode:vertical-lr] text-xs font-semibold whitespace-nowrap">{stage.label}</span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{stageOfertas.length}</Badge>
+                    </button>
                   </div>
                 );
               }
-              const stageOfertas = ofertasByStage[stage.key] || [];
+
               return (
                 <div key={stage.key} className="min-w-[300px] max-w-[300px]">
                   <div className={`rounded-t-lg px-3 py-2 flex items-center justify-between ${stage.color}`}>
                     <span className="font-semibold text-sm">{stage.label}</span>
                     <div className="flex items-center gap-1">
                       <Badge variant="secondary" className="text-xs">{stageOfertas.length}</Badge>
-                      {stage.key === 'expiradas' && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowExpiradas(false)}>
-                          <EyeOff className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleStage(stage.key)} title="Contraer columna">
+                        <ChevronLeft className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                   <div className="border border-t-0 rounded-b-lg bg-muted/30 p-2 space-y-2 min-h-[200px] max-h-[calc(100vh-320px)] overflow-y-auto">
