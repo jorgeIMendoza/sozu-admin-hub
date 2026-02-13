@@ -557,6 +557,7 @@ export default function DetalleCuentaCobranza() {
   const [editCuentaDialog, setEditCuentaDialog] = useState(false);
   const [agenteVendedorDialog, setAgenteVendedorDialog] = useState(false);
   const [isGeneratingEstadoCuenta, setIsGeneratingEstadoCuenta] = useState(false);
+  const [downloadingOferta, setDownloadingOferta] = useState(false);
   // Comprador edit modal states
   const [editingComprador, setEditingComprador] = useState<any>(null);
   const [isCompradorDialogOpen, setIsCompradorDialogOpen] = useState(false);
@@ -1891,6 +1892,66 @@ export default function DetalleCuentaCobranza() {
       return format(localDate, 'dd/MM/yyyy', { locale: es });
     } catch (error) {
       return 'Fecha inválida';
+    }
+  };
+
+  const handleDownloadOferta = async () => {
+    if (!cuentaDetalle?.oferta_id) return;
+    setDownloadingOferta(true);
+    try {
+      const { ofertaPdfStorageService } = await import('@/services/ofertaPdfStorageService');
+      const offerId = cuentaDetalle.oferta_id;
+
+      const existingUrl = await ofertaPdfStorageService.getExistingUrl(offerId);
+
+      if (existingUrl) {
+        const validation = await ofertaPdfStorageService.validateOfferDataAndInvalidateIfNeeded(offerId);
+        if (!validation.wasInvalidated) {
+          const filename = existingUrl.split('/').pop() || `oferta-${offerId}.pdf`;
+          await ofertaPdfStorageService.downloadFromUrl(existingUrl, filename);
+          toast({ title: "PDF descargado", description: "La oferta se ha descargado exitosamente" });
+          return;
+        }
+        toast({ title: "Regenerando PDF", description: "Los datos han cambiado, regenerando..." });
+      } else {
+        toast({ title: "Generando PDF", description: "Preparando la descarga del PDF de la oferta..." });
+      }
+
+      const { generateOfferPDF } = await import('@/services/htmlToPdfService');
+      const isProduct = cuentaDetalle.tipo_cuenta !== 'Propiedad';
+
+      if (isProduct && cuentaDetalle.producto_servicio_id) {
+        await generateOfferPDF({
+          propertyId: cuentaDetalle.id_propiedad || 0,
+          offerId,
+          propertyNumber: cuentaDetalle.producto_servicio_nombre || '',
+          leadName: cuentaDetalle.compradores[0]?.nombre_legal || 'Sin comprador',
+          leadEmail: '',
+          leadPhone: '',
+          creatorEmail: 'admin@system.com',
+          isProductOffer: true,
+          productId: cuentaDetalle.producto_servicio_id
+        });
+      } else if (cuentaDetalle.id_propiedad) {
+        await generateOfferPDF({
+          propertyId: cuentaDetalle.id_propiedad,
+          offerId,
+          propertyNumber: cuentaDetalle.numero_propiedad,
+          leadName: cuentaDetalle.compradores[0]?.nombre_legal || 'Sin comprador',
+          leadEmail: '',
+          leadPhone: '',
+          creatorEmail: 'admin@system.com'
+        });
+      } else {
+        toast({ title: "Error", description: "La oferta no tiene propiedad ni producto asociado", variant: "destructive" });
+        return;
+      }
+      toast({ title: "PDF Generado", description: "La oferta se ha generado y descargado exitosamente" });
+    } catch (error) {
+      console.error('Error downloading offer:', error);
+      toast({ title: "Error", description: `No se pudo descargar la oferta: ${error instanceof Error ? error.message : 'Error desconocido'}`, variant: "destructive" });
+    } finally {
+      setDownloadingOferta(false);
     }
   };
 
@@ -3369,6 +3430,28 @@ export default function DetalleCuentaCobranza() {
               <label className="text-sm font-medium">No. Propiedad</label>
               <p className="text-sm text-muted-foreground">{cuentaDetalle.numero_propiedad}</p>
             </div>
+            {cuentaDetalle.oferta_id && (
+            <div>
+              <label className="text-sm font-medium">Oferta</label>
+              <div>
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-sm"
+                  disabled={downloadingOferta}
+                  onClick={handleDownloadOferta}
+                >
+                  {downloadingOferta ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4 mr-1" />
+                  )}
+                  {cuentaDetalle.tipo_cuenta === 'Propiedad'
+                    ? `O-${String(cuentaDetalle.oferta_id).padStart(6, '0')}`
+                    : `OP-${String(cuentaDetalle.oferta_id).padStart(6, '0')}`}
+                </Button>
+              </div>
+            </div>
+            )}
             
             {cuentaDetalle.tipo_cuenta === 'Propiedad' ? (
               <>
