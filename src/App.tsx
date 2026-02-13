@@ -98,6 +98,7 @@ const queryClient = new QueryClient({
 });
 
 const isRegistroSubdomain = window.location.hostname === 'registro.sozu.com';
+const isInmobiliariasSubdomain = window.location.hostname === 'inmobiliarias.sozu.com';
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

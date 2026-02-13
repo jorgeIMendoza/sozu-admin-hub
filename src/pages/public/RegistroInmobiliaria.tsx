@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PublicRepresentanteLegalForm } from "@/components/public/PublicRepresentanteLegalForm";
-import { Link } from "react-router-dom";
+
 import {
   Select,
   SelectContent,
@@ -177,12 +177,12 @@ export default function RegistroInmobiliaria() {
               Tu solicitud de registro ha sido recibida y está pendiente de aprobación. 
               Te notificaremos por correo electrónico cuando tu cuenta esté activa.
             </p>
-            <Link to="/auth/login">
+            <a href="https://inmobiliarias.sozu.com/auth/login">
               <Button variant="outline">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Volver al inicio de sesión
               </Button>
-            </Link>
+            </a>
           </CardContent>
         </Card>
       </div>
@@ -323,14 +323,6 @@ export default function RegistroInmobiliaria() {
                 )}
               </Button>
 
-              <div className="text-center pt-2">
-                <Link 
-                  to="/auth/login" 
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                  ¿Ya tienes cuenta? Inicia sesión
-                </Link>
-              </div>
             </form>
           </CardContent>
         </Card>
