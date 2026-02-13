@@ -8,7 +8,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText, Mail, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -32,6 +32,10 @@ interface OfertaCard {
   proyecto_nombre?: string;
   proyecto_id?: number;
   lead_nombre?: string;
+  lead_email?: string;
+  lead_telefono?: string;
+  agente_nombre?: string;
+  agente_telefono?: string;
   inmobiliaria_nombre?: string;
   precio?: number | null;
   estatus_disponibilidad?: number;
@@ -230,7 +234,7 @@ export default function WorkflowOfertas() {
           ? (supabase.from('propiedades').select('id, numero_propiedad, precio_lista, id_estatus_disponibilidad, id_edificio_modelo').in('id', propiedadIds) as any)
           : { data: [] },
         personaLeadIds.length > 0
-          ? (supabase.from('personas' as any).select('id, nombre_legal, nombre_comercial').in('id', personaLeadIds))
+          ? (supabase.from('personas' as any).select('id, nombre_legal, nombre_comercial, email, telefono').in('id', personaLeadIds))
           : { data: [] },
         productoIds.length > 0
           ? (supabase.from('productos_servicios').select('id, nombre, precio_lista, id_proyecto').in('id', productoIds) as any)
@@ -308,15 +312,16 @@ export default function WorkflowOfertas() {
       const productoMap = new Map<number, any>();
       (productosRes.data || []).forEach((p: any) => productoMap.set(p.id, p));
 
-      const leadMap = new Map<number, string>();
+      const leadMap = new Map<number, { nombre: string; email: string; telefono: string }>();
       (leadsRes.data || []).forEach((l: any) => {
         const nombre = l.nombre_legal || l.nombre_comercial || 'Sin nombre';
-        leadMap.set(l.id, nombre);
+        leadMap.set(l.id, { nombre, email: l.email || '', telefono: l.telefono || '' });
       });
 
-      // Get inmobiliaria for each email_creador
+      // Get inmobiliaria and agent name for each email_creador
       const uniqueEmails = [...new Set(ofertasData.map((o: any) => o.email_creador).filter(Boolean))] as string[];
       const inmobByEmail = new Map<string, string>();
+      const agentNameByEmail = new Map<string, { nombre: string; telefono: string }>();
       if (uniqueEmails.length > 0) {
         const { data: usrData } = await supabase
           .from('usuarios')
@@ -328,6 +333,23 @@ export default function WorkflowOfertas() {
           usrData.forEach((u: any) => { if (u.id_persona) emailToPersona.set(u.email, u.id_persona); });
           const agentPersonaIds = [...new Set(usrData.map((u: any) => u.id_persona).filter(Boolean))] as number[];
           if (agentPersonaIds.length > 0) {
+            // Fetch agent persona details (name + phone)
+            const { data: agentPersonas } = await supabase
+              .from('personas')
+              .select('id, nombre_legal, nombre_comercial, telefono')
+              .in('id', agentPersonaIds) as any;
+            const agentPersonaMap = new Map<number, any>();
+            (agentPersonas || []).forEach((p: any) => agentPersonaMap.set(p.id, p));
+            emailToPersona.forEach((personaId, email) => {
+              const persona = agentPersonaMap.get(personaId);
+              if (persona) {
+                agentNameByEmail.set(email, {
+                  nombre: persona.nombre_legal || persona.nombre_comercial || email,
+                  telefono: persona.telefono || ''
+                });
+              }
+            });
+
             const { data: erData } = await supabase
               .from('entidades_relacionadas')
               .select('id_persona, id_persona_duena_lead')
@@ -392,11 +414,15 @@ export default function WorkflowOfertas() {
           id_propiedad: o.id_propiedad,
           id_producto: o.id_producto || null,
           id_persona_lead: o.id_persona_lead,
-          propiedad_nombre: prop ? prop.numero_propiedad : `${o.id_propiedad}`,
+          propiedad_nombre: prop ? prop.numero_propiedad : (o.id_propiedad ? `${o.id_propiedad}` : ''),
           producto_nombre: producto?.nombre || undefined,
           proyecto_nombre: proy?.nombre || '',
           proyecto_id: proyId,
-          lead_nombre: o.id_persona_lead ? (leadMap.get(o.id_persona_lead) || 'Sin nombre') : 'Sin prospecto',
+          lead_nombre: o.id_persona_lead ? (leadMap.get(o.id_persona_lead)?.nombre || 'Sin nombre') : 'Sin prospecto',
+          lead_email: o.id_persona_lead ? (leadMap.get(o.id_persona_lead)?.email || '') : '',
+          lead_telefono: o.id_persona_lead ? (leadMap.get(o.id_persona_lead)?.telefono || '') : '',
+          agente_nombre: agentNameByEmail.get(o.email_creador)?.nombre || o.email_creador,
+          agente_telefono: agentNameByEmail.get(o.email_creador)?.telefono || '',
           inmobiliaria_nombre: inmobByEmail.get(o.email_creador) || 'Interno',
           precio: isProducto ? (producto?.precio_lista || null) : (prop?.precio_lista || null),
           estatus_disponibilidad: prop?.id_estatus_disponibilidad,
@@ -607,6 +633,9 @@ export default function WorkflowOfertas() {
                       stageOfertas.map(oferta => (
                         <Card key={oferta.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedOferta(oferta)}>
                           <CardContent className="p-3 space-y-1.5">
+                            <p className="text-[10px] text-muted-foreground font-mono">
+                              {oferta.id_producto ? `OP-${String(oferta.id).padStart(6, '0')}` : `O-${String(oferta.id).padStart(6, '0')}`}
+                            </p>
                             <p className="font-medium text-sm truncate">
                               {oferta.id_producto
                                 ? `${oferta.producto_nombre || 'Producto'} (${oferta.propiedad_nombre})`
@@ -616,7 +645,7 @@ export default function WorkflowOfertas() {
                               <User className="h-3 w-3" /><span className="truncate">{oferta.lead_nombre}</span>
                             </div>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Building2 className="h-3 w-3" /><span className="truncate">{oferta.email_creador}</span>
+                              <Building2 className="h-3 w-3" /><span className="truncate">{oferta.agente_nombre || oferta.email_creador}</span>
                             </div>
                             {oferta.inmobiliaria_nombre && (
                               <div className="flex items-center gap-1 text-xs">
@@ -630,9 +659,9 @@ export default function WorkflowOfertas() {
                                 </span>
                               </div>
                             )}
-                            {oferta.precio && (
+                            {oferta.precio != null && oferta.precio > 0 && (
                               <div className="flex items-center gap-1 text-xs font-semibold">
-                                <DollarSign className="h-3 w-3" /><span>${oferta.precio.toLocaleString('es-MX')}</span>
+                                <DollarSign className="h-3 w-3" /><span>{oferta.precio.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}</span>
                               </div>
                             )}
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -664,7 +693,7 @@ export default function WorkflowOfertas() {
               </Badge>
             </div>
             <DialogTitle>
-              {selectedOferta?.id_producto
+              Oferta: {selectedOferta?.id_producto
                 ? `OP-${String(selectedOferta?.id).padStart(6, '0')}`
                 : `O-${String(selectedOferta?.id).padStart(6, '0')}`}
             </DialogTitle>
@@ -721,13 +750,35 @@ export default function WorkflowOfertas() {
                     <h4 className="font-semibold text-sm flex items-center gap-1.5 mb-1">
                       <User className="h-4 w-4 text-primary" /> Prospecto
                     </h4>
-                    <p className="text-sm pl-5 truncate">{selectedOferta.lead_nombre}</p>
+                    <div className="text-sm pl-5 space-y-0.5">
+                      <p className="truncate font-medium">{selectedOferta.lead_nombre}</p>
+                      {selectedOferta.lead_email && (
+                        <a href={`mailto:${selectedOferta.lead_email}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
+                          <Mail className="h-3 w-3" />{selectedOferta.lead_email}
+                        </a>
+                      )}
+                      {selectedOferta.lead_telefono && (
+                        <a href={`tel:${selectedOferta.lead_telefono}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
+                          <Phone className="h-3 w-3" />{selectedOferta.lead_telefono}
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <div className="border rounded-md p-3">
                     <h4 className="font-semibold text-sm flex items-center gap-1.5 mb-1">
                       <User className="h-4 w-4 text-primary" /> Agente
                     </h4>
-                    <p className="text-sm pl-5 truncate">{selectedOferta.email_creador}</p>
+                    <div className="text-sm pl-5 space-y-0.5">
+                      <p className="truncate font-medium">{selectedOferta.agente_nombre || selectedOferta.email_creador}</p>
+                      <a href={`mailto:${selectedOferta.email_creador}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
+                        <Mail className="h-3 w-3" />{selectedOferta.email_creador}
+                      </a>
+                      {selectedOferta.agente_telefono && (
+                        <a href={`tel:${selectedOferta.agente_telefono}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
+                          <Phone className="h-3 w-3" />{selectedOferta.agente_telefono}
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
 
