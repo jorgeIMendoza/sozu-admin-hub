@@ -1,3 +1,6 @@
+// Feature flag: set to true to re-enable PWA install prompt
+const PWA_INSTALL_ENABLED = false;
+
 import { useState, useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Button } from '@/components/ui/button';
@@ -64,7 +67,7 @@ export function PWAInstallPrompt() {
     setDeferredPrompt(null);
   };
 
-  if (!showInstallPrompt) return null;
+  if (!PWA_INSTALL_ENABLED || !showInstallPrompt) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-sm bg-card border rounded-lg shadow-lg p-4">

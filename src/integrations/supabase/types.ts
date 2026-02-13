@@ -3018,6 +3018,7 @@ export type Database = {
           id_tipo_entidad: number
           nombre_api_key: string | null
           nombre_api_key_draft: string | null
+          porcentaje_comision: number | null
         }
         Insert: {
           activo?: boolean
@@ -3034,6 +3035,7 @@ export type Database = {
           id_tipo_entidad: number
           nombre_api_key?: string | null
           nombre_api_key_draft?: string | null
+          porcentaje_comision?: number | null
         }
         Update: {
           activo?: boolean
@@ -3050,6 +3052,7 @@ export type Database = {
           id_tipo_entidad?: number
           nombre_api_key?: string | null
           nombre_api_key_draft?: string | null
+          porcentaje_comision?: number | null
         }
         Relationships: [
           {
