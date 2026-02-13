@@ -47,6 +47,7 @@ type Inmobiliaria = {
   id_tipo_entidad: number;
   url_logo?: string;
   usuario_email?: string; // Email of the user with Inmobiliaria role (4) linked to this entity
+  porcentaje_comision?: number; // Commission percentage
 };
 
 type Agente = {
@@ -90,7 +91,7 @@ export default function Inmobiliarias() {
     // First get all personas that have an entidades_relacionadas record with id_tipo_entidad = 5
     const { data: entidadesData, error: entidadesError } = await supabase
       .from('entidades_relacionadas')
-      .select('id, id_persona')
+      .select('id, id_persona, porcentaje_comision')
       .eq('id_tipo_entidad', 5) // Inmobiliaria
       .eq('activo', true);
     
@@ -172,8 +173,9 @@ export default function Inmobiliarias() {
       }
     }
     
-    // Map to include entidad_relacionada_id
-    const entidadMap = new Map(entidadesData?.map(e => [e.id_persona, e.id]) || []);
+    
+    // Map to include entidad_relacionada_id and porcentaje_comision
+    const entidadMap = new Map(entidadesData?.map(e => [e.id_persona, { id: e.id, porcentaje_comision: e.porcentaje_comision }]) || []);
     
     // Get all persona IDs to find users linked to inmobiliarias via id_persona
     const inmobiliariaPersonaIds = (data || []).map(item => item.id).filter(Boolean);
@@ -251,28 +253,32 @@ export default function Inmobiliarias() {
       }
     }
     
-    return (data || []).map((item: any) => ({
-      id: item.id,
-      entidad_relacionada_id: entidadMap.get(item.id),
-      id_tipo_entidad: 5, // Inmobiliaria
-      nombre_legal: item.nombre_legal,
-      nombre_comercial: item.nombre_comercial,
-      email: item.email,
-      telefono: item.telefono,
-      clave_pais_telefono: item.clave_pais_telefono,
-      rfc: item.rfc,
-      activo: item.activo,
-      es_draft: item.es_draft,
-      id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
-      id_entidad_relacionada_rep_com: item.id_entidad_relacionada_rep_com,
-      representante_legal_nombre: item.id_entidad_relacionada_rep_leg ? repsMap.get(item.id_entidad_relacionada_rep_leg) || null : null,
-      representante_comercial_nombre: item.id_entidad_relacionada_rep_com ? repsMap.get(item.id_entidad_relacionada_rep_com) || null : null,
-      numero_proyectos: projectCounts[item.id] || 0,
-      numero_agentes: agentCounts[item.id] || 0,
-      numero_usuarios: userCounts[item.id] || 0,
-      usuario_email: userEmailsByPersonaId[item.id] || null,
-      url_logo: item.url_logo,
-    })) as Inmobiliaria[];
+    return (data || []).map((item: any) => {
+      const entidadInfo = entidadMap.get(item.id);
+      return {
+        id: item.id,
+        entidad_relacionada_id: entidadInfo?.id,
+        id_tipo_entidad: 5, // Inmobiliaria
+        nombre_legal: item.nombre_legal,
+        nombre_comercial: item.nombre_comercial,
+        email: item.email,
+        telefono: item.telefono,
+        clave_pais_telefono: item.clave_pais_telefono,
+        rfc: item.rfc,
+        activo: item.activo,
+        es_draft: item.es_draft,
+        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        id_entidad_relacionada_rep_com: item.id_entidad_relacionada_rep_com,
+        representante_legal_nombre: item.id_entidad_relacionada_rep_leg ? repsMap.get(item.id_entidad_relacionada_rep_leg) || null : null,
+        representante_comercial_nombre: item.id_entidad_relacionada_rep_com ? repsMap.get(item.id_entidad_relacionada_rep_com) || null : null,
+        numero_proyectos: projectCounts[item.id] || 0,
+        numero_agentes: agentCounts[item.id] || 0,
+        numero_usuarios: userCounts[item.id] || 0,
+        usuario_email: userEmailsByPersonaId[item.id] || null,
+        url_logo: item.url_logo,
+        porcentaje_comision: entidadInfo?.porcentaje_comision,
+      } as Inmobiliaria;
+    });
   };
 
   const { data: activeInmobiliarias = [], isLoading: loadingActive } = useQuery({
@@ -1972,6 +1978,7 @@ export default function Inmobiliarias() {
               <TableHead className="font-semibold text-foreground">Agentes</TableHead>
               <TableHead className="font-semibold text-foreground">Usuario</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
+              <TableHead className="font-semibold text-foreground">Comisión (%)</TableHead>
               <TableHead className="font-semibold text-foreground">Rep. Legal</TableHead>
               <TableHead className="font-semibold text-foreground">Rep. Comercial</TableHead>
               <TableHead className="font-semibold text-foreground text-right">Acciones</TableHead>
@@ -2049,6 +2056,15 @@ export default function Inmobiliarias() {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.telefono || '-'}
+                </TableCell>
+                <TableCell>
+                  {inmobiliaria.porcentaje_comision != null ? (
+                    <Badge variant="secondary" className="text-sm px-2 py-1">
+                      {inmobiliaria.porcentaje_comision}%
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {inmobiliaria.representante_legal_nombre || '-'}
