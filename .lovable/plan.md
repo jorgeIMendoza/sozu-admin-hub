@@ -1,40 +1,68 @@
 
 
-## Add Offer Link to Property Info Section in Cuenta de Cobranza Detail
+# Plan: Eliminar 11 Usuarios de Prueba
 
-### What will change
+## Usuarios a eliminar
 
-In the "Informacion de la Propiedad" (or Product) card of the Cuenta de Cobranza detail page, a new field "Oferta" will be added showing the offer ID with proper nomenclature:
-- **Property offers**: `O-000001`
-- **Product/Service offers**: `OP-000001`
+### 6 Agentes Inmobiliarios (Rol 3) - correo @yopmail.com
 
-Clicking on it will trigger the existing download-or-regenerate flow (same pattern used in Pagos.tsx).
+| Nombre | Email | auth_user_id |
+|--------|-------|-------------|
+| Jorge Mendoza C | jorge.externo@yopmail.com | 7593b2c4-... |
+| Juanito Lechuga | juanito.lechuga@yopmail.com | 358a79a1-... |
+| Otro Agente | otro.agente@yopmail.com | 28195a55-... |
+| Paco Zanahorias | paco.zanahorias@yopmail.com | 8f8010e0-... |
+| Pakita Jitomates | pakita@yopmail.com | 02e77408-... |
+| Ricardo Manzanas | richi.manzanas@yopmail.com | e7bcd509-... |
 
-### Implementation Details
+### 5 Inmobiliarias (Rol 4) - nombre con Test/Prueba Y correo @yopmail.com
 
-**File: `src/pages/admin/DetalleCuentaCobranza.tsx`**
+| Nombre | Email | auth_user_id |
+|--------|-------|-------------|
+| Inmobiliaria Prueba | inmo.prueba@yopmail.com | 41fa5b38-... |
+| Prueba Inmo Publik | publik@yopmail.com | 411f62f9-... |
+| Segunda inmo Test | segunda.test@yopmail.com | d0e922f7-... |
+| tercera inmo Prueba | tercera@yopmail.com | bedfe0fd-... |
+| Test Abel Ramon | abel.ramon@yopmail.com | e9b4409e-... |
 
-1. **Add a loading state** for offer download (e.g., `downloadingOferta`).
+**EXCLUIDO**: Jorge Isaac Test (jorge.test.inmo@yopmail.com) - no se toca.
 
-2. **Add an `handleDownloadOferta` function** replicating the proven pattern from `Pagos.tsx`:
-   - Import `ofertaPdfStorageService` dynamically.
-   - Check if the offer already has a URL via `getExistingUrl(ofertaId)`.
-   - If URL exists, validate with `validateOfferDataAndInvalidateIfNeeded(ofertaId)`:
-     - If invalidated: regenerate the PDF via `generateOfferPDF` (dynamically imported from `htmlToPdfService`).
-     - If still valid: download directly via `downloadFromUrl`.
-   - If no URL: generate new PDF via `generateOfferPDF`, distinguishing between property and product offers using `cuentaDetalle.tipo_cuenta` and the offer's `id_producto`.
-   - The function will use `cuentaDetalle.oferta_id` and existing data (`id_propiedad`, compradores, etc.) to call the generation service.
+## Registros relacionados a limpiar
 
-3. **Add the "Oferta" field in the property info grid** (in both the property and product/service branches):
-   - Display the formatted offer ID using inline formatting: `O-{padded}` or `OP-{padded}` based on `cuentaDetalle.tipo_cuenta`.
-   - Render as a clickable `Button` (variant="link") with a `FileText` icon.
-   - Show a loading spinner when `downloadingOferta` is true.
-   - Place it after "No. Propiedad" for property accounts and after "Categoria" for product accounts.
+- **6 registros** en `proyectos_acceso` (inmo.prueba, otro.agente, abel.ramon, richi.manzanas)
+- **13 registros** en `entidades_relacionadas` (de las personas asociadas)
+- **11 registros** en `usuarios`
+- **11 registros** en `auth.users`
 
-### Technical Notes
+## Orden de eliminacion
 
-- The nomenclature follows the existing app convention: `O-` prefix for property offers, `OP-` for product/service offers (not `OF-` which is used in a different context for payment scheme badges).
-- The download/regenerate logic mirrors `Pagos.tsx` lines 516-648, which already handles the same cuenta-cobranza-to-offer relationship.
-- No new dependencies or database changes required.
-- Single file change: `src/pages/admin/DetalleCuentaCobranza.tsx`.
+1. `proyectos_acceso` (6 registros) - evitar FK violations
+2. `entidades_relacionadas` (13 registros) - limpiar relaciones de persona
+3. `usuarios` (11 registros) - eliminar registros de usuario
+4. `auth.users` (11 registros) - eliminar cuentas de autenticacion via Admin API
+
+## Implementacion
+
+Se creara una Edge Function temporal `cleanup-test-users` que:
+
+1. Usa `SUPABASE_SERVICE_ROLE_KEY` para operaciones admin
+2. Tiene los 11 auth_user_id hardcodeados para evitar eliminaciones accidentales
+3. Ejecuta las eliminaciones en el orden correcto
+4. Retorna un resumen detallado de lo eliminado
+5. Se elimina la funcion despues de ejecutarla
+
+### Detalles tecnicos
+
+```text
+cleanup-test-users/index.ts
+  |
+  |-- Validar que quien ejecuta es Super Admin
+  |-- DELETE FROM proyectos_acceso WHERE usuario_id IN (los 11 emails)
+  |-- DELETE FROM entidades_relacionadas WHERE id IN (los 13 IDs especificos)
+  |-- DELETE FROM usuarios WHERE email IN (los 11 emails)
+  |-- Para cada auth_user_id: supabaseAdmin.auth.admin.deleteUser(id)
+  |-- Retornar resumen
+```
+
+Despues de ejecutar exitosamente, se eliminara la Edge Function del proyecto.
 
