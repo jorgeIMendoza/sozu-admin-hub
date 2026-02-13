@@ -4872,7 +4872,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="porcentajeComision" className="flex items-center gap-2 flex-wrap">
-                        <span>Porcentaje de Comisión por Venta{inmobiliariaProyecto ? ` para` : ' (%)'}</span>
+                        <span>Porcentaje de Comisión de Venta{inmobiliariaProyecto ? ` para` : ' (%)'}</span>
                         {inmobiliariaProyecto && (
                           <Badge variant="secondary" className="text-xs">{inmobiliariaProyecto}</Badge>
                         )}
