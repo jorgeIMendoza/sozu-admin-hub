@@ -249,7 +249,7 @@ export default function Registro() {
         <p className="text-center text-xs text-muted-foreground mt-6">
           Al registrarte, aceptas nuestros términos y condiciones contenidas en nuestro{" "}
           <a
-            href="https://sozu.mx"
+            href="https://www.sozu.com/aviso-de-privacidad"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
