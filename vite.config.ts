@@ -104,7 +104,7 @@ export default defineConfig(({ mode }) => {
         description: 'Panel de administración para gestión de proyectos inmobiliarios SOZU',
         theme_color: '#ffffff',
         background_color: '#ffffff',
-        display: 'standalone',
+        display: 'browser',
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
