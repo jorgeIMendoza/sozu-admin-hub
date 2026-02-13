@@ -1,0 +1,1 @@
+DELETE FROM public.comisionistas WHERE id_cuenta_cobranza = 1677 AND email_usuario = 'bb@trustreal.mx';
