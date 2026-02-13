@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.generar-estado-cuenta-mantenimiento]
 verify_jwt = false
+
+[functions.cleanup-test-users]
+verify_jwt = false
