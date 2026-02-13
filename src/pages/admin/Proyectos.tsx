@@ -211,7 +211,10 @@ const Proyectos = () => {
       if (sozuFilter === "sozu" && sozuProjectIds.size > 0) {
         query = query.in("id", Array.from(sozuProjectIds));
       } else if (sozuFilter === "no-sozu" && sozuProjectIds.size > 0) {
-        // Filter out Sozu projects - we'll do this client-side after fetch
+        // Filter out Sozu projects server-side using NOT IN
+        const sozuIds = Array.from(sozuProjectIds);
+        // Supabase doesn't have a direct "not in" on .in(), so we use .not()
+        query = query.not("id", "in", `(${sozuIds.join(",")})`);
       }
       
       const { data, error, count } = await query
@@ -229,12 +232,7 @@ const Proyectos = () => {
         precio_m2_actual: project.precio_m2_actual || null
       }));
       
-      // Client-side filter for "no-sozu"
-      if (sozuFilter === "no-sozu" && sozuProjectIds.size > 0) {
-        projects = projects.filter(p => !sozuProjectIds.has(p.id));
-      }
-      
-      return { projects, count: sozuFilter === "no-sozu" ? projects.length : (count || 0) };
+      return { projects, count: count || 0 };
     },
     enabled: !isLoadingAccess,
   });
