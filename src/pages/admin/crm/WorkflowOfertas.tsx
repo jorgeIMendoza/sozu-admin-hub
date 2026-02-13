@@ -54,7 +54,7 @@ const STAGES = [
 
 const MIN_DATE = (() => {
   const d = new Date();
-  d.setMonth(d.getMonth() - 2);
+  d.setMonth(d.getMonth() - 1);
   return d.toISOString().slice(0, 10);
 })();
 
