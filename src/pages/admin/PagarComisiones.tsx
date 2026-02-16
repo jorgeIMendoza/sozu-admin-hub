@@ -74,6 +74,24 @@ async function fetchAllComisionistas() {
     });
   }
 
+  // Obtener facturas de comisión Sozu (tipo 47)
+  const facturasComisionSozuMap = new Map<number, { id: number; es_draft: boolean; url: string | null }>();
+  const { data: facturasSozu } = await supabase
+    .from('documentos')
+    .select('id, id_cuenta_cobranza, es_draft, url')
+    .eq('id_tipo_documento', 47)
+    .eq('activo', true);
+
+  facturasSozu?.forEach(f => {
+    if (f.id_cuenta_cobranza) {
+      facturasComisionSozuMap.set(f.id_cuenta_cobranza, {
+        id: f.id,
+        es_draft: f.es_draft ?? true,
+        url: f.url,
+      });
+    }
+  });
+
   while (hasMore) {
     const { data, error } = await supabase
       .from("comisionistas")
@@ -87,6 +105,7 @@ async function fetchAllComisionistas() {
         cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
           id,
           precio_final,
+          id_documento_factura_comision_sozu,
           acuerdos_pago!fk_acpago_cuenta(
             id_concepto,
             pago_completado,
@@ -130,11 +149,13 @@ async function fetchAllComisionistas() {
                                 emailsInmobiliarias.has(com.email_usuario);
         const facturaKey = `${com.email_usuario}_${com.id_cuenta_cobranza}`;
         const facturaUrl = facturasExternasMap.get(facturaKey);
+        const facturaComisionSozu = facturasComisionSozuMap.get(com.id_cuenta_cobranza) || null;
         
         return {
           ...com,
           esExterno: esAgenteExterno,
-          urlFacturaExterna: typeof facturaUrl === 'string' ? facturaUrl : null
+          urlFacturaExterna: typeof facturaUrl === 'string' ? facturaUrl : null,
+          facturaComisionSozu,
         };
       }).filter((com: any) => {
         if (com.esExterno) {
@@ -399,6 +420,7 @@ export default function PagarComisiones() {
           pagada: com.pagada,
           urlEvidencia: com.url_evidencia_pago,
           urlFacturaExterna: com.urlFacturaExterna,
+          facturaComisionSozu: com.facturaComisionSozu,
           fechaPagoEnganche
         });
 
@@ -458,6 +480,7 @@ export default function PagarComisiones() {
             precioFinal: cuenta.precio_final,
             montoTotalComision: 0,
             porcentajeTotalComision: 0,
+            facturaComisionSozu: com.facturaComisionSozu || null,
             comisionistas: []
           };
         }

@@ -268,6 +268,27 @@ Deno.serve(async (req) => {
         }
 
         console.log(`[check-property-sold-status] 🎉 Propiedad ${propiedad.id} actualizada exitosamente a estatus Vendido`);
+
+        // Generar factura de comisión Sozu (no bloquea el flujo principal)
+        try {
+          console.log(`[check-property-sold-status] Invocando generar-factura-comision-sozu para cuenta ${id_cuenta_cobranza}`);
+          const facturaResponse = await fetch(
+            `${supabaseUrl}/functions/v1/generar-factura-comision-sozu`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({ id_cuenta_cobranza }),
+            }
+          );
+          const facturaResult = await facturaResponse.json();
+          console.log(`[check-property-sold-status] Resultado factura comisión:`, JSON.stringify(facturaResult));
+        } catch (facturaError) {
+          console.error('[check-property-sold-status] Error generando factura comisión sozu:', facturaError);
+          // No lanzar error - la factura se puede generar después manualmente
+        }
       } else {
         console.log(`[check-property-sold-status] Propiedad ya no está en estatus Apartado (estatus actual: ${propiedad.id_estatus_disponibilidad}), no se actualiza estatus`);
       }

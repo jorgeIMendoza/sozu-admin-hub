@@ -365,6 +365,21 @@ export function JuicioTerminadoDialog({
 
         if (propError) throw propError;
 
+        // Generar factura de comisión Sozu (no bloquea el flujo principal)
+        try {
+          const { data: funcData, error: funcError } = await supabase.functions.invoke(
+            'generar-factura-comision-sozu',
+            { body: { id_cuenta_cobranza: cuentaCobranzaId } }
+          );
+          if (funcError) {
+            console.error('Error generando factura comisión sozu:', funcError);
+          } else {
+            console.log('Resultado factura comisión sozu:', funcData);
+          }
+        } catch (facturaError) {
+          console.error('Error generando factura comisión sozu:', facturaError);
+        }
+
         toast({
           title: "Juicio terminado",
           description: "La propiedad ha sido marcada como vendida y se agregó el pago de penalización",
