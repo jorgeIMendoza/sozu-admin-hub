@@ -920,7 +920,7 @@ export const ProjectLegalEntitiesSection = ({
                                     htmlFor={`facturar-${entity.id}`}
                                     className="text-sm font-medium cursor-pointer"
                                   >
-                                    Facturar
+                                     Facturar propiedades
                                   </Label>
                                 </div>
 
