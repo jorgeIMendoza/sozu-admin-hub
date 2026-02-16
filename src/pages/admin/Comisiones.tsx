@@ -32,7 +32,7 @@ export default function Comisiones() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   const [generarLoading, setGenerarLoading] = useState<number | null>(null);
-  const [timbrarDialog, setTimbrarDialog] = useState<{ isOpen: boolean; cuentaId: number; docId: number } | null>(null);
+  const [timbrarDialog, setTimbrarDialog] = useState<{ isOpen: boolean; cuentaId: number } | null>(null);
   const [timbrarLoading, setTimbrarLoading] = useState(false);
   const [previewDialog, setPreviewDialog] = useState<{ isOpen: boolean; url: string; title: string }>({ isOpen: false, url: '', title: '' });
   const copyToClipboard = (text: string, label: string) => {
@@ -105,7 +105,8 @@ export default function Comisiones() {
           es_comision_venta_efectivo,
           es_pagada_comision_venta,
           id_oferta,
-          id_documento_factura_comision_sozu
+          url_factura_comision,
+          es_draft_factura_comision
         `).is("id_cuenta_cobranza_padre", null).order("id", {
         ascending: false
       })) as any;
@@ -247,17 +248,7 @@ export default function Comisiones() {
       };
       if (entidadesError) throw entidadesError;
 
-      // Paso 7: Obtener documentos de factura comisión Sozu (tipo 47)
-      const docIds = cuentasFiltradas
-        .map(c => c.id_documento_factura_comision_sozu)
-        .filter(Boolean);
-      const {
-        data: documentosFactura,
-        error: docsError
-      } = docIds.length > 0 ? await supabase.from("documentos").select("id, es_draft, url").in("id", docIds).eq("id_tipo_documento", 47).eq("activo", true) : { data: [], error: null };
-      if (docsError) throw docsError;
-
-      // Paso 8: Combinar todos los datos
+      // Paso 7: Combinar todos los datos (factura comisión Sozu ahora está en la cuenta directamente)
       return cuentasFiltradas.map(cuenta => {
         const oferta = ofertas?.find(o => o.id === cuenta.id_oferta);
         const propiedad = propiedades?.find(p => p.id === oferta?.id_propiedad);
@@ -270,9 +261,6 @@ export default function Comisiones() {
         const entidadDueno = entidadesRelacionadas?.find(e => e.id === propiedad?.id_entidad_relacionada_dueno);
         const cuenta_stp_comisiones = entidadDueno?.cuenta_stp_comisiones;
         const nombre_dueno = entidadDueno?.personas?.nombre_comercial || entidadDueno?.personas?.nombre_legal;
-
-        // Documento de factura comisión Sozu
-        const docFactura = documentosFactura?.find(d => d.id === cuenta.id_documento_factura_comision_sozu);
 
         // Determinar tipo de cuenta
         let tipo: 'Propiedad' | 'Producto' | 'Servicio' = 'Propiedad';
@@ -291,7 +279,6 @@ export default function Comisiones() {
           cuenta_stp_comisiones,
           nombre_dueno,
           id_estatus_disponibilidad: propiedad?.id_estatus_disponibilidad,
-          factura_sozu_doc: docFactura || null,
           dueno_facturar: (entidadDueno as any)?.facturar_comision_sozu || false,
         };
       });
@@ -332,7 +319,7 @@ export default function Comisiones() {
     setTimbrarLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('timbrar-factura-comision-sozu', {
-        body: { id_cuenta_cobranza: timbrarDialog.cuentaId, id_documento: timbrarDialog.docId }
+        body: { id_cuenta_cobranza: timbrarDialog.cuentaId }
       });
       if (error) throw error;
       toast({ title: "Factura timbrada", description: "La factura se ha timbrado exitosamente" });
@@ -623,11 +610,13 @@ export default function Comisiones() {
                       {comision.es_comision_venta_efectivo ? <Badge variant="secondary">Sí</Badge> : <Badge variant="outline">No</Badge>}
                     </TableCell>
                     <TableCell>
-                      {(() => {
-                        const doc = comision.factura_sozu_doc;
+                    {(() => {
                         const esVendida = comision.id_estatus_disponibilidad === 5;
                         const requiereFactura = comision.dueno_facturar;
-                        if (!comision.id_documento_factura_comision_sozu) {
+                        const urlFactura = comision.url_factura_comision;
+                        const esDraft = comision.es_draft_factura_comision;
+                        
+                        if (!urlFactura) {
                           if (!requiereFactura) {
                             return <span className="text-muted-foreground">-</span>;
                           }
@@ -643,17 +632,17 @@ export default function Comisiones() {
                             </Button>
                           );
                         }
-                        if (doc?.es_draft) {
+                        if (esDraft) {
                           return (
                             <div className="flex items-center gap-1">
                               <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">Draft</Badge>
-                              {doc?.url && doc.url.startsWith('http') && (
+                              {urlFactura.startsWith('http') && !urlFactura.includes('pendiente') && (
                                 <Button
                                   size="icon"
                                   variant="ghost"
                                   className="h-6 w-6"
                                   title="Preview"
-                                  onClick={() => setPreviewDialog({ isOpen: true, url: doc.url, title: `Preview Factura Comisión Sozu - Cuenta ${formatCuentaCobranzaId(comision.id, comision.tipo)}` })}
+                                  onClick={() => setPreviewDialog({ isOpen: true, url: urlFactura, title: `Preview Factura Comisión Sozu - Cuenta ${formatCuentaCobranzaId(comision.id, comision.tipo)}` })}
                                 >
                                   <Eye className="h-3 w-3" />
                                 </Button>
@@ -673,7 +662,7 @@ export default function Comisiones() {
                                 variant="ghost"
                                 className="h-6 w-6"
                                 title="Timbrar"
-                                onClick={() => setTimbrarDialog({ isOpen: true, cuentaId: comision.id, docId: doc.id })}
+                                onClick={() => setTimbrarDialog({ isOpen: true, cuentaId: comision.id })}
                               >
                                 <Stamp className="h-3 w-3" />
                               </Button>
@@ -684,8 +673,8 @@ export default function Comisiones() {
                         return (
                           <div className="flex items-center gap-1">
                             <Badge className="bg-green-600 hover:bg-green-700 text-white">Timbrada</Badge>
-                            {doc?.url && (
-                              <Button size="sm" variant="ghost" onClick={() => window.open(doc.url, '_blank')}>
+                            {urlFactura && (
+                              <Button size="sm" variant="ghost" onClick={() => window.open(urlFactura, '_blank')}>
                                 <Eye className="h-3 w-3" />
                               </Button>
                             )}

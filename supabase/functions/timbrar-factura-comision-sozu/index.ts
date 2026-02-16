@@ -21,53 +21,44 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { id_cuenta_cobranza, id_documento } = await req.json();
+    const { id_cuenta_cobranza } = await req.json();
 
-    if (!id_cuenta_cobranza || !id_documento) {
+    if (!id_cuenta_cobranza) {
       return new Response(
-        JSON.stringify({ success: false, message: 'id_cuenta_cobranza e id_documento son requeridos' }),
+        JSON.stringify({ success: false, message: 'id_cuenta_cobranza es requerido' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`[timbrar-factura-comision-sozu] Timbrando factura doc: ${id_documento}, cuenta: ${id_cuenta_cobranza}`);
+    console.log(`[timbrar-factura-comision-sozu] Timbrando factura cuenta: ${id_cuenta_cobranza}`);
 
-    // 1. Verificar que el documento existe y es draft
-    const { data: documento } = await supabase
-      .from('documentos')
-      .select('id, es_draft, url, numero')
-      .eq('id', id_documento)
-      .eq('id_tipo_documento', 47)
-      .eq('activo', true)
+    // 1. Verificar que la cuenta tiene factura draft
+    const { data: cuenta } = await supabase
+      .from('cuentas_cobranza')
+      .select('id_oferta, precio_final, porcentaje_comision_venta, url_factura_comision, es_draft_factura_comision')
+      .eq('id', id_cuenta_cobranza)
       .single();
 
-    if (!documento) {
-      throw new Error('Documento no encontrado o no es de tipo factura comisión Sozu');
+    if (!cuenta) throw new Error('Cuenta de cobranza no encontrada');
+
+    if (!cuenta.url_factura_comision) {
+      throw new Error('No existe factura draft para timbrar');
     }
 
-    if (!documento.es_draft) {
+    if (cuenta.es_draft_factura_comision === false) {
       return new Response(
         JSON.stringify({ success: true, message: 'La factura ya está timbrada', already_timbrada: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 2. Obtener datos de la cuenta para calcular monto (para notificación)
-    const { data: cuenta } = await supabase
-      .from('cuentas_cobranza')
-      .select('id_oferta, precio_final, porcentaje_comision_venta')
-      .eq('id', id_cuenta_cobranza)
-      .single();
-
-    if (!cuenta) throw new Error('Cuenta de cobranza no encontrada');
-
     const montoComision = ((cuenta.precio_final || 0) * (cuenta.porcentaje_comision_venta || 0)) / 100;
 
-    // 3. Obtener N8N URL
+    // 2. Obtener N8N URL
     const n8nBaseUrl = Deno.env.get('N8N_WEBHOOK_BASE_URL');
     if (!n8nBaseUrl) throw new Error('N8N_WEBHOOK_BASE_URL no está configurado');
 
-    // 4. Llamar N8N con payload simplificado
+    // 3. Llamar N8N para timbrar
     console.log(`[timbrar-factura-comision-sozu] Llamando N8N para timbrar`);
 
     const n8nResponse = await fetch(`${n8nBaseUrl}/generaFactura`, {
@@ -85,25 +76,22 @@ Deno.serve(async (req) => {
       facturaResult = { url: responseText };
     }
 
-    console.log(`[timbrar-factura-comision-sozu] N8N response status: ${n8nResponse.status}`);
-
-    // 5. Actualizar documento: ya no es draft
-    const { error: updateDocError } = await supabase
-      .from('documentos')
+    // 4. Actualizar cuenta: ya no es draft
+    const { error: updateError } = await supabase
+      .from('cuentas_cobranza')
       .update({
-        es_draft: false,
-        id_estatus_verificacion: 2,
-        url: facturaResult.url || documento.url,
+        es_draft_factura_comision: false,
+        url_factura_comision: facturaResult.url || cuenta.url_factura_comision,
         fecha_actualizacion: new Date().toISOString(),
       })
-      .eq('id', id_documento);
+      .eq('id', id_cuenta_cobranza);
 
-    if (updateDocError) {
-      console.error('[timbrar-factura-comision-sozu] Error actualizando documento:', updateDocError);
-      throw new Error('Error al actualizar el documento');
+    if (updateError) {
+      console.error('[timbrar-factura-comision-sozu] Error actualizando cuenta:', updateError);
+      throw new Error('Error al actualizar la cuenta');
     }
 
-    // 6. Obtener datos del propietario para notificación
+    // 5. Obtener datos del propietario para notificación
     const { data: oferta } = await supabase
       .from('ofertas')
       .select('id_propiedad')
@@ -142,7 +130,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 7. Enviar notificación
+    // 6. Enviar notificación
     if (propietarioEmail) {
       try {
         const ccEmails = SUPER_ADMIN_EMAILS.join(',');
@@ -181,7 +169,6 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'Factura timbrada exitosamente',
-        id_documento,
         monto_comision: montoComision,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

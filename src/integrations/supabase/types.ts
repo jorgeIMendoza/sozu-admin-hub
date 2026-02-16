@@ -2648,6 +2648,7 @@ export type Database = {
           contrato_draft: string | null
           es_aprobado: boolean
           es_comision_venta_efectivo: boolean
+          es_draft_factura_comision: boolean | null
           es_pagada_comision_venta: boolean
           fecha_actualizacion: string
           fecha_compra: string | null
@@ -2671,6 +2672,7 @@ export type Database = {
           porcentaje_comision_venta: number
           precio_final: number
           url_evidencia_cancelacion: string | null
+          url_factura_comision: string | null
           valor_uma: number | null
         }
         Insert: {
@@ -2682,6 +2684,7 @@ export type Database = {
           contrato_draft?: string | null
           es_aprobado?: boolean
           es_comision_venta_efectivo?: boolean
+          es_draft_factura_comision?: boolean | null
           es_pagada_comision_venta?: boolean
           fecha_actualizacion?: string
           fecha_compra?: string | null
@@ -2705,6 +2708,7 @@ export type Database = {
           porcentaje_comision_venta?: number
           precio_final?: number
           url_evidencia_cancelacion?: string | null
+          url_factura_comision?: string | null
           valor_uma?: number | null
         }
         Update: {
@@ -2716,6 +2720,7 @@ export type Database = {
           contrato_draft?: string | null
           es_aprobado?: boolean
           es_comision_venta_efectivo?: boolean
+          es_draft_factura_comision?: boolean | null
           es_pagada_comision_venta?: boolean
           fecha_actualizacion?: string
           fecha_compra?: string | null
@@ -2739,6 +2744,7 @@ export type Database = {
           porcentaje_comision_venta?: number
           precio_final?: number
           url_evidencia_cancelacion?: string | null
+          url_factura_comision?: string | null
           valor_uma?: number | null
         }
         Relationships: [

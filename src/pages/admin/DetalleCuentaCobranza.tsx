@@ -112,8 +112,8 @@ interface CuentaDetalle {
   // Campos de cancelación
   monto_cobro_cancelacion?: number | null;
   id_tipo_cancelacion?: number | null;
-  id_documento_factura_comision_sozu?: number | null;
-  factura_sozu_doc?: { id: number; es_draft: boolean; url: string | null } | null;
+  url_factura_comision?: string | null;
+  es_draft_factura_comision?: boolean | null;
   dueno_facturar?: boolean;
 }
 
@@ -615,7 +615,8 @@ export default function DetalleCuentaCobranza() {
           collection_id,
           monto_cobro_cancelacion,
           id_tipo_cancelacion,
-          id_documento_factura_comision_sozu
+          url_factura_comision,
+          es_draft_factura_comision
         `)
         .eq('id', cuentaId)
         .maybeSingle();
@@ -757,21 +758,6 @@ export default function DetalleCuentaCobranza() {
       const metraje = tipoCuenta === 'Propiedad' ? m2Interiores + m2Exteriores : undefined;
       const precio_por_m2 = tipoCuenta === 'Propiedad' && metraje && metraje > 0 ? (cuenta.precio_final || 0) / metraje : undefined;
 
-      // Fetch factura comisión Sozu document if exists
-      let facturaSozuDoc: { id: number; es_draft: boolean; url: string | null } | null = null;
-      if (cuenta.id_documento_factura_comision_sozu) {
-        const { data: docFactura } = await supabase
-          .from('documentos')
-          .select('id, es_draft, url')
-          .eq('id', cuenta.id_documento_factura_comision_sozu)
-          .eq('id_tipo_documento', 47)
-          .eq('activo', true)
-          .maybeSingle();
-        if (docFactura) {
-          facturaSozuDoc = docFactura;
-        }
-      }
-
       const detalle: CuentaDetalle = {
         id: cuenta.id,
         clabe_stp: cuenta.clabe_stp,
@@ -807,8 +793,8 @@ export default function DetalleCuentaCobranza() {
         detalles_producto: detallesProducto,
         monto_cobro_cancelacion: cuenta.monto_cobro_cancelacion || undefined,
         id_tipo_cancelacion: cuenta.id_tipo_cancelacion || undefined,
-        id_documento_factura_comision_sozu: cuenta.id_documento_factura_comision_sozu,
-        factura_sozu_doc: facturaSozuDoc,
+        url_factura_comision: cuenta.url_factura_comision,
+        es_draft_factura_comision: cuenta.es_draft_factura_comision,
         dueno_facturar: (entidadResult.data as any)?.facturar_comision_sozu || false,
       };
 
@@ -2858,11 +2844,11 @@ export default function DetalleCuentaCobranza() {
   };
 
   const handleTimbrarFacturaSozu = async () => {
-    if (!cuentaDetalle?.factura_sozu_doc?.id) return;
+    if (!cuentaDetalle?.url_factura_comision) return;
     setTimbrarFacturaLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('timbrar-factura-comision-sozu', {
-        body: { id_cuenta_cobranza: cuentaId, id_documento: cuentaDetalle.factura_sozu_doc.id }
+        body: { id_cuenta_cobranza: cuentaId }
       });
       if (error) throw error;
       toast({ title: "Factura timbrada", description: "La factura se ha timbrado exitosamente" });
@@ -2924,9 +2910,8 @@ export default function DetalleCuentaCobranza() {
               )}
               {/* Badge Factura Comisión Sozu - solo si el dueño requiere facturación */}
               {cuentaDetalle.dueno_facturar && (() => {
-                const doc = cuentaDetalle.factura_sozu_doc;
-                if (doc) {
-                  return doc.es_draft 
+                if (cuentaDetalle.url_factura_comision) {
+                  return cuentaDetalle.es_draft_factura_comision 
                     ? <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">Fact. Comisión: Draft</Badge>
                     : <Badge className="bg-green-600 hover:bg-green-700 text-white">Fact. Comisión: Timbrada</Badge>;
                 }
@@ -2981,7 +2966,7 @@ export default function DetalleCuentaCobranza() {
             {/* Grupo de acciones Factura Comisión Sozu - solo si el dueño requiere facturación */}
             {(canUpdate || isSuperAdmin) && cuentaDetalle?.dueno_facturar && (
             <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border/50">
-              {!cuentaDetalle?.id_documento_factura_comision_sozu ? (
+              {!cuentaDetalle?.url_factura_comision ? (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -2992,23 +2977,35 @@ export default function DetalleCuentaCobranza() {
                   {generarFacturaLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
                   Generar Fact. Comisión
                 </Button>
-              ) : cuentaDetalle?.factura_sozu_doc?.es_draft ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-9"
-                  onClick={() => setTimbrarFacturaDialog(true)}
-                >
-                  <Stamp className="h-4 w-4 mr-2" />
-                  Timbrar Fact. Comisión
-                </Button>
-              ) : (
-                cuentaDetalle?.factura_sozu_doc?.url && (
+              ) : cuentaDetalle?.es_draft_factura_comision ? (
+                <>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-9"
-                    onClick={() => window.open(cuentaDetalle.factura_sozu_doc!.url!, '_blank')}
+                    onClick={handleGenerarFacturaSozu}
+                    disabled={generarFacturaLoading}
+                  >
+                    {generarFacturaLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCcw className="h-4 w-4 mr-2" />}
+                    Regenerar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-9"
+                    onClick={() => setTimbrarFacturaDialog(true)}
+                  >
+                    <Stamp className="h-4 w-4 mr-2" />
+                    Timbrar Fact. Comisión
+                  </Button>
+                </>
+              ) : (
+                cuentaDetalle?.url_factura_comision && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-9"
+                    onClick={() => window.open(cuentaDetalle.url_factura_comision!, '_blank')}
                   >
                     <Eye className="h-4 w-4 mr-2" />
                     Ver Fact. Comisión

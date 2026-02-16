@@ -32,17 +32,17 @@ Deno.serve(async (req) => {
 
     console.log(`[generar-factura-comision-sozu] Iniciando para cuenta: ${id_cuenta_cobranza}`);
 
-    // 1. Verificar si ya existe una factura de comisión Sozu para esta cuenta
+    // 1. Verificar si ya existe una factura y si es draft (permitir regenerar si es draft)
     const { data: cuentaExistente } = await supabase
       .from('cuentas_cobranza')
-      .select('id_documento_factura_comision_sozu')
+      .select('url_factura_comision, es_draft_factura_comision')
       .eq('id', id_cuenta_cobranza)
       .single();
 
-    if (cuentaExistente?.id_documento_factura_comision_sozu) {
-      console.log(`[generar-factura-comision-sozu] Ya existe factura para cuenta ${id_cuenta_cobranza}`);
+    if (cuentaExistente?.url_factura_comision && cuentaExistente?.es_draft_factura_comision === false) {
+      console.log(`[generar-factura-comision-sozu] Ya existe factura timbrada para cuenta ${id_cuenta_cobranza}`);
       return new Response(
-        JSON.stringify({ success: true, message: 'Ya existe una factura de comisión para esta cuenta', already_exists: true }),
+        JSON.stringify({ success: true, message: 'Ya existe una factura timbrada para esta cuenta', already_exists: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -157,48 +157,29 @@ Deno.serve(async (req) => {
       ? facturaResult.url
       : 'https://pendiente-de-generar.sozu.com';
 
-    // 8. Registrar documento en tabla documentos
-    const { data: documento, error: docError } = await supabase
-      .from('documentos')
-      .insert({
-        id_cuenta_cobranza,
-        id_propiedad: propiedad.id,
-        id_tipo_documento: 47,
-        url: docUrl,
-        id_estatus_verificacion: 1,
-        activo: true,
-        es_draft: true,
-        numero: facturaResult.factura_id || null,
-      })
-      .select('id')
-      .single();
-
-    if (docError) {
-      console.error(`[generar-factura-comision-sozu] Error creando documento:`, docError);
-      throw new Error('Error al registrar el documento de factura');
-    }
-
-    // 9. Actualizar cuentas_cobranza con referencia al documento
+    // 8. Actualizar cuentas_cobranza con url y es_draft
     const { error: updateError } = await supabase
       .from('cuentas_cobranza')
       .update({
-        id_documento_factura_comision_sozu: documento.id,
+        url_factura_comision: docUrl,
+        es_draft_factura_comision: true,
         fecha_actualizacion: new Date().toISOString(),
       })
       .eq('id', id_cuenta_cobranza);
 
     if (updateError) {
       console.error(`[generar-factura-comision-sozu] Error actualizando cuenta:`, updateError);
+      throw new Error('Error al actualizar la cuenta de cobranza');
     }
 
-    // 10. Obtener datos del propietario para la notificación
+    // 9. Obtener datos del propietario para la notificación
     const { data: propietario } = await supabase
       .from('personas')
       .select('nombre_legal, email')
       .eq('id', entidadDuena.id_persona)
       .single();
 
-    // 11. Enviar notificación por correo
+    // 10. Enviar notificación por correo
     if (propietario?.email) {
       try {
         const ccEmails = SUPER_ADMIN_EMAILS.join(',');
@@ -231,13 +212,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[generar-factura-comision-sozu] ✅ Factura draft generada exitosamente (doc ID: ${documento.id})`);
+    console.log(`[generar-factura-comision-sozu] ✅ Factura draft generada exitosamente`);
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Factura draft de comisión generada exitosamente',
-        id_documento: documento.id,
+        url_factura_comision: docUrl,
         monto_comision: montoComision,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

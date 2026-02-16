@@ -105,7 +105,7 @@ async function fetchAllComisionistas() {
         cuentas_cobranza!comisionistas_id_cuenta_cobranza_fkey(
           id,
           precio_final,
-          id_documento_factura_comision_sozu,
+          url_factura_comision,
           acuerdos_pago!fk_acpago_cuenta(
             id_concepto,
             pago_completado,
