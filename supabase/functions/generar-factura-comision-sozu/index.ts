@@ -181,12 +181,12 @@ Deno.serve(async (req) => {
     });
 
     let facturaResult: any = {};
+    const responseText = await n8nResponse.text();
+    console.log(`[generar-factura-comision-sozu] N8N response text: ${responseText}`);
     try {
-      facturaResult = await n8nResponse.json();
+      facturaResult = JSON.parse(responseText);
     } catch {
-      const textResult = await n8nResponse.text();
-      console.log(`[generar-factura-comision-sozu] N8N response text: ${textResult}`);
-      facturaResult = { url: textResult };
+      facturaResult = { url: responseText };
     }
 
     console.log(`[generar-factura-comision-sozu] N8N response status: ${n8nResponse.status}`);
