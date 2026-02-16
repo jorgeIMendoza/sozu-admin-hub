@@ -235,6 +235,7 @@ export default function Comisiones() {
       } = entidadIds.length > 0 ? await supabase.from("entidades_relacionadas").select(`
               id,
               cuenta_stp_comisiones,
+              facturar,
               personas!fk_entrel_persona(
                 nombre_legal,
                 nombre_comercial
@@ -290,6 +291,7 @@ export default function Comisiones() {
           nombre_dueno,
           id_estatus_disponibilidad: propiedad?.id_estatus_disponibilidad,
           factura_sozu_doc: docFactura || null,
+          dueno_facturar: entidadDueno?.facturar || false,
         };
       });
     }
@@ -623,22 +625,22 @@ export default function Comisiones() {
                       {(() => {
                         const doc = comision.factura_sozu_doc;
                         const esVendida = comision.id_estatus_disponibilidad === 5;
+                        const requiereFactura = comision.dueno_facturar;
                         if (!comision.id_documento_factura_comision_sozu) {
-                          // No tiene factura
-                          if (esVendida) {
-                            return (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleGenerarFactura(comision.id)}
-                                disabled={generarLoading === comision.id}
-                              >
-                                {generarLoading === comision.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
-                                Generar
-                              </Button>
-                            );
+                          if (!requiereFactura) {
+                            return <span className="text-muted-foreground">-</span>;
                           }
-                          return <span className="text-muted-foreground">-</span>;
+                          return (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleGenerarFactura(comision.id)}
+                              disabled={!esVendida || generarLoading === comision.id}
+                            >
+                              {generarLoading === comision.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+                              Generar
+                            </Button>
+                          );
                         }
                         if (doc?.es_draft) {
                           return (

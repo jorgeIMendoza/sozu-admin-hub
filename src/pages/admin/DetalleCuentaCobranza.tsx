@@ -114,6 +114,7 @@ interface CuentaDetalle {
   id_tipo_cancelacion?: number | null;
   id_documento_factura_comision_sozu?: number | null;
   factura_sozu_doc?: { id: number; es_draft: boolean; url: string | null } | null;
+  dueno_facturar?: boolean;
 }
 
 interface OfferData {
@@ -667,6 +668,7 @@ export default function DetalleCuentaCobranza() {
           .from('entidades_relacionadas')
           .select(`
             id_proyecto,
+            facturar,
             proyectos!entidades_relacionadas_id_proyecto_fkey(nombre)
           `)
           .eq('id', oferta?.propiedades?.id_entidad_relacionada_dueno)
@@ -807,6 +809,7 @@ export default function DetalleCuentaCobranza() {
         id_tipo_cancelacion: cuenta.id_tipo_cancelacion || undefined,
         id_documento_factura_comision_sozu: cuenta.id_documento_factura_comision_sozu,
         factura_sozu_doc: facturaSozuDoc,
+        dueno_facturar: entidadResult.data?.facturar || false,
       };
 
       return detalle;
@@ -2919,8 +2922,8 @@ export default function DetalleCuentaCobranza() {
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {/* Badge Factura Comisión Sozu */}
-              {(() => {
+              {/* Badge Factura Comisión Sozu - solo si el dueño requiere facturación */}
+              {cuentaDetalle.dueno_facturar && (() => {
                 const doc = cuentaDetalle.factura_sozu_doc;
                 if (doc) {
                   return doc.es_draft 
@@ -2975,24 +2978,20 @@ export default function DetalleCuentaCobranza() {
             </div>
             )}
 
-            {/* Grupo de acciones Factura Comisión Sozu */}
-            {(canUpdate || isSuperAdmin) && (
+            {/* Grupo de acciones Factura Comisión Sozu - solo si el dueño requiere facturación */}
+            {(canUpdate || isSuperAdmin) && cuentaDetalle?.dueno_facturar && (
             <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border/50">
               {!cuentaDetalle?.id_documento_factura_comision_sozu ? (
-                cuentaDetalle?.id_estatus_disponibilidad === 5 ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-9"
-                    onClick={handleGenerarFacturaSozu}
-                    disabled={generarFacturaLoading}
-                  >
-                    {generarFacturaLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                    Generar Fact. Comisión
-                  </Button>
-                ) : (
-                  <span className="text-sm text-muted-foreground px-2">Fact. Comisión: No aplica (no vendida)</span>
-                )
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-9"
+                  onClick={handleGenerarFacturaSozu}
+                  disabled={generarFacturaLoading || cuentaDetalle?.id_estatus_disponibilidad !== 5}
+                >
+                  {generarFacturaLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                  Generar Fact. Comisión
+                </Button>
               ) : cuentaDetalle?.factura_sozu_doc?.es_draft ? (
                 <Button
                   size="sm"
