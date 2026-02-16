@@ -173,6 +173,7 @@ Deno.serve(async (req) => {
     };
 
     console.log(`[generar-factura-comision-sozu] Llamando N8N webhook: ${n8nBaseUrl}/generaFactura`);
+    console.log(`[generar-factura-comision-sozu] Payload enviado:`, JSON.stringify(facturaPayload));
 
     const n8nResponse = await fetch(`${n8nBaseUrl}/generaFactura`, {
       method: 'POST',
@@ -182,14 +183,17 @@ Deno.serve(async (req) => {
 
     let facturaResult: any = {};
     const responseText = await n8nResponse.text();
-    console.log(`[generar-factura-comision-sozu] N8N response text: ${responseText}`);
+    console.log(`[generar-factura-comision-sozu] N8N response status: ${n8nResponse.status}, text: "${responseText}"`);
     try {
       facturaResult = JSON.parse(responseText);
     } catch {
-      facturaResult = { url: responseText };
+      facturaResult = { url: responseText || null };
     }
 
-    console.log(`[generar-factura-comision-sozu] N8N response status: ${n8nResponse.status}`);
+    // Usar URL placeholder válida si N8N no devuelve URL
+    const docUrl = facturaResult.url && facturaResult.url.startsWith('http')
+      ? facturaResult.url
+      : 'https://pendiente-de-generar.sozu.com';
 
     // 10. Registrar documento en tabla documentos
     const { data: documento, error: docError } = await supabase
@@ -197,9 +201,9 @@ Deno.serve(async (req) => {
       .insert({
         id_cuenta_cobranza,
         id_propiedad: propiedad.id,
-        id_tipo_documento: 47, // Factura de comision de venta Sozu
-        url: facturaResult.url || 'pendiente',
-        id_estatus_verificacion: 1, // Pendiente (es draft)
+        id_tipo_documento: 47,
+        url: docUrl,
+        id_estatus_verificacion: 1,
         activo: true,
         es_draft: true,
         numero: facturaResult.factura_id || null,
