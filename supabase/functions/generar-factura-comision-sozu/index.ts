@@ -11,6 +11,46 @@ const SUPER_ADMIN_EMAILS = [
   'jorge.mendoza@sozu.com',
 ];
 
+async function buildDuenoData(supabase: any, idPersona: number) {
+  const { data: persona } = await supabase.from('personas').select('*').eq('id', idPersona).single();
+  if (!persona) return null;
+
+  let pais = '', estado = '', municipio = '';
+  if (persona.direccion_fiscal_id_pais) {
+    const { data } = await supabase.from('paises').select('nombre').eq('id', persona.direccion_fiscal_id_pais).single();
+    pais = data?.nombre || '';
+  }
+  if (persona.direccion_fiscal_id_estado) {
+    const { data } = await supabase.from('estados_mx').select('nombre').eq('id', persona.direccion_fiscal_id_estado).single();
+    estado = data?.nombre || '';
+  }
+  if (persona.direccion_fiscal_id_municipio) {
+    const { data } = await supabase.from('municipios_mx').select('nombre').eq('id', persona.direccion_fiscal_id_municipio).single();
+    municipio = data?.nombre || '';
+  }
+
+  return {
+    id_persona: persona.id,
+    nombre_completo: persona.nombre_legal || '',
+    email: persona.email || '',
+    telefono: persona.telefono || '',
+    rfc: persona.rfc || '',
+    curp: persona.curp || '',
+    regimen: persona.regimen || '',
+    uso_cfdi: persona.uso_cfdi || '',
+    direccion_fiscal: {
+      calle: persona.direccion_fiscal_calle || '',
+      numero_exterior: persona.direccion_fiscal_num_ext || '',
+      numero_interior: persona.direccion_fiscal_num_int || '',
+      colonia: persona.direccion_fiscal_colonia || '',
+      codigo_postal: persona.direccion_fiscal_codigo_postal || '',
+      municipio,
+      estado,
+      pais,
+    },
+  };
+}
+
 async function buildInvoicePayload(supabase: any, idCuentaCobranza: number, idPropiedad: number, apiKey: string, esDraft: boolean, montoComision: number, porcentajeComision: number, environment: string) {
   // 1. Propiedad
   const { data: prop } = await supabase.from('propiedades').select('numero_propiedad, m2_interiores, m2_exteriores, numero_piso, id_entidad_relacionada_dueno').eq('id', idPropiedad).single();
@@ -19,8 +59,10 @@ async function buildInvoicePayload(supabase: any, idCuentaCobranza: number, idPr
   // 2. Dirección y nombre del proyecto via entidad dueña
   let direccion = '';
   let nombreProyecto = '';
+  let idPersonaDueno: number | null = null;
   if (prop.id_entidad_relacionada_dueno) {
-    const { data: ent } = await supabase.from('entidades_relacionadas').select('id_proyecto').eq('id', prop.id_entidad_relacionada_dueno).single();
+    const { data: ent } = await supabase.from('entidades_relacionadas').select('id_proyecto, id_persona').eq('id', prop.id_entidad_relacionada_dueno).single();
+    idPersonaDueno = ent?.id_persona || null;
     if (ent?.id_proyecto) {
       const { data: proy } = await supabase.from('proyectos').select('direccion, nombre').eq('id', ent.id_proyecto).single();
       direccion = proy?.direccion || '';
@@ -28,123 +70,35 @@ async function buildInvoicePayload(supabase: any, idCuentaCobranza: number, idPr
     }
   }
 
-  // 3. Cuenta cobranza completa
-  const { data: cuenta } = await supabase.from('cuentas_cobranza').select('*').eq('id', idCuentaCobranza).single();
+  // 3. Cuenta cobranza
+  const { data: cuenta } = await supabase.from('cuentas_cobranza').select('precio_final, iva_incluido').eq('id', idCuentaCobranza).single();
   if (!cuenta) throw new Error('Cuenta no encontrada');
 
-  // 4. Compradores
-  const { data: compradoresRaw } = await supabase.from('compradores').select('id_persona, porcentaje_copropiedad').eq('id_cuenta_cobranza', idCuentaCobranza).eq('activo', true);
-
-  const compradores = [];
-  for (const c of (compradoresRaw || [])) {
-    const { data: persona } = await supabase.from('personas').select('*').eq('id', c.id_persona).single();
-    if (!persona) continue;
-
-    let pais = '', estado = '', municipio = '';
-    if (persona.direccion_fiscal_id_pais) {
-      const { data } = await supabase.from('paises').select('nombre').eq('id', persona.direccion_fiscal_id_pais).single();
-      pais = data?.nombre || '';
-    }
-    if (persona.direccion_fiscal_id_estado) {
-      const { data } = await supabase.from('estados_mx').select('nombre').eq('id', persona.direccion_fiscal_id_estado).single();
-      estado = data?.nombre || '';
-    }
-    if (persona.direccion_fiscal_id_municipio) {
-      const { data } = await supabase.from('municipios_mx').select('nombre').eq('id', persona.direccion_fiscal_id_municipio).single();
-      municipio = data?.nombre || '';
-    }
-
-    compradores.push({
-      id_persona: persona.id,
-      nombre_completo: persona.nombre_legal,
-      porcentaje_propiedad: c.porcentaje_copropiedad || 0,
-      email: persona.email || '',
-      telefono: persona.telefono || '',
-      rfc: persona.rfc || '',
-      curp: persona.curp || '',
-      regimen: persona.regimen || '',
-      uso_cfdi: persona.uso_cfdi || '',
-      direccion_fiscal: {
-        calle: persona.direccion_fiscal_calle || '',
-        numero_exterior: persona.direccion_fiscal_num_ext || '',
-        numero_interior: persona.direccion_fiscal_num_int || '',
-        colonia: persona.direccion_fiscal_colonia || '',
-        codigo_postal: persona.direccion_fiscal_codigo_postal || '',
-        municipio,
-        estado,
-        pais,
-      },
-    });
-  }
-
-  // 5. Estacionamientos
-  const { data: estacionamientos } = await supabase.from('estacionamientos').select('*, tipos_estacionamiento!estacionamientos_id_tipo_fkey(nombre)').eq('id_propiedad', idPropiedad).eq('activo', true);
-
-  // 6. Bodegas
-  const { data: bodegas } = await supabase.from('bodegas').select('*').eq('id_propiedad', idPropiedad).eq('activo', true);
-
-  // 7. Notario
-  let notario = null;
-  if (cuenta.id_notario) {
-    const { data } = await supabase.from('notarios').select('nombre, notaria, direccion, email, telefono').eq('id', cuenta.id_notario).single();
-    if (data) {
-      notario = {
-        nombre: data.nombre?.trim() || '',
-        notaria: data.notaria?.trim() || '',
-        direccion: data.direccion?.trim() || '',
-        email: data.email?.trim() || '',
-        telefono: data.telefono?.trim() || '',
-      };
-    }
-  }
-
-  // Format fecha_escritura
-  let fechaEscritura = '';
-  if (cuenta.fecha_escritura) {
-    const d = new Date(cuenta.fecha_escritura);
-    fechaEscritura = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // 4. Dueño
+  let dueno = null;
+  if (idPersonaDueno) {
+    dueno = await buildDuenoData(supabase, idPersonaDueno);
   }
 
   return {
     api_key: apiKey,
     environment,
-    proyecto: nombreProyecto,
     tipo_factura: 'comision',
     id_propiedad: idPropiedad,
     id_cuenta_cobranza: idCuentaCobranza,
     es_draft: esDraft,
     monto_comision: montoComision,
     porcentaje_comision: porcentajeComision,
+    iva_incluido: cuenta.iva_incluido || false,
     propiedad: {
       numero_propiedad: prop.numero_propiedad,
       metraje_escriturable: (prop.m2_interiores || 0) + (prop.m2_exteriores || 0),
       direccion,
       precio_final: cuenta.precio_final,
       piso: prop.numero_piso,
+      proyecto: nombreProyecto,
     },
-    estacionamientos: (estacionamientos || []).map((e: any) => ({
-      nombre: e.nombre,
-      tipo: e.tipos_estacionamiento?.nombre || '',
-      m2: e.m2,
-      ubicacion: e.ubicacion || '',
-      es_incluido: e.es_incluido,
-    })),
-    bodegas: (bodegas || []).map((b: any) => ({
-      nombre: b.nombre,
-      m2: b.m2,
-      ubicacion: b.ubicacion || '',
-      es_incluido: b.es_incluido,
-    })),
-    escrituracion: {
-      numero_escritura: cuenta.numero_escritura || '',
-      fecha_escritura: fechaEscritura,
-      libro: cuenta.libro || '',
-      hoja: cuenta.hoja || '',
-      clave_catastral: cuenta.clave_catastral || '',
-      numero_unidad_privativa: cuenta.numero_unidad_privativa || '',
-      notario,
-    },
-    compradores,
+    dueno,
   };
 }
 
@@ -170,7 +124,7 @@ Deno.serve(async (req) => {
 
     console.log(`[generar-factura-comision-sozu] Iniciando para cuenta: ${id_cuenta_cobranza}`);
 
-    // 1. Verificar si ya existe una factura timbrada (no permitir regenerar)
+    // 1. Verificar si ya existe una factura timbrada
     const { data: cuentaExistente } = await supabase
       .from('cuentas_cobranza')
       .select('url_factura_comision, es_draft_factura_comision')
@@ -178,7 +132,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (cuentaExistente?.url_factura_comision && cuentaExistente?.es_draft_factura_comision === false) {
-      console.log(`[generar-factura-comision-sozu] Ya existe factura timbrada para cuenta ${id_cuenta_cobranza}`);
       return new Response(
         JSON.stringify({ success: true, message: 'Ya existe una factura timbrada para esta cuenta', already_exists: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -259,10 +212,10 @@ Deno.serve(async (req) => {
     const n8nBaseUrl = Deno.env.get('N8N_WEBHOOK_BASE_URL');
     if (!n8nBaseUrl) throw new Error('N8N_WEBHOOK_BASE_URL no está configurado');
 
-    // 7. Construir payload completo
+    // 7. Construir payload
     const payload = await buildInvoicePayload(supabase, id_cuenta_cobranza, oferta.id_propiedad, apiKey, true, montoComision, porcentajeComision, environment);
 
-    console.log(`[generar-factura-comision-sozu] Enviando payload completo a N8N con ${payload.compradores.length} compradores`);
+    console.log(`[generar-factura-comision-sozu] Enviando payload a N8N con dueno: ${payload.dueno?.nombre_completo || 'N/A'}`);
 
     // 8. Llamar N8N
     const n8nResponse = await fetch(`${n8nBaseUrl}/generaFactura`, {
