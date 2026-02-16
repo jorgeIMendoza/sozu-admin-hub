@@ -113,18 +113,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. Obtener datos fiscales del propietario (receptor de la factura)
-    const { data: propietario } = await supabase
-      .from('personas')
-      .select('id, nombre_legal, rfc, email, regimen, uso_cfdi, direccion_fiscal_codigo_postal')
-      .eq('id', entidadDuena.id_persona)
-      .single();
-
-    if (!propietario) {
-      throw new Error('No se pudo obtener los datos del propietario');
-    }
-
-    // 6. Calcular monto de comisión
+    // 5. Calcular monto de comisión
     const precioFinal = cuenta.precio_final || 0;
     const porcentajeComision = cuenta.porcentaje_comision_venta || 0;
     const montoComision = (precioFinal * porcentajeComision) / 100;
@@ -139,46 +128,19 @@ Deno.serve(async (req) => {
 
     console.log(`[generar-factura-comision-sozu] Monto comisión: ${montoComision} (${precioFinal} * ${porcentajeComision}%)`);
 
-    // 7. Obtener API key draft para Sozu
-    const apiKeyDraft = Deno.env.get('COMISIONES_SOZU_API_KEY_DRAFT');
-    if (!apiKeyDraft) {
-      throw new Error('COMISIONES_SOZU_API_KEY_DRAFT no está configurado');
-    }
-
-    // 8. Obtener la URL base de N8N
+    // 6. Obtener la URL base de N8N
     const n8nBaseUrl = Deno.env.get('N8N_WEBHOOK_BASE_URL');
     if (!n8nBaseUrl) {
       throw new Error('N8N_WEBHOOK_BASE_URL no está configurado');
     }
 
-    // 9. Llamar al webhook N8N para generar factura draft
-    const facturaPayload = {
-      api_key: apiKeyDraft,
-      tipo_factura: 'comision_venta_sozu',
-      es_draft: true,
-      receptor: {
-        nombre: propietario.nombre_legal,
-        rfc: propietario.rfc,
-        regimen: propietario.regimen,
-        uso_cfdi: propietario.uso_cfdi || 'G03',
-        codigo_postal: propietario.direccion_fiscal_codigo_postal,
-        email: propietario.email,
-      },
-      conceptos: [{
-        descripcion: `Comisión de venta - Cuenta ${id_cuenta_cobranza}`,
-        monto: montoComision,
-      }],
-      id_cuenta_cobranza,
-      id_propiedad: propiedad.id,
-    };
-
+    // 7. Llamar al webhook N8N con payload simplificado
     console.log(`[generar-factura-comision-sozu] Llamando N8N webhook: ${n8nBaseUrl}/generaFactura`);
-    console.log(`[generar-factura-comision-sozu] Payload enviado:`, JSON.stringify(facturaPayload));
 
     const n8nResponse = await fetch(`${n8nBaseUrl}/generaFactura`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(facturaPayload),
+      body: JSON.stringify({ tipo_factura: 'comision' }),
     });
 
     let facturaResult: any = {};
@@ -195,7 +157,7 @@ Deno.serve(async (req) => {
       ? facturaResult.url
       : 'https://pendiente-de-generar.sozu.com';
 
-    // 10. Registrar documento en tabla documentos
+    // 8. Registrar documento en tabla documentos
     const { data: documento, error: docError } = await supabase
       .from('documentos')
       .insert({
@@ -216,7 +178,7 @@ Deno.serve(async (req) => {
       throw new Error('Error al registrar el documento de factura');
     }
 
-    // 11. Actualizar cuentas_cobranza con referencia al documento
+    // 9. Actualizar cuentas_cobranza con referencia al documento
     const { error: updateError } = await supabase
       .from('cuentas_cobranza')
       .update({
@@ -229,36 +191,44 @@ Deno.serve(async (req) => {
       console.error(`[generar-factura-comision-sozu] Error actualizando cuenta:`, updateError);
     }
 
-    // 12. Enviar notificación por correo
-    try {
-      const ccEmails = SUPER_ADMIN_EMAILS.join(',');
-      const notificationPayload = {
-        tipo: 'email',
-        from: 'Notificaciones Sozu <notificaciones@sozu.com>',
-        email: propietario.email,
-        cc: ccEmails,
-        asunto: `Factura Draft de Comisión de Venta - Cuenta ${id_cuenta_cobranza}`,
-        mensaje: {
-          nombre: propietario.nombre_legal,
-          actividad: 'Generación de factura de comisión de venta (Draft)',
-          detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${id_cuenta_cobranza}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>$${montoComision.toFixed(2)} MXN</td></tr><tr><td class='label'>Porcentaje:</td><td class='value'>${porcentajeComision}%</td></tr><tr><td class='label'>Estado:</td><td class='value'>Draft (pendiente de timbrado)</td></tr>`,
-        },
-        templateId: 36978552,
-      };
+    // 10. Obtener datos del propietario para la notificación
+    const { data: propietario } = await supabase
+      .from('personas')
+      .select('nombre_legal, email')
+      .eq('id', entidadDuena.id_persona)
+      .single();
 
-      await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify(notificationPayload),
-      });
+    // 11. Enviar notificación por correo
+    if (propietario?.email) {
+      try {
+        const ccEmails = SUPER_ADMIN_EMAILS.join(',');
+        const notificationPayload = {
+          tipo: 'email',
+          from: 'Notificaciones Sozu <notificaciones@sozu.com>',
+          email: propietario.email,
+          cc: ccEmails,
+          asunto: `Factura Draft de Comisión de Venta - Cuenta ${id_cuenta_cobranza}`,
+          mensaje: {
+            nombre: propietario.nombre_legal,
+            actividad: 'Generación de factura de comisión de venta (Draft)',
+            detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${id_cuenta_cobranza}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>$${montoComision.toFixed(2)} MXN</td></tr><tr><td class='label'>Porcentaje:</td><td class='value'>${porcentajeComision}%</td></tr><tr><td class='label'>Estado:</td><td class='value'>Draft (pendiente de timbrado)</td></tr>`,
+          },
+          templateId: 36978552,
+        };
 
-      console.log(`[generar-factura-comision-sozu] Notificación enviada a ${propietario.email}`);
-    } catch (notifError) {
-      console.error(`[generar-factura-comision-sozu] Error enviando notificación:`, notifError);
-      // No bloquear el flujo
+        await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify(notificationPayload),
+        });
+
+        console.log(`[generar-factura-comision-sozu] Notificación enviada a ${propietario.email}`);
+      } catch (notifError) {
+        console.error(`[generar-factura-comision-sozu] Error enviando notificación:`, notifError);
+      }
     }
 
     console.log(`[generar-factura-comision-sozu] ✅ Factura draft generada exitosamente (doc ID: ${documento.id})`);
