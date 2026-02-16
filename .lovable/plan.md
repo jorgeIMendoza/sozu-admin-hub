@@ -1,68 +1,80 @@
 
 
-## Regenerar acuerdos de pago para cuenta 1743
+## Corregir payload de factura de comision hacia n8n
 
-### Resumen
+### Problema
 
-La cuenta 1743 (oferta 1790, precio $5,853,818.20) tiene actualmente 3 acuerdos que no coinciden con el esquema de pago 963. Se necesita desactivar los acuerdos incorrectos y crear los correctos.
+Las edge functions `generar-factura-comision-sozu` y `timbrar-factura-comision-sozu` envian un payload minimo a n8n (`{ tipo_factura: "comision" }`), cuando el endpoint `/generaFactura` espera un payload completo con datos de propiedad, compradores, escrituracion, etc. -- identico al que construye `FacturasTab.tsx` via `buildInvoicePayload()`.
 
-### Estado actual vs esperado
+### Solucion
+
+Replicar la logica de `buildInvoicePayload()` dentro de ambas edge functions, usando los secrets existentes para el api_key:
+
+- **Draft (generar)**: `COMISIONES_SOZU_API_KEY_DRAFT` + `es_draft: true`
+- **Timbrar**: `COMISIONES_SOZU_API_KEY` + `es_draft: false`
+
+### Cambios
+
+#### 1. `supabase/functions/generar-factura-comision-sozu/index.ts`
+
+Reescribir para que, despues de las validaciones existentes (propiedad vendida, entidad con facturar_comision_sozu), recopile todos los datos necesarios:
+
+1. Leer `COMISIONES_SOZU_API_KEY_DRAFT` del environment
+2. Obtener datos de la propiedad: `numero_propiedad`, `m2_interiores`, `m2_exteriores`, `numero_piso`
+3. Obtener direccion del proyecto via `entidades_relacionadas.id_proyecto` -> `proyectos.direccion`
+4. Obtener compradores de la cuenta con datos fiscales completos (RFC, regimen, uso CFDI, CURP, direccion fiscal con pais/estado/municipio resueltos por nombre)
+5. Obtener estacionamientos y bodegas de la propiedad
+6. Obtener datos de escrituracion de la cuenta (numero_escritura, fecha, libro, hoja, clave_catastral, numero_unidad_privativa)
+7. Obtener datos del notario si existe
+8. Construir payload identico a `buildInvoicePayload` pero con `tipo_factura: "comision"` y campos adicionales `monto_comision` y `porcentaje_comision`
+9. Enviar a `N8N_WEBHOOK_BASE_URL/generaFactura`
+10. Guardar resultado en `url_factura_comision` y `es_draft_factura_comision = true`
+
+#### 2. `supabase/functions/timbrar-factura-comision-sozu/index.ts`
+
+Misma logica de recopilacion de datos pero:
+
+1. Leer `COMISIONES_SOZU_API_KEY` del environment
+2. Enviar con `es_draft: false`
+3. Actualizar `es_draft_factura_comision = false` y la URL resultante
+
+### Estructura del payload (identica a FacturasTab)
 
 ```text
-ACTUAL:
-  Orden 1: Apartado     $20,000.00      (pagado) -- SE RESPETA
-  Orden 2: Enganche     $272,690.91              -- DESACTIVAR
-  Orden 3: Entrega      $5,561,127.29            -- DESACTIVAR
-  Total: $5,853,818.20
-
-ESPERADO (esquema 963):
-  Base post-apartado: $5,833,818.20
-  Orden 1:  Apartado     $20,000.00      (pagado, sin cambio)
-  Orden 2:  Enganche     $291,690.91     (5%)
-  Orden 3-50: 48 Parcialidades          (28.90% = $1,685,973.46)
-              47 x $35,124.45 + 1 x $35,124.31 = $1,685,973.46
-  Orden 51: Entrega      $3,856,153.83   (66.10%)
-  Total: $5,853,818.20
-```
-
-### Verificacion de cuadre
-
-- Apartado: $20,000.00
-- Enganche: $291,690.91
-- Parcialidades: 47 x $35,124.45 + $35,124.31 = $1,685,973.46
-- Entrega: $3,856,153.83
-- **Suma: $5,853,818.20** (cuadra con precio_final)
-
-### SQL a ejecutar (vía migration tool, en 2 pasos)
-
-**Paso 1: Desactivar acuerdos incorrectos**
-
-```sql
-UPDATE acuerdos_pago 
-SET activo = false 
-WHERE id IN (25308, 25309);
-```
-
-**Paso 2: Insertar 50 nuevos acuerdos**
-
-```sql
-INSERT INTO acuerdos_pago (id_cuenta_cobranza, id_concepto, orden, monto, pago_completado, activo)
-VALUES
-  -- Enganche (concepto 2)
-  (1743, 2, 2, 291690.91, false, true),
-  -- 47 Parcialidades de $35,124.45 (concepto 5, ordenes 3-49)
-  (1743, 5, 3, 35124.45, false, true),
-  (1743, 5, 4, 35124.45, false, true),
-  (1743, 5, 5, 35124.45, false, true),
-  -- ... (ordenes 6-49, mismo monto)
-  -- Parcialidad 48 ajustada (orden 50)
-  (1743, 5, 50, 35124.31, false, true),
-  -- Entrega (concepto 3, orden 51)
-  (1743, 3, 51, 3856153.83, false, true);
+{
+  api_key: <COMISIONES_SOZU_API_KEY_DRAFT o COMISIONES_SOZU_API_KEY>,
+  environment: "produccion",
+  tipo_factura: "comision",
+  id_propiedad: number,
+  id_cuenta_cobranza: number,
+  es_draft: boolean,
+  monto_comision: number,
+  porcentaje_comision: number,
+  propiedad: {
+    numero_propiedad, metraje_escriturable, direccion, precio_final, piso
+  },
+  estacionamientos: [{ nombre, tipo, m2, ubicacion, es_incluido }],
+  bodegas: [{ nombre, m2, ubicacion, es_incluido }],
+  escrituracion: {
+    numero_escritura, fecha_escritura, libro, hoja, clave_catastral,
+    numero_unidad_privativa,
+    notario: { nombre, notaria, direccion, email, telefono } | null
+  },
+  compradores: [{
+    id_persona, nombre_completo, porcentaje_propiedad, email, telefono,
+    rfc, curp, regimen, uso_cfdi,
+    direccion_fiscal: {
+      calle, numero_exterior, numero_interior, colonia,
+      codigo_postal, municipio, estado, pais
+    }
+  }]
+}
 ```
 
 ### Notas
 
-- El apartado (acuerdo 25307, orden 1) no se toca ya que tiene un pago aplicado de $20,000
-- Los acuerdos 25308 y 25309 no tienen aplicaciones de pago, se pueden desactivar sin riesgo
-- La ultima parcialidad se ajusta en centavos para que el total cuadre exactamente
+- Los secrets `COMISIONES_SOZU_API_KEY_DRAFT` y `COMISIONES_SOZU_API_KEY` ya existen en el proyecto
+- No se requieren cambios en frontend ni en la base de datos
+- Se mantienen las notificaciones por correo existentes
+- Se mantiene la logica de permitir regenerar drafts
+
