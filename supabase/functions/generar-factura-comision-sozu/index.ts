@@ -249,9 +249,8 @@ Deno.serve(async (req) => {
 
     console.log(`[generar-factura-comision-sozu] Monto comisión: ${montoComision} (${precioFinal} * ${porcentajeComision}%)`);
 
-    // 6. Leer API key y N8N URL
-    const apiKey = Deno.env.get('COMISIONES_SOZU_API_KEY_DRAFT');
-    if (!apiKey) throw new Error('COMISIONES_SOZU_API_KEY_DRAFT no está configurado');
+    // 6. API key name y N8N URL
+    const apiKey = 'COMISIONES_SOZU_API_KEY_DRAFT';
 
     const n8nBaseUrl = Deno.env.get('N8N_WEBHOOK_BASE_URL');
     if (!n8nBaseUrl) throw new Error('N8N_WEBHOOK_BASE_URL no está configurado');

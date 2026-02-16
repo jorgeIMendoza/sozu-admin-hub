@@ -194,8 +194,7 @@ Deno.serve(async (req) => {
     if (!oferta?.id_propiedad) throw new Error('No hay propiedad asociada a la oferta');
 
     // 3. Leer API key y N8N URL
-    const apiKey = Deno.env.get('COMISIONES_SOZU_API_KEY');
-    if (!apiKey) throw new Error('COMISIONES_SOZU_API_KEY no está configurado');
+    const apiKey = 'COMISIONES_SOZU_API_KEY';
 
     const n8nBaseUrl = Deno.env.get('N8N_WEBHOOK_BASE_URL');
     if (!n8nBaseUrl) throw new Error('N8N_WEBHOOK_BASE_URL no está configurado');
