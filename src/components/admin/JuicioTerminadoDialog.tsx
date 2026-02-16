@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ENVIRONMENT } from "@/lib/config";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { CurrencyInput } from "@/components/ui/currency-input";
 
@@ -369,7 +370,7 @@ export function JuicioTerminadoDialog({
         try {
           const { data: funcData, error: funcError } = await supabase.functions.invoke(
             'generar-factura-comision-sozu',
-            { body: { id_cuenta_cobranza: cuentaCobranzaId } }
+            { body: { id_cuenta_cobranza: cuentaCobranzaId, environment: ENVIRONMENT } }
           );
           if (funcError) {
             console.error('Error generando factura comisión sozu:', funcError);

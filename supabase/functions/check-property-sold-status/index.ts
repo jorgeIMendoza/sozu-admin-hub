@@ -280,7 +280,7 @@ Deno.serve(async (req) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${supabaseKey}`,
               },
-              body: JSON.stringify({ id_cuenta_cobranza }),
+              body: JSON.stringify({ id_cuenta_cobranza, environment: 'produccion' }),
             }
           );
           const facturaResult = await facturaResponse.json();

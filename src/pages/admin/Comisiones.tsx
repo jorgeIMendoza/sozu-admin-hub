@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { ENVIRONMENT } from "@/lib/config";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
@@ -295,7 +296,7 @@ export default function Comisiones() {
     setGenerarLoading(cuentaId);
     try {
       const { data, error } = await supabase.functions.invoke('generar-factura-comision-sozu', {
-        body: { id_cuenta_cobranza: cuentaId }
+        body: { id_cuenta_cobranza: cuentaId, environment: ENVIRONMENT }
       });
       if (error) throw error;
       if (data?.not_applicable) {
@@ -319,7 +320,7 @@ export default function Comisiones() {
     setTimbrarLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('timbrar-factura-comision-sozu', {
-        body: { id_cuenta_cobranza: timbrarDialog.cuentaId }
+        body: { id_cuenta_cobranza: timbrarDialog.cuentaId, environment: ENVIRONMENT }
       });
       if (error) throw error;
       toast({ title: "Factura timbrada", description: "La factura se ha timbrado exitosamente" });

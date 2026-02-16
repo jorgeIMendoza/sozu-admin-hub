@@ -11,18 +11,20 @@ const SUPER_ADMIN_EMAILS = [
   'jorge.mendoza@sozu.com',
 ];
 
-async function buildInvoicePayload(supabase: any, idCuentaCobranza: number, idPropiedad: number, apiKey: string, esDraft: boolean, montoComision: number, porcentajeComision: number) {
+async function buildInvoicePayload(supabase: any, idCuentaCobranza: number, idPropiedad: number, apiKey: string, esDraft: boolean, montoComision: number, porcentajeComision: number, environment: string) {
   // 1. Propiedad
   const { data: prop } = await supabase.from('propiedades').select('numero_propiedad, m2_interiores, m2_exteriores, numero_piso, id_entidad_relacionada_dueno').eq('id', idPropiedad).single();
   if (!prop) throw new Error('Propiedad no encontrada');
 
-  // 2. Dirección del proyecto via entidad dueña
+  // 2. Dirección y nombre del proyecto via entidad dueña
   let direccion = '';
+  let nombreProyecto = '';
   if (prop.id_entidad_relacionada_dueno) {
     const { data: ent } = await supabase.from('entidades_relacionadas').select('id_proyecto').eq('id', prop.id_entidad_relacionada_dueno).single();
     if (ent?.id_proyecto) {
-      const { data: proy } = await supabase.from('proyectos').select('direccion').eq('id', ent.id_proyecto).single();
+      const { data: proy } = await supabase.from('proyectos').select('direccion, nombre').eq('id', ent.id_proyecto).single();
       direccion = proy?.direccion || '';
+      nombreProyecto = proy?.nombre || '';
     }
   }
 
@@ -105,7 +107,8 @@ async function buildInvoicePayload(supabase: any, idCuentaCobranza: number, idPr
 
   return {
     api_key: apiKey,
-    environment: 'produccion',
+    environment,
+    proyecto: nombreProyecto,
     tipo_factura: 'comision',
     id_propiedad: idPropiedad,
     id_cuenta_cobranza: idCuentaCobranza,
@@ -155,7 +158,8 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { id_cuenta_cobranza } = await req.json();
+    const { id_cuenta_cobranza, environment: envFromBody } = await req.json();
+    const environment = envFromBody || 'produccion';
 
     if (!id_cuenta_cobranza) {
       return new Response(
@@ -256,7 +260,7 @@ Deno.serve(async (req) => {
     if (!n8nBaseUrl) throw new Error('N8N_WEBHOOK_BASE_URL no está configurado');
 
     // 7. Construir payload completo
-    const payload = await buildInvoicePayload(supabase, id_cuenta_cobranza, oferta.id_propiedad, apiKey, true, montoComision, porcentajeComision);
+    const payload = await buildInvoicePayload(supabase, id_cuenta_cobranza, oferta.id_propiedad, apiKey, true, montoComision, porcentajeComision, environment);
 
     console.log(`[generar-factura-comision-sozu] Enviando payload completo a N8N con ${payload.compradores.length} compradores`);
 

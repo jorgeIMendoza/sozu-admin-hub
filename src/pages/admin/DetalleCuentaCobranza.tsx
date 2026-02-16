@@ -2824,7 +2824,7 @@ export default function DetalleCuentaCobranza() {
     setGenerarFacturaLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('generar-factura-comision-sozu', {
-        body: { id_cuenta_cobranza: cuentaId }
+        body: { id_cuenta_cobranza: cuentaId, environment: ENVIRONMENT }
       });
       if (error) throw error;
       if (data?.not_applicable) {
@@ -2848,7 +2848,7 @@ export default function DetalleCuentaCobranza() {
     setTimbrarFacturaLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('timbrar-factura-comision-sozu', {
-        body: { id_cuenta_cobranza: cuentaId }
+        body: { id_cuenta_cobranza: cuentaId, environment: ENVIRONMENT }
       });
       if (error) throw error;
       toast({ title: "Factura timbrada", description: "La factura se ha timbrado exitosamente" });

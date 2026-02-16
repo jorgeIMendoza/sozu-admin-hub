@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { ENVIRONMENT } from "@/lib/config";
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, isBefore, isEqual } from "date-fns";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,7 +79,7 @@ export default function ComisionesPorPagarTab({
     setIsTimbrarLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('timbrar-factura-comision-sozu', {
-        body: { id_cuenta_cobranza: timbrarDialog.idCuenta, id_documento: timbrarDialog.idDocumento },
+        body: { id_cuenta_cobranza: timbrarDialog.idCuenta, id_documento: timbrarDialog.idDocumento, environment: ENVIRONMENT },
       });
       if (error) throw error;
       toast({ title: 'Factura timbrada', description: 'La factura de comisión ha sido timbrada exitosamente' });
