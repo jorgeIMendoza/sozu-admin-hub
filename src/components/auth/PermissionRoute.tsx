@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAllowedMenus } from '@/hooks/useAllowedMenus';
+import { useDynamicMenus } from '@/hooks/useDynamicMenus';
 import { Loader2 } from 'lucide-react';
 
 interface PermissionRouteProps {
@@ -9,6 +10,7 @@ interface PermissionRouteProps {
 
 export function PermissionRoute({ children }: PermissionRouteProps) {
   const { isPathAllowed, isLoading, isSuperAdmin } = useAllowedMenus();
+  const { menuItems, isLoading: isMenuLoading } = useDynamicMenus();
   const location = useLocation();
 
   // Always allow access to the access-denied page to prevent infinite redirects
@@ -16,7 +18,7 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isLoading || isMenuLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -42,8 +44,27 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
     return <>{children}</>;
   }
 
+  // User doesn't have permission - if on /admin (dashboard), redirect to first allowed menu
+  if (currentPath === '/admin' || currentPath === '/admin/') {
+    const firstAllowedPath = getFirstAllowedPath(menuItems);
+    if (firstAllowedPath) {
+      return <Navigate to={firstAllowedPath} replace />;
+    }
+  }
+
   // User doesn't have permission to this route - show access denied
   return <Navigate to="/admin/access-denied" replace />;
+}
+
+// Helper to get the first allowed path from dynamic menus
+function getFirstAllowedPath(menuItems: any[]): string | null {
+  for (const item of menuItems) {
+    if (item.href) return item.href;
+    if (item.children?.length > 0) {
+      return item.children[0].href;
+    }
+  }
+  return null;
 }
 
 // Helper function to get base path for nested routes
