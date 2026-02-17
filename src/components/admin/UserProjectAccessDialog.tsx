@@ -58,6 +58,100 @@ interface EntidadDueno {
   } | null;
 }
 
+interface AgentReadOnlyAccessProps {
+  userPersonaId?: number;
+  isSecondaryInmobiliaria: boolean;
+  isAgenteInterno: boolean;
+  userRole?: string;
+  proyectos?: Proyecto[];
+  selectedProjects: number[];
+  onClose: () => void;
+}
+
+function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteInterno, userRole, proyectos, selectedProjects, onClose }: AgentReadOnlyAccessProps) {
+  const { data: hasInmobiliaria, isLoading } = useQuery({
+    queryKey: ['agent-has-inmobiliaria', userPersonaId],
+    queryFn: async () => {
+      if (!userPersonaId) return false;
+      const { data } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_persona_duena_lead')
+        .eq('id_persona', userPersonaId)
+        .eq('id_tipo_entidad', 19)
+        .eq('activo', true)
+        .maybeSingle();
+      return !!data?.id_persona_duena_lead;
+    },
+    enabled: !!userPersonaId && !isSecondaryInmobiliaria,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const showInheritedDisclaimer = isSecondaryInmobiliaria || hasInmobiliaria;
+
+  return (
+    <div className="space-y-4">
+      <Alert variant="default" className={showInheritedDisclaimer ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" : "border-green-500 bg-green-50 dark:bg-green-950/20"}>
+        {showInheritedDisclaimer ? (
+          <Users className="h-4 w-4 text-blue-600" />
+        ) : (
+          <Building2 className="h-4 w-4 text-green-600" />
+        )}
+        <AlertDescription className={showInheritedDisclaimer ? "text-blue-800 dark:text-blue-200" : "text-green-800 dark:text-green-200"}>
+          {showInheritedDisclaimer ? (
+            <>
+              <strong>El acceso a proyectos se hereda del usuario principal</strong>
+              <p className="mt-1 text-sm">
+                {isSecondaryInmobiliaria
+                  ? 'Los usuarios secundarios de Inmobiliaria heredan automáticamente el acceso a proyectos del usuario principal de la agencia. Para modificar los accesos, edita los permisos del usuario principal.'
+                  : `Los ${isAgenteInterno ? 'Agentes Internos' : 'Agentes Inmobiliarios'} heredan automáticamente el acceso a proyectos de su Inmobiliaria padre. Para modificar los accesos, edita los permisos del usuario con rol "Inmobiliaria" correspondiente.`
+                }
+              </p>
+            </>
+          ) : (
+            <>
+              <strong>Acceso a proyectos públicos</strong>
+              <p className="mt-1 text-sm">
+                Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a todos los proyectos publicados en Sozu.
+              </p>
+            </>
+          )}
+        </AlertDescription>
+      </Alert>
+      
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Proyectos con acceso actual:</Label>
+        <ScrollArea className="h-[200px] border rounded-md p-3">
+          <div className="space-y-1">
+            {proyectos?.filter(p => selectedProjects.includes(p.id)).map(proyecto => (
+              <div key={proyecto.id} className="flex items-center gap-2 py-1">
+                <Badge variant="secondary" className="text-xs">
+                  {proyecto.nombre}
+                </Badge>
+              </div>
+            ))}
+            {selectedProjects.length === 0 && (
+              <p className="text-sm text-muted-foreground">Sin acceso a proyectos</p>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+      
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function UserProjectAccessDialog({ userId, userName, userEmail, userRole, userRoleId, userPersonaId, isUsuarioPrincipal }: UserProjectAccessDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
@@ -501,45 +595,15 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
             </div>
           </div>
         ) : isAgente || isSecondaryInmobiliaria ? (
-          <div className="space-y-4">
-            <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
-              <Users className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800 dark:text-blue-200">
-                <strong>El acceso a proyectos se hereda del usuario principal</strong>
-                <p className="mt-1 text-sm">
-                  {isSecondaryInmobiliaria 
-                    ? 'Los usuarios secundarios de Inmobiliaria heredan automáticamente el acceso a proyectos del usuario principal de la agencia. Para modificar los accesos, edita los permisos del usuario principal.'
-                    : `Los ${isAgenteInterno ? 'Agentes Internos' : 'Agentes Inmobiliarios'} heredan automáticamente el acceso a proyectos de su Inmobiliaria padre. Para modificar los accesos, edita los permisos del usuario con rol "Inmobiliaria" correspondiente.`
-                  }
-                </p>
-              </AlertDescription>
-            </Alert>
-            
-            {/* Show current access in read-only mode */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Proyectos con acceso actual:</Label>
-              <ScrollArea className="h-[200px] border rounded-md p-3">
-                <div className="space-y-1">
-                  {proyectos?.filter(p => selectedProjects.includes(p.id)).map(proyecto => (
-                    <div key={proyecto.id} className="flex items-center gap-2 py-1">
-                      <Badge variant="secondary" className="text-xs">
-                        {proyecto.nombre}
-                      </Badge>
-                    </div>
-                  ))}
-                  {selectedProjects.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Sin acceso a proyectos</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-            
-            <div className="flex justify-end">
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Cerrar
-              </Button>
-            </div>
-          </div>
+          <AgentReadOnlyAccess
+            userPersonaId={userPersonaId}
+            isSecondaryInmobiliaria={isSecondaryInmobiliaria}
+            isAgenteInterno={isAgenteInterno}
+            userRole={userRole}
+            proyectos={proyectos}
+            selectedProjects={selectedProjects}
+            onClose={() => setOpen(false)}
+          />
         ) : (
           <div className="space-y-4">
             {/* Info alert for Inmobiliaria role - changes propagate to agents */}

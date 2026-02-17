@@ -271,7 +271,7 @@ Deno.serve(async (req) => {
         templateId: 41353048
       };
 
-      await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
+      const adminNotifResp = await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -280,7 +280,8 @@ Deno.serve(async (req) => {
         body: JSON.stringify(notificationPayload)
       });
 
-      console.log('Notification sent');
+      const adminNotifBody = await adminNotifResp.text();
+      console.log('Admin notification response:', adminNotifResp.status, adminNotifBody);
     } catch (notificationError) {
       console.error('Error sending notification:', notificationError);
     }
@@ -305,7 +306,7 @@ Deno.serve(async (req) => {
         templateId: 41353048
       };
 
-      await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
+      const welcomeResp = await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -314,7 +315,8 @@ Deno.serve(async (req) => {
         body: JSON.stringify(welcomePayload)
       });
 
-      console.log('Welcome email sent to agent');
+      const welcomeBody = await welcomeResp.text();
+      console.log('Welcome email response:', welcomeResp.status, welcomeBody);
     } catch (welcomeError) {
       console.error('Error sending welcome email:', welcomeError);
     }
