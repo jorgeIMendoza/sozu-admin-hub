@@ -125,27 +125,36 @@ export default function Registro() {
 
   return (
     <div className="min-h-screen bg-[hsl(220,20%,93%)] flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+      <div
+        className="w-full max-w-md bg-white rounded-3xl px-8 py-10 sm:px-10"
+        style={{
+          boxShadow: '12px 12px 30px hsl(220,20%,84%), -12px -12px 30px hsl(0,0%,100%)',
+        }}
+      >
         {/* Logo */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <img src={sozuLogo} alt="Sozu" className="h-10 mx-auto" />
         </div>
 
         {/* Title */}
-        <h1 className="text-2xl font-bold text-center text-[hsl(0,0%,15%)] mb-8">
+        <h1 className="text-2xl font-bold text-center text-[hsl(0,0%,15%)] mb-2">
           Registro de Agente
         </h1>
+        <p className="text-sm text-[hsl(0,0%,55%)] text-center mb-8">
+          Completa tus datos para crear tu cuenta
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Nombre */}
           <div>
+            <label className="block text-sm font-semibold text-[hsl(0,0%,15%)] mb-2">Nombre completo</label>
             <input
               type="text"
               value={formData.nombre}
               onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
               placeholder="Nombre completo"
               required
-              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30"
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 border border-[hsl(220,20%,88%)]"
               style={{
                 background: 'hsl(220,20%,93%)',
                 boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
@@ -155,13 +164,14 @@ export default function Registro() {
 
           {/* Email */}
           <div>
+            <label className="block text-sm font-semibold text-[hsl(0,0%,15%)] mb-2">Email</label>
             <input
               type="email"
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              placeholder="Email"
+              placeholder="tu@email.com"
               required
-              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30"
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 border border-[hsl(220,20%,88%)]"
               style={{
                 background: 'hsl(220,20%,93%)',
                 boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
@@ -170,34 +180,37 @@ export default function Registro() {
           </div>
 
           {/* Teléfono */}
-          <div className="flex gap-3">
-            <select
-              value={formData.clave_pais_telefono}
-              onChange={(e) => setFormData(prev => ({ ...prev, clave_pais_telefono: e.target.value }))}
-              className="w-24 px-3 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] outline-none"
-              style={{
-                background: 'hsl(220,20%,93%)',
-                boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
-              }}
-            >
-              <option value="MX">🇲🇽 +52</option>
-              <option value="US">🇺🇸 +1</option>
-            </select>
-            <input
-              type="tel"
-              value={formData.telefono}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setFormData(prev => ({ ...prev, telefono: value }));
-              }}
-              placeholder="Teléfono (10 dígitos)"
-              required
-              className="flex-1 px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30"
-              style={{
-                background: 'hsl(220,20%,93%)',
-                boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
-              }}
-            />
+          <div>
+            <label className="block text-sm font-semibold text-[hsl(0,0%,15%)] mb-2">Teléfono</label>
+            <div className="flex gap-3">
+              <select
+                value={formData.clave_pais_telefono}
+                onChange={(e) => setFormData(prev => ({ ...prev, clave_pais_telefono: e.target.value }))}
+                className="w-24 px-3 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] outline-none border border-[hsl(220,20%,88%)]"
+                style={{
+                  background: 'hsl(220,20%,93%)',
+                  boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+                }}
+              >
+                <option value="MX">🇲🇽 +52</option>
+                <option value="US">🇺🇸 +1</option>
+              </select>
+              <input
+                type="tel"
+                value={formData.telefono}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setFormData(prev => ({ ...prev, telefono: value }));
+                }}
+                placeholder="10 dígitos"
+                required
+                className="flex-1 px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 border border-[hsl(220,20%,88%)]"
+                style={{
+                  background: 'hsl(220,20%,93%)',
+                  boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+                }}
+              />
+            </div>
           </div>
 
           {/* Submit */}
@@ -214,10 +227,7 @@ export default function Registro() {
           </button>
 
           {/* Login link */}
-          <a
-            href="https://inmobiliarias.sozu.com/auth/login"
-            className="block w-full"
-          >
+          <a href="https://inmobiliarias.sozu.com/auth/login" className="block w-full">
             <button
               type="button"
               className="w-full py-4 rounded-2xl text-sm font-medium text-[hsl(0,0%,40%)] transition-all duration-200"
