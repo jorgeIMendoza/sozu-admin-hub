@@ -75,13 +75,29 @@ Deno.serve(async (req) => {
 
       // Notify admins that the agent confirmed their email
       try {
+        // Get the usuario record for additional details
+        const { data: usuarioData } = await supabase
+          .from('usuarios')
+          .select('nombre, telefono')
+          .ilike('email', email.toLowerCase())
+          .maybeSingle();
+
         const { data: superAdmins } = await supabase
           .from('usuarios')
           .select('email')
           .eq('rol_id', 1)
           .eq('activo', true);
 
-        const adminEmails = (superAdmins || []).map(u => u.email).filter(Boolean);
+        const { data: adminProyecto } = await supabase
+          .from('usuarios')
+          .select('email')
+          .eq('rol_id', 2)
+          .eq('activo', true);
+
+        const adminEmails = [
+          ...(adminProyecto || []).map(u => u.email),
+          ...(superAdmins || []).map(u => u.email),
+        ].filter(Boolean);
 
         if (adminEmails.length > 0) {
           const adminMessages = adminEmails.map(adminEmail => ({
@@ -93,7 +109,7 @@ Deno.serve(async (req) => {
                 nombre: 'Administrador',
                 actividad: 'Agente confirmó su correo electrónico',
                 asunto: 'Agente confirmado - ' + decodeURIComponent(nombre),
-                detalles: `<tr><td class='label'>Nombre:</td><td class='value'>${decodeURIComponent(nombre)}</td></tr><tr><td class='label'>Email:</td><td class='value'>${email.toLowerCase()}</td></tr><tr><td class='label'>Estado:</td><td class='value'>✅ Email confirmado - Credenciales enviadas</td></tr>`,
+                detalles: `<tr><td class='label'>Nombre:</td><td class='value'>${decodeURIComponent(nombre)}</td></tr><tr><td class='label'>Email:</td><td class='value'>${email.toLowerCase()}</td></tr><tr><td class='label'>Teléfono:</td><td class='value'>${usuarioData?.telefono || 'N/A'}</td></tr><tr><td class='label'>Estado:</td><td class='value'>✅ Email confirmado - Credenciales enviadas</td></tr>`,
               },
             },
             MessageStream: 'outbound',
