@@ -581,7 +581,6 @@ const ImageCarousel = ({ images, projectName, badge, brochure, onDownloadBrochur
             {images.slice(0, 5).map((_: any, i: number) => (
               <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === currentIndex ? 'bg-white' : 'bg-white/50'}`} />
             ))}
-            {images.length > 5 && <span className="text-white text-[10px] ml-1">+{images.length - 5}</span>}
           </div>
         </>
       )}
