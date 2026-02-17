@@ -351,16 +351,7 @@ export function EditUserDialog({
       return;
     }
 
-    // Validate inmobiliaria for agent roles
-    if (isAgentRole && !selectedInmobiliariaId) {
-      toast({
-        title: "Error",
-        description: "Por favor selecciona una inmobiliaria para el agente.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Inmobiliaria is optional for agent roles
     updateUserMutation.mutate({
       oldEmail: userEmail,
       newEmail: email.trim(),
@@ -540,7 +531,7 @@ export function EditUserDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={updateUserMutation.isPending || !hasChanges || (isAgentRole && !selectedInmobiliariaId)}
+            disabled={updateUserMutation.isPending || !hasChanges}
           >
             {updateUserMutation.isPending ? (
               <>
