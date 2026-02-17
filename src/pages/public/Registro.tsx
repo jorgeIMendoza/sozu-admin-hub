@@ -28,9 +28,17 @@ export default function Registro() {
       });
 
       if (error) {
+        // Try to parse error context for edge function errors (4xx responses)
         let message = "Error al registrar";
-        if (data?.message) {
-          message = data.message;
+        try {
+          if (error.context && typeof error.context.json === 'function') {
+            const errorBody = await error.context.json();
+            if (errorBody?.message) message = errorBody.message;
+          } else if (data?.message) {
+            message = data.message;
+          }
+        } catch {
+          if (data?.message) message = data.message;
         }
         throw new Error(message);
       }
@@ -68,31 +76,7 @@ export default function Registro() {
       return;
     }
 
-    const emailLower = formData.email.trim().toLowerCase();
-
-    const { data: existingPersona } = await supabase
-      .from('personas')
-      .select('id')
-      .ilike('email', emailLower)
-      .eq('activo', true)
-      .maybeSingle();
-
-    const { data: existingUsuario } = await supabase
-      .from('usuarios')
-      .select('id')
-      .ilike('email', emailLower)
-      .maybeSingle();
-
-    if (existingPersona || existingUsuario) {
-      toast({
-        title: "Correo ya registrado",
-        description: "Este correo ya está registrado. Por favor, contacta al administrador.",
-        variant: "destructive",
-        duration: 8000,
-      });
-      return;
-    }
-
+    // Duplicate check is done server-side in the edge function (RLS prevents anon from seeing all users)
     registerMutation.mutate();
   };
 

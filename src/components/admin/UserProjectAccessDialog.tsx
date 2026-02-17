@@ -80,7 +80,10 @@ function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteI
         .eq('id_tipo_entidad', 19)
         .eq('activo', true)
         .maybeSingle();
-      return !!data?.id_persona_duena_lead;
+      // Only true if id_persona_duena_lead is a truthy value (not null/undefined/0)
+      const result = data !== null && data?.id_persona_duena_lead !== null && data?.id_persona_duena_lead !== undefined;
+      console.log('Agent inmobiliaria check:', { userPersonaId, data, result });
+      return result;
     },
     enabled: !!userPersonaId && !isSecondaryInmobiliaria,
   });
@@ -93,7 +96,8 @@ function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteI
     );
   }
 
-  const showInheritedDisclaimer = isSecondaryInmobiliaria || hasInmobiliaria;
+  // Show inherited disclaimer only if user has an actual inmobiliaria OR is secondary
+  const showInheritedDisclaimer = isSecondaryInmobiliaria || (hasInmobiliaria === true);
 
   return (
     <div className="space-y-4">
