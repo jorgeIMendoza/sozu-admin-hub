@@ -173,6 +173,36 @@ Deno.serve(async (req) => {
 
     console.log('Usuario created:', usuario.id);
 
+    // Assign access to all published projects
+    try {
+      const { data: publishedProjects } = await supabase
+        .from('proyectos')
+        .select('id')
+        .eq('publicar', true)
+        .eq('activo', true);
+
+      if (publishedProjects && publishedProjects.length > 0) {
+        const accessRecords = publishedProjects.map(p => ({
+          usuario_id: emailLower,
+          proyecto_id: p.id,
+          activo: true,
+          id_entidad_relacionada_dueno: null,
+        }));
+
+        const { error: accessError } = await supabase
+          .from('proyectos_acceso')
+          .insert(accessRecords);
+
+        if (accessError) {
+          console.error('Error assigning project access:', accessError);
+        } else {
+          console.log(`Assigned access to ${publishedProjects.length} published projects`);
+        }
+      }
+    } catch (accessErr) {
+      console.error('Error in project access assignment:', accessErr);
+    }
+
     // Log the activity
     try {
       await supabase.from('logs_actividad').insert({
@@ -253,6 +283,40 @@ Deno.serve(async (req) => {
       console.log('Notification sent');
     } catch (notificationError) {
       console.error('Error sending notification:', notificationError);
+    }
+
+    // Send welcome email to the new agent
+    try {
+      const welcomePayload = {
+        tipo: 'email',
+        from: 'Notificaciones Sozu <notificaciones@sozu.com>',
+        email: emailLower,
+        asunto: 'Bienvenido a Sozu - Tu cuenta ha sido creada',
+        mensaje: {
+          nombre: nombre.trim(),
+          actividad: 'Registro exitoso como Agente Inmobiliario',
+          detalles: `
+            <tr><td class='label'>Email de acceso:</td><td class='value'>${emailLower}</td></tr>
+            <tr><td class='label'>Contraseña temporal:</td><td class='value'>Temporal123!</td></tr>
+            <tr><td class='label'>Portal de acceso:</td><td class='value'><a href="https://inmobiliarias.sozu.com/auth/login">inmobiliarias.sozu.com</a></td></tr>
+            <tr><td class='label'>Importante:</td><td class='value'>Deberás cambiar tu contraseña en tu primer inicio de sesión.</td></tr>
+          `
+        },
+        templateId: 41353048
+      };
+
+      await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`
+        },
+        body: JSON.stringify(welcomePayload)
+      });
+
+      console.log('Welcome email sent to agent');
+    } catch (welcomeError) {
+      console.error('Error sending welcome email:', welcomeError);
     }
 
     return new Response(
