@@ -1163,43 +1163,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                     </div>
                   )}
 
-                  {/* Uso CFDI */}
-                  {shouldShowTaxFields() && (
-                    <div>
-                      <Label htmlFor="usoCfdi">Uso CFDI</Label>
-                      <Select value={usoCfdi} onValueChange={setUsoCfdi}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona el uso CFDI" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {usosCfdi.map((uso) => (
-                            <SelectItem key={uso.codigo} value={uso.codigo}>
-                              {uso.codigo} - {uso.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
 
-                  {/* Régimen */}
-                  {shouldShowTaxFields() && (
-                    <div>
-                      <Label htmlFor="regimen">Régimen</Label>
-                      <Select value={regimen} onValueChange={setRegimen}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un régimen" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {regimenes.map((reg) => (
-                            <SelectItem key={reg.id} value={reg.id.toString()}>
-                              {reg.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                 </div>
               ) : (
                 // Original form structure for other entity types
@@ -1394,41 +1358,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   </div>
                 )}
 
-                {shouldShowTaxFields() && (
-                  <div>
-                    <Label htmlFor="usoCfdi">Uso CFDI</Label>
-                    <Select value={usoCfdi} onValueChange={setUsoCfdi}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona el uso CFDI" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usosCfdi.map((uso) => (
-                          <SelectItem key={uso.codigo} value={uso.codigo}>
-                            {uso.codigo} - {uso.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
 
-                {shouldShowTaxFields() && (
-                  <div>
-                    <Label htmlFor="regimen">Régimen</Label>
-                    <Select value={regimen} onValueChange={setRegimen}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un régimen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {regimenes.map((reg) => (
-                          <SelectItem key={reg.id} value={reg.id.toString()}>
-                            {reg.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 </div>
               )}
             </TabsContent>
