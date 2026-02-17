@@ -151,7 +151,7 @@ const MisProyectos = () => {
     const totalProps = getPropertyCount(project);
     const availableProps = getAvailableCount(project);
     const fechaEntrega = project.fecha_entrega ? new Date(project.fecha_entrega) : null;
-    const fechaLanzamiento = getEarliestLaunchDate(project);
+    const fechaLanzamiento = project.fecha_lanzamiento ? new Date(project.fecha_lanzamiento) : null;
 
     if (fechaEntrega && today >= fechaEntrega) {
       return { label: "Entrega Inmediata", className: "bg-green-600 text-white border-green-600" };
