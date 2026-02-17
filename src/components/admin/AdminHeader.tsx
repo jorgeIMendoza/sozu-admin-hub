@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, Bell, Settings, LogOut, Percent } from "lucide-react";
+import { Menu, Bell, Settings, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { UserSettingsDialog } from "./UserSettingsDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -80,10 +81,16 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
                   <span className="text-sm font-medium text-foreground leading-tight">
                     {profile?.nombre || "Usuario"}
                   </span>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 border-primary/30 text-primary">
-                    <Percent className="h-2.5 w-2.5" />
-                    {agentCommission != null ? `${agentCommission} %` : "2.00 %"}
-                  </Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary cursor-default">
+                          {agentCommission != null ? `${agentCommission} %` : "2.00 %"}
+                        </Badge>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Porcentaje de comisión</TooltipContent>
+                  </Tooltip>
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     {profile?.rol_nombre || "Agente"}
                   </Badge>
