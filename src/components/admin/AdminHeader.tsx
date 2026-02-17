@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, Bell, Settings, LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { UserSettingsDialog } from "./UserSettingsDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,9 +56,14 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
             {/* User info for simplified roles */}
             {isSimplifiedRole && (
               <div className="hidden sm:flex flex-col items-end mr-1">
-                <span className="text-sm font-medium text-foreground leading-tight">
-                  {profile?.nombre || "Usuario"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground leading-tight">
+                    {profile?.nombre || "Usuario"}
+                  </span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {profile?.rol_nombre || "Agente"}
+                  </Badge>
+                </div>
                 <span className="text-[11px] text-muted-foreground leading-tight">
                   {profile?.email || user?.email}
                 </span>

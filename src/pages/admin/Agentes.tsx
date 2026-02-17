@@ -292,8 +292,6 @@ export default function Agentes() {
       
       if (personError) throw personError;
       
-      const isInternalAgent = cleanPersonData.email?.toLowerCase().endsWith('@sozu.com');
-      
       const { data: entidadResult, error: entidadError } = await supabase
         .from('entidades_relacionadas')
         .insert([{
@@ -301,7 +299,7 @@ export default function Agentes() {
           id_tipo_entidad: 19, // Agente
           id_proyecto: null,
           id_persona_duena_lead: inmobiliariaId || null,
-          porcentaje_comision: isInternalAgent ? (porcentaje_comision || 0) : null,
+          porcentaje_comision: porcentaje_comision != null ? porcentaje_comision : null,
           activo: true
         }])
         .select()
@@ -319,6 +317,7 @@ export default function Agentes() {
       }
 
       // Determinar rol basado en el dominio del email
+      const isInternalAgent = cleanPersonData.email?.toLowerCase().endsWith('@sozu.com');
       const rolId = isInternalAgent ? 9 : 3; // 9 = Agente Interno, 3 = Agente Inmobiliario
 
       // Crear usuario automáticamente
@@ -706,10 +705,10 @@ export default function Agentes() {
                   {agente.inmobiliaria_nombre || 'N/A'}
                 </TableCell>
                 <TableCell>
-                  {agente.usuario_rol_id === ROLE_AGENTE_INTERNO && agente.porcentaje_comision != null ? (
+                  {agente.porcentaje_comision != null ? (
                     <Badge variant="secondary" className="text-sm">{agente.porcentaje_comision}%</Badge>
                   ) : (
-                    <span className="text-muted-foreground">—</span>
+                    <Badge variant="outline" className="text-sm text-muted-foreground">2.00%</Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
