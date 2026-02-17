@@ -2658,7 +2658,6 @@ export type Database = {
           hoja: string | null
           id: number
           id_cuenta_cobranza_padre: number | null
-          id_documento_factura_comision_sozu: number | null
           id_notario: number | null
           id_oferta: number | null
           id_tipo_cancelacion: number | null
@@ -2694,7 +2693,6 @@ export type Database = {
           hoja?: string | null
           id?: number
           id_cuenta_cobranza_padre?: number | null
-          id_documento_factura_comision_sozu?: number | null
           id_notario?: number | null
           id_oferta?: number | null
           id_tipo_cancelacion?: number | null
@@ -2730,7 +2728,6 @@ export type Database = {
           hoja?: string | null
           id?: number
           id_cuenta_cobranza_padre?: number | null
-          id_documento_factura_comision_sozu?: number | null
           id_notario?: number | null
           id_oferta?: number | null
           id_tipo_cancelacion?: number | null
@@ -2760,13 +2757,6 @@ export type Database = {
             columns: ["id_cuenta_cobranza_padre"]
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cuentas_cobranza_id_documento_factura_comision_sozu_fkey"
-            columns: ["id_documento_factura_comision_sozu"]
-            isOneToOne: false
-            referencedRelation: "documentos"
             referencedColumns: ["id"]
           },
           {
