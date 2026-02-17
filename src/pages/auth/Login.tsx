@@ -2,18 +2,11 @@ import { useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, LogIn, AlertCircle, RefreshCw, Clock, ShieldAlert } from 'lucide-react';
 import { z } from 'zod';
 import { checkForUpdates, clearCacheAndReload } from '@/utils/versionUtils';
 import { APP_VERSION } from '@/lib/config';
 import sozuLogo from '@/assets/sozu-logo-black.png';
-
-const BLOCKED_ROLE_NAMES = ['Cliente', 'Directores'];
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -100,137 +93,141 @@ export default function Login() {
     }
   };
 
+  const neuInputStyle = {
+    background: 'hsl(220,20%,93%)',
+    boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+  };
+
   if (isBlocked) {
     return (
-      <div className="min-h-screen bg-[hsl(0,0%,97%)] flex items-center justify-center p-4">
-        <Card className="max-w-md w-full border-0 shadow-xl rounded-2xl">
-          <CardContent className="pt-10 pb-10 text-center px-8 space-y-4">
-            <ShieldAlert className="h-16 w-16 text-destructive mx-auto" />
-            <h1 className="text-2xl font-bold text-destructive">
-              Acceso No Autorizado
-            </h1>
-            <p className="text-[hsl(0,0%,34%)]">
-              Tu tipo de usuario no tiene acceso a este sistema.
-              Contacta al administrador si crees que esto es un error.
-            </p>
-            <Button variant="destructive" onClick={handleGoToLogin} className="rounded-full">
-              <LogIn className="mr-2 h-4 w-4" />
-              Iniciar Sesión
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-[hsl(220,20%,93%)] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm text-center">
+          <img src={sozuLogo} alt="Sozu" className="h-10 mx-auto mb-10" />
+          <ShieldAlert className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-[hsl(0,0%,15%)] mb-3">
+            Acceso No Autorizado
+          </h1>
+          <p className="text-[hsl(0,0%,45%)] text-sm mb-8">
+            Tu tipo de usuario no tiene acceso a este sistema.
+            Contacta al administrador si crees que esto es un error.
+          </p>
+          <button
+            onClick={handleGoToLogin}
+            className="w-full py-4 rounded-2xl text-white font-semibold text-sm transition-all duration-300"
+            style={{
+              background: 'linear-gradient(135deg, hsl(0,70%,55%), hsl(0,60%,45%))',
+              boxShadow: '0 8px 24px hsla(0,60%,45%,0.3)',
+            }}
+          >
+            <LogIn className="inline mr-2 h-4 w-4" />
+            Iniciar Sesión
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(0,0%,97%)] flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[hsl(220,20%,93%)] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <img
-            src={sozuLogo}
-            alt="Sozu"
-            className="h-9 mx-auto mb-3"
-          />
-          <p className="text-[hsl(0,0%,34%)] text-sm">
-            Plataforma de gestión inmobiliaria
-          </p>
+        <div className="text-center mb-10">
+          <img src={sozuLogo} alt="Sozu" className="h-10 mx-auto" />
         </div>
 
-        <Card className="border-0 shadow-xl rounded-2xl">
-          <CardHeader className="text-center pb-2 px-8 pt-8">
-            <CardTitle className="text-xl font-bold text-[hsl(0,0%,0%)]">Iniciar Sesión</CardTitle>
-            <CardDescription className="text-[hsl(0,0%,34%)]">
-              Ingresa tus credenciales para acceder al sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-8 pb-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {inactivityLogout && !error && !isUpdating && (
-                <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 rounded-lg">
-                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <AlertDescription className="text-amber-700 dark:text-amber-300">
-                    Tu sesión expiró por inactividad. Por favor inicia sesión nuevamente.
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {isUpdating && (
-                <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 rounded-lg">
-                  <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
-                  <AlertDescription className="text-blue-700 dark:text-blue-300">
-                    Actualizando a la última versión...
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {error && (
-                <Alert variant="destructive" className="rounded-lg">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-semibold text-[hsl(0,0%,0%)]">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="tu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="email"
-                  required
-                  className="h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-semibold text-[hsl(0,0%,0%)]">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="current-password"
-                  required
-                  className="h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
-                />
-              </div>
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-center text-[hsl(0,0%,15%)] mb-8">
+          Iniciar Sesión
+        </h1>
 
-              <Button
-                type="submit"
-                className="w-full h-11 rounded-full bg-[hsl(158,64%,38%)] hover:bg-[hsl(158,64%,32%)] text-white font-semibold shadow-lg shadow-[hsl(158,64%,38%)]/20"
-                disabled={isLoading || isUpdating}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Iniciando sesión...
-                  </>
-                ) : isUpdating ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Actualizando...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Iniciar Sesión
-                  </>
-                )}
-              </Button>
-              
-              <p className="text-xs text-[hsl(0,0%,50%)] text-center mt-4">
-                {APP_VERSION}
-              </p>
-            </form>
-          </CardContent>
-        </Card>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Alerts */}
+          {inactivityLogout && !error && !isUpdating && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-amber-700 bg-amber-50/80"
+              style={{ boxShadow: '4px 4px 10px hsl(220,20%,86%), -4px -4px 10px hsl(0,0%,100%)' }}>
+              <Clock className="h-4 w-4 flex-shrink-0" />
+              <span>Tu sesión expiró por inactividad.</span>
+            </div>
+          )}
+          
+          {isUpdating && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-blue-700 bg-blue-50/80"
+              style={{ boxShadow: '4px 4px 10px hsl(220,20%,86%), -4px -4px 10px hsl(0,0%,100%)' }}>
+              <RefreshCw className="h-4 w-4 flex-shrink-0 animate-spin" />
+              <span>Actualizando a la última versión...</span>
+            </div>
+          )}
+          
+          {error && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-red-600 bg-red-50/80"
+              style={{ boxShadow: '4px 4px 10px hsl(220,20%,86%), -4px -4px 10px hsl(0,0%,100%)' }}>
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Email */}
+          <div>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
+              autoComplete="email"
+              required
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50"
+              style={neuInputStyle}
+            />
+          </div>
+          
+          {/* Password */}
+          <div>
+            <input
+              type="password"
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              autoComplete="current-password"
+              required
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50"
+              style={neuInputStyle}
+            />
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={isLoading || isUpdating}
+            className="w-full py-4 rounded-2xl text-white font-semibold text-sm tracking-wide transition-all duration-300 disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, hsl(180,60%,55%), hsl(158,64%,38%))',
+              boxShadow: '0 8px 24px hsla(158,64%,38%,0.3)',
+            }}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Iniciando sesión...
+              </>
+            ) : isUpdating ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Actualizando...
+              </>
+            ) : (
+              <>
+                <LogIn className="h-4 w-4" />
+                Iniciar Sesión
+              </>
+            )}
+          </button>
+        </form>
+        
+        <p className="text-xs text-[hsl(0,0%,55%)] text-center mt-8">
+          {APP_VERSION}
+        </p>
       </div>
     </div>
   );

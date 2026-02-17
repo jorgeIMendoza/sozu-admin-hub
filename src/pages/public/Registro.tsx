@@ -2,18 +2,8 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { UserPlus, ArrowLeft, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import sozuLogo from "@/assets/sozu-logo-black.png";
 
 export default function Registro() {
@@ -78,7 +68,6 @@ export default function Registro() {
       return;
     }
 
-    // Check if email already exists
     const emailLower = formData.email.trim().toLowerCase();
 
     const { data: existingPersona } = await supabase
@@ -109,149 +98,148 @@ export default function Registro() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-[hsl(0,0%,97%)] flex items-center justify-center p-4">
-        <Card className="max-w-lg w-full border-0 shadow-xl rounded-2xl">
-          <CardContent className="pt-10 pb-10 text-center px-8">
-            <div className="w-16 h-16 bg-[hsl(158,64%,38%)]/10 rounded-full flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="w-8 h-8 text-[hsl(158,64%,38%)]" />
-            </div>
-            <h2 className="text-2xl font-bold text-[hsl(0,0%,0%)] mb-2">
-              ¡Registro exitoso!
-            </h2>
-            <p className="text-[hsl(0,0%,34%)] mb-8">
-              Tu registro ha sido completado. Ya puedes iniciar sesión con tu correo electrónico.
-            </p>
-            <a href="https://inmobiliarias.sozu.com/auth/login">
-              <Button
-                variant="outline"
-                className="rounded-full px-6 border-[hsl(158,64%,38%)] text-[hsl(158,64%,38%)] hover:bg-[hsl(158,64%,38%)]/5"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Ir a iniciar sesión
-              </Button>
-            </a>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-[hsl(220,20%,93%)] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm text-center">
+          <img src={sozuLogo} alt="Sozu" className="h-10 mx-auto mb-10" />
+          <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, hsl(180,60%,55%), hsl(158,64%,38%))',
+              boxShadow: '0 8px 24px hsla(158,64%,38%,0.3)',
+            }}>
+            <CheckCircle className="w-10 h-10 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-[hsl(0,0%,15%)] mb-3">
+            ¡Registro exitoso!
+          </h2>
+          <p className="text-[hsl(0,0%,45%)] mb-10 text-sm leading-relaxed">
+            Tu registro ha sido completado. Ya puedes iniciar sesión con tu correo electrónico.
+          </p>
+          <a href="https://inmobiliarias.sozu.com/auth/login">
+            <button
+              className="w-full py-4 rounded-2xl text-white font-semibold text-sm tracking-wide transition-all duration-300"
+              style={{
+                background: 'linear-gradient(135deg, hsl(180,60%,55%), hsl(158,64%,38%))',
+                boxShadow: '0 8px 24px hsla(158,64%,38%,0.3)',
+              }}
+            >
+              Ir a iniciar sesión
+            </button>
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(0,0%,97%)] flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[hsl(220,20%,93%)] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <img
-            src={sozuLogo}
-            alt="Sozu"
-            className="h-9 mx-auto mb-3"
-          />
-          <p className="text-[hsl(0,0%,34%)] text-sm">
-            Plataforma de gestión inmobiliaria
-          </p>
+        <div className="text-center mb-10">
+          <img src={sozuLogo} alt="Sozu" className="h-10 mx-auto" />
         </div>
 
-        <Card className="border-0 shadow-xl rounded-2xl">
-          <CardHeader className="text-center pb-2 px-8 pt-8">
-            <div className="w-12 h-12 bg-[hsl(158,64%,38%)]/10 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <UserPlus className="w-6 h-6 text-[hsl(158,64%,38%)]" />
-            </div>
-            <CardTitle className="text-xl font-bold text-[hsl(0,0%,0%)]">Registro</CardTitle>
-            <CardDescription className="text-[hsl(0,0%,34%)]">
-              Completa el formulario para crear tu cuenta
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4 px-8 pb-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="nombre" className="text-sm font-semibold text-[hsl(0,0%,0%)]">
-                  Nombre <span className="text-[hsl(0,84%,60%)]">*</span>
-                </Label>
-                <Input
-                  id="nombre"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-                  placeholder="Nombre completo"
-                  className="h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
-                  required
-                />
-              </div>
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-center text-[hsl(0,0%,15%)] mb-8">
+          Registro de Agente
+        </h1>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-semibold text-[hsl(0,0%,0%)]">
-                  Email <span className="text-[hsl(0,84%,60%)]">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="tu@correo.com"
-                  className="h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
-                  required
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Nombre */}
+          <div>
+            <input
+              type="text"
+              value={formData.nombre}
+              onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+              placeholder="Nombre completo"
+              required
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30"
+              style={{
+                background: 'hsl(220,20%,93%)',
+                boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+              }}
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="telefono" className="text-sm font-semibold text-[hsl(0,0%,0%)]">
-                  Teléfono <span className="text-[hsl(0,84%,60%)]">*</span>
-                </Label>
-                <div className="flex gap-2">
-                  <Select
-                    value={formData.clave_pais_telefono}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, clave_pais_telefono: value }))}
-                  >
-                    <SelectTrigger className="w-28 h-11 rounded-lg border-gray-200">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MX">🇲🇽 +52</SelectItem>
-                      <SelectItem value="US">🇺🇸 +1</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    id="telefono"
-                    value={formData.telefono}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setFormData(prev => ({ ...prev, telefono: value }));
-                    }}
-                    placeholder="10 dígitos"
-                    className="flex-1 h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
-                    required
-                  />
-                </div>
-              </div>
+          {/* Email */}
+          <div>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="Email"
+              required
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30"
+              style={{
+                background: 'hsl(220,20%,93%)',
+                boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+              }}
+            />
+          </div>
 
-              <Button
-                type="submit"
-                className="w-full h-11 rounded-full bg-[hsl(158,64%,38%)] hover:bg-[hsl(158,64%,32%)] text-white font-semibold text-sm shadow-lg shadow-[hsl(158,64%,38%)]/20 transition-all duration-300"
-                disabled={registerMutation.isPending}
-              >
-                {registerMutation.isPending ? (
-                  <span className="flex items-center gap-2">
-                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                    Registrando...
-                  </span>
-                ) : (
-                  "Registrarse"
-                )}
-              </Button>
+          {/* Teléfono */}
+          <div className="flex gap-3">
+            <select
+              value={formData.clave_pais_telefono}
+              onChange={(e) => setFormData(prev => ({ ...prev, clave_pais_telefono: e.target.value }))}
+              className="w-24 px-3 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] outline-none"
+              style={{
+                background: 'hsl(220,20%,93%)',
+                boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+              }}
+            >
+              <option value="MX">🇲🇽 +52</option>
+              <option value="US">🇺🇸 +1</option>
+            </select>
+            <input
+              type="tel"
+              value={formData.telefono}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setFormData(prev => ({ ...prev, telefono: value }));
+              }}
+              placeholder="Teléfono (10 dígitos)"
+              required
+              className="flex-1 px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30"
+              style={{
+                background: 'hsl(220,20%,93%)',
+                boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+              }}
+            />
+          </div>
 
-              <div className="text-center pt-1">
-                <a
-                  href="https://inmobiliarias.sozu.com/auth/login"
-                  className="text-sm text-[hsl(0,0%,34%)] hover:text-[hsl(158,64%,38%)] transition-colors"
-                >
-                  ¿Ya tienes cuenta? Inicia sesión
-                </a>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={registerMutation.isPending}
+            className="w-full py-4 rounded-2xl text-white font-semibold text-sm tracking-wide transition-all duration-300 disabled:opacity-60"
+            style={{
+              background: 'linear-gradient(135deg, hsl(180,60%,55%), hsl(158,64%,38%))',
+              boxShadow: '0 8px 24px hsla(158,64%,38%,0.3)',
+            }}
+          >
+            {registerMutation.isPending ? "Registrando..." : "Registrarme como Agente"}
+          </button>
 
-        <p className="text-center text-xs text-[hsl(0,0%,50%)] mt-6 px-4">
-          Al registrarte, aceptas nuestros términos y condiciones contenidas en nuestro{" "}
+          {/* Login link */}
+          <a
+            href="https://inmobiliarias.sozu.com/auth/login"
+            className="block w-full"
+          >
+            <button
+              type="button"
+              className="w-full py-4 rounded-2xl text-sm font-medium text-[hsl(0,0%,40%)] transition-all duration-200"
+              style={{
+                background: 'hsl(220,20%,93%)',
+                boxShadow: '6px 6px 12px hsl(220,20%,86%), -6px -6px 12px hsl(0,0%,100%)',
+              }}
+            >
+              ¿Ya tienes cuenta? Inicia sesión
+            </button>
+          </a>
+        </form>
+
+        <p className="text-center text-xs text-[hsl(0,0%,55%)] mt-8 px-4 leading-relaxed">
+          Al registrarte, aceptas nuestros términos contenidos en nuestro{" "}
           <a
             href="https://www.sozu.com/aviso-de-privacidad"
             target="_blank"
