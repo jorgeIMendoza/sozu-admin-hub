@@ -111,8 +111,14 @@ export default function Registro() {
           <h2 className="text-2xl font-bold text-[hsl(0,0%,15%)] mb-3">
             ¡Registro exitoso!
           </h2>
-          <p className="text-[hsl(0,0%,45%)] mb-10 text-sm leading-relaxed">
-            Tu registro ha sido completado. Ya puedes iniciar sesión con tu correo electrónico.
+          <p className="text-[hsl(0,0%,45%)] mb-2 text-sm leading-relaxed">
+            Tu registro ha sido completado.
+          </p>
+          <p className="text-[hsl(0,0%,45%)] mb-3 text-sm leading-relaxed">
+            Revisa tu correo electrónico <strong className="text-[hsl(0,0%,25%)]">{formData.email}</strong> donde encontrarás tus credenciales de acceso.
+          </p>
+          <p className="text-[hsl(0,0%,55%)] mb-10 text-xs leading-relaxed">
+            Si no lo encuentras, revisa tu carpeta de spam.
           </p>
           <a href="https://inmobiliarias.sozu.com/auth/login">
             <button
