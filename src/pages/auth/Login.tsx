@@ -129,16 +129,24 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-[hsl(220,20%,93%)] flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+      <div
+        className="w-full max-w-md bg-white rounded-3xl px-8 py-10 sm:px-10"
+        style={{
+          boxShadow: '12px 12px 30px hsl(220,20%,84%), -12px -12px 30px hsl(0,0%,100%)',
+        }}
+      >
         {/* Logo */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <img src={sozuLogo} alt="Sozu" className="h-10 mx-auto" />
         </div>
 
         {/* Title */}
-        <h1 className="text-2xl font-bold text-center text-[hsl(0,0%,15%)] mb-8">
+        <h1 className="text-2xl font-bold text-center text-[hsl(0,0%,15%)] mb-2">
           Iniciar Sesión
         </h1>
+        <p className="text-sm text-[hsl(0,0%,55%)] text-center mb-8">
+          Ingresa tus credenciales para acceder al sistema
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Alerts */}
@@ -168,30 +176,32 @@ export default function Login() {
 
           {/* Email */}
           <div>
+            <label className="block text-sm font-semibold text-[hsl(0,0%,15%)] mb-2">Email</label>
             <input
               type="email"
-              placeholder="Email"
+              placeholder="tu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
               autoComplete="email"
               required
-              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50"
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50 border border-[hsl(220,20%,88%)]"
               style={neuInputStyle}
             />
           </div>
           
           {/* Password */}
           <div>
+            <label className="block text-sm font-semibold text-[hsl(0,0%,15%)] mb-2">Contraseña</label>
             <input
               type="password"
-              placeholder="Contraseña"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
               autoComplete="current-password"
               required
-              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50"
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50 border border-[hsl(220,20%,88%)]"
               style={neuInputStyle}
             />
           </div>

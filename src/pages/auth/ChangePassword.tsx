@@ -154,100 +154,117 @@ export default function ChangePassword() {
     { text: 'Al menos un símbolo especial', valid: /[^A-Za-z0-9]/.test(newPassword) },
   ];
 
+  const neuInputStyle = {
+    background: 'hsl(220,20%,93%)',
+    boxShadow: 'inset 4px 4px 8px hsl(220,20%,86%), inset -4px -4px 8px hsl(0,0%,100%)',
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-full bg-primary/10">
-              <KeyRound className="h-8 w-8 text-primary" />
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-[hsl(220,20%,93%)] p-4">
+      <div
+        className="w-full max-w-md bg-white rounded-3xl px-8 py-10 sm:px-10"
+        style={{
+          boxShadow: '12px 12px 30px hsl(220,20%,84%), -12px -12px 30px hsl(0,0%,100%)',
+        }}
+      >
+        <div className="flex justify-center mb-4">
+          <div className="p-3 rounded-full bg-[hsl(158,64%,38%)]/10">
+            <KeyRound className="h-8 w-8 text-[hsl(158,64%,38%)]" />
           </div>
-          <CardTitle className="text-2xl font-bold">Cambiar Contraseña</CardTitle>
-          <CardDescription>
-            Por seguridad, debes cambiar tu contraseña temporal antes de continuar
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">Nueva Contraseña</Label>
-              <Input
-                id="newPassword"
-                type="password"
-                placeholder="••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                disabled={isLoading}
-                autoComplete="new-password"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={isLoading}
-                autoComplete="new-password"
-                required
-              />
-            </div>
+        </div>
+        <h1 className="text-2xl font-bold text-center text-[hsl(0,0%,15%)] mb-2">Cambiar Contraseña</h1>
+        <p className="text-sm text-[hsl(0,0%,55%)] text-center mb-8">
+          Por seguridad, debes cambiar tu contraseña temporal antes de continuar
+        </p>
 
-            {/* Password requirements */}
-            <div className="space-y-1 text-sm">
-              <p className="font-medium text-muted-foreground">Requisitos:</p>
-              {passwordRequirements.map((req, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  {req.valid ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
-                  )}
-                  <span className={req.valid ? 'text-green-600' : 'text-muted-foreground'}>
-                    {req.text}
-                  </span>
-                </div>
-              ))}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-red-600 bg-red-50/80"
+              style={{ boxShadow: '4px 4px 10px hsl(220,20%,86%), -4px -4px 10px hsl(0,0%,100%)' }}>
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
             </div>
+          )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Cambiando contraseña...
-                </>
-              ) : (
-                <>
-                  <KeyRound className="mr-2 h-4 w-4" />
-                  Cambiar Contraseña
-                </>
-              )}
-            </Button>
-
-            <Button 
-              type="button" 
-              variant="ghost" 
-              className="w-full" 
-              onClick={handleLogout}
+          <div>
+            <label className="block text-sm font-semibold text-[hsl(0,0%,15%)] mb-2">Nueva Contraseña</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               disabled={isLoading}
-            >
-              Cerrar sesión
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              autoComplete="new-password"
+              required
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50 border border-[hsl(220,20%,88%)]"
+              style={neuInputStyle}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[hsl(0,0%,15%)] mb-2">Confirmar Contraseña</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
+              autoComplete="new-password"
+              required
+              className="w-full px-5 py-4 rounded-2xl text-sm text-[hsl(0,0%,15%)] placeholder:text-[hsl(0,0%,60%)] outline-none transition-all duration-200 focus:ring-2 focus:ring-[hsl(158,64%,38%)]/30 disabled:opacity-50 border border-[hsl(220,20%,88%)]"
+              style={neuInputStyle}
+            />
+          </div>
+
+          {/* Password requirements */}
+          <div className="space-y-1.5 text-sm">
+            <p className="font-semibold text-[hsl(0,0%,35%)]">Requisitos:</p>
+            {passwordRequirements.map((req, index) => (
+              <div key={index} className="flex items-center gap-2">
+                {req.valid ? (
+                  <CheckCircle className="h-4 w-4 text-[hsl(158,64%,38%)]" />
+                ) : (
+                  <div className="h-4 w-4 rounded-full border-2 border-[hsl(0,0%,75%)]" />
+                )}
+                <span className={req.valid ? 'text-[hsl(158,64%,38%)]' : 'text-[hsl(0,0%,55%)]'}>
+                  {req.text}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-4 rounded-2xl text-white font-semibold text-sm tracking-wide transition-all duration-300 disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, hsl(180,60%,55%), hsl(158,64%,38%))',
+              boxShadow: '0 8px 24px hsla(158,64%,38%,0.3)',
+            }}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cambiando contraseña...
+              </>
+            ) : (
+              <>
+                <KeyRound className="h-4 w-4" />
+                Cambiar Contraseña
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoading}
+            className="w-full py-3 text-sm text-[hsl(0,0%,45%)] hover:text-[hsl(0,0%,25%)] transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
