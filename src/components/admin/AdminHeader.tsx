@@ -80,19 +80,17 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
                   <span className="text-sm font-medium text-foreground leading-tight">
                     {profile?.nombre || "Usuario"}
                   </span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 border-primary/30 text-primary">
+                    <Percent className="h-2.5 w-2.5" />
+                    {agentCommission != null ? `${agentCommission} %` : "2.00 %"}
+                  </Badge>
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     {profile?.rol_nombre || "Agente"}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-muted-foreground leading-tight">
-                    {profile?.email || user?.email}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5 border-primary/30 text-primary">
-                    <Percent className="h-2.5 w-2.5" />
-                    {agentCommission != null ? agentCommission : "2.00"}
-                  </Badge>
-                </div>
+                <span className="text-[11px] text-muted-foreground leading-tight">
+                  {profile?.email || user?.email}
+                </span>
               </div>
             )}
 
