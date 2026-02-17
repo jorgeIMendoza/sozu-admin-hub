@@ -32,10 +32,11 @@ type Usuario = {
   auth_user_id: string | null;
   id_persona: number | null;
   debe_cambiar_password: boolean;
+  email_confirmado?: boolean;
   roles?: { nombre: string } | null;
   personas?: { nombre_legal: string; email?: string | null } | null;
-  inmobiliaria_nombre?: string | null; // Nombre de la inmobiliaria basado en el dominio del email
-  es_usuario_principal?: boolean; // Indica si es el usuario principal de la inmobiliaria
+  inmobiliaria_nombre?: string | null;
+  es_usuario_principal?: boolean;
 };
 
 type Role = {
@@ -166,12 +167,19 @@ function UsersTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge 
-                    variant="outline" 
-                    className={getRoleBadgeColor(usuario.roles?.nombre)}
-                  >
-                    {usuario.roles?.nombre || 'Sin rol'}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge 
+                      variant="outline" 
+                      className={getRoleBadgeColor(usuario.roles?.nombre)}
+                    >
+                      {usuario.roles?.nombre || 'Sin rol'}
+                    </Badge>
+                    {(usuario.rol_id === ROLE_AGENTE_INMOBILIARIO || usuario.rol_id === ROLE_INMOBILIARIA) && usuario.email_confirmado === false && (
+                      <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 text-[10px] px-1.5">
+                        ✉ Pendiente
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 {!isInactiveTab && (
                   <TableCell>
@@ -328,6 +336,7 @@ export default function Usuarios() {
           auth_user_id,
           id_persona,
           debe_cambiar_password,
+          email_confirmado,
           roles!inner (nombre, es_rol_interno),
           personas (nombre_legal, email)
         `)

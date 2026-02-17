@@ -6244,6 +6244,7 @@ export type Database = {
           clave_pais_telefono: string | null
           debe_cambiar_password: boolean
           email: string
+          email_confirmado: boolean
           fecha_actualizacion: string | null
           fecha_creacion: string | null
           id_persona: number | null
@@ -6258,6 +6259,7 @@ export type Database = {
           clave_pais_telefono?: string | null
           debe_cambiar_password?: boolean
           email: string
+          email_confirmado?: boolean
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id_persona?: number | null
@@ -6272,6 +6274,7 @@ export type Database = {
           clave_pais_telefono?: string | null
           debe_cambiar_password?: boolean
           email?: string
+          email_confirmado?: boolean
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id_persona?: number | null

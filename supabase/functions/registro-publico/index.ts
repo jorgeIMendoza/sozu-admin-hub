@@ -157,6 +157,7 @@ Deno.serve(async (req) => {
         activo: true,
         telefono: telefono.trim(),
         clave_pais_telefono: clave_pais_telefono || 'MX',
+        email_confirmado: false,
       })
       .select()
       .single();

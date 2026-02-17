@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.post-confirmacion-registro]
 verify_jwt = false
+
+[functions.reenviar-confirmacion-email]
+verify_jwt = false

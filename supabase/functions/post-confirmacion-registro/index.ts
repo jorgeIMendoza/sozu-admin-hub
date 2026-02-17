@@ -131,6 +131,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Update email_confirmado flag
+    try {
+      await supabase
+        .from('usuarios')
+        .update({ email_confirmado: true })
+        .ilike('email', email.toLowerCase());
+      console.log('Updated email_confirmado to true');
+    } catch (updateErr) {
+      console.error('Error updating email_confirmado:', updateErr);
+    }
+
     // Log the confirmation activity
     try {
       await supabase.from('logs_actividad').insert({

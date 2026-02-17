@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { Loader2, Pencil, Building2, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, Pencil, Building2, Check, ChevronsUpDown, Mail, MailCheck, MailX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +47,7 @@ type InmobiliariaOption = {
 
 const ROLE_AGENTE_INMOBILIARIO = 3;
 const ROLE_AGENTE_INTERNO = 9;
+const ROLE_INMOBILIARIA = 4;
 
 export function EditUserDialog({
   open,
@@ -65,6 +66,22 @@ export function EditUserDialog({
   const { registrarActualizacion } = useActivityLogger();
 
   const isAgentRole = userRoleId === ROLE_AGENTE_INMOBILIARIO || userRoleId === ROLE_AGENTE_INTERNO;
+  const showEmailConfirmation = userRoleId === ROLE_AGENTE_INMOBILIARIO || userRoleId === ROLE_INMOBILIARIA;
+
+  // Fetch email confirmation status
+  const { data: emailConfirmado, isLoading: isLoadingConfirmation } = useQuery({
+    queryKey: ['email_confirmado', userEmail],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('email_confirmado')
+        .eq('email', userEmail)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.email_confirmado ?? true;
+    },
+    enabled: open && showEmailConfirmation,
+  });
 
   // Fetch inmobiliarias options
   const { data: inmobiliariasOptions = [] } = useQuery({
@@ -73,7 +90,7 @@ export function EditUserDialog({
       const { data: entidadesData, error: entidadesError } = await supabase
         .from('entidades_relacionadas')
         .select('id_persona')
-        .eq('id_tipo_entidad', 5) // Inmobiliaria
+        .eq('id_tipo_entidad', 5)
         .eq('activo', true);
       
       if (entidadesError) throw entidadesError;
@@ -109,7 +126,7 @@ export function EditUserDialog({
         .from('entidades_relacionadas')
         .select('id_persona_duena_lead')
         .eq('id_persona', userPersonaId)
-        .eq('id_tipo_entidad', 19) // Agente
+        .eq('id_tipo_entidad', 19)
         .eq('activo', true)
         .maybeSingle();
       
@@ -135,6 +152,31 @@ export function EditUserDialog({
       setOriginalInmobiliariaId(inmobId);
     }
   }, [open, isAgentRole, isLoadingInmobiliaria, currentInmobiliaria]);
+
+  // Resend confirmation email mutation
+  const resendConfirmationMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('reenviar-confirmacion-email', {
+        body: { email: userEmail },
+      });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Correo enviado",
+        description: "Se reenvió el correo de confirmación.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ 
@@ -174,6 +216,14 @@ export function EditUserDialog({
         if (response.data && !response.data.success) {
           throw new Error(response.data.message || 'Error al actualizar email');
         }
+
+        // If email changed for a role that needs confirmation, mark as unconfirmed
+        if (showEmailConfirmation) {
+          await supabase
+            .from('usuarios')
+            .update({ email_confirmado: false })
+            .eq('email', newEmail);
+        }
       }
 
       // If inmobiliaria changed and user is an agent, update entidades_relacionadas
@@ -187,7 +237,6 @@ export function EditUserDialog({
           .maybeSingle();
 
         if (existingEntidad) {
-          // Update existing
           const { error: updateError } = await supabase
             .from('entidades_relacionadas')
             .update({ 
@@ -198,7 +247,6 @@ export function EditUserDialog({
           
           if (updateError) throw updateError;
         } else {
-          // Create new
           const { error: insertError } = await supabase
             .from('entidades_relacionadas')
             .insert({
@@ -226,7 +274,6 @@ export function EditUserDialog({
             .eq("activo", true);
 
           if (inmobiliariaAccess && inmobiliariaAccess.length > 0) {
-            // Get existing access for this user
             const finalEmail = oldEmail !== newEmail ? newEmail : oldEmail;
             const { data: existingAccess } = await supabase
               .from("proyectos_acceso")
@@ -236,7 +283,6 @@ export function EditUserDialog({
 
             const existingProjectIds = new Set((existingAccess || []).map(a => a.proyecto_id));
 
-            // Only insert access for projects that don't already exist
             const newAccessEntries = inmobiliariaAccess
               .filter(access => !existingProjectIds.has(access.proyecto_id))
               .map(access => ({
@@ -262,6 +308,7 @@ export function EditUserDialog({
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       queryClient.invalidateQueries({ queryKey: ['agent_inmobiliaria'] });
+      queryClient.invalidateQueries({ queryKey: ['email_confirmado'] });
 
       registrarActualizacion('usuario', 
         { email: data.oldEmail, nombre: userName },
@@ -270,7 +317,9 @@ export function EditUserDialog({
 
       toast({
         title: "Usuario actualizado",
-        description: "Los datos del usuario se han actualizado correctamente.",
+        description: data.oldEmail !== data.newEmail && showEmailConfirmation
+          ? "Usuario actualizado. El email cambió, se requiere nueva confirmación."
+          : "Los datos del usuario se han actualizado correctamente.",
       });
       onOpenChange(false);
     },
@@ -338,6 +387,43 @@ export function EditUserDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Email confirmation status for Agente Inmobiliario / Inmobiliaria */}
+          {showEmailConfirmation && !isLoadingConfirmation && (
+            <div className={cn(
+              "flex items-center justify-between p-3 rounded-lg border",
+              emailConfirmado 
+                ? "bg-green-500/5 border-green-500/20" 
+                : "bg-orange-500/5 border-orange-500/20"
+            )}>
+              <div className="flex items-center gap-2">
+                {emailConfirmado ? (
+                  <MailCheck className="h-4 w-4 text-green-600" />
+                ) : (
+                  <MailX className="h-4 w-4 text-orange-600" />
+                )}
+                <span className={cn("text-sm font-medium", emailConfirmado ? "text-green-700 dark:text-green-400" : "text-orange-700 dark:text-orange-400")}>
+                  {emailConfirmado ? "Email confirmado" : "Email pendiente de confirmación"}
+                </span>
+              </div>
+              {!emailConfirmado && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => resendConfirmationMutation.mutate()}
+                  disabled={resendConfirmationMutation.isPending}
+                  className="text-xs h-7 hover:bg-orange-500/10 hover:border-orange-500 hover:text-orange-600"
+                >
+                  {resendConfirmationMutation.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <Mail className="h-3 w-3 mr-1" />
+                  )}
+                  Reenviar
+                </Button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="edit-nombre">Nombre</Label>
             <Input
@@ -357,6 +443,11 @@ export function EditUserDialog({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="usuario@email.com"
             />
+            {email !== userEmail && showEmailConfirmation && (
+              <p className="text-xs text-orange-600 dark:text-orange-400">
+                ⚠ Al cambiar el email, se requerirá nueva confirmación por correo.
+              </p>
+            )}
           </div>
 
           {/* Inmobiliaria selector - only for agent roles */}
@@ -372,7 +463,6 @@ export function EditUserDialog({
                   Cargando...
                 </div>
               ) : userRoleId === ROLE_AGENTE_INTERNO ? (
-                // Agente Interno: inmobiliaria locked to Sozu
                 <div className="flex items-center gap-2">
                   <Input
                     value="Real Estate Ventures (Sozu)"
