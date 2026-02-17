@@ -30,7 +30,7 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
         <div className="flex items-center justify-between">
           {/* Left side */}
           {isSimplifiedRole ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col">
               <img src={sozuLogo} alt="Sozu" className="h-7" />
               <span className="text-[9px] text-muted-foreground/40 select-none">{APP_VERSION}</span>
             </div>
