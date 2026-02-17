@@ -260,55 +260,8 @@ Deno.serve(async (req) => {
         console.error('Error sending confirmation email:', emailError);
       }
 
-      // Send admin notification
-      try {
-        const { data: superAdmins } = await supabase
-          .from('usuarios')
-          .select('email')
-          .eq('rol_id', 1)
-          .eq('activo', true);
-
-        const { data: adminProyecto } = await supabase
-          .from('usuarios')
-          .select('email')
-          .eq('rol_id', 2)
-          .eq('activo', true);
-
-        const adminEmails = [
-          ...(adminProyecto || []).map(u => u.email),
-          ...(superAdmins || []).map(u => u.email),
-        ].filter(Boolean);
-
-        if (adminEmails.length > 0) {
-          const adminMessages = adminEmails.map(adminEmail => ({
-            From: 'Notificaciones Sozu <notificaciones@sozu.com>',
-            To: adminEmail,
-            TemplateId: 41353048,
-            TemplateModel: {
-              mensaje: {
-                nombre: 'Administrador',
-                actividad: 'Registro de agente desde formulario público',
-                asunto: 'Nuevo Registro de Agente (Pendiente confirmación)',
-                detalles: `<tr><td class='label'>Nombre:</td><td class='value'>${nombre.trim()}</td></tr><tr><td class='label'>Email:</td><td class='value'>${emailLower}</td></tr><tr><td class='label'>Teléfono:</td><td class='value'>${telefono}</td></tr><tr><td class='label'>Estado:</td><td class='value'>Pendiente de confirmación de correo</td></tr>`,
-              },
-            },
-            MessageStream: 'outbound',
-          }));
-
-          const adminRes = await fetch('https://api.postmarkapp.com/email/batchWithTemplates', {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'X-Postmark-Server-Token': POSTMARK_TOKEN,
-            },
-            body: JSON.stringify({ Messages: adminMessages }),
-          });
-          console.log('Admin notification sent:', adminRes.status);
-        }
-      } catch (notificationError) {
-        console.error('Error sending admin notification:', notificationError);
-      }
+      // Admin notification is now sent AFTER user confirms email (in post-confirmacion-registro)
+      console.log('Admin notification will be sent after email confirmation');
     } else {
       console.error('POSTMARK_SERVER_TOKEN not configured or confirmation link not generated');
     }
