@@ -30,13 +30,9 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
         <div className="flex items-center justify-between">
           {/* Left side */}
           {isSimplifiedRole ? (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <img src={sozuLogo} alt="Sozu" className="h-7" />
-              <div className="hidden sm:block">
-                <p className="text-xs font-medium text-muted-foreground leading-tight">
-                  La mejor oferta inmobiliaria
-                </p>
-              </div>
+              <span className="text-[9px] text-muted-foreground/40 select-none">{APP_VERSION}</span>
             </div>
           ) : (
             <Button
@@ -90,12 +86,6 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
           </div>
         </div>
 
-        {/* Subtle version for simplified roles */}
-        {isSimplifiedRole && (
-          <p className="text-[9px] text-muted-foreground/40 text-right mt-0.5 select-none">
-            {APP_VERSION}
-          </p>
-        )}
       </header>
 
       {!isSimplifiedRole && (
