@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import sozuLogo from "@/assets/sozu-logo-black.png";
 
 export default function Registro() {
   const { toast } = useToast();
@@ -108,20 +109,23 @@ export default function Registro() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
-        <Card className="max-w-lg w-full border-border shadow-xl">
-          <CardContent className="pt-8 pb-8 text-center">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+      <div className="min-h-screen bg-[hsl(0,0%,97%)] flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full border-0 shadow-xl rounded-2xl">
+          <CardContent className="pt-10 pb-10 text-center px-8">
+            <div className="w-16 h-16 bg-[hsl(158,64%,38%)]/10 rounded-full flex items-center justify-center mx-auto mb-5">
+              <CheckCircle className="w-8 h-8 text-[hsl(158,64%,38%)]" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">
+            <h2 className="text-2xl font-bold text-[hsl(0,0%,0%)] mb-2">
               ¡Registro exitoso!
             </h2>
-            <p className="text-muted-foreground mb-6">
+            <p className="text-[hsl(0,0%,34%)] mb-8">
               Tu registro ha sido completado. Ya puedes iniciar sesión con tu correo electrónico.
             </p>
             <a href="https://inmobiliarias.sozu.com/auth/login">
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                className="rounded-full px-6 border-[hsl(158,64%,38%)] text-[hsl(158,64%,38%)] hover:bg-[hsl(158,64%,38%)]/5"
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Ir a iniciar sesión
               </Button>
@@ -133,50 +137,49 @@ export default function Registro() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-[hsl(0,0%,97%)] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <img
-              src="/images/sozu-logo.png"
-              alt="Sozu"
-              className="h-10"
-            />
-          </div>
-          <p className="text-muted-foreground text-sm">
+          <img
+            src={sozuLogo}
+            alt="Sozu"
+            className="h-9 mx-auto mb-3"
+          />
+          <p className="text-[hsl(0,0%,34%)] text-sm">
             Plataforma de gestión inmobiliaria
           </p>
         </div>
 
-        <Card className="border-border shadow-xl">
-          <CardHeader className="text-center pb-2">
-            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-              <UserPlus className="w-6 h-6 text-primary" />
+        <Card className="border-0 shadow-xl rounded-2xl">
+          <CardHeader className="text-center pb-2 px-8 pt-8">
+            <div className="w-12 h-12 bg-[hsl(158,64%,38%)]/10 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <UserPlus className="w-6 h-6 text-[hsl(158,64%,38%)]" />
             </div>
-            <CardTitle className="text-xl">Registro</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-xl font-bold text-[hsl(0,0%,0%)]">Registro</CardTitle>
+            <CardDescription className="text-[hsl(0,0%,34%)]">
               Completa el formulario para crear tu cuenta
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <CardContent className="pt-4 px-8 pb-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="nombre">
-                  Nombre <span className="text-destructive">*</span>
+                <Label htmlFor="nombre" className="text-sm font-semibold text-[hsl(0,0%,0%)]">
+                  Nombre <span className="text-[hsl(0,84%,60%)]">*</span>
                 </Label>
                 <Input
                   id="nombre"
                   value={formData.nombre}
                   onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
                   placeholder="Nombre completo"
+                  className="h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">
-                  Email <span className="text-destructive">*</span>
+                <Label htmlFor="email" className="text-sm font-semibold text-[hsl(0,0%,0%)]">
+                  Email <span className="text-[hsl(0,84%,60%)]">*</span>
                 </Label>
                 <Input
                   id="email"
@@ -184,20 +187,21 @@ export default function Registro() {
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="tu@correo.com"
+                  className="h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="telefono">
-                  Teléfono <span className="text-destructive">*</span>
+                <Label htmlFor="telefono" className="text-sm font-semibold text-[hsl(0,0%,0%)]">
+                  Teléfono <span className="text-[hsl(0,84%,60%)]">*</span>
                 </Label>
                 <div className="flex gap-2">
                   <Select
                     value={formData.clave_pais_telefono}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, clave_pais_telefono: value }))}
                   >
-                    <SelectTrigger className="w-24">
+                    <SelectTrigger className="w-28 h-11 rounded-lg border-gray-200">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -213,7 +217,7 @@ export default function Registro() {
                       setFormData(prev => ({ ...prev, telefono: value }));
                     }}
                     placeholder="10 dígitos"
-                    className="flex-1"
+                    className="flex-1 h-11 rounded-lg border-gray-200 focus:border-[hsl(158,64%,38%)] focus:ring-[hsl(158,64%,38%)]"
                     required
                   />
                 </div>
@@ -221,7 +225,7 @@ export default function Registro() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary shadow-elegant transition-all duration-300"
+                className="w-full h-11 rounded-full bg-[hsl(158,64%,38%)] hover:bg-[hsl(158,64%,32%)] text-white font-semibold text-sm shadow-lg shadow-[hsl(158,64%,38%)]/20 transition-all duration-300"
                 disabled={registerMutation.isPending}
               >
                 {registerMutation.isPending ? (
@@ -234,10 +238,10 @@ export default function Registro() {
                 )}
               </Button>
 
-              <div className="text-center pt-2">
+              <div className="text-center pt-1">
                 <a
                   href="https://inmobiliarias.sozu.com/auth/login"
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  className="text-sm text-[hsl(0,0%,34%)] hover:text-[hsl(158,64%,38%)] transition-colors"
                 >
                   ¿Ya tienes cuenta? Inicia sesión
                 </a>
@@ -246,13 +250,13 @@ export default function Registro() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
+        <p className="text-center text-xs text-[hsl(0,0%,50%)] mt-6 px-4">
           Al registrarte, aceptas nuestros términos y condiciones contenidas en nuestro{" "}
           <a
             href="https://www.sozu.com/aviso-de-privacidad"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline"
+            className="text-[hsl(158,64%,38%)] hover:underline"
           >
             Aviso de privacidad
           </a>

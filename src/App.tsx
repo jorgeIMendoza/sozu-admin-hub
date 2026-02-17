@@ -76,6 +76,7 @@ const MiInformacion = lazy(() => import("./pages/admin/inmobiliarias/MiInformaci
 const MisAgentes = lazy(() => import("./pages/admin/inmobiliarias/MisAgentes"));
 const MisPropiedades = lazy(() => import("./pages/admin/inmobiliarias/MisPropiedades"));
 const MisVentas = lazy(() => import("./pages/admin/inmobiliarias/MisVentas"));
+const MisProyectos = lazy(() => import("./pages/admin/inmobiliarias/MisProyectos"));
 const AdministrarMenus = lazy(() => import("./pages/admin/AdministrarMenus"));
 const AdministrarAvisos = lazy(() => import("./pages/admin/comunicacion/AdministrarAvisos"));
 const EnviarAvisos = lazy(() => import("./pages/admin/comunicacion/EnviarAvisos"));
@@ -84,6 +85,7 @@ const WorkflowOfertas = lazy(() => import("./pages/admin/crm/WorkflowOfertas"));
 const DashboardEjecutivo = lazy(() => import("./pages/admin/crm/DashboardEjecutivo"));
 
 const Registro = lazy(() => import("./pages/public/Registro"));
+const AgentesLanding = lazy(() => import("./pages/public/AgentesLanding"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -98,6 +100,7 @@ const queryClient = new QueryClient({
 
 const isRegistroSubdomain = window.location.hostname === 'registro.sozu.com';
 const isInmobiliariasSubdomain = window.location.hostname === 'inmobiliarias.sozu.com';
+const isAgentesSubdomain = window.location.hostname === 'agentes.sozu.com';
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -115,7 +118,7 @@ const App = () => (
           <AuthProvider>
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
               <Routes>
-                <Route path="/" element={isRegistroSubdomain ? <Registro /> : <Navigate to="/admin" replace />} />
+                <Route path="/" element={isAgentesSubdomain ? <AgentesLanding /> : isRegistroSubdomain ? <Registro /> : <Navigate to="/admin" replace />} />
                 <Route path="/welcome" element={<Index />} />
                 
                 {/* Auth Routes */}
@@ -195,6 +198,7 @@ const App = () => (
                   <Route path="inmobiliarias/mis-agentes" element={<MisAgentes />} />
                   <Route path="inmobiliarias/mis-propiedades" element={<MisPropiedades />} />
                   <Route path="inmobiliarias/mis-ventas" element={<MisVentas />} />
+                  <Route path="inmobiliarias/mis-proyectos" element={<MisProyectos />} />
                   <Route path="administrar-menus" element={<AdministrarMenus />} />
                   <Route path="comunicacion/administrar-avisos" element={<AdministrarAvisos />} />
                   <Route path="comunicacion/enviar-avisos" element={<EnviarAvisos />} />

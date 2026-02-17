@@ -59,6 +59,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/inmobiliarias/mis-agentes',
   '/admin/inmobiliarias/mis-propiedades',
   '/admin/inmobiliarias/mis-ventas',
+  '/admin/inmobiliarias/mis-proyectos',
   '/admin/administrar-menus',
   '/admin/cuentas-mantenimiento/:id/detalle',
   '/admin/cuentas-cobranza/:id/detalle',

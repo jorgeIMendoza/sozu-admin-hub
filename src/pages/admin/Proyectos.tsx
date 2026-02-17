@@ -404,6 +404,53 @@ const Proyectos = () => {
 
   const handleTogglePublicar = async (projectId: number, currentValue: boolean) => {
     try {
+      // If trying to publish, validate requirements
+      if (!currentValue) {
+        // Check brochures (documentos with id_tipo_documento = 30)
+        const { data: brochures, error: brochError } = await supabase
+          .from("documentos")
+          .select("id")
+          .eq("id_proyecto", projectId)
+          .eq("id_tipo_documento", 30)
+          .eq("activo", true);
+
+        if (brochError) {
+          console.error("Error checking brochures:", brochError);
+          toast.error("Error al validar requisitos de publicación");
+          return;
+        }
+
+        // Check multimedia images
+        const { data: multimedia, error: mmError } = await supabase
+          .from("multimedias_proyecto")
+          .select("id")
+          .eq("id_proyecto", projectId)
+          .eq("es_imagen", true)
+          .eq("activo", true);
+
+        if (mmError) {
+          console.error("Error checking multimedia:", mmError);
+          toast.error("Error al validar requisitos de publicación");
+          return;
+        }
+
+        const brochureCount = brochures?.length || 0;
+        const multimediaCount = multimedia?.length || 0;
+        const issues: string[] = [];
+
+        if (brochureCount === 0) {
+          issues.push("al menos 1 brochure");
+        }
+        if (multimediaCount < 5) {
+          issues.push(`al menos 5 imágenes multimedia (tiene ${multimediaCount})`);
+        }
+
+        if (issues.length > 0) {
+          toast.error(`No se puede publicar. Requiere: ${issues.join(" y ")}.`, { duration: 6000 });
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("proyectos")
         .update({ publicar: !currentValue })
