@@ -46,6 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useCallback(async () => {
     setIsProfileLoading(true);
     try {
+      // Auto-mark email as confirmed if user can log in (Auth confirmed it)
+      try {
+        await supabase.rpc("mark_email_confirmed");
+      } catch (e) {
+        console.error("Error marking email confirmed:", e);
+      }
+
       // Add timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Profile fetch timeout")), 15000)
@@ -275,12 +282,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Registrar inicio de sesión exitoso
       activityLoggerService.registrarInicioSesion(email, "exito");
 
-      // Auto-mark email as confirmed if user can log in (Auth confirmed it)
-      try {
-        await supabase.rpc("mark_email_confirmed");
-      } catch (e) {
-        console.error("Error marking email confirmed:", e);
-      }
+      // mark_email_confirmed is now called automatically in fetchProfile
+      // so no need to call it here separately
 
       return { error: null };
     } catch (err) {
