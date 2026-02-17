@@ -216,109 +216,97 @@ Deno.serve(async (req) => {
       console.error('Error logging activity:', logError);
     }
 
-    // Send notification to admins
-    try {
-      const { data: superAdmins } = await supabase
-        .from('usuarios')
-        .select('email, telefono, clave_pais_telefono')
-        .eq('rol_id', 1)
-        .eq('activo', true);
+    // Send emails directly via Postmark
+    const POSTMARK_TOKEN = Deno.env.get('POSTMARK_SERVER_TOKEN');
+    
+    if (POSTMARK_TOKEN) {
+      // Send admin notification email
+      try {
+        const { data: superAdmins } = await supabase
+          .from('usuarios')
+          .select('email')
+          .eq('rol_id', 1)
+          .eq('activo', true);
 
-      const { data: adminProyecto } = await supabase
-        .from('usuarios')
-        .select('email, telefono, clave_pais_telefono')
-        .eq('rol_id', 2)
-        .eq('activo', true);
+        const { data: adminProyecto } = await supabase
+          .from('usuarios')
+          .select('email')
+          .eq('rol_id', 2)
+          .eq('activo', true);
 
-      const correosSuperAdmin = (superAdmins || []).map(u => u.email).filter(Boolean).join(',');
-      const correosAdminProy = (adminProyecto || []).map(u => u.email).filter(Boolean).join(',');
+        const adminEmails = [
+          ...(adminProyecto || []).map(u => u.email),
+          ...(superAdmins || []).map(u => u.email),
+        ].filter(Boolean);
 
-      const { data: paises } = await supabase
-        .from('paises')
-        .select('id, clave_pais_telefono')
-        .eq('activo', true);
+        if (adminEmails.length > 0) {
+          const adminMessages = adminEmails.map(email => ({
+            From: 'Notificaciones Sozu <notificaciones@sozu.com>',
+            To: email,
+            TemplateId: 41353048,
+            TemplateModel: {
+              mensaje: {
+                nombre: 'Administrador',
+                actividad: 'Registro de agente desde formulario público',
+                asunto: 'Nuevo Registro de Agente',
+                detalles: `<tr><td class='label'>Nombre:</td><td class='value'>${nombre.trim()}</td></tr><tr><td class='label'>Email:</td><td class='value'>${emailLower}</td></tr><tr><td class='label'>Teléfono:</td><td class='value'>${telefono}</td></tr>`,
+              },
+            },
+            MessageStream: 'outbound',
+          }));
 
-      const codigosPorPais = new Map(
-        (paises || []).map((p: any) => [p.id.trim(), p.clave_pais_telefono?.trim()])
-      );
+          const adminRes = await fetch('https://api.postmarkapp.com/email/batchWithTemplates', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'X-Postmark-Server-Token': POSTMARK_TOKEN,
+            },
+            body: JSON.stringify({ Messages: adminMessages }),
+          });
+          const adminResult = await adminRes.json();
+          console.log('Admin Postmark response:', adminRes.status, JSON.stringify(adminResult).substring(0, 300));
+        }
+      } catch (notificationError) {
+        console.error('Error sending admin notification:', notificationError);
+      }
 
-      const formatearTelefonos = (usuarios: any[]) => {
-        return (usuarios || [])
-          .filter(u => u.telefono)
-          .map(u => {
-            const clavePais = (u.clave_pais_telefono || 'MX').trim();
-            const codigoPais = codigosPorPais.get(clavePais) || '+52';
-            return `${codigoPais}${u.telefono}`;
-          })
-          .join(',');
-      };
-
-      const numerosAdminProy = formatearTelefonos(adminProyecto || []) || formatearTelefonos(superAdmins || []);
-
-      const notificationPayload = {
-        tipo: 'ambos',
-        from: 'Notificaciones Sozu <notificaciones@sozu.com>',
-        email: correosAdminProy || correosSuperAdmin,
-        cc: correosSuperAdmin,
-        telefono: numerosAdminProy,
-        mensajeWA: `Se ha registrado un nuevo agente: *${nombre.trim()}*, con el email: *${emailLower}* desde el formulario público.`,
-        asunto: 'Nuevo Registro de Agente',
-        mensaje: {
-          nombre: 'Administrador',
-          actividad: 'Registro de agente desde formulario público',
-          detalles: `<tr><td class='label'>Nombre:</td><td class='value'>${nombre.trim()}</td></tr><tr><td class='label'>Email:</td><td class='value'>${emailLower}</td></tr><tr><td class='label'>Teléfono:</td><td class='value'>${telefono}</td></tr>`
-        },
-        templateId: 41353048
-      };
-
-      const adminNotifResp = await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseServiceKey}`
-        },
-        body: JSON.stringify(notificationPayload)
-      });
-
-      const adminNotifBody = await adminNotifResp.text();
-      console.log('Admin notification response:', adminNotifResp.status, adminNotifBody);
-    } catch (notificationError) {
-      console.error('Error sending notification:', notificationError);
-    }
-
-    // Send welcome email to the new agent
-    try {
-      const welcomePayload = {
-        tipo: 'email',
-        from: 'Notificaciones Sozu <notificaciones@sozu.com>',
-        email: emailLower,
-        asunto: 'Bienvenido a Sozu - Tu cuenta ha sido creada',
-        mensaje: {
-          nombre: nombre.trim(),
-          actividad: 'Registro exitoso como Agente Inmobiliario',
-          detalles: `
-            <tr><td class='label'>Email de acceso:</td><td class='value'>${emailLower}</td></tr>
-            <tr><td class='label'>Contraseña temporal:</td><td class='value'>Temporal123!</td></tr>
-            <tr><td class='label'>Portal de acceso:</td><td class='value'><a href="https://inmobiliarias.sozu.com/auth/login">inmobiliarias.sozu.com</a></td></tr>
-            <tr><td class='label'>Importante:</td><td class='value'>Deberás cambiar tu contraseña en tu primer inicio de sesión.</td></tr>
-          `
-        },
-        templateId: 41353048
-      };
-
-      const welcomeResp = await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseServiceKey}`
-        },
-        body: JSON.stringify(welcomePayload)
-      });
-
-      const welcomeBody = await welcomeResp.text();
-      console.log('Welcome email response:', welcomeResp.status, welcomeBody);
-    } catch (welcomeError) {
-      console.error('Error sending welcome email:', welcomeError);
+      // Send welcome email to the new agent
+      try {
+        const welcomeRes = await fetch('https://api.postmarkapp.com/email/withTemplate', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Postmark-Server-Token': POSTMARK_TOKEN,
+          },
+          body: JSON.stringify({
+            From: 'Notificaciones Sozu <notificaciones@sozu.com>',
+            To: emailLower,
+            TemplateId: 41353048,
+            TemplateModel: {
+              mensaje: {
+                nombre: nombre.trim(),
+                actividad: 'Registro exitoso como Agente Inmobiliario',
+                asunto: 'Bienvenido a Sozu - Tu cuenta ha sido creada',
+                detalles: `
+                  <tr><td class='label'>Email de acceso:</td><td class='value'>${emailLower}</td></tr>
+                  <tr><td class='label'>Contraseña temporal:</td><td class='value'>Temporal123!</td></tr>
+                  <tr><td class='label'>Portal de acceso:</td><td class='value'><a href="https://inmobiliarias.sozu.com/auth/login">inmobiliarias.sozu.com</a></td></tr>
+                  <tr><td class='label'>Importante:</td><td class='value'>Deberás cambiar tu contraseña en tu primer inicio de sesión.</td></tr>
+                `,
+              },
+            },
+            MessageStream: 'outbound',
+          }),
+        });
+        const welcomeResult = await welcomeRes.json();
+        console.log('Welcome Postmark response:', welcomeRes.status, JSON.stringify(welcomeResult).substring(0, 300));
+      } catch (welcomeError) {
+        console.error('Error sending welcome email:', welcomeError);
+      }
+    } else {
+      console.error('POSTMARK_SERVER_TOKEN not configured, skipping email notifications');
     }
 
     return new Response(
