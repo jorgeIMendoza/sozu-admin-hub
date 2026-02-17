@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -275,19 +276,26 @@ const MisProyectos = () => {
     );
   }
 
+  const { profile } = useAuth();
+  const isSimplifiedRole = ["Agente Inmobiliario", "Inmobiliaria"].includes(profile?.rol_nombre ?? "");
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Mis Proyectos</h1>
-        <p className="text-muted-foreground text-sm">Proyectos disponibles para comercialización</p>
-      </div>
+      {!isSimplifiedRole && (
+        <>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Mis Proyectos</h1>
+            <p className="text-muted-foreground text-sm">Proyectos disponibles para comercialización</p>
+          </div>
 
-      <Input
-        placeholder="Buscar proyecto..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm"
-      />
+          <Input
+            placeholder="Buscar proyecto..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-sm"
+          />
+        </>
+      )}
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
