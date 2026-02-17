@@ -274,6 +274,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Registrar inicio de sesión exitoso
       activityLoggerService.registrarInicioSesion(email, "exito");
+
+      // Auto-mark email as confirmed if user can log in (Auth confirmed it)
+      try {
+        await supabase.rpc("mark_email_confirmed");
+      } catch (e) {
+        console.error("Error marking email confirmed:", e);
+      }
+
       return { error: null };
     } catch (err) {
       activityLoggerService.registrarInicioSesion(email, "error", (err as Error).message);

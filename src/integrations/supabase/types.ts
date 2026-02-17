@@ -6992,6 +6992,7 @@ export type Database = {
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { user_id: string }; Returns: boolean }
+      mark_email_confirmed: { Args: never; Returns: undefined }
       mark_password_changed: { Args: never; Returns: undefined }
       sync_conyuge_compradores: {
         Args: { p_id_persona: number }
