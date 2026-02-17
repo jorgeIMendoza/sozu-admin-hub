@@ -127,6 +127,7 @@ const App = () => (
                 
                 {/* Public Routes */}
                 <Route path="/registro" element={<Registro />} />
+                <Route path="/agentes" element={<AgentesLanding />} />
                 
                 {/* Admin Routes - Protected by Auth and Permissions */}
                 <Route path="/admin" element={
