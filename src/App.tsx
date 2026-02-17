@@ -117,8 +117,13 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+              {isAgentesSubdomain ? (
+                <Routes>
+                  <Route path="*" element={<AgentesLanding />} />
+                </Routes>
+              ) : (
               <Routes>
-                <Route path="/" element={isAgentesSubdomain ? <AgentesLanding /> : isRegistroSubdomain ? <Registro /> : <Navigate to="/admin" replace />} />
+                <Route path="/" element={isRegistroSubdomain ? <Registro /> : <Navigate to="/admin" replace />} />
                 <Route path="/welcome" element={<Index />} />
                 
                 {/* Auth Routes */}
@@ -211,6 +216,7 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              )}
             </Suspense>
           </AuthProvider>
         </BrowserRouter>
