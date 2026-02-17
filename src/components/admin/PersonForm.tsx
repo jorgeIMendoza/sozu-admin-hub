@@ -838,7 +838,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
         commercialRepresentativeId: idRepresentanteComercial === 'none' || !idRepresentanteComercial ? null : parseInt(idRepresentanteComercial),
         inmobiliariaId: entityType === 'agente' && idInmobiliaria && idInmobiliaria !== 'none' ? parseInt(idInmobiliaria) : null,
         porcentaje_comision: entityType === 'inmobiliaria' ? parseFloat(porcentajeComision) || 2.00 : 
-          (entityType === 'agente' && email?.toLowerCase().endsWith('@sozu.com')) ? parseFloat(porcentajeComision) || 0 : undefined,
+          entityType === 'agente' ? parseFloat(porcentajeComision) || 0 : undefined,
       };
       onSubmit(extendedFormData);
     }
@@ -1147,7 +1147,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                   )}
 
                   {/* Porcentaje de comisión - para agentes internos */}
-                  {entityType === 'agente' && email?.toLowerCase().endsWith('@sozu.com') && (
+                  {entityType === 'agente' && (
                     <div>
                       <Label htmlFor="porcentajeComisionAgente">Porcentaje de Comisión (%)</Label>
                       <Input
@@ -1158,7 +1158,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                         max="100"
                         value={porcentajeComision}
                         onChange={(e) => setPorcentajeComision(e.target.value)}
-                        placeholder="0.00"
+                        placeholder="2.00"
                       />
                     </div>
                   )}
