@@ -540,7 +540,7 @@ export function EditUserDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={updateUserMutation.isPending || !hasChanges}
+            disabled={updateUserMutation.isPending || !hasChanges || (isAgentRole && !selectedInmobiliariaId)}
           >
             {updateUserMutation.isPending ? (
               <>
