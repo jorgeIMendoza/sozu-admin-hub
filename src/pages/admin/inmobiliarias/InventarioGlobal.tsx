@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car, Archive } from "lucide-react";
+import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import bodegaIcon from "@/assets/icons/bodega.png";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
@@ -423,36 +425,34 @@ const InventarioGlobal = () => {
         </div>
 
         {/* Bodega / Estacionamiento toggle filters */}
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs text-muted-foreground self-center mr-1">Bodega:</span>
-          {(["con", "sin"] as const).map(val => (
-            <button
-              key={`bod-${val}`}
-              onClick={() => setFilterBodega(prev => prev === val ? null : val)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                filterBodega === val
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted/60 text-muted-foreground border-border/60 hover:bg-muted"
-              }`}
-            >
-              {val === "con" ? "Con bodega" : "Sin bodega"}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Bodega:</span>
+            <Select value={filterBodega || "todos"} onValueChange={(v) => setFilterBodega(v === "todos" ? null : v)}>
+              <SelectTrigger className="w-[130px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="con">Con bodega</SelectItem>
+                <SelectItem value="sin">Sin bodega</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <span className="text-xs text-muted-foreground self-center ml-3 mr-1">Estacionamiento:</span>
-          {(["con", "sin"] as const).map(val => (
-            <button
-              key={`est-${val}`}
-              onClick={() => setFilterEstacionamiento(prev => prev === val ? null : val)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                filterEstacionamiento === val
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted/60 text-muted-foreground border-border/60 hover:bg-muted"
-              }`}
-            >
-              {val === "con" ? "Con estac." : "Sin estac."}
-            </button>
-          ))}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Estacionamiento:</span>
+            <Select value={filterEstacionamiento || "todos"} onValueChange={(v) => setFilterEstacionamiento(v === "todos" ? null : v)}>
+              <SelectTrigger className="w-[150px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="con">Con estac.</SelectItem>
+                <SelectItem value="sin">Sin estac.</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Active filter badges */}
@@ -543,7 +543,7 @@ const InventarioGlobal = () => {
                     <div className="flex flex-wrap gap-2">
                       {prop.bodegas_count > 0 && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 text-[11px] text-muted-foreground">
-                          <Archive className="h-3 w-3" /> {prop.bodegas_count} bodega{prop.bodegas_count > 1 ? "s" : ""}
+                          <img src={bodegaIcon} alt="bodega" className="h-3 w-3 opacity-60" /> {prop.bodegas_count} bodega{prop.bodegas_count > 1 ? "s" : ""}
                         </span>
                       )}
                       {prop.estacionamientos_count > 0 && (
@@ -647,7 +647,7 @@ const InventarioGlobal = () => {
                   <div className="flex flex-wrap gap-2">
                     {selectedProperty.bodegas_count > 0 && (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
-                        <Archive className="h-3 w-3 text-muted-foreground" /> {selectedProperty.bodegas_count} bodega{selectedProperty.bodegas_count > 1 ? "s" : ""}
+                        <img src={bodegaIcon} alt="bodega" className="h-3 w-3 opacity-60" /> {selectedProperty.bodegas_count} bodega{selectedProperty.bodegas_count > 1 ? "s" : ""}
                       </span>
                     )}
                     {selectedProperty.estacionamientos_count > 0 && (
