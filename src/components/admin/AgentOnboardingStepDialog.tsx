@@ -30,6 +30,7 @@ const STEP_TITLES: Record<string, string> = {
   fiscal: 'Información Fiscal',
   documents: 'Documentos',
   'bank-accounts': 'Cuentas Bancarias',
+  training: 'Capacitación',
 };
 
 const STEP_DESCRIPTIONS: Record<string, string> = {
@@ -38,6 +39,7 @@ const STEP_DESCRIPTIONS: Record<string, string> = {
   fiscal: 'RFC, régimen fiscal y dirección fiscal',
   documents: 'INE, Constancia y Contrato de comercialización',
   'bank-accounts': 'Agrega al menos una cuenta bancaria',
+  training: 'Agenda tu cita de capacitación presencial',
 };
 
 // Required document types for onboarding
@@ -84,6 +86,10 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
   ) : step === 'bank-accounts' ? (
     <div className="px-1">
       <BankAccountsSection personId={personaId} />
+    </div>
+  ) : step === 'training' ? (
+    <div className="px-1">
+      <AgentTrainingStep personaId={personaId} onSaved={handleSaved} />
     </div>
   ) : (
     <StepForm step={step} persona={persona} personaId={personaId} onSaved={handleSaved} />
@@ -308,6 +314,173 @@ function AgentDocumentsStep({ personaId }: { personaId: number }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ---------- Step Form ----------
+
+interface StepFormProps {
+  step: 'basic' | 'address' | 'fiscal';
+  persona: any;
+  personaId: number;
+  onSaved: () => void;
+}
+
+// ---------- Agent Training Step ----------
+
+function AgentTrainingStep({ personaId, onSaved }: { personaId: number; onSaved: () => void }) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [fecha, setFecha] = useState('');
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFin, setHoraFin] = useState('');
+  const [ubicacion, setUbicacion] = useState('');
+  const [notas, setNotas] = useState('');
+
+  // Fetch existing appointment
+  const { data: existingCita } = useQuery({
+    queryKey: ['agent-training-cita', personaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('citas_capacitacion')
+        .select('*')
+        .eq('id_persona', personaId)
+        .eq('activo', true)
+        .order('fecha_creacion', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (existingCita) {
+      setFecha(existingCita.fecha || '');
+      setHoraInicio(existingCita.hora_inicio || '');
+      setHoraFin(existingCita.hora_fin || '');
+      setUbicacion(existingCita.ubicacion || '');
+      setNotas(existingCita.notas || '');
+    }
+  }, [existingCita]);
+
+  const getStatusBadge = () => {
+    if (!existingCita) return null;
+    switch (existingCita.estatus) {
+      case 'asistio': return <Badge className="bg-emerald-500 text-white border-0"><CheckCircle2 className="h-3 w-3 mr-1" />Completada</Badge>;
+      case 'programada': return <Badge className="bg-amber-500 text-white border-0"><Clock className="h-3 w-3 mr-1" />Programada</Badge>;
+      case 'no_asistio': return <Badge variant="destructive"><RefreshCw className="h-3 w-3 mr-1" />No asistió</Badge>;
+      case 'cancelada': return <Badge variant="outline" className="text-muted-foreground">Cancelada</Badge>;
+      default: return null;
+    }
+  };
+
+  const handleSchedule = async () => {
+    if (!fecha || !horaInicio || !horaFin || !ubicacion.trim()) {
+      toast.error("Completa fecha, hora de inicio, hora de fin y ubicación.");
+      return;
+    }
+    if (horaFin <= horaInicio) {
+      toast.error("La hora de fin debe ser posterior a la hora de inicio.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Deactivate previous
+      if (existingCita) {
+        await supabase
+          .from('citas_capacitacion')
+          .update({ activo: false })
+          .eq('id', existingCita.id);
+      }
+
+      const { error } = await supabase
+        .from('citas_capacitacion')
+        .insert({
+          id_persona: personaId,
+          fecha,
+          hora_inicio: horaInicio,
+          hora_fin: horaFin,
+          ubicacion: ubicacion.trim(),
+          notas: notas.trim() || null,
+          estatus: 'programada',
+        });
+      if (error) throw error;
+
+      toast.success("Cita de capacitación agendada correctamente.");
+      queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
+      queryClient.invalidateQueries({ queryKey: ['agent-training-cita'] });
+      onSaved();
+    } catch (err: any) {
+      toast.error("Error al agendar: " + (err.message || "Error"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isCompleted = existingCita?.estatus === 'asistio';
+  const isProgrammed = existingCita?.estatus === 'programada';
+
+  return (
+    <div className="space-y-5 pb-4">
+      {/* Status */}
+      {existingCita && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-foreground">Estado actual:</span>
+          {getStatusBadge()}
+        </div>
+      )}
+
+      {isCompleted ? (
+        <div className="text-center py-6 space-y-2">
+          <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
+          <p className="text-sm font-semibold text-emerald-600">¡Capacitación completada!</p>
+          <p className="text-xs text-muted-foreground">Tu asistencia fue confirmada por el administrador.</p>
+        </div>
+      ) : (
+        <>
+          <div>
+            <Label>Fecha *</Label>
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="mt-1" min={new Date().toISOString().split('T')[0]} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Hora inicio *</Label>
+              <Input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Hora fin *</Label>
+              <Input type="time" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} className="mt-1" />
+            </div>
+          </div>
+          <div>
+            <Label>Ubicación *</Label>
+            <Input value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Ej. Oficinas Sozu, Piso 3" className="mt-1" />
+          </div>
+          <div>
+            <Label>Notas <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+            <Input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Algún comentario adicional" className="mt-1" />
+          </div>
+
+          {isProgrammed && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Ya tienes una cita programada. Si reagendas, se cancelará la anterior.
+              </p>
+            </div>
+          )}
+
+          <Button
+            onClick={handleSchedule}
+            disabled={saving}
+            className="w-full h-12 text-base font-semibold rounded-xl shadow-[0_6px_20px_-4px_hsl(var(--primary)/0.4)] hover:shadow-[0_8px_28px_-4px_hsl(var(--primary)/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+          >
+            {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Agendando...</> : isProgrammed ? "Reagendar Cita" : "Agendar Cita"}
+          </Button>
+        </>
+      )}
     </div>
   );
 }

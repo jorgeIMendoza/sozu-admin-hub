@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface OnboardingStep {
-  id: 'basic' | 'address' | 'fiscal' | 'documents' | 'bank-accounts';
+  id: 'basic' | 'address' | 'fiscal' | 'documents' | 'bank-accounts' | 'training';
   label: string;
   isComplete: boolean;
 }
@@ -66,7 +66,25 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
-  const isLoading = loadingPersona || loadingDocs || loadingCuentas;
+  // Fetch training appointments
+  const { data: citasCapacitacion = [], isLoading: loadingCitas } = useQuery({
+    queryKey: ['agent-onboarding-training', personaId],
+    queryFn: async () => {
+      if (!personaId) return [];
+      const { data, error } = await supabase
+        .from('citas_capacitacion')
+        .select('id, estatus')
+        .eq('id_persona', personaId)
+        .eq('activo', true)
+        .in('estatus', ['asistio'])
+        .limit(1);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!personaId,
+  });
+
+  const isLoading = loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
 
   // Evaluate steps
   const basicComplete = !!(persona?.nombre_legal && persona?.email && persona?.telefono);
@@ -98,21 +116,25 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const bankComplete = cuentas.length > 0;
 
+  const trainingComplete = citasCapacitacion.length > 0;
+
   const steps: OnboardingStep[] = [
-    { id: 'basic', label: 'Información Básica', isComplete: basicComplete },
+    { id: 'basic', label: 'Info. Básica', isComplete: basicComplete },
     { id: 'address', label: 'Dirección', isComplete: addressComplete },
     { id: 'fiscal', label: 'Info. Fiscal', isComplete: fiscalComplete },
     { id: 'documents', label: 'Documentos', isComplete: documentsComplete },
-    { id: 'bank-accounts', label: 'Cuentas Bancarias', isComplete: bankComplete },
+    { id: 'bank-accounts', label: 'Cuentas', isComplete: bankComplete },
+    { id: 'training', label: 'Capacitación', isComplete: trainingComplete },
   ];
 
   const completedCount = steps.filter(s => s.isComplete).length;
+  const totalSteps = steps.length;
 
   return {
     steps,
     completedCount,
-    totalSteps: 5,
-    percentage: Math.round((completedCount / 5) * 100),
+    totalSteps,
+    percentage: Math.round((completedCount / totalSteps) * 100),
     isLoading,
   };
 }

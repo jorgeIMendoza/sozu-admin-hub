@@ -2395,6 +2395,65 @@ export type Database = {
         }
         Relationships: []
       }
+      citas_capacitacion: {
+        Row: {
+          activo: boolean
+          confirmada_por: string | null
+          estatus: string
+          fecha: string
+          fecha_actualizacion: string
+          fecha_confirmacion: string | null
+          fecha_creacion: string
+          google_calendar_event_id: string | null
+          hora_fin: string
+          hora_inicio: string
+          id: number
+          id_persona: number
+          notas: string | null
+          ubicacion: string
+        }
+        Insert: {
+          activo?: boolean
+          confirmada_por?: string | null
+          estatus?: string
+          fecha: string
+          fecha_actualizacion?: string
+          fecha_confirmacion?: string | null
+          fecha_creacion?: string
+          google_calendar_event_id?: string | null
+          hora_fin: string
+          hora_inicio: string
+          id?: number
+          id_persona: number
+          notas?: string | null
+          ubicacion: string
+        }
+        Update: {
+          activo?: boolean
+          confirmada_por?: string | null
+          estatus?: string
+          fecha?: string
+          fecha_actualizacion?: string
+          fecha_confirmacion?: string | null
+          fecha_creacion?: string
+          google_calendar_event_id?: string | null
+          hora_fin?: string
+          hora_inicio?: string
+          id?: number
+          id_persona?: number
+          notas?: string | null
+          ubicacion?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "citas_capacitacion_id_persona_fkey"
+            columns: ["id_persona"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comentarios_verificacion_documento: {
         Row: {
           activo: boolean
