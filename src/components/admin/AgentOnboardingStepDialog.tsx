@@ -617,14 +617,11 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
     setSaving(true);
     try {
       let updateData: any = {};
+      let isIncomplete = false;
 
       if (step === 'basic') {
-        if (!nombre.trim() || !email.trim() || !telefono.trim()) {
-          toast.error("Nombre, email y teléfono son obligatorios.");
-          setSaving(false);
-          return;
-        }
-        if (telefono.trim().length !== 10) {
+        // Validate format only if provided
+        if (telefono.trim() && telefono.trim().length !== 10) {
           toast.error("El teléfono debe tener 10 dígitos.");
           setSaving(false);
           return;
@@ -637,50 +634,40 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
             return;
           }
         }
+        isIncomplete = !nombre.trim() || !email.trim() || !telefono.trim();
         updateData = {
-          nombre_legal: nombre.trim(),
-          email: email.trim(),
-          telefono: telefono.trim(),
+          nombre_legal: nombre.trim() || null,
+          email: email.trim() || null,
+          telefono: telefono.trim() || null,
           curp: curp.trim().toUpperCase() || null,
           sexo: sexo || null,
         };
       } else if (step === 'address') {
-        if (!calle.trim() || !numExt.trim() || !colonia.trim() || !cp.trim() || !idPais || !idEstado || !idMunicipio) {
-          toast.error("Completa todos los campos de dirección obligatorios.");
-          setSaving(false);
-          return;
-        }
+        isIncomplete = !calle.trim() || !numExt.trim() || !colonia.trim() || !cp.trim() || !idPais || !idEstado || !idMunicipio;
         updateData = {
-          direccion_calle: calle.trim(),
-          direccion_num_ext: numExt.trim(),
+          direccion_calle: calle.trim() || null,
+          direccion_num_ext: numExt.trim() || null,
           direccion_num_int: numInt.trim() || null,
-          direccion_colonia: colonia.trim(),
-          direccion_codigo_postal: cp.trim(),
-          direccion_id_pais: idPais,
-          direccion_id_estado: parseInt(idEstado),
-          direccion_id_municipio: parseInt(idMunicipio),
+          direccion_colonia: colonia.trim() || null,
+          direccion_codigo_postal: cp.trim() || null,
+          direccion_id_pais: idPais || null,
+          direccion_id_estado: idEstado ? parseInt(idEstado) : null,
+          direccion_id_municipio: idMunicipio ? parseInt(idMunicipio) : null,
         };
       } else if (step === 'fiscal') {
-        if (!rfc.trim()) {
-          toast.error("El RFC es obligatorio.");
-          setSaving(false);
-          return;
+        if (rfc.trim()) {
+          const rfcValidation = validateRFC(rfc);
+          if (!rfcValidation.isValid) {
+            toast.error(rfcValidation.error || "RFC inválido.");
+            setSaving(false);
+            return;
+          }
         }
-        const rfcValidation = validateRFC(rfc);
-        if (!rfcValidation.isValid) {
-          toast.error(rfcValidation.error || "RFC inválido.");
-          setSaving(false);
-          return;
-        }
-        if (!regimen || !usoCfdi) {
-          toast.error("Régimen y Uso CFDI son obligatorios.");
-          setSaving(false);
-          return;
-        }
+        isIncomplete = !rfc.trim() || !regimen || !usoCfdi || !fCalle.trim() || !fColonia.trim() || !fCp.trim() || !fIdPais || !fIdEstado || !fIdMunicipio;
         updateData = {
-          rfc: rfc.trim().toUpperCase(),
-          regimen: regimen,
-          uso_cfdi: usoCfdi,
+          rfc: rfc.trim().toUpperCase() || null,
+          regimen: regimen || null,
+          uso_cfdi: usoCfdi || null,
           direccion_fiscal_calle: fCalle.trim() || null,
           direccion_fiscal_num_ext: fNumExt.trim() || null,
           direccion_fiscal_num_int: fNumInt.trim() || null,
@@ -700,14 +687,18 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
       if (error) throw error;
 
       // Sync phone to usuarios if basic step
-      if (step === 'basic') {
+      if (step === 'basic' && telefono.trim()) {
         await supabase
           .from('usuarios')
           .update({ telefono: telefono.trim() })
           .eq('id_persona', personaId);
       }
 
-      toast.success("Información guardada correctamente.");
+      if (isIncomplete) {
+        toast.warning("Información guardada. Este paso no se marcará como completado hasta llenar todos los campos obligatorios.");
+      } else {
+        toast.success("Información guardada correctamente.");
+      }
       onSaved();
     } catch (err: any) {
       toast.error("Error al guardar: " + (err.message || "Error desconocido"));
