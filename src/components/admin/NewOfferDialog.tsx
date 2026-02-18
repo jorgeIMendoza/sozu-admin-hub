@@ -183,9 +183,10 @@ interface NewOfferDialogProps {
   forceManualMode?: boolean; // For resale properties that require manual mode only
   hideManualMode?: boolean; // Hide the manual mode option (for inmobiliarias portal)
   hidePdfOptions?: boolean; // Hide PDF visualization options (for inmobiliarias portal)
+  customTrigger?: React.ReactNode; // Optional custom trigger element
 }
 
-export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false }: NewOfferDialogProps) {
+export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false, customTrigger }: NewOfferDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1186,14 +1187,16 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
     <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
-          title="Generar oferta"
-        >
-          <FileText className="h-4 w-4" />
-        </Button>
+        {customTrigger || (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+            title="Generar oferta"
+          >
+            <FileText className="h-4 w-4" />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, X, Package } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
@@ -73,7 +73,8 @@ const InventarioGlobal = () => {
         .from("esquemas_pago")
         .select("id, nombre, id_proyecto, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades, porcentaje_descuento_aumento")
         .in("id_proyecto", projectIds)
-        .eq("activo", true);
+        .eq("activo", true)
+        .eq("es_manual", false);
       if (error) { console.error("Error:", error); return []; }
       return data || [];
     },
@@ -246,12 +247,14 @@ const InventarioGlobal = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 pb-10">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/admin/inmobiliarias/mis-proyectos")} className="gap-1 text-primary">
-          <ArrowLeft className="h-4 w-4" /> Volver
-        </Button>
-      </div>
+    <div className="max-w-5xl mx-auto space-y-6 pb-10 px-3">
+      <button
+        onClick={() => navigate("/admin/inmobiliarias/mis-proyectos")}
+        className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-medium text-sm border border-primary/20 shadow-sm hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 ease-out"
+      >
+        <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
+        <span className="tracking-wide">Volver</span>
+      </button>
 
       <div className="px-1 space-y-1">
         <h1 className="text-xl font-bold text-foreground">Inventario Disponible</h1>
@@ -261,7 +264,7 @@ const InventarioGlobal = () => {
       </div>
 
       {/* Filters */}
-      <div className="space-y-3 px-1">
+      <div className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MultiSelectFilter
             values={filterProjectNames}
@@ -324,26 +327,24 @@ const InventarioGlobal = () => {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {pageProperties.map((prop: any) => (
               <Card
                 key={prop.id}
-                className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow border"
+                className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-border/60 rounded-2xl bg-card"
                 onClick={() => setSelectedProperty(prop)}
               >
                 {/* Image Carousel */}
-                {prop.model_images?.length > 0 && (
-                  <PropertyCardCarousel images={prop.model_images} />
-                )}
+                <PropertyCardCarousel images={prop.model_images || []} />
 
                 <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-semibold text-foreground">{prop.numero || `Unidad ${prop.id}`}</h4>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-foreground text-base truncate">{prop.numero || `Unidad ${prop.id}`}</h4>
                       <p className="text-xs text-muted-foreground">{prop.proyecto_nombre}</p>
-                      <p className="text-[11px] text-muted-foreground">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
+                      <p className="text-[11px] text-muted-foreground/70">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
                     </div>
-                    <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 text-[10px]">
+                    <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-300 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400">
                       Disponible
                     </Badge>
                   </div>
@@ -361,16 +362,17 @@ const InventarioGlobal = () => {
                   </div>
 
                   {prop.precio_lista > 0 && (
-                    <div className="flex items-center gap-1 text-sm font-semibold text-foreground">
-                      <DollarSign className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-1.5 text-base font-bold text-foreground">
+                      <DollarSign className="h-4 w-4 text-primary" />
                       {formatPrice(prop.precio_lista)}
                     </div>
                   )}
 
                   {/* Payment schemes count */}
                   {getSchemesForProject(prop.proyecto_id).length > 0 && (
-                    <div className="text-[11px] text-muted-foreground">
-                      <span className="font-medium">{getSchemesForProject(prop.proyecto_id).length} esquema{getSchemesForProject(prop.proyecto_id).length > 1 ? "s" : ""} de pago</span>
+                    <div className="text-[11px] text-primary/80 font-medium">
+                      <FileText className="inline h-3 w-3 mr-1" />
+                      {getSchemesForProject(prop.proyecto_id).length} esquema{getSchemesForProject(prop.proyecto_id).length > 1 ? "s" : ""} de pago
                     </div>
                   )}
                 </CardContent>
@@ -478,16 +480,23 @@ const InventarioGlobal = () => {
 
               {/* Generate Offer Button - controlled by permission */}
               {canGenerateOffer ? (
-                <div onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()} className="pt-2">
                   <NewOfferDialog
                     propertyId={selectedProperty.id}
                     propertyNumber={selectedProperty.numero || `${selectedProperty.id}`}
                     hideManualMode={true}
                     hidePdfOptions={true}
+                    customTrigger={
+                      <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground font-semibold text-sm shadow-[0_8px_30px_-4px_hsl(var(--primary)/0.45)] hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.55)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 ease-out border border-white/20">
+                        <FileText className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+                        <span className="tracking-wide">Generar Oferta</span>
+                        <span className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                      </button>
+                    }
                   />
                 </div>
               ) : (
-                <Button className="w-full gap-2" size="lg" disabled>
+                <Button className="w-full gap-2 rounded-full" size="lg" disabled>
                   <FileText className="h-5 w-5" />
                   Sin permiso para generar oferta
                 </Button>
@@ -502,21 +511,48 @@ const InventarioGlobal = () => {
 
 // Small carousel for property cards
 const PropertyCardCarousel = ({ images }: { images: any[] }) => {
-  const [emblaRef] = useEmblaCarousel({ loop: true, dragFree: true });
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, dragFree: false });
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  if (images.length === 0) return null;
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setCurrentIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    emblaApi.on("select", onSelect);
+    onSelect();
+    return () => { emblaApi.off("select", onSelect); };
+  }, [emblaApi, onSelect]);
+
+  if (images.length === 0) {
+    return (
+      <div className="h-40 bg-muted/60 flex items-center justify-center">
+        <Package className="h-10 w-10 text-muted-foreground/30" />
+      </div>
+    );
+  }
 
   return (
-    <div className="h-36 bg-muted overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="relative h-40 bg-muted overflow-hidden" onClick={(e) => e.stopPropagation()}>
       <div ref={emblaRef} className="h-full overflow-hidden">
-        <div className="flex h-full">
-          {images.slice(0, 5).map((img: any) => (
+        <div className="flex h-full touch-pan-y">
+          {images.slice(0, 8).map((img: any) => (
             <div key={img.id} className="flex-[0_0_100%] min-w-0 h-full">
-              <img src={img.url} alt="" className="w-full h-full object-cover" />
+              <img src={img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
             </div>
           ))}
         </div>
       </div>
+      {/* Dot indicators */}
+      {images.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          {images.slice(0, 8).map((_: any, i: number) => (
+            <span key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i === currentIndex ? "bg-white" : "bg-white/40"}`} />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
