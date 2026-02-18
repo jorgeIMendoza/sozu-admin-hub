@@ -210,6 +210,8 @@ const App = () => (
                   <Route path="inmobiliarias/proyectos" element={<MisProyectos />} />
                   <Route path="inmobiliarias/proyectos/:id" element={<MiProyectoDetalle />} />
                   <Route path="inmobiliarias/proyectos/:id/inventario" element={<MiProyectoInventario />} />
+                  <Route path="inmobiliarias/mis-proyectos" element={<Navigate to="/admin/inmobiliarias/proyectos" replace />} />
+                  <Route path="inmobiliarias/mis-proyectos/:id" element={<Navigate to="/admin/inmobiliarias/proyectos" replace />} />
                   <Route path="inmobiliarias/inventario" element={<InventarioGlobal />} />
                   <Route path="administrar-menus" element={<AdministrarMenus />} />
                   <Route path="comunicacion/administrar-avisos" element={<AdministrarAvisos />} />
