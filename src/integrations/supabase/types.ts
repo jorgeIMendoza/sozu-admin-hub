@@ -14,6 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_test_assignments: {
+        Row: {
+          ab_test_id: number
+          assigned_at: string
+          auth_user_id: string
+          id: number
+          user_email: string
+          variante: string
+        }
+        Insert: {
+          ab_test_id: number
+          assigned_at?: string
+          auth_user_id: string
+          id?: never
+          user_email: string
+          variante: string
+        }
+        Update: {
+          ab_test_id?: number
+          assigned_at?: string
+          auth_user_id?: string
+          id?: never
+          user_email?: string
+          variante?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ab_test_assignments_ab_test_id_fkey"
+            columns: ["ab_test_id"]
+            isOneToOne: false
+            referencedRelation: "ab_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ab_tests: {
+        Row: {
+          activo: boolean
+          created_at: string
+          descripcion: string | null
+          fecha_fin: string | null
+          fecha_inicio: string
+          id: number
+          nombre: string
+          pagina: string
+          porcentaje_distribucion: Json | null
+          updated_at: string
+          variantes: Json
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string
+          id?: never
+          nombre: string
+          pagina: string
+          porcentaje_distribucion?: Json | null
+          updated_at?: string
+          variantes?: Json
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          descripcion?: string | null
+          fecha_fin?: string | null
+          fecha_inicio?: string
+          id?: never
+          nombre?: string
+          pagina?: string
+          porcentaje_distribucion?: Json | null
+          updated_at?: string
+          variantes?: Json
+        }
+        Relationships: []
+      }
       actividades: {
         Row: {
           activo: boolean
@@ -2630,6 +2707,51 @@ export type Database = {
           fecha_creacion?: string
           id?: never
           nombre?: string
+        }
+        Relationships: []
+      }
+      cta_events: {
+        Row: {
+          ab_test_id: number | null
+          ab_variant: string | null
+          auth_user_id: string | null
+          created_at: string
+          element_id: string
+          element_label: string | null
+          element_type: string | null
+          id: number
+          metadata: Json | null
+          page: string
+          session_id: string | null
+          user_email: string
+        }
+        Insert: {
+          ab_test_id?: number | null
+          ab_variant?: string | null
+          auth_user_id?: string | null
+          created_at?: string
+          element_id: string
+          element_label?: string | null
+          element_type?: string | null
+          id?: never
+          metadata?: Json | null
+          page: string
+          session_id?: string | null
+          user_email: string
+        }
+        Update: {
+          ab_test_id?: number | null
+          ab_variant?: string | null
+          auth_user_id?: string | null
+          created_at?: string
+          element_id?: string
+          element_label?: string | null
+          element_type?: string | null
+          id?: never
+          metadata?: Json | null
+          page?: string
+          session_id?: string | null
+          user_email?: string
         }
         Relationships: []
       }

@@ -79,7 +79,9 @@ const MisVentas = lazy(() => import("./pages/admin/inmobiliarias/MisVentas"));
 const MisProyectos = lazy(() => import("./pages/admin/inmobiliarias/MisProyectos"));
 const MiProyectoDetalle = lazy(() => import("./pages/admin/inmobiliarias/MiProyectoDetalle"));
 const MiProyectoInventario = lazy(() => import("./pages/admin/inmobiliarias/MiProyectoInventario"));
-const InventarioGlobal = lazy(() => import("./pages/admin/inmobiliarias/InventarioGlobal"));
+const InventarioGlobal = lazy(() => import("./pages/admin/inmobiliarias/InventarioGlobalAB"));
+const MedicionesCTA = lazy(() => import("./pages/admin/MedicionesCTA"));
+const ABTests = lazy(() => import("./pages/admin/ABTests"));
 const AdministrarMenus = lazy(() => import("./pages/admin/AdministrarMenus"));
 const AdministrarAvisos = lazy(() => import("./pages/admin/comunicacion/AdministrarAvisos"));
 const EnviarAvisos = lazy(() => import("./pages/admin/comunicacion/EnviarAvisos"));
@@ -219,6 +221,8 @@ const App = () => (
                   <Route path="comunicacion/ejecuciones" element={<EjecucionesAvisos />} />
                   <Route path="crm/workflow-ofertas" element={<WorkflowOfertas />} />
                   <Route path="crm/dashboard-ejecutivo" element={<DashboardEjecutivo />} />
+                  <Route path="mediciones-cta" element={<MedicionesCTA />} />
+                  <Route path="ab-tests" element={<ABTests />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
