@@ -133,6 +133,7 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [curp, setCurp] = useState('');
 
   // Address fields
   const [calle, setCalle] = useState('');
@@ -164,6 +165,7 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
     setNombre(persona.nombre_legal || '');
     setEmail(persona.email || '');
     setTelefono(persona.telefono || '');
+    setCurp(persona.curp || '');
     setCalle(persona.direccion_calle || '');
     setNumExt(persona.direccion_num_ext || '');
     setNumInt(persona.direccion_num_int || '');
@@ -263,10 +265,19 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
           setSaving(false);
           return;
         }
+        if (curp.trim()) {
+          const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/;
+          if (!curpRegex.test(curp.trim().toUpperCase())) {
+            toast.error("El formato del CURP no es válido (18 caracteres alfanuméricos).");
+            setSaving(false);
+            return;
+          }
+        }
         updateData = {
           nombre_legal: nombre.trim(),
           email: email.trim(),
           telefono: telefono.trim(),
+          curp: curp.trim().toUpperCase() || null,
         };
       } else if (step === 'address') {
         if (!calle.trim() || !numExt.trim() || !colonia.trim() || !cp.trim() || !idPais || !idEstado || !idMunicipio) {
@@ -423,9 +434,13 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
             <Label>Correo electrónico *</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
           </div>
-          <div>
+           <div>
             <Label>Teléfono (10 dígitos) *</Label>
             <Input value={telefono} onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))} maxLength={10} className="mt-1" />
+          </div>
+          <div>
+            <Label>CURP <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+            <Input value={curp} onChange={(e) => setCurp(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} maxLength={18} placeholder="Ej. GARC850101HDFRRL09" className="mt-1" />
           </div>
         </div>
       )}
