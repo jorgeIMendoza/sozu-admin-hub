@@ -207,9 +207,9 @@ const App = () => (
                   <Route path="inmobiliarias/mis-agentes" element={<MisAgentes />} />
                   <Route path="inmobiliarias/mis-propiedades" element={<Navigate to="/admin/inmobiliarias/inventario" replace />} />
                   <Route path="inmobiliarias/mis-ventas" element={<MisVentas />} />
-                  <Route path="inmobiliarias/mis-proyectos" element={<MisProyectos />} />
-                  <Route path="inmobiliarias/mis-proyectos/:id" element={<MiProyectoDetalle />} />
-                  <Route path="inmobiliarias/mis-proyectos/:id/inventario" element={<MiProyectoInventario />} />
+                  <Route path="inmobiliarias/proyectos" element={<MisProyectos />} />
+                  <Route path="inmobiliarias/proyectos/:id" element={<MiProyectoDetalle />} />
+                  <Route path="inmobiliarias/proyectos/:id/inventario" element={<MiProyectoInventario />} />
                   <Route path="inmobiliarias/inventario" element={<InventarioGlobal />} />
                   <Route path="administrar-menus" element={<AdministrarMenus />} />
                   <Route path="comunicacion/administrar-avisos" element={<AdministrarAvisos />} />

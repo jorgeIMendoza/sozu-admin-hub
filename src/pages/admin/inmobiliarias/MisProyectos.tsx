@@ -332,7 +332,7 @@ const MisProyectos = () => {
                 <CardContent className="p-4 space-y-3">
                   <h3
                     className="font-bold text-lg text-primary hover:underline cursor-pointer line-clamp-1"
-                    onClick={() => navigate(`/admin/inmobiliarias/mis-proyectos/${project.id}`)}
+                    onClick={() => navigate(`/admin/inmobiliarias/proyectos/${project.id}`)}
                   >
                     {project.nombre}
                   </h3>
