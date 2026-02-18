@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car } from "lucide-react";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car, Search, SlidersHorizontal } from "lucide-react";
 import bodegaIcon from "@/assets/icons/bodega.png";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const PAGE_SIZE = 30;
 
@@ -30,6 +32,7 @@ const InventarioGlobal = () => {
   const [searchParams] = useSearchParams();
   const { canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/inventario');
   const { propiedades: rawPropiedades, isLoading } = useInventarioDisponible();
+  const isMobile = useIsMobile();
 
   const initialProject = searchParams.get('proyecto');
 
@@ -43,6 +46,7 @@ const InventarioGlobal = () => {
   const [filterBodega, setFilterBodega] = useState<string | null>(null);
   const [filterEstacionamiento, setFilterEstacionamiento] = useState<string | null>(null);
   const [schemesOpen, setSchemesOpen] = useState(false);
+  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
 
   // Map RPC data to the shape the UI expects, with shuffled images
   const allAvailableProperties = useMemo(() => {
@@ -144,6 +148,7 @@ const InventarioGlobal = () => {
   }, [allAvailableProperties, filterProjectNames, filterModelNames, filterBedrooms, filterLevels, filterBodega, filterEstacionamiento]);
 
   const hasActiveFilters = filterProjectNames.length > 0 || filterModelNames.length > 0 || filterBedrooms.length > 0 || filterLevels.length > 0 || filterBodega !== null || filterEstacionamiento !== null;
+  const activeFilterCount = filterProjectNames.length + filterModelNames.length + filterBedrooms.length + filterLevels.length + (filterBodega ? 1 : 0) + (filterEstacionamiento ? 1 : 0);
 
   const clearAllFilters = () => {
     setFilterProjectNames([]);
@@ -195,6 +200,123 @@ const InventarioGlobal = () => {
     );
   }
 
+  // Filter content shared between desktop and mobile drawer
+  const filterContent = (
+    <div className="space-y-4">
+      {/* Proyecto */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-rose-100 flex items-center justify-center">
+            <Building2 className="h-4 w-4 text-rose-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Proyecto</span>
+        </div>
+        <MultiSelectFilter
+          values={filterProjectNames}
+          onValuesChange={setFilterProjectNames}
+          options={projectsWithAvailable}
+          placeholder="Todos los proyectos"
+          searchPlaceholder="Buscar proyecto..."
+        />
+      </div>
+
+      {/* Modelo */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+            <Maximize2 className="h-4 w-4 text-blue-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Modelo</span>
+        </div>
+        <MultiSelectFilter
+          values={filterModelNames}
+          onValuesChange={setFilterModelNames}
+          options={availableModelNames}
+          placeholder="Todos los modelos"
+          searchPlaceholder="Buscar modelo..."
+        />
+      </div>
+
+      {/* Recámaras */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-violet-100 flex items-center justify-center">
+            <BedDouble className="h-4 w-4 text-violet-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Recámaras</span>
+        </div>
+        <MultiSelectFilter
+          values={filterBedrooms}
+          onValuesChange={setFilterBedrooms}
+          options={availableBedroomOptions}
+          placeholder="Todas"
+          searchPlaceholder="Buscar..."
+        />
+      </div>
+
+      {/* Nivel */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
+            <Layers className="h-4 w-4 text-amber-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Nivel</span>
+        </div>
+        <MultiSelectFilter
+          values={filterLevels}
+          onValuesChange={setFilterLevels}
+          options={availableLevelOptions}
+          placeholder="Todos los niveles"
+          searchPlaceholder="Buscar nivel..."
+        />
+      </div>
+
+      {/* Bodega */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center">
+            <img src={bodegaIcon} alt="" className="h-4 w-4" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Bodega</span>
+        </div>
+        <MultiSelectFilter
+          values={filterBodega ? [filterBodega === "con" ? "Con bodega" : "Sin bodega"] : []}
+          onValuesChange={(vals) => {
+            if (vals.length === 0) setFilterBodega(null);
+            else {
+              const last = vals[vals.length - 1];
+              setFilterBodega(last === "Con bodega" ? "con" : "sin");
+            }
+          }}
+          options={["Con bodega", "Sin bodega"]}
+          placeholder="Todas"
+        />
+      </div>
+
+      {/* Estacionamiento */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center">
+            <Car className="h-4 w-4 text-sky-500" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">Estacionamiento</span>
+        </div>
+        <MultiSelectFilter
+          values={filterEstacionamiento ? [filterEstacionamiento === "con" ? "Con estac." : "Sin estac."] : []}
+          onValuesChange={(vals) => {
+            if (vals.length === 0) setFilterEstacionamiento(null);
+            else {
+              const last = vals[vals.length - 1];
+              setFilterEstacionamiento(last === "Con estac." ? "con" : "sin");
+            }
+          }}
+          options={["Con estac.", "Sin estac."]}
+          placeholder="Todos"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-10 px-3">
       <button
@@ -212,113 +334,206 @@ const InventarioGlobal = () => {
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MultiSelectFilter
-            values={filterProjectNames}
-            onValuesChange={setFilterProjectNames}
-            options={projectsWithAvailable}
-            placeholder="Todos los proyectos"
-            searchPlaceholder="Buscar proyecto..."
-            icon={<Building2 className="h-3.5 w-3.5" />}
-          />
+      {/* Mobile: Airbnb-style search button */}
+      {isMobile ? (
+        <div className="space-y-3">
+          <button
+            onClick={() => setFiltersDrawerOpen(true)}
+            className="w-full flex items-center gap-3 px-5 py-3.5 rounded-full border border-border/80 bg-card shadow-md hover:shadow-lg transition-shadow"
+          >
+            <Search className="h-5 w-5 text-primary shrink-0" />
+            <div className="flex-1 text-left">
+              <p className="text-sm font-semibold text-foreground">Buscar propiedades</p>
+              <p className="text-xs text-muted-foreground">
+                {hasActiveFilters 
+                  ? `${activeFilterCount} filtro${activeFilterCount > 1 ? 's' : ''} activo${activeFilterCount > 1 ? 's' : ''}`
+                  : "Proyecto · Modelo · Recámaras · Nivel"
+                }
+              </p>
+            </div>
+            <div className="relative">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+              {hasActiveFilters && (
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </div>
+          </button>
 
-          <MultiSelectFilter
-            values={filterModelNames}
-            onValuesChange={setFilterModelNames}
-            options={availableModelNames}
-            placeholder="Todos los modelos"
-            searchPlaceholder="Buscar modelo..."
-          />
+          {/* Active filter badges on mobile */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {filterProjectNames.map(name => (
+                <Badge key={`p-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterProjectNames(prev => prev.filter(n => n !== name))}>
+                  {name.length > 15 ? name.slice(0, 12) + "…" : name} <X className="h-2.5 w-2.5" />
+                </Badge>
+              ))}
+              {filterModelNames.map(name => (
+                <Badge key={`m-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterModelNames(prev => prev.filter(n => n !== name))}>
+                  {name} <X className="h-2.5 w-2.5" />
+                </Badge>
+              ))}
+              {filterBedrooms.map(name => (
+                <Badge key={`b-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterBedrooms(prev => prev.filter(n => n !== name))}>
+                  {name} <X className="h-2.5 w-2.5" />
+                </Badge>
+              ))}
+              {filterLevels.map(name => (
+                <Badge key={`l-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterLevels(prev => prev.filter(n => n !== name))}>
+                  Nivel {name} <X className="h-2.5 w-2.5" />
+                </Badge>
+              ))}
+              {filterBodega && (
+                <Badge variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterBodega(null)}>
+                  {filterBodega === "con" ? "Con bodega" : "Sin bodega"} <X className="h-2.5 w-2.5" />
+                </Badge>
+              )}
+              {filterEstacionamiento && (
+                <Badge variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterEstacionamiento(null)}>
+                  {filterEstacionamiento === "con" ? "Con estac." : "Sin estac."} <X className="h-2.5 w-2.5" />
+                </Badge>
+              )}
+              <button className="text-[10px] text-destructive font-medium px-1" onClick={clearAllFilters}>
+                Limpiar
+              </button>
+            </div>
+          )}
 
-          <MultiSelectFilter
-            values={filterBedrooms}
-            onValuesChange={setFilterBedrooms}
-            options={availableBedroomOptions}
-            placeholder="Recámaras"
-            searchPlaceholder="Buscar..."
-            icon={<BedDouble className="h-3.5 w-3.5" />}
-          />
-
-          <MultiSelectFilter
-            values={filterLevels}
-            onValuesChange={setFilterLevels}
-            options={availableLevelOptions}
-            placeholder="Nivel"
-            searchPlaceholder="Buscar nivel..."
-            icon={<Layers className="h-3.5 w-3.5" />}
-          />
-
-          <MultiSelectFilter
-            values={filterBodega ? [filterBodega === "con" ? "Con bodega" : "Sin bodega"] : []}
-            onValuesChange={(vals) => {
-              if (vals.length === 0) setFilterBodega(null);
-              else {
-                const last = vals[vals.length - 1];
-                setFilterBodega(last === "Con bodega" ? "con" : "sin");
-              }
-            }}
-            options={["Con bodega", "Sin bodega"]}
-            placeholder="Bodega"
-            icon={<img src={bodegaIcon} alt="" className="h-3.5 w-3.5 opacity-60" />}
-          />
-
-          <MultiSelectFilter
-            values={filterEstacionamiento ? [filterEstacionamiento === "con" ? "Con estac." : "Sin estac."] : []}
-            onValuesChange={(vals) => {
-              if (vals.length === 0) setFilterEstacionamiento(null);
-              else {
-                const last = vals[vals.length - 1];
-                setFilterEstacionamiento(last === "Con estac." ? "con" : "sin");
-              }
-            }}
-            options={["Con estac.", "Sin estac."]}
-            placeholder="Estacionamiento"
-            icon={<Car className="h-3.5 w-3.5" />}
-          />
+          {/* Mobile Drawer */}
+          <Drawer open={filtersDrawerOpen} onOpenChange={setFiltersDrawerOpen}>
+            <DrawerContent className="max-h-[85vh]">
+              <DrawerHeader className="pb-2">
+                <DrawerTitle className="flex items-center justify-between">
+                  <span>Filtrar propiedades</span>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" className="text-xs text-destructive h-7" onClick={clearAllFilters}>
+                      Limpiar todo
+                    </Button>
+                  )}
+                </DrawerTitle>
+              </DrawerHeader>
+              <div className="overflow-y-auto px-4 pb-6 max-h-[65vh]">
+                {filterContent}
+              </div>
+              <div className="px-4 py-3 border-t">
+                <Button className="w-full rounded-full gap-2" onClick={() => setFiltersDrawerOpen(false)}>
+                  <Search className="h-4 w-4" />
+                  Ver {filteredProperties.length} resultados
+                </Button>
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
+      ) : (
+        /* Desktop: Standard filter grid */
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <MultiSelectFilter
+              values={filterProjectNames}
+              onValuesChange={setFilterProjectNames}
+              options={projectsWithAvailable}
+              placeholder="Todos los proyectos"
+              searchPlaceholder="Buscar proyecto..."
+              icon={<Building2 className="h-3.5 w-3.5" />}
+            />
 
-        {/* Active filter badges */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">Filtros activos:</span>
-            {filterProjectNames.map(name => (
-              <Badge key={`p-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterProjectNames(prev => prev.filter(n => n !== name))}>
-                {name} <X className="h-3 w-3" />
-              </Badge>
-            ))}
-            {filterModelNames.map(name => (
-              <Badge key={`m-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterModelNames(prev => prev.filter(n => n !== name))}>
-                {name} <X className="h-3 w-3" />
-              </Badge>
-            ))}
-            {filterBedrooms.map(name => (
-              <Badge key={`b-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBedrooms(prev => prev.filter(n => n !== name))}>
-                {name} <X className="h-3 w-3" />
-              </Badge>
-            ))}
-            {filterLevels.map(name => (
-              <Badge key={`l-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterLevels(prev => prev.filter(n => n !== name))}>
-                Nivel {name} <X className="h-3 w-3" />
-              </Badge>
-            ))}
-            {filterBodega && (
-              <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBodega(null)}>
-                {filterBodega === "con" ? "Con bodega" : "Sin bodega"} <X className="h-3 w-3" />
-              </Badge>
-            )}
-            {filterEstacionamiento && (
-              <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterEstacionamiento(null)}>
-                {filterEstacionamiento === "con" ? "Con estac." : "Sin estac."} <X className="h-3 w-3" />
-              </Badge>
-            )}
-            <Button variant="ghost" size="sm" className="text-xs h-6 px-2 text-destructive" onClick={clearAllFilters}>
-              <X className="h-3 w-3 mr-1" /> Limpiar filtros
-            </Button>
+            <MultiSelectFilter
+              values={filterModelNames}
+              onValuesChange={setFilterModelNames}
+              options={availableModelNames}
+              placeholder="Todos los modelos"
+              searchPlaceholder="Buscar modelo..."
+            />
+
+            <MultiSelectFilter
+              values={filterBedrooms}
+              onValuesChange={setFilterBedrooms}
+              options={availableBedroomOptions}
+              placeholder="Recámaras"
+              searchPlaceholder="Buscar..."
+              icon={<BedDouble className="h-3.5 w-3.5" />}
+            />
+
+            <MultiSelectFilter
+              values={filterLevels}
+              onValuesChange={setFilterLevels}
+              options={availableLevelOptions}
+              placeholder="Nivel"
+              searchPlaceholder="Buscar nivel..."
+              icon={<Layers className="h-3.5 w-3.5" />}
+            />
+
+            <MultiSelectFilter
+              values={filterBodega ? [filterBodega === "con" ? "Con bodega" : "Sin bodega"] : []}
+              onValuesChange={(vals) => {
+                if (vals.length === 0) setFilterBodega(null);
+                else {
+                  const last = vals[vals.length - 1];
+                  setFilterBodega(last === "Con bodega" ? "con" : "sin");
+                }
+              }}
+              options={["Con bodega", "Sin bodega"]}
+              placeholder="Bodega"
+              icon={<img src={bodegaIcon} alt="" className="h-3.5 w-3.5 opacity-60" />}
+            />
+
+            <MultiSelectFilter
+              values={filterEstacionamiento ? [filterEstacionamiento === "con" ? "Con estac." : "Sin estac."] : []}
+              onValuesChange={(vals) => {
+                if (vals.length === 0) setFilterEstacionamiento(null);
+                else {
+                  const last = vals[vals.length - 1];
+                  setFilterEstacionamiento(last === "Con estac." ? "con" : "sin");
+                }
+              }}
+              options={["Con estac.", "Sin estac."]}
+              placeholder="Estacionamiento"
+              icon={<Car className="h-3.5 w-3.5" />}
+            />
           </div>
-        )}
-      </div>
+
+          {/* Active filter badges */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Filtros activos:</span>
+              {filterProjectNames.map(name => (
+                <Badge key={`p-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterProjectNames(prev => prev.filter(n => n !== name))}>
+                  {name} <X className="h-3 w-3" />
+                </Badge>
+              ))}
+              {filterModelNames.map(name => (
+                <Badge key={`m-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterModelNames(prev => prev.filter(n => n !== name))}>
+                  {name} <X className="h-3 w-3" />
+                </Badge>
+              ))}
+              {filterBedrooms.map(name => (
+                <Badge key={`b-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBedrooms(prev => prev.filter(n => n !== name))}>
+                  {name} <X className="h-3 w-3" />
+                </Badge>
+              ))}
+              {filterLevels.map(name => (
+                <Badge key={`l-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterLevels(prev => prev.filter(n => n !== name))}>
+                  Nivel {name} <X className="h-3 w-3" />
+                </Badge>
+              ))}
+              {filterBodega && (
+                <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBodega(null)}>
+                  {filterBodega === "con" ? "Con bodega" : "Sin bodega"} <X className="h-3 w-3" />
+                </Badge>
+              )}
+              {filterEstacionamiento && (
+                <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterEstacionamiento(null)}>
+                  {filterEstacionamiento === "con" ? "Con estac." : "Sin estac."} <X className="h-3 w-3" />
+                </Badge>
+              )}
+              <Button variant="ghost" size="sm" className="text-xs h-6 px-2 text-destructive" onClick={clearAllFilters}>
+                <X className="h-3 w-3 mr-1" /> Limpiar filtros
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Properties Grid */}
       {filteredProperties.length === 0 ? (
@@ -335,7 +550,7 @@ const InventarioGlobal = () => {
                 className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-border/60 rounded-2xl bg-card"
                 onClick={() => setSelectedProperty(prop)}
               >
-                {/* Image Carousel */}
+                {/* Image Carousel - only load first image, rest on interaction */}
                 <PropertyCardCarousel images={prop.model_images || []} />
 
                 <CardContent className="p-4 space-y-3">
@@ -631,22 +846,27 @@ const InventarioGlobal = () => {
   );
 };
 
-// Small carousel for property cards
+// Small carousel for property cards - OPTIMIZED: only render first image initially
 const PropertyCardCarousel = ({ images }: { images: any[] }) => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, dragFree: false });
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
     setCurrentIndex(emblaApi.selectedScrollSnap());
-  }, [emblaApi]);
+    if (!hasInteracted) setHasInteracted(true);
+  }, [emblaApi, hasInteracted]);
 
   useEffect(() => {
     if (!emblaApi) return;
     emblaApi.on("select", onSelect);
+    // Mark as interacted on any pointer down to preload remaining slides
+    const onPointerDown = () => { if (!hasInteracted) setHasInteracted(true); };
+    emblaApi.on("pointerDown", onPointerDown);
     onSelect();
-    return () => { emblaApi.off("select", onSelect); };
-  }, [emblaApi, onSelect]);
+    return () => { emblaApi.off("select", onSelect); emblaApi.off("pointerDown", onPointerDown); };
+  }, [emblaApi, onSelect, hasInteracted]);
 
   if (images.length === 0) {
     return (
@@ -656,11 +876,14 @@ const PropertyCardCarousel = ({ images }: { images: any[] }) => {
     );
   }
 
+  // Only render first image until user interacts, then load up to 5
+  const visibleImages = hasInteracted ? images.slice(0, 5) : images.slice(0, 1);
+
   return (
     <div className="relative h-40 bg-muted overflow-hidden" onClick={(e) => e.stopPropagation()}>
       <div ref={emblaRef} className="h-full overflow-hidden">
         <div className="flex h-full touch-pan-y">
-          {images.slice(0, 8).map((img: any) => (
+          {visibleImages.map((img: any) => (
             <div key={img.id} className="flex-[0_0_100%] min-w-0 h-full">
               <img src={img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
             </div>
@@ -669,7 +892,7 @@ const PropertyCardCarousel = ({ images }: { images: any[] }) => {
       </div>
       {images.length > 1 && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-          {images.slice(0, 8).map((_: any, i: number) => (
+          {images.slice(0, 5).map((_: any, i: number) => (
             <span key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i === currentIndex ? "bg-white" : "bg-white/40"}`} />
           ))}
         </div>
@@ -706,22 +929,22 @@ const DetailCarousel = ({ images }: { images: any[] }) => {
         <div className="flex h-full">
           {images.map((img: any) => (
             <div key={img.id} className="flex-[0_0_100%] min-w-0 h-full">
-              <img src={img.url} alt="" className="w-full h-full object-cover" />
+              <img src={img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
             </div>
           ))}
         </div>
       </div>
       {images.length > 1 && (
         <>
-          <button onClick={scrollPrev} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={scrollPrev} className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button onClick={scrollNext} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={scrollNext} className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
             <ChevronRight className="h-4 w-4" />
           </button>
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-            {images.slice(0, 8).map((_: any, i: number) => (
-              <span key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i === currentIndex ? "bg-white" : "bg-white/50"}`} />
+            {images.map((_: any, i: number) => (
+              <span key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i === currentIndex ? "bg-white" : "bg-white/40"}`} />
             ))}
           </div>
         </>
