@@ -6817,6 +6817,10 @@ export type Database = {
         }[]
       }
       get_current_user_role: { Args: never; Returns: number }
+      get_inventario_disponible: {
+        Args: { p_accessible_project_ids?: number[] }
+        Returns: Json
+      }
       get_offers_with_agent: {
         Args: { property_id: number }
         Returns: {

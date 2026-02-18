@@ -1,8 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
+import { useInventarioDisponible, InventarioPropiedad } from "@/hooks/useInventarioDisponible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,10 +15,21 @@ import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 
 const PAGE_SIZE = 30;
 
+// Shuffle helper
+function shuffleArray<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 const InventarioGlobal = () => {
   const navigate = useNavigate();
-  const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
   const { canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/inventario');
+  const { propiedades: rawPropiedades, isLoading } = useInventarioDisponible();
+
   const [page, setPage] = useState(0);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [selectedSchemeId, setSelectedSchemeId] = useState<number | null>(null);
@@ -32,223 +41,39 @@ const InventarioGlobal = () => {
   const [filterEstacionamiento, setFilterEstacionamiento] = useState<string | null>(null);
   const [schemesOpen, setSchemesOpen] = useState(false);
 
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["inventario-global-projects", accessibleProjectIds],
-    queryFn: async () => {
-      if (hasNoAccess) return [];
-      let query = supabase
-        .from("proyectos")
-        .select(`
-          id, nombre,
-          edificios!fk_edificios_proyecto (
-            id, nombre,
-            edificios_modelos!fk_edificios_modelos_edificio (
-              id,
-              modelos!fk_edificios_modelos_modelo (
-                id, nombre, numero_recamaras, numero_completo_banos, numero_medio_bano,
-                multimedias_modelo!fk_multimedias_modelo_modelo (id, url, es_imagen, activo, ver_como_imagen_de_propiedad)
-              ),
-              propiedades!fk_propiedades_edificio_modelo (
-                id, numero_propiedad, numero_piso, precio_lista, m2_interiores, m2_exteriores,
-                id_estatus_disponibilidad,
-                estatus_disponibilidad:id_estatus_disponibilidad (nombre)
-              )
-            )
-          )
-        `)
-        .eq("activo", true)
-        .eq("publicar", true);
-
-      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
-        query = query.in("id", accessibleProjectIds);
-      }
-
-      const { data, error } = await query.order("nombre");
-      if (error) { console.error("Error:", error); return []; }
-      return data || [];
-    },
-    enabled: !isLoadingAccess,
-  });
-
-  // Fetch payment schemes for all projects
-  const projectIds = projects.map((p: any) => p.id);
-  const { data: paymentSchemes = [] } = useQuery({
-    queryKey: ["inventario-payment-schemes", projectIds],
-    queryFn: async () => {
-      if (projectIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("esquemas_pago")
-        .select("id, nombre, id_proyecto, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades, porcentaje_descuento_aumento")
-        .in("id_proyecto", projectIds)
-        .eq("activo", true)
-        .eq("es_manual", false);
-      if (error) { console.error("Error:", error); return []; }
-      return data || [];
-    },
-    enabled: projectIds.length > 0,
-  });
-
-  // Collect all property IDs to fetch their images
-  const allPropertyIds = useMemo(() => {
-    const ids: number[] = [];
-    projects.forEach((project: any) => {
-      project.edificios?.forEach((e: any) => {
-        e.edificios_modelos?.forEach((em: any) => {
-          em.propiedades?.forEach((p: any) => {
-            if (p.id_estatus_disponibilidad === 2) {
-              ids.push(p.id);
-            }
-          });
-        });
-      });
-    });
-    return ids;
-  }, [projects]);
-
-  // Fetch property-specific images
-  const { data: propertyImages = [] } = useQuery({
-    queryKey: ["inventario-property-images", allPropertyIds],
-    queryFn: async () => {
-      if (allPropertyIds.length === 0) return [];
-      const batchSize = 500;
-      const results: any[] = [];
-      for (let i = 0; i < allPropertyIds.length; i += batchSize) {
-        const batch = allPropertyIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
-          .from("multimedias_propiedad")
-          .select("id, url, es_imagen, activo, id_propiedad")
-          .in("id_propiedad", batch)
-          .eq("activo", true)
-          .eq("es_imagen", true);
-        if (!error && data) results.push(...data);
-      }
-      return results;
-    },
-    enabled: allPropertyIds.length > 0,
-  });
-
-  // Fetch bodegas for all available properties
-  const { data: allBodegas = [] } = useQuery({
-    queryKey: ["inventario-bodegas", allPropertyIds],
-    queryFn: async () => {
-      if (allPropertyIds.length === 0) return [];
-      const batchSize = 500;
-      const results: any[] = [];
-      for (let i = 0; i < allPropertyIds.length; i += batchSize) {
-        const batch = allPropertyIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
-          .from("bodegas")
-          .select("id, id_propiedad, nombre, es_incluido")
-          .in("id_propiedad", batch)
-          .eq("activo", true);
-        if (!error && data) results.push(...data);
-      }
-      return results;
-    },
-    enabled: allPropertyIds.length > 0,
-  });
-
-  // Fetch estacionamientos for all available properties
-  const { data: allEstacionamientos = [] } = useQuery({
-    queryKey: ["inventario-estacionamientos", allPropertyIds],
-    queryFn: async () => {
-      if (allPropertyIds.length === 0) return [];
-      const batchSize = 500;
-      const results: any[] = [];
-      for (let i = 0; i < allPropertyIds.length; i += batchSize) {
-        const batch = allPropertyIds.slice(i, i + batchSize);
-        const { data, error } = await supabase
-          .from("estacionamientos")
-          .select("id, id_propiedad, nombre, id_tipo, tipos_estacionamiento:id_tipo(nombre)")
-          .in("id_propiedad", batch)
-          .eq("activo", true);
-        if (!error && data) results.push(...data);
-      }
-      return results;
-    },
-    enabled: allPropertyIds.length > 0,
-  });
-
-  // Index bodegas by property id
-  const bodegasMap = useMemo(() => {
-    const map = new Map<number, any[]>();
-    allBodegas.forEach((b: any) => {
-      if (!map.has(b.id_propiedad)) map.set(b.id_propiedad, []);
-      map.get(b.id_propiedad)!.push(b);
-    });
-    return map;
-  }, [allBodegas]);
-
-  // Index estacionamientos by property id
-  const estacionamientosMap = useMemo(() => {
-    const map = new Map<number, any[]>();
-    allEstacionamientos.forEach((e: any) => {
-      if (!map.has(e.id_propiedad)) map.set(e.id_propiedad, []);
-      map.get(e.id_propiedad)!.push(e);
-    });
-    return map;
-  }, [allEstacionamientos]);
-
-  // Index property images by property id
-  const propertyImagesMap = useMemo(() => {
-    const map = new Map<number, any[]>();
-    propertyImages.forEach((img: any) => {
-      if (!map.has(img.id_propiedad)) map.set(img.id_propiedad, []);
-      map.get(img.id_propiedad)!.push(img);
-    });
-    return map;
-  }, [propertyImages]);
-
-  // Flatten all available properties
+  // Map RPC data to the shape the UI expects, with shuffled images
   const allAvailableProperties = useMemo(() => {
-    const props: any[] = [];
-    projects.forEach((project: any) => {
-      project.edificios?.forEach((e: any) => {
-        e.edificios_modelos?.forEach((em: any) => {
-          const modelImages = em.modelos?.multimedias_modelo?.filter((m: any) => m.es_imagen && m.activo && m.ver_como_imagen_de_propiedad) || [];
-          
-          em.propiedades?.forEach((p: any) => {
-            if (p.id_estatus_disponibilidad === 2) {
-              const propImgs = propertyImagesMap.get(p.id) || [];
-              const rawImages = propImgs.length > 0 ? [...propImgs] : [...modelImages];
-              for (let si = rawImages.length - 1; si > 0; si--) {
-                const sj = Math.floor(Math.random() * (si + 1));
-                [rawImages[si], rawImages[sj]] = [rawImages[sj], rawImages[si]];
-              }
+    const props = rawPropiedades.map((p: InventarioPropiedad) => {
+      const propImgs = p.propiedad_imagenes || [];
+      const modelImgs = p.modelo_imagenes || [];
+      const rawImages = shuffleArray(propImgs.length > 0 ? propImgs : modelImgs);
 
-              const bodegas = bodegasMap.get(p.id) || [];
-              const estacionamientos = estacionamientosMap.get(p.id) || [];
-
-              props.push({
-                ...p,
-                numero: p.numero_propiedad,
-                piso: p.numero_piso,
-                proyecto_id: project.id,
-                proyecto_nombre: project.nombre,
-                edificio_nombre: e.nombre,
-                modelo_id: em.modelos?.id,
-                modelo_nombre: em.modelos?.nombre,
-                recamaras: em.modelos?.numero_recamaras,
-                banos: em.modelos?.numero_completo_banos,
-                medio_bano: em.modelos?.numero_medio_bano,
-                m2_total: (p.m2_interiores || 0) + (p.m2_exteriores || 0),
-                model_images: rawImages,
-                bodegas_count: bodegas.length,
-                estacionamientos_count: estacionamientos.length,
-                estacionamientos_tipos: estacionamientos.map((est: any) => (est.tipos_estacionamiento as any)?.nombre || 'N/A'),
-              });
-            }
-          });
-        });
-      });
+      return {
+        id: p.id,
+        numero_propiedad: p.numero_propiedad,
+        numero: p.numero_propiedad,
+        piso: p.numero_piso,
+        precio_lista: p.precio_lista,
+        m2_interiores: p.m2_interiores,
+        m2_exteriores: p.m2_exteriores,
+        m2_total: (p.m2_interiores || 0) + (p.m2_exteriores || 0),
+        proyecto_id: p.proyecto_id,
+        proyecto_nombre: p.proyecto_nombre,
+        edificio_nombre: p.edificio_nombre,
+        modelo_id: p.modelo_id,
+        modelo_nombre: p.modelo_nombre,
+        recamaras: p.numero_recamaras,
+        banos: p.numero_completo_banos,
+        medio_bano: p.numero_medio_bano,
+        bodegas_count: p.bodegas_count,
+        estacionamientos_count: p.estacionamientos_count,
+        estacionamientos_tipos: p.estacionamientos_tipos || [],
+        model_images: rawImages,
+        esquemas_pago: p.esquemas_pago || [],
+      };
     });
-    // Shuffle
-    for (let i = props.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [props[i], props[j]] = [props[j], props[i]];
-    }
-    return props;
-  }, [projects, propertyImagesMap, bodegasMap, estacionamientosMap]);
+    return shuffleArray(props);
+  }, [rawPropiedades]);
 
   // Projects with available properties only
   const projectsWithAvailable = useMemo(() => {
@@ -333,9 +158,9 @@ const InventarioGlobal = () => {
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2 }).format(price);
 
-  // Get schemes for a property's project
-  const getSchemesForProject = (projectId: number) => {
-    return paymentSchemes.filter((s: any) => s.id_proyecto === projectId);
+  // Get schemes for a property (now embedded in the property itself)
+  const getSchemesForProperty = (prop: any) => {
+    return prop.esquemas_pago || [];
   };
 
   // Calculate amounts for a scheme given a price
@@ -359,7 +184,7 @@ const InventarioGlobal = () => {
     setSchemesOpen(false);
   }, [selectedProperty?.id]);
 
-  if (isLoading || isLoadingAccess) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -563,10 +388,10 @@ const InventarioGlobal = () => {
                   )}
 
                   {/* Payment schemes count */}
-                  {getSchemesForProject(prop.proyecto_id).length > 0 && (
+                  {getSchemesForProperty(prop).length > 0 && (
                     <div className="text-[11px] text-primary/80 font-medium">
                       <FileText className="inline h-3 w-3 mr-1" />
-                      {getSchemesForProject(prop.proyecto_id).length} esquema{getSchemesForProject(prop.proyecto_id).length > 1 ? "s" : ""} de pago
+                      {getSchemesForProperty(prop).length} esquema{getSchemesForProperty(prop).length > 1 ? "s" : ""} de pago
                     </div>
                   )}
                 </CardContent>
@@ -667,16 +492,16 @@ const InventarioGlobal = () => {
                 )}
 
                 {/* Payment Schemes - Collapsible */}
-                {getSchemesForProject(selectedProperty.proyecto_id).length > 0 && (
+                {getSchemesForProperty(selectedProperty).length > 0 && (
                   <Collapsible open={schemesOpen} onOpenChange={setSchemesOpen}>
                     <CollapsibleTrigger className="flex items-center justify-between w-full py-2 group">
                       <p className="text-sm font-semibold text-foreground">
-                        Esquemas de Pago ({getSchemesForProject(selectedProperty.proyecto_id).length})
+                        Esquemas de Pago ({getSchemesForProperty(selectedProperty).length})
                       </p>
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${schemesOpen ? "rotate-180" : ""}`} />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="space-y-2 pt-1">
-                      {getSchemesForProject(selectedProperty.proyecto_id).map((scheme: any) => {
+                      {getSchemesForProperty(selectedProperty).map((scheme: any) => {
                         const amounts = calcSchemeAmounts(scheme, selectedProperty.precio_lista);
                         const isSelected = selectedSchemeId === scheme.id;
                         return (
@@ -757,7 +582,7 @@ const InventarioGlobal = () => {
                 {selectedSchemeId && (
                   <div className="bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 text-xs text-primary font-medium flex items-center gap-2">
                     <FileText className="h-3.5 w-3.5" />
-                    Plan seleccionado: {paymentSchemes.find((s: any) => s.id === selectedSchemeId)?.nombre || ""}
+                    Plan seleccionado: {getSchemesForProperty(selectedProperty).find((s: any) => s.id === selectedSchemeId)?.nombre || ""}
                   </div>
                 )}
               </div>
@@ -779,7 +604,7 @@ const InventarioGlobal = () => {
                             Generar Oferta
                             {selectedSchemeId && (
                               <span className="ml-1 text-xs opacity-80">
-                                ({paymentSchemes.find((s: any) => s.id === selectedSchemeId)?.nombre})
+                                ({getSchemesForProperty(selectedProperty).find((s: any) => s.id === selectedSchemeId)?.nombre})
                               </span>
                             )}
                           </span>
