@@ -310,7 +310,7 @@ const MiProyectoDetalle = () => {
       <div className="px-1">
         <button
           disabled={availableProps === 0}
-          onClick={() => navigate(`/admin/inmobiliarias/proyectos/${projectId}/inventario`)}
+          onClick={() => navigate(`/admin/inmobiliarias/inventario?proyecto=${encodeURIComponent(project.nombre)}`)}
           className={`group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full font-semibold text-sm transition-all duration-300 ease-out border ${
             availableProps === 0
               ? "bg-gradient-to-br from-muted to-muted/80 text-muted-foreground border-border cursor-not-allowed opacity-70"

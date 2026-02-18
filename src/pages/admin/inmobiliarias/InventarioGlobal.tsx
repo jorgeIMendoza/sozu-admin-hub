@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useInventarioDisponible, InventarioPropiedad } from "@/hooks/useInventarioDisponible";
 import { Badge } from "@/components/ui/badge";
@@ -27,13 +27,16 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 const InventarioGlobal = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/inventario');
   const { propiedades: rawPropiedades, isLoading } = useInventarioDisponible();
+
+  const initialProject = searchParams.get('proyecto');
 
   const [page, setPage] = useState(0);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [selectedSchemeId, setSelectedSchemeId] = useState<number | null>(null);
-  const [filterProjectNames, setFilterProjectNames] = useState<string[]>([]);
+  const [filterProjectNames, setFilterProjectNames] = useState<string[]>(initialProject ? [initialProject] : []);
   const [filterModelNames, setFilterModelNames] = useState<string[]>([]);
   const [filterBedrooms, setFilterBedrooms] = useState<string[]>([]);
   const [filterLevels, setFilterLevels] = useState<string[]>([]);
