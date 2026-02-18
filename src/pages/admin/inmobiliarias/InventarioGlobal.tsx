@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, X, Package, Layers } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car, Archive } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
@@ -21,10 +22,14 @@ const InventarioGlobal = () => {
   const { canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/inventario');
   const [page, setPage] = useState(0);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [selectedSchemeId, setSelectedSchemeId] = useState<number | null>(null);
   const [filterProjectNames, setFilterProjectNames] = useState<string[]>([]);
   const [filterModelNames, setFilterModelNames] = useState<string[]>([]);
   const [filterBedrooms, setFilterBedrooms] = useState<string[]>([]);
   const [filterLevels, setFilterLevels] = useState<string[]>([]);
+  const [filterBodega, setFilterBodega] = useState<string | null>(null);
+  const [filterEstacionamiento, setFilterEstacionamiento] = useState<string | null>(null);
+  const [schemesOpen, setSchemesOpen] = useState(false);
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["inventario-global-projects", accessibleProjectIds],
@@ -104,7 +109,6 @@ const InventarioGlobal = () => {
     queryKey: ["inventario-property-images", allPropertyIds],
     queryFn: async () => {
       if (allPropertyIds.length === 0) return [];
-      // Fetch in batches if needed
       const batchSize = 500;
       const results: any[] = [];
       for (let i = 0; i < allPropertyIds.length; i += batchSize) {
@@ -122,6 +126,68 @@ const InventarioGlobal = () => {
     enabled: allPropertyIds.length > 0,
   });
 
+  // Fetch bodegas for all available properties
+  const { data: allBodegas = [] } = useQuery({
+    queryKey: ["inventario-bodegas", allPropertyIds],
+    queryFn: async () => {
+      if (allPropertyIds.length === 0) return [];
+      const batchSize = 500;
+      const results: any[] = [];
+      for (let i = 0; i < allPropertyIds.length; i += batchSize) {
+        const batch = allPropertyIds.slice(i, i + batchSize);
+        const { data, error } = await supabase
+          .from("bodegas")
+          .select("id, id_propiedad, nombre, es_incluido")
+          .in("id_propiedad", batch)
+          .eq("activo", true);
+        if (!error && data) results.push(...data);
+      }
+      return results;
+    },
+    enabled: allPropertyIds.length > 0,
+  });
+
+  // Fetch estacionamientos for all available properties
+  const { data: allEstacionamientos = [] } = useQuery({
+    queryKey: ["inventario-estacionamientos", allPropertyIds],
+    queryFn: async () => {
+      if (allPropertyIds.length === 0) return [];
+      const batchSize = 500;
+      const results: any[] = [];
+      for (let i = 0; i < allPropertyIds.length; i += batchSize) {
+        const batch = allPropertyIds.slice(i, i + batchSize);
+        const { data, error } = await supabase
+          .from("estacionamientos")
+          .select("id, id_propiedad, nombre, id_tipo, tipos_estacionamiento:id_tipo(nombre)")
+          .in("id_propiedad", batch)
+          .eq("activo", true);
+        if (!error && data) results.push(...data);
+      }
+      return results;
+    },
+    enabled: allPropertyIds.length > 0,
+  });
+
+  // Index bodegas by property id
+  const bodegasMap = useMemo(() => {
+    const map = new Map<number, any[]>();
+    allBodegas.forEach((b: any) => {
+      if (!map.has(b.id_propiedad)) map.set(b.id_propiedad, []);
+      map.get(b.id_propiedad)!.push(b);
+    });
+    return map;
+  }, [allBodegas]);
+
+  // Index estacionamientos by property id
+  const estacionamientosMap = useMemo(() => {
+    const map = new Map<number, any[]>();
+    allEstacionamientos.forEach((e: any) => {
+      if (!map.has(e.id_propiedad)) map.set(e.id_propiedad, []);
+      map.get(e.id_propiedad)!.push(e);
+    });
+    return map;
+  }, [allEstacionamientos]);
+
   // Index property images by property id
   const propertyImagesMap = useMemo(() => {
     const map = new Map<number, any[]>();
@@ -138,19 +204,19 @@ const InventarioGlobal = () => {
     projects.forEach((project: any) => {
       project.edificios?.forEach((e: any) => {
         e.edificios_modelos?.forEach((em: any) => {
-          // Collect model images that have ver_como_imagen_de_propiedad = true
           const modelImages = em.modelos?.multimedias_modelo?.filter((m: any) => m.es_imagen && m.activo && m.ver_como_imagen_de_propiedad) || [];
           
           em.propiedades?.forEach((p: any) => {
             if (p.id_estatus_disponibilidad === 2) {
-              // Property images first, fallback to model images - shuffle all
               const propImgs = propertyImagesMap.get(p.id) || [];
               const rawImages = propImgs.length > 0 ? [...propImgs] : [...modelImages];
-              // Fisher-Yates shuffle per property
               for (let si = rawImages.length - 1; si > 0; si--) {
                 const sj = Math.floor(Math.random() * (si + 1));
                 [rawImages[si], rawImages[sj]] = [rawImages[sj], rawImages[si]];
               }
+
+              const bodegas = bodegasMap.get(p.id) || [];
+              const estacionamientos = estacionamientosMap.get(p.id) || [];
 
               props.push({
                 ...p,
@@ -166,6 +232,9 @@ const InventarioGlobal = () => {
                 medio_bano: em.modelos?.numero_medio_bano,
                 m2_total: (p.m2_interiores || 0) + (p.m2_exteriores || 0),
                 model_images: rawImages,
+                bodegas_count: bodegas.length,
+                estacionamientos_count: estacionamientos.length,
+                estacionamientos_tipos: estacionamientos.map((est: any) => (est.tipos_estacionamiento as any)?.nombre || 'N/A'),
               });
             }
           });
@@ -178,7 +247,7 @@ const InventarioGlobal = () => {
       [props[i], props[j]] = [props[j], props[i]];
     }
     return props;
-  }, [projects, propertyImagesMap]);
+  }, [projects, propertyImagesMap, bodegasMap, estacionamientosMap]);
 
   // Projects with available properties only
   const projectsWithAvailable = useMemo(() => {
@@ -232,16 +301,28 @@ const InventarioGlobal = () => {
     if (filterLevels.length > 0) {
       result = result.filter(p => p.piso && filterLevels.includes(p.piso));
     }
+    if (filterBodega === "con") {
+      result = result.filter(p => p.bodegas_count > 0);
+    } else if (filterBodega === "sin") {
+      result = result.filter(p => p.bodegas_count === 0);
+    }
+    if (filterEstacionamiento === "con") {
+      result = result.filter(p => p.estacionamientos_count > 0);
+    } else if (filterEstacionamiento === "sin") {
+      result = result.filter(p => p.estacionamientos_count === 0);
+    }
     return result;
-  }, [allAvailableProperties, filterProjectNames, filterModelNames, filterBedrooms, filterLevels]);
+  }, [allAvailableProperties, filterProjectNames, filterModelNames, filterBedrooms, filterLevels, filterBodega, filterEstacionamiento]);
 
-  const hasActiveFilters = filterProjectNames.length > 0 || filterModelNames.length > 0 || filterBedrooms.length > 0 || filterLevels.length > 0;
+  const hasActiveFilters = filterProjectNames.length > 0 || filterModelNames.length > 0 || filterBedrooms.length > 0 || filterLevels.length > 0 || filterBodega !== null || filterEstacionamiento !== null;
 
   const clearAllFilters = () => {
     setFilterProjectNames([]);
     setFilterModelNames([]);
     setFilterBedrooms([]);
     setFilterLevels([]);
+    setFilterBodega(null);
+    setFilterEstacionamiento(null);
     setPage(0);
   };
 
@@ -256,8 +337,26 @@ const InventarioGlobal = () => {
     return paymentSchemes.filter((s: any) => s.id_proyecto === projectId);
   };
 
+  // Calculate amounts for a scheme given a price
+  const calcSchemeAmounts = (scheme: any, precioLista: number) => {
+    const descuento = scheme.porcentaje_descuento_aumento || 0;
+    const precioAjustado = precioLista * (1 + descuento / 100);
+    const enganche = precioAjustado * ((scheme.porcentaje_enganche || 0) / 100);
+    const mensualidadesTotal = precioAjustado * ((scheme.porcentaje_mensualidades || 0) / 100);
+    const entrega = precioAjustado * ((scheme.porcentaje_entrega || 0) / 100);
+    const numMensualidades = scheme.numero_mensualidades || 1;
+    const mensualidad = numMensualidades > 0 ? mensualidadesTotal / numMensualidades : 0;
+    return { precioAjustado, enganche, mensualidadesTotal, entrega, mensualidad, numMensualidades };
+  };
+
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [filterProjectNames, filterModelNames, filterBedrooms, filterLevels]);
+  useEffect(() => { setPage(0); }, [filterProjectNames, filterModelNames, filterBedrooms, filterLevels, filterBodega, filterEstacionamiento]);
+
+  // Reset scheme selection when property changes
+  useEffect(() => {
+    setSelectedSchemeId(null);
+    setSchemesOpen(false);
+  }, [selectedProperty?.id]);
 
   if (isLoading || isLoadingAccess) {
     return (
@@ -286,7 +385,7 @@ const InventarioGlobal = () => {
 
       {/* Filters */}
       <div className="space-y-3">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <MultiSelectFilter
             values={filterProjectNames}
             onValuesChange={setFilterProjectNames}
@@ -323,6 +422,39 @@ const InventarioGlobal = () => {
           />
         </div>
 
+        {/* Bodega / Estacionamiento toggle filters */}
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground self-center mr-1">Bodega:</span>
+          {(["con", "sin"] as const).map(val => (
+            <button
+              key={`bod-${val}`}
+              onClick={() => setFilterBodega(prev => prev === val ? null : val)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                filterBodega === val
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/60 text-muted-foreground border-border/60 hover:bg-muted"
+              }`}
+            >
+              {val === "con" ? "Con bodega" : "Sin bodega"}
+            </button>
+          ))}
+
+          <span className="text-xs text-muted-foreground self-center ml-3 mr-1">Estacionamiento:</span>
+          {(["con", "sin"] as const).map(val => (
+            <button
+              key={`est-${val}`}
+              onClick={() => setFilterEstacionamiento(prev => prev === val ? null : val)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                filterEstacionamiento === val
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/60 text-muted-foreground border-border/60 hover:bg-muted"
+              }`}
+            >
+              {val === "con" ? "Con estac." : "Sin estac."}
+            </button>
+          ))}
+        </div>
+
         {/* Active filter badges */}
         {hasActiveFilters && (
           <div className="flex flex-wrap items-center gap-2">
@@ -347,6 +479,16 @@ const InventarioGlobal = () => {
                 Nivel {name} <X className="h-3 w-3" />
               </Badge>
             ))}
+            {filterBodega && (
+              <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBodega(null)}>
+                {filterBodega === "con" ? "Con bodega" : "Sin bodega"} <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {filterEstacionamiento && (
+              <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterEstacionamiento(null)}>
+                {filterEstacionamiento === "con" ? "Con estac." : "Sin estac."} <X className="h-3 w-3" />
+              </Badge>
+            )}
             <Button variant="ghost" size="sm" className="text-xs h-6 px-2 text-destructive" onClick={clearAllFilters}>
               <X className="h-3 w-3 mr-1" /> Limpiar filtros
             </Button>
@@ -375,7 +517,7 @@ const InventarioGlobal = () => {
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h4 className="font-bold text-foreground text-base truncate">{prop.numero || `Unidad ${prop.id}`}</h4>
+                      <h4 className="font-bold text-foreground text-base truncate">Depto. {prop.numero || prop.id}</h4>
                       <p className="text-xs text-muted-foreground">{prop.proyecto_nombre}</p>
                       <p className="text-[11px] text-muted-foreground/70">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
                     </div>
@@ -395,6 +537,27 @@ const InventarioGlobal = () => {
                       <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {prop.banos}</span>
                     )}
                   </div>
+
+                  {/* Bodegas & Estacionamientos */}
+                  {(prop.bodegas_count > 0 || prop.estacionamientos_count > 0) && (
+                    <div className="flex flex-wrap gap-2">
+                      {prop.bodegas_count > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 text-[11px] text-muted-foreground">
+                          <Archive className="h-3 w-3" /> {prop.bodegas_count} bodega{prop.bodegas_count > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {prop.estacionamientos_count > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 text-[11px] text-muted-foreground">
+                          <Car className="h-3 w-3" /> {prop.estacionamientos_count} estac.
+                          {prop.estacionamientos_tipos?.length > 0 && (
+                            <span className="text-foreground/70">
+                              ({[...new Set(prop.estacionamientos_tipos as string[])].join(", ")})
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {prop.precio_lista > 0 && (
                     <div className="flex items-center gap-1.5 text-base font-bold text-foreground">
@@ -433,7 +596,7 @@ const InventarioGlobal = () => {
       <Dialog open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
-            <DialogTitle>Departamento: {selectedProperty?.numero || selectedProperty?.id}</DialogTitle>
+            <DialogTitle>Departamento {selectedProperty?.numero || selectedProperty?.id} de {selectedProperty?.proyecto_nombre}</DialogTitle>
           </DialogHeader>
           {selectedProperty && (
             <>
@@ -479,6 +642,27 @@ const InventarioGlobal = () => {
                   )}
                 </div>
 
+                {/* Bodegas & estacionamientos in detail */}
+                {(selectedProperty.bodegas_count > 0 || selectedProperty.estacionamientos_count > 0) && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProperty.bodegas_count > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
+                        <Archive className="h-3 w-3 text-muted-foreground" /> {selectedProperty.bodegas_count} bodega{selectedProperty.bodegas_count > 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {selectedProperty.estacionamientos_count > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
+                        <Car className="h-3 w-3 text-muted-foreground" /> {selectedProperty.estacionamientos_count} estac.
+                        {selectedProperty.estacionamientos_tipos?.length > 0 && (
+                          <span className="ml-1 text-muted-foreground">
+                            ({[...new Set(selectedProperty.estacionamientos_tipos as string[])].join(", ")})
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {selectedProperty.precio_lista > 0 && (
                   <div className="bg-primary/5 rounded-xl p-4 text-center">
                     <p className="text-xs text-muted-foreground">Precio de Lista</p>
@@ -486,40 +670,100 @@ const InventarioGlobal = () => {
                   </div>
                 )}
 
-                {/* Payment Schemes */}
+                {/* Payment Schemes - Collapsible */}
                 {getSchemesForProject(selectedProperty.proyecto_id).length > 0 && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-foreground">Esquemas de Pago</p>
-                    <div className="grid gap-2">
-                      {getSchemesForProject(selectedProperty.proyecto_id).map((scheme: any) => (
-                        <div key={scheme.id} className="rounded-xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-4 shadow-sm space-y-2">
-                          <div className="flex items-center justify-between">
-                            <p className="font-semibold text-sm text-foreground">{scheme.nombre}</p>
-                            {scheme.porcentaje_descuento_aumento !== 0 && scheme.porcentaje_descuento_aumento != null && (
-                              <Badge variant="outline" className={scheme.porcentaje_descuento_aumento < 0 
-                                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400 text-xs" 
-                                : "border-destructive/30 bg-destructive/10 text-destructive text-xs"}>
-                                {scheme.porcentaje_descuento_aumento > 0 ? "+" : ""}{scheme.porcentaje_descuento_aumento}%
-                              </Badge>
+                  <Collapsible open={schemesOpen} onOpenChange={setSchemesOpen}>
+                    <CollapsibleTrigger className="flex items-center justify-between w-full py-2 group">
+                      <p className="text-sm font-semibold text-foreground">
+                        Esquemas de Pago ({getSchemesForProject(selectedProperty.proyecto_id).length})
+                      </p>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${schemesOpen ? "rotate-180" : ""}`} />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-1">
+                      {getSchemesForProject(selectedProperty.proyecto_id).map((scheme: any) => {
+                        const amounts = calcSchemeAmounts(scheme, selectedProperty.precio_lista);
+                        const isSelected = selectedSchemeId === scheme.id;
+                        return (
+                          <button
+                            key={scheme.id}
+                            type="button"
+                            onClick={() => setSelectedSchemeId(prev => prev === scheme.id ? null : scheme.id)}
+                            className={`w-full text-left rounded-xl border p-4 shadow-sm space-y-2 transition-all duration-200 ${
+                              isSelected
+                                ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                                : "border-border/60 bg-gradient-to-br from-card to-muted/30 hover:border-primary/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {isSelected && (
+                                  <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                                )}
+                                <p className="font-semibold text-sm text-foreground">{scheme.nombre}</p>
+                              </div>
+                              {scheme.porcentaje_descuento_aumento !== 0 && scheme.porcentaje_descuento_aumento != null && (
+                                <Badge variant="outline" className={scheme.porcentaje_descuento_aumento < 0
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400 text-xs"
+                                  : "border-destructive/30 bg-destructive/10 text-destructive text-xs"}>
+                                  {scheme.porcentaje_descuento_aumento > 0 ? "+" : ""}{scheme.porcentaje_descuento_aumento}%
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                              {scheme.porcentaje_enganche > 0 && (
+                                <span><span className="font-medium text-foreground">{scheme.porcentaje_enganche}%</span> Enganche</span>
+                              )}
+                              {scheme.porcentaje_mensualidades > 0 && (
+                                <span><span className="font-medium text-foreground">{scheme.porcentaje_mensualidades}%</span> Mensualidades</span>
+                              )}
+                              {scheme.porcentaje_entrega > 0 && (
+                                <span><span className="font-medium text-foreground">{scheme.porcentaje_entrega}%</span> Entrega</span>
+                              )}
+                              {scheme.numero_mensualidades > 0 && (
+                                <span><span className="font-medium text-foreground">{scheme.numero_mensualidades}</span> meses</span>
+                              )}
+                            </div>
+                            {/* Calculated amounts */}
+                            {selectedProperty.precio_lista > 0 && (
+                              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 mt-1">
+                                {amounts.enganche > 0 && (
+                                  <div className="text-[11px]">
+                                    <span className="text-muted-foreground">Enganche:</span>
+                                    <span className="ml-1 font-medium text-foreground">{formatPrice(amounts.enganche)}</span>
+                                  </div>
+                                )}
+                                {amounts.mensualidadesTotal > 0 && (
+                                  <div className="text-[11px]">
+                                    <span className="text-muted-foreground">Mensualidad:</span>
+                                    <span className="ml-1 font-medium text-foreground">{formatPrice(amounts.mensualidad)}</span>
+                                  </div>
+                                )}
+                                {amounts.entrega > 0 && (
+                                  <div className="text-[11px]">
+                                    <span className="text-muted-foreground">Entrega:</span>
+                                    <span className="ml-1 font-medium text-foreground">{formatPrice(amounts.entrega)}</span>
+                                  </div>
+                                )}
+                                {amounts.precioAjustado !== selectedProperty.precio_lista && (
+                                  <div className="text-[11px]">
+                                    <span className="text-muted-foreground">Precio ajustado:</span>
+                                    <span className="ml-1 font-medium text-foreground">{formatPrice(amounts.precioAjustado)}</span>
+                                  </div>
+                                )}
+                              </div>
                             )}
-                          </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            {scheme.porcentaje_enganche > 0 && (
-                              <span><span className="font-medium text-foreground">{scheme.porcentaje_enganche}%</span> Enganche</span>
-                            )}
-                            {scheme.porcentaje_mensualidades > 0 && (
-                              <span><span className="font-medium text-foreground">{scheme.porcentaje_mensualidades}%</span> Mensualidades</span>
-                            )}
-                            {scheme.porcentaje_entrega > 0 && (
-                              <span><span className="font-medium text-foreground">{scheme.porcentaje_entrega}%</span> Entrega</span>
-                            )}
-                            {scheme.numero_mensualidades > 0 && (
-                              <span><span className="font-medium text-foreground">{scheme.numero_mensualidades}</span> meses</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                          </button>
+                        );
+                      })}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {/* Selected scheme indicator */}
+                {selectedSchemeId && (
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 text-xs text-primary font-medium flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5" />
+                    Plan seleccionado: {paymentSchemes.find((s: any) => s.id === selectedSchemeId)?.nombre || ""}
                   </div>
                 )}
               </div>
@@ -533,10 +777,18 @@ const InventarioGlobal = () => {
                       propertyNumber={selectedProperty.numero || `${selectedProperty.id}`}
                       hideManualMode={true}
                       hidePdfOptions={true}
+                      preSelectedSchemeId={selectedSchemeId}
                       customTrigger={
                         <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground font-semibold text-sm shadow-[0_8px_30px_-4px_hsl(var(--primary)/0.45)] hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.55)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 ease-out border border-white/20">
                           <FileText className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
-                          <span className="tracking-wide">Generar Oferta</span>
+                          <span className="tracking-wide">
+                            Generar Oferta
+                            {selectedSchemeId && (
+                              <span className="ml-1 text-xs opacity-80">
+                                ({paymentSchemes.find((s: any) => s.id === selectedSchemeId)?.nombre})
+                              </span>
+                            )}
+                          </span>
                           <span className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                         </button>
                       }
@@ -593,7 +845,6 @@ const PropertyCardCarousel = ({ images }: { images: any[] }) => {
           ))}
         </div>
       </div>
-      {/* Dot indicators */}
       {images.length > 1 && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
           {images.slice(0, 8).map((_: any, i: number) => (

@@ -184,9 +184,10 @@ interface NewOfferDialogProps {
   hideManualMode?: boolean; // Hide the manual mode option (for inmobiliarias portal)
   hidePdfOptions?: boolean; // Hide PDF visualization options (for inmobiliarias portal)
   customTrigger?: React.ReactNode; // Optional custom trigger element
+  preSelectedSchemeId?: number | null; // Pre-selected payment scheme from inventory detail
 }
 
-export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false, customTrigger }: NewOfferDialogProps) {
+export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false, customTrigger, preSelectedSchemeId }: NewOfferDialogProps) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1155,8 +1156,8 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
       setPendingFormData(data);
       setShowConfirmDialog(true);
     } else {
-      // No products, proceed directly (note: no confirmation dialog means no scheme selection for property)
-      createOfferMutation.mutate({ data, schemeSelections: {}, propertySchemeId: null });
+      // No products, proceed directly - use preSelectedSchemeId if provided from inventory
+      createOfferMutation.mutate({ data, schemeSelections: {}, propertySchemeId: preSelectedSchemeId || null });
     }
   };
 
