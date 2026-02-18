@@ -325,7 +325,7 @@ const MisProyectos = () => {
             const isExpanded = expandedCards[project.id] || false;
 
             return (
-              <Card key={project.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
+              <Card key={project.id} className="overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 rounded-2xl">
                 {/* Image Carousel */}
                 <ImageCarousel images={images} projectName={project.nombre} badge={getProjectBadge(project)} brochure={brochure} onDownloadBrochure={handleDownloadBrochure} />
 
@@ -586,7 +586,7 @@ const ImageCarousel = ({ images, projectName, badge, brochure, onDownloadBrochur
   return (
     <div className="h-40 sm:h-48 bg-muted relative overflow-hidden group">
       <div ref={emblaRef} className="h-full overflow-hidden">
-        <div className="flex h-full">
+        <div className="flex h-full touch-pan-y">
           {images.map((img: any) => (
             <div key={img.id} className="flex-[0_0_100%] min-w-0 h-full">
               <img src={img.url} alt={projectName} className="w-full h-full object-cover" />
