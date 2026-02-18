@@ -1227,69 +1227,68 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             {projectName && <span className="font-semibold"> de {projectName}</span>}
           </p>
           
-          {/* Selected Plan Indicator */}
-          {selectedMode !== "manual" && (
-            <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
+          {/* Plan Selector - unified */}
+          {selectedMode !== "manual" && propertyPaymentSchemes && propertyPaymentSchemes.length > 0 && (
+            <div className={`mt-2 rounded-lg border p-2.5 transition-colors ${
               selectedSchemeDetails
-                ? "bg-primary/10 border border-primary/20 text-primary"
-                : "bg-muted/60 border border-border/60 text-muted-foreground"
+                ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800"
+                : "bg-muted/40 border-border/60"
             }`}>
-              <FileText className="h-3.5 w-3.5 shrink-0" />
-              {selectedSchemeDetails ? (
-                <div className="flex items-center justify-between w-full">
-                  <span>Plan: {selectedSchemeDetails.nombre}</span>
-                  {selectedSchemeDetails.porcentaje_descuento_aumento !== 0 && selectedSchemeDetails.porcentaje_descuento_aumento != null && (
-                    <Badge variant="outline" className={`text-[10px] ml-2 ${
-                      selectedSchemeDetails.porcentaje_descuento_aumento < 0
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                        : "border-destructive/30 bg-destructive/10 text-destructive"
-                    }`}>
-                      {selectedSchemeDetails.porcentaje_descuento_aumento > 0 ? "+" : ""}{selectedSchemeDetails.porcentaje_descuento_aumento}%
-                    </Badge>
-                  )}
+              <div className="flex items-center gap-2">
+                <FileText className={`h-3.5 w-3.5 shrink-0 ${selectedSchemeDetails ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`} />
+                <Select
+                  value={localSchemeId?.toString() || "none"}
+                  onValueChange={(value) => {
+                    setLocalSchemeId(value === "none" ? null : parseInt(value));
+                  }}
+                >
+                  <SelectTrigger className={`h-8 text-xs border-0 shadow-none bg-transparent px-1 ${
+                    selectedSchemeDetails ? "text-emerald-700 font-medium dark:text-emerald-300" : "text-muted-foreground"
+                  }`}>
+                    <SelectValue placeholder="Seleccionar plan de pago..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground italic">Sin plan seleccionado</span>
+                    </SelectItem>
+                    {propertyPaymentSchemes.map((scheme: any) => (
+                      <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                        <div className="flex flex-col">
+                          <span>{scheme.nombre}</span>
+                          <span className="text-xs text-muted-foreground">
+                            Eng: {scheme.porcentaje_enganche || 0}% | Mens: {scheme.porcentaje_mensualidades || 0}% ({scheme.numero_mensualidades || 0} pagos) | Ent: {scheme.porcentaje_entrega || 0}%
+                            {scheme.porcentaje_descuento_aumento ? ` | ${scheme.porcentaje_descuento_aumento > 0 ? '+' : ''}${scheme.porcentaje_descuento_aumento}%` : ''}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedSchemeDetails?.porcentaje_descuento_aumento !== 0 && selectedSchemeDetails?.porcentaje_descuento_aumento != null && (
+                  <Badge variant="outline" className={`text-[10px] shrink-0 ${
+                    selectedSchemeDetails.porcentaje_descuento_aumento < 0
+                      ? "border-emerald-300 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                      : "border-destructive/30 bg-destructive/10 text-destructive"
+                  }`}>
+                    {selectedSchemeDetails.porcentaje_descuento_aumento > 0 ? "+" : ""}{selectedSchemeDetails.porcentaje_descuento_aumento}%
+                  </Badge>
+                )}
+                {selectedSchemeDetails && (
                   <button
                     type="button"
                     onClick={() => setLocalSchemeId(null)}
-                    className="ml-2 text-muted-foreground hover:text-foreground"
+                    className="ml-auto text-muted-foreground hover:text-foreground shrink-0"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
-                </div>
-              ) : (
-                <span>Sin plan de pago seleccionado</span>
-              )}
+                )}
+              </div>
             </div>
           )}
-
-          {/* Scheme selector - show when in precargada mode and schemes are available */}
-          {selectedMode !== "manual" && propertyPaymentSchemes && propertyPaymentSchemes.length > 0 && (
-            <div className="mt-2">
-              <Select
-                value={localSchemeId?.toString() || "none"}
-                onValueChange={(value) => {
-                  setLocalSchemeId(value === "none" ? null : parseInt(value));
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Seleccionar plan de pago..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    <span className="text-muted-foreground italic">Sin plan seleccionado</span>
-                  </SelectItem>
-                  {propertyPaymentSchemes.map((scheme: any) => (
-                    <SelectItem key={scheme.id} value={scheme.id.toString()}>
-                      <div className="flex flex-col">
-                        <span>{scheme.nombre}</span>
-                        <span className="text-xs text-muted-foreground">
-                          Eng: {scheme.porcentaje_enganche || 0}% | Mens: {scheme.porcentaje_mensualidades || 0}% ({scheme.numero_mensualidades || 0} pagos) | Ent: {scheme.porcentaje_entrega || 0}%
-                          {scheme.porcentaje_descuento_aumento ? ` | ${scheme.porcentaje_descuento_aumento > 0 ? '+' : ''}${scheme.porcentaje_descuento_aumento}%` : ''}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {selectedMode !== "manual" && (!propertyPaymentSchemes || propertyPaymentSchemes.length === 0) && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-muted/60 border border-border/60 text-muted-foreground">
+              <FileText className="h-3.5 w-3.5 shrink-0" />
+              <span>Sin planes de pago disponibles</span>
             </div>
           )}
 
