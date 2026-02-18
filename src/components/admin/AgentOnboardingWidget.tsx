@@ -29,9 +29,9 @@ export function AgentOnboardingWidget({ personaId, variant = 'default' }: AgentO
 
   if (percentage === 100) {
     return (
-      <div className="flex items-center gap-1.5 justify-center">
-        <Trophy className="h-3.5 w-3.5 text-emerald-500" />
-        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Perfil completo</span>
+      <div className="flex items-center gap-2 justify-center px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+        <Trophy className="h-4 w-4 text-emerald-500" />
+        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Perfil completo</span>
       </div>
     );
   }
@@ -40,18 +40,21 @@ export function AgentOnboardingWidget({ personaId, variant = 'default' }: AgentO
 
   return (
     <>
-      <div className={cn(isInline ? "" : "bg-card border-b px-3 py-2.5")}>
+      <div className={cn(isInline ? "" : "bg-card border-b px-4 py-3")}>
         {/* Title + progress */}
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-[10px] font-bold text-foreground whitespace-nowrap">Perfil {percentage}%</span>
-          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-xs font-bold text-foreground whitespace-nowrap">Perfil {percentage}%</span>
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden shadow-inner">
             <div
               className="h-full rounded-full transition-all duration-700 ease-out"
               style={{
                 width: `${percentage}%`,
                 background: percentage < 70
-                  ? 'hsl(var(--primary))'
-                  : 'hsl(142 76% 36%)',
+                  ? 'linear-gradient(90deg, hsl(210 80% 55%), hsl(220 85% 60%))'
+                  : 'linear-gradient(90deg, hsl(142 76% 36%), hsl(158 64% 38%))',
+                boxShadow: percentage < 70
+                  ? '0 2px 8px hsla(210 80% 55% / 0.4)'
+                  : '0 2px 8px hsla(142 76% 36% / 0.4)',
               }}
             />
           </div>
@@ -67,29 +70,29 @@ export function AgentOnboardingWidget({ personaId, variant = 'default' }: AgentO
               <div key={step.id} className="flex items-center flex-1 last:flex-none">
                 <button
                   onClick={() => setActiveStep(step.id)}
-                  className="flex flex-col items-center gap-0.5 group"
+                  className="flex flex-col items-center gap-1 group"
                   title={step.label}
                 >
                   <div
                     className={cn(
-                      "flex items-center justify-center rounded-full font-bold transition-all border-2",
-                      isInline ? "h-6 w-6 text-[10px]" : "h-9 w-9 text-xs",
+                      "flex items-center justify-center rounded-full font-bold transition-all duration-300",
+                      isInline ? "h-7 w-7 text-[10px]" : "h-10 w-10 text-sm",
                       step.isComplete
-                        ? "bg-emerald-500 border-emerald-500 text-white"
+                        ? "bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-[0_3px_12px_-2px_hsla(142,76%,36%,0.5)]"
                         : isSelected
-                        ? "bg-primary border-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-1"
-                        : "bg-muted border-muted-foreground/20 text-muted-foreground"
+                        ? "bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-[0_3px_12px_-2px_hsla(210,80%,55%,0.5)] ring-3 ring-blue-400/30 ring-offset-1 ring-offset-background"
+                        : "bg-muted border-2 border-muted-foreground/15 text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted-foreground/5"
                     )}
                   >
-                    {step.isComplete ? <Check className={cn(isInline ? "h-2.5 w-2.5" : "h-3.5 w-3.5")} /> : num}
+                    {step.isComplete ? <Check className={cn(isInline ? "h-3 w-3" : "h-4 w-4")} strokeWidth={3} /> : num}
                   </div>
                   {!isInline && (
                     <span className={cn(
-                      "text-[9px] leading-tight font-medium text-center max-w-[48px]",
+                      "text-[9px] leading-tight font-semibold text-center max-w-[52px] transition-colors",
                       step.isComplete
                         ? "text-emerald-600 dark:text-emerald-400"
                         : isSelected
-                        ? "text-primary"
+                        ? "text-blue-600 dark:text-blue-400"
                         : "text-muted-foreground"
                     )}>
                       {step.label}
@@ -99,9 +102,9 @@ export function AgentOnboardingWidget({ personaId, variant = 'default' }: AgentO
 
                 {index < steps.length - 1 && (
                   <div className={cn(
-                    "flex-1 h-0.5 mx-0.5 rounded-full",
-                    !isInline && "mt-[-12px]",
-                    step.isComplete ? "bg-emerald-500" : "bg-muted-foreground/15"
+                    "flex-1 rounded-full mx-1 transition-all duration-300",
+                    isInline ? "h-0.5" : "h-[3px] mt-[-14px]",
+                    step.isComplete ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-muted-foreground/10"
                   )} />
                 )}
               </div>

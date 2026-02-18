@@ -2028,7 +2028,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                         disabled={selectedPerson !== null}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="neu-input h-auto">
                             <SelectValue placeholder="Seleccionar" />
                           </SelectTrigger>
                         </FormControl>
@@ -2054,6 +2054,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                         <Input 
                           placeholder={selectedPersonType === "pm" ? "Ingresa la razón social" : "Ingresa el nombre completo"} 
                           disabled={selectedPerson !== null}
+                          className="neu-input h-auto"
                           {...field} 
                         />
                       </FormControl>
@@ -2075,6 +2076,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                           type="email" 
                           placeholder="Ingresa el email" 
                           disabled={selectedPerson !== null}
+                          className="neu-input h-auto"
                           {...field} 
                         />
                       </FormControl>
@@ -2095,7 +2097,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                         disabled={selectedPerson !== null}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="neu-input h-auto">
                             <SelectValue placeholder="--" />
                           </SelectTrigger>
                         </FormControl>
@@ -2120,9 +2122,9 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                         <Input 
                           placeholder="10 dígitos" 
                           disabled={selectedPerson !== null}
+                          className="neu-input h-auto"
                           {...field}
                           onChange={(e) => {
-                            // Solo permitir números y máximo 10 dígitos
                             const value = e.target.value.replace(/\D/g, '').slice(0, 10);
                             field.onChange(value);
                           }}
@@ -2142,11 +2144,12 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                        render={({ field }) => (
                        <FormItem>
                             <FormLabel>RFC</FormLabel>
-                            <FormControl>
+                             <FormControl>
                              <Input 
                                placeholder="Ingresa el RFC (Ej: ABC123456DEF)" 
                                maxLength={13}
                                disabled={selectedPerson !== null}
+                               className="neu-input h-auto"
                                {...field} 
                              />
                            </FormControl>
@@ -2162,14 +2165,15 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                          render={({ field }) => (
                            <FormItem>
                              <FormLabel>CURP</FormLabel>
-                             <FormControl>
-                               <Input 
-                                 placeholder="Ingresa la CURP (Ej: ABCD123456HMNEFFD01)" 
-                                 maxLength={18}
-                                 disabled={selectedPerson !== null}
-                                 {...field} 
-                               />
-                             </FormControl>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Ingresa la CURP (Ej: ABCD123456HMNEFFD01)" 
+                                  maxLength={18}
+                                  disabled={selectedPerson !== null}
+                                  className="neu-input h-auto"
+                                  {...field} 
+                                />
+                              </FormControl>
                              <FormMessage />
                            </FormItem>
                          )}
@@ -2250,20 +2254,22 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                </div>
              )}
 
-            <div className="flex justify-end space-x-2 pt-4">
+            <div className="flex justify-end space-x-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setOpen(false)}
+                className="rounded-2xl px-6"
               >
                 Cancelar
               </Button>
-              <Button
+              <button
                 type="submit"
                 disabled={createOfferMutation.isPending || (usarTramosPersonalizados && !tramosValidation.isValid)}
+                className="px-6 py-2.5 btn-gradient-primary flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {createOfferMutation.isPending ? "Generando..." : "Generar Oferta"}
-              </Button>
+              </button>
             </div>
           </form>
         </Form>

@@ -450,12 +450,12 @@ function AgentTrainingStep({ personaId, onSaved }: { personaId: number; onSaved:
       ) : (
         <>
           <div>
-            <Label>Fecha *</Label>
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="mt-1" min={new Date().toISOString().split('T')[0]} />
+            <Label className="text-sm font-semibold">Fecha *</Label>
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="mt-1.5 neu-input h-auto" min={new Date().toISOString().split('T')[0]} />
           </div>
           <div>
-            <Label>Hora *</Label>
-            <Input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} className="mt-1" />
+            <Label className="text-sm font-semibold">Hora *</Label>
+            <Input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} className="mt-1.5 neu-input h-auto" />
           </div>
 
           {isProgrammed && (
@@ -466,13 +466,13 @@ function AgentTrainingStep({ personaId, onSaved }: { personaId: number; onSaved:
             </div>
           )}
 
-          <Button
+          <button
             onClick={handleSchedule}
             disabled={saving}
-            className="w-full h-12 text-base font-semibold rounded-xl shadow-[0_6px_20px_-4px_hsl(var(--primary)/0.4)] hover:shadow-[0_8px_28px_-4px_hsl(var(--primary)/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+            className="w-full py-4 btn-gradient-primary flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Agendando...</> : isProgrammed ? "Reagendar Cita" : "Agendar Cita"}
-          </Button>
+            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : isProgrammed ? "Reagendar Cita" : "Agendar Cita"}
+          </button>
         </>
       )}
     </div>
@@ -730,31 +730,31 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
   ) => (
     <div className="space-y-4">
       <div>
-        <Label>Calle *</Label>
-        <Input value={calleVal} onChange={(e) => setCalleVal(e.target.value)} className="mt-1 rounded-xl" />
+        <Label className="text-sm font-semibold">Calle *</Label>
+        <Input value={calleVal} onChange={(e) => setCalleVal(e.target.value)} className="mt-1.5 neu-input h-auto" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Num. Ext. *</Label>
-          <Input value={numExtVal} onChange={(e) => setNumExtVal(e.target.value)} className="mt-1" />
+          <Label className="text-sm font-semibold">Num. Ext. *</Label>
+          <Input value={numExtVal} onChange={(e) => setNumExtVal(e.target.value)} className="mt-1.5 neu-input h-auto" />
         </div>
         <div>
-          <Label>Num. Int.</Label>
-          <Input value={numIntVal} onChange={(e) => setNumIntVal(e.target.value)} className="mt-1" />
+          <Label className="text-sm font-semibold">Num. Int.</Label>
+          <Input value={numIntVal} onChange={(e) => setNumIntVal(e.target.value)} className="mt-1.5 neu-input h-auto" />
         </div>
       </div>
       <div>
-        <Label>Colonia *</Label>
-        <Input value={coloniaVal} onChange={(e) => setColoniaVal(e.target.value)} className="mt-1" />
+        <Label className="text-sm font-semibold">Colonia *</Label>
+        <Input value={coloniaVal} onChange={(e) => setColoniaVal(e.target.value)} className="mt-1.5 neu-input h-auto" />
       </div>
       <div>
-        <Label>Código Postal *</Label>
-        <Input value={cpVal} onChange={(e) => setCpVal(e.target.value)} className="mt-1" maxLength={5} />
+        <Label className="text-sm font-semibold">Código Postal *</Label>
+        <Input value={cpVal} onChange={(e) => setCpVal(e.target.value)} className="mt-1.5 neu-input h-auto" maxLength={5} />
       </div>
       <div>
-        <Label>País *</Label>
+        <Label className="text-sm font-semibold">País *</Label>
         <Select value={paisVal} onValueChange={(v) => { setPaisVal(v); setEstadoVal(''); setMunicipioVal(''); }}>
-          <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+          <SelectTrigger className="mt-1.5 neu-input h-auto"><SelectValue placeholder="Selecciona" /></SelectTrigger>
           <SelectContent>
             {paises.map((p: any) => (
               <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
@@ -763,9 +763,9 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
         </Select>
       </div>
       <div>
-        <Label>Estado *</Label>
+        <Label className="text-sm font-semibold">Estado *</Label>
         <Select value={estadoVal} onValueChange={(v) => { setEstadoVal(v); setMunicipioVal(''); }}>
-          <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+          <SelectTrigger className="mt-1.5 neu-input h-auto"><SelectValue placeholder="Selecciona" /></SelectTrigger>
           <SelectContent>
             {filteredEstados(paisVal).map((e: any) => (
               <SelectItem key={e.id} value={e.id.toString()}>{e.nombre}</SelectItem>
@@ -774,9 +774,9 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
         </Select>
       </div>
       <div>
-        <Label>Municipio *</Label>
+        <Label className="text-sm font-semibold">Municipio *</Label>
         <Select value={municipioVal} onValueChange={setMunicipioVal}>
-          <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+          <SelectTrigger className="mt-1.5 neu-input h-auto"><SelectValue placeholder="Selecciona" /></SelectTrigger>
           <SelectContent>
             {filteredMunicipios(estadoVal).map((m: any) => (
               <SelectItem key={m.id} value={m.id.toString()}>{m.nombre}</SelectItem>
@@ -792,29 +792,29 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
       {step === 'basic' && (
         <div className="space-y-4">
           <div>
-            <Label>Nombre completo *</Label>
-            <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="mt-1" />
+            <Label className="text-sm font-semibold">Nombre completo *</Label>
+            <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="mt-1.5 neu-input h-auto" />
           </div>
           <div>
-            <Label>Correo electrónico *</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
+            <Label className="text-sm font-semibold">Correo electrónico *</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 neu-input h-auto" />
           </div>
            <div>
-            <Label>Teléfono (10 dígitos) *</Label>
-            <Input value={telefono} onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))} maxLength={10} className="mt-1" />
+            <Label className="text-sm font-semibold">Teléfono (10 dígitos) *</Label>
+            <Input value={telefono} onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))} maxLength={10} className="mt-1.5 neu-input h-auto" />
           </div>
           <div>
-            <Label>CURP <span className="text-muted-foreground text-xs">(opcional)</span></Label>
-            <Input value={curp} onChange={(e) => setCurp(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} maxLength={18} placeholder="Ej. GARC850101HDFRRL09" className="mt-1" />
+            <Label className="text-sm font-semibold">CURP <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
+            <Input value={curp} onChange={(e) => setCurp(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} maxLength={18} placeholder="Ej. GARC850101HDFRRL09" className="mt-1.5 neu-input h-auto" />
           </div>
           <div>
-            <Label>Tipo de Persona</Label>
-            <Input value="Persona Física" disabled className="mt-1 bg-muted" />
+            <Label className="text-sm font-semibold">Tipo de Persona</Label>
+            <Input value="Persona Física" disabled className="mt-1.5 neu-input h-auto opacity-60" />
           </div>
           <div>
-            <Label>Sexo <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+            <Label className="text-sm font-semibold">Sexo <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
             <Select value={sexo} onValueChange={setSexo}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona sexo" /></SelectTrigger>
+              <SelectTrigger className="mt-1.5 neu-input h-auto"><SelectValue placeholder="Selecciona sexo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="M">Masculino</SelectItem>
                 <SelectItem value="F">Femenino</SelectItem>
@@ -832,13 +832,13 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
       {step === 'fiscal' && (
         <div className="space-y-4">
           <div>
-            <Label>RFC *</Label>
-            <Input value={rfc} onChange={(e) => setRfc(e.target.value.toUpperCase())} maxLength={13} className="mt-1" />
+            <Label className="text-sm font-semibold">RFC *</Label>
+            <Input value={rfc} onChange={(e) => setRfc(e.target.value.toUpperCase())} maxLength={13} className="mt-1.5 neu-input h-auto" />
           </div>
           <div>
-            <Label>Régimen Fiscal *</Label>
+            <Label className="text-sm font-semibold">Régimen Fiscal *</Label>
             <Select value={regimen} onValueChange={setRegimen}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+              <SelectTrigger className="mt-1.5 neu-input h-auto"><SelectValue placeholder="Selecciona" /></SelectTrigger>
               <SelectContent>
                 {regimenes.map((r: any) => (
                   <SelectItem key={r.id} value={r.id.toString()}>{r.nombre}</SelectItem>
@@ -847,9 +847,9 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
             </Select>
           </div>
           <div>
-            <Label>Uso CFDI *</Label>
+            <Label className="text-sm font-semibold">Uso CFDI *</Label>
             <Select value={usoCfdi} onValueChange={setUsoCfdi}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+              <SelectTrigger className="mt-1.5 neu-input h-auto"><SelectValue placeholder="Selecciona" /></SelectTrigger>
               <SelectContent>
                 {usosCfdi.map((u: any) => (
                   <SelectItem key={u.codigo} value={u.codigo}>{u.codigo} - {u.nombre}</SelectItem>
@@ -871,13 +871,13 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
         </div>
       )}
 
-      <Button
+      <button
         onClick={handleSave}
         disabled={saving}
-        className="w-full h-12 text-base font-semibold rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 active:translate-y-0 transition-all duration-200"
+        className="w-full py-4 btn-gradient-primary flex items-center justify-center gap-2 disabled:opacity-60"
       >
-        {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...</> : "Guardar"}
-      </Button>
+        {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando...</> : "Guardar"}
+      </button>
     </div>
   );
 }

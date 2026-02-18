@@ -118,16 +118,16 @@ export function MultiSelectFilter({
           
           {/* Selected items badges */}
           {values.length > 0 && (
-            <div className="flex flex-wrap gap-1 p-2 border-b max-h-[80px] overflow-y-auto">
+            <div className="flex flex-wrap gap-1.5 p-2.5 border-b max-h-[80px] overflow-y-auto">
               {values.map((value) => (
                 <Badge 
                   key={value} 
                   variant="secondary" 
-                  className="text-xs cursor-pointer hover:bg-destructive/10"
+                  className="text-xs cursor-pointer hover:bg-destructive/10 px-2.5 py-1 gap-1.5"
                   onClick={() => handleToggle(value)}
                 >
                   {value.length > 20 ? value.substring(0, 17) + "..." : value}
-                  <X className="h-3 w-3 ml-1" />
+                  <X className="h-3 w-3" />
                 </Badge>
               ))}
             </div>
