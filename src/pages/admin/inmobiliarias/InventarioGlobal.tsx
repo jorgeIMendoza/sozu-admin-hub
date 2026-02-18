@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, X, Package } from "lucide-react";
+import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, X, Package, Layers } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
@@ -24,6 +24,7 @@ const InventarioGlobal = () => {
   const [filterProjectNames, setFilterProjectNames] = useState<string[]>([]);
   const [filterModelNames, setFilterModelNames] = useState<string[]>([]);
   const [filterBedrooms, setFilterBedrooms] = useState<string[]>([]);
+  const [filterLevels, setFilterLevels] = useState<string[]>([]);
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["inventario-global-projects", accessibleProjectIds],
@@ -142,9 +143,14 @@ const InventarioGlobal = () => {
           
           em.propiedades?.forEach((p: any) => {
             if (p.id_estatus_disponibilidad === 2) {
-              // Property images first, fallback to model images
+              // Property images first, fallback to model images - shuffle all
               const propImgs = propertyImagesMap.get(p.id) || [];
-              const images = propImgs.length > 0 ? propImgs : modelImages;
+              const rawImages = propImgs.length > 0 ? [...propImgs] : [...modelImages];
+              // Fisher-Yates shuffle per property
+              for (let si = rawImages.length - 1; si > 0; si--) {
+                const sj = Math.floor(Math.random() * (si + 1));
+                [rawImages[si], rawImages[sj]] = [rawImages[sj], rawImages[si]];
+              }
 
               props.push({
                 ...p,
@@ -159,7 +165,7 @@ const InventarioGlobal = () => {
                 banos: em.modelos?.numero_completo_banos,
                 medio_bano: em.modelos?.numero_medio_bano,
                 m2_total: (p.m2_interiores || 0) + (p.m2_exteriores || 0),
-                model_images: images,
+                model_images: rawImages,
               });
             }
           });
@@ -199,6 +205,17 @@ const InventarioGlobal = () => {
     return Array.from(beds).sort();
   }, [allAvailableProperties]);
 
+  // Available levels (pisos)
+  const availableLevelOptions = useMemo(() => {
+    const levels = new Set<string>();
+    allAvailableProperties.forEach(p => { if (p.piso) levels.add(p.piso); });
+    return Array.from(levels).sort((a, b) => {
+      const na = parseInt(a), nb = parseInt(b);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+  }, [allAvailableProperties]);
+
   // Apply filters
   const filteredProperties = useMemo(() => {
     let result = allAvailableProperties;
@@ -212,15 +229,19 @@ const InventarioGlobal = () => {
       const bedNums = filterBedrooms.map(b => parseInt(b));
       result = result.filter(p => bedNums.includes(p.recamaras));
     }
+    if (filterLevels.length > 0) {
+      result = result.filter(p => p.piso && filterLevels.includes(p.piso));
+    }
     return result;
-  }, [allAvailableProperties, filterProjectNames, filterModelNames, filterBedrooms]);
+  }, [allAvailableProperties, filterProjectNames, filterModelNames, filterBedrooms, filterLevels]);
 
-  const hasActiveFilters = filterProjectNames.length > 0 || filterModelNames.length > 0 || filterBedrooms.length > 0;
+  const hasActiveFilters = filterProjectNames.length > 0 || filterModelNames.length > 0 || filterBedrooms.length > 0 || filterLevels.length > 0;
 
   const clearAllFilters = () => {
     setFilterProjectNames([]);
     setFilterModelNames([]);
     setFilterBedrooms([]);
+    setFilterLevels([]);
     setPage(0);
   };
 
@@ -236,7 +257,7 @@ const InventarioGlobal = () => {
   };
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [filterProjectNames, filterModelNames, filterBedrooms]);
+  useEffect(() => { setPage(0); }, [filterProjectNames, filterModelNames, filterBedrooms, filterLevels]);
 
   if (isLoading || isLoadingAccess) {
     return (
@@ -265,7 +286,7 @@ const InventarioGlobal = () => {
 
       {/* Filters */}
       <div className="space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MultiSelectFilter
             values={filterProjectNames}
             onValuesChange={setFilterProjectNames}
@@ -291,6 +312,15 @@ const InventarioGlobal = () => {
             searchPlaceholder="Buscar..."
             icon={<BedDouble className="h-3.5 w-3.5" />}
           />
+
+          <MultiSelectFilter
+            values={filterLevels}
+            onValuesChange={setFilterLevels}
+            options={availableLevelOptions}
+            placeholder="Nivel"
+            searchPlaceholder="Buscar nivel..."
+            icon={<Layers className="h-3.5 w-3.5" />}
+          />
         </div>
 
         {/* Active filter badges */}
@@ -310,6 +340,11 @@ const InventarioGlobal = () => {
             {filterBedrooms.map(name => (
               <Badge key={`b-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBedrooms(prev => prev.filter(n => n !== name))}>
                 {name} <X className="h-3 w-3" />
+              </Badge>
+            ))}
+            {filterLevels.map(name => (
+              <Badge key={`l-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterLevels(prev => prev.filter(n => n !== name))}>
+                Nivel {name} <X className="h-3 w-3" />
               </Badge>
             ))}
             <Button variant="ghost" size="sm" className="text-xs h-6 px-2 text-destructive" onClick={clearAllFilters}>
@@ -396,112 +431,113 @@ const InventarioGlobal = () => {
 
       {/* Property Detail Dialog */}
       <Dialog open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle>{selectedProperty?.numero || `Unidad ${selectedProperty?.id}`}</DialogTitle>
           </DialogHeader>
           {selectedProperty && (
-            <div className="space-y-4">
-              {/* Model images in detail */}
-              {selectedProperty.model_images?.length > 0 && (
-                <DetailCarousel images={selectedProperty.model_images} />
-              )}
+            <>
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto px-6 space-y-4 pb-4">
+                {/* Model images in detail */}
+                {selectedProperty.model_images?.length > 0 && (
+                  <DetailCarousel images={selectedProperty.model_images} />
+                )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Proyecto</p>
-                  <p className="font-medium text-sm">{selectedProperty.proyecto_nombre}</p>
+                {/* Info chips - compact inline */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
+                    <Building2 className="h-3 w-3 text-muted-foreground" /> {selectedProperty.proyecto_nombre}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
+                    {selectedProperty.edificio_nombre}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
+                    {selectedProperty.modelo_nombre}
+                  </span>
+                  {selectedProperty.piso && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
+                      <Layers className="h-3 w-3 text-muted-foreground" /> Nivel {selectedProperty.piso}
+                    </span>
+                  )}
+                  {selectedProperty.m2_total > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-xs font-medium text-foreground">
+                      <Maximize2 className="h-3 w-3 text-muted-foreground" /> {selectedProperty.m2_total.toFixed(2)} m²
+                    </span>
+                  )}
                 </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Edificio</p>
-                  <p className="font-medium text-sm">{selectedProperty.edificio_nombre}</p>
+
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  {selectedProperty.recamaras > 0 && (
+                    <span className="flex items-center gap-1"><BedDouble className="h-4 w-4" /> {selectedProperty.recamaras} recámara{selectedProperty.recamaras > 1 ? "s" : ""}</span>
+                  )}
+                  {selectedProperty.banos > 0 && (
+                    <span className="flex items-center gap-1"><Bath className="h-4 w-4" /> {selectedProperty.banos} baño{selectedProperty.banos > 1 ? "s" : ""}</span>
+                  )}
+                  {selectedProperty.medio_bano > 0 && (
+                    <span className="flex items-center gap-1"><ShowerHead className="h-4 w-4" /> {selectedProperty.medio_bano} medio baño</span>
+                  )}
                 </div>
-                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Modelo</p>
-                  <p className="font-medium text-sm">{selectedProperty.modelo_nombre}</p>
-                </div>
-                {selectedProperty.piso && (
-                  <div className="bg-muted/50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-muted-foreground">Piso</p>
-                    <p className="font-medium text-sm">{selectedProperty.piso}</p>
+
+                {selectedProperty.precio_lista > 0 && (
+                  <div className="bg-primary/5 rounded-xl p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Precio de Lista</p>
+                    <p className="text-xl font-bold text-foreground">{formatPrice(selectedProperty.precio_lista)}</p>
                   </div>
                 )}
-                {selectedProperty.m2_total > 0 && (
-                  <div className="bg-muted/50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-muted-foreground">Superficie</p>
-                    <p className="font-medium text-sm">{selectedProperty.m2_total.toFixed(2)} m²</p>
-                  </div>
-                )}
-              </div>
 
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                {selectedProperty.recamaras > 0 && (
-                  <span className="flex items-center gap-1"><BedDouble className="h-4 w-4" /> {selectedProperty.recamaras} recámara{selectedProperty.recamaras > 1 ? "s" : ""}</span>
-                )}
-                {selectedProperty.banos > 0 && (
-                  <span className="flex items-center gap-1"><Bath className="h-4 w-4" /> {selectedProperty.banos} baño{selectedProperty.banos > 1 ? "s" : ""}</span>
-                )}
-                {selectedProperty.medio_bano > 0 && (
-                  <span className="flex items-center gap-1"><ShowerHead className="h-4 w-4" /> {selectedProperty.medio_bano} medio baño</span>
-                )}
-              </div>
-
-              {selectedProperty.precio_lista > 0 && (
-                <div className="bg-primary/5 rounded-lg p-4 text-center">
-                  <p className="text-xs text-muted-foreground">Precio de Lista</p>
-                  <p className="text-xl font-bold text-foreground">{formatPrice(selectedProperty.precio_lista)}</p>
-                </div>
-              )}
-
-              {/* Payment Schemes */}
-              {getSchemesForProject(selectedProperty.proyecto_id).length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-foreground">Esquemas de Pago</p>
+                {/* Payment Schemes */}
+                {getSchemesForProject(selectedProperty.proyecto_id).length > 0 && (
                   <div className="space-y-2">
-                    {getSchemesForProject(selectedProperty.proyecto_id).map((scheme: any) => (
-                      <div key={scheme.id} className="bg-muted/50 rounded-lg p-3 text-xs space-y-1">
-                        <p className="font-medium text-foreground">{scheme.nombre}</p>
-                        <div className="flex flex-wrap gap-3 text-muted-foreground">
-                          {scheme.porcentaje_enganche > 0 && <span>Enganche: {scheme.porcentaje_enganche}%</span>}
-                          {scheme.porcentaje_mensualidades > 0 && <span>Mensualidades: {scheme.porcentaje_mensualidades}%</span>}
-                          {scheme.porcentaje_entrega > 0 && <span>Entrega: {scheme.porcentaje_entrega}%</span>}
-                          {scheme.numero_mensualidades > 0 && <span>{scheme.numero_mensualidades} meses</span>}
-                          {scheme.porcentaje_descuento_aumento !== 0 && scheme.porcentaje_descuento_aumento != null && (
-                            <span className={scheme.porcentaje_descuento_aumento < 0 ? "text-green-600" : "text-destructive"}>
-                              {scheme.porcentaje_descuento_aumento > 0 ? "+" : ""}{scheme.porcentaje_descuento_aumento}%
-                            </span>
-                          )}
+                    <p className="text-sm font-semibold text-foreground">Esquemas de Pago</p>
+                    <div className="space-y-2">
+                      {getSchemesForProject(selectedProperty.proyecto_id).map((scheme: any) => (
+                        <div key={scheme.id} className="bg-muted/50 rounded-xl p-3 text-xs space-y-1">
+                          <p className="font-medium text-foreground">{scheme.nombre}</p>
+                          <div className="flex flex-wrap gap-3 text-muted-foreground">
+                            {scheme.porcentaje_enganche > 0 && <span>Enganche: {scheme.porcentaje_enganche}%</span>}
+                            {scheme.porcentaje_mensualidades > 0 && <span>Mensualidades: {scheme.porcentaje_mensualidades}%</span>}
+                            {scheme.porcentaje_entrega > 0 && <span>Entrega: {scheme.porcentaje_entrega}%</span>}
+                            {scheme.numero_mensualidades > 0 && <span>{scheme.numero_mensualidades} meses</span>}
+                            {scheme.porcentaje_descuento_aumento !== 0 && scheme.porcentaje_descuento_aumento != null && (
+                              <span className={scheme.porcentaje_descuento_aumento < 0 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-destructive font-semibold"}>
+                                {scheme.porcentaje_descuento_aumento > 0 ? "+" : ""}{scheme.porcentaje_descuento_aumento}%
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Generate Offer Button - controlled by permission */}
-              {canGenerateOffer ? (
-                <div onClick={(e) => e.stopPropagation()} className="pt-2">
-                  <NewOfferDialog
-                    propertyId={selectedProperty.id}
-                    propertyNumber={selectedProperty.numero || `${selectedProperty.id}`}
-                    hideManualMode={true}
-                    hidePdfOptions={true}
-                    customTrigger={
-                      <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground font-semibold text-sm shadow-[0_8px_30px_-4px_hsl(var(--primary)/0.45)] hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.55)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 ease-out border border-white/20">
-                        <FileText className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
-                        <span className="tracking-wide">Generar Oferta</span>
-                        <span className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                      </button>
-                    }
-                  />
-                </div>
-              ) : (
-                <Button className="w-full gap-2 rounded-full" size="lg" disabled>
-                  <FileText className="h-5 w-5" />
-                  Sin permiso para generar oferta
-                </Button>
-              )}
-            </div>
+              {/* Sticky CTA at bottom */}
+              <div className="shrink-0 px-6 py-4 border-t bg-background">
+                {canGenerateOffer ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <NewOfferDialog
+                      propertyId={selectedProperty.id}
+                      propertyNumber={selectedProperty.numero || `${selectedProperty.id}`}
+                      hideManualMode={true}
+                      hidePdfOptions={true}
+                      customTrigger={
+                        <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground font-semibold text-sm shadow-[0_8px_30px_-4px_hsl(var(--primary)/0.45)] hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.55)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 ease-out border border-white/20">
+                          <FileText className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+                          <span className="tracking-wide">Generar Oferta</span>
+                          <span className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                        </button>
+                      }
+                    />
+                  </div>
+                ) : (
+                  <Button className="w-full gap-2 rounded-full" size="lg" disabled>
+                    <FileText className="h-5 w-5" />
+                    Sin permiso para generar oferta
+                  </Button>
+                )}
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
