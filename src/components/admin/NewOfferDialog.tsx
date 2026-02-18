@@ -60,7 +60,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Check, ChevronsUpDown, UserPlus, Warehouse, Car, Info, AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { FileText, Check, ChevronsUpDown, UserPlus, Warehouse, Car, Info, AlertTriangle, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -196,6 +196,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [productSchemeSelections, setProductSchemeSelections] = useState<Record<number, number | null>>({});
   const [propertySchemeSelection, setPropertySchemeSelection] = useState<number | null>(null);
+  const [localSchemeId, setLocalSchemeId] = useState<number | null>(null);
   const [usarTramosPersonalizados, setUsarTramosPersonalizados] = useState(false);
   const [tramosMensualidad, setTramosMensualidad] = useState<TramoMensualidad[]>([]);
   const { toast } = useToast();
@@ -257,6 +258,13 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
     },
     enabled: searchTerm.length >= 2,
   });
+
+  // Initialize localSchemeId from preSelectedSchemeId when dialog opens
+  useEffect(() => {
+    if (open) {
+      setLocalSchemeId(preSelectedSchemeId || null);
+    }
+  }, [open, preSelectedSchemeId]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -1033,13 +1041,22 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
     },
   });
 
+  // Find selected scheme details
+  const selectedSchemeDetails = React.useMemo(() => {
+    if (!localSchemeId || !propertyPaymentSchemes) return null;
+    return propertyPaymentSchemes.find((s: any) => s.id === localSchemeId) || null;
+  }, [localSchemeId, propertyPaymentSchemes]);
+
   // Calculate property price and products total
   const priceCalculations = React.useMemo(() => {
     const propertyPrice = propertyDetails?.precio_lista || 0;
     
+    // Apply scheme adjustment if a scheme is selected
+    const schemeAdjustment = selectedSchemeDetails?.porcentaje_descuento_aumento || 0;
+    const adjustedPropertyPrice = propertyPrice * (1 + schemeAdjustment / 100);
+    
     let productsTotal = 0;
     if (includedProducts) {
-      // Products with price > 0 (not included in property price)
       includedProducts.bodegas.forEach((b: any) => {
         const precio = (b.productos_servicios as any)?.precio_lista || 0;
         const m2 = b.m2 || 0;
@@ -1054,10 +1071,12 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
     
     return {
       propertyPrice,
+      adjustedPropertyPrice,
+      schemeAdjustment,
       productsTotal,
-      grandTotal: propertyPrice + productsTotal
+      grandTotal: adjustedPropertyPrice + productsTotal
     };
-  }, [propertyDetails?.precio_lista, includedProducts]);
+  }, [propertyDetails?.precio_lista, includedProducts, selectedSchemeDetails]);
 
   // Calculate products with price > 0 and their scheme status
   const productsWithPriceInfo = React.useMemo(() => {
@@ -1154,10 +1173,11 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
     // If there are products with price > 0, show confirmation dialog
     if (productsWithPriceInfo.total > 0) {
       setPendingFormData(data);
+      setPropertySchemeSelection(localSchemeId);
       setShowConfirmDialog(true);
     } else {
-      // No products, proceed directly - use preSelectedSchemeId if provided from inventory
-      createOfferMutation.mutate({ data, schemeSelections: {}, propertySchemeId: preSelectedSchemeId || null });
+      // No products, proceed directly - use localSchemeId
+      createOfferMutation.mutate({ data, schemeSelections: {}, propertySchemeId: localSchemeId });
     }
   };
 
@@ -1207,12 +1227,85 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             {projectName && <span className="font-semibold"> de {projectName}</span>}
           </p>
           
+          {/* Selected Plan Indicator */}
+          {selectedMode !== "manual" && (
+            <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
+              selectedSchemeDetails
+                ? "bg-primary/10 border border-primary/20 text-primary"
+                : "bg-muted/60 border border-border/60 text-muted-foreground"
+            }`}>
+              <FileText className="h-3.5 w-3.5 shrink-0" />
+              {selectedSchemeDetails ? (
+                <div className="flex items-center justify-between w-full">
+                  <span>Plan: {selectedSchemeDetails.nombre}</span>
+                  {selectedSchemeDetails.porcentaje_descuento_aumento !== 0 && selectedSchemeDetails.porcentaje_descuento_aumento != null && (
+                    <Badge variant="outline" className={`text-[10px] ml-2 ${
+                      selectedSchemeDetails.porcentaje_descuento_aumento < 0
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                        : "border-destructive/30 bg-destructive/10 text-destructive"
+                    }`}>
+                      {selectedSchemeDetails.porcentaje_descuento_aumento > 0 ? "+" : ""}{selectedSchemeDetails.porcentaje_descuento_aumento}%
+                    </Badge>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setLocalSchemeId(null)}
+                    className="ml-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <span>Sin plan de pago seleccionado</span>
+              )}
+            </div>
+          )}
+
+          {/* Scheme selector - show when in precargada mode and schemes are available */}
+          {selectedMode !== "manual" && propertyPaymentSchemes && propertyPaymentSchemes.length > 0 && (
+            <div className="mt-2">
+              <Select
+                value={localSchemeId?.toString() || "none"}
+                onValueChange={(value) => {
+                  setLocalSchemeId(value === "none" ? null : parseInt(value));
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Seleccionar plan de pago..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground italic">Sin plan seleccionado</span>
+                  </SelectItem>
+                  {propertyPaymentSchemes.map((scheme: any) => (
+                    <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                      <div className="flex flex-col">
+                        <span>{scheme.nombre}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Eng: {scheme.porcentaje_enganche || 0}% | Mens: {scheme.porcentaje_mensualidades || 0}% ({scheme.numero_mensualidades || 0} pagos) | Ent: {scheme.porcentaje_entrega || 0}%
+                          {scheme.porcentaje_descuento_aumento ? ` | ${scheme.porcentaje_descuento_aumento > 0 ? '+' : ''}${scheme.porcentaje_descuento_aumento}%` : ''}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Price Summary Section */}
           <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Precio Propiedad:</span>
-                <p className="font-semibold text-lg">${priceCalculations.propertyPrice.toLocaleString()}</p>
+                {priceCalculations.schemeAdjustment !== 0 ? (
+                  <>
+                    <p className="text-xs text-muted-foreground line-through">${priceCalculations.propertyPrice.toLocaleString()}</p>
+                    <p className="font-semibold text-lg">${priceCalculations.adjustedPropertyPrice.toLocaleString()}</p>
+                  </>
+                ) : (
+                  <p className="font-semibold text-lg">${priceCalculations.propertyPrice.toLocaleString()}</p>
+                )}
               </div>
               {priceCalculations.productsTotal > 0 && (
                 <div>
@@ -1293,6 +1386,40 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                     );
                   })}
                 </div>
+                {/* Product scheme selectors for products with price > 0 */}
+                {productsWithPriceInfo.valid.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Esquemas de pago de productos:</p>
+                    {productsWithPriceInfo.valid.map((p: any) => (
+                      <div key={p.id_producto} className="flex items-center gap-2">
+                        <span className="text-xs text-foreground min-w-0 truncate flex-1">{p.tipo} "{p.nombre}":</span>
+                        <Select
+                          value={productSchemeSelections[p.id_producto]?.toString() || "none"}
+                          onValueChange={(value) => {
+                            setProductSchemeSelections(prev => ({
+                              ...prev,
+                              [p.id_producto]: value === "none" ? null : parseInt(value)
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-[11px] w-48">
+                            <SelectValue placeholder="Sin seleccionar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              <span className="text-muted-foreground italic">Sin seleccionar</span>
+                            </SelectItem>
+                            {p.paymentSchemes?.map((scheme: any) => (
+                              <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                                {scheme.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {/* Show disclaimer only if there are products with price > 0 */}
                 {(includedProducts.bodegas.some((b: any) => {
                   const precio = b.productos_servicios?.precio_lista || 0;
