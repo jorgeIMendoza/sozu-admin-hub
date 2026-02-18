@@ -302,11 +302,11 @@ const MisProyectos = () => {
       {/* Global Inventory Button */}
       <button
         onClick={() => navigate("/admin/inmobiliarias/inventario")}
-        className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold text-sm shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+        className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-3.5 rounded-full bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground font-semibold text-sm shadow-[0_8px_30px_-4px_hsl(var(--primary)/0.45)] hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.55)] hover:-translate-y-1 active:translate-y-0 active:shadow-[0_4px_20px_-4px_hsl(var(--primary)/0.4)] transition-all duration-300 ease-out backdrop-blur-sm border border-white/20"
       >
-        <Package className="h-5 w-5 transition-transform group-hover:scale-110" />
-        Explorar inventario
-        <span className="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <Package className="h-5 w-5 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
+        <span className="tracking-wide">Explorar inventario</span>
+        <span className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       </button>
 
       {filtered.length === 0 ? (

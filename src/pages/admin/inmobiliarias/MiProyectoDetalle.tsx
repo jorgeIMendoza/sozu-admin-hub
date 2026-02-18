@@ -168,9 +168,13 @@ const MiProyectoDetalle = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
       {/* Back button */}
-      <Button variant="ghost" size="sm" onClick={() => navigate("/admin/inmobiliarias/mis-proyectos")} className="gap-2 text-primary">
-        <ArrowLeft className="h-4 w-4" /> Volver a proyectos
-      </Button>
+      <button
+        onClick={() => navigate("/admin/inmobiliarias/mis-proyectos")}
+        className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-medium text-sm border border-primary/20 shadow-sm hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 ease-out"
+      >
+        <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
+        <span className="tracking-wide">Volver a proyectos</span>
+      </button>
 
       {/* Hero Carousel */}
       <HeroCarousel images={images} projectName={project.nombre} />
@@ -304,15 +308,23 @@ const MiProyectoDetalle = () => {
 
       {/* Inventory Button */}
       <div className="px-1">
-        <Button
-          className="w-full gap-2"
-          size="lg"
+        <button
           disabled={availableProps === 0}
           onClick={() => navigate(`/admin/inmobiliarias/mis-proyectos/${projectId}/inventario`)}
+          className={`group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full font-semibold text-sm transition-all duration-300 ease-out border ${
+            availableProps === 0
+              ? "bg-gradient-to-br from-muted to-muted/80 text-muted-foreground border-border cursor-not-allowed opacity-70"
+              : "bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground shadow-[0_8px_30px_-4px_hsl(var(--primary)/0.45)] hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.55)] hover:-translate-y-1 active:translate-y-0 active:shadow-[0_4px_20px_-4px_hsl(var(--primary)/0.4)] border-white/20"
+          }`}
         >
-          <Package className="h-5 w-5" />
-          {availableProps === 0 ? "Agotado" : `Ver Inventario Disponible (${availableProps} unidades)`}
-        </Button>
+          <Package className={`h-5 w-5 transition-transform duration-300 ${availableProps > 0 ? "group-hover:scale-110 group-hover:rotate-6" : ""}`} />
+          <span className="tracking-wide">
+            {availableProps === 0 ? "Agotado" : `Ver Inventario Disponible (${availableProps} unidades)`}
+          </span>
+          {availableProps > 0 && (
+            <span className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent to-white/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          )}
+        </button>
       </div>
 
       {/* Map Section */}
