@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, RotateCcw, Building2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, RotateCcw, Building2, Loader2 } from "lucide-react";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,66 @@ export default function EntidadesLegales() {
   const [entityToRestore, setEntityToRestore] = useState<EntidadLegal | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Full fetch persona data when editing (prevents overwriting fiscal/address data with nulls)
+  const { data: fullEditingPersona, isLoading: loadingFullPersona } = useQuery({
+    queryKey: ['entidad-legal-full-edit', editingEntity?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('personas')
+        .select(`
+          id,
+          nombre_legal,
+          nombre_comercial,
+          email,
+          telefono,
+          clave_pais_telefono,
+          rfc,
+          curp,
+          tipo_persona,
+          sexo,
+          fecha_nacimiento,
+          id_estado_civil,
+          ocupacion,
+          id_pais_nacimiento,
+          id_estado_nacimiento,
+          id_municipio_nacimiento,
+          direccion_calle,
+          direccion_num_ext,
+          direccion_num_int,
+          direccion_colonia,
+          direccion_codigo_postal,
+          direccion_id_pais,
+          direccion_id_estado,
+          direccion_id_municipio,
+          direccion_fiscal_calle,
+          direccion_fiscal_num_ext,
+          direccion_fiscal_num_int,
+          direccion_fiscal_colonia,
+          direccion_fiscal_codigo_postal,
+          direccion_fiscal_id_pais,
+          direccion_fiscal_id_estado,
+          direccion_fiscal_id_municipio,
+          uso_cfdi,
+          regimen,
+          numero_escritura,
+          numero_libro,
+          folio_mercantil,
+          fecha_escritura,
+          fecha_registro,
+          id_notario,
+          url_logo,
+          activo,
+          id_entidad_relacionada_rep_leg,
+          id_entidad_relacionada_rep_com
+        `)
+        .eq('id', editingEntity!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!editingEntity?.id && isEditDialogOpen,
+  });
   
   const itemsPerPage = 10;
 
@@ -919,20 +979,27 @@ export default function EntidadesLegales() {
           <DialogHeader>
             <DialogTitle>Editar Entidad Legal</DialogTitle>
           </DialogHeader>
-          <PersonForm
-            initialData={{
-              ...editingEntity,
-              representativeId: editingEntity?.id_entidad_relacionada_rep_leg,
-              id_entidad_relacionada_rep_com: editingEntity?.id_entidad_relacionada_rep_com
-            }}
-            onSubmit={(data) => updateMutation.mutate(data)}
-            isLoading={updateMutation.isPending}
-            onCancel={() => {
-              setIsEditDialogOpen(false);
-              setEditingEntity(null);
-            }}
-            entityType="legal"
-          />
+          {loadingFullPersona ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : fullEditingPersona ? (
+            <PersonForm
+              initialData={{
+                ...fullEditingPersona,
+                id_tipo_entidad: editingEntity?.id_tipo_entidad,
+                representativeId: fullEditingPersona.id_entidad_relacionada_rep_leg,
+                id_entidad_relacionada_rep_com: fullEditingPersona.id_entidad_relacionada_rep_com,
+              }}
+              onSubmit={(data) => updateMutation.mutate(data)}
+              isLoading={updateMutation.isPending}
+              onCancel={() => {
+                setIsEditDialogOpen(false);
+                setEditingEntity(null);
+              }}
+              entityType="legal"
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 
