@@ -1079,7 +1079,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         hasCuentaMadreStp: !!(e.entidadInfo?.cuenta_madre_stp),
         nombreDueno: e.entidadInfo?.nombre_dueno || 'Dueño no configurado'
       }))
-    ].filter(p => p.precioFinal > 0);
+    ].filter(p => p.precioFinal > 0 && !p.es_incluido);
 
     const valid = allProducts.filter(p => p.hasSchemes);
     const invalid = allProducts.filter(p => !p.hasSchemes);

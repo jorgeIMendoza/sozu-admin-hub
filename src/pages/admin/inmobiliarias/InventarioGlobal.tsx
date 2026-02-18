@@ -433,7 +433,7 @@ const InventarioGlobal = () => {
       <Dialog open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
-            <DialogTitle>{selectedProperty?.numero || `Unidad ${selectedProperty?.id}`}</DialogTitle>
+            <DialogTitle>Departamento: {selectedProperty?.numero || selectedProperty?.id}</DialogTitle>
           </DialogHeader>
           {selectedProperty && (
             <>
@@ -488,21 +488,33 @@ const InventarioGlobal = () => {
 
                 {/* Payment Schemes */}
                 {getSchemesForProject(selectedProperty.proyecto_id).length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-sm font-semibold text-foreground">Esquemas de Pago</p>
-                    <div className="space-y-2">
+                    <div className="grid gap-2">
                       {getSchemesForProject(selectedProperty.proyecto_id).map((scheme: any) => (
-                        <div key={scheme.id} className="bg-muted/50 rounded-xl p-3 text-xs space-y-1">
-                          <p className="font-medium text-foreground">{scheme.nombre}</p>
-                          <div className="flex flex-wrap gap-3 text-muted-foreground">
-                            {scheme.porcentaje_enganche > 0 && <span>Enganche: {scheme.porcentaje_enganche}%</span>}
-                            {scheme.porcentaje_mensualidades > 0 && <span>Mensualidades: {scheme.porcentaje_mensualidades}%</span>}
-                            {scheme.porcentaje_entrega > 0 && <span>Entrega: {scheme.porcentaje_entrega}%</span>}
-                            {scheme.numero_mensualidades > 0 && <span>{scheme.numero_mensualidades} meses</span>}
+                        <div key={scheme.id} className="rounded-xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-4 shadow-sm space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold text-sm text-foreground">{scheme.nombre}</p>
                             {scheme.porcentaje_descuento_aumento !== 0 && scheme.porcentaje_descuento_aumento != null && (
-                              <span className={scheme.porcentaje_descuento_aumento < 0 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-destructive font-semibold"}>
+                              <Badge variant="outline" className={scheme.porcentaje_descuento_aumento < 0 
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400 text-xs" 
+                                : "border-destructive/30 bg-destructive/10 text-destructive text-xs"}>
                                 {scheme.porcentaje_descuento_aumento > 0 ? "+" : ""}{scheme.porcentaje_descuento_aumento}%
-                              </span>
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                            {scheme.porcentaje_enganche > 0 && (
+                              <span><span className="font-medium text-foreground">{scheme.porcentaje_enganche}%</span> Enganche</span>
+                            )}
+                            {scheme.porcentaje_mensualidades > 0 && (
+                              <span><span className="font-medium text-foreground">{scheme.porcentaje_mensualidades}%</span> Mensualidades</span>
+                            )}
+                            {scheme.porcentaje_entrega > 0 && (
+                              <span><span className="font-medium text-foreground">{scheme.porcentaje_entrega}%</span> Entrega</span>
+                            )}
+                            {scheme.numero_mensualidades > 0 && (
+                              <span><span className="font-medium text-foreground">{scheme.numero_mensualidades}</span> meses</span>
                             )}
                           </div>
                         </div>
