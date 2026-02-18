@@ -230,7 +230,7 @@ const MiProyectoDetalle = () => {
             <Building2 className="h-5 w-5 mx-auto text-muted-foreground" />
             <p className="text-xs text-muted-foreground">Propiedades</p>
             <p className="font-semibold text-sm">{totalProps} total</p>
-            <p className="text-xs text-green-600 font-medium">{availableProps} disponibles</p>
+            <p className={`text-xs font-medium ${availableProps > 0 ? 'text-green-600' : 'text-destructive'}`}>{availableProps > 0 ? `${availableProps} disponibles` : 'Agotado'}</p>
           </CardContent>
         </Card>
       </div>
