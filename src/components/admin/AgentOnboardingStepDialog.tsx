@@ -98,10 +98,10 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[92vh]">
+        <DrawerContent className="max-h-[92vh] rounded-t-3xl">
           <DrawerHeader className="text-left pb-2">
-            <DrawerTitle>{title}</DrawerTitle>
-            <DrawerDescription>{description}</DrawerDescription>
+            <DrawerTitle className="text-lg">{title}</DrawerTitle>
+            <DrawerDescription className="text-xs">{description}</DrawerDescription>
           </DrawerHeader>
           <ScrollArea className="px-4 pb-6 overflow-y-auto" style={{ maxHeight: 'calc(92vh - 100px)' }}>
             {content}
@@ -113,10 +113,10 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl border-0">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle className="text-lg">{title}</DialogTitle>
+          <DialogDescription className="text-xs">{description}</DialogDescription>
         </DialogHeader>
         {content}
       </DialogContent>
@@ -244,7 +244,7 @@ function AgentDocumentsStep({ personaId }: { personaId: number }) {
         return (
           <div
             key={typeId}
-            className={`rounded-xl border-2 transition-all duration-300 ${
+            className={`rounded-2xl border-2 transition-all duration-300 shadow-sm hover:shadow-md ${
               isValidated
                 ? 'border-emerald-500/30 bg-emerald-500/5'
                 : doc
@@ -272,6 +272,19 @@ function AgentDocumentsStep({ personaId }: { personaId: number }) {
 
               {/* Action buttons */}
               <div className="flex gap-2">
+                {/* Preview button for uploaded docs */}
+                {doc?.url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(doc.url, '_blank')}
+                    className="h-10 px-3 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5 border-primary/20"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Ver
+                  </Button>
+                )}
+
                 {/* Upload/Update button */}
                 {!isValidated && (
                   <Button
@@ -279,7 +292,7 @@ function AgentDocumentsStep({ personaId }: { personaId: number }) {
                     size="sm"
                     disabled={isUploading}
                     onClick={() => handleFileSelect(typeId)}
-                    className="flex-1 h-10 rounded-xl shadow-[0_4px_14px_-3px_hsl(var(--primary)/0.25)] hover:shadow-[0_6px_20px_-3px_hsl(var(--primary)/0.35)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
+                    className="flex-1 h-10 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
                   >
                     {isUploading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -303,7 +316,7 @@ function AgentDocumentsStep({ personaId }: { personaId: number }) {
                     variant="outline"
                     size="sm"
                     onClick={() => window.open(doc.url, '_blank')}
-                    className="flex-1 h-10 rounded-xl shadow-[0_4px_14px_-3px_hsl(142_76%_36%/0.25)] hover:shadow-[0_6px_20px_-3px_hsl(142_76%_36%/0.35)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5 text-emerald-600 border-emerald-200"
+                    className="flex-1 h-10 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5 text-emerald-600 border-emerald-200"
                   >
                     <Download className="h-3.5 w-3.5" />
                     Descargar
@@ -734,7 +747,7 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
     <div className="space-y-4">
       <div>
         <Label>Calle *</Label>
-        <Input value={calleVal} onChange={(e) => setCalleVal(e.target.value)} className="mt-1" />
+        <Input value={calleVal} onChange={(e) => setCalleVal(e.target.value)} className="mt-1 rounded-xl" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -863,7 +876,7 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
       <Button
         onClick={handleSave}
         disabled={saving}
-        className="w-full h-12 text-base font-semibold rounded-xl shadow-[0_6px_20px_-4px_hsl(var(--primary)/0.4)] hover:shadow-[0_8px_28px_-4px_hsl(var(--primary)/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+        className="w-full h-12 text-base font-semibold rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-1 active:translate-y-0 transition-all duration-200"
       >
         {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...</> : "Guardar"}
       </Button>

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight, FileSpreadsheet, User } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight, FileSpreadsheet, User, CalendarCheck, Calendar, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";  
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,87 @@ const ROLE_AGENTE_INTERNO = 9;
 const ROLE_AGENTE_INMOBILIARIO = 3;
 
 const ITEMS_PER_PAGE = 50;
+
+// Training cell component for each agent row
+function AgentTrainingCell({ personaId }: { personaId: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: cita, isLoading } = useQuery({
+    queryKey: ['agent-training-cell', personaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('citas_capacitacion')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus')
+        .eq('id_persona', personaId)
+        .eq('activo', true)
+        .order('fecha_creacion', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const handleConfirmAttendance = async () => {
+    if (!cita) return;
+    const { error } = await supabase
+      .from('citas_capacitacion')
+      .update({ estatus: 'asistio', fecha_confirmacion: new Date().toISOString() })
+      .eq('id', cita.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Éxito", description: "Asistencia confirmada." });
+      queryClient.invalidateQueries({ queryKey: ['agent-training-cell', personaId] });
+    }
+  };
+
+  const handleMarkNoShow = async () => {
+    if (!cita) return;
+    const { error } = await supabase
+      .from('citas_capacitacion')
+      .update({ estatus: 'no_asistio', fecha_confirmacion: new Date().toISOString() })
+      .eq('id', cita.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Actualizado", description: "Marcado como no asistió." });
+      queryClient.invalidateQueries({ queryKey: ['agent-training-cell', personaId] });
+    }
+  };
+
+  if (isLoading) return <span className="text-xs text-muted-foreground">...</span>;
+  if (!cita) return <span className="text-xs text-muted-foreground">Sin cita</span>;
+
+  return (
+    <div className="space-y-1">
+      <div className="text-xs">
+        <span className="font-medium">{cita.fecha}</span>
+        <span className="text-muted-foreground ml-1">{cita.hora_inicio?.slice(0,5)}-{cita.hora_fin?.slice(0,5)}</span>
+      </div>
+      {cita.estatus === 'programada' && (
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={handleConfirmAttendance}>
+            <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10" onClick={handleMarkNoShow}>
+            No asistió
+          </Button>
+        </div>
+      )}
+      {cita.estatus === 'asistio' && (
+        <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Completada</Badge>
+      )}
+      {cita.estatus === 'no_asistio' && (
+        <Badge variant="destructive" className="text-[10px]">No asistió</Badge>
+      )}
+      {cita.estatus === 'cancelada' && (
+        <Badge variant="outline" className="text-[10px] text-muted-foreground">Cancelada</Badge>
+      )}
+    </div>
+  );
+}
 
 export default function Agentes() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -644,6 +725,7 @@ export default function Agentes() {
               <TableHead className="font-semibold text-foreground">RFC</TableHead>
               <TableHead className="font-semibold text-foreground">Inmobiliaria</TableHead>
               <TableHead className="font-semibold text-foreground">Comisión (%)</TableHead>
+              <TableHead className="font-semibold text-foreground">Capacitación</TableHead>
               <TableHead className="font-semibold text-foreground">Representante legal</TableHead>
               <TableHead className="font-semibold text-foreground text-center">Acciones</TableHead>
             </TableRow>
@@ -710,6 +792,9 @@ export default function Agentes() {
                   ) : (
                     <Badge variant="outline" className="text-sm text-muted-foreground">2.00%</Badge>
                   )}
+                </TableCell>
+                <TableCell>
+                  <AgentTrainingCell personaId={agente.id} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {agente.representante_legal_nombre || 'N/A'}

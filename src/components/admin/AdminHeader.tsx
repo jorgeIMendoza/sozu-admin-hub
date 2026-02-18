@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { UserSettingsDialog } from "./UserSettingsDialog";
+import { AgentOnboardingWidget } from "./AgentOnboardingWidget";
 import { useAuth } from "@/contexts/AuthContext";
 import { APP_VERSION } from "@/lib/config";
 import {
@@ -56,7 +57,7 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
         <div className="flex items-center justify-between">
           {/* Left side */}
           {isSimplifiedRole ? (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 shrink-0">
               <img src={sozuLogo} alt="Sozu" className="h-7" />
               <span className="text-[9px] text-muted-foreground/40 select-none">{APP_VERSION}</span>
             </div>
@@ -70,6 +71,13 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
             >
               <Menu className="h-5 w-5" />
             </Button>
+          )}
+
+          {/* Center - Onboarding progress for agents */}
+          {isSimplifiedRole && profile?.rol_nombre === "Agente Inmobiliario" && profile?.id_persona && (
+            <div className="flex-1 mx-4 max-w-xl hidden sm:block">
+              <AgentOnboardingWidget personaId={profile.id_persona} variant="inline" />
+            </div>
           )}
 
           {/* Right side */}
@@ -141,6 +149,12 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
           </div>
         </div>
 
+        {/* Mobile onboarding - below header content */}
+        {isSimplifiedRole && profile?.rol_nombre === "Agente Inmobiliario" && profile?.id_persona && (
+          <div className="sm:hidden mt-2">
+            <AgentOnboardingWidget personaId={profile.id_persona} variant="inline" />
+          </div>
+        )}
       </header>
 
       {!isSimplifiedRole && (
