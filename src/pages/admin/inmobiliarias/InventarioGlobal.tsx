@@ -326,215 +326,107 @@ const InventarioGlobal = () => {
             {filteredProperties.length} unidades disponibles
           </p>
         </div>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => navigate("/admin/inmobiliarias/proyectos")}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
+          className="rounded-full gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary/5"
         >
           <Building2 className="h-3.5 w-3.5" />
-          <span>Proyectos</span>
-        </button>
+          Proyectos
+        </Button>
       </div>
 
-      {/* Mobile: Airbnb-style search button */}
-      {isMobile ? (
-        <div className="space-y-3">
-          <button
-            onClick={() => setFiltersDrawerOpen(true)}
-            className="w-full flex items-center gap-3 px-5 py-3.5 rounded-full border border-border/80 bg-card shadow-md hover:shadow-lg transition-shadow"
-          >
-            <Search className="h-5 w-5 text-primary shrink-0" />
-            <div className="flex-1 text-left">
-              <p className="text-sm font-semibold text-foreground">Buscar propiedades</p>
-              <p className="text-xs text-muted-foreground">
-                {hasActiveFilters 
-                  ? `${activeFilterCount} filtro${activeFilterCount > 1 ? 's' : ''} activo${activeFilterCount > 1 ? 's' : ''}`
-                  : "Proyecto · Modelo · Recámaras · Nivel"
-                }
-              </p>
-            </div>
-            <div className="relative">
-              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-              {hasActiveFilters && (
-                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
-                  {activeFilterCount}
-                </span>
-              )}
-            </div>
-          </button>
-
-          {/* Active filter badges on mobile */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {filterProjectNames.map(name => (
-                <Badge key={`p-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterProjectNames(prev => prev.filter(n => n !== name))}>
-                  {name.length > 15 ? name.slice(0, 12) + "…" : name} <X className="h-2.5 w-2.5" />
-                </Badge>
-              ))}
-              {filterModelNames.map(name => (
-                <Badge key={`m-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterModelNames(prev => prev.filter(n => n !== name))}>
-                  {name} <X className="h-2.5 w-2.5" />
-                </Badge>
-              ))}
-              {filterBedrooms.map(name => (
-                <Badge key={`b-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterBedrooms(prev => prev.filter(n => n !== name))}>
-                  {name} <X className="h-2.5 w-2.5" />
-                </Badge>
-              ))}
-              {filterLevels.map(name => (
-                <Badge key={`l-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterLevels(prev => prev.filter(n => n !== name))}>
-                  Nivel {name} <X className="h-2.5 w-2.5" />
-                </Badge>
-              ))}
-              {filterBodega && (
-                <Badge variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterBodega(null)}>
-                  {filterBodega === "con" ? "Con bodega" : "Sin bodega"} <X className="h-2.5 w-2.5" />
-                </Badge>
-              )}
-              {filterEstacionamiento && (
-                <Badge variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterEstacionamiento(null)}>
-                  {filterEstacionamiento === "con" ? "Con estac." : "Sin estac."} <X className="h-2.5 w-2.5" />
-                </Badge>
-              )}
-              <button className="text-[10px] text-destructive font-medium px-1" onClick={clearAllFilters}>
-                Limpiar
-              </button>
-            </div>
-          )}
-
-          {/* Mobile Drawer */}
-          <Drawer open={filtersDrawerOpen} onOpenChange={setFiltersDrawerOpen}>
-            <DrawerContent className="max-h-[85vh]">
-              <DrawerHeader className="pb-2">
-                <DrawerTitle className="flex items-center justify-between">
-                  <span>Filtrar propiedades</span>
-                  {hasActiveFilters && (
-                    <Button variant="ghost" size="sm" className="text-xs text-destructive h-7" onClick={clearAllFilters}>
-                      Limpiar todo
-                    </Button>
-                  )}
-                </DrawerTitle>
-              </DrawerHeader>
-              <div className="overflow-y-auto px-4 pb-6 max-h-[65vh]">
-                {filterContent}
-              </div>
-              <div className="px-4 py-3 border-t">
-                <Button className="w-full rounded-full gap-2" onClick={() => setFiltersDrawerOpen(false)}>
-                  <Search className="h-4 w-4" />
-                  Ver {filteredProperties.length} resultados
-                </Button>
-              </div>
-            </DrawerContent>
-          </Drawer>
-        </div>
-      ) : (
-        /* Desktop: Standard filter grid */
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <MultiSelectFilter
-              values={filterProjectNames}
-              onValuesChange={setFilterProjectNames}
-              options={projectsWithAvailable}
-              placeholder="Todos los proyectos"
-              searchPlaceholder="Buscar proyecto..."
-              icon={<Building2 className="h-3.5 w-3.5" />}
-            />
-
-            <MultiSelectFilter
-              values={filterModelNames}
-              onValuesChange={setFilterModelNames}
-              options={availableModelNames}
-              placeholder="Todos los modelos"
-              searchPlaceholder="Buscar modelo..."
-            />
-
-            <MultiSelectFilter
-              values={filterBedrooms}
-              onValuesChange={setFilterBedrooms}
-              options={availableBedroomOptions}
-              placeholder="Recámaras"
-              searchPlaceholder="Buscar..."
-              icon={<BedDouble className="h-3.5 w-3.5" />}
-            />
-
-            <MultiSelectFilter
-              values={filterLevels}
-              onValuesChange={setFilterLevels}
-              options={availableLevelOptions}
-              placeholder="Nivel"
-              searchPlaceholder="Buscar nivel..."
-              icon={<Layers className="h-3.5 w-3.5" />}
-            />
-
-            <MultiSelectFilter
-              values={filterBodega ? [filterBodega === "con" ? "Con bodega" : "Sin bodega"] : []}
-              onValuesChange={(vals) => {
-                if (vals.length === 0) setFilterBodega(null);
-                else {
-                  const last = vals[vals.length - 1];
-                  setFilterBodega(last === "Con bodega" ? "con" : "sin");
-                }
-              }}
-              options={["Con bodega", "Sin bodega"]}
-              placeholder="Bodega"
-              icon={<img src={bodegaIcon} alt="" className="h-3.5 w-3.5 opacity-60" />}
-            />
-
-            <MultiSelectFilter
-              values={filterEstacionamiento ? [filterEstacionamiento === "con" ? "Con estac." : "Sin estac."] : []}
-              onValuesChange={(vals) => {
-                if (vals.length === 0) setFilterEstacionamiento(null);
-                else {
-                  const last = vals[vals.length - 1];
-                  setFilterEstacionamiento(last === "Con estac." ? "con" : "sin");
-                }
-              }}
-              options={["Con estac.", "Sin estac."]}
-              placeholder="Estacionamiento"
-              icon={<Car className="h-3.5 w-3.5" />}
-            />
+      {/* Unified Airbnb-style search button for both mobile and desktop */}
+      <div className="space-y-3">
+        <button
+          onClick={() => setFiltersDrawerOpen(true)}
+          className="w-full flex items-center gap-3 px-5 py-3.5 rounded-full border border-border/80 bg-card shadow-md hover:shadow-lg transition-shadow max-w-xl"
+        >
+          <Search className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex-1 text-left">
+            <p className="text-sm font-semibold text-foreground">Buscar propiedades</p>
+            <p className="text-xs text-muted-foreground">
+              {hasActiveFilters 
+                ? `${activeFilterCount} filtro${activeFilterCount > 1 ? 's' : ''} activo${activeFilterCount > 1 ? 's' : ''}`
+                : "Filtrar por proyecto, modelo, recámaras..."
+              }
+            </p>
           </div>
+          <div className="relative">
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+            {hasActiveFilters && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </div>
+        </button>
 
-          {/* Active filter badges */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground">Filtros activos:</span>
-              {filterProjectNames.map(name => (
-                <Badge key={`p-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterProjectNames(prev => prev.filter(n => n !== name))}>
-                  {name} <X className="h-3 w-3" />
-                </Badge>
-              ))}
-              {filterModelNames.map(name => (
-                <Badge key={`m-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterModelNames(prev => prev.filter(n => n !== name))}>
-                  {name} <X className="h-3 w-3" />
-                </Badge>
-              ))}
-              {filterBedrooms.map(name => (
-                <Badge key={`b-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBedrooms(prev => prev.filter(n => n !== name))}>
-                  {name} <X className="h-3 w-3" />
-                </Badge>
-              ))}
-              {filterLevels.map(name => (
-                <Badge key={`l-${name}`} variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterLevels(prev => prev.filter(n => n !== name))}>
-                  Nivel {name} <X className="h-3 w-3" />
-                </Badge>
-              ))}
-              {filterBodega && (
-                <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterBodega(null)}>
-                  {filterBodega === "con" ? "Con bodega" : "Sin bodega"} <X className="h-3 w-3" />
-                </Badge>
-              )}
-              {filterEstacionamiento && (
-                <Badge variant="secondary" className="text-xs gap-1 cursor-pointer" onClick={() => setFilterEstacionamiento(null)}>
-                  {filterEstacionamiento === "con" ? "Con estac." : "Sin estac."} <X className="h-3 w-3" />
-                </Badge>
-              )}
-              <Button variant="ghost" size="sm" className="text-xs h-6 px-2 text-destructive" onClick={clearAllFilters}>
-                <X className="h-3 w-3 mr-1" /> Limpiar filtros
+        {/* Active filter badges */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {filterProjectNames.map(name => (
+              <Badge key={`p-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterProjectNames(prev => prev.filter(n => n !== name))}>
+                {name.length > 15 ? name.slice(0, 12) + "…" : name} <X className="h-2.5 w-2.5" />
+              </Badge>
+            ))}
+            {filterModelNames.map(name => (
+              <Badge key={`m-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterModelNames(prev => prev.filter(n => n !== name))}>
+                {name} <X className="h-2.5 w-2.5" />
+              </Badge>
+            ))}
+            {filterBedrooms.map(name => (
+              <Badge key={`b-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterBedrooms(prev => prev.filter(n => n !== name))}>
+                {name} <X className="h-2.5 w-2.5" />
+              </Badge>
+            ))}
+            {filterLevels.map(name => (
+              <Badge key={`l-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterLevels(prev => prev.filter(n => n !== name))}>
+                Nivel {name} <X className="h-2.5 w-2.5" />
+              </Badge>
+            ))}
+            {filterBodega && (
+              <Badge variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterBodega(null)}>
+                {filterBodega === "con" ? "Con bodega" : "Sin bodega"} <X className="h-2.5 w-2.5" />
+              </Badge>
+            )}
+            {filterEstacionamiento && (
+              <Badge variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterEstacionamiento(null)}>
+                {filterEstacionamiento === "con" ? "Con estac." : "Sin estac."} <X className="h-2.5 w-2.5" />
+              </Badge>
+            )}
+            <button className="text-[10px] text-destructive font-medium px-1" onClick={clearAllFilters}>
+              Limpiar
+            </button>
+          </div>
+        )}
+
+        {/* Filters Drawer (used for both mobile and desktop) */}
+        <Drawer open={filtersDrawerOpen} onOpenChange={setFiltersDrawerOpen}>
+          <DrawerContent className="max-h-[85vh]">
+            <DrawerHeader className="pb-2">
+              <DrawerTitle className="flex items-center justify-between">
+                <span>Filtrar propiedades</span>
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="text-xs text-destructive h-7" onClick={clearAllFilters}>
+                    Limpiar todo
+                  </Button>
+                )}
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-6 max-h-[65vh]">
+              {filterContent}
+            </div>
+            <div className="px-4 py-3 border-t">
+              <Button className="w-full rounded-full gap-2" onClick={() => setFiltersDrawerOpen(false)}>
+                <Search className="h-4 w-4" />
+                Ver {filteredProperties.length} resultados
               </Button>
             </div>
-          )}
-        </div>
-      )}
+          </DrawerContent>
+        </Drawer>
+      </div>
 
       {/* Properties Grid */}
       {filteredProperties.length === 0 ? (
