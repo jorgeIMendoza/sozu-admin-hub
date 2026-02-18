@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.notificar-confirmacion-email]
 verify_jwt = false
+
+[functions.agendar-capacitacion]
+verify_jwt = false

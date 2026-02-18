@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { User, MapPin, FileText, FolderOpen, Landmark, Check, Trophy, Loader2 } from "lucide-react";
+import { User, MapPin, FileText, FolderOpen, Landmark, Check, Trophy, Loader2, GraduationCap } from "lucide-react";
 import { useAgentOnboardingStatus, type OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { AgentOnboardingStepDialog } from "./AgentOnboardingStepDialog";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ const STEP_ICONS: Record<string, React.ElementType> = {
   fiscal: FileText,
   documents: FolderOpen,
   'bank-accounts': Landmark,
+  training: GraduationCap,
 };
 
 const STEP_NUMBERS: Record<string, number> = {
@@ -19,6 +20,7 @@ const STEP_NUMBERS: Record<string, number> = {
   fiscal: 3,
   documents: 4,
   'bank-accounts': 5,
+  training: 6,
 };
 
 interface AgentOnboardingWidgetProps {
@@ -48,7 +50,6 @@ export function AgentOnboardingWidget({ personaId }: AgentOnboardingWidgetProps)
     );
   }
 
-  const nextIncomplete = steps.find(s => !s.isComplete);
 
   return (
     <>
@@ -77,7 +78,7 @@ export function AgentOnboardingWidget({ personaId }: AgentOnboardingWidgetProps)
         {/* Horizontal stepper - compact */}
         <div className="flex items-center justify-between gap-0">
           {steps.map((step, index) => {
-            const isNext = nextIncomplete?.id === step.id;
+            const isSelected = activeStep === step.id;
             const num = STEP_NUMBERS[step.id];
 
             return (
@@ -91,8 +92,8 @@ export function AgentOnboardingWidget({ personaId }: AgentOnboardingWidgetProps)
                       "flex items-center justify-center h-7 w-7 rounded-full text-[10px] font-bold transition-all border-2",
                       step.isComplete
                         ? "bg-emerald-500 border-emerald-500 text-white scale-100"
-                        : isNext
-                        ? "bg-primary border-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-1 animate-pulse"
+                        : isSelected
+                        ? "bg-primary border-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-1"
                         : "bg-muted border-muted-foreground/20 text-muted-foreground"
                     )}
                   >
@@ -102,7 +103,7 @@ export function AgentOnboardingWidget({ personaId }: AgentOnboardingWidgetProps)
                     "text-[9px] leading-tight font-medium text-center max-w-[52px]",
                     step.isComplete
                       ? "text-emerald-600 dark:text-emerald-400"
-                      : isNext
+                      : isSelected
                       ? "text-primary"
                       : "text-muted-foreground"
                   )}>
