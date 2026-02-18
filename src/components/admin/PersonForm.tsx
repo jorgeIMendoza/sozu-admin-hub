@@ -69,7 +69,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
   const [rfc, setRfc] = useState(initialData?.rfc || '');
   const [rfcError, setRfcError] = useState<string | null>(null);
   const [usoCfdi, setUsoCfdi] = useState(initialData?.uso_cfdi || '');
-  const [regimen, setRegimen] = useState(initialData?.regimen || '');
+  const [regimen, setRegimen] = useState(initialData?.regimen?.toString() || '');
   
   // RFC validation handler
   const handleRfcChange = (value: string) => {
@@ -745,9 +745,9 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       id_estado_civil: tipoPersona === 'pf' && idEstadoCivil ? parseInt(idEstadoCivil) : null,
       id_conyuge: tipoPersona === 'pf' && idConyuge ? parseInt(idConyuge) : null,
       ocupacion: ocupacion.trim() || null,
-      id_pais_nacimiento: tipoPersona === 'pf' && idPaisNacimiento ? idPaisNacimiento : null,
-      id_estado_nacimiento: tipoPersona === 'pf' && idEstadoNacimiento ? parseInt(idEstadoNacimiento) : null,
-      id_municipio_nacimiento: tipoPersona === 'pf' && idMunicipioNacimiento ? parseInt(idMunicipioNacimiento) : null,
+      id_pais_nacimiento: idPaisNacimiento || null,
+      id_estado_nacimiento: idEstadoNacimiento ? parseInt(idEstadoNacimiento) : null,
+      id_municipio_nacimiento: idMunicipioNacimiento ? parseInt(idMunicipioNacimiento) : null,
       direccion_calle: direccionCalle.trim() || null,
       direccion_num_ext: direccionNumExt.trim() || null,
       direccion_num_int: direccionNumInt.trim() || null,
@@ -1542,18 +1542,20 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                         </Select>
                       </div>
 
-                      <div>
-                        <Label htmlFor="sexo">Sexo</Label>
-                        <Select value={sexo} onValueChange={setSexo}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona sexo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="M">Masculino</SelectItem>
-                            <SelectItem value="F">Femenino</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {tipoPersona === 'pf' && (
+                        <div>
+                          <Label htmlFor="sexo">Sexo</Label>
+                          <Select value={sexo} onValueChange={setSexo}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona sexo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="M">Masculino</SelectItem>
+                              <SelectItem value="F">Femenino</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
                        <div>
                          <Label htmlFor="regimen">Régimen</Label>
@@ -1563,7 +1565,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
                            </SelectTrigger>
                            <SelectContent>
                              {regimenes.map((regimen_item) => (
-                               <SelectItem key={regimen_item.id} value={regimen_item.id}>
+                               <SelectItem key={regimen_item.id} value={regimen_item.id.toString()}>
                                  {regimen_item.nombre}
                                </SelectItem>
                              ))}
