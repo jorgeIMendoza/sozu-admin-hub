@@ -40,7 +40,7 @@ const InventarioGlobal = () => {
               id,
               modelos!fk_edificios_modelos_modelo (
                 id, nombre, numero_recamaras, numero_completo_banos, numero_medio_bano,
-                multimedias_modelo (id, url, es_imagen, activo)
+                multimedias_modelo!fk_multimedias_modelo_modelo (id, url, es_imagen, activo)
               ),
               propiedades!fk_propiedades_edificio_modelo (
                 id, numero_propiedad, numero_piso, precio_lista, m2_interiores, m2_exteriores,
