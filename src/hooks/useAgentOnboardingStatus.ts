@@ -5,6 +5,7 @@ export interface OnboardingStep {
   id: 'basic' | 'address' | 'fiscal' | 'documents' | 'bank-accounts' | 'training';
   label: string;
   isComplete: boolean;
+  hasPartialData: boolean;
 }
 
 interface OnboardingStatus {
@@ -88,6 +89,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   // Evaluate steps
   const basicComplete = !!(persona?.nombre_legal && persona?.email && persona?.telefono);
+  const basicPartial = !basicComplete && !!(persona?.nombre_legal || persona?.email || persona?.telefono);
 
   const addressComplete = !!(
     persona?.direccion_calle &&
@@ -98,6 +100,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     persona?.direccion_id_estado &&
     persona?.direccion_id_municipio
   );
+  const addressPartial = !addressComplete && !!(persona?.direccion_calle || persona?.direccion_num_ext || persona?.direccion_colonia || persona?.direccion_codigo_postal);
 
   const fiscalComplete = !!(
     persona?.rfc &&
@@ -110,21 +113,23 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     persona?.direccion_fiscal_id_estado &&
     persona?.direccion_fiscal_id_municipio
   );
+  const fiscalPartial = !fiscalComplete && !!(persona?.rfc || persona?.regimen || persona?.uso_cfdi);
 
   const docTypes = new Set(documentos.map((d: any) => d.id_tipo_documento));
   const documentsComplete = docTypes.has(2) && docTypes.has(3) && docTypes.has(6) && docTypes.has(48);
+  const documentsPartial = !documentsComplete && docTypes.size > 0;
 
   const bankComplete = cuentas.length > 0;
 
   const trainingComplete = citasCapacitacion.length > 0;
 
   const steps: OnboardingStep[] = [
-    { id: 'basic', label: 'Info. Básica', isComplete: basicComplete },
-    { id: 'address', label: 'Dirección', isComplete: addressComplete },
-    { id: 'fiscal', label: 'Info. Fiscal', isComplete: fiscalComplete },
-    { id: 'documents', label: 'Documentos', isComplete: documentsComplete },
-    { id: 'bank-accounts', label: 'Cuentas', isComplete: bankComplete },
-    { id: 'training', label: 'Capacitación', isComplete: trainingComplete },
+    { id: 'basic', label: 'Info. Básica', isComplete: basicComplete, hasPartialData: basicPartial },
+    { id: 'address', label: 'Dirección', isComplete: addressComplete, hasPartialData: addressPartial },
+    { id: 'fiscal', label: 'Info. Fiscal', isComplete: fiscalComplete, hasPartialData: fiscalPartial },
+    { id: 'documents', label: 'Documentos', isComplete: documentsComplete, hasPartialData: documentsPartial },
+    { id: 'bank-accounts', label: 'Cuentas', isComplete: bankComplete, hasPartialData: false },
+    { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: false },
   ];
 
   const completedCount = steps.filter(s => s.isComplete).length;

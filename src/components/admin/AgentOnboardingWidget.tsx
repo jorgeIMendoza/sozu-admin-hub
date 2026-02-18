@@ -81,23 +81,26 @@ export function AgentOnboardingWidget({ personaId, variant = 'default' }: AgentO
                         ? "bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-[0_3px_12px_-2px_hsla(142,76%,36%,0.5)]"
                         : isSelected
                         ? "bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-[0_3px_12px_-2px_hsla(210,80%,55%,0.5)] ring-3 ring-blue-400/30 ring-offset-1 ring-offset-background"
+                        : step.hasPartialData
+                        ? "bg-gradient-to-br from-blue-300 to-blue-500 text-white shadow-[0_3px_10px_-2px_hsla(210,80%,55%,0.35)]"
                         : "bg-muted border-2 border-muted-foreground/15 text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted-foreground/5"
                     )}
                   >
                     {step.isComplete ? <Check className={cn(isInline ? "h-3 w-3" : "h-4 w-4")} strokeWidth={3} /> : num}
                   </div>
-                  {!isInline && (
-                    <span className={cn(
-                      "text-[9px] leading-tight font-semibold text-center max-w-[52px] transition-colors",
-                      step.isComplete
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : isSelected
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-muted-foreground"
-                    )}>
-                      {step.label}
-                    </span>
-                  )}
+                  <span className={cn(
+                    "leading-tight font-semibold text-center max-w-[52px] transition-colors",
+                    isInline ? "text-[8px]" : "text-[9px]",
+                    step.isComplete
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : isSelected
+                      ? "text-blue-600 dark:text-blue-400"
+                      : step.hasPartialData
+                      ? "text-blue-500 dark:text-blue-400"
+                      : "text-muted-foreground"
+                  )}>
+                    {step.label}
+                  </span>
                 </button>
 
                 {index < steps.length - 1 && (
