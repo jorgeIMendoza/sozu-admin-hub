@@ -465,7 +465,7 @@ const InventarioGlobal = () => {
               className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
             >
               <Search className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground whitespace-nowrap">Propiedades</span>
+              <span className="text-xs font-medium text-foreground whitespace-nowrap">Buscar</span>
               {hasActiveFilters && (
                 <Badge className="text-[10px] px-1.5 py-0 ml-auto bg-emerald-500 text-white border-0 hover:bg-emerald-600">
                   {activeFilterCount}
