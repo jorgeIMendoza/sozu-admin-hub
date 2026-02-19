@@ -13,6 +13,7 @@ import { AdminLayout } from "./components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import InmobiliariasThemeWrapper from "./components/admin/InmobiliariasThemeWrapper";
 
 // Auth pages
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -205,16 +206,18 @@ const App = () => (
                   <Route path="reportes/inventarios" element={<ReportesInventarios />} />
                   <Route path="reportes/finanzas" element={<ReportesFinanzas />} />
                   <Route path="reportes/ver/:id" element={<ReporteViewer />} />
-                  <Route path="inmobiliarias/mi-informacion" element={<MiInformacion />} />
-                  <Route path="inmobiliarias/mis-agentes" element={<MisAgentes />} />
-                  <Route path="inmobiliarias/mis-propiedades" element={<Navigate to="/admin/inmobiliarias/inventario" replace />} />
-                  <Route path="inmobiliarias/mis-ventas" element={<MisVentas />} />
-                  <Route path="inmobiliarias/proyectos" element={<MisProyectos />} />
-                  <Route path="inmobiliarias/proyectos/:id" element={<MiProyectoDetalle />} />
-                  <Route path="inmobiliarias/proyectos/:id/inventario" element={<MiProyectoInventario />} />
-                  <Route path="inmobiliarias/mis-proyectos" element={<Navigate to="/admin/inmobiliarias/proyectos" replace />} />
-                  <Route path="inmobiliarias/mis-proyectos/:id" element={<Navigate to="/admin/inmobiliarias/proyectos" replace />} />
-                  <Route path="inmobiliarias/inventario" element={<InventarioGlobal />} />
+                  <Route element={<InmobiliariasThemeWrapper />}>
+                    <Route path="inmobiliarias/mi-informacion" element={<MiInformacion />} />
+                    <Route path="inmobiliarias/mis-agentes" element={<MisAgentes />} />
+                    <Route path="inmobiliarias/mis-propiedades" element={<Navigate to="/admin/inmobiliarias/inventario" replace />} />
+                    <Route path="inmobiliarias/mis-ventas" element={<MisVentas />} />
+                    <Route path="inmobiliarias/proyectos" element={<MisProyectos />} />
+                    <Route path="inmobiliarias/proyectos/:id" element={<MiProyectoDetalle />} />
+                    <Route path="inmobiliarias/proyectos/:id/inventario" element={<MiProyectoInventario />} />
+                    <Route path="inmobiliarias/mis-proyectos" element={<Navigate to="/admin/inmobiliarias/proyectos" replace />} />
+                    <Route path="inmobiliarias/mis-proyectos/:id" element={<Navigate to="/admin/inmobiliarias/proyectos" replace />} />
+                    <Route path="inmobiliarias/inventario" element={<InventarioGlobal />} />
+                  </Route>
                   <Route path="administrar-menus" element={<AdministrarMenus />} />
                   <Route path="comunicacion/administrar-avisos" element={<AdministrarAvisos />} />
                   <Route path="comunicacion/enviar-avisos" element={<EnviarAvisos />} />
