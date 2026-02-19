@@ -132,17 +132,32 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
           {/* Prospecto */}
           <div className="space-y-2">
             <Label>Prospecto <span className="text-destructive">*</span></Label>
-            <Combobox
-              value={selectedProspecto}
-              onValueChange={setSelectedProspecto}
-              options={prospectos.map((p) => ({
-                value: p.id.toString(),
-                label: `${p.nombre} — ${p.proyecto_nombre}`,
-              }))}
-              placeholder="Seleccionar prospecto..."
-              searchPlaceholder="Buscar prospecto..."
-              emptyText="No tienes prospectos asignados"
-            />
+            {prospectos.length > 10 ? (
+              <Combobox
+                value={selectedProspecto}
+                onValueChange={setSelectedProspecto}
+                options={prospectos.map((p) => ({
+                  value: p.id.toString(),
+                  label: `${p.nombre} — ${p.proyecto_nombre}`,
+                }))}
+                placeholder="Seleccionar prospecto..."
+                searchPlaceholder="Buscar prospecto..."
+                emptyText="No tienes prospectos asignados"
+              />
+            ) : (
+              <Select value={selectedProspecto} onValueChange={setSelectedProspecto}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar prospecto..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {prospectos.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No tienes prospectos asignados</div>
+                  ) : prospectos.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.nombre} — {p.proyecto_nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Show project info */}
