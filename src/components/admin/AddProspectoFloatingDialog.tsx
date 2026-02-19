@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const { track } = useCtaTracker();
   const hasTrackedFieldFill = useRef(false);
 
+  const [selectedProspectoId, setSelectedProspectoId] = useState<number | null>(null);
   const [proyectoId, setProyectoId] = useState("");
   const [tipoPersona, setTipoPersona] = useState("pf");
   const [nombre, setNombre] = useState("");
@@ -33,6 +34,74 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const [telefono, setTelefono] = useState("");
   const [rfc, setRfc] = useState("");
   const [curp, setCurp] = useState("");
+
+  // Fetch agent's existing prospects
+  const { data: misProspectos = [] } = useQuery({
+    queryKey: ["mis-prospectos-floating", profile?.id_persona],
+    queryFn: async () => {
+      if (!profile?.id_persona) return [];
+      const { data, error } = await supabase
+        .from("entidades_relacionadas")
+        .select(`
+          id_persona,
+          id_proyecto,
+          personas!entidades_relacionadas_id_persona_fkey (
+            id, nombre_legal, email, telefono, clave_pais_telefono, tipo_persona, rfc, curp
+          )
+        `)
+        .eq("id_tipo_entidad", 7)
+        .eq("activo", true)
+        .eq("id_persona_duena_lead", profile.id_persona);
+
+      if (error) throw error;
+      return (data || [])
+        .filter((er: any) => er.personas)
+        .map((er: any) => ({
+          id_persona: er.personas.id,
+          nombre_legal: er.personas.nombre_legal || "",
+          email: er.personas.email || "",
+          telefono: er.personas.telefono || "",
+          clave_pais_telefono: er.personas.clave_pais_telefono || "MX",
+          tipo_persona: er.personas.tipo_persona || "pf",
+          rfc: er.personas.rfc || "",
+          curp: er.personas.curp || "",
+          id_proyecto: er.id_proyecto,
+        }));
+    },
+    enabled: open && !!profile?.id_persona,
+  });
+
+  const prospectoOptions = useMemo(() => {
+    // Deduplicate by id_persona
+    const seen = new Set<number>();
+    return misProspectos
+      .filter((p) => { if (seen.has(p.id_persona)) return false; seen.add(p.id_persona); return true; })
+      .map((p) => ({ value: p.id_persona.toString(), label: p.nombre_legal || p.email }));
+  }, [misProspectos]);
+
+  const handleSelectProspecto = (value: string) => {
+    if (!value) {
+      setSelectedProspectoId(null);
+      return;
+    }
+    const id = parseInt(value);
+    const prospecto = misProspectos.find((p) => p.id_persona === id);
+    if (prospecto) {
+      setSelectedProspectoId(id);
+      setNombre(prospecto.nombre_legal);
+      setEmail(prospecto.email);
+      setTelefono(prospecto.telefono);
+      setClavePais(prospecto.clave_pais_telefono);
+      setTipoPersona(prospecto.tipo_persona);
+      setRfc(prospecto.rfc);
+      setCurp(prospecto.curp);
+      if (prospecto.id_proyecto) {
+        setProyectoId(prospecto.id_proyecto.toString());
+      }
+    }
+  };
+
+  const isEditMode = selectedProspectoId !== null;
 
   // Fetch developments the agent has access to (with available inventory)
   const { data: proyectos = [] } = useQuery({
@@ -106,46 +175,73 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
       if (!proyectoId || !nombre || !email || !telefono) {
         throw new Error("Completa los campos obligatorios");
       }
-
-      // Validate phone: exactly 10 numeric digits
       if (!/^\d{10}$/.test(telefono)) {
         throw new Error("El teléfono debe tener exactamente 10 dígitos numéricos");
       }
 
-      // Create persona
-      const { data: persona, error: personaError } = await supabase
-        .from("personas")
-        .insert([{
-          tipo_persona: tipoPersona,
-          nombre_legal: nombre,
-          email,
-          telefono,
-          clave_pais_telefono: clavePais,
-          rfc: rfc || null,
-          curp: curp || null,
-          activo: true,
-        }])
-        .select()
-        .single();
+      if (isEditMode && selectedProspectoId) {
+        // Update existing persona
+        const { error: updateError } = await supabase
+          .from("personas")
+          .update({
+            tipo_persona: tipoPersona,
+            nombre_legal: nombre,
+            email,
+            telefono,
+            clave_pais_telefono: clavePais,
+            rfc: rfc || null,
+            curp: curp || null,
+          })
+          .eq("id", selectedProspectoId);
 
-      if (personaError) throw personaError;
+        if (updateError) throw updateError;
 
-      // Create entidad_relacionada as prospect (tipo_entidad = 7), agent is the logged-in user
-      const { error: entidadError } = await supabase
-        .from("entidades_relacionadas")
-        .insert([{
-          id_persona: persona.id,
-          id_tipo_entidad: 7,
-          id_proyecto: parseInt(proyectoId),
-          id_persona_duena_lead: profile?.id_persona || null,
-          activo: true,
-        }]);
+        // Update entidad_relacionada project if changed
+        const { error: entidadError } = await supabase
+          .from("entidades_relacionadas")
+          .update({ id_proyecto: parseInt(proyectoId) })
+          .eq("id_persona", selectedProspectoId)
+          .eq("id_tipo_entidad", 7)
+          .eq("activo", true)
+          .eq("id_persona_duena_lead", profile?.id_persona || 0);
 
-      if (entidadError) throw entidadError;
+        if (entidadError) throw entidadError;
+      } else {
+        // Create new persona
+        const { data: persona, error: personaError } = await supabase
+          .from("personas")
+          .insert([{
+            tipo_persona: tipoPersona,
+            nombre_legal: nombre,
+            email,
+            telefono,
+            clave_pais_telefono: clavePais,
+            rfc: rfc || null,
+            curp: curp || null,
+            activo: true,
+          }])
+          .select()
+          .single();
+
+        if (personaError) throw personaError;
+
+        const { error: entidadError } = await supabase
+          .from("entidades_relacionadas")
+          .insert([{
+            id_persona: persona.id,
+            id_tipo_entidad: 7,
+            id_proyecto: parseInt(proyectoId),
+            id_persona_duena_lead: profile?.id_persona || null,
+            activo: true,
+          }]);
+
+        if (entidadError) throw entidadError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prospectos"] });
-      toast.success("Prospecto creado exitosamente");
+      queryClient.invalidateQueries({ queryKey: ["mis-prospectos-floating"] });
+      toast.success(isEditMode ? "Prospecto actualizado exitosamente" : "Prospecto creado exitosamente");
       handleClose();
     },
     onError: (error: any) => {
@@ -161,6 +257,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   };
 
   const handleClose = () => {
+    setSelectedProspectoId(null);
     setProyectoId("");
     setTipoPersona("pf");
     setNombre("");
@@ -181,6 +278,19 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Search existing prospects */}
+          <div className="space-y-2">
+            <Label className="text-muted-foreground text-xs">Buscar prospecto existente</Label>
+            <Combobox
+              value={selectedProspectoId?.toString() || ""}
+              onValueChange={handleSelectProspecto}
+              options={prospectoOptions}
+              placeholder="Buscar por nombre..."
+              searchPlaceholder="Escribir nombre del prospecto..."
+              emptyText="No se encontró el prospecto"
+            />
+          </div>
+
           {/* Desarrollo de Interés */}
           <div className="space-y-2">
             <Label>Desarrollo de Interés <span className="text-destructive">*</span></Label>
@@ -273,7 +383,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
               disabled={createMutation.isPending || !proyectoId || !nombre || !email || !telefono}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
             >
-              {createMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...</> : "Guardar"}
+              {createMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...</> : isEditMode ? "Actualizar" : "Guardar"}
             </Button>
           </div>
         </div>
