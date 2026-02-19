@@ -200,7 +200,7 @@ const TestCard = ({ test, assignments, visits, onFinalizar, onReactivar, onUpdat
   const chartData = variantes.map((v) => {
     const usuarios = assignments[v] || 0;
     const visitas = visits[v] || 0;
-    const efectividad = usuarios > 0 ? Math.round((visitas / usuarios) * 100) : 0;
+    const efectividad = usuarios > 0 ? Math.round((visitas / usuarios) * 10) / 10 : 0;
     return { name: `Variante ${v}`, usuarios, visitas, efectividad };
   });
   const totalUsers = Object.values(assignments).reduce((a: number, b: number) => a + b, 0);
@@ -250,7 +250,7 @@ const TestCard = ({ test, assignments, visits, onFinalizar, onReactivar, onUpdat
           {variantes.map((v: string) => {
             const usuarios = assignments[v] || 0;
             const visitas = visits[v] || 0;
-            const efectividad = usuarios > 0 ? Math.round((visitas / usuarios) * 100) : 0;
+    const efectividad = usuarios > 0 ? Math.round((visitas / usuarios) * 10) / 10 : 0;
             return (
               <div key={v} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -260,7 +260,7 @@ const TestCard = ({ test, assignments, visits, onFinalizar, onReactivar, onUpdat
                 <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>{visitas} visitas</span>
                 <span className="text-muted-foreground">•</span>
-                <span className="font-semibold text-foreground">{efectividad}%</span>
+                <span className="font-semibold text-foreground">{efectividad} visitas/usuario</span>
                 {isPast && onUpdateGanadora && (
                   <Button variant={test.variante_ganadora === v ? "default" : "ghost"} size="sm" className="ml-2 h-6 text-xs" onClick={() => onUpdateGanadora(v)}>
                     {test.variante_ganadora === v ? <><Trophy className="h-3 w-3 mr-1" /> Ganadora</> : "Elegir"}
@@ -276,7 +276,7 @@ const TestCard = ({ test, assignments, visits, onFinalizar, onReactivar, onUpdat
             <Trophy className="h-4 w-4 text-amber-500" />
             <span className="text-muted-foreground">Sugerencia:</span>
             <span className="font-semibold text-foreground">Variante {suggestedWinner}</span>
-            <span className="text-muted-foreground">tiene mayor efectividad ({bestVariant.efectividad}% visitas/usuario)</span>
+            <span className="text-muted-foreground">tiene mayor efectividad ({bestVariant.efectividad} visitas/usuario)</span>
           </div>
         )}
 
@@ -286,11 +286,10 @@ const TestCard = ({ test, assignments, visits, onFinalizar, onReactivar, onUpdat
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(value: number, name: string) => [name === "efectividad" ? `${value}%` : value, name === "efectividad" ? "Efectividad" : name === "visitas" ? "Visitas" : "Usuarios"]} />
+              <Tooltip />
               <Legend />
               <Bar dataKey="usuarios" name="Usuarios" fill="hsl(210, 80%, 55%)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="visitas" name="Visitas" fill="hsl(158, 64%, 38%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="efectividad" name="Efectividad %" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
