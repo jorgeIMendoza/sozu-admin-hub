@@ -43,15 +43,42 @@ const ABTests = () => {
     },
   });
 
-  const { data: ctaByTest = {} } = useQuery({
-    queryKey: ["ab-test-cta-counts"],
+  const { data: visitsByTest = {} } = useQuery({
+    queryKey: ["ab-test-visit-counts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("cta_events").select("ab_test_id, ab_variant, element_id").not("ab_test_id", "is", null);
-      if (error) throw error;
+      // Get all assignments to map user_email -> (test_id, variant)
+      const { data: assignments, error: aErr } = await supabase.from("ab_test_assignments").select("ab_test_id, user_email, variante");
+      if (aErr) throw aErr;
+
+      // Get all active test pages to filter page_views
+      const { data: allTests, error: tErr } = await supabase.from("ab_tests").select("id, pagina");
+      if (tErr) throw tErr;
+
+      const pageByTest: Record<number, string> = {};
+      (allTests || []).forEach((t: any) => { pageByTest[t.id] = t.pagina; });
+
+      // Build user->variant map per test
+      const userVariantMap: Record<number, Record<string, string>> = {};
+      (assignments || []).forEach((a: any) => {
+        if (!userVariantMap[a.ab_test_id]) userVariantMap[a.ab_test_id] = {};
+        userVariantMap[a.ab_test_id][a.user_email] = a.variante;
+      });
+
+      // Get page_view events
+      const { data: pageViews, error: pvErr } = await supabase.from("cta_events").select("user_email, page").eq("element_id", "page_view");
+      if (pvErr) throw pvErr;
+
       const counts: Record<number, Record<string, number>> = {};
-      (data || []).forEach((e: any) => {
-        if (!counts[e.ab_test_id]) counts[e.ab_test_id] = {};
-        counts[e.ab_test_id][e.ab_variant] = (counts[e.ab_test_id][e.ab_variant] || 0) + 1;
+      (pageViews || []).forEach((pv: any) => {
+        // Match to each test by page
+        Object.entries(pageByTest).forEach(([testIdStr, pagina]) => {
+          const testId = Number(testIdStr);
+          if (pv.page === pagina && userVariantMap[testId]?.[pv.user_email]) {
+            const variant = userVariantMap[testId][pv.user_email];
+            if (!counts[testId]) counts[testId] = {};
+            counts[testId][variant] = (counts[testId][variant] || 0) + 1;
+          }
+        });
       });
       return counts;
     },
@@ -124,7 +151,7 @@ const ABTests = () => {
         </h2>
         {activeTests.length === 0 && <p className="text-sm text-muted-foreground">No hay tests activos</p>}
         {activeTests.map((test: any) => (
-          <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} cta={ctaByTest[test.id] || {}} onFinalizar={() => handleFinalizar(test)} />
+          <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} visits={visitsByTest[test.id] || {}} onFinalizar={() => handleFinalizar(test)} />
         ))}
       </div>
 
@@ -135,7 +162,7 @@ const ABTests = () => {
             <Calendar className="h-4 w-4" /> Tests Finalizados ({pastTests.length})
           </h2>
           {pastTests.map((test: any) => (
-            <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} cta={ctaByTest[test.id] || {}} onReactivar={() => reactivarTest(test.id)} onUpdateGanadora={(v) => updateGanadora(test.id, v)} isPast />
+            <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} visits={visitsByTest[test.id] || {}} onReactivar={() => reactivarTest(test.id)} onUpdateGanadora={(v) => updateGanadora(test.id, v)} isPast />
           ))}
         </div>
       )}
@@ -163,14 +190,19 @@ const ABTests = () => {
   );
 };
 
-const TestCard = ({ test, assignments, cta, onFinalizar, onReactivar, onUpdateGanadora, isPast }: { test: any; assignments: Record<string, number>; cta: Record<string, number>; onFinalizar?: () => void; onReactivar?: () => void; onUpdateGanadora?: (v: string) => void; isPast?: boolean }) => {
+const TestCard = ({ test, assignments, visits, onFinalizar, onReactivar, onUpdateGanadora, isPast }: { test: any; assignments: Record<string, number>; visits: Record<string, number>; onFinalizar?: () => void; onReactivar?: () => void; onUpdateGanadora?: (v: string) => void; isPast?: boolean }) => {
   const variantes = (test.variantes as string[]) || ["A", "B"];
-  const chartData = variantes.map((v) => ({
-    name: `Variante ${v}`,
-    usuarios: assignments[v] || 0,
-    clicks: cta[v] || 0,
-  }));
+  const chartData = variantes.map((v) => {
+    const usuarios = assignments[v] || 0;
+    const visitas = visits[v] || 0;
+    const efectividad = usuarios > 0 ? Math.round((visitas / usuarios) * 100) : 0;
+    return { name: `Variante ${v}`, usuarios, visitas, efectividad };
+  });
   const totalUsers = Object.values(assignments).reduce((a: number, b: number) => a + b, 0);
+
+  // Suggest winner based on highest effectiveness
+  const bestVariant = chartData.reduce((best, curr) => curr.efectividad > best.efectividad ? curr : best, chartData[0]);
+  const suggestedWinner = totalUsers > 0 && bestVariant.efectividad > 0 ? bestVariant.name.replace("Variante ", "") : null;
 
   return (
     <Card className={`border ${isPast ? "border-muted" : "border-primary/20"}`}>
@@ -187,11 +219,11 @@ const TestCard = ({ test, assignments, cta, onFinalizar, onReactivar, onUpdateGa
           </div>
           <div className="flex items-center gap-2">
             {test.variante_ganadora && (
-              <Badge className="bg-amber-500 text-white gap-1">
+              <Badge className="bg-amber-500/90 text-white gap-1">
                 <Trophy className="h-3 w-3" /> {test.variante_ganadora}
               </Badge>
             )}
-            <Badge className={test.activo ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}>{test.activo ? "Activo" : "Finalizado"}</Badge>
+            <Badge className={test.activo ? "bg-emerald-500/90 text-white" : "bg-muted text-muted-foreground"}>{test.activo ? "Activo" : "Finalizado"}</Badge>
             {isPast ? (
               <Button variant="outline" size="sm" onClick={onReactivar}>Reactivar</Button>
             ) : (
@@ -200,34 +232,51 @@ const TestCard = ({ test, assignments, cta, onFinalizar, onReactivar, onUpdateGa
           </div>
         </div>
 
-        <div className="flex gap-4">
-          {variantes.map((v: string) => (
-            <div key={v} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50 text-sm">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">Var. {v}:</span>
-              <span>{assignments[v] || 0} usuarios</span>
-              <span className="text-muted-foreground">•</span>
-              <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{cta[v] || 0} clicks</span>
-              {isPast && onUpdateGanadora && (
-                <Button variant={test.variante_ganadora === v ? "default" : "ghost"} size="sm" className="ml-2 h-6 text-xs" onClick={() => onUpdateGanadora(v)}>
-                  {test.variante_ganadora === v ? <><Trophy className="h-3 w-3 mr-1" /> Ganadora</> : "Elegir"}
-                </Button>
-              )}
-            </div>
-          ))}
+        <div className="flex gap-4 flex-wrap">
+          {variantes.map((v: string) => {
+            const usuarios = assignments[v] || 0;
+            const visitas = visits[v] || 0;
+            const efectividad = usuarios > 0 ? Math.round((visitas / usuarios) * 100) : 0;
+            return (
+              <div key={v} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/50 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Var. {v}:</span>
+                <span>{usuarios} usuarios</span>
+                <span className="text-muted-foreground">•</span>
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{visitas} visitas</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="font-semibold text-foreground">{efectividad}%</span>
+                {isPast && onUpdateGanadora && (
+                  <Button variant={test.variante_ganadora === v ? "default" : "ghost"} size="sm" className="ml-2 h-6 text-xs" onClick={() => onUpdateGanadora(v)}>
+                    {test.variante_ganadora === v ? <><Trophy className="h-3 w-3 mr-1" /> Ganadora</> : "Elegir"}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
+        {suggestedWinner && !test.variante_ganadora && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/50 text-sm">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            <span className="text-muted-foreground">Sugerencia:</span>
+            <span className="font-semibold text-foreground">Variante {suggestedWinner}</span>
+            <span className="text-muted-foreground">tiene mayor efectividad ({bestVariant.efectividad}% visitas/usuario)</span>
+          </div>
+        )}
+
         {totalUsers > 0 && (
-          <ResponsiveContainer width="100%" height={120}>
+          <ResponsiveContainer width="100%" height={140}>
             <BarChart data={chartData} margin={{ left: 0, right: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
+              <Tooltip formatter={(value: number, name: string) => [name === "efectividad" ? `${value}%` : value, name === "efectividad" ? "Efectividad" : name === "visitas" ? "Visitas" : "Usuarios"]} />
               <Legend />
               <Bar dataKey="usuarios" name="Usuarios" fill="hsl(210, 80%, 55%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="clicks" name="Clicks" fill="hsl(158, 64%, 38%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="visitas" name="Visitas" fill="hsl(158, 64%, 38%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="efectividad" name="Efectividad %" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
