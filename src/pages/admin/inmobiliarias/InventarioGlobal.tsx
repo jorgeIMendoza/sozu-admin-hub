@@ -28,7 +28,7 @@ import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloat
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 
 const PAGE_SIZE = 30;
-const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria"];
+const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria", "Super Administrador", "Administrador de Proyecto"];
 
 // Shuffle helper
 function shuffleArray<T>(arr: T[]): T[] {
@@ -453,6 +453,7 @@ const InventarioGlobal = () => {
             showHeaderBar ? "translate-y-0" : "-translate-y-full"
           }`}
         >
+          {profile?.rol_nombre === "Super Administrador" && <AgentImpersonationSelector />}
           <div className="flex items-center gap-1.5">
             {/* Search / Filter button */}
             <button
