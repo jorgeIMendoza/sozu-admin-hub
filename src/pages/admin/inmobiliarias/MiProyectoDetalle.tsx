@@ -295,11 +295,11 @@ const MiProyectoDetalle = () => {
           {profile?.rol_nombre === "Super Administrador" && <AgentImpersonationSelector />}
           <div className="flex items-center gap-1.5">
             <button
-              className="flex-1 min-w-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
+              className="flex-1 min-w-0 flex items-center gap-2 px-4 h-12 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
               onClick={() => navigate("/admin/inmobiliarias/inventario?openFilters=true")}
             >
               <Search className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground truncate">Buscador</span>
+              <span className="text-sm font-medium text-foreground truncate">Buscador</span>
             </button>
             <DetailProfileMenu onLogout={signOut} onTrack={() => track({ page: "detalle_desarrollo", elementId: "btn_perfil_usuario" })} />
           </div>
