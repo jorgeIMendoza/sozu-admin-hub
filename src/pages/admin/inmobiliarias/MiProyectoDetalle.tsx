@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, MapPin, Loader2, ChevronLeft, ChevronRight, BedDouble, Bath, ShowerHead, Star, ArrowLeft, Maximize2, Home, CheckCircle, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check } from "lucide-react";
+import { Building2, MapPin, Loader2, ChevronLeft, ChevronRight, BedDouble, Bath, ShowerHead, Star, ArrowLeft, Maximize2, CheckCircle, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check, SlidersHorizontal } from "lucide-react";
 import { useState, useCallback, useEffect } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -97,10 +97,19 @@ const MiProyectoDetalle = () => {
   const isSimplifiedRole = SIMPLIFIED_ROLES.includes(profile?.rol_nombre ?? "");
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
-  const [showFloatingButtons, setShowFloatingButtons] = useState(false);
+  const [showHeaderBar, setShowHeaderBar] = useState(true);
+  const lastScrollY = React.useRef(0);
 
   useEffect(() => {
-    const handleScroll = () => setShowFloatingButtons(window.scrollY > 100);
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY > lastScrollY.current && currentY > 60) {
+        setShowHeaderBar(false);
+      } else if (currentY < lastScrollY.current) {
+        setShowHeaderBar(true);
+      }
+      lastScrollY.current = currentY;
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -261,7 +270,7 @@ const MiProyectoDetalle = () => {
     <div className={`max-w-4xl mx-auto space-y-6 ${isSimplifiedRole ? "pb-24" : "pb-10"}`}>
       {/* Header for simplified roles */}
       {isSimplifiedRole && (
-        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-3 sm:-mx-6 -mt-4 sm:-mt-6">
+        <div className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-3 sm:-mx-6 -mt-4 sm:-mt-6 transition-transform duration-300 ${showHeaderBar ? "translate-y-0" : "-translate-y-full"}`}>
           <div className="flex items-center gap-2">
             <button
               className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow min-w-0"
@@ -269,9 +278,6 @@ const MiProyectoDetalle = () => {
             >
               <Search className="h-4 w-4 text-primary shrink-0" />
               <span className="text-xs font-medium text-foreground whitespace-nowrap">Buscar propiedades</span>
-            </button>
-            <button onClick={() => navigate("/admin/inmobiliarias/inventario")} className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Inventario">
-              <Home className="h-4 w-4" />
             </button>
             <button onClick={() => setAddProspectoOpen(true)} className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agregar prospecto">
               <UserPlus className="h-4 w-4" />
@@ -437,7 +443,7 @@ const MiProyectoDetalle = () => {
                 : "bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground shadow-[0_8px_30px_-4px_hsl(var(--primary)/0.45)] hover:shadow-[0_12px_40px_-4px_hsl(var(--primary)/0.55)] hover:-translate-y-1 active:translate-y-0 active:shadow-[0_4px_20px_-4px_hsl(var(--primary)/0.4)] border-white/20"
             }`}
           >
-            <Home className={`h-5 w-5 transition-transform duration-300 ${availableProps > 0 ? "group-hover:scale-110 group-hover:rotate-6" : ""}`} />
+            <Building2 className={`h-5 w-5 transition-transform duration-300 ${availableProps > 0 ? "group-hover:scale-110 group-hover:rotate-6" : ""}`} />
             <span className="tracking-wide">
               {availableProps === 0 ? "Agotado" : `Ver Inventario Disponible (${availableProps} unidades)`}
             </span>
@@ -463,11 +469,8 @@ const MiProyectoDetalle = () => {
       )}
 
       {/* Floating action buttons for simplified roles */}
-      {isSimplifiedRole && showFloatingButtons && (
+      {isSimplifiedRole && !showHeaderBar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <button onClick={() => navigate("/admin/inmobiliarias/inventario")} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Inventario">
-            <Home className="h-5 w-5" />
-          </button>
           <button onClick={() => navigate("/admin/inmobiliarias/proyectos")} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Desarrollos">
             <Building2 className="h-5 w-5" />
           </button>
@@ -476,6 +479,14 @@ const MiProyectoDetalle = () => {
           </button>
           <button onClick={() => setAgendarCitaOpen(true)} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Agendar cita">
             <CalendarDays className="h-5 w-5" />
+          </button>
+          <div className="h-6 w-px bg-white/30" />
+          <button
+            onClick={() => navigate("/admin/inmobiliarias/inventario?openFilters=true")}
+            className="h-12 px-5 rounded-full bg-foreground text-background shadow-xl flex items-center gap-2 font-medium text-sm hover:scale-105 transition-transform"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
           </button>
         </div>
       )}
