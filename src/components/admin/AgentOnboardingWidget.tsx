@@ -23,6 +23,8 @@ interface AgentOnboardingWidgetProps {
 export function AgentOnboardingWidget({ personaId, variant = 'default' }: AgentOnboardingWidgetProps) {
   const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const [activeStep, setActiveStep] = useState<OnboardingStep['id'] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const isInline = variant === 'inline';
 
   if (isLoading) {
     return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mx-auto" />;
@@ -36,9 +38,6 @@ export function AgentOnboardingWidget({ personaId, variant = 'default' }: AgentO
       </div>
     );
   }
-
-  const isInline = variant === 'inline';
-  const [expanded, setExpanded] = useState(false);
 
   return (
     <>
