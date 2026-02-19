@@ -443,19 +443,22 @@ const InventarioGlobal = () => {
                 className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-border/60 rounded-2xl bg-card"
                 onClick={() => setSelectedProperty(prop)}
               >
-                {/* Image Carousel - only load first image, rest on interaction */}
-                <PropertyCardCarousel images={prop.model_images || []} />
+                {/* Image with overlaid info */}
+                <div className="relative">
+                  <PropertyCardCarousel images={prop.model_images || []} />
+                  {/* Gradient overlay at bottom of image */}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-3 pt-8 pointer-events-none">
+                    <h4 className="font-bold text-white text-base truncate drop-shadow-md">Depto. {prop.numero || prop.id}</h4>
+                    {prop.precio_lista > 0 && (
+                      <p className="text-white/90 text-sm font-semibold drop-shadow-md">{formatPrice(prop.precio_lista)}</p>
+                    )}
+                  </div>
+                </div>
 
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-foreground text-base truncate">Depto. {prop.numero || prop.id}</h4>
-                      <p className="text-xs text-muted-foreground">{prop.proyecto_nombre}</p>
-                      <p className="text-[11px] text-muted-foreground/70">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
-                    </div>
-                    <Badge variant="outline" className="shrink-0 text-[10px] border-emerald-300 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:border-emerald-700 dark:text-emerald-400">
-                      Disponible
-                    </Badge>
+                <CardContent className="p-3 space-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{prop.proyecto_nombre}</p>
+                    <p className="text-[11px] text-muted-foreground/70">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
                   </div>
 
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
@@ -468,43 +471,17 @@ const InventarioGlobal = () => {
                     {prop.banos > 0 && (
                       <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {prop.banos}</span>
                     )}
+                    {prop.bodegas_count > 0 && (
+                      <span className="flex items-center gap-1">
+                        <img src={bodegaIcon} alt="bodega" className="h-3 w-3 opacity-60" /> {prop.bodegas_count}
+                      </span>
+                    )}
+                    {prop.estacionamientos_count > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Car className="h-3 w-3" /> {prop.estacionamientos_count}
+                      </span>
+                    )}
                   </div>
-
-                  {/* Bodegas & Estacionamientos */}
-                  {(prop.bodegas_count > 0 || prop.estacionamientos_count > 0) && (
-                    <div className="flex flex-wrap gap-2">
-                      {prop.bodegas_count > 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 text-[11px] text-muted-foreground">
-                          <img src={bodegaIcon} alt="bodega" className="h-3 w-3 opacity-60" /> {prop.bodegas_count} bodega{prop.bodegas_count > 1 ? "s" : ""}
-                        </span>
-                      )}
-                      {prop.estacionamientos_count > 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 text-[11px] text-muted-foreground">
-                          <Car className="h-3 w-3" /> {prop.estacionamientos_count} estac.
-                          {prop.estacionamientos_tipos?.length > 0 && (
-                            <span className="text-foreground/70">
-                              ({[...new Set(prop.estacionamientos_tipos as string[])].join(", ")})
-                            </span>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {prop.precio_lista > 0 && (
-                    <div className="flex items-center gap-1.5 text-base font-bold text-foreground">
-                      <DollarSign className="h-4 w-4 text-primary" />
-                      {formatPrice(prop.precio_lista)}
-                    </div>
-                  )}
-
-                  {/* Payment schemes count */}
-                  {getSchemesForProperty(prop).length > 0 && (
-                    <div className="text-[11px] text-primary/80 font-medium">
-                      <FileText className="inline h-3 w-3 mr-1" />
-                      {getSchemesForProperty(prop).length} esquema{getSchemesForProperty(prop).length > 1 ? "s" : ""} de pago
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
