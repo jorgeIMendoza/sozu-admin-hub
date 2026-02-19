@@ -31,7 +31,7 @@ import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroo
 
 const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria", "Super Administrador", "Administrador de Proyecto"];
 
-const PAGE = "/admin/inmobiliarias/inventario";
+const PAGE = "inventario";
 
 function shuffleArray<T>(arr: T[]): T[] {
   const result = [...arr];
