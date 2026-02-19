@@ -35,18 +35,35 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const { data: proyectos = [] } = useQuery({
     queryKey: ["desarrollos-activos-floating", accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
-      // Get project IDs that have available properties — disambiguate FK
-      const { data: availData } = await supabase
+      // Step 1: Get edificio_modelo IDs with available properties
+      const { data: props } = await supabase
         .from('propiedades')
-        .select('id_edificio_modelo, edificios_modelos!fk_propiedades_edificio_modelo(id_edificio, edificios!inner(id_proyecto))')
+        .select('id_edificio_modelo')
         .eq('id_estatus_disponibilidad', 2)
         .eq('activo', true);
 
-      const availableProjectIds = [...new Set(
-        (availData || [])
-          .map((item: any) => (item as any).edificios_modelos?.edificios?.id_proyecto)
-          .filter(Boolean)
-      )] as number[];
+      if (!props || props.length === 0) return [];
+      const emIds = [...new Set(props.map(p => p.id_edificio_modelo).filter(Boolean))];
+
+      // Step 2: Get edificio IDs from edificios_modelos
+      const { data: ems } = await supabase
+        .from('edificios_modelos')
+        .select('id_edificio')
+        .eq('activo', true)
+        .in('id', emIds);
+
+      if (!ems || ems.length === 0) return [];
+      const edIds = [...new Set(ems.map(e => e.id_edificio).filter(Boolean))];
+
+      // Step 3: Get project IDs from edificios
+      const { data: eds } = await supabase
+        .from('edificios')
+        .select('id_proyecto')
+        .eq('activo', true)
+        .in('id', edIds);
+
+      if (!eds || eds.length === 0) return [];
+      const availableProjectIds = [...new Set(eds.map(e => e.id_proyecto).filter(Boolean))] as number[];
 
       if (availableProjectIds.length === 0) return [];
 
