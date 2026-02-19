@@ -481,6 +481,13 @@ const InventarioGlobal = () => {
 
             {/* Action buttons */}
             <button
+              onClick={() => navigate('/admin/inmobiliarias/proyectos')}
+              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              title="Desarrollos"
+            >
+              <Building2 className="h-4 w-4" />
+            </button>
+            <button
               onClick={() => setAddProspectoOpen(true)}
               className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Agregar prospecto"
@@ -732,6 +739,13 @@ const InventarioGlobal = () => {
       {isSimplifiedRole && !showHeaderBar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* Left-side action buttons */}
+          <button
+            onClick={() => navigate('/admin/inmobiliarias/proyectos')}
+            className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
+            title="Desarrollos"
+          >
+            <Building2 className="h-5 w-5" />
+          </button>
           <button
             onClick={() => setAddProspectoOpen(true)}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
