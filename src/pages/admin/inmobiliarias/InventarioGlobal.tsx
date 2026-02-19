@@ -475,10 +475,10 @@ const InventarioGlobal = () => {
             {/* Search / Filter button */}
             <button
               onClick={() => setFiltersDrawerOpen(true)}
-              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
+              className="flex-1 flex items-center gap-2 px-4 h-12 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
             >
               <Search className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground whitespace-nowrap">Buscador</span>
+              <span className="text-sm font-medium text-foreground whitespace-nowrap">Buscador</span>
               {hasActiveFilters && (
                 <Badge className="text-[10px] px-1.5 py-0 ml-auto bg-emerald-500 text-white border-0 hover:bg-emerald-600">
                   {activeFilterCount}
@@ -489,7 +489,7 @@ const InventarioGlobal = () => {
             {/* Sort button */}
             <button
               onClick={cycleSortOrder}
-              className={`h-8 w-8 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
+              className={`h-12 w-12 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
                 sortOrder !== "none"
                   ? "bg-emerald-500 text-white border-emerald-500 shadow-md"
                   : "bg-card border-border/80 text-muted-foreground hover:bg-muted"
