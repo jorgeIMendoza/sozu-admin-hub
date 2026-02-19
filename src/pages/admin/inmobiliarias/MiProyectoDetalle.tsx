@@ -38,8 +38,8 @@ const DetailProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <button className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
-            <User className="h-4 w-4 text-primary" />
+          <button className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+            <User className="h-3.5 w-3.5 text-primary" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="end">
@@ -270,20 +270,23 @@ const MiProyectoDetalle = () => {
     <div className={`max-w-4xl mx-auto space-y-6 ${isSimplifiedRole ? "pb-24" : "pb-10"}`}>
       {/* Header for simplified roles */}
       {isSimplifiedRole && (
-        <div className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-3 sm:-mx-6 -mt-4 sm:-mt-6 transition-transform duration-300 ${showHeaderBar ? "translate-y-0" : "-translate-y-full"}`}>
-          <div className="flex items-center gap-2">
+        <div className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-2.5 sm:-mx-6 -mt-4 sm:-mt-6 transition-transform duration-300 ${showHeaderBar ? "translate-y-0" : "-translate-y-full"}`}>
+          <div className="flex items-center gap-1.5">
             <button
-              className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow min-w-0"
+              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow min-w-0"
               onClick={() => navigate("/admin/inmobiliarias/inventario?openFilters=true")}
             >
-              <Search className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground whitespace-nowrap">Buscar propiedades</span>
+              <Search className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-xs font-medium text-foreground whitespace-nowrap">Propiedades</span>
             </button>
-            <button onClick={() => setAddProspectoOpen(true)} className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agregar prospecto">
-              <UserPlus className="h-4 w-4" />
+            <button onClick={() => navigate("/admin/inmobiliarias/proyectos")} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Desarrollos">
+              <Building2 className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setAgendarCitaOpen(true)} className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agendar cita">
-              <CalendarDays className="h-4 w-4" />
+            <button onClick={() => setAddProspectoOpen(true)} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agregar prospecto">
+              <UserPlus className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setAgendarCitaOpen(true)} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agendar cita">
+              <CalendarDays className="h-3.5 w-3.5" />
             </button>
             <DetailProfileMenu onLogout={signOut} />
           </div>

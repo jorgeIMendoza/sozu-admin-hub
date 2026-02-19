@@ -72,8 +72,8 @@ const ProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <button className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
-            <User className="h-4 w-4 text-primary" />
+          <button className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+            <User className="h-3.5 w-3.5 text-primary" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="end">
@@ -448,18 +448,18 @@ const InventarioGlobal = () => {
       {/* === CUSTOM HEADER for simplified roles === */}
       {isSimplifiedRole ? (
         <div
-          className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-3 px-3 py-3 transition-transform duration-300 ${
+          className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-3 px-3 py-2.5 transition-transform duration-300 ${
             showHeaderBar ? "translate-y-0" : "-translate-y-full"
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Search / Filter button */}
             <button
               onClick={() => setFiltersDrawerOpen(true)}
-              className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
+              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
             >
-              <Search className="h-4 w-4 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground whitespace-nowrap">Buscar propiedades</span>
+              <Search className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-xs font-medium text-foreground whitespace-nowrap">Propiedades</span>
               {hasActiveFilters && (
                 <Badge className="text-[10px] px-1.5 py-0 ml-auto bg-emerald-500 text-white border-0 hover:bg-emerald-600">
                   {activeFilterCount}
@@ -470,37 +470,37 @@ const InventarioGlobal = () => {
             {/* Sort button */}
             <button
               onClick={cycleSortOrder}
-              className={`h-10 w-10 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
+              className={`h-8 w-8 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
                 sortOrder !== "none"
                   ? "bg-emerald-500 text-white border-emerald-500 shadow-md"
                   : "bg-card border-border/80 text-muted-foreground hover:bg-muted"
               }`}
               title={sortLabel}
             >
-              <SortIcon className="h-4 w-4" />
+              <SortIcon className="h-3.5 w-3.5" />
             </button>
 
             {/* Action buttons */}
             <button
               onClick={() => navigate('/admin/inmobiliarias/proyectos')}
-              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Desarrollos"
             >
-              <Building2 className="h-4 w-4" />
+              <Building2 className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => setAddProspectoOpen(true)}
-              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Agregar prospecto"
             >
-              <UserPlus className="h-4 w-4" />
+              <UserPlus className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => setAgendarCitaOpen(true)}
-              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Agendar cita al showroom"
             >
-              <CalendarDays className="h-4 w-4" />
+              <CalendarDays className="h-3.5 w-3.5" />
             </button>
 
             {/* Profile button */}
