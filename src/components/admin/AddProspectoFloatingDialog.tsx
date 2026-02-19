@@ -35,10 +35,10 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const { data: proyectos = [] } = useQuery({
     queryKey: ["desarrollos-activos-floating", accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
-      // Get project IDs that have available properties via a simpler join
+      // Get project IDs that have available properties — disambiguate FK
       const { data: availData } = await supabase
         .from('propiedades')
-        .select('id_edificio_modelo, edificios_modelos(id_edificio, edificios(id_proyecto))')
+        .select('id_edificio_modelo, edificios_modelos!fk_propiedades_edificio_modelo(id_edificio, edificios!inner(id_proyecto))')
         .eq('id_estatus_disponibilidad', 2)
         .eq('activo', true);
 
