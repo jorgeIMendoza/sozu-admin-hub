@@ -2531,6 +2531,73 @@ export type Database = {
           },
         ]
       }
+      citas_showroom: {
+        Row: {
+          activo: boolean
+          estatus: string
+          fecha: string
+          fecha_actualizacion: string
+          fecha_creacion: string
+          hora_fin: string
+          hora_inicio: string
+          id: number
+          id_agente: number
+          id_prospecto: number
+          id_proyecto: number
+          notas: string | null
+        }
+        Insert: {
+          activo?: boolean
+          estatus?: string
+          fecha: string
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          hora_fin: string
+          hora_inicio: string
+          id?: number
+          id_agente: number
+          id_prospecto: number
+          id_proyecto: number
+          notas?: string | null
+        }
+        Update: {
+          activo?: boolean
+          estatus?: string
+          fecha?: string
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          hora_fin?: string
+          hora_inicio?: string
+          id?: number
+          id_agente?: number
+          id_prospecto?: number
+          id_proyecto?: number
+          notas?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "citas_showroom_id_agente_fkey"
+            columns: ["id_agente"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "citas_showroom_id_prospecto_fkey"
+            columns: ["id_prospecto"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "citas_showroom_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comentarios_verificacion_documento: {
         Row: {
           activo: boolean
