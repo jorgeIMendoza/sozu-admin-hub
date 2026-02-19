@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, MapPin, Loader2, Download, ChevronDown, ChevronUp, BedDouble, Bath, ShowerHead, Share2, Star, ChevronLeft, ChevronRight, Copy, Mail, X, Maximize2, Home, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check } from "lucide-react";
+import { Building2, MapPin, Loader2, Download, ChevronDown, ChevronUp, BedDouble, Bath, ShowerHead, Share2, Star, ChevronLeft, ChevronRight, Copy, Mail, X, Maximize2, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check, SlidersHorizontal } from "lucide-react";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 import { Input } from "@/components/ui/input";
@@ -138,11 +138,18 @@ const MisProyectos = () => {
   const [shareDialog, setShareDialog] = useState<{ open: boolean; project: any }>({ open: false, project: null });
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
-  const [showFloatingButtons, setShowFloatingButtons] = useState(false);
+  const [showHeaderBar, setShowHeaderBar] = useState(true);
+  const lastScrollY = React.useRef(0);
 
   useEffect(() => {
     const handleScroll = () => {
-      setShowFloatingButtons(window.scrollY > 100);
+      const currentY = window.scrollY;
+      if (currentY > lastScrollY.current && currentY > 60) {
+        setShowHeaderBar(false);
+      } else if (currentY < lastScrollY.current) {
+        setShowHeaderBar(true);
+      }
+      lastScrollY.current = currentY;
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -426,9 +433,8 @@ const MisProyectos = () => {
 
       {/* Simplified role header bar — matches InventarioGlobal */}
       {isSimplifiedRole && (
-        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-3 sm:-mx-6 -mt-4 sm:-mt-6">
+        <div className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-3 sm:-mx-6 -mt-4 sm:-mt-6 transition-transform duration-300 ${showHeaderBar ? "translate-y-0" : "-translate-y-full"}`}>
           <div className="flex items-center gap-2">
-            {/* Search pill — navigates to inventory with filters */}
             <button
               className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow min-w-0"
               onClick={() => navigate("/admin/inmobiliarias/inventario?openFilters=true")}
@@ -436,16 +442,6 @@ const MisProyectos = () => {
               <Search className="h-4 w-4 text-primary shrink-0" />
               <span className="text-xs font-medium text-foreground whitespace-nowrap">Buscar propiedades</span>
             </button>
-
-            {/* Inventario */}
-            <button
-              onClick={() => navigate("/admin/inmobiliarias/inventario")}
-              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
-              title="Inventario"
-            >
-              <Home className="h-4 w-4" />
-            </button>
-            {/* Prospecto */}
             <button
               onClick={() => setAddProspectoOpen(true)}
               className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
@@ -453,7 +449,6 @@ const MisProyectos = () => {
             >
               <UserPlus className="h-4 w-4" />
             </button>
-            {/* Cita */}
             <button
               onClick={() => setAgendarCitaOpen(true)}
               className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
@@ -461,8 +456,6 @@ const MisProyectos = () => {
             >
               <CalendarDays className="h-4 w-4" />
             </button>
-
-            {/* Profile */}
             <ProjectsProfileMenu onLogout={signOut} />
           </div>
         </div>
@@ -696,16 +689,9 @@ const MisProyectos = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Floating action buttons */}
-      {isSimplifiedRole && showFloatingButtons && (
+      {/* Floating action buttons — appear when header hides (scroll down) */}
+      {isSimplifiedRole && !showHeaderBar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <button
-            onClick={() => navigate("/admin/inmobiliarias/inventario")}
-            className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
-            title="Inventario"
-          >
-            <Home className="h-5 w-5" />
-          </button>
           <button
             onClick={() => setAddProspectoOpen(true)}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
@@ -719,6 +705,14 @@ const MisProyectos = () => {
             title="Agendar cita"
           >
             <CalendarDays className="h-5 w-5" />
+          </button>
+          <div className="h-6 w-px bg-white/30" />
+          <button
+            onClick={() => navigate("/admin/inmobiliarias/inventario?openFilters=true")}
+            className="h-12 px-5 rounded-full bg-foreground text-background shadow-xl flex items-center gap-2 font-medium text-sm hover:scale-105 transition-transform"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
           </button>
         </div>
       )}
