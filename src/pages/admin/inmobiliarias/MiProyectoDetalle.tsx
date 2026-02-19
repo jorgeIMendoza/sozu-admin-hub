@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,17 +24,21 @@ const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria", "Super Administ
 // Profile Menu (same as MisProyectos / InventarioGlobal)
 const DetailProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
   const { profile, user } = useAuth();
-  const personaId = profile?.id_persona;
+  const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
+  const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
+  const effectiveName = isImpersonating ? impersonatedAgentName : (profile?.nombre || "Usuario");
+  const effectiveEmail = isImpersonating ? impersonatedAgentName : (profile?.email || user?.email);
+
   const { data: agentCommission } = useQuery({
-    queryKey: ["agent-commission", personaId],
+    queryKey: ["agent-commission", effectivePersonaId],
     queryFn: async () => {
-      if (!personaId) return null;
-      const { data } = await supabase.from("entidades_relacionadas").select("porcentaje_comision").eq("id_persona", personaId).eq("id_tipo_entidad", 19).eq("activo", true).is("id_proyecto", null).maybeSingle();
+      if (!effectivePersonaId) return null;
+      const { data } = await supabase.from("entidades_relacionadas").select("porcentaje_comision").eq("id_persona", effectivePersonaId).eq("id_tipo_entidad", 19).eq("activo", true).is("id_proyecto", null).maybeSingle();
       return data?.porcentaje_comision ?? null;
     },
-    enabled: !!personaId,
+    enabled: !!effectivePersonaId,
   });
-  const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId ?? 0);
+  const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(effectivePersonaId ?? 0);
   const [activeStep, setActiveStep] = useState<OnboardingStep['id'] | null>(null);
   return (
     <>
@@ -46,8 +51,8 @@ const DetailProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
         <PopoverContent className="w-72 p-0" align="end">
           <div className="p-4 space-y-3">
             <div>
-              <p className="font-semibold text-sm text-foreground">{profile?.nombre || "Usuario"}</p>
-              <p className="text-xs text-muted-foreground">{profile?.email || user?.email}</p>
+              <p className="font-semibold text-sm text-foreground">{effectiveName}</p>
+              <p className="text-xs text-muted-foreground">{effectiveEmail}</p>
             </div>
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
               <span className="text-xs text-muted-foreground">Comisión</span>
@@ -55,7 +60,7 @@ const DetailProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
                 {agentCommission != null ? `${agentCommission}%` : "2.00%"}
               </Badge>
             </div>
-            {personaId && !onboardingLoading && (
+            {effectivePersonaId && !onboardingLoading && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Perfil</span>
@@ -84,8 +89,8 @@ const DetailProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         </PopoverContent>
       </Popover>
-      {activeStep && personaId && (
-        <AgentOnboardingStepDialog step={activeStep} personaId={personaId} open={!!activeStep} onOpenChange={(open) => { if (!open) setActiveStep(null); }} />
+      {activeStep && effectivePersonaId && (
+        <AgentOnboardingStepDialog step={activeStep} personaId={effectivePersonaId} open={!!activeStep} onOpenChange={(open) => { if (!open) setActiveStep(null); }} />
       )}
     </>
   );

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,26 +27,29 @@ import useEmblaCarousel from "embla-carousel-react";
 // Profile Menu for simplified roles (matches InventarioGlobal)
 const ProjectsProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
   const { profile, user } = useAuth();
-  const personaId = profile?.id_persona;
+  const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
+  const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
+  const effectiveName = isImpersonating ? impersonatedAgentName : (profile?.nombre || "Usuario");
+  const effectiveEmail = isImpersonating ? impersonatedAgentName : (profile?.email || user?.email);
 
   const { data: agentCommission } = useQuery({
-    queryKey: ["agent-commission", personaId],
+    queryKey: ["agent-commission", effectivePersonaId],
     queryFn: async () => {
-      if (!personaId) return null;
+      if (!effectivePersonaId) return null;
       const { data } = await supabase
         .from("entidades_relacionadas")
         .select("porcentaje_comision")
-        .eq("id_persona", personaId)
+        .eq("id_persona", effectivePersonaId)
         .eq("id_tipo_entidad", 19)
         .eq("activo", true)
         .is("id_proyecto", null)
         .maybeSingle();
       return data?.porcentaje_comision ?? null;
     },
-    enabled: !!personaId,
+    enabled: !!effectivePersonaId,
   });
 
-  const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId ?? 0);
+  const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(effectivePersonaId ?? 0);
   const [activeStep, setActiveStep] = useState<OnboardingStep['id'] | null>(null);
 
   const STEP_IDS: OnboardingStep['id'][] = ['basic', 'address', 'fiscal', 'documents', 'bank-accounts', 'training'];
@@ -61,8 +65,8 @@ const ProjectsProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
         <PopoverContent className="w-72 p-0" align="end">
           <div className="p-4 space-y-3">
             <div>
-              <p className="font-semibold text-sm text-foreground">{profile?.nombre || "Usuario"}</p>
-              <p className="text-xs text-muted-foreground">{profile?.email || user?.email}</p>
+              <p className="font-semibold text-sm text-foreground">{effectiveName}</p>
+              <p className="text-xs text-muted-foreground">{effectiveEmail}</p>
             </div>
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
               <span className="text-xs text-muted-foreground">Comisión</span>
@@ -70,7 +74,7 @@ const ProjectsProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
                 {agentCommission != null ? `${agentCommission}%` : "2.00%"}
               </Badge>
             </div>
-            {personaId && !onboardingLoading && (
+            {effectivePersonaId && !onboardingLoading && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Perfil</span>
@@ -116,10 +120,10 @@ const ProjectsProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
         </PopoverContent>
       </Popover>
 
-      {activeStep && personaId && (
+      {activeStep && effectivePersonaId && (
         <AgentOnboardingStepDialog
           step={activeStep}
-          personaId={personaId}
+          personaId={effectivePersonaId}
           open={!!activeStep}
           onOpenChange={(open) => { if (!open) setActiveStep(null); }}
         />
