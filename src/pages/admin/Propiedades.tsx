@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home, FileText, ArrowRightLeft, Zap, TrendingUp, TrendingDown, Equal, Check, X, ShoppingCart, AlertCircle, Banknote, Lock } from "lucide-react";
+import { Search, Edit, Trash2, Upload, Plus, Eye, Download, Car, Warehouse, CreditCard, Loader2, DollarSign, Calendar, Home, FileText, ArrowRightLeft, Zap, TrendingUp, TrendingDown, Equal, Check, X, ShoppingCart, AlertCircle, Banknote, Lock, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -5514,7 +5514,16 @@ const Propiedades = () => {
             </div>
             
             {/* Botón para limpiar filtros, ordenar por precio y configurar columnas */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-between gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => navigate('/admin/prospectos')}
+              >
+                <Users className="h-4 w-4" />
+                Prospectos
+              </Button>
+              <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -5632,6 +5641,7 @@ const Propiedades = () => {
                   </div>
                 </PopoverContent>
               </Popover>
+              </div>
             </div>
           </div>
         </CardHeader>
