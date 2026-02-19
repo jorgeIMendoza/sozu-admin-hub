@@ -435,7 +435,7 @@ const InventarioGlobal = () => {
   );
 
   return (
-    <div ref={scrollContainerRef} className="max-w-5xl mx-auto pb-10 px-3">
+    <div ref={scrollContainerRef} className={`max-w-5xl mx-auto px-3 ${isSimplifiedRole ? "pb-24" : "pb-10"}`}>
       {/* === CUSTOM HEADER for simplified roles === */}
       {isSimplifiedRole ? (
         <div
