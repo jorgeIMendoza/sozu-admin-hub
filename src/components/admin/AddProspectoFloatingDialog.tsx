@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 
 interface AddProspectoFloatingDialogProps {
   open: boolean;
@@ -21,6 +22,8 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess } = useProjectAccess();
+  const { track } = useCtaTracker();
+  const hasTrackedFieldFill = useRef(false);
 
   const [proyectoId, setProyectoId] = useState("");
   const [tipoPersona, setTipoPersona] = useState("pf");
@@ -150,6 +153,13 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
     },
   });
 
+  const trackFieldFill = () => {
+    if (!hasTrackedFieldFill.current) {
+      hasTrackedFieldFill.current = true;
+      track({ page: "modal_prospecto", elementId: "modal_prospecto_campo_llenado" });
+    }
+  };
+
   const handleClose = () => {
     setProyectoId("");
     setTipoPersona("pf");
@@ -159,6 +169,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
     setTelefono("");
     setRfc("");
     setCurp("");
+    hasTrackedFieldFill.current = false;
     onOpenChange(false);
   };
 
@@ -215,14 +226,14 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
               </div>
               <div className="space-y-2">
                 <Label>Nombre Completo <span className="text-destructive">*</span></Label>
-                <Input placeholder="Ingresa el nombre completo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                <Input placeholder="Ingresa el nombre completo" value={nombre} onChange={(e) => { setNombre(e.target.value); trackFieldFill(); }} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Email <span className="text-destructive">*</span></Label>
-                <Input type="email" placeholder="Ingresa el email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input type="email" placeholder="Ingresa el email" value={email} onChange={(e) => { setEmail(e.target.value); trackFieldFill(); }} />
               </div>
               <div className="space-y-2">
                 <Label>Teléfono <span className="text-destructive">*</span></Label>
@@ -237,7 +248,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
                       <SelectItem value="CO">CO</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input placeholder="10 dígitos" value={telefono} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); setTelefono(v); }} maxLength={10} />
+                  <Input placeholder="10 dígitos" value={telefono} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); setTelefono(v); trackFieldFill(); }} maxLength={10} />
                 </div>
               </div>
             </div>
@@ -258,7 +269,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
-              onClick={() => createMutation.mutate()}
+              onClick={() => { track({ page: "modal_prospecto", elementId: "modal_prospecto_guardar" }); createMutation.mutate(); }}
               disabled={createMutation.isPending || !proyectoId || !nombre || !email || !telefono}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
             >

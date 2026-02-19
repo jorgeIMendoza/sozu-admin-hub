@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 
 interface AgendarCitaShowroomDialogProps {
   open: boolean;
@@ -28,6 +29,8 @@ const HOURS = [
 export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaShowroomDialogProps) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const { track } = useCtaTracker();
+  const hasTrackedFieldFill = useRef(false);
 
   const [selectedProspecto, setSelectedProspecto] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -110,11 +113,19 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
     },
   });
 
+  const trackFieldFill = () => {
+    if (!hasTrackedFieldFill.current) {
+      hasTrackedFieldFill.current = true;
+      track({ page: "modal_cita", elementId: "modal_cita_campo_llenado" });
+    }
+  };
+
   const handleClose = () => {
     setSelectedProspecto("");
     setSelectedDate(undefined);
     setSelectedHour("");
     setNotas("");
+    hasTrackedFieldFill.current = false;
     onOpenChange(false);
   };
 
@@ -175,7 +186,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={setSelectedDate}
+                onSelect={(d) => { setSelectedDate(d); trackFieldFill(); }}
                 disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
               />
             </div>
@@ -189,7 +200,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
           {/* Hour */}
           <div className="space-y-2">
             <Label>Hora <span className="text-destructive">*</span></Label>
-            <Select value={selectedHour} onValueChange={setSelectedHour}>
+            <Select value={selectedHour} onValueChange={(v) => { setSelectedHour(v); trackFieldFill(); }}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar hora..." />
               </SelectTrigger>
@@ -207,7 +218,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
             <Textarea
               placeholder="Agregar notas..."
               value={notas}
-              onChange={(e) => setNotas(e.target.value)}
+              onChange={(e) => { setNotas(e.target.value); trackFieldFill(); }}
               rows={2}
             />
           </div>
@@ -216,7 +227,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
-              onClick={() => createMutation.mutate()}
+              onClick={() => { track({ page: "modal_cita", elementId: "modal_cita_guardar" }); createMutation.mutate(); }}
               disabled={createMutation.isPending || !selectedProspecto || !selectedDate || !selectedHour}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
             >

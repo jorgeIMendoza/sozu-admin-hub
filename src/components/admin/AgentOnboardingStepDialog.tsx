@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,6 +16,7 @@ import { BankAccountsSection } from "./BankAccountsSection";
 import { validateRFC } from "@/utils/fiscalDataValidation";
 import { Badge } from "@/components/ui/badge";
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 
 interface AgentOnboardingStepDialogProps {
   step: OnboardingStep['id'];
@@ -48,6 +49,16 @@ const REQUIRED_DOC_TYPES = [2, 3, 6, 48];
 export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange }: AgentOnboardingStepDialogProps) {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const { track } = useCtaTracker();
+  const hasTrackedFieldChange = useRef(false);
+
+  // Track opening the step
+  useEffect(() => {
+    if (open) {
+      track({ page: "modal_perfil", elementId: "perfil_fase_abrir", metadata: { fase: step } });
+      hasTrackedFieldChange.current = false;
+    }
+  }, [open, step, track]);
 
   // Full fetch persona data
   const { data: persona, isLoading } = useQuery({
@@ -81,7 +92,12 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
     </div>
   ) : step === 'documents' ? (
     <div className="px-1">
-      <AgentDocumentsStep personaId={personaId} />
+      <AgentDocumentsStep personaId={personaId} onTrackFieldChange={() => {
+        if (!hasTrackedFieldChange.current) {
+          hasTrackedFieldChange.current = true;
+          track({ page: "modal_perfil", elementId: "perfil_fase_campo_modificado", metadata: { fase: step } });
+        }
+      }} onTrackDocView={(docName: string) => track({ page: "modal_perfil", elementId: "perfil_documentos_ver", metadata: { documento: docName } })} />
     </div>
   ) : step === 'bank-accounts' ? (
     <div className="px-1">
@@ -89,10 +105,20 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
     </div>
   ) : step === 'training' ? (
     <div className="px-1">
-      <AgentTrainingStep personaId={personaId} onSaved={handleSaved} />
+      <AgentTrainingStep personaId={personaId} onSaved={handleSaved} onTrackSave={() => track({ page: "modal_perfil", elementId: "perfil_fase_guardar", metadata: { fase: step } })} onTrackFieldChange={() => {
+        if (!hasTrackedFieldChange.current) {
+          hasTrackedFieldChange.current = true;
+          track({ page: "modal_perfil", elementId: "perfil_fase_campo_modificado", metadata: { fase: step } });
+        }
+      }} />
     </div>
   ) : (
-    <StepForm step={step} persona={persona} personaId={personaId} onSaved={handleSaved} />
+    <StepForm step={step} persona={persona} personaId={personaId} onSaved={handleSaved} onTrackSave={() => track({ page: "modal_perfil", elementId: "perfil_fase_guardar", metadata: { fase: step } })} onTrackFieldChange={() => {
+      if (!hasTrackedFieldChange.current) {
+        hasTrackedFieldChange.current = true;
+        track({ page: "modal_perfil", elementId: "perfil_fase_campo_modificado", metadata: { fase: step } });
+      }
+    }} />
   );
 
   if (isMobile) {
@@ -128,7 +154,7 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
 
 // ---------- Agent Documents Step ----------
 
-function AgentDocumentsStep({ personaId }: { personaId: number }) {
+function AgentDocumentsStep({ personaId, onTrackFieldChange, onTrackDocView }: { personaId: number; onTrackFieldChange?: () => void; onTrackDocView?: (docName: string) => void }) {
   const queryClient = useQueryClient();
 
   // Fetch doc type names from DB
@@ -179,6 +205,7 @@ function AgentDocumentsStep({ personaId }: { personaId: number }) {
 
   const handleUpload = async (typeId: number, file: File) => {
     setUploading(typeId);
+    onTrackFieldChange?.();
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `persona_${personaId}_doctype${typeId}_${Date.now()}.${fileExt}`;
@@ -344,7 +371,7 @@ interface StepFormProps {
 
 // ---------- Agent Training Step ----------
 
-function AgentTrainingStep({ personaId, onSaved }: { personaId: number; onSaved: () => void }) {
+function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange }: { personaId: number; onSaved: () => void; onTrackSave?: () => void; onTrackFieldChange?: () => void }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [fecha, setFecha] = useState('');
@@ -388,6 +415,7 @@ function AgentTrainingStep({ personaId, onSaved }: { personaId: number; onSaved:
   };
 
   const handleSchedule = async () => {
+    onTrackSave?.();
     if (!fecha || !horaInicio) {
       toast.error("Completa fecha y hora.");
       return;
@@ -453,11 +481,11 @@ function AgentTrainingStep({ personaId, onSaved }: { personaId: number; onSaved:
         <>
           <div>
             <Label className="text-sm font-semibold">Fecha *</Label>
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="mt-1.5 neu-input h-auto" min={new Date().toISOString().split('T')[0]} />
+            <Input type="date" value={fecha} onChange={(e) => { setFecha(e.target.value); onTrackFieldChange?.(); }} className="mt-1.5 neu-input h-auto" min={new Date().toISOString().split('T')[0]} />
           </div>
           <div>
             <Label className="text-sm font-semibold">Hora *</Label>
-            <Input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} className="mt-1.5 neu-input h-auto" />
+            <Input type="time" value={horaInicio} onChange={(e) => { setHoraInicio(e.target.value); onTrackFieldChange?.(); }} className="mt-1.5 neu-input h-auto" />
           </div>
 
           {isProgrammed && (
@@ -488,9 +516,11 @@ interface StepFormProps {
   persona: any;
   personaId: number;
   onSaved: () => void;
+  onTrackSave?: () => void;
+  onTrackFieldChange?: () => void;
 }
 
-function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
+function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackFieldChange }: StepFormProps) {
   const [saving, setSaving] = useState(false);
 
   // Basic fields
@@ -616,6 +646,7 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
   const filteredMunicipios = (estadoId: string) => municipios.filter((m: any) => m.id_estado === parseInt(estadoId));
 
   const handleSave = async () => {
+    onTrackSave?.();
     setSaving(true);
     try {
       let updateData: any = {};
@@ -787,15 +818,15 @@ function StepForm({ step, persona, personaId, onSaved }: StepFormProps) {
         <div className="space-y-4">
           <div>
             <Label className="text-sm font-semibold">Nombre completo *</Label>
-            <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="mt-1.5 neu-input h-auto" />
+            <Input value={nombre} onChange={(e) => { setNombre(e.target.value); onTrackFieldChange?.(); }} className="mt-1.5 neu-input h-auto" />
           </div>
           <div>
             <Label className="text-sm font-semibold">Correo electrónico *</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 neu-input h-auto" />
+            <Input type="email" value={email} onChange={(e) => { setEmail(e.target.value); onTrackFieldChange?.(); }} className="mt-1.5 neu-input h-auto" />
           </div>
            <div>
             <Label className="text-sm font-semibold">Teléfono (10 dígitos) *</Label>
-            <Input value={telefono} onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))} maxLength={10} className="mt-1.5 neu-input h-auto" />
+            <Input value={telefono} onChange={(e) => { setTelefono(e.target.value.replace(/\D/g, '')); onTrackFieldChange?.(); }} maxLength={10} className="mt-1.5 neu-input h-auto" />
           </div>
           <div>
             <Label className="text-sm font-semibold">CURP <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>

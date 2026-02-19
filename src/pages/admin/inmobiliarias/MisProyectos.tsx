@@ -16,16 +16,17 @@ import { APP_VERSION } from "@/lib/config";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
-import React from "react";
+import React, { useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import useEmblaCarousel from "embla-carousel-react";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 
 
 // Profile Menu for simplified roles (matches InventarioGlobal)
-const ProjectsProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
+const ProjectsProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrack?: () => void }) => {
   const { profile, user } = useAuth();
   const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
   const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
@@ -58,7 +59,7 @@ const ProjectsProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <button className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+          <button onClick={() => onTrack?.()} className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
             <User className="h-3.5 w-3.5 text-primary" />
           </button>
         </PopoverTrigger>
@@ -145,6 +146,17 @@ const MisProyectos = () => {
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
   const [showHeaderBar, setShowHeaderBar] = useState(true);
   const lastScrollY = React.useRef(0);
+  const { track } = useCtaTracker();
+  const carouselTrackedProjects = useRef<Set<string>>(new Set());
+
+  // Track page view
+  const pageViewTracked = useRef(false);
+  useEffect(() => {
+    if (!pageViewTracked.current) {
+      track({ page: "desarrollos", elementId: "page_view" });
+      pageViewTracked.current = true;
+    }
+  }, [track]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -369,8 +381,9 @@ const MisProyectos = () => {
     }
   };
 
-  const handleDownloadBrochure = (brochure: any) => {
+  const handleDownloadBrochure = (brochure: any, projectName?: string) => {
     if (brochure?.url) {
+      track({ page: "desarrollos", elementId: "btn_descargar_brochure", metadata: { proyecto: projectName || "" } });
       window.open(brochure.url, "_blank");
     }
   };
@@ -390,6 +403,8 @@ const MisProyectos = () => {
   const handleShare = (platform: string, project: any) => {
     const url = getShareUrl(project.id);
     const text = `¡Conoce ${project.nombre}! ${project.descripcion?.substring(0, 100) || ""}`;
+
+    track({ page: "desarrollos", elementId: "btn_compartir_plataforma", metadata: { plataforma: platform, proyecto: project.nombre } });
 
     switch (platform) {
       case "whatsapp":
@@ -451,20 +466,20 @@ const MisProyectos = () => {
               <span className="text-xs font-medium text-foreground truncate">Propiedades</span>
             </button>
             <button
-              onClick={() => setAddProspectoOpen(true)}
+              onClick={() => { track({ page: "desarrollos", elementId: "btn_agregar_prospecto" }); setAddProspectoOpen(true); }}
               className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Agregar prospecto"
             >
               <UserPlus className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => setAgendarCitaOpen(true)}
+              onClick={() => { track({ page: "desarrollos", elementId: "btn_agendar_cita" }); setAgendarCitaOpen(true); }}
               className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Agendar cita"
             >
               <CalendarDays className="h-3.5 w-3.5" />
             </button>
-            <ProjectsProfileMenu onLogout={signOut} />
+            <ProjectsProfileMenu onLogout={signOut} onTrack={() => track({ page: "desarrollos", elementId: "btn_perfil_usuario" })} />
           </div>
         </div>
       )}
@@ -491,7 +506,12 @@ const MisProyectos = () => {
                 onClick={() => navigate(`/admin/inmobiliarias/proyectos/${project.id}`)}
               >
                 {/* Image Carousel */}
-                <ImageCarousel images={images} projectName={project.nombre} badge={getProjectBadge(project)} brochure={brochure} onDownloadBrochure={handleDownloadBrochure} />
+                <ImageCarousel images={images} projectName={project.nombre} badge={getProjectBadge(project)} brochure={brochure} onDownloadBrochure={(b) => handleDownloadBrochure(b, project.nombre)} onCarouselSwipe={() => {
+                  if (!carouselTrackedProjects.current.has(String(project.id))) {
+                    carouselTrackedProjects.current.add(String(project.id));
+                    track({ page: "desarrollos", elementId: "carousel_swipe", metadata: { proyecto: project.nombre } });
+                  }
+                }} />
 
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-lg text-primary line-clamp-1">
@@ -573,7 +593,7 @@ const MisProyectos = () => {
                       variant="outline"
                       size="sm"
                       className="text-xs gap-1"
-                      onClick={() => setModelosDialog({ open: true, project })}
+                      onClick={() => { track({ page: "desarrollos", elementId: "btn_modelos", metadata: { proyecto: project.nombre } }); setModelosDialog({ open: true, project }); }}
                     >
                       <Maximize2 className="h-3 w-3" />
                       Modelos
@@ -582,7 +602,7 @@ const MisProyectos = () => {
                       variant="outline"
                       size="sm"
                       className="text-xs gap-1"
-                      onClick={() => setAmenidadesDialog({ open: true, projectId: project.id })}
+                      onClick={() => { track({ page: "desarrollos", elementId: "btn_amenidades", metadata: { proyecto: project.nombre } }); setAmenidadesDialog({ open: true, projectId: project.id }); }}
                     >
                       <Star className="h-3 w-3" />
                       Amenidades
@@ -591,7 +611,7 @@ const MisProyectos = () => {
                       variant="outline"
                       size="sm"
                       className="text-xs gap-1"
-                      onClick={() => setShareDialog({ open: true, project })}
+                      onClick={() => { track({ page: "desarrollos", elementId: "btn_compartir", metadata: { proyecto: project.nombre } }); setShareDialog({ open: true, project }); }}
                     >
                       <Share2 className="h-3 w-3" />
                       Compartir
@@ -701,14 +721,14 @@ const MisProyectos = () => {
       {isSimplifiedRole && !showHeaderBar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <button
-            onClick={() => setAddProspectoOpen(true)}
+            onClick={() => { track({ page: "desarrollos", elementId: "btn_agregar_prospecto" }); setAddProspectoOpen(true); }}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
             title="Agregar prospecto"
           >
             <UserPlus className="h-5 w-5" />
           </button>
           <button
-            onClick={() => setAgendarCitaOpen(true)}
+            onClick={() => { track({ page: "desarrollos", elementId: "btn_agendar_cita" }); setAgendarCitaOpen(true); }}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
             title="Agendar cita"
           >
@@ -733,12 +753,13 @@ const MisProyectos = () => {
 };
 
 // Carousel sub-component
-const ImageCarousel = ({ images, projectName, badge, brochure, onDownloadBrochure }: {
+const ImageCarousel = ({ images, projectName, badge, brochure, onDownloadBrochure, onCarouselSwipe }: {
   images: any[];
   projectName: string;
   badge: { label: string; className: string };
   brochure: any;
   onDownloadBrochure: (b: any) => void;
+  onCarouselSwipe?: () => void;
 }) => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -749,7 +770,8 @@ const ImageCarousel = ({ images, projectName, badge, brochure, onDownloadBrochur
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
     setCurrentIndex(emblaApi.selectedScrollSnap());
-  }, [emblaApi]);
+    onCarouselSwipe?.();
+  }, [emblaApi, onCarouselSwipe]);
 
   useEffect(() => {
     if (!emblaApi) return;

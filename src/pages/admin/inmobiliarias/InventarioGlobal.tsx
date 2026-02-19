@@ -11,6 +11,7 @@ import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, 
 import { APP_VERSION } from "@/lib/config";
 import bodegaIcon from "@/assets/icons/bodega.png";
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import useEmblaCarousel from "embla-carousel-react";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { AgentImpersonationSelector } from "@/components/admin/AgentImpersonationSelector";
@@ -44,7 +45,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 type SortOrder = "none" | "asc" | "desc";
 
 // Profile Menu for simplified roles
-const ProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
+const ProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrack?: () => void }) => {
   const { profile, user } = useAuth();
   const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
   const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
@@ -77,7 +78,7 @@ const ProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <button className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+          <button onClick={() => onTrack?.()} className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
             <User className="h-3.5 w-3.5 text-primary" />
           </button>
         </PopoverTrigger>
@@ -170,6 +171,16 @@ const InventarioGlobal = () => {
   const isMobile = useIsMobile();
   const { profile, signOut } = useAuth();
   const isSimplifiedRole = SIMPLIFIED_ROLES.includes(profile?.rol_nombre ?? "");
+  const { track } = useCtaTracker();
+
+  // Track page view
+  const pageViewTracked = useRef(false);
+  useEffect(() => {
+    if (!pageViewTracked.current) {
+      track({ page: "inventario", elementId: "page_view" });
+      pageViewTracked.current = true;
+    }
+  }, [track]);
 
   const initialProject = searchParams.get('proyecto');
   const shouldOpenFilters = searchParams.get('openFilters') === 'true';
@@ -328,8 +339,10 @@ const InventarioGlobal = () => {
   };
 
   const cycleSortOrder = () => {
-    setSortOrder(prev => prev === "none" ? "asc" : prev === "asc" ? "desc" : "none");
+    const next = sortOrder === "none" ? "asc" : sortOrder === "asc" ? "desc" : "none";
+    setSortOrder(next);
     setPage(0);
+    track({ page: "inventario", elementId: "btn_ordenamiento", metadata: { orden: next } });
   };
 
   const totalPages = Math.ceil(sortedProperties.length / PAGE_SIZE);
@@ -382,7 +395,7 @@ const InventarioGlobal = () => {
           </div>
           <span className="text-sm font-semibold text-foreground">Proyecto</span>
         </div>
-        <MultiSelectFilter values={filterProjectNames} onValuesChange={setFilterProjectNames} options={projectsWithAvailable} placeholder="Todos los proyectos" searchPlaceholder="Buscar proyecto..." />
+        <MultiSelectFilter values={filterProjectNames} onValuesChange={(v) => { setFilterProjectNames(v); if (v.length > filterProjectNames.length) track({ page: "inventario", elementId: "btn_busqueda", metadata: { filtro: "proyecto" } }); }} options={projectsWithAvailable} placeholder="Todos los proyectos" searchPlaceholder="Buscar proyecto..." />
       </div>
       <div className="space-y-2">
         <div className="flex items-center gap-2.5">
@@ -391,7 +404,7 @@ const InventarioGlobal = () => {
           </div>
           <span className="text-sm font-semibold text-foreground">Modelo</span>
         </div>
-        <MultiSelectFilter values={filterModelNames} onValuesChange={setFilterModelNames} options={availableModelNames} placeholder="Todos los modelos" searchPlaceholder="Buscar modelo..." />
+        <MultiSelectFilter values={filterModelNames} onValuesChange={(v) => { setFilterModelNames(v); if (v.length > filterModelNames.length) track({ page: "inventario", elementId: "btn_busqueda", metadata: { filtro: "modelo" } }); }} options={availableModelNames} placeholder="Todos los modelos" searchPlaceholder="Buscar modelo..." />
       </div>
       <div className="space-y-2">
         <div className="flex items-center gap-2.5">
@@ -400,7 +413,7 @@ const InventarioGlobal = () => {
           </div>
           <span className="text-sm font-semibold text-foreground">Recámaras</span>
         </div>
-        <MultiSelectFilter values={filterBedrooms} onValuesChange={setFilterBedrooms} options={availableBedroomOptions} placeholder="Todas" searchPlaceholder="Buscar..." />
+        <MultiSelectFilter values={filterBedrooms} onValuesChange={(v) => { setFilterBedrooms(v); if (v.length > filterBedrooms.length) track({ page: "inventario", elementId: "btn_busqueda", metadata: { filtro: "recamaras" } }); }} options={availableBedroomOptions} placeholder="Todas" searchPlaceholder="Buscar..." />
       </div>
       <div className="space-y-2">
         <div className="flex items-center gap-2.5">
@@ -409,7 +422,7 @@ const InventarioGlobal = () => {
           </div>
           <span className="text-sm font-semibold text-foreground">Nivel</span>
         </div>
-        <MultiSelectFilter values={filterLevels} onValuesChange={setFilterLevels} options={availableLevelOptions} placeholder="Todos los niveles" searchPlaceholder="Buscar nivel..." />
+        <MultiSelectFilter values={filterLevels} onValuesChange={(v) => { setFilterLevels(v); if (v.length > filterLevels.length) track({ page: "inventario", elementId: "btn_busqueda", metadata: { filtro: "nivel" } }); }} options={availableLevelOptions} placeholder="Todos los niveles" searchPlaceholder="Buscar nivel..." />
       </div>
       <div className="space-y-2">
         <div className="flex items-center gap-2.5">
@@ -422,7 +435,7 @@ const InventarioGlobal = () => {
           values={filterBodega ? [filterBodega === "con" ? "Con bodega" : "Sin bodega"] : []}
           onValuesChange={(vals) => {
             if (vals.length === 0) setFilterBodega(null);
-            else { const last = vals[vals.length - 1]; setFilterBodega(last === "Con bodega" ? "con" : "sin"); }
+            else { const last = vals[vals.length - 1]; setFilterBodega(last === "Con bodega" ? "con" : "sin"); track({ page: "inventario", elementId: "btn_busqueda", metadata: { filtro: "bodega" } }); }
           }}
           options={["Con bodega", "Sin bodega"]}
           placeholder="Todas"
@@ -439,7 +452,7 @@ const InventarioGlobal = () => {
           values={filterEstacionamiento ? [filterEstacionamiento === "con" ? "Con estac." : "Sin estac."] : []}
           onValuesChange={(vals) => {
             if (vals.length === 0) setFilterEstacionamiento(null);
-            else { const last = vals[vals.length - 1]; setFilterEstacionamiento(last === "Con estac." ? "con" : "sin"); }
+            else { const last = vals[vals.length - 1]; setFilterEstacionamiento(last === "Con estac." ? "con" : "sin"); track({ page: "inventario", elementId: "btn_busqueda", metadata: { filtro: "estacionamiento" } }); }
           }}
           options={["Con estac.", "Sin estac."]}
           placeholder="Todos"
@@ -488,21 +501,21 @@ const InventarioGlobal = () => {
 
             {/* Action buttons */}
             <button
-              onClick={() => navigate('/admin/inmobiliarias/proyectos')}
+              onClick={() => { track({ page: "inventario", elementId: "btn_desarrollos" }); navigate('/admin/inmobiliarias/proyectos'); }}
               className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Desarrollos"
             >
               <Building2 className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => setAddProspectoOpen(true)}
+              onClick={() => { track({ page: "inventario", elementId: "btn_agregar_prospecto" }); setAddProspectoOpen(true); }}
               className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Agregar prospecto"
             >
               <UserPlus className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => setAgendarCitaOpen(true)}
+              onClick={() => { track({ page: "inventario", elementId: "btn_agendar_cita" }); setAgendarCitaOpen(true); }}
               className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
               title="Agendar cita al showroom"
             >
@@ -510,7 +523,7 @@ const InventarioGlobal = () => {
             </button>
 
             {/* Profile button */}
-            <ProfileMenu onLogout={signOut} />
+            <ProfileMenu onLogout={signOut} onTrack={() => track({ page: "inventario", elementId: "btn_perfil_usuario" })} />
           </div>
         </div>
       ) : (
@@ -750,21 +763,21 @@ const InventarioGlobal = () => {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* Left-side action buttons */}
           <button
-            onClick={() => navigate('/admin/inmobiliarias/proyectos')}
+            onClick={() => { track({ page: "inventario", elementId: "btn_desarrollos" }); navigate('/admin/inmobiliarias/proyectos'); }}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
             title="Desarrollos"
           >
             <Building2 className="h-5 w-5" />
           </button>
           <button
-            onClick={() => setAddProspectoOpen(true)}
+            onClick={() => { track({ page: "inventario", elementId: "btn_agregar_prospecto" }); setAddProspectoOpen(true); }}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
             title="Agregar prospecto"
           >
             <UserPlus className="h-5 w-5" />
           </button>
           <button
-            onClick={() => setAgendarCitaOpen(true)}
+            onClick={() => { track({ page: "inventario", elementId: "btn_agendar_cita" }); setAgendarCitaOpen(true); }}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
             title="Agendar cita al showroom"
           >

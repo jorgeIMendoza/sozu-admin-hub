@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2, MapPin, Loader2, ChevronLeft, ChevronRight, BedDouble, Bath, ShowerHead, Star, ArrowLeft, Maximize2, CheckCircle, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check, SlidersHorizontal } from "lucide-react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import useEmblaCarousel from "embla-carousel-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { APP_VERSION } from "@/lib/config";
@@ -22,7 +23,7 @@ import React from "react";
 const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria", "Super Administrador", "Administrador de Proyecto"];
 
 // Profile Menu (same as MisProyectos / InventarioGlobal)
-const DetailProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
+const DetailProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrack?: () => void }) => {
   const { profile, user } = useAuth();
   const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
   const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
@@ -44,7 +45,7 @@ const DetailProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <button className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+          <button onClick={() => onTrack?.()} className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
             <User className="h-3.5 w-3.5 text-primary" />
           </button>
         </PopoverTrigger>
@@ -105,6 +106,12 @@ const MiProyectoDetalle = () => {
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
   const [showHeaderBar, setShowHeaderBar] = useState(true);
   const lastScrollY = React.useRef(0);
+  const { track } = useCtaTracker();
+  const mapTracked = useRef(false);
+  const carouselTracked = useRef(false);
+
+  // Track page view
+  const pageViewTracked = useRef(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -119,6 +126,14 @@ const MiProyectoDetalle = () => {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Track page view once project loads
+  useEffect(() => {
+    if (!pageViewTracked.current && projectId > 0) {
+      track({ page: "detalle_desarrollo", elementId: "page_view", metadata: { proyecto: String(projectId) } });
+      pageViewTracked.current = true;
+    }
+  }, [track, projectId]);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["mi-proyecto-detalle", projectId],
@@ -286,16 +301,16 @@ const MiProyectoDetalle = () => {
               <Search className="h-3.5 w-3.5 text-primary shrink-0" />
               <span className="text-xs font-medium text-foreground truncate">Propiedades</span>
             </button>
-            <button onClick={() => navigate("/admin/inmobiliarias/proyectos")} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Desarrollos">
+            <button onClick={() => { track({ page: "detalle_desarrollo", elementId: "btn_desarrollos" }); navigate("/admin/inmobiliarias/proyectos"); }} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Desarrollos">
               <Building2 className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setAddProspectoOpen(true)} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agregar prospecto">
+            <button onClick={() => { track({ page: "detalle_desarrollo", elementId: "btn_agregar_prospecto" }); setAddProspectoOpen(true); }} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agregar prospecto">
               <UserPlus className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setAgendarCitaOpen(true)} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agendar cita">
+            <button onClick={() => { track({ page: "detalle_desarrollo", elementId: "btn_agendar_cita" }); setAgendarCitaOpen(true); }} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Agendar cita">
               <CalendarDays className="h-3.5 w-3.5" />
             </button>
-            <DetailProfileMenu onLogout={signOut} />
+            <DetailProfileMenu onLogout={signOut} onTrack={() => track({ page: "detalle_desarrollo", elementId: "btn_perfil_usuario" })} />
           </div>
         </div>
       )}
@@ -315,7 +330,12 @@ const MiProyectoDetalle = () => {
       )}
 
       {/* Hero Carousel */}
-      <HeroCarousel images={images} projectName={project.nombre} />
+      <HeroCarousel images={images} projectName={project.nombre} onSwipe={() => {
+        if (!carouselTracked.current) {
+          carouselTracked.current = true;
+          track({ page: "detalle_desarrollo", elementId: "carousel_swipe", metadata: { proyecto: project.nombre } });
+        }
+      }} />
 
       {/* Title + Badge + Price */}
       <div className="space-y-2 px-1">
@@ -469,7 +489,12 @@ const MiProyectoDetalle = () => {
         <div className="space-y-2 px-1">
           <h2 className="text-lg font-semibold text-foreground">Ubicación</h2>
           <hr className="border-border" />
-          <div className="rounded-lg overflow-hidden border h-64">
+          <div className="rounded-lg overflow-hidden border h-64" onClick={() => {
+            if (!mapTracked.current) {
+              mapTracked.current = true;
+              track({ page: "detalle_desarrollo", elementId: "map_interaction", metadata: { proyecto: project.nombre } });
+            }
+          }}>
             <iframe
               width="100%"
               height="100%"
@@ -484,13 +509,13 @@ const MiProyectoDetalle = () => {
       {/* Floating action buttons for simplified roles */}
       {isSimplifiedRole && !showHeaderBar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <button onClick={() => navigate("/admin/inmobiliarias/proyectos")} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Desarrollos">
+          <button onClick={() => { track({ page: "detalle_desarrollo", elementId: "btn_desarrollos" }); navigate("/admin/inmobiliarias/proyectos"); }} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Desarrollos">
             <Building2 className="h-5 w-5" />
           </button>
-          <button onClick={() => setAddProspectoOpen(true)} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Agregar prospecto">
+          <button onClick={() => { track({ page: "detalle_desarrollo", elementId: "btn_agregar_prospecto" }); setAddProspectoOpen(true); }} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Agregar prospecto">
             <UserPlus className="h-5 w-5" />
           </button>
-          <button onClick={() => setAgendarCitaOpen(true)} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Agendar cita">
+          <button onClick={() => { track({ page: "detalle_desarrollo", elementId: "btn_agendar_cita" }); setAgendarCitaOpen(true); }} className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform" title="Agendar cita">
             <CalendarDays className="h-5 w-5" />
           </button>
           <div className="h-6 w-px bg-white/30" />
@@ -512,7 +537,7 @@ const MiProyectoDetalle = () => {
 };
 
 // Hero Carousel Component
-const HeroCarousel = ({ images, projectName }: { images: any[]; projectName: string }) => {
+const HeroCarousel = ({ images, projectName, onSwipe }: { images: any[]; projectName: string; onSwipe?: () => void }) => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -522,7 +547,8 @@ const HeroCarousel = ({ images, projectName }: { images: any[]; projectName: str
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
     setCurrentIndex(emblaApi.selectedScrollSnap());
-  }, [emblaApi]);
+    onSwipe?.();
+  }, [emblaApi, onSwipe]);
 
   useEffect(() => {
     if (!emblaApi) return;
