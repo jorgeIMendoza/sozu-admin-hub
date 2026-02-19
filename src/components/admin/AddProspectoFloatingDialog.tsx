@@ -179,6 +179,14 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
         throw new Error("El teléfono debe tener exactamente 10 dígitos numéricos");
       }
 
+      if (rfc && !/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc)) {
+        throw new Error("El RFC no tiene un formato válido. Debe ser de 12 caracteres para persona moral o 13 para persona física (Ej: ABC123456DEF o ABCD123456EF1)");
+      }
+
+      if (curp && !/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/.test(curp)) {
+        throw new Error("La CURP no tiene un formato válido. Debe tener 18 caracteres alfanuméricos (Ej: ABCD123456HMNEFD01)");
+      }
+
       if (isEditMode && selectedProspectoId) {
         // Update existing persona
         const { error: updateError } = await supabase
@@ -245,7 +253,12 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
       handleClose();
     },
     onError: (error: any) => {
-      toast.error(`Error: ${error.message}`);
+      const msg = error.message || "Ocurrió un error inesperado";
+      if (msg.includes("RFC") || msg.includes("CURP") || msg.includes("teléfono") || msg.includes("obligatorios")) {
+        toast.error(msg);
+      } else {
+        toast.error("No se pudo guardar el prospecto. Verifica los datos e intenta de nuevo.");
+      }
     },
   });
 
@@ -274,7 +287,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nuevo Prospecto</DialogTitle>
+          <DialogTitle>{isEditMode ? "Editar Prospecto" : "Nuevo Prospecto"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
