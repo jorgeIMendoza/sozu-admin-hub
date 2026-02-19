@@ -414,7 +414,7 @@ const MisProyectos = () => {
   const isSimplifiedRole = ["Agente Inmobiliario", "Inmobiliaria"].includes(profile?.rol_nombre ?? "");
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isSimplifiedRole ? "overflow-x-hidden" : ""}`}>
       {!isSimplifiedRole && (
         <>
           <div>

@@ -267,7 +267,7 @@ const MiProyectoDetalle = () => {
   const badge = getProjectBadge();
 
   return (
-    <div className={`max-w-4xl mx-auto space-y-6 ${isSimplifiedRole ? "pb-24" : "pb-10"}`}>
+    <div className={`max-w-4xl mx-auto space-y-6 ${isSimplifiedRole ? "pb-24 overflow-x-hidden" : "pb-10"}`}>
       {/* Header for simplified roles */}
       {isSimplifiedRole && (
         <div className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-2.5 sm:-mx-6 -mt-4 sm:-mt-6 transition-transform duration-300 overflow-hidden ${showHeaderBar ? "translate-y-0" : "-translate-y-full"}`}>
