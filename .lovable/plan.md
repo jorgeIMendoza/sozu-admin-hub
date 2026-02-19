@@ -1,131 +1,53 @@
 
-# Plan: Instrumentacion Completa de CTAs en Datos Inmobiliarios
 
-## Resumen
-Agregar tracking de todas las interacciones de usuario en las 3 paginas de datos inmobiliarios y sus modales, usando el hook existente `useCtaTracker` y la tabla `cta_events`. Luego redisenar la pagina de Mediciones CTA para mostrar dashboards especificos por pagina con graficas y tablas detalladas.
+# Plan: Asignacion Alternada A/B + Variante Ganadora
 
----
+## Cambio en la logica de asignacion
 
-## Parte 1: Instrumentacion de Eventos (track calls)
+Reemplazar el `Math.random()` actual en `useAbTest.ts` con una logica de alternancia simple:
 
-Se usara el hook existente `useCtaTracker` insertando llamadas `track()` en cada interaccion. Cada evento tendra un `element_id` unico y descriptivo, y opcionalmente `metadata` con detalles adicionales (ej. que filtro se uso, que plataforma de compartir, que fase del perfil).
+1. Consultar el ultimo registro en `ab_test_assignments` para ese `ab_test_id`, ordenado por `created_at DESC`
+2. Si el ultimo fue "A", asignar "B". Si fue "B", asignar "A". Si no hay registros, asignar "A".
+3. Insertar el nuevo registro como ya se hace actualmente.
 
-### 1.1 Pagina: Inventario (`InventarioGlobal.tsx`)
+Esto permite que:
+- La distribucion sea naturalmente 50/50
+- Se pueda corregir manualmente desde la BD si se necesita (cambiar la variante de un usuario)
+- El usuario siempre ve lo mismo una vez asignado (ya funciona asi, se consulta primero si ya tiene asignacion)
 
-| Interaccion | element_id | metadata |
-|---|---|---|
-| Visita a la pagina | `page_view` | `{}` |
-| Boton de busqueda (abrir filtros) | `btn_busqueda` | `{ filtro: "proyecto" \| "modelo" \| "recamaras" \| "nivel" \| "bodega" \| "estacionamiento" }` (se trackea al aplicar cada filtro) |
-| Boton de ordenamiento | `btn_ordenamiento` | `{ orden: "asc" \| "desc" \| "none" }` |
-| Boton de Desarrollos | `btn_desarrollos` | `{}` |
-| Boton agregar Prospecto | `btn_agregar_prospecto` | `{}` |
-| Boton agendar cita showroom | `btn_agendar_cita` | `{}` |
-| Boton perfil de usuario | `btn_perfil_usuario` | `{}` |
+## Variante ganadora
 
-### 1.2 Pagina: Desarrollos (`MisProyectos.tsx`)
+Agregar columna `variante_ganadora` a `ab_tests` para que cuando un test se desactive, todos vean la variante ganadora.
 
-| Interaccion | element_id | metadata |
-|---|---|---|
-| Visita a la pagina | `page_view` | `{}` |
-| Boton de busqueda | `btn_busqueda` | `{ filtro: "..." }` (mismo esquema) |
-| Boton agregar Prospecto | `btn_agregar_prospecto` | `{}` |
-| Boton agendar cita showroom | `btn_agendar_cita` | `{}` |
-| Boton perfil de usuario | `btn_perfil_usuario` | `{}` |
-| Boton Modelos | `btn_modelos` | `{ proyecto: nombre }` |
-| Boton Amenidades | `btn_amenidades` | `{ proyecto: nombre }` |
-| Boton Compartir | `btn_compartir` | `{ proyecto: nombre }` |
-| Compartir por plataforma | `btn_compartir_plataforma` | `{ plataforma: "whatsapp" \| "facebook" \| "email" \| "copy", proyecto: nombre }` |
-| Descargar brochure | `btn_descargar_brochure` | `{ proyecto: nombre }` |
-| Swipe/carrusel (1 por sesion-proyecto) | `carousel_swipe` | `{ proyecto: nombre }` |
+### Cambios en base de datos
+- `ALTER TABLE ab_tests ADD COLUMN variante_ganadora TEXT DEFAULT NULL`
 
-### 1.3 Pagina: Detalle Desarrollo (`MiProyectoDetalle.tsx`)
+### Logica en useAbTest.ts
 
-| Interaccion | element_id | metadata |
-|---|---|---|
-| Visita a la pagina | `page_view` | `{ proyecto: nombre }` |
-| Boton de busqueda | `btn_busqueda` | `{ filtro: "..." }` |
-| Boton Desarrollos | `btn_desarrollos` | `{}` |
-| Boton agregar Prospecto | `btn_agregar_prospecto` | `{}` |
-| Boton agendar cita showroom | `btn_agendar_cita` | `{}` |
-| Boton perfil de usuario | `btn_perfil_usuario` | `{}` |
-| Swipe/carrusel hero (1 por sesion-proyecto) | `carousel_swipe` | `{ proyecto: nombre }` |
-| Interaccion con mapa | `map_interaction` | `{ proyecto: nombre }` |
+```text
+Usuario visita pagina con test configurado
+  |
+  +-- Test ACTIVO?
+  |     +-- Ya tiene asignacion? -> devolver su variante
+  |     +-- No tiene? -> ver ultimo registro, asignar el opuesto, insertar
+  |
+  +-- Test INACTIVO + variante_ganadora definida?
+  |     +-- Devolver variante_ganadora (todos ven lo mismo)
+  |
+  +-- No hay test o inactivo sin ganadora?
+        +-- Devolver "A"
+```
 
-### 1.4 Modales
+### Cambios en ABTests.tsx (panel admin)
 
-**Nuevo Prospecto (`AddProspectoFloatingDialog.tsx`)**:
-- `modal_prospecto_campo_llenado`: Se trackea una sola vez cuando el usuario empieza a llenar algun campo (usa un ref booleano que se resetea al cerrar el modal).
-- `modal_prospecto_guardar`: Se trackea al hacer clic en Guardar.
+- Al hacer clic en "Finalizar", mostrar un dialogo preguntando cual variante gano (A o B)
+- Guardar `variante_ganadora` y `activo = false`
+- Mostrar badge de variante ganadora en tests finalizados
+- Permitir editar la ganadora en tests finalizados
 
-**Agendar Cita Showroom (`AgendarCitaShowroomDialog.tsx`)**:
-- `modal_cita_campo_llenado`: Se trackea una sola vez cuando el usuario llena algun campo.
-- `modal_cita_guardar`: Se trackea al hacer clic en Agendar/Guardar.
+## Archivos a modificar
 
-**Perfil de Usuario (`AgentOnboardingStepDialog.tsx` + ProfileMenu)**:
-Para cada fase (basic, address, fiscal, documents, bank-accounts, training):
-- `perfil_fase_abrir`: `{ fase: "basic" \| "address" \| ... }` -- al abrir el modal de la fase.
-- `perfil_fase_campo_modificado`: `{ fase: "..." }` -- una sola vez por apertura si se modifica algun campo.
-- `perfil_fase_guardar`: `{ fase: "..." }` -- al dar clic en guardar/agendar.
-- `perfil_documentos_ver`: `{ documento: nombre }` -- al hacer clic en "Ver" en la fase de documentos.
-- `perfil_cuentas_agregar`: `{}` -- al hacer clic en "Agregar cuenta" en la fase de cuentas bancarias.
-
----
-
-## Parte 2: Logica de Tracking Especial
-
-### Swipe de carrusel (1 por sesion-proyecto)
-Se usara un `useRef<Set<string>>` que almacena los project IDs ya trackeados. Al detectar el primer cambio de slide (evento `select` del Embla carousel), si el proyecto no esta en el Set, se trackea y se agrega al Set. El Set se reinicia al montar/desmontar el componente de pagina.
-
-### Llenado de campos en modales (1 por apertura)
-Se usara un `useRef<boolean>` inicializado en `false`. Al detectar el primer `onChange` en cualquier campo, si el ref es `false`, se trackea y se pone en `true`. Al cerrar el modal (via `onOpenChange`), se resetea a `false`.
-
-### Filtros de busqueda
-Al aplicar/cambiar un filtro especifico, se trackea `btn_busqueda` con metadata indicando que filtro se uso. Esto se hace en los callbacks `onValuesChange` de cada `MultiSelectFilter`.
-
----
-
-## Parte 3: Rediseno de Mediciones CTA (`MedicionesCTA.tsx`)
-
-Se reescribira completamente la pagina para mostrar un dashboard mas detallado, organizado por pagina:
-
-### Estructura del Dashboard
-
-1. **Filtros globales** (rango de tiempo, pagina especifica) -- se mantienen.
-
-2. **Tarjetas resumen** (se mantienen: total clicks, CTAs unicos, usuarios unicos) + nueva tarjeta: **Visitas a paginas**.
-
-3. **Seccion por Pagina** (tabs o accordion):
-   - **Inventario**: Grafica de barras con los CTAs principales. Tabla con conteo de cada filtro usado. Grafica de pie para tipo de ordenamiento.
-   - **Desarrollos**: Grafica de barras con CTAs. Tabla de compartir por plataforma. Conteo de brochure downloads. Carrusel engagement rate.
-   - **Detalle Desarrollo**: Similar, incluyendo interacciones con mapa.
-
-4. **Seccion de Modales**:
-   - Tabla con: Modal abierto | Campos llenados | Guardados | Tasa de conversion (guardados/abiertos).
-   - Desglose del perfil por fase con las mismas metricas.
-
-5. **Mapa de calor** (se mantiene al final como vista general).
-
----
-
-## Detalles Tecnicos
-
-### Archivos a modificar:
-1. `src/pages/admin/inmobiliarias/InventarioGlobal.tsx` -- agregar `useCtaTracker`, page_view en `useEffect`, track en cada boton.
-2. `src/pages/admin/inmobiliarias/MisProyectos.tsx` -- idem + carousel tracking + share tracking.
-3. `src/pages/admin/inmobiliarias/MiProyectoDetalle.tsx` -- idem + map interaction + carousel tracking.
-4. `src/components/admin/AddProspectoFloatingDialog.tsx` -- campo llenado + guardar.
-5. `src/components/admin/AgendarCitaShowroomDialog.tsx` -- campo llenado + guardar.
-6. `src/components/admin/AgentOnboardingStepDialog.tsx` -- abrir fase, campo modificado, guardar, ver documento, agregar cuenta.
-7. `src/pages/admin/MedicionesCTA.tsx` -- rediseno completo del dashboard.
-
-### No se requieren cambios en la base de datos
-La tabla `cta_events` ya tiene la estructura necesaria con campos `page`, `element_id`, `element_label`, `element_type`, y `metadata` (JSONB). Todos los datos adicionales (filtro, plataforma, fase, proyecto) se almacenan en `metadata`.
-
-### Convencion de `page` por vista:
-- `inventario` para `/admin/inmobiliarias/inventario`
-- `desarrollos` para `/admin/inmobiliarias/proyectos`
-- `detalle_desarrollo` para `/admin/inmobiliarias/proyectos/:id`
-- `modal_prospecto` para el modal de nuevo prospecto
-- `modal_cita` para el modal de agendar cita
-- `modal_perfil` para el modal de perfil/onboarding
+1. **`src/hooks/useAbTest.ts`** -- cambiar random por alternancia, agregar logica de ganadora
+2. **`src/pages/admin/ABTests.tsx`** -- dialogo de seleccion de ganadora al finalizar, badge
+3. **Migracion SQL** -- agregar columna `variante_ganadora`
 
