@@ -943,6 +943,7 @@ const InventarioGlobal = () => {
                       hidePdfOptions={true}
                       preSelectedSchemeId={selectedSchemeId}
                       onTrackSubmit={() => track({ page: "inventario", elementId: "btn_generar_oferta_modal", elementLabel: "Generar Oferta (Modal)", metadata: { propertyId: selectedProperty.id, schemeId: selectedSchemeId } })}
+                      onTrackFillIntent={() => track({ page: "inventario", elementId: "oferta_llenado_datos", elementLabel: "Llenado Datos Oferta", metadata: { propertyId: selectedProperty.id } })}
                       customTrigger={
                         <button onClick={() => track({ page: "inventario", elementId: "btn_generar_oferta_detalle", elementLabel: "Generar Oferta", metadata: { propertyId: selectedProperty.id, schemeId: selectedSchemeId } })} className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-primary text-primary-foreground font-semibold text-sm shadow-lg hover:bg-primary/90 hover:-translate-y-1 active:translate-y-0 transition-all duration-300 ease-out">
                           <FileText className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />

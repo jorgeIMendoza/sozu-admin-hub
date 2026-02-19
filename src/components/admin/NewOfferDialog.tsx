@@ -186,9 +186,11 @@ interface NewOfferDialogProps {
   customTrigger?: React.ReactNode; // Optional custom trigger element
   preSelectedSchemeId?: number | null; // Pre-selected payment scheme from inventory detail
   onTrackSubmit?: () => void; // Optional callback to track "Generar Oferta" submit inside modal
+  onTrackFillIntent?: () => void; // Optional callback to track first field fill in the modal
 }
 
-export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false, customTrigger, preSelectedSchemeId, onTrackSubmit }: NewOfferDialogProps) {
+export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false, customTrigger, preSelectedSchemeId, onTrackSubmit, onTrackFillIntent }: NewOfferDialogProps) {
+  const fillIntentTracked = React.useRef(false);
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -294,6 +296,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
       setSearchTerm("");
       setUsarTramosPersonalizados(false);
       setTramosMensualidad([]);
+      fillIntentTracked.current = false;
     }
   }, [open, form]);
 
@@ -1973,6 +1976,10 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                                   setSelectedPerson(person);
                                   setSearchOpen(false);
                                   setSearchTerm("");
+                                  if (!fillIntentTracked.current) {
+                                    fillIntentTracked.current = true;
+                                    onTrackFillIntent?.();
+                                  }
                                 }}
                               >
                                 <Check

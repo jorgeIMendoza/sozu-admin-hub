@@ -141,18 +141,25 @@ const MedicionesCTA = () => {
   };
 
   // Heatmap data
+  // Normalize page values: map URL paths to short labels
+  const normalizePage = (page: string) => {
+    if (/\/admin\/inmobiliarias\/inventario/i.test(page)) return "inventario";
+    return page;
+  };
+
   const elementCounts = useMemo(() => {
     const map = new Map<string, { count: number; label: string; page: string }>();
     events.forEach((e: any) => {
+      // Skip legacy redundant event
+      if (e.element_id === "generate_offer") return;
       const rawLabel = e.element_label || e.element_id;
       // Aggregate all "Depto XXXX" clicks into a single "Detalle Depto." label
       const label = /^Depto\s+\d+/i.test(rawLabel) ? "Detalle Depto." : rawLabel;
-      // Skip redundant "Generar Oferta" from detail (btn_generar_oferta_detalle) — only keep modal one
-      if (e.element_id === "btn_generar_oferta_detalle" || e.element_id === "generate_offer") return;
-      const key = `${e.page}::${label}`;
+      const page = normalizePage(e.page);
+      const key = `${page}::${label}`;
       const existing = map.get(key);
       if (existing) existing.count++;
-      else map.set(key, { count: 1, label, page: e.page });
+      else map.set(key, { count: 1, label, page });
     });
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [events]);
