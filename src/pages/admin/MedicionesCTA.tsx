@@ -56,6 +56,24 @@ const MedicionesCTA = () => {
   // Helper: count events by page
   const countByPage = (page: string) => events.filter((e: any) => e.page === page).length;
 
+  // Fetch AB test variant assignments for inventario
+  const { data: abAssignments = [] } = useQuery({
+    queryKey: ["ab-assignments-inventario"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("ab_test_assignments")
+        .select("user_email, variante, ab_tests!inner(pagina)")
+        .eq("ab_tests.pagina", "/admin/inmobiliarias/inventario");
+      return (data || []) as any[];
+    },
+  });
+
+  const userVariantMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    abAssignments.forEach((a: any) => { map[a.user_email] = a.variante; });
+    return map;
+  }, [abAssignments]);
+
   // Page views
   const pageViews = useMemo(() => ({
     inventario: countByElement("inventario", "page_view"),
@@ -140,6 +158,33 @@ const MedicionesCTA = () => {
     return Array.from(map.entries()).map(([name, clicks]) => ({ name: name.length > 25 ? name.slice(0, 22) + "…" : name, clicks })).sort((a, b) => b.clicks - a.clicks).slice(0, 5);
   };
 
+  const getVariantEvents = (variant: string) =>
+    events.filter((e: any) => e.page === "inventario" && userVariantMap[e.user_email] === variant);
+
+  const getVariantCTAs = (variant: string) => {
+    const vEvents = getVariantEvents(variant).filter((e: any) => e.element_id !== "page_view");
+    const map = new Map<string, number>();
+    vEvents.forEach((e: any) => {
+      const rawLabel = e.element_label || e.element_id;
+      const label = /^Depto\s+\d+/i.test(rawLabel) ? "Detalle Depto." : rawLabel;
+      map.set(label, (map.get(label) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, clicks]) => ({ name: name.length > 25 ? name.slice(0, 22) + "…" : name, clicks })).sort((a, b) => b.clicks - a.clicks).slice(0, 5);
+  };
+
+  const variantSummary = useMemo(() => {
+    const result = ["A", "B"].map(v => {
+      const vEvents = getVariantEvents(v);
+      const views = vEvents.filter((e: any) => e.element_id === "page_view").length;
+      const clicks = vEvents.filter((e: any) => e.element_id !== "page_view").length;
+      const users = new Set(vEvents.map((e: any) => e.user_email)).size;
+      return { variant: v, views, clicks, users, ratio: users > 0 ? Math.round((clicks / users) * 10) / 10 : 0 };
+    });
+    return result;
+  }, [events, userVariantMap]);
+
+  const winnerVariant = variantSummary[0].ratio >= variantSummary[1].ratio ? variantSummary[0] : variantSummary[1];
+
   // Heatmap data
   // Normalize page values: map URL paths to short labels
   const normalizePage = (page: string) => {
@@ -150,10 +195,8 @@ const MedicionesCTA = () => {
   const elementCounts = useMemo(() => {
     const map = new Map<string, { count: number; label: string; page: string }>();
     events.forEach((e: any) => {
-      // Skip legacy redundant event
       if (e.element_id === "generate_offer") return;
       const rawLabel = e.element_label || e.element_id;
-      // Aggregate all "Depto XXXX" clicks into a single "Detalle Depto." label
       const label = /^Depto\s+\d+/i.test(rawLabel) ? "Detalle Depto." : rawLabel;
       const page = normalizePage(e.page);
       const key = `${page}::${label}`;
@@ -239,27 +282,58 @@ const MedicionesCTA = () => {
           <TabsTrigger value="detalle">Detalle</TabsTrigger>
         </TabsList>
 
-        {/* Inventario Tab */}
+        {/* Inventario Tab — A/B Split */}
         <TabsContent value="inventario" className="space-y-4">
+          {/* A/B Comparison Summary */}
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Comparativa A/B — Inventario</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {variantSummary.map(v => (
+                  <div key={v.variant} className={`rounded-lg p-4 border ${winnerVariant.variant === v.variant && winnerVariant.ratio > 0 ? "border-primary bg-primary/5" : "border-border bg-muted/30"}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-foreground">Variante {v.variant}</span>
+                      {winnerVariant.variant === v.variant && winnerVariant.ratio > 0 && (
+                        <Badge className="text-[10px]">Mayor interacción</Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-muted-foreground">Usuarios:</span> <span className="font-medium text-foreground">{v.users}</span></div>
+                      <div><span className="text-muted-foreground">Visitas:</span> <span className="font-medium text-foreground">{v.views}</span></div>
+                      <div><span className="text-muted-foreground">Clicks:</span> <span className="font-medium text-foreground">{v.clicks}</span></div>
+                      <div><span className="text-muted-foreground">Clicks/usuario:</span> <span className="font-bold text-foreground">{v.ratio}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Per-variant CTAs */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader><CardTitle className="text-sm">CTAs principales</CardTitle></CardHeader>
-              <CardContent>
-                {getPageCTAs("inventario").length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={getPageCTAs("inventario")} layout="vertical" margin={{ left: 10, right: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <XAxis type="number" />
-                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="clicks" radius={[0, 6, 6, 0]}>
-                        {getPageCTAs("inventario").map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <p className="text-sm text-muted-foreground text-center py-8">Sin datos</p>}
-              </CardContent>
-            </Card>
+            {["A", "B"].map(v => (
+              <Card key={v}>
+                <CardHeader><CardTitle className="text-sm">CTAs — Variante {v}</CardTitle></CardHeader>
+                <CardContent>
+                  {getVariantCTAs(v).length > 0 ? (
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={getVariantCTAs(v)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" />
+                        <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Bar dataKey="clicks" radius={[0, 6, 6, 0]}>
+                          {getVariantCTAs(v).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : <p className="text-sm text-muted-foreground text-center py-8">Sin datos para variante {v}</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-sm">Ordenamiento usado</CardTitle></CardHeader>
               <CardContent>
@@ -276,22 +350,22 @@ const MedicionesCTA = () => {
                 ) : <p className="text-sm text-muted-foreground text-center py-8">Sin datos</p>}
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-sm">Filtros utilizados</CardTitle></CardHeader>
+              <CardContent>
+                {filterUsage.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {filterUsage.map(f => (
+                      <div key={f.name} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+                        <span className="text-sm font-medium text-foreground capitalize">{f.name}</span>
+                        <Badge variant="secondary" className="text-xs">{f.count}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="text-sm text-muted-foreground text-center py-4">Sin datos</p>}
+              </CardContent>
+            </Card>
           </div>
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Filtros utilizados</CardTitle></CardHeader>
-            <CardContent>
-              {filterUsage.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {filterUsage.map(f => (
-                    <div key={f.name} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-                      <span className="text-sm font-medium text-foreground capitalize">{f.name}</span>
-                      <Badge variant="secondary" className="text-xs">{f.count}</Badge>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-sm text-muted-foreground text-center py-4">Sin datos</p>}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* Desarrollos Tab */}
