@@ -62,6 +62,11 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
         throw new Error("Completa los campos obligatorios");
       }
 
+      // Validate phone: exactly 10 numeric digits
+      if (!/^\d{10}$/.test(telefono)) {
+        throw new Error("El teléfono debe tener exactamente 10 dígitos numéricos");
+      }
+
       // Create persona
       const { data: persona, error: personaError } = await supabase
         .from("personas")
@@ -190,7 +195,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
                       <SelectItem value="CO">CO</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input placeholder="Ingresa el teléfono (10 dígitos obligatorios)" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+                  <Input placeholder="10 dígitos" value={telefono} onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); setTelefono(v); }} maxLength={10} />
                 </div>
               </div>
             </div>
