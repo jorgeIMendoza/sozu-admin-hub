@@ -428,23 +428,13 @@ const MisProyectos = () => {
       {isSimplifiedRole && (
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-3 sm:-mx-6 -mt-4 sm:-mt-6">
           <div className="flex items-center gap-2">
-            {/* Search pill */}
+            {/* Search pill — navigates to inventory with filters */}
             <button
-              className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
-              onClick={() => {
-                const el = document.getElementById("proyectos-search-input");
-                el?.focus();
-              }}
+              className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow min-w-0"
+              onClick={() => navigate("/admin/inmobiliarias/inventario?openFilters=true")}
             >
               <Search className="h-4 w-4 text-primary shrink-0" />
-              <input
-                id="proyectos-search-input"
-                type="text"
-                placeholder="Buscar propiedades"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="bg-transparent text-xs font-medium outline-none flex-1 placeholder:text-muted-foreground min-w-0"
-              />
+              <span className="text-xs font-medium text-foreground whitespace-nowrap">Buscar propiedades</span>
             </button>
 
             {/* Inventario */}
@@ -500,9 +490,7 @@ const MisProyectos = () => {
                 onClick={() => navigate(`/admin/inmobiliarias/proyectos/${project.id}`)}
               >
                 {/* Image Carousel */}
-                <div onClick={(e) => e.stopPropagation()}>
-                  <ImageCarousel images={images} projectName={project.nombre} badge={getProjectBadge(project)} brochure={brochure} onDownloadBrochure={handleDownloadBrochure} />
-                </div>
+                <ImageCarousel images={images} projectName={project.nombre} badge={getProjectBadge(project)} brochure={brochure} onDownloadBrochure={handleDownloadBrochure} />
 
                 <CardContent className="p-4 space-y-3">
                   <h3 className="font-bold text-lg text-primary line-clamp-1">

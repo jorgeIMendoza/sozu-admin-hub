@@ -167,6 +167,7 @@ const InventarioGlobal = () => {
   const isSimplifiedRole = SIMPLIFIED_ROLES.includes(profile?.rol_nombre ?? "");
 
   const initialProject = searchParams.get('proyecto');
+  const shouldOpenFilters = searchParams.get('openFilters') === 'true';
 
   const [page, setPage] = useState(0);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
@@ -178,7 +179,7 @@ const InventarioGlobal = () => {
   const [filterBodega, setFilterBodega] = useState<string | null>(null);
   const [filterEstacionamiento, setFilterEstacionamiento] = useState<string | null>(null);
   const [schemesOpen, setSchemesOpen] = useState(false);
-  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
+  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(shouldOpenFilters);
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
