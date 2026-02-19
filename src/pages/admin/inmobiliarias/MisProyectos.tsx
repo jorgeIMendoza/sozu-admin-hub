@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2, MapPin, Loader2, Download, ChevronDown, ChevronUp, BedDouble, Bath, ShowerHead, Share2, Star, ChevronLeft, ChevronRight, Copy, Mail, X, Maximize2, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check, SlidersHorizontal } from "lucide-react";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
+import { AgentImpersonationSelector } from "@/components/admin/AgentImpersonationSelector";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -421,6 +422,8 @@ const MisProyectos = () => {
             <h1 className="text-2xl font-bold text-foreground">Mis Proyectos</h1>
             <p className="text-muted-foreground text-sm">Proyectos disponibles para comercialización</p>
           </div>
+
+          <AgentImpersonationSelector />
 
           <Input
             placeholder="Buscar proyecto..."

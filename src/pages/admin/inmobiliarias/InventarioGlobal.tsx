@@ -13,6 +13,7 @@ import bodegaIcon from "@/assets/icons/bodega.png";
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
+import { AgentImpersonationSelector } from "@/components/admin/AgentImpersonationSelector";
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -509,18 +510,21 @@ const InventarioGlobal = () => {
         </div>
       ) : (
         /* Non-simplified header */
-        <div className="flex items-center justify-between gap-2 pt-6">
-          <div className="space-y-0.5">
-            <h1 className="text-xl font-bold text-foreground">Inventario Disponible</h1>
-            <p className="text-sm text-muted-foreground">{sortedProperties.length} unidades disponibles</p>
+        <div className="space-y-0 pt-6">
+          <div className="flex items-center justify-between gap-2">
+            <div className="space-y-0.5">
+              <h1 className="text-xl font-bold text-foreground">Inventario Disponible</h1>
+              <p className="text-sm text-muted-foreground">{sortedProperties.length} unidades disponibles</p>
+            </div>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => navigate("/admin/inmobiliarias/proyectos")}
+              className="rounded-full gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary/5"
+            >
+              <Building2 className="h-3.5 w-3.5" /> Proyectos
+            </Button>
           </div>
-          <Button
-            variant="outline" size="sm"
-            onClick={() => navigate("/admin/inmobiliarias/proyectos")}
-            className="rounded-full gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary/5"
-          >
-            <Building2 className="h-3.5 w-3.5" /> Proyectos
-          </Button>
+          <AgentImpersonationSelector />
         </div>
       )}
 

@@ -14,6 +14,7 @@ import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
+import { AgentImpersonationSelector } from "@/components/admin/AgentImpersonationSelector";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 import React from "react";
 
@@ -295,13 +296,16 @@ const MiProyectoDetalle = () => {
 
       {/* Back button for non-simplified roles */}
       {!isSimplifiedRole && (
-        <button
-          onClick={() => navigate("/admin/inmobiliarias/proyectos")}
-          className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-medium text-sm border border-primary/20 shadow-sm hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 ease-out"
-        >
-          <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
-          <span className="tracking-wide">Volver a proyectos</span>
-        </button>
+        <>
+          <AgentImpersonationSelector />
+          <button
+            onClick={() => navigate("/admin/inmobiliarias/proyectos")}
+            className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-medium text-sm border border-primary/20 shadow-sm hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 ease-out"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
+            <span className="tracking-wide">Volver a proyectos</span>
+          </button>
+        </>
       )}
 
       {/* Hero Carousel */}

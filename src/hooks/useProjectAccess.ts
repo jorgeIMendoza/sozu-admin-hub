@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAgentImpersonation } from '@/contexts/AgentImpersonationContext';
 import { useEffect, useMemo } from 'react';
 
 interface ProjectAccess {
@@ -25,6 +26,7 @@ const TIPO_DUENO = 17;
 
 export function useProjectAccess() {
   const { session, profile, isLoading: isAuthLoading, permissionVersion } = useAuth();
+  const { impersonatedAgentEmail, isImpersonating } = useAgentImpersonation();
   const queryClient = useQueryClient();
   const userEmail = session?.user?.email;
   const rolId = profile?.rol_id;
@@ -68,7 +70,8 @@ export function useProjectAccess() {
 
   const hasVerTodosProyectos = roleConfig?.ver_todos_proyectos_propiedades || false;
   const hasVerTodosDuenos = roleConfig?.ver_todos_duenos ?? true; // Default to true
-  const hasUnrestrictedAccess = isSuperAdmin || isAdminProyecto || hasVerTodosProyectos;
+  // When impersonating, Super Admin loses unrestricted access and uses the agent's project access
+  const hasUnrestrictedAccess = (isSuperAdmin || isAdminProyecto || hasVerTodosProyectos) && !isImpersonating;
 
   // Fetch the entity that the user represents (for special roles)
   const { data: userEntityData, isLoading: isLoadingUserEntity } = useQuery({
@@ -215,22 +218,26 @@ export function useProjectAccess() {
         .map(er => er.id_proyecto!)
     : [];
 
+  // The email to use for project access lookups (impersonated agent or current user)
+  const effectiveEmail = isImpersonating ? impersonatedAgentEmail : userEmail;
+
   // Fetch user's project access with owner information
   const { data: projectAccessData, isLoading: isLoadingQuery } = useQuery({
-    queryKey: ['user-project-access-with-owner', userEmail, permissionVersion],
+    queryKey: ['user-project-access-with-owner', effectiveEmail, permissionVersion, isImpersonating],
     queryFn: async () => {
-      if (!userEmail) return [];
+      if (!effectiveEmail) return [];
       
       const { data, error } = await supabase
         .from('proyectos_acceso')
         .select('proyecto_id, id_entidad_relacionada_dueno')
-        .eq('usuario_id', userEmail)
+        .eq('usuario_id', effectiveEmail)
         .eq('activo', true);
       
       if (error) throw error;
       return data as ProjectAccess[];
     },
-    enabled: !!userEmail && !hasUnrestrictedAccess && !isAuthLoading && !isLoadingRoleConfig,
+    // When impersonating, always run the query even if the real user has unrestricted access
+    enabled: !!effectiveEmail && (!hasUnrestrictedAccess || isImpersonating) && !isAuthLoading && !isLoadingRoleConfig,
   });
 
   // Get list of accessible project IDs
@@ -346,7 +353,7 @@ export function useProjectAccess() {
 
   // Loading = auth loading OR role config loading OR query loading OR entity loading
   const isLoading = isAuthLoading || isLoadingRoleConfig || 
-    (!hasUnrestrictedAccess && isLoadingQuery) ||
+    ((!hasUnrestrictedAccess || isImpersonating) && isLoadingQuery) ||
     (hasEntityBasedAccess && !hasUnrestrictedAccess && isLoadingUserEntity);
 
   return {

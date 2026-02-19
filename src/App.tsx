@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AgentImpersonationProvider } from "@/contexts/AgentImpersonationContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { PermissionRoute } from "@/components/auth/PermissionRoute";
 import { AdminLayout } from "./components/admin/AdminLayout";
@@ -122,6 +123,7 @@ const App = () => (
         <PWAInstallPrompt />
         <BrowserRouter>
           <AuthProvider>
+            <AgentImpersonationProvider>
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
               {isAgentesSubdomain ? (
                 <Routes>
@@ -233,6 +235,7 @@ const App = () => (
               </Routes>
               )}
             </Suspense>
+            </AgentImpersonationProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
