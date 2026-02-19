@@ -31,20 +31,20 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const [rfc, setRfc] = useState("");
   const [curp, setCurp] = useState("");
 
-  // Fetch projects the agent has access to
+  // Fetch developments the agent has access to (with available inventory)
   const { data: proyectos = [] } = useQuery({
-    queryKey: ["proyectos-activos-floating", accessibleProjectIds, hasUnrestrictedAccess],
+    queryKey: ["desarrollos-activos-floating", accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
-      // First get projects with available properties
+      // Get project IDs that have available properties via a simpler join
       const { data: availData } = await supabase
         .from('propiedades')
-        .select('edificios_modelos!inner(edificios!inner(id_proyecto))')
+        .select('id_edificio_modelo, edificios_modelos(id_edificio, edificios(id_proyecto))')
         .eq('id_estatus_disponibilidad', 2)
         .eq('activo', true);
 
       const availableProjectIds = [...new Set(
         (availData || [])
-          .map((item: any) => item.edificios_modelos?.edificios?.id_proyecto)
+          .map((item: any) => (item as any).edificios_modelos?.edificios?.id_proyecto)
           .filter(Boolean)
       )] as number[];
 
@@ -144,22 +144,22 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Proyecto de Interés */}
+          {/* Desarrollo de Interés */}
           <div className="space-y-2">
-            <Label>Proyecto de Interés <span className="text-destructive">*</span></Label>
+            <Label>Desarrollo de Interés <span className="text-destructive">*</span></Label>
             {showSearch ? (
               <Combobox
                 value={proyectoId}
                 onValueChange={setProyectoId}
                 options={proyectos.map((p) => ({ value: p.id.toString(), label: p.nombre }))}
-                placeholder="Seleccionar proyecto..."
-                searchPlaceholder="Buscar proyecto..."
-                emptyText="No se encontró el proyecto"
+                placeholder="Seleccionar desarrollo..."
+                searchPlaceholder="Buscar desarrollo..."
+                emptyText="No se encontró el desarrollo"
               />
             ) : (
               <Select value={proyectoId} onValueChange={setProyectoId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar proyecto..." />
+                  <SelectValue placeholder="Seleccionar desarrollo..." />
                 </SelectTrigger>
                 <SelectContent>
                   {proyectos.map((p) => (
