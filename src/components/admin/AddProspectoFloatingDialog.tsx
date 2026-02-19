@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProjectAccess } from "@/hooks/useProjectAccess";
 
 interface AddProspectoFloatingDialogProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface AddProspectoFloatingDialogProps {
 export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoFloatingDialogProps) {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+  const { accessibleProjectIds, hasUnrestrictedAccess } = useProjectAccess();
 
   const [proyectoId, setProyectoId] = useState("");
   const [tipoPersona, setTipoPersona] = useState("pf");
@@ -29,20 +31,30 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const [rfc, setRfc] = useState("");
   const [curp, setCurp] = useState("");
 
-  // Fetch projects
+  // Fetch projects the agent has access to
   const { data: proyectos = [] } = useQuery({
-    queryKey: ["proyectos-activos-floating"],
+    queryKey: ["proyectos-activos-floating", accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("proyectos")
         .select("id, nombre")
         .eq("activo", true)
         .order("nombre");
+
+      if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
+        query = query.in("id", accessibleProjectIds);
+      } else if (!hasUnrestrictedAccess && accessibleProjectIds.length === 0) {
+        return [];
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
     enabled: open,
   });
+
+  const showSearch = proyectos.length > 10;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -114,14 +126,27 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
           {/* Proyecto de Interés */}
           <div className="space-y-2">
             <Label>Proyecto de Interés <span className="text-destructive">*</span></Label>
-            <Combobox
-              value={proyectoId}
-              onValueChange={setProyectoId}
-              options={proyectos.map((p) => ({ value: p.id.toString(), label: p.nombre }))}
-              placeholder="Seleccionar proyecto..."
-              searchPlaceholder="Buscar proyecto..."
-              emptyText="No se encontró el proyecto"
-            />
+            {showSearch ? (
+              <Combobox
+                value={proyectoId}
+                onValueChange={setProyectoId}
+                options={proyectos.map((p) => ({ value: p.id.toString(), label: p.nombre }))}
+                placeholder="Seleccionar proyecto..."
+                searchPlaceholder="Buscar proyecto..."
+                emptyText="No se encontró el proyecto"
+              />
+            ) : (
+              <Select value={proyectoId} onValueChange={setProyectoId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar proyecto..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {proyectos.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Información Básica section */}
