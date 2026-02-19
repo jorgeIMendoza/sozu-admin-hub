@@ -270,14 +270,14 @@ const MiProyectoDetalle = () => {
     <div className={`max-w-4xl mx-auto space-y-6 ${isSimplifiedRole ? "pb-24 overflow-x-hidden" : "pb-10"}`}>
       {/* Header for simplified roles */}
       {isSimplifiedRole && (
-        <div className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-2.5 sm:-mx-6 -mt-4 sm:-mt-6 transition-transform duration-300 overflow-hidden ${showHeaderBar ? "translate-y-0" : "-translate-y-full"}`}>
+        <div className={`sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-4 py-2.5 sm:-mx-6 sm:px-6 -mt-4 sm:-mt-6 transition-transform duration-300 overflow-hidden ${showHeaderBar ? "translate-y-0" : "-translate-y-full"}`}>
           <div className="flex items-center gap-1.5">
             <button
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
+              className="flex-1 min-w-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
               onClick={() => navigate("/admin/inmobiliarias/inventario?openFilters=true")}
             >
               <Search className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span className="text-xs font-medium text-foreground">Propiedades</span>
+              <span className="text-xs font-medium text-foreground truncate">Propiedades</span>
             </button>
             <button onClick={() => navigate("/admin/inmobiliarias/proyectos")} className="h-8 w-8 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0" title="Desarrollos">
               <Building2 className="h-3.5 w-3.5" />
