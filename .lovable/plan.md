@@ -1,87 +1,48 @@
 
 
-## Plan: Aplicar Design System SOZU exclusivamente a paginas de "Datos Inmobiliarios"
+## Plan: Corregir codigo de pais en Prospectos y filtrar proyectos con propiedades disponibles
 
-### Objetivo
-Aplicar la paleta de colores, tipografia, backgrounds, sombras y utilidades del design system SOZU **unicamente** a las paginas del menu "Datos Inmobiliarios", sin afectar el resto de la aplicacion. Ademas, aumentar el efecto de "brinco" en las cards.
+### Problema 1: Codigo de pais no se muestra en la lista de Prospectos
 
-### Paginas afectadas (menu Datos Inmobiliarios)
-- `/admin/inmobiliarias/mi-informacion` - MiInformacion
-- `/admin/inmobiliarias/inventario` - InventarioGlobal (A/B)
-- `/admin/inmobiliarias/mis-agentes` - MisAgentes
-- `/admin/inmobiliarias/mis-ventas` - MisVentas
-- `/admin/inmobiliarias/proyectos` - MisProyectos
-- `/admin/inmobiliarias/proyectos/:id` - MiProyectoDetalle
-- `/admin/inmobiliarias/proyectos/:id/inventario` - MiProyectoInventario
+El dato SI se guarda correctamente en la base de datos (el prospecto "Moral test jorge" tiene `clave_pais_telefono: MX`). El problema esta en el mapeo de datos en `Prospectos.tsx`: al transformar los resultados del query (lineas 190-217), se omite el campo `clave_pais_telefono`. Entonces cuando `PhoneDisplay` lo recibe, viene como `undefined` y muestra el icono de advertencia rojo.
 
-### Estrategia tecnica
+**Archivo:** `src/pages/admin/Prospectos.tsx`
+- Agregar `clave_pais_telefono: item.clave_pais_telefono` en el mapeo de datos activos (aprox. linea 199)
+- Hacer lo mismo en el mapeo de datos eliminados (query similar mas abajo)
 
-**1. CSS Scoped con clase `.sozu-theme`**
+---
 
-Se agregaran las variables CSS del design system SOZU dentro de un selector `.sozu-theme` en `src/index.css`. Esto hace que las variables solo apliquen cuando un ancestro tenga esa clase, sin modificar el resto del sistema.
+### Problema 2: Filtrar proyectos con propiedades disponibles en AddProspectoFloatingDialog
 
-Variables incluidas:
-- Background/foreground/card/popover (blanco limpio)
-- Primary (negro SOZU), Accent (verde SOZU #57ae75)
-- Tokens de marca: `--sozu-black`, `--sozu-green`, `--sozu-gray`
-- Secciones: `--section-light`, `--section-soft`, `--section-muted`
-- Gradientes: `--gradient-hero`, `--gradient-card`, `--gradient-accent`, `--gradient-section`
-- Sombras: `--shadow-sm/md/lg/accent/card`
-- Ring verde en lugar del actual
+Actualmente el selector de proyecto muestra todos los proyectos accesibles. Se debe filtrar para mostrar solo los que tengan al menos una propiedad con estatus "Disponible" (`id_estatus_disponibilidad = 2`).
 
-**2. Utilidades CSS scoped**
+La estructura de la base de datos es:
+- `propiedades` -> `id_edificio_modelo` -> `edificios_modelos` -> `id_edificio` -> `edificios` -> `id_proyecto`
 
-Dentro de `.sozu-theme`, se agregaran clases utilitarias como:
-- `.gradient-hero`, `.gradient-accent`, `.gradient-section`
-- `.shadow-card`, `.shadow-accent`
-- `.text-gradient-emerald`
-- `.glass-card`, `.glass-card-light`
-- `.chip-accent`, `.section-label`
-- `.card-hover` con efecto de brinco **aumentado** (`translateY(-6px) scale(1.03)`)
+**Archivo:** `src/components/admin/AddProspectoFloatingDialog.tsx`
+- Despues de obtener los proyectos, hacer un segundo query para obtener los IDs de proyectos que tienen propiedades disponibles (via la cadena de relaciones)
+- Filtrar la lista de proyectos para mostrar solo los que tengan propiedades disponibles
+- Alternativa mas eficiente: usar un query con join para obtener directamente los proyectos con propiedades disponibles
 
-**3. Tailwind Config - tokens adicionales**
+### Detalles tecnicos
 
-Se agregaran al `tailwind.config.ts`:
-- Colores: `navy`, `emerald`, `gold`, `sozu` (scoped a las variables CSS)
-- `accent.light`, `accent.glow`
-- Sombras: `card`, `card-md`, `accent`
-- Background images: `gradient-hero`, `gradient-accent`, `gradient-section`, `gradient-card`
-- Border radius: `xl`, `2xl`, `3xl`
-
-**4. Layout wrapper para rutas inmobiliarias**
-
-Se creara un componente `InmobiliariasThemeWrapper` que simplemente envuelve a sus `children` en un `<div className="sozu-theme">`. Este wrapper se usara en `App.tsx` agrupando las rutas de inmobiliarias dentro de una `<Route>` con este layout, de modo que todas las paginas hijas hereden el scope automaticamente.
-
-```text
-App.tsx
-  └── <Route element={<InmobiliariasThemeWrapper />}>
-        ├── inmobiliarias/mi-informacion
-        ├── inmobiliarias/inventario
-        ├── inmobiliarias/mis-agentes
-        ├── inmobiliarias/mis-ventas
-        ├── inmobiliarias/proyectos
-        ├── inmobiliarias/proyectos/:id
-        └── inmobiliarias/proyectos/:id/inventario
-      </Route>
+**Prospectos.tsx - Mapeo de datos (se repite en ambos queries, activos y eliminados):**
+```typescript
+// Agregar en el return del map, junto a los demas campos:
+clave_pais_telefono: item.clave_pais_telefono,
 ```
 
-**5. Efecto de brinco aumentado en cards**
+**AddProspectoFloatingDialog.tsx - Query de proyectos con propiedades disponibles:**
+```typescript
+// Despues de obtener proyectos, filtrar por los que tengan propiedades disponibles
+// Query: obtener ids de proyectos con propiedades disponibles
+const { data: proyectosConDisponibles } = await supabase
+  .from('propiedades')
+  .select('id_edificio_modelo, edificios_modelos!inner(id_edificio, edificios!inner(id_proyecto))')
+  .eq('id_estatus_disponibilidad', 2)
+  .eq('activo', true);
 
-Se definira en `.sozu-theme` un efecto `.card-hover` mas agresivo:
-- `hover: translateY(-6px) scale(1.03)` (antes era `-3px` sin scale)
-- Sombra elevada al hacer hover
-- Transicion suave de 0.3s
-
-### Archivos a crear
-- `src/components/admin/InmobiliariasThemeWrapper.tsx` - wrapper con `<Outlet />` dentro de `<div className="sozu-theme">`
-
-### Archivos a modificar
-- `src/index.css` - agregar bloque `.sozu-theme { ... }` con todas las variables y utilidades scoped
-- `tailwind.config.ts` - agregar tokens de colores (`navy`, `emerald`, `gold`, `sozu`, `accent.light`, `accent.glow`), sombras, gradientes, y border-radius extra
-- `src/App.tsx` - agrupar las rutas de inmobiliarias bajo el wrapper
-
-### Resultado esperado
-- Solo las vistas de "Datos Inmobiliarios" tendran la paleta SOZU (fondo blanco limpio, primary negro, accent verde, gradientes, sombras elegantes)
-- El resto de la aplicacion mantiene su estilo actual intacto
-- Las cards en estas vistas tendran un efecto de brinco mas pronunciado al hacer hover
+// Extraer IDs unicos de proyectos
+// Filtrar la lista de proyectos original
+```
 
