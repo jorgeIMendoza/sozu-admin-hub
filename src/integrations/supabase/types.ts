@@ -61,6 +61,7 @@ export type Database = {
           pagina: string
           porcentaje_distribucion: Json | null
           updated_at: string
+          variante_ganadora: string | null
           variantes: Json
         }
         Insert: {
@@ -74,6 +75,7 @@ export type Database = {
           pagina: string
           porcentaje_distribucion?: Json | null
           updated_at?: string
+          variante_ganadora?: string | null
           variantes?: Json
         }
         Update: {
@@ -87,6 +89,7 @@ export type Database = {
           pagina?: string
           porcentaje_distribucion?: Json | null
           updated_at?: string
+          variante_ganadora?: string | null
           variantes?: Json
         }
         Relationships: []

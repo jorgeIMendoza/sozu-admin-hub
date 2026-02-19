@@ -4,7 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Hook to determine which A/B test variant a user is assigned to.
- * Auto-assigns on first visit using random distribution.
+ * - Active test: checks existing assignment, or alternates A/B based on last assignment.
+ * - Inactive test with variante_ganadora: returns the winner for everyone.
+ * - No test or inactive without winner: returns "A".
  */
 export function useAbTest(pagina: string) {
   const { user } = useAuth();
@@ -14,54 +16,71 @@ export function useAbTest(pagina: string) {
     queryFn: async () => {
       if (!user?.id || !user?.email) return { variant: "A", testId: null };
 
-      // Find active test for this page
-      const { data: tests } = await supabase
+      // 1. Check for active test
+      const { data: activeTests } = await supabase
         .from("ab_tests")
         .select("*")
         .eq("pagina", pagina)
         .eq("activo", true)
         .limit(1);
 
-      const test = tests?.[0];
-      if (!test) return { variant: "A", testId: null };
+      const activeTest = activeTests?.[0];
 
-      // Check existing assignment
-      const { data: existing } = await supabase
-        .from("ab_test_assignments")
-        .select("variante")
-        .eq("ab_test_id", test.id)
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
+      if (activeTest) {
+        // Check existing assignment
+        const { data: existing } = await supabase
+          .from("ab_test_assignments")
+          .select("variante")
+          .eq("ab_test_id", activeTest.id)
+          .eq("auth_user_id", user.id)
+          .maybeSingle();
 
-      if (existing) {
-        return { variant: existing.variante, testId: test.id };
-      }
-
-      // Auto-assign randomly based on distribution
-      const dist = (test.porcentaje_distribucion as Record<string, number>) || { A: 50, B: 50 };
-      const rand = Math.random() * 100;
-      let cumulative = 0;
-      let assignedVariant = "A";
-      for (const [v, pct] of Object.entries(dist)) {
-        cumulative += pct;
-        if (rand < cumulative) {
-          assignedVariant = v;
-          break;
+        if (existing) {
+          return { variant: existing.variante, testId: activeTest.id };
         }
+
+        // Alternating assignment: check last assignment for this test
+        const { data: lastAssignments } = await supabase
+          .from("ab_test_assignments")
+          .select("variante")
+          .eq("ab_test_id", activeTest.id)
+          .order("assigned_at", { ascending: false })
+          .limit(1);
+
+        const lastVariant = lastAssignments?.[0]?.variante;
+        const assignedVariant = lastVariant === "A" ? "B" : "A";
+
+        // Insert assignment
+        await supabase.from("ab_test_assignments").insert({
+          ab_test_id: activeTest.id,
+          auth_user_id: user.id,
+          user_email: user.email,
+          variante: assignedVariant,
+        });
+
+        return { variant: assignedVariant, testId: activeTest.id };
       }
 
-      // Insert assignment
-      await supabase.from("ab_test_assignments").insert({
-        ab_test_id: test.id,
-        auth_user_id: user.id,
-        user_email: user.email,
-        variante: assignedVariant,
-      });
+      // 2. Check for inactive test with variante_ganadora
+      const { data: inactiveTests } = await supabase
+        .from("ab_tests")
+        .select("id, variante_ganadora")
+        .eq("pagina", pagina)
+        .eq("activo", false)
+        .not("variante_ganadora", "is", null)
+        .order("updated_at", { ascending: false })
+        .limit(1);
 
-      return { variant: assignedVariant, testId: test.id };
+      const inactiveTest = inactiveTests?.[0];
+      if (inactiveTest?.variante_ganadora) {
+        return { variant: inactiveTest.variante_ganadora, testId: inactiveTest.id };
+      }
+
+      // 3. Default
+      return { variant: "A", testId: null };
     },
     enabled: !!user?.id,
-    staleTime: Infinity, // Assignment never changes
+    staleTime: Infinity,
   });
 
   return {

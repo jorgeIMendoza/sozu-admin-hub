@@ -1,0 +1,1 @@
+ALTER TABLE public.ab_tests ADD COLUMN variante_ganadora TEXT DEFAULT NULL;

@@ -1,21 +1,24 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Plus, FlaskConical, BarChart3, Users, Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Plus, FlaskConical, BarChart3, Users, Calendar, Trophy } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const ABTests = () => {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [finalizarTest, setFinalizarTest] = useState<any>(null);
+  const [selectedWinner, setSelectedWinner] = useState("A");
 
   const { data: tests = [], isLoading } = useQuery({
     queryKey: ["ab-tests-all"],
@@ -26,7 +29,6 @@ const ABTests = () => {
     },
   });
 
-  // Fetch assignments count per test
   const { data: assignmentCounts = {} } = useQuery({
     queryKey: ["ab-test-assignment-counts"],
     queryFn: async () => {
@@ -41,7 +43,6 @@ const ABTests = () => {
     },
   });
 
-  // Fetch CTA events grouped by test
   const { data: ctaByTest = {} } = useQuery({
     queryKey: ["ab-test-cta-counts"],
     queryFn: async () => {
@@ -59,10 +60,41 @@ const ABTests = () => {
   const activeTests = tests.filter((t: any) => t.activo);
   const pastTests = tests.filter((t: any) => !t.activo);
 
-  const toggleTest = async (testId: number, currentActive: boolean) => {
-    const { error } = await supabase.from("ab_tests").update({ activo: !currentActive, ...(currentActive ? { fecha_fin: new Date().toISOString() } : {}) }).eq("id", testId);
-    if (error) toast.error("Error al actualizar");
-    else { toast.success(currentActive ? "Test finalizado" : "Test reactivado"); queryClient.invalidateQueries({ queryKey: ["ab-tests-all"] }); }
+  const handleFinalizar = (test: any) => {
+    setSelectedWinner("A");
+    setFinalizarTest(test);
+  };
+
+  const confirmFinalizar = async () => {
+    if (!finalizarTest) return;
+    const { error } = await supabase
+      .from("ab_tests")
+      .update({ activo: false, fecha_fin: new Date().toISOString(), variante_ganadora: selectedWinner })
+      .eq("id", finalizarTest.id);
+    if (error) toast.error("Error al finalizar");
+    else {
+      toast.success(`Test finalizado. Ganadora: Variante ${selectedWinner}`);
+      queryClient.invalidateQueries({ queryKey: ["ab-tests-all"] });
+    }
+    setFinalizarTest(null);
+  };
+
+  const reactivarTest = async (testId: number) => {
+    const { error } = await supabase
+      .from("ab_tests")
+      .update({ activo: true, fecha_fin: null, variante_ganadora: null })
+      .eq("id", testId);
+    if (error) toast.error("Error al reactivar");
+    else { toast.success("Test reactivado"); queryClient.invalidateQueries({ queryKey: ["ab-tests-all"] }); }
+  };
+
+  const updateGanadora = async (testId: number, variante: string) => {
+    const { error } = await supabase
+      .from("ab_tests")
+      .update({ variante_ganadora: variante })
+      .eq("id", testId);
+    if (error) toast.error("Error al actualizar ganadora");
+    else { toast.success(`Ganadora actualizada a Variante ${variante}`); queryClient.invalidateQueries({ queryKey: ["ab-tests-all"] }); }
   };
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -92,7 +124,7 @@ const ABTests = () => {
         </h2>
         {activeTests.length === 0 && <p className="text-sm text-muted-foreground">No hay tests activos</p>}
         {activeTests.map((test: any) => (
-          <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} cta={ctaByTest[test.id] || {}} onToggle={() => toggleTest(test.id, true)} />
+          <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} cta={ctaByTest[test.id] || {}} onFinalizar={() => handleFinalizar(test)} />
         ))}
       </div>
 
@@ -103,15 +135,35 @@ const ABTests = () => {
             <Calendar className="h-4 w-4" /> Tests Finalizados ({pastTests.length})
           </h2>
           {pastTests.map((test: any) => (
-            <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} cta={ctaByTest[test.id] || {}} onToggle={() => toggleTest(test.id, false)} isPast />
+            <TestCard key={test.id} test={test} assignments={assignmentCounts[test.id] || {}} cta={ctaByTest[test.id] || {}} onReactivar={() => reactivarTest(test.id)} onUpdateGanadora={(v) => updateGanadora(test.id, v)} isPast />
           ))}
         </div>
       )}
+
+      {/* Finalizar Dialog */}
+      <Dialog open={!!finalizarTest} onOpenChange={(open) => !open && setFinalizarTest(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Finalizar Test</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Selecciona la variante ganadora. Todos los usuarios verán esta variante a partir de ahora.</p>
+          <RadioGroup value={selectedWinner} onValueChange={setSelectedWinner} className="mt-3 space-y-2">
+            {((finalizarTest?.variantes as string[]) || ["A", "B"]).map((v: string) => (
+              <div key={v} className="flex items-center space-x-2">
+                <RadioGroupItem value={v} id={`winner-${v}`} />
+                <Label htmlFor={`winner-${v}`} className="cursor-pointer">Variante {v}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setFinalizarTest(null)}>Cancelar</Button>
+            <Button onClick={confirmFinalizar} className="gap-2"><Trophy className="h-4 w-4" /> Finalizar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-const TestCard = ({ test, assignments, cta, onToggle, isPast }: { test: any; assignments: Record<string, number>; cta: Record<string, number>; onToggle: () => void; isPast?: boolean }) => {
+const TestCard = ({ test, assignments, cta, onFinalizar, onReactivar, onUpdateGanadora, isPast }: { test: any; assignments: Record<string, number>; cta: Record<string, number>; onFinalizar?: () => void; onReactivar?: () => void; onUpdateGanadora?: (v: string) => void; isPast?: boolean }) => {
   const variantes = (test.variantes as string[]) || ["A", "B"];
   const chartData = variantes.map((v) => ({
     name: `Variante ${v}`,
@@ -134,8 +186,17 @@ const TestCard = ({ test, assignments, cta, onToggle, isPast }: { test: any; ass
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {test.variante_ganadora && (
+              <Badge className="bg-amber-500 text-white gap-1">
+                <Trophy className="h-3 w-3" /> {test.variante_ganadora}
+              </Badge>
+            )}
             <Badge className={test.activo ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}>{test.activo ? "Activo" : "Finalizado"}</Badge>
-            <Button variant="outline" size="sm" onClick={onToggle}>{isPast ? "Reactivar" : "Finalizar"}</Button>
+            {isPast ? (
+              <Button variant="outline" size="sm" onClick={onReactivar}>Reactivar</Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={onFinalizar}>Finalizar</Button>
+            )}
           </div>
         </div>
 
@@ -148,6 +209,11 @@ const TestCard = ({ test, assignments, cta, onToggle, isPast }: { test: any; ass
               <span className="text-muted-foreground">•</span>
               <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
               <span>{cta[v] || 0} clicks</span>
+              {isPast && onUpdateGanadora && (
+                <Button variant={test.variante_ganadora === v ? "default" : "ghost"} size="sm" className="ml-2 h-6 text-xs" onClick={() => onUpdateGanadora(v)}>
+                  {test.variante_ganadora === v ? <><Trophy className="h-3 w-3 mr-1" /> Ganadora</> : "Elegir"}
+                </Button>
+              )}
             </div>
           ))}
         </div>
