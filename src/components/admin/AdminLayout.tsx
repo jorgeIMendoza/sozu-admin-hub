@@ -36,11 +36,13 @@ export const AdminLayout = () => {
         "flex flex-col min-h-screen transition-all duration-300",
         !isSimplifiedRole && "lg:ml-64"
       )}>
-        <AdminHeader 
-          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-        />
+        {!isSimplifiedRole && (
+          <AdminHeader 
+            onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+          />
+        )}
         
-        <main className="flex-1 p-6">
+        <main className={cn("flex-1", isSimplifiedRole ? "p-0" : "p-6")}>
           <Outlet />
         </main>
       </div>
