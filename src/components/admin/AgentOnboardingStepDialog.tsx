@@ -101,7 +101,11 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
     </div>
   ) : step === 'bank-accounts' ? (
     <div className="px-1">
-      <BankAccountsSection personId={personaId} />
+      <BankAccountsSection 
+        personId={personaId} 
+        onAddAccountClick={() => track({ page: "modal_perfil", elementId: "perfil_cuentas_agregar", metadata: { fase: "bank-accounts" } })}
+        onSaveAccountClick={() => track({ page: "modal_perfil", elementId: "perfil_fase_guardar", metadata: { fase: "bank-accounts" } })}
+      />
     </div>
   ) : step === 'training' ? (
     <div className="px-1">

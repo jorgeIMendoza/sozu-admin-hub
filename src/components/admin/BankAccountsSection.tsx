@@ -17,9 +17,11 @@ interface BankAccountsSectionProps {
   showStpCheckbox?: boolean;
   projectId?: number;
   onEditingStateChange?: (isEditing: boolean) => void;
+  onAddAccountClick?: () => void;
+  onSaveAccountClick?: () => void;
 }
 
-export function BankAccountsSection({ personId, showStpCheckbox = false, projectId, onEditingStateChange }: BankAccountsSectionProps) {
+export function BankAccountsSection({ personId, showStpCheckbox = false, projectId, onEditingStateChange, onAddAccountClick, onSaveAccountClick }: BankAccountsSectionProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
@@ -273,6 +275,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
       }
     }
 
+    onSaveAccountClick?.();
     addMutation.mutate(newAccount);
   };
 
@@ -328,7 +331,7 @@ export function BankAccountsSection({ personId, showStpCheckbox = false, project
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Cuentas Bancarias</h3>
         <Button
-          onClick={() => setIsAdding(true)}
+          onClick={() => { setIsAdding(true); onAddAccountClick?.(); }}
           disabled={isAdding || !!editingAccount}
         >
           <Plus className="w-4 h-4 mr-2" />
