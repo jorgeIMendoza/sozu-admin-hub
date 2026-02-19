@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car, Search, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, User, Bell, LogOut, Trophy, Check } from "lucide-react";
+import { APP_VERSION } from "@/lib/config";
 import bodegaIcon from "@/assets/icons/bodega.png";
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import useEmblaCarousel from "embla-carousel-react";
@@ -135,6 +136,9 @@ const ProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
               <LogOut className="h-4 w-4" />
               Cerrar sesión
             </button>
+
+            {/* Version */}
+            <p className="text-[10px] text-muted-foreground/40 text-center">{APP_VERSION}</p>
           </div>
         </PopoverContent>
       </Popover>
