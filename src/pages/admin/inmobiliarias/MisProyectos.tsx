@@ -4,11 +4,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, MapPin, Loader2, Download, ChevronDown, ChevronUp, BedDouble, Bath, ShowerHead, Share2, Star, ChevronLeft, ChevronRight, Copy, Mail, X, Maximize2, Package, Search, ArrowUpDown, UserPlus, CalendarDays } from "lucide-react";
+import { Building2, MapPin, Loader2, Download, ChevronDown, ChevronUp, BedDouble, Bath, ShowerHead, Share2, Star, ChevronLeft, ChevronRight, Copy, Mail, X, Maximize2, Home, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check } from "lucide-react";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { APP_VERSION } from "@/lib/config";
+import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
+import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
+import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
+import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
@@ -16,9 +22,114 @@ import { useNavigate } from "react-router-dom";
 import useEmblaCarousel from "embla-carousel-react";
 
 
+// Profile Menu for simplified roles (matches InventarioGlobal)
+const ProjectsProfileMenu = ({ onLogout }: { onLogout: () => void }) => {
+  const { profile, user } = useAuth();
+  const personaId = profile?.id_persona;
+
+  const { data: agentCommission } = useQuery({
+    queryKey: ["agent-commission", personaId],
+    queryFn: async () => {
+      if (!personaId) return null;
+      const { data } = await supabase
+        .from("entidades_relacionadas")
+        .select("porcentaje_comision")
+        .eq("id_persona", personaId)
+        .eq("id_tipo_entidad", 19)
+        .eq("activo", true)
+        .is("id_proyecto", null)
+        .maybeSingle();
+      return data?.porcentaje_comision ?? null;
+    },
+    enabled: !!personaId,
+  });
+
+  const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId ?? 0);
+  const [activeStep, setActiveStep] = useState<OnboardingStep['id'] | null>(null);
+
+  const STEP_IDS: OnboardingStep['id'][] = ['basic', 'address', 'fiscal', 'documents', 'bank-accounts', 'training'];
+
+  return (
+    <>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+            <User className="h-4 w-4 text-primary" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-72 p-0" align="end">
+          <div className="p-4 space-y-3">
+            <div>
+              <p className="font-semibold text-sm text-foreground">{profile?.nombre || "Usuario"}</p>
+              <p className="text-xs text-muted-foreground">{profile?.email || user?.email}</p>
+            </div>
+            <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+              <span className="text-xs text-muted-foreground">Comisión</span>
+              <Badge variant="outline" className="text-xs px-2 border-primary/30 text-primary font-semibold">
+                {agentCommission != null ? `${agentCommission}%` : "2.00%"}
+              </Badge>
+            </div>
+            {personaId && !onboardingLoading && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Perfil</span>
+                  <span className="text-xs font-bold text-foreground">{percentage}%</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {steps.map((step, i) => (
+                    <React.Fragment key={step.id}>
+                      <button
+                        onClick={() => setActiveStep(step.id)}
+                        className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0 ${
+                          step.isComplete
+                            ? "bg-emerald-500 text-white"
+                            : step.hasPartialData
+                            ? "border-2 border-emerald-500 text-emerald-600 bg-transparent"
+                            : "bg-muted text-muted-foreground hover:bg-muted-foreground/10"
+                        }`}
+                        title={step.label}
+                      >
+                        {step.isComplete ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
+                      </button>
+                      {i < steps.length - 1 && (
+                        <div className={`flex-1 h-0.5 rounded-full ${step.isComplete ? "bg-emerald-400" : "bg-muted"}`} />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+              <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Sin notificaciones</span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm font-medium"
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </button>
+            <p className="text-[10px] text-muted-foreground/40 text-center">{APP_VERSION}</p>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {activeStep && personaId && (
+        <AgentOnboardingStepDialog
+          step={activeStep}
+          personaId={personaId}
+          open={!!activeStep}
+          onOpenChange={(open) => { if (!open) setActiveStep(null); }}
+        />
+      )}
+    </>
+  );
+};
+
 const MisProyectos = () => {
   const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess, hasNoAccess } = useProjectAccess();
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
@@ -313,40 +424,57 @@ const MisProyectos = () => {
         </>
       )}
 
-      {/* Simplified role header bar */}
+      {/* Simplified role header bar — matches InventarioGlobal */}
       {isSimplifiedRole && (
-        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b px-4 py-3 -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-muted rounded-full px-4 py-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Buscar desarrollos"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent text-sm outline-none flex-1 placeholder:text-muted-foreground"
-            />
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50 -mx-4 px-3 py-3 sm:-mx-6 -mt-4 sm:-mt-6">
+          <div className="flex items-center gap-2">
+            {/* Search pill */}
+            <button
+              className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
+              onClick={() => {
+                const el = document.getElementById("proyectos-search-input");
+                el?.focus();
+              }}
+            >
+              <Search className="h-4 w-4 text-primary shrink-0" />
+              <input
+                id="proyectos-search-input"
+                type="text"
+                placeholder="Buscar propiedades"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-transparent text-xs font-medium outline-none flex-1 placeholder:text-muted-foreground min-w-0"
+              />
+            </button>
+
+            {/* Inventario */}
+            <button
+              onClick={() => navigate("/admin/inmobiliarias/inventario")}
+              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              title="Inventario"
+            >
+              <Home className="h-4 w-4" />
+            </button>
+            {/* Prospecto */}
+            <button
+              onClick={() => setAddProspectoOpen(true)}
+              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              title="Agregar prospecto"
+            >
+              <UserPlus className="h-4 w-4" />
+            </button>
+            {/* Cita */}
+            <button
+              onClick={() => setAgendarCitaOpen(true)}
+              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              title="Agendar cita"
+            >
+              <CalendarDays className="h-4 w-4" />
+            </button>
+
+            {/* Profile */}
+            <ProjectsProfileMenu onLogout={signOut} />
           </div>
-          <button
-            onClick={() => navigate("/admin/inmobiliarias/inventario")}
-            className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:scale-105 transition-transform"
-            title="Inventario"
-          >
-            <Package className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => setAddProspectoOpen(true)}
-            className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:scale-105 transition-transform"
-            title="Agregar prospecto"
-          >
-            <UserPlus className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => setAgendarCitaOpen(true)}
-            className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:scale-105 transition-transform"
-            title="Agendar cita"
-          >
-            <CalendarDays className="h-5 w-5" />
-          </button>
         </div>
       )}
 
@@ -588,7 +716,7 @@ const MisProyectos = () => {
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
             title="Inventario"
           >
-            <Package className="h-5 w-5" />
+            <Home className="h-5 w-5" />
           </button>
           <button
             onClick={() => setAddProspectoOpen(true)}
