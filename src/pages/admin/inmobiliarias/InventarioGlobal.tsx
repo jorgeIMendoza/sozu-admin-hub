@@ -78,8 +78,8 @@ const ProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrack?: ()
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <button onClick={() => onTrack?.()} className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
-            <User className="h-3.5 w-3.5 text-primary" />
+          <button onClick={() => onTrack?.()} className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0">
+            <User className="h-4 w-4 text-primary" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="end">
@@ -767,7 +767,7 @@ const InventarioGlobal = () => {
           {/* Search/sort buttons */}
           <button
             onClick={() => setFiltersDrawerOpen(true)}
-            className="h-12 px-5 rounded-full bg-foreground text-background shadow-xl flex items-center gap-2 font-medium text-sm hover:scale-105 transition-transform"
+            className="h-12 px-5 rounded-full bg-card border border-border/80 text-foreground shadow-xl flex items-center gap-2 font-medium text-sm hover:scale-105 transition-transform"
           >
             <Search className="h-4 w-4" />
             Buscador
@@ -780,7 +780,7 @@ const InventarioGlobal = () => {
             className={`h-12 w-12 rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform ${
               sortOrder !== "none"
                 ? "bg-emerald-500 text-white"
-                : "bg-foreground text-background"
+                : "bg-card border border-border/80 text-muted-foreground"
             }`}
           >
             <SortIcon className="h-4 w-4" />
