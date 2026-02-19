@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car, Search, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, User, Bell, LogOut, Trophy, Check } from "lucide-react";
+import { Building2, Loader2, ArrowLeft, BedDouble, Bath, ShowerHead, Maximize2, DollarSign, FileText, ChevronLeft, ChevronRight, ChevronDown, X, Package, Layers, Car, Search, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, User, Bell, LogOut, Trophy, Check, UserPlus, CalendarDays } from "lucide-react";
 import { APP_VERSION } from "@/lib/config";
 import bodegaIcon from "@/assets/icons/bodega.png";
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -23,6 +23,8 @@ import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingSte
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
+import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
+import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 
 const PAGE_SIZE = 30;
 const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria"];
@@ -178,6 +180,8 @@ const InventarioGlobal = () => {
   const [schemesOpen, setSchemesOpen] = useState(false);
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
+  const [addProspectoOpen, setAddProspectoOpen] = useState(false);
+  const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
 
   // Kavak-style scroll: track scroll direction to show/hide header vs floating buttons
   const [showHeaderBar, setShowHeaderBar] = useState(true);
@@ -475,6 +479,22 @@ const InventarioGlobal = () => {
               <SortIcon className="h-4 w-4" />
             </button>
 
+            {/* Action buttons */}
+            <button
+              onClick={() => setAddProspectoOpen(true)}
+              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              title="Agregar prospecto"
+            >
+              <UserPlus className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setAgendarCitaOpen(true)}
+              className="h-10 w-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition-colors shrink-0"
+              title="Agendar cita al showroom"
+            >
+              <CalendarDays className="h-4 w-4" />
+            </button>
+
             {/* Profile button */}
             <ProfileMenu onLogout={signOut} />
           </div>
@@ -711,6 +731,26 @@ const InventarioGlobal = () => {
       {/* === FLOATING BUTTONS (Kavak-style) — appear on scroll UP, only for simplified roles === */}
       {isSimplifiedRole && !showHeaderBar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {/* Left-side action buttons */}
+          <button
+            onClick={() => setAddProspectoOpen(true)}
+            className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
+            title="Agregar prospecto"
+          >
+            <UserPlus className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => setAgendarCitaOpen(true)}
+            className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
+            title="Agendar cita al showroom"
+          >
+            <CalendarDays className="h-5 w-5" />
+          </button>
+
+          {/* Divider */}
+          <div className="h-6 w-px bg-white/30" />
+
+          {/* Existing filter/sort buttons */}
           <button
             onClick={() => setFiltersDrawerOpen(true)}
             className="h-12 px-5 rounded-full bg-foreground text-background shadow-xl flex items-center gap-2 font-medium text-sm hover:scale-105 transition-transform"
@@ -889,6 +929,10 @@ const InventarioGlobal = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Floating action dialogs */}
+      <AddProspectoFloatingDialog open={addProspectoOpen} onOpenChange={setAddProspectoOpen} />
+      <AgendarCitaShowroomDialog open={agendarCitaOpen} onOpenChange={setAgendarCitaOpen} />
     </div>
   );
 };
