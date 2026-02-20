@@ -254,7 +254,13 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
     },
     onError: (error: any) => {
       const msg = error.message || "Ocurrió un error inesperado";
-      if (msg.includes("RFC") || msg.includes("CURP") || msg.includes("teléfono") || msg.includes("obligatorios")) {
+      if (msg.includes("personas_rfc_key") || msg.includes("duplicate") && msg.includes("rfc")) {
+        toast.error("El RFC ingresado ya está registrado en el sistema. Por favor, verifica e ingresa un RFC diferente.");
+      } else if (msg.includes("personas_curp_key") || msg.includes("duplicate") && msg.includes("curp")) {
+        toast.error("La CURP ingresada ya está registrada en el sistema. Por favor, verifica e ingresa una CURP diferente.");
+      } else if (msg.includes("personas_email_key") || msg.includes("duplicate") && msg.includes("email")) {
+        toast.error("El email ingresado ya está registrado en el sistema. Por favor, verifica e ingresa un email diferente.");
+      } else if (msg.includes("RFC") || msg.includes("CURP") || msg.includes("teléfono") || msg.includes("obligatorios")) {
         toast.error(msg);
       } else {
         toast.error("No se pudo guardar el prospecto. Verifica los datos e intenta de nuevo.");
