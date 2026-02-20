@@ -60,10 +60,15 @@ async function getAvailableSlots(token: string, fecha: string): Promise<string[]
   if (!res.ok) throw new Error(`Calendar API error: ${await res.text()}`);
 
   const data = await res.json();
-  const events = (data.items || []).map((e: any) => ({
-    start: new Date(e.start.dateTime || e.start.date).getTime(),
-    end: new Date(e.end.dateTime || e.end.date).getTime(),
-  }));
+  console.log(`[availability] ${fecha}: ${(data.items || []).length} events found`);
+  // Filter to only timed events (skip all-day events which have .date instead of .dateTime)
+  const events = (data.items || [])
+    .filter((e: any) => e.start?.dateTime && e.end?.dateTime)
+    .map((e: any) => {
+      const ev = { start: new Date(e.start.dateTime).getTime(), end: new Date(e.end.dateTime).getTime(), summary: e.summary || '' };
+      console.log(`  event: "${ev.summary}" ${e.start.dateTime} -> ${e.end.dateTime}`);
+      return ev;
+    });
 
   const slots: string[] = [];
   for (let h = 9; h <= 16; h++) {

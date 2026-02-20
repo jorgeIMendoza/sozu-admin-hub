@@ -599,19 +599,28 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
                 </div>
               ) : availableSlots && availableSlots.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
-                  {availableSlots.map((slot) => (
-                    <button
-                      key={slot}
-                      onClick={() => { setSelectedSlot(slot); onTrackFieldChange?.(); }}
-                      className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border ${
-                        selectedSlot === slot
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
-                          : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
-                      }`}
-                    >
-                      {slot}
-                    </button>
-                  ))}
+                  {availableSlots.map((slot) => {
+                    const isExisting = existingCita?.hora_inicio?.slice(0, 5) === slot && existingCita?.fecha === fechaStr;
+                    const isSelected = selectedSlot === slot;
+                    return (
+                      <button
+                        key={slot}
+                        onClick={() => { setSelectedSlot(slot); onTrackFieldChange?.(); }}
+                        className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border relative ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
+                            : isExisting
+                              ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
+                              : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                        }`}
+                      >
+                        {slot}
+                        {isExisting && !isSelected && (
+                          <span className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-500 border-2 border-card" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-6 rounded-xl border border-border/60 bg-muted/30">
