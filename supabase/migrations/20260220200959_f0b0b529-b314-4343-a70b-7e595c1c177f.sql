@@ -1,0 +1,1 @@
+UPDATE public.roles SET configurar_citas = true WHERE id = 1;
