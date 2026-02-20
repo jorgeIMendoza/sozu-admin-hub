@@ -30,7 +30,7 @@ export function GoogleMapComponent({ onLocationSelect, onAddressSelect, initialL
   const [markerPosition, setMarkerPosition] = useState(initialLocation || null);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -58,6 +58,26 @@ export function GoogleMapComponent({ onLocationSelect, onAddressSelect, initialL
     }
   }, [onLocationSelect, onAddressSelect]);
 
+  const geocodeAddress = useCallback((address: string) => {
+    if (!window.google) return;
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ address, componentRestrictions: { country: "mx" } }, (results, status) => {
+      if (status === 'OK' && results && results[0]) {
+        const loc = results[0].geometry.location;
+        const newPosition = { lat: loc.lat(), lng: loc.lng() };
+        setMarkerPosition(newPosition);
+        onLocationSelect(newPosition);
+        if (onAddressSelect) {
+          onAddressSelect(results[0].formatted_address);
+        }
+        if (mapInstance) {
+          mapInstance.panTo(newPosition);
+          mapInstance.setZoom(15);
+        }
+      }
+    });
+  }, [onLocationSelect, onAddressSelect, mapInstance]);
+
   const onPlaceChanged = useCallback(() => {
     const autocomplete = autocompleteRef.current;
     if (autocomplete) {
@@ -74,14 +94,19 @@ export function GoogleMapComponent({ onLocationSelect, onAddressSelect, initialL
           onAddressSelect(place.formatted_address);
         }
         
-        // Pan and zoom the map to the selected place
         if (mapInstance) {
           mapInstance.panTo(newPosition);
           mapInstance.setZoom(15);
         }
+      } else {
+        // User pressed Enter without selecting a suggestion — use Geocoder
+        const inputText = inputRef.current?.value;
+        if (inputText) {
+          geocodeAddress(inputText);
+        }
       }
     }
-  }, [onLocationSelect, onAddressSelect, mapInstance]);
+  }, [onLocationSelect, onAddressSelect, mapInstance, geocodeAddress]);
 
   const onMapLoad = useCallback((map: google.maps.Map) => {
     setMapInstance(map);
@@ -110,6 +135,7 @@ export function GoogleMapComponent({ onLocationSelect, onAddressSelect, initialL
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={inputRef}
               placeholder="Buscar dirección..."
               className="pl-8"
             />
