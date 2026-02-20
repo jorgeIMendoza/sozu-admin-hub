@@ -942,14 +942,17 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
                             <div>
                               <label className="text-sm text-muted-foreground">Dirección</label>
                               <Input
-                                placeholder="Se llenará automáticamente al buscar en el mapa"
+                                placeholder="Escribe la dirección del showroom"
                                 value={showroom.descripcion_direccion}
-                                readOnly
-                                className="mt-1 bg-muted cursor-default"
+                                onChange={(e) => {
+                                  const updated = [...showrooms];
+                                  updated[idx] = { ...updated[idx], descripcion_direccion: e.target.value };
+                                  setShowrooms(updated);
+                                }}
+                                className="mt-1"
                               />
                             </div>
                             <div className="space-y-2">
-                              <label className="text-sm text-muted-foreground">Ubicación en mapa</label>
                               <GoogleMapComponent
                                 onLocationSelect={(loc) => {
                                   const updated = [...showrooms];
