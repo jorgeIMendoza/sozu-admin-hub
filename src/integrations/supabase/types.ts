@@ -5886,6 +5886,7 @@ export type Database = {
           id_proyecto: number
           latitud: number
           longitud: number
+          nombre: string
         }
         Insert: {
           activo?: boolean
@@ -5896,6 +5897,7 @@ export type Database = {
           id_proyecto: number
           latitud: number
           longitud: number
+          nombre?: string
         }
         Update: {
           activo?: boolean
@@ -5906,6 +5908,7 @@ export type Database = {
           id_proyecto?: number
           latitud?: number
           longitud?: number
+          nombre?: string
         }
         Relationships: [
           {

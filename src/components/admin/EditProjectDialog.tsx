@@ -71,7 +71,7 @@ interface EditProjectDialogProps {
 export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCreate = true, canUpdate = true, canDelete = true }: EditProjectDialogProps) => {
   const [open, setOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [showrooms, setShowrooms] = useState<Array<{ id?: number; descripcion_direccion: string; latitud: number | null; longitud: number | null }>>([]);
+  const [showrooms, setShowrooms] = useState<Array<{ id?: number; nombre: string; descripcion_direccion: string; latitud: number | null; longitud: number | null }>>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [amenidadesSearchTerm, setAmenidadesSearchTerm] = useState("");
@@ -205,7 +205,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
     queryFn: async () => {
       const { data, error } = await supabase
         .from('showrooms_proyecto')
-        .select('id, descripcion_direccion, latitud, longitud')
+        .select('id, nombre, descripcion_direccion, latitud, longitud')
         .eq('id_proyecto', projectId)
         .eq('activo', true);
       if (error) throw error;
@@ -219,6 +219,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
     if (projectShowrooms.length > 0) {
       setShowrooms(projectShowrooms.map(s => ({
         id: s.id,
+        nombre: s.nombre || '',
         descripcion_direccion: s.descripcion_direccion,
         latitud: s.latitud,
         longitud: s.longitud,
@@ -457,6 +458,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
       if (validShowrooms.length > 0) {
         const showroomInserts = validShowrooms.map(s => ({
           id_proyecto: projectId,
+          nombre: s.nombre,
           descripcion_direccion: s.descripcion_direccion,
           latitud: s.latitud!,
           longitud: s.longitud!,
@@ -876,7 +878,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setShowrooms([...showrooms, { descripcion_direccion: '', latitud: null, longitud: null }])}
+                            onClick={() => setShowrooms([...showrooms, { nombre: '', descripcion_direccion: '', latitud: null, longitud: null }])}
                           >
                             <Plus className="h-4 w-4 mr-1" /> Agregar Showroom
                           </Button>
@@ -894,6 +896,19 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
+                            </div>
+                            <div>
+                              <label className="text-sm text-muted-foreground">Nombre</label>
+                              <Input
+                                placeholder="Ej: Showroom Guadalajara"
+                                value={showroom.nombre}
+                                onChange={(e) => {
+                                  const updated = [...showrooms];
+                                  updated[idx] = { ...updated[idx], nombre: e.target.value };
+                                  setShowrooms(updated);
+                                }}
+                                className="mt-1"
+                              />
                             </div>
                             <div>
                               <label className="text-sm text-muted-foreground">Dirección</label>

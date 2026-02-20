@@ -1,0 +1,1 @@
+ALTER TABLE public.showrooms_proyecto ADD COLUMN nombre TEXT NOT NULL DEFAULT '';

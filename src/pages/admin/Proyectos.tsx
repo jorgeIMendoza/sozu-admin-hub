@@ -43,14 +43,14 @@ const formatCurrencyFull = (value: number): string => {
 const ShowroomCell = ({ projectId, projectName, onShowDetail }: { 
   projectId: number; 
   projectName: string; 
-  onShowDetail: (showrooms: Array<{ id: number; descripcion_direccion: string; latitud: number; longitud: number }>) => void;
+  onShowDetail: (showrooms: Array<{ id: number; nombre: string; descripcion_direccion: string; latitud: number; longitud: number }>) => void;
 }) => {
   const { data: showrooms = [] } = useQuery({
     queryKey: ["showrooms-proyecto", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('showrooms_proyecto')
-        .select('id, descripcion_direccion, latitud, longitud')
+        .select('id, nombre, descripcion_direccion, latitud, longitud')
         .eq('id_proyecto', projectId)
         .eq('activo', true);
       if (error) return [];
@@ -86,7 +86,7 @@ const Proyectos = () => {
     projectName: string;
   } | null>(null);
   const [showroomDetail, setShowroomDetail] = useState<{
-    showrooms: Array<{ id: number; descripcion_direccion: string; latitud: number; longitud: number }>;
+    showrooms: Array<{ id: number; nombre: string; descripcion_direccion: string; latitud: number; longitud: number }>;
     projectName: string;
   } | null>(null);
   const [selectedShowroomIndex, setSelectedShowroomIndex] = useState(0);
@@ -1231,16 +1231,22 @@ const Proyectos = () => {
                 <div className="space-y-4">
                   {showroomDetail.showrooms.length > 1 && (
                     <div className="flex gap-2 flex-wrap">
-                      {showroomDetail.showrooms.map((_, idx) => (
+                      {showroomDetail.showrooms.map((s, idx) => (
                         <Button
                           key={idx}
                           variant={selectedShowroomIndex === idx ? "default" : "outline"}
                           size="sm"
                           onClick={() => setSelectedShowroomIndex(idx)}
                         >
-                          Showroom {idx + 1}
+                          {s.nombre || `Showroom ${idx + 1}`}
                         </Button>
                       ))}
+                    </div>
+                  )}
+                  {showroomDetail.showrooms[selectedShowroomIndex]?.nombre && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Nombre</p>
+                      <p className="text-sm">{showroomDetail.showrooms[selectedShowroomIndex]?.nombre}</p>
                     </div>
                   )}
                   <div>
