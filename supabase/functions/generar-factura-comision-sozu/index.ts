@@ -112,8 +112,9 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { id_cuenta_cobranza, environment: envFromBody } = await req.json();
-    const environment = envFromBody || 'produccion';
+    const { id_cuenta_cobranza } = await req.json();
+    // Siempre usar 'produccion' - la facturación no tiene ambiente de prueba en N8N
+    const environment = 'produccion';
 
     if (!id_cuenta_cobranza) {
       return new Response(
