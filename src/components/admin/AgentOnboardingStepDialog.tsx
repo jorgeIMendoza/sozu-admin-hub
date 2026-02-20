@@ -412,7 +412,15 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return (data?.available_slots || []) as string[];
+      let slots = (data?.available_slots || []) as string[];
+      // If viewing the same date as the existing cita, inject its slot (it's occupied by itself in Google Calendar)
+      if (existingCita?.fecha === fechaStr && existingCita?.hora_inicio) {
+        const citaSlot = existingCita.hora_inicio.slice(0, 5);
+        if (!slots.includes(citaSlot)) {
+          slots = [...slots, citaSlot].sort();
+        }
+      }
+      return slots;
     },
     enabled: !!fechaStr,
   });
