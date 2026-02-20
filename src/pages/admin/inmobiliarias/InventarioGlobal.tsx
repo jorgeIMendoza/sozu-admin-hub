@@ -1,6 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
-import { useInventarioDisponible, InventarioPropiedad } from "@/hooks/useInventarioDisponible";
+import { useInventarioDisponiblePaginado } from "@/hooks/useInventarioDisponiblePaginado";
+import type { InventarioPropiedad } from "@/hooks/useInventarioDisponible";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,16 +32,6 @@ import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroo
 
 const PAGE_SIZE = 30;
 const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria", "Super Administrador", "Administrador de Proyecto"];
-
-// Shuffle helper
-function shuffleArray<T>(arr: T[]): T[] {
-  const result = [...arr];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
 
 type SortOrder = "none" | "asc" | "desc";
 
@@ -84,21 +75,16 @@ const ProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrack?: ()
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="end">
           <div className="p-4 space-y-3">
-            {/* Name */}
             <div>
               <p className="font-semibold text-sm text-foreground">{effectiveName}</p>
               <p className="text-xs text-muted-foreground">{effectiveEmail}</p>
             </div>
-
-            {/* Commission */}
             <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
               <span className="text-xs text-muted-foreground">Comisión</span>
               <Badge variant="outline" className="text-xs px-2 border-primary/30 text-primary font-semibold">
                 {agentCommission != null ? `${agentCommission}%` : "2.00%"}
               </Badge>
             </div>
-
-            {/* Profile progress as step circles */}
             {effectivePersonaId && !onboardingLoading && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -129,14 +115,10 @@ const ProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrack?: ()
                 </div>
               </div>
             )}
-
-            {/* Notifications */}
             <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
               <Bell className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Sin notificaciones</span>
             </div>
-
-            {/* Logout */}
             <button
               onClick={onLogout}
               className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-destructive hover:bg-destructive/10 transition-colors text-sm font-medium"
@@ -144,8 +126,6 @@ const ProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrack?: ()
               <LogOut className="h-4 w-4" />
               Cerrar sesión
             </button>
-
-            {/* Version */}
             <p className="text-[10px] text-muted-foreground/40 text-center">{APP_VERSION}</p>
           </div>
         </PopoverContent>
@@ -167,7 +147,6 @@ const InventarioGlobal = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/inventario');
-  const { propiedades: rawPropiedades, isLoading } = useInventarioDisponible();
   const isMobile = useIsMobile();
   const { profile, signOut } = useAuth();
   const isSimplifiedRole = SIMPLIFIED_ROLES.includes(profile?.rol_nombre ?? "");
@@ -209,10 +188,8 @@ const InventarioGlobal = () => {
     const handleScroll = () => {
       const currentY = window.scrollY;
       if (currentY > lastScrollY.current && currentY > 60) {
-        // Scrolling DOWN → hide header bar, show floating
         setShowHeaderBar(false);
       } else if (currentY < lastScrollY.current) {
-        // Scrolling UP → show header bar, hide floating
         setShowHeaderBar(true);
       }
       lastScrollY.current = currentY;
@@ -221,12 +198,27 @@ const InventarioGlobal = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Map RPC data to the shape the UI expects, with shuffled images
-  const allAvailableProperties = useMemo(() => {
-    const props = rawPropiedades.map((p: InventarioPropiedad) => {
+  // Convert UI filter state to RPC params
+  const bedroomNums = useMemo(() => filterBedrooms.map(b => parseInt(b)).filter(n => !isNaN(n)), [filterBedrooms]);
+
+  const { data: inventarioData, isLoading, isFetching } = useInventarioDisponiblePaginado({
+    projectNames: filterProjectNames.length > 0 ? filterProjectNames : undefined,
+    modelNames: filterModelNames.length > 0 ? filterModelNames : undefined,
+    bedrooms: bedroomNums.length > 0 ? bedroomNums : undefined,
+    levels: filterLevels.length > 0 ? filterLevels : undefined,
+    hasBodega: filterBodega === "con" ? true : filterBodega === "sin" ? false : null,
+    hasEstacionamiento: filterEstacionamiento === "con" ? true : filterEstacionamiento === "sin" ? false : null,
+    sortPrice: sortOrder === "none" ? null : sortOrder,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+
+  // Map RPC data to the shape the UI expects
+  const pageProperties = useMemo(() => {
+    return inventarioData.propiedades.map((p: InventarioPropiedad) => {
       const propImgs = p.propiedad_imagenes || [];
       const modelImgs = p.modelo_imagenes || [];
-      const rawImages = shuffleArray(propImgs.length > 0 ? propImgs : modelImgs);
+      const images = propImgs.length > 0 ? propImgs : modelImgs;
 
       return {
         id: p.id,
@@ -248,82 +240,23 @@ const InventarioGlobal = () => {
         bodegas_count: p.bodegas_count,
         estacionamientos_count: p.estacionamientos_count,
         estacionamientos_tipos: p.estacionamientos_tipos || [],
-        model_images: rawImages,
+        model_images: images,
         esquemas_pago: p.esquemas_pago || [],
       };
     });
-    return shuffleArray(props);
-  }, [rawPropiedades]);
+  }, [inventarioData.propiedades]);
 
-  // Projects with available properties only
-  const projectsWithAvailable = useMemo(() => {
-    const names = new Set<string>();
-    allAvailableProperties.forEach(p => { if (p.proyecto_nombre) names.add(p.proyecto_nombre); });
-    return Array.from(names).sort();
-  }, [allAvailableProperties]);
+  // Filter options from server
+  const projectsWithAvailable = inventarioData.filterOptions.proyectos;
+  const availableModelNames = inventarioData.filterOptions.modelos;
+  const availableBedroomOptions = useMemo(() =>
+    inventarioData.filterOptions.recamaras.map(r => `${r} recámara${r > 1 ? "s" : ""}`),
+    [inventarioData.filterOptions.recamaras]
+  );
+  const availableLevelOptions = inventarioData.filterOptions.niveles;
 
-  const availableModelNames = useMemo(() => {
-    let source = allAvailableProperties;
-    if (filterProjectNames.length > 0) {
-      source = source.filter(p => filterProjectNames.includes(p.proyecto_nombre));
-    }
-    const names = new Set<string>();
-    source.forEach(p => { if (p.modelo_nombre) names.add(p.modelo_nombre); });
-    return Array.from(names).sort();
-  }, [allAvailableProperties, filterProjectNames]);
-
-  const availableBedroomOptions = useMemo(() => {
-    const beds = new Set<string>();
-    allAvailableProperties.forEach(p => { if (p.recamaras > 0) beds.add(`${p.recamaras} recámara${p.recamaras > 1 ? "s" : ""}`); });
-    return Array.from(beds).sort();
-  }, [allAvailableProperties]);
-
-  const availableLevelOptions = useMemo(() => {
-    const levels = new Set<string>();
-    allAvailableProperties.forEach(p => { if (p.piso) levels.add(p.piso); });
-    return Array.from(levels).sort((a, b) => {
-      const na = parseInt(a), nb = parseInt(b);
-      if (!isNaN(na) && !isNaN(nb)) return na - nb;
-      return a.localeCompare(b);
-    });
-  }, [allAvailableProperties]);
-
-  // Apply filters
-  const filteredProperties = useMemo(() => {
-    let result = allAvailableProperties;
-    if (filterProjectNames.length > 0) {
-      result = result.filter(p => filterProjectNames.includes(p.proyecto_nombre));
-    }
-    if (filterModelNames.length > 0) {
-      result = result.filter(p => filterModelNames.includes(p.modelo_nombre));
-    }
-    if (filterBedrooms.length > 0) {
-      const bedNums = filterBedrooms.map(b => parseInt(b));
-      result = result.filter(p => bedNums.includes(p.recamaras));
-    }
-    if (filterLevels.length > 0) {
-      result = result.filter(p => p.piso && filterLevels.includes(p.piso));
-    }
-    if (filterBodega === "con") {
-      result = result.filter(p => p.bodegas_count > 0);
-    } else if (filterBodega === "sin") {
-      result = result.filter(p => p.bodegas_count === 0);
-    }
-    if (filterEstacionamiento === "con") {
-      result = result.filter(p => p.estacionamientos_count > 0);
-    } else if (filterEstacionamiento === "sin") {
-      result = result.filter(p => p.estacionamientos_count === 0);
-    }
-    return result;
-  }, [allAvailableProperties, filterProjectNames, filterModelNames, filterBedrooms, filterLevels, filterBodega, filterEstacionamiento]);
-
-  // Sort ALL filtered properties by price BEFORE pagination
-  const sortedProperties = useMemo(() => {
-    if (sortOrder === "none") return filteredProperties;
-    return [...filteredProperties].sort((a, b) =>
-      sortOrder === "asc" ? a.precio_lista - b.precio_lista : b.precio_lista - a.precio_lista
-    );
-  }, [filteredProperties, sortOrder]);
+  const totalCount = inventarioData.totalCount;
+  const totalPages = inventarioData.totalPages;
 
   const hasActiveFilters = filterProjectNames.length > 0 || filterModelNames.length > 0 || filterBedrooms.length > 0 || filterLevels.length > 0 || filterBodega !== null || filterEstacionamiento !== null;
   const activeFilterCount = filterProjectNames.length + filterModelNames.length + filterBedrooms.length + filterLevels.length + (filterBodega ? 1 : 0) + (filterEstacionamiento ? 1 : 0);
@@ -344,9 +277,6 @@ const InventarioGlobal = () => {
     setPage(0);
     track({ page: "inventario", elementId: "btn_ordenamiento", metadata: { orden: next } });
   };
-
-  const totalPages = Math.ceil(sortedProperties.length / PAGE_SIZE);
-  const pageProperties = sortedProperties.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2 }).format(price);
@@ -472,7 +402,6 @@ const InventarioGlobal = () => {
         >
           {profile?.rol_nombre === "Super Administrador" && <AgentImpersonationSelector />}
           <div className="flex items-center gap-1.5">
-            {/* Search / Filter button */}
             <button
               onClick={() => setFiltersDrawerOpen(true)}
               className="flex-1 flex items-center gap-2 px-4 h-12 rounded-full border border-border/80 bg-card shadow-sm hover:shadow-md transition-shadow"
@@ -485,8 +414,6 @@ const InventarioGlobal = () => {
                 </Badge>
               )}
             </button>
-
-            {/* Sort button */}
             <button
               onClick={cycleSortOrder}
               className={`h-12 w-12 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
@@ -498,18 +425,15 @@ const InventarioGlobal = () => {
             >
               <SortIcon className="h-4 w-4" />
             </button>
-
-            {/* Profile button */}
             <ProfileMenu onLogout={signOut} onTrack={() => track({ page: "inventario", elementId: "btn_perfil_usuario" })} />
           </div>
         </div>
       ) : (
-        /* Non-simplified header */
         <div className="space-y-0 pt-6">
           <div className="flex items-center justify-between gap-2">
             <div className="space-y-0.5">
               <h1 className="text-xl font-bold text-foreground">Inventario Disponible</h1>
-              <p className="text-sm text-muted-foreground">{sortedProperties.length} unidades disponibles</p>
+              <p className="text-sm text-muted-foreground">{totalCount} unidades disponibles</p>
             </div>
             <Button
               variant="outline" size="sm"
@@ -526,7 +450,10 @@ const InventarioGlobal = () => {
       {/* Count + sort label for simplified */}
       {isSimplifiedRole && (
         <div className="flex items-center justify-between pt-3 pb-1">
-          <p className="text-sm text-muted-foreground">{sortedProperties.length} unidades</p>
+          <p className="text-sm text-muted-foreground">
+            {totalCount} unidades
+            {isFetching && !isLoading && <Loader2 className="inline h-3 w-3 animate-spin ml-1.5" />}
+          </p>
           {sortOrder !== "none" && (
             <button onClick={cycleSortOrder} className="text-xs text-primary font-medium flex items-center gap-1">
               <SortIcon className="h-3 w-3" /> {sortLabel}
@@ -662,14 +589,14 @@ const InventarioGlobal = () => {
           <div className="overflow-y-auto px-4 pb-6 max-h-[65vh]">{filterContent}</div>
           <div className="px-4 py-3 border-t">
             <Button className="w-full rounded-full gap-2" onClick={() => setFiltersDrawerOpen(false)}>
-              <Search className="h-4 w-4" /> Ver {sortedProperties.length} resultados
+              <Search className="h-4 w-4" /> Ver {totalCount} resultados
             </Button>
           </div>
         </DrawerContent>
       </Drawer>
 
       {/* Properties Grid */}
-      {sortedProperties.length === 0 ? (
+      {pageProperties.length === 0 && !isFetching ? (
         <div className="text-center py-16 text-muted-foreground">
           <Building2 className="h-12 w-12 mx-auto mb-3 opacity-40" />
           <p>No hay propiedades disponibles con los filtros seleccionados</p>
@@ -678,56 +605,26 @@ const InventarioGlobal = () => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-4">
             {pageProperties.map((prop: any) => (
-              <Card
+              <PropertyCard
                 key={prop.id}
-                className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-border/60 rounded-2xl bg-card"
+                prop={prop}
+                formatPrice={formatPrice}
+                bodegaIcon={bodegaIcon}
                 onClick={() => { track({ page: "inventario", elementId: "view_property_detail", elementLabel: `Depto ${prop.numero || prop.id}`, metadata: { propertyId: prop.id, project: prop.proyecto_nombre } }); setSelectedProperty(prop); }}
-              >
-                <div className="relative">
-                  <PropertyCardCarousel images={prop.model_images || []} />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-3 pt-8 pointer-events-none">
-                    <h4 className="font-bold text-white text-base truncate drop-shadow-md">Depto. {prop.numero || prop.id}</h4>
-                    {prop.precio_lista > 0 && (
-                      <p className="text-white/90 text-sm font-semibold drop-shadow-md">{formatPrice(prop.precio_lista)}</p>
-                    )}
-                  </div>
-                </div>
-                <CardContent className="p-3 space-y-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">{prop.proyecto_nombre}</p>
-                    <p className="text-[11px] text-muted-foreground/70">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    {prop.m2_total > 0 && (
-                      <span className="flex items-center gap-1"><Maximize2 className="h-3 w-3" /> {prop.m2_total.toFixed(1)} m²</span>
-                    )}
-                    {prop.recamaras > 0 && (
-                      <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {prop.recamaras}</span>
-                    )}
-                    {prop.banos > 0 && (
-                      <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {prop.banos}</span>
-                    )}
-                    {prop.bodegas_count > 0 && (
-                      <span className="flex items-center gap-1">
-                        <img src={bodegaIcon} alt="bodega" className="h-3 w-3 opacity-60" /> {prop.bodegas_count}
-                      </span>
-                    )}
-                    {prop.estacionamientos_count > 0 && (
-                      <span className="flex items-center gap-1"><Car className="h-3 w-3" /> {prop.estacionamientos_count}</span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              />
             ))}
           </div>
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-4 pt-4">
-              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => { setPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
               </Button>
-              <span className="text-sm text-muted-foreground">Página {page + 1} de {totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+              <span className="text-sm text-muted-foreground">
+                Página {page + 1} de {totalPages}
+                {isFetching && !isLoading && <Loader2 className="inline h-3 w-3 animate-spin ml-1.5" />}
+              </span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => { setPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                 Siguiente <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
@@ -735,10 +632,9 @@ const InventarioGlobal = () => {
         </>
       )}
 
-      {/* === FLOATING BUTTONS (Kavak-style) — appear on scroll UP, only for simplified roles === */}
+      {/* === FLOATING BUTTONS (Kavak-style) === */}
       {isSimplifiedRole && !showHeaderBar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {/* Left-side action buttons */}
           <button
             onClick={() => { track({ page: "inventario", elementId: "btn_desarrollos" }); navigate('/admin/inmobiliarias/proyectos'); }}
             className="h-12 w-12 rounded-full bg-emerald-500 text-white shadow-xl flex items-center justify-center hover:scale-105 transition-transform"
@@ -760,11 +656,7 @@ const InventarioGlobal = () => {
           >
             <CalendarDays className="h-4 w-4" />
           </button>
-
-          {/* Divider */}
           <div className="h-6 w-px bg-white/30" />
-
-          {/* Search/sort buttons */}
           <button
             onClick={() => setFiltersDrawerOpen(true)}
             className="h-12 px-5 rounded-full bg-card border border-border/80 text-foreground shadow-xl flex items-center gap-2 font-medium text-sm hover:scale-105 transition-transform"
@@ -952,13 +844,60 @@ const InventarioGlobal = () => {
   );
 };
 
-// Small carousel for property cards - OPTIMIZED: only render when visible in viewport
-const PropertyCardCarousel = ({ images }: { images: any[] }) => {
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, dragFree: false });
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [hasInteracted, setHasInteracted] = useState(false);
+// Memoized property card to prevent re-renders
+const PropertyCard = React.memo(({ prop, formatPrice, bodegaIcon, onClick }: {
+  prop: any;
+  formatPrice: (price: number) => string;
+  bodegaIcon: string;
+  onClick: () => void;
+}) => (
+  <Card
+    className="overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-border/60 rounded-2xl bg-card"
+    onClick={onClick}
+  >
+    <div className="relative">
+      <PropertyCardCarousel images={prop.model_images || []} />
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-3 pb-3 pt-8 pointer-events-none">
+        <h4 className="font-bold text-white text-base truncate drop-shadow-md">Depto. {prop.numero || prop.id}</h4>
+        {prop.precio_lista > 0 && (
+          <p className="text-white/90 text-sm font-semibold drop-shadow-md">{formatPrice(prop.precio_lista)}</p>
+        )}
+      </div>
+    </div>
+    <CardContent className="p-3 space-y-2">
+      <div>
+        <p className="text-xs text-muted-foreground">{prop.proyecto_nombre}</p>
+        <p className="text-[11px] text-muted-foreground/70">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
+      </div>
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {prop.m2_total > 0 && (
+          <span className="flex items-center gap-1"><Maximize2 className="h-3 w-3" /> {prop.m2_total.toFixed(1)} m²</span>
+        )}
+        {prop.recamaras > 0 && (
+          <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {prop.recamaras}</span>
+        )}
+        {prop.banos > 0 && (
+          <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {prop.banos}</span>
+        )}
+        {prop.bodegas_count > 0 && (
+          <span className="flex items-center gap-1">
+            <img src={bodegaIcon} alt="bodega" className="h-3 w-3 opacity-60" /> {prop.bodegas_count}
+          </span>
+        )}
+        {prop.estacionamientos_count > 0 && (
+          <span className="flex items-center gap-1"><Car className="h-3 w-3" /> {prop.estacionamientos_count}</span>
+        )}
+      </div>
+    </CardContent>
+  </Card>
+));
+
+PropertyCard.displayName = 'PropertyCard';
+
+// Optimized carousel: single image = plain img, multiple = Embla only on interaction
+const PropertyCardCarousel = React.memo(({ images }: { images: any[] }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -970,6 +909,47 @@ const PropertyCardCarousel = ({ images }: { images: any[] }) => {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  if (images.length === 0) {
+    return (
+      <div className="h-40 bg-muted/60 flex items-center justify-center">
+        <Package className="h-10 w-10 text-muted-foreground/30" />
+      </div>
+    );
+  }
+
+  // Single image: no carousel overhead
+  if (images.length === 1) {
+    return (
+      <div ref={containerRef} className="h-40 bg-muted overflow-hidden">
+        {isVisible ? (
+          <img src={images[0].url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+        ) : (
+          <div className="h-full" />
+        )}
+      </div>
+    );
+  }
+
+  // Multiple images: use carousel
+  return (
+    <div ref={containerRef} className="h-40 bg-muted overflow-hidden">
+      {isVisible ? (
+        <MultiImageCarousel images={images} />
+      ) : (
+        <div className="h-full" />
+      )}
+    </div>
+  );
+});
+
+PropertyCardCarousel.displayName = 'PropertyCardCarousel';
+
+// Carousel only instantiated for 2+ images and when visible
+const MultiImageCarousel = React.memo(({ images }: { images: any[] }) => {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, dragFree: false });
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
@@ -986,34 +966,20 @@ const PropertyCardCarousel = ({ images }: { images: any[] }) => {
     return () => { emblaApi.off("select", onSelect); emblaApi.off("pointerDown", onPointerDown); };
   }, [emblaApi, onSelect, hasInteracted]);
 
-  if (images.length === 0) {
-    return (
-      <div className="h-40 bg-muted/60 flex items-center justify-center">
-        <Package className="h-10 w-10 text-muted-foreground/30" />
-      </div>
-    );
-  }
-
-  const visibleImages = !isVisible ? [] : hasInteracted ? images.slice(0, 5) : images.slice(0, 1);
+  const visibleImages = hasInteracted ? images.slice(0, 5) : images.slice(0, 1);
 
   return (
-    <div ref={containerRef} className="relative h-40 bg-muted overflow-hidden">
-      {isVisible ? (
-        <div ref={emblaRef} className="h-full overflow-hidden">
-          <div className="flex h-full touch-pan-y">
-            {visibleImages.map((img: any) => (
-              <div key={img.id} className="flex-[0_0_100%] min-w-0 h-full">
-                <img src={img.url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
-              </div>
-            ))}
-          </div>
+    <div className="relative h-full">
+      <div ref={emblaRef} className="h-full overflow-hidden">
+        <div className="flex h-full touch-pan-y">
+          {visibleImages.map((img: any) => (
+            <div key={img.id} className="flex-[0_0_100%] min-w-0 h-full">
+              <img src={img.url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+            </div>
+          ))}
         </div>
-      ) : (
-        <div className="h-full flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-        </div>
-      )}
-      {isVisible && images.length > 1 && (
+      </div>
+      {images.length > 1 && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
           {images.slice(0, 5).map((_: any, i: number) => (
             <span key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i === currentIndex ? "bg-white" : "bg-white/40"}`} />
@@ -1022,7 +988,9 @@ const PropertyCardCarousel = ({ images }: { images: any[] }) => {
       )}
     </div>
   );
-};
+});
+
+MultiImageCarousel.displayName = 'MultiImageCarousel';
 
 // Carousel for detail dialog
 const DetailCarousel = ({ images }: { images: any[] }) => {
