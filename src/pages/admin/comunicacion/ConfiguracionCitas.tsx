@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save, CalendarClock, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, Save, CalendarClock, Check, ChevronsUpDown, Pencil, Plus, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 
 const DIAS_SEMANA = [
   { id: 1, nombre: "Lunes", short: "Lun" },
@@ -51,6 +53,10 @@ export default function ConfiguracionCitas() {
   const [calendarioEmail, setCalendarioEmail] = useState<string>("");
   const [userSelectorOpen, setUserSelectorOpen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [tiposCrudOpen, setTiposCrudOpen] = useState(false);
+  const [nuevoTipoNombre, setNuevoTipoNombre] = useState("");
+  const [editingTipoId, setEditingTipoId] = useState<number | null>(null);
+  const [editingTipoNombre, setEditingTipoNombre] = useState("");
 
   useEffect(() => {
     if (!isSuperAdmin && profile?.email) {
@@ -58,7 +64,7 @@ export default function ConfiguracionCitas() {
     }
   }, [isSuperAdmin, profile?.email]);
 
-  // Fetch tipos de cita
+  // Fetch tipos de cita (active only, for tabs)
   const { data: tiposCita = [] } = useQuery({
     queryKey: ["tipos-cita"],
     queryFn: async () => {
@@ -70,6 +76,58 @@ export default function ConfiguracionCitas() {
       if (error) throw error;
       return data || [];
     },
+  });
+
+  // Fetch ALL tipos de cita (for CRUD, super admin only)
+  const { data: allTiposCita = [] } = useQuery({
+    queryKey: ["tipos-cita-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tipos_cita").select("*").order("id");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isSuperAdmin,
+  });
+
+  const addTipoCitaMutation = useMutation({
+    mutationFn: async (nombre: string) => {
+      const { error } = await supabase.from("tipos_cita").insert({ nombre, activo: true });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tipos-cita"] });
+      queryClient.invalidateQueries({ queryKey: ["tipos-cita-all"] });
+      setNuevoTipoNombre("");
+      toast.success("Tipo de cita agregado");
+    },
+    onError: (e) => toast.error(`Error: ${e.message}`),
+  });
+
+  const updateTipoCitaMutation = useMutation({
+    mutationFn: async ({ id, nombre }: { id: number; nombre: string }) => {
+      const { error } = await supabase.from("tipos_cita").update({ nombre }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tipos-cita"] });
+      queryClient.invalidateQueries({ queryKey: ["tipos-cita-all"] });
+      setEditingTipoId(null);
+      toast.success("Tipo de cita actualizado");
+    },
+    onError: (e) => toast.error(`Error: ${e.message}`),
+  });
+
+  const toggleTipoCitaMutation = useMutation({
+    mutationFn: async ({ id, activo }: { id: number; activo: boolean }) => {
+      const { error } = await supabase.from("tipos_cita").update({ activo }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tipos-cita"] });
+      queryClient.invalidateQueries({ queryKey: ["tipos-cita-all"] });
+      toast.success("Estado actualizado");
+    },
+    onError: (e) => toast.error(`Error: ${e.message}`),
   });
 
   // Auto-select first tipo when loaded
@@ -261,7 +319,90 @@ export default function ConfiguracionCitas() {
           <p className="text-muted-foreground">
             Configura los días, horarios, duración y calendario por tipo de cita
           </p>
-        </div>
+      </div>
+
+      {/* CRUD Tipos de Cita - Solo Super Admin */}
+      {isSuperAdmin && (
+        <Collapsible open={tiposCrudOpen} onOpenChange={setTiposCrudOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  Administrar Tipos de Cita
+                  <Badge variant="secondary" className="ml-auto">{allTiposCita.length}</Badge>
+                </CardTitle>
+                <CardDescription>Agregar, editar o desactivar tipos de cita</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                {/* Add new */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nombre del nuevo tipo de cita..."
+                    value={nuevoTipoNombre}
+                    onChange={(e) => setNuevoTipoNombre(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && nuevoTipoNombre.trim()) addTipoCitaMutation.mutate(nuevoTipoNombre.trim());
+                    }}
+                    className="max-w-sm"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => nuevoTipoNombre.trim() && addTipoCitaMutation.mutate(nuevoTipoNombre.trim())}
+                    disabled={!nuevoTipoNombre.trim() || addTipoCitaMutation.isPending}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Agregar
+                  </Button>
+                </div>
+
+                {/* List */}
+                <div className="border rounded-md divide-y">
+                  {allTiposCita.map((tc: any) => (
+                    <div key={tc.id} className="flex items-center gap-3 px-4 py-3">
+                      {editingTipoId === tc.id ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <Input
+                            value={editingTipoNombre}
+                            onChange={(e) => setEditingTipoNombre(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && editingTipoNombre.trim()) updateTipoCitaMutation.mutate({ id: tc.id, nombre: editingTipoNombre.trim() });
+                              if (e.key === "Escape") setEditingTipoId(null);
+                            }}
+                            className="max-w-xs h-8"
+                            autoFocus
+                          />
+                          <Button size="sm" variant="ghost" onClick={() => editingTipoNombre.trim() && updateTipoCitaMutation.mutate({ id: tc.id, nombre: editingTipoNombre.trim() })}>
+                            <Save className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className={cn("flex-1 text-sm", !tc.activo && "text-muted-foreground line-through")}>{tc.nombre}</span>
+                      )}
+                      <Switch
+                        checked={tc.activo}
+                        onCheckedChange={(checked) => toggleTipoCitaMutation.mutate({ id: tc.id, activo: checked })}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => { setEditingTipoId(tc.id); setEditingTipoNombre(tc.nombre); }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  {allTiposCita.length === 0 && (
+                    <div className="px-4 py-6 text-center text-muted-foreground text-sm">No hay tipos de cita registrados</div>
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
         {hasChanges && (
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
