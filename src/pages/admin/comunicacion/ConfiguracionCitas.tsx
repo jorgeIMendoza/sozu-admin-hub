@@ -50,14 +50,14 @@ export default function ConfiguracionCitas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("usuarios")
-        .select("email, nombre, roles!inner(configurar_citas), personas:id_persona(nombre, apellido_paterno)")
+        .select("email, nombre, roles!inner(configurar_citas), personas:id_persona(nombre_legal)")
         .eq("activo", true)
         .eq("roles.configurar_citas", true)
         .order("nombre");
       if (error) throw error;
       return (data || []).map((u: any) => ({
         email: u.email,
-        nombre: `${u.personas?.nombre || u.nombre || ""} ${u.personas?.apellido_paterno || ""}`.trim(),
+        nombre: u.personas?.nombre_legal || u.nombre || u.email,
       }));
     },
   });
