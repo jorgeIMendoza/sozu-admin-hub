@@ -617,20 +617,25 @@ export default function Comisiones() {
                         const urlFactura = comision.url_factura_comision;
                         const esDraft = comision.es_draft_factura_comision;
                         
-                        if (!urlFactura) {
-                          if (!requiereFactura) {
+                        const esPendiente = urlFactura?.includes('pendiente-de-generar');
+                        
+                        if (!urlFactura || esPendiente) {
+                          if (!requiereFactura && !esPendiente) {
                             return <span className="text-muted-foreground">-</span>;
                           }
                           return (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleGenerarFactura(comision.id)}
-                              disabled={!esVendida || generarLoading === comision.id}
-                            >
-                              {generarLoading === comision.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
-                              Generar
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              {esPendiente && <Badge variant="outline" className="text-orange-600 border-orange-400 text-[10px]">Error</Badge>}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleGenerarFactura(comision.id)}
+                                disabled={!esVendida || generarLoading === comision.id}
+                              >
+                                {generarLoading === comision.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : esPendiente ? <RefreshCw className="h-3 w-3 mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+                                {esPendiente ? 'Regenerar' : 'Generar'}
+                              </Button>
+                            </div>
                           );
                         }
                         if (esDraft) {

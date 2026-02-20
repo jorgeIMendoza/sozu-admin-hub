@@ -138,6 +138,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Si tiene URL pendiente, limpiarla para permitir regeneración
+    if (cuentaExistente?.url_factura_comision?.includes('pendiente-de-generar')) {
+      console.log(`[generar-factura-comision-sozu] URL pendiente detectada, limpiando para regenerar...`);
+      await supabase.from('cuentas_cobranza')
+        .update({ url_factura_comision: null, es_draft_factura_comision: null, fecha_actualizacion: new Date().toISOString() })
+        .eq('id', id_cuenta_cobranza);
+    }
+
     // 2. Obtener la oferta y datos de la cuenta
     const { data: cuenta, error: cuentaError } = await supabase
       .from('cuentas_cobranza')
@@ -224,18 +232,24 @@ Deno.serve(async (req) => {
       body: JSON.stringify(payload),
     });
 
-    let facturaResult: any = {};
     const responseText = await n8nResponse.text();
     console.log(`[generar-factura-comision-sozu] N8N response status: ${n8nResponse.status}, text: "${responseText}"`);
+
+    if (!n8nResponse.ok) {
+      throw new Error(`N8N respondió con error ${n8nResponse.status}: ${responseText}`);
+    }
+
+    let facturaResult: any = {};
     try {
       facturaResult = JSON.parse(responseText);
     } catch {
       facturaResult = { url: responseText || null };
     }
 
-    const docUrl = facturaResult.url && facturaResult.url.startsWith('http')
-      ? facturaResult.url
-      : 'https://pendiente-de-generar.sozu.com';
+    const docUrl = facturaResult.url;
+    if (!docUrl || !docUrl.startsWith('http') || docUrl.includes('pendiente')) {
+      throw new Error(`N8N no devolvió una URL válida. Respuesta: ${responseText}`);
+    }
 
     // 9. Actualizar cuenta
     const { error: updateError } = await supabase
