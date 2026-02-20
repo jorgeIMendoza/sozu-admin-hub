@@ -554,14 +554,16 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
             </Label>
             <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-sm">
               <style>{`
-                .cita-existing-day:not(.day-selected) {
-                  background-color: rgb(245 158 11 / 0.15) !important;
-                  border: 1.5px solid rgb(245 158 11 / 0.5) !important;
+                .cita-existing-day {
+                  background-color: rgb(245 158 11 / 0.2) !important;
+                  border: 2px solid rgb(245 158 11 / 0.6) !important;
                   color: rgb(180 83 9) !important;
                   font-weight: 700 !important;
+                  box-shadow: 0 0 0 2px rgb(245 158 11 / 0.15) !important;
                 }
-                .dark .cita-existing-day:not(.day-selected) {
+                .dark .cita-existing-day {
                   color: rgb(251 191 36) !important;
+                  background-color: rgb(245 158 11 / 0.25) !important;
                 }
               `}</style>
               <Calendar
