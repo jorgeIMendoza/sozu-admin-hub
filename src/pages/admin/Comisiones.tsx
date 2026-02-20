@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { Copy, Stamp, FileText, Loader2, Eye, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -20,6 +21,7 @@ export default function Comisiones() {
   const {
     toast
   } = useToast();
+  const { registrarCreacion, registrarActualizacion, registrarVista } = useActivityLogger();
   const queryClient = useQueryClient();
   const [filtroGeneral, setFiltroGeneral] = useState("");
   const [filtroId, setFiltroId] = useState("");
@@ -306,10 +308,12 @@ export default function Comisiones() {
       } else {
         toast({ title: "Factura generada", description: "Factura draft de comisión generada exitosamente" });
       }
+      await registrarCreacion('factura_comision_sozu', { id_cuenta_cobranza: cuentaId, resultado: data }, 'generar_factura_comision');
       queryClient.invalidateQueries({ queryKey: ["comisiones"] });
     } catch (err) {
       console.error("Error generando factura:", err);
       toast({ title: "Error", description: "No se pudo generar la factura", variant: "destructive" });
+      await registrarCreacion('factura_comision_sozu', { id_cuenta_cobranza: cuentaId }, 'generar_factura_comision', 'error', err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setGenerarLoading(null);
     }
@@ -324,10 +328,12 @@ export default function Comisiones() {
       });
       if (error) throw error;
       toast({ title: "Factura timbrada", description: "La factura se ha timbrado exitosamente" });
+      await registrarActualizacion('factura_comision_sozu', { id_cuenta_cobranza: timbrarDialog.cuentaId, estado: 'draft' }, { id_cuenta_cobranza: timbrarDialog.cuentaId, estado: 'timbrada' }, 'timbrar_factura_comision');
       queryClient.invalidateQueries({ queryKey: ["comisiones"] });
     } catch (err) {
       console.error("Error timbrando factura:", err);
       toast({ title: "Error", description: "No se pudo timbrar la factura", variant: "destructive" });
+      await registrarActualizacion('factura_comision_sozu', { id_cuenta_cobranza: timbrarDialog.cuentaId }, { id_cuenta_cobranza: timbrarDialog.cuentaId }, 'timbrar_factura_comision', 'error', err instanceof Error ? err.message : 'Error desconocido');
     } finally {
       setTimbrarLoading(false);
       setTimbrarDialog(null);
@@ -648,7 +654,10 @@ export default function Comisiones() {
                                   variant="ghost"
                                   className="h-6 w-6"
                                   title="Ver factura draft"
-                                  onClick={() => window.open(urlFactura, '_blank')}
+                                  onClick={() => {
+                                    registrarVista('factura_comision_sozu', { id_cuenta_cobranza: comision.id, url: urlFactura, estado: 'draft' });
+                                    window.open(urlFactura, '_blank');
+                                  }}
                                 >
                                   <Eye className="h-3 w-3" />
                                 </Button>
@@ -680,7 +689,10 @@ export default function Comisiones() {
                           <div className="flex items-center gap-1">
                             <Badge className="bg-green-600 hover:bg-green-700 text-white">Timbrada</Badge>
                             {urlFactura && (
-                              <Button size="sm" variant="ghost" onClick={() => window.open(urlFactura, '_blank')}>
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                registrarVista('factura_comision_sozu', { id_cuenta_cobranza: comision.id, url: urlFactura, estado: 'timbrada' });
+                                window.open(urlFactura, '_blank');
+                              }}>
                                 <Eye className="h-3 w-3" />
                               </Button>
                             )}
