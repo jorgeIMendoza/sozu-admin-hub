@@ -100,17 +100,11 @@ async function createCalendarEvent(
       dateTime: `${fecha}T${horaFin}:00`,
       timeZone: "America/Mexico_City",
     },
-    conferenceData: {
-      createRequest: {
-        requestId: `cap-${Date.now()}`,
-        conferenceSolutionKey: { type: "hangoutsMeet" },
-      },
-    },
     description: `Capacitación agendada para: ${agentEmail}`,
   };
 
   const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?conferenceDataVersion=1`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events`,
     {
       method: "POST",
       headers: {
@@ -186,7 +180,7 @@ Deno.serve(async (req) => {
       agent_email || ""
     );
 
-    const meetLink = calendarEvent.hangoutLink || calendarEvent.conferenceData?.entryPoints?.[0]?.uri || null;
+    const meetLink = null;
     const eventId = calendarEvent.id;
 
     // Save to database
