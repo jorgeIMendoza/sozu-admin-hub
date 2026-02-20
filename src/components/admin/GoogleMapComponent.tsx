@@ -99,10 +99,13 @@ export function GoogleMapComponent({ onLocationSelect, onAddressSelect, initialL
     <div className="w-full space-y-2">
       {/* Search bar - only in edit mode */}
       {!readOnly && (
-        <Autocomplete
-          onLoad={(autocomplete) => { autocompleteRef.current = autocomplete; }}
+      <Autocomplete
+          onLoad={(autocomplete) => {
+            autocompleteRef.current = autocomplete;
+            autocomplete.setFields(["geometry", "formatted_address", "name"]);
+          }}
           onPlaceChanged={onPlaceChanged}
-          options={{ componentRestrictions: { country: "mx" } }}
+          options={{ componentRestrictions: { country: "mx" }, types: ["address"] }}
         >
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

@@ -446,17 +446,46 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
         if (amenityError) throw amenityError;
       }
 
-      // Update showrooms
-      // Deactivate all existing showrooms
-      await supabase
-        .from('showrooms_proyecto')
-        .update({ activo: false })
-        .eq('id_proyecto', projectId);
-
-      // Insert valid showrooms
+      // Update showrooms - upsert existing, insert new, deactivate removed
       const validShowrooms = showrooms.filter(s => s.descripcion_direccion && s.latitud && s.longitud);
-      if (validShowrooms.length > 0) {
-        const showroomInserts = validShowrooms.map(s => ({
+      const currentIds = validShowrooms.filter(s => s.id).map(s => s.id!);
+
+      // Deactivate only removed showrooms (those with IDs no longer in the list)
+      if (currentIds.length > 0) {
+        await supabase
+          .from('showrooms_proyecto')
+          .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
+          .eq('id_proyecto', projectId)
+          .eq('activo', true)
+          .not('id', 'in', `(${currentIds.join(',')})`);
+      } else {
+        // All showrooms were removed
+        await supabase
+          .from('showrooms_proyecto')
+          .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
+          .eq('id_proyecto', projectId)
+          .eq('activo', true);
+      }
+
+      // Update existing showrooms
+      for (const s of validShowrooms.filter(s => s.id)) {
+        const { error: updateErr } = await supabase
+          .from('showrooms_proyecto')
+          .update({
+            nombre: s.nombre,
+            descripcion_direccion: s.descripcion_direccion,
+            latitud: s.latitud!,
+            longitud: s.longitud!,
+            fecha_actualizacion: new Date().toISOString(),
+          })
+          .eq('id', s.id!);
+        if (updateErr) throw updateErr;
+      }
+
+      // Insert new showrooms (those without id)
+      const newShowrooms = validShowrooms.filter(s => !s.id);
+      if (newShowrooms.length > 0) {
+        const showroomInserts = newShowrooms.map(s => ({
           id_proyecto: projectId,
           nombre: s.nombre,
           descripcion_direccion: s.descripcion_direccion,
