@@ -2783,6 +2783,36 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracion_citas_horarios: {
+        Row: {
+          activo: boolean
+          dia_semana: number
+          fecha_actualizacion: string
+          fecha_creacion: string
+          hora: number
+          id: number
+          id_usuario_email: string
+        }
+        Insert: {
+          activo?: boolean
+          dia_semana: number
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          hora: number
+          id?: number
+          id_usuario_email: string
+        }
+        Update: {
+          activo?: boolean
+          dia_semana?: number
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          hora?: number
+          id?: number
+          id_usuario_email?: string
+        }
+        Relationships: []
+      }
       cta_events: {
         Row: {
           ab_test_id: number | null
@@ -5756,6 +5786,7 @@ export type Database = {
       roles: {
         Row: {
           activo: boolean | null
+          configurar_citas: boolean
           es_rol_interno: boolean
           fecha_actualizacion: string | null
           fecha_creacion: string | null
@@ -5768,6 +5799,7 @@ export type Database = {
         }
         Insert: {
           activo?: boolean | null
+          configurar_citas?: boolean
           es_rol_interno?: boolean
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
@@ -5780,6 +5812,7 @@ export type Database = {
         }
         Update: {
           activo?: boolean | null
+          configurar_citas?: boolean
           es_rol_interno?: boolean
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null

@@ -51,7 +51,41 @@ async function getAccessToken(sa: any): Promise<string> {
 
 // ---------- Calendar helpers ----------
 
-async function getAvailableSlots(token: string, fecha: string): Promise<string[]> {
+async function getAvailableSlots(token: string, fecha: string, supabaseClient?: any, calendarOwnerEmail?: string): Promise<string[]> {
+  // First check configured slots from configuracion_citas_horarios if supabase client provided
+  let configuredSlots: Set<string> | null = null;
+  if (supabaseClient && calendarOwnerEmail) {
+    const dayOfWeek = getDayOfWeek(fecha);
+    if (dayOfWeek > 0) { // 0 = Sunday, skip
+      const { data: configData } = await supabaseClient
+        .from("configuracion_citas_horarios")
+        .select("hora")
+        .eq("id_usuario_email", calendarOwnerEmail)
+        .eq("dia_semana", dayOfWeek)
+        .eq("activo", true);
+      
+      if (configData && configData.length > 0) {
+        configuredSlots = new Set(configData.map((c: any) => `${String(c.hora).padStart(2, "0")}:00`));
+        console.log(`[availability] Configured slots for ${calendarOwnerEmail} on day ${dayOfWeek}:`, Array.from(configuredSlots));
+      } else {
+        // Check if user has ANY configuration at all
+        const { data: anyConfig } = await supabaseClient
+          .from("configuracion_citas_horarios")
+          .select("id")
+          .eq("id_usuario_email", calendarOwnerEmail)
+          .eq("activo", true)
+          .limit(1);
+        
+        if (anyConfig && anyConfig.length > 0) {
+          // User has config but not for this day -> no slots available
+          console.log(`[availability] No configured slots for day ${dayOfWeek}, returning empty`);
+          return [];
+        }
+        // If no config at all, fall through to calendar-only check
+      }
+    }
+  }
+
   const timeMin = `${fecha}T09:00:00-06:00`;
   const timeMax = `${fecha}T18:00:00-06:00`;
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`;
@@ -61,7 +95,6 @@ async function getAvailableSlots(token: string, fecha: string): Promise<string[]
 
   const data = await res.json();
   console.log(`[availability] ${fecha}: ${(data.items || []).length} events found`);
-  // Filter to only timed events (skip all-day events which have .date instead of .dateTime)
   const events = (data.items || [])
     .filter((e: any) => e.start?.dateTime && e.end?.dateTime)
     .map((e: any) => {
@@ -75,6 +108,13 @@ async function getAvailableSlots(token: string, fecha: string): Promise<string[]
     for (const m of [0, 30]) {
       if (h === 16 && m > 30) continue;
       const label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      
+      // If configured slots exist, check if slot's hour is in configured hours
+      if (configuredSlots) {
+        const slotHourLabel = `${String(h).padStart(2, "0")}:00`;
+        if (!configuredSlots.has(slotHourLabel)) continue;
+      }
+      
       const startMs = new Date(`${fecha}T${label}:00-06:00`).getTime();
       const endMs = startMs + 90 * 60 * 1000;
       if (!events.some((ev: any) => startMs < ev.end && endMs > ev.start)) {
@@ -85,7 +125,46 @@ async function getAvailableSlots(token: string, fecha: string): Promise<string[]
   return slots;
 }
 
-async function checkAvailability(token: string, fecha: string, horaInicio: string, horaFin: string, excludeEventId?: string): Promise<boolean> {
+// Helper to get day of week (1=Monday, 6=Saturday, 0=Sunday)
+function getDayOfWeek(fecha: string): number {
+  const date = new Date(fecha + "T12:00:00");
+  const jsDay = date.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  if (jsDay === 0) return 0; // Sunday not supported
+  return jsDay; // 1=Mon, 2=Tue, ..., 6=Sat - matches our DB schema
+}
+
+async function checkAvailability(token: string, fecha: string, horaInicio: string, horaFin: string, excludeEventId?: string, supabaseClient?: any, calendarOwnerEmail?: string): Promise<boolean> {
+  // First check configured slots
+  if (supabaseClient && calendarOwnerEmail) {
+    const dayOfWeek = getDayOfWeek(fecha);
+    if (dayOfWeek > 0) {
+      const { data: anyConfig } = await supabaseClient
+        .from("configuracion_citas_horarios")
+        .select("id")
+        .eq("id_usuario_email", calendarOwnerEmail)
+        .eq("activo", true)
+        .limit(1);
+      
+      if (anyConfig && anyConfig.length > 0) {
+        // User has configuration, check if this specific day/hour is allowed
+        const horaNum = parseInt(horaInicio.split(":")[0]);
+        const { data: slotConfig } = await supabaseClient
+          .from("configuracion_citas_horarios")
+          .select("id")
+          .eq("id_usuario_email", calendarOwnerEmail)
+          .eq("dia_semana", dayOfWeek)
+          .eq("hora", horaNum)
+          .eq("activo", true)
+          .limit(1);
+        
+        if (!slotConfig || slotConfig.length === 0) {
+          console.log(`[checkAvailability] Slot ${horaInicio} on day ${dayOfWeek} not configured for ${calendarOwnerEmail}`);
+          return false;
+        }
+      }
+    }
+  }
+
   const timeMin = `${fecha}T${horaInicio}:00-06:00`;
   const timeMax = `${fecha}T${horaFin}:00-06:00`;
   const res = await fetch(
@@ -94,7 +173,6 @@ async function checkAvailability(token: string, fecha: string, horaInicio: strin
   );
   if (!res.ok) throw new Error(`Calendar API error: ${await res.text()}`);
   const data = await res.json();
-  // Filter out all-day events (they have .date instead of .dateTime) and optionally exclude the current event being rescheduled
   const timedEvents = (data.items || []).filter((e: any) => e.start?.dateTime && e.end?.dateTime && e.id !== excludeEventId);
   return timedEvents.length === 0;
 }
@@ -143,7 +221,11 @@ Deno.serve(async (req) => {
       if (!body.fecha) {
         return new Response(JSON.stringify({ error: "Falta el campo 'fecha'" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const slots = await getAvailableSlots(token, body.fecha);
+      // Create supabase client to check configured slots
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabaseForSlots = createClient(supabaseUrl, supabaseKey);
+      const slots = await getAvailableSlots(token, body.fecha, supabaseForSlots, CALENDAR_ID);
       return new Response(JSON.stringify({ available_slots: slots }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -173,7 +255,7 @@ Deno.serve(async (req) => {
     const existingCitaId = oldCitas?.[0]?.id;
 
     // Check availability excluding the existing event (so rescheduling doesn't conflict with itself)
-    const available = await checkAvailability(token, fecha, hora_inicio, horaFin, existingEventId);
+    const available = await checkAvailability(token, fecha, hora_inicio, horaFin, existingEventId, supabase, CALENDAR_ID);
     if (!available) {
       return new Response(JSON.stringify({ error: "no_disponible", message: "El horario seleccionado no está disponible." }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

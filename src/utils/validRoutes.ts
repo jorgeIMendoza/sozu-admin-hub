@@ -73,6 +73,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/crm/dashboard-ejecutivo',
   '/admin/mediciones-cta',
   '/admin/ab-tests',
+  '/admin/comunicacion/configuracion-citas',
 ]);
 
 export function isValidRoute(route: string): boolean {

@@ -90,6 +90,7 @@ const EnviarAvisos = lazy(() => import("./pages/admin/comunicacion/EnviarAvisos"
 const EjecucionesAvisos = lazy(() => import("./pages/admin/comunicacion/Ejecuciones"));
 const WorkflowOfertas = lazy(() => import("./pages/admin/crm/WorkflowOfertas"));
 const DashboardEjecutivo = lazy(() => import("./pages/admin/crm/DashboardEjecutivo"));
+const ConfiguracionCitas = lazy(() => import("./pages/admin/comunicacion/ConfiguracionCitas"));
 
 const Registro = lazy(() => import("./pages/public/Registro"));
 const AgentesLanding = lazy(() => import("./pages/public/AgentesLanding"));
@@ -224,6 +225,7 @@ const App = () => (
                   <Route path="comunicacion/administrar-avisos" element={<AdministrarAvisos />} />
                   <Route path="comunicacion/enviar-avisos" element={<EnviarAvisos />} />
                   <Route path="comunicacion/ejecuciones" element={<EjecucionesAvisos />} />
+                  <Route path="comunicacion/configuracion-citas" element={<ConfiguracionCitas />} />
                   <Route path="crm/workflow-ofertas" element={<WorkflowOfertas />} />
                   <Route path="crm/dashboard-ejecutivo" element={<DashboardEjecutivo />} />
                   <Route path="mediciones-cta" element={<MedicionesCTA />} />

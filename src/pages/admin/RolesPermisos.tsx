@@ -29,6 +29,7 @@ interface Role {
   ver_todos_proyectos_propiedades: boolean;
   ver_filtros_avanzados_eliminados: boolean;
   ver_todos_duenos: boolean;
+  configurar_citas: boolean;
 }
 
 interface Permiso {
@@ -521,7 +522,7 @@ export default function RolesPermisos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('roles')
-        .select('id, nombre, activo, ver_todos_prospectos_compradores, ver_todos_proyectos_propiedades, ver_filtros_avanzados_eliminados, ver_todos_duenos')
+        .select('id, nombre, activo, ver_todos_prospectos_compradores, ver_todos_proyectos_propiedades, ver_filtros_avanzados_eliminados, ver_todos_duenos, configurar_citas')
         .eq('es_rol_interno', true)
         .order('id');
       
@@ -811,6 +812,29 @@ export default function RolesPermisos() {
         .from('roles')
         .update({
           ver_filtros_avanzados_eliminados: value,
+          fecha_actualizacion: new Date().toISOString() 
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles-management'] });
+      triggerPermissionRefresh();
+      toast.success('Configuración actualizada');
+    },
+    onError: (error) => {
+      toast.error(`Error al actualizar: ${error.message}`);
+    },
+  });
+
+  // Update configurar_citas mutation
+  const updateConfigurarCitasMutation = useMutation({
+    mutationFn: async ({ id, value }: { id: number; value: boolean }) => {
+      const { error } = await supabase
+        .from('roles')
+        .update({
+          configurar_citas: value,
           fecha_actualizacion: new Date().toISOString() 
         })
         .eq('id', id);
@@ -1444,6 +1468,24 @@ export default function RolesPermisos() {
                           <span className="text-sm font-medium">Ver filtros avanzados y pestaña eliminados</span>
                           <p className="text-xs text-muted-foreground">
                             Permite ver filtros avanzados (recámaras, baños, área, precio, etc.) y la pestaña de eliminados en propiedades
+                          </p>
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <Checkbox
+                          checked={selectedRole.configurar_citas || false}
+                          onCheckedChange={(checked) => {
+                            updateConfigurarCitasMutation.mutate({
+                              id: selectedRole.id,
+                              value: checked === true
+                            });
+                          }}
+                          disabled={updateConfigurarCitasMutation.isPending}
+                        />
+                        <div>
+                          <span className="text-sm font-medium">Configurar citas</span>
+                          <p className="text-xs text-muted-foreground">
+                            Permite configurar los horarios disponibles para agendar citas
                           </p>
                         </div>
                       </label>
