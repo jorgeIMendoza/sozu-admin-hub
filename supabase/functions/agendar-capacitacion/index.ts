@@ -106,14 +106,11 @@ async function createCalendarEvent(
         conferenceSolutionKey: { type: "hangoutsMeet" },
       },
     },
-    attendees: [
-      { email: agentEmail },
-      { email: CALENDAR_ID },
-    ],
+    description: `Capacitación agendada para: ${agentEmail}`,
   };
 
   const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?conferenceDataVersion=1&sendUpdates=all`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CALENDAR_ID)}/events?conferenceDataVersion=1`,
     {
       method: "POST",
       headers: {
