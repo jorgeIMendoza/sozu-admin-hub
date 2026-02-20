@@ -248,18 +248,31 @@ Deno.serve(async (req) => {
     }
 
     const docUrl = facturaResult.url;
-    if (!docUrl || !docUrl.startsWith('http') || docUrl.includes('pendiente')) {
-      throw new Error(`N8N no devolvió una URL válida. Respuesta: ${responseText}`);
+    
+    // N8N puede responder con {"status":"ok","message":"Factura cargada"} sin URL
+    // cuando procesa la factura de forma asíncrona. Aceptar como éxito parcial.
+    const n8nAceptado = facturaResult.status === 'ok' || facturaResult.message?.toLowerCase().includes('cargada');
+
+    if (!docUrl && !n8nAceptado) {
+      throw new Error(`N8N no devolvió una URL válida ni confirmación. Respuesta: ${responseText}`);
     }
 
     // 9. Actualizar cuenta
+    const updateData: any = {
+      es_draft_factura_comision: true,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+
+    if (docUrl && docUrl.startsWith('http') && !docUrl.includes('pendiente')) {
+      updateData.url_factura_comision = docUrl;
+    } else {
+      // N8N confirmó pero sin URL - marcar como procesando
+      updateData.url_factura_comision = 'pendiente-de-url-n8n';
+    }
+
     const { error: updateError } = await supabase
       .from('cuentas_cobranza')
-      .update({
-        url_factura_comision: docUrl,
-        es_draft_factura_comision: true,
-        fecha_actualizacion: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id_cuenta_cobranza);
 
     if (updateError) {
@@ -296,13 +309,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[generar-factura-comision-sozu] ✅ Factura draft generada exitosamente`);
+    const urlFinal = updateData.url_factura_comision;
+    console.log(`[generar-factura-comision-sozu] ✅ Factura draft ${urlFinal === 'pendiente-de-url-n8n' ? 'en proceso (sin URL aún)' : 'generada exitosamente'}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Factura draft de comisión generada exitosamente',
-        url_factura_comision: docUrl,
+        message: urlFinal === 'pendiente-de-url-n8n' 
+          ? 'Factura en proceso - N8N confirmó la carga pero la URL estará disponible próximamente'
+          : 'Factura draft de comisión generada exitosamente',
+        url_factura_comision: urlFinal,
         monto_comision: montoComision,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
