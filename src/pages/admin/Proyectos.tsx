@@ -115,9 +115,9 @@ const Proyectos = () => {
   const itemsPerPage = 25;
 
   // Query to get project inmobiliaria names (entidades with id_tipo_entidad = 5)
-  const { data: inmobiliariaProjectMap = new Map<number, string>() } = useQuery({
+  const { data: inmobiliariaProjectMap = {} as Record<number, string> } = useQuery({
     queryKey: ["inmobiliaria-project-map"],
-    queryFn: async () => {
+    queryFn: async (): Promise<Record<number, string>> => {
       const { data, error } = await supabase
         .from('entidades_relacionadas')
         .select('id_proyecto, personas!entidades_relacionadas_id_persona_fkey(nombre_comercial, nombre_legal)')
@@ -126,23 +126,23 @@ const Proyectos = () => {
       
       if (error) {
         console.error("Error fetching inmobiliaria projects:", error);
-        return new Map<number, string>();
+        return {};
       }
       
-      const map = new Map<number, string>();
+      const result: Record<number, string> = {};
       data?.forEach(e => {
         if (e.id_proyecto != null) {
           const persona = e.personas as any;
-          map.set(e.id_proyecto, persona?.nombre_comercial || persona?.nombre_legal || 'Inmobiliaria');
+          result[e.id_proyecto] = persona?.nombre_comercial || persona?.nombre_legal || 'Inmobiliaria';
         }
       });
-      return map;
+      return result;
     },
     staleTime: 60000,
   });
 
   // Derive sozuProjectIds from the map for backward compatibility
-  const sozuProjectIds = useMemo(() => new Set(inmobiliariaProjectMap.keys()), [inmobiliariaProjectMap]);
+  const sozuProjectIds = useMemo(() => new Set(Object.keys(inmobiliariaProjectMap).map(Number)), [inmobiliariaProjectMap]);
 
   const { data: activeProjectsData, refetch: refetchActive } = useQuery({
     queryKey: ["projects", "active", currentPageActive, searchTerm, nombreFilter, ciudadFilter, estatusFilter, sozuFilter, accessibleProjectIds, Array.from(sozuProjectIds)],
@@ -901,8 +901,8 @@ const Proyectos = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {inmobiliariaProjectMap.has(project.id) ? (
-                        <Badge variant="default">{inmobiliariaProjectMap.get(project.id)}</Badge>
+                      {inmobiliariaProjectMap[project.id] ? (
+                        <Badge variant="default">{inmobiliariaProjectMap[project.id]}</Badge>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
                       )}
