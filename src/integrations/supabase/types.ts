@@ -7072,6 +7072,21 @@ export type Database = {
         Args: { p_accessible_project_ids?: number[] }
         Returns: Json
       }
+      get_inventario_disponible_v2: {
+        Args: {
+          p_accessible_project_ids?: number[]
+          p_bedrooms?: number[]
+          p_has_bodega?: boolean
+          p_has_estacionamiento?: boolean
+          p_levels?: string[]
+          p_model_names?: string[]
+          p_page?: number
+          p_page_size?: number
+          p_project_names?: string[]
+          p_sort_price?: string
+        }
+        Returns: Json
+      }
       get_offers_with_agent: {
         Args: { property_id: number }
         Returns: {
