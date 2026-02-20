@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, MapPin, Copy, Search, CheckCircle, Grid3x3 } from "lucide-react";
+import { Plus, MapPin, Copy, Search, CheckCircle, Grid3x3, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -90,6 +90,8 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [paymentSchemes, setPaymentSchemes] = useState<PaymentScheme[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [showroomLocation, setShowroomLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [showroomDireccion, setShowroomDireccion] = useState("");
   const [amenidadesSearchTerm, setAmenidadesSearchTerm] = useState("");
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const { toast } = useToast();
@@ -271,6 +273,9 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
         fecha_entrega: values.fecha_entrega || null,
         latitud: selectedLocation?.lat || null,
         longitud: selectedLocation?.lng || null,
+        descripcion_direccion_showroom: showroomDireccion || null,
+        latitud_showroom: showroomLocation?.lat || null,
+        longitud_showroom: showroomLocation?.lng || null,
         url_logo: values.url_logo || null,
         url_firma_recibos: values.url_firma_recibos || null,
         nombre_firmante_recibos: values.nombre_firmante_recibos || null,
@@ -736,6 +741,40 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                           Haz clic en el mapa para seleccionar la ubicación del proyecto
                         </p>
                       </div>
+                    </div>
+
+                    {/* Showroom Section */}
+                    <div className="space-y-4 border-t pt-4">
+                      <div className="flex items-center space-x-2">
+                        <Building2 className="w-4 h-4" />
+                        <label className="text-sm font-medium">Showroom</label>
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground">Dirección del showroom</label>
+                        <Input
+                          placeholder="Ej: Av. Chapultepec 123, Col. Americana"
+                          value={showroomDireccion}
+                          onChange={(e) => setShowroomDireccion(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground">Ubicación del showroom en mapa</label>
+                        <GoogleMapComponent
+                          onLocationSelect={setShowroomLocation}
+                          initialLocation={showroomLocation}
+                        />
+                        {showroomLocation && (
+                          <p className="text-xs text-muted-foreground">
+                            Coordenadas: {showroomLocation.lat.toFixed(6)}, {showroomLocation.lng.toFixed(6)}
+                          </p>
+                        )}
+                      </div>
+                      {((showroomDireccion && !showroomLocation) || (!showroomDireccion && showroomLocation)) && (
+                        <p className="text-xs text-destructive">
+                          Si proporcionas datos de showroom, debes llenar tanto la dirección como la ubicación en el mapa.
+                        </p>
+                      )}
                     </div>
 
                 {/* Buildings Section */}

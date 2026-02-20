@@ -2485,6 +2485,7 @@ export type Database = {
           fecha_confirmacion: string | null
           fecha_creacion: string
           google_calendar_event_id: string | null
+          google_meet_link: string | null
           hora_fin: string
           hora_inicio: string
           id: number
@@ -2501,6 +2502,7 @@ export type Database = {
           fecha_confirmacion?: string | null
           fecha_creacion?: string
           google_calendar_event_id?: string | null
+          google_meet_link?: string | null
           hora_fin: string
           hora_inicio: string
           id?: number
@@ -2517,6 +2519,7 @@ export type Database = {
           fecha_confirmacion?: string | null
           fecha_creacion?: string
           google_calendar_event_id?: string | null
+          google_meet_link?: string | null
           hora_fin?: string
           hora_inicio?: string
           id?: number

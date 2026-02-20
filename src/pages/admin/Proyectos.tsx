@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
-import { Search, Edit, Trash2, Eye, Image, Video, MapPin, Lock } from "lucide-react";
+import { Search, Edit, Trash2, Eye, Image, Video, MapPin, Lock, Building2 } from "lucide-react";
+import { Dialog as ShowroomDialog, DialogContent as ShowroomDialogContent, DialogHeader as ShowroomDialogHeader, DialogTitle as ShowroomDialogTitle } from "@/components/ui/dialog";
+import { GoogleMapComponent } from "@/components/admin/GoogleMapComponent";
 import { toast } from "sonner";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { EditProjectDialog } from "@/components/admin/EditProjectDialog";
@@ -44,6 +46,12 @@ const Proyectos = () => {
   const [selectedProjectMultimedia, setSelectedProjectMultimedia] = useState<{
     multimedia: any[];
     youtubeVideos: any[];
+    projectName: string;
+  } | null>(null);
+  const [showroomDetail, setShowroomDetail] = useState<{
+    direccion: string;
+    lat: number;
+    lng: number;
     projectName: string;
   } | null>(null);
   
@@ -120,6 +128,9 @@ const Proyectos = () => {
           direccion,
           latitud,
           longitud,
+          descripcion_direccion_showroom,
+          latitud_showroom,
+          longitud_showroom,
           activo,
           fecha_inicio_construccion,
           id_tipo_uso,
@@ -726,6 +737,7 @@ const Proyectos = () => {
                 <TableHead>Precio Promedio Propiedades</TableHead>
                 <TableHead>Precio Promedio por M2</TableHead>
                 <TableHead>Multimedia</TableHead>
+                <TableHead>Showroom</TableHead>
                 <TableHead>Estatus</TableHead>
                 <TableHead>Comercializada por</TableHead>
                 <TableHead>Publicar</TableHead>
@@ -843,6 +855,25 @@ const Proyectos = () => {
                           <span className="text-muted-foreground text-sm">Sin multimedia</span>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {project.descripcion_direccion_showroom && project.latitud_showroom && project.longitud_showroom ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-1 h-auto"
+                          onClick={() => setShowroomDetail({
+                            direccion: project.descripcion_direccion_showroom,
+                            lat: project.latitud_showroom,
+                            lng: project.longitud_showroom,
+                            projectName: project.nombre,
+                          })}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getBadgeVariant(project.estatus_proyecto?.nombre)}>
@@ -1166,6 +1197,32 @@ const Proyectos = () => {
               projectName={selectedProjectMultimedia.projectName}
             />
           )}
+
+          {/* Showroom Detail Dialog */}
+          <ShowroomDialog open={!!showroomDetail} onOpenChange={() => setShowroomDetail(null)}>
+            <ShowroomDialogContent className="max-w-md">
+              <ShowroomDialogHeader>
+                <ShowroomDialogTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Showroom — {showroomDetail?.projectName}
+                </ShowroomDialogTitle>
+              </ShowroomDialogHeader>
+              {showroomDetail && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Dirección</p>
+                    <p className="text-sm">{showroomDetail.direccion}</p>
+                  </div>
+                  <div className="rounded-lg overflow-hidden border">
+                    <GoogleMapComponent
+                      onLocationSelect={() => {}}
+                      initialLocation={{ lat: showroomDetail.lat, lng: showroomDetail.lng }}
+                    />
+                  </div>
+                </div>
+              )}
+            </ShowroomDialogContent>
+          </ShowroomDialog>
         </>
       )}
     </div>

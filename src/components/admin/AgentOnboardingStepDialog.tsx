@@ -424,38 +424,59 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       toast.error("Completa fecha y hora.");
       return;
     }
-    // Auto-calculate hora_fin as 1h30m after inicio
-    const [h, m] = horaInicio.split(':').map(Number);
-    const totalMin = h * 60 + m + 90;
-    const autoHoraFin = `${String(Math.floor(totalMin / 60) % 24).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
 
     setSaving(true);
     try {
-      // Deactivate previous
-      if (existingCita) {
-        await supabase
-          .from('citas_capacitacion')
-          .update({ activo: false })
-          .eq('id', existingCita.id);
-      }
+      // Get agent email for the calendar invite
+      const { data: persona } = await supabase
+        .from('personas')
+        .select('email')
+        .eq('id', personaId)
+        .single();
 
-      const { error } = await supabase
-        .from('citas_capacitacion')
-        .insert({
-          id_persona: personaId,
+      // Get showroom data from project if agent has one assigned
+      const { data: entRel } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_proyecto, proyectos!entidades_relacionadas_id_proyecto_fkey(descripcion_direccion_showroom, latitud_showroom, longitud_showroom)')
+        .eq('id_persona', personaId)
+        .eq('activo', true)
+        .limit(1)
+        .maybeSingle();
+
+      const proyecto = (entRel as any)?.proyectos;
+
+      const { data, error } = await supabase.functions.invoke('agendar-capacitacion', {
+        body: {
           fecha,
           hora_inicio: horaInicio,
-          hora_fin: autoHoraFin,
-          ubicacion: 'Por confirmar',
-          estatus: 'programada',
-        });
-      if (error) throw error;
+          id_persona: personaId,
+          agent_email: persona?.email || '',
+          direccion_showroom: proyecto?.descripcion_direccion_showroom || null,
+          latitud_showroom: proyecto?.latitud_showroom || null,
+          longitud_showroom: proyecto?.longitud_showroom || null,
+        },
+      });
 
-      toast.success("Cita de capacitación agendada correctamente.");
+      if (error) throw error;
+      
+      if (data?.error === 'no_disponible') {
+        toast.error(data.message || "El horario no está disponible. Selecciona otra fecha u hora.");
+        return;
+      }
+
+      if (data?.error) throw new Error(data.error);
+
+      const meetLink = data?.meet_link;
+      toast.success(
+        meetLink 
+          ? "Cita agendada con Google Meet. Revisa tu correo para la invitación." 
+          : "Cita de capacitación agendada correctamente."
+      );
       queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
       queryClient.invalidateQueries({ queryKey: ['agent-training-cita'] });
       onSaved();
     } catch (err: any) {
+      console.error("Error scheduling:", err);
       toast.error("Error al agendar: " + (err.message || "Error"));
     } finally {
       setSaving(false);
