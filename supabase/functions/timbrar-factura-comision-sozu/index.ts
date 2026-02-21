@@ -133,8 +133,8 @@ Deno.serve(async (req) => {
 
     if (!cuenta) throw new Error('Cuenta de cobranza no encontrada');
 
-    if (!cuenta.url_factura_comision || !cuenta.url_factura_comision.startsWith('http')) {
-      throw new Error('No existe factura draft válida para timbrar. La URL actual no es una URL real.');
+    if (!cuenta.url_factura_comision) {
+      throw new Error('No existe factura draft para timbrar. Genera primero el borrador.');
     }
 
     if (cuenta.es_draft_factura_comision === false) {
