@@ -6312,18 +6312,21 @@ export type Database = {
       tipos_cita: {
         Row: {
           activo: boolean
+          descripcion: string | null
           fecha_creacion: string
           id: number
           nombre: string
         }
         Insert: {
           activo?: boolean
+          descripcion?: string | null
           fecha_creacion?: string
           id?: number
           nombre: string
         }
         Update: {
           activo?: boolean
+          descripcion?: string | null
           fecha_creacion?: string
           id?: number
           nombre?: string

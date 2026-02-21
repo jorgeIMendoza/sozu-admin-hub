@@ -1,0 +1,1 @@
+ALTER TABLE public.tipos_cita ADD COLUMN descripcion TEXT;

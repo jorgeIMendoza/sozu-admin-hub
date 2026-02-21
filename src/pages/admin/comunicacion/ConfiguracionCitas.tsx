@@ -55,8 +55,10 @@ export default function ConfiguracionCitas() {
   const [hasChanges, setHasChanges] = useState(false);
   const [tiposCrudOpen, setTiposCrudOpen] = useState(false);
   const [nuevoTipoNombre, setNuevoTipoNombre] = useState("");
+  const [nuevoTipoDescripcion, setNuevoTipoDescripcion] = useState("");
   const [editingTipoId, setEditingTipoId] = useState<number | null>(null);
   const [editingTipoNombre, setEditingTipoNombre] = useState("");
+  const [editingTipoDescripcion, setEditingTipoDescripcion] = useState("");
 
   useEffect(() => {
     if (!isSuperAdmin && profile?.email) {
@@ -90,22 +92,23 @@ export default function ConfiguracionCitas() {
   });
 
   const addTipoCitaMutation = useMutation({
-    mutationFn: async (nombre: string) => {
-      const { error } = await supabase.from("tipos_cita").insert({ nombre, activo: true });
+    mutationFn: async ({ nombre, descripcion }: { nombre: string; descripcion: string }) => {
+      const { error } = await supabase.from("tipos_cita").insert({ nombre, descripcion: descripcion || null, activo: true });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tipos-cita"] });
       queryClient.invalidateQueries({ queryKey: ["tipos-cita-all"] });
       setNuevoTipoNombre("");
+      setNuevoTipoDescripcion("");
       toast.success("Tipo de cita agregado");
     },
     onError: (e) => toast.error(`Error: ${e.message}`),
   });
 
   const updateTipoCitaMutation = useMutation({
-    mutationFn: async ({ id, nombre }: { id: number; nombre: string }) => {
-      const { error } = await supabase.from("tipos_cita").update({ nombre }).eq("id", id);
+    mutationFn: async ({ id, nombre, descripcion }: { id: number; nombre: string; descripcion: string }) => {
+      const { error } = await supabase.from("tipos_cita").update({ nombre, descripcion: descripcion || null }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -338,19 +341,24 @@ export default function ConfiguracionCitas() {
             <CollapsibleContent>
               <CardContent className="space-y-4">
                 {/* Add new */}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 max-w-lg">
                   <Input
                     placeholder="Nombre del nuevo tipo de cita..."
                     value={nuevoTipoNombre}
                     onChange={(e) => setNuevoTipoNombre(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Descripción para el evento de calendario (opcional)"
+                    value={nuevoTipoDescripcion}
+                    onChange={(e) => setNuevoTipoDescripcion(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && nuevoTipoNombre.trim()) addTipoCitaMutation.mutate(nuevoTipoNombre.trim());
+                      if (e.key === "Enter" && nuevoTipoNombre.trim()) addTipoCitaMutation.mutate({ nombre: nuevoTipoNombre.trim(), descripcion: nuevoTipoDescripcion.trim() });
                     }}
-                    className="max-w-sm"
                   />
                   <Button
                     size="sm"
-                    onClick={() => nuevoTipoNombre.trim() && addTipoCitaMutation.mutate(nuevoTipoNombre.trim())}
+                    className="self-start"
+                    onClick={() => nuevoTipoNombre.trim() && addTipoCitaMutation.mutate({ nombre: nuevoTipoNombre.trim(), descripcion: nuevoTipoDescripcion.trim() })}
                     disabled={!nuevoTipoNombre.trim() || addTipoCitaMutation.isPending}
                   >
                     <Plus className="h-4 w-4 mr-1" /> Agregar
@@ -360,25 +368,38 @@ export default function ConfiguracionCitas() {
                 {/* List */}
                 <div className="border rounded-md divide-y">
                   {allTiposCita.map((tc: any) => (
-                    <div key={tc.id} className="flex items-center gap-3 px-4 py-3">
+                    <div key={tc.id} className="flex items-start gap-3 px-4 py-3">
                       {editingTipoId === tc.id ? (
-                        <div className="flex items-center gap-2 flex-1">
+                        <div className="flex flex-col gap-2 flex-1">
                           <Input
                             value={editingTipoNombre}
                             onChange={(e) => setEditingTipoNombre(e.target.value)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" && editingTipoNombre.trim()) updateTipoCitaMutation.mutate({ id: tc.id, nombre: editingTipoNombre.trim() });
                               if (e.key === "Escape") setEditingTipoId(null);
                             }}
                             className="max-w-xs h-8"
+                            placeholder="Nombre"
                             autoFocus
                           />
-                          <Button size="sm" variant="ghost" onClick={() => editingTipoNombre.trim() && updateTipoCitaMutation.mutate({ id: tc.id, nombre: editingTipoNombre.trim() })}>
-                            <Save className="h-3 w-3" />
+                          <Input
+                            value={editingTipoDescripcion}
+                            onChange={(e) => setEditingTipoDescripcion(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && editingTipoNombre.trim()) updateTipoCitaMutation.mutate({ id: tc.id, nombre: editingTipoNombre.trim(), descripcion: editingTipoDescripcion.trim() });
+                              if (e.key === "Escape") setEditingTipoId(null);
+                            }}
+                            className="max-w-sm h-8"
+                            placeholder="Descripción (opcional)"
+                          />
+                          <Button size="sm" variant="ghost" className="self-start" onClick={() => editingTipoNombre.trim() && updateTipoCitaMutation.mutate({ id: tc.id, nombre: editingTipoNombre.trim(), descripcion: editingTipoDescripcion.trim() })}>
+                            <Save className="h-3 w-3 mr-1" /> Guardar
                           </Button>
                         </div>
                       ) : (
-                        <span className={cn("flex-1 text-sm", !tc.activo && "text-muted-foreground line-through")}>{tc.nombre}</span>
+                        <div className="flex-1">
+                          <span className={cn("text-sm font-medium", !tc.activo && "text-muted-foreground line-through")}>{tc.nombre}</span>
+                          {tc.descripcion && <p className="text-xs text-muted-foreground mt-0.5">{tc.descripcion}</p>}
+                        </div>
                       )}
                       <Switch
                         checked={tc.activo}
@@ -388,7 +409,7 @@ export default function ConfiguracionCitas() {
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8"
-                        onClick={() => { setEditingTipoId(tc.id); setEditingTipoNombre(tc.nombre); }}
+                        onClick={() => { setEditingTipoId(tc.id); setEditingTipoNombre(tc.nombre); setEditingTipoDescripcion(tc.descripcion || ""); }}
                       >
                         <Pencil className="h-3 w-3" />
                       </Button>
