@@ -265,10 +265,8 @@ Deno.serve(async (req) => {
 
     if (docUrl && docUrl.startsWith('http') && !docUrl.includes('pendiente')) {
       updateData.url_factura_comision = docUrl;
-    } else {
-      // N8N confirmó pero sin URL - marcar como procesando
-      updateData.url_factura_comision = 'pendiente-de-url-n8n';
     }
+    // Si N8N confirmó sin URL, NO sobreescribir - N8N llenará el campo directamente en la BD
 
     const { error: updateError } = await supabase
       .from('cuentas_cobranza')
@@ -309,14 +307,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    const urlFinal = updateData.url_factura_comision;
-    console.log(`[generar-factura-comision-sozu] ✅ Factura draft ${urlFinal === 'pendiente-de-url-n8n' ? 'en proceso (sin URL aún)' : 'generada exitosamente'}`);
+    const urlFinal = updateData.url_factura_comision || 'esperando URL de N8N';
+    console.log(`[generar-factura-comision-sozu] ✅ Factura draft ${!updateData.url_factura_comision ? 'en proceso (N8N llenará la URL)' : 'generada exitosamente'}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: urlFinal === 'pendiente-de-url-n8n' 
-          ? 'Factura en proceso - N8N confirmó la carga pero la URL estará disponible próximamente'
+        message: !updateData.url_factura_comision
+          ? 'Factura en proceso - N8N llenará la URL directamente'
           : 'Factura draft de comisión generada exitosamente',
         url_factura_comision: urlFinal,
         monto_comision: montoComision,
