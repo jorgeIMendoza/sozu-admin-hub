@@ -412,6 +412,7 @@ export default function ConfiguracionCitas() {
           action: "create-recurring-meets",
           calendar_owner_email: calendarioEmail || selectedUserEmail,
           tipo_cita_id: parseInt(selectedTipoCita),
+          duracion_minutos: duracionMinutos,
           slots_config: slotsConfig,
           fecha_fin: fechaFinStr,
         },

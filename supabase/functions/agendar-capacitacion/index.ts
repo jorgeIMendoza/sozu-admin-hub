@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
 
     // Fetch dynamic config
     const userCitaConfig = await getUserCitaConfig(supabase, calendarOwnerEmail, tipoCitaId);
-    const duracionMinutos = userCitaConfig?.duracion_minutos || 90;
+    const duracionMinutos = body.duracion_minutos || userCitaConfig?.duracion_minutos || 90;
     const calendarId = userCitaConfig?.calendario_email || calendarOwnerEmail;
 
     // ---- Action: create recurring meets ----
