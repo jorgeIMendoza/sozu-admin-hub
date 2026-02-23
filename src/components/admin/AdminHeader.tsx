@@ -57,9 +57,14 @@ export const AdminHeader = ({ onMenuClick }: AdminHeaderProps) => {
         <div className="flex items-center justify-between">
           {/* Left side */}
           {isSimplifiedRole ? (
-            <div className="flex flex-col gap-1 shrink-0">
-              <img src={sozuLogo} alt="Sozu" className="h-7" />
-              <span className="text-[9px] text-muted-foreground/40 select-none">{APP_VERSION}</span>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex flex-col gap-0.5">
+                <img src={sozuLogo} alt="Sozu" className="h-7" />
+                <span className="text-[9px] text-muted-foreground/40 select-none">{APP_VERSION}</span>
+              </div>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                Hola, <span className="font-medium text-foreground">{profile?.nombre?.split(" ")[0] || "Usuario"}</span>
+              </span>
             </div>
           ) : (
             <Button

@@ -52,7 +52,7 @@ async function getAccessToken(sa: any): Promise<string> {
 async function getUserCitaConfig(supabase: any, calendarOwnerEmail: string, tipoCitaId: number) {
   const { data } = await supabase
     .from("configuracion_citas_usuarios")
-    .select("duracion_minutos, calendario_email")
+    .select("duracion_minutos, calendario_email, correos_enterado, nombre")
     .eq("id_usuario_email", calendarOwnerEmail)
     .eq("id_tipo_cita", tipoCitaId)
     .eq("activo", true)
@@ -71,19 +71,26 @@ function getDayOfWeek(fecha: string): number {
 
 async function getAvailableSlots(
   token: string, fecha: string, calendarId: string, duracionMinutos: number,
-  supabaseClient?: any, calendarOwnerEmail?: string, tipoCitaId?: number
+  supabaseClient?: any, calendarOwnerEmail?: string, tipoCitaId?: number,
+  configId?: number
 ): Promise<string[]> {
   let configuredSlots: Set<string> | null = null;
   if (supabaseClient && calendarOwnerEmail) {
     const dayOfWeek = getDayOfWeek(fecha);
     if (dayOfWeek > 0) {
-      const query = supabaseClient
+      let query = supabaseClient
         .from("configuracion_citas_horarios")
         .select("hora")
-        .eq("id_usuario_email", calendarOwnerEmail)
-        .eq("dia_semana", dayOfWeek)
         .eq("activo", true);
-      if (tipoCitaId) query.eq("id_tipo_cita", tipoCitaId);
+      
+      // Prefer filtering by config id if available
+      if (configId) {
+        query = query.eq("id_configuracion_cita", configId);
+      } else {
+        query = query.eq("id_usuario_email", calendarOwnerEmail);
+        if (tipoCitaId) query = query.eq("id_tipo_cita", tipoCitaId);
+      }
+      query = query.eq("dia_semana", dayOfWeek);
 
       const { data: configData } = await query;
 
@@ -91,13 +98,18 @@ async function getAvailableSlots(
         configuredSlots = new Set(configData.map((c: any) => `${String(c.hora).padStart(2, "0")}:00`));
         console.log(`[availability] Configured slots for ${calendarOwnerEmail} on day ${dayOfWeek}:`, Array.from(configuredSlots));
       } else {
-        const checkQuery = supabaseClient
+        // Check if any config exists at all
+        let checkQuery = supabaseClient
           .from("configuracion_citas_horarios")
           .select("id")
-          .eq("id_usuario_email", calendarOwnerEmail)
           .eq("activo", true)
           .limit(1);
-        if (tipoCitaId) checkQuery.eq("id_tipo_cita", tipoCitaId);
+        if (configId) {
+          checkQuery = checkQuery.eq("id_configuracion_cita", configId);
+        } else {
+          checkQuery = checkQuery.eq("id_usuario_email", calendarOwnerEmail);
+          if (tipoCitaId) checkQuery = checkQuery.eq("id_tipo_cita", tipoCitaId);
+        }
         const { data: anyConfig } = await checkQuery;
 
         if (anyConfig && anyConfig.length > 0) {
@@ -215,7 +227,6 @@ async function createCalendarEvent(token: string, calendarId: string, fecha: str
   );
   if (!res.ok) {
     const errText = await res.text();
-    // Detect permission errors and return a friendly message
     if (res.status === 403 || res.status === 404 || errText.includes("Not Found") || errText.includes("forbidden")) {
       throw new Error("No se tiene acceso al calendario. Verifique que la cuenta de servicio tenga permisos de 'Realizar cambios en eventos' en la configuración de compartir del Google Calendar.");
     }
@@ -254,8 +265,6 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Determine calendar owner email and tipo cita
-    // Default tipo_cita = 1 (Capacitación) for backwards compatibility
     const tipoCitaId = body.tipo_cita_id || 1;
     const calendarOwnerEmail = body.calendar_owner_email || "jorge.mendoza@sozu.com";
 
@@ -264,16 +273,96 @@ Deno.serve(async (req) => {
     const duracionMinutos = body.duracion_minutos || userCitaConfig?.duracion_minutos || 90;
     const calendarId = userCitaConfig?.calendario_email || calendarOwnerEmail;
 
+    // ---- Action: check-availability-by-project ----
+    // Returns slots grouped by calendar owner, filtered by project access
+    if (body.action === "check-availability-by-project") {
+      if (!body.fecha) {
+        return new Response(JSON.stringify({ error: "Falta el campo 'fecha'" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const proyectoIds: number[] = body.proyecto_ids || [];
+      
+      // Find all cita configs of tipoCitaId that have at least one project in common with proyectoIds
+      let query = supabase
+        .from("configuracion_citas_usuarios")
+        .select("id, id_usuario_email, duracion_minutos, calendario_email, nombre")
+        .eq("id_tipo_cita", tipoCitaId)
+        .eq("activo", true);
+      
+      const { data: allConfigs } = await query;
+      if (!allConfigs || allConfigs.length === 0) {
+        return new Response(JSON.stringify({ grouped_slots: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // For each config, check if it has overlapping projects
+      const configIds = allConfigs.map((c: any) => c.id);
+      const { data: configProjects } = await supabase
+        .from("configuracion_citas_proyectos")
+        .select("id_configuracion_cita, id_proyecto")
+        .in("id_configuracion_cita", configIds);
+
+      const configProjectMap = new Map<number, number[]>();
+      (configProjects || []).forEach((cp: any) => {
+        if (!configProjectMap.has(cp.id_configuracion_cita)) configProjectMap.set(cp.id_configuracion_cita, []);
+        configProjectMap.get(cp.id_configuracion_cita)!.push(cp.id_proyecto);
+      });
+
+      // Filter configs that have at least one project in common
+      const matchingConfigs = allConfigs.filter((c: any) => {
+        const projIds = configProjectMap.get(c.id) || [];
+        if (proyectoIds.length === 0) return projIds.length > 0; // No filter = show all with projects
+        return projIds.some((pid: number) => proyectoIds.includes(pid));
+      });
+
+      if (matchingConfigs.length === 0) {
+        return new Response(JSON.stringify({ grouped_slots: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Get owner names from usuarios table
+      const ownerEmails = [...new Set(matchingConfigs.map((c: any) => c.id_usuario_email))];
+      const { data: ownerUsers } = await supabase
+        .from("usuarios")
+        .select("email, personas:id_persona(nombre_legal)")
+        .in("email", ownerEmails);
+      
+      const ownerNameMap = new Map<string, string>();
+      (ownerUsers || []).forEach((u: any) => {
+        ownerNameMap.set(u.email, u.personas?.nombre_legal || u.email);
+      });
+
+      // For each matching config, get available slots
+      const groupedSlots: any[] = [];
+      for (const cfg of matchingConfigs) {
+        const cfgCalendarId = cfg.calendario_email || cfg.id_usuario_email;
+        const cfgDuracion = cfg.duracion_minutos || 90;
+        try {
+          const slots = await getAvailableSlots(
+            token, body.fecha, cfgCalendarId, cfgDuracion,
+            supabase, cfg.id_usuario_email, tipoCitaId, cfg.id
+          );
+          groupedSlots.push({
+            config_id: cfg.id,
+            owner_email: cfg.id_usuario_email,
+            owner_name: ownerNameMap.get(cfg.id_usuario_email) || cfg.id_usuario_email,
+            cita_nombre: cfg.nombre,
+            calendar_id: cfgCalendarId,
+            duracion_minutos: cfgDuracion,
+            available_slots: slots,
+          });
+        } catch (e: any) {
+          console.error(`[check-availability-by-project] Error for ${cfg.id_usuario_email}: ${e.message}`);
+        }
+      }
+
+      return new Response(JSON.stringify({ grouped_slots: groupedSlots }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ---- Action: create recurring meets ----
     if (body.action === "create-recurring-meets") {
-      const { slots_config, fecha_fin } = body;
-      // slots_config: Array<{ dia_semana: number, horas: string[] }>
-      // fecha_fin: "YYYY-MM-DD"
+      const { slots_config, fecha_fin, correos_enterado } = body;
       if (!slots_config || !fecha_fin) {
         return new Response(JSON.stringify({ error: "Faltan slots_config o fecha_fin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Fetch tipo_cita description for event summary
       let tipoCitaDescripcion = "";
       const { data: tipoCitaData } = await supabase
         .from("tipos_cita")
@@ -282,12 +371,15 @@ Deno.serve(async (req) => {
         .maybeSingle();
       tipoCitaDescripcion = tipoCitaData?.descripcion || tipoCitaData?.nombre || "Cita";
 
+      // Build attendees from correos_enterado
+      const attendees = (correos_enterado || userCitaConfig?.correos_enterado || []).map((email: string) => ({ email }));
+
       const endDate = new Date(fecha_fin + "T23:59:59-06:00");
       const today = new Date();
       const createdEvents: any[] = [];
       const errors: string[] = [];
 
-      // --- Fetch existing recurring events with same summary ---
+      // Fetch existing recurring events
       let existingRecurringEvents: any[] = [];
       try {
         const searchMin = new Date().toISOString();
@@ -303,7 +395,6 @@ Deno.serve(async (req) => {
         console.error("[sync] Error fetching existing events:", e.message);
       }
 
-      // Build desired events: one per (dia_semana, hora)
       const rruleDays = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
       const untilStr = `${fecha_fin.replace(/-/g, "")}T235959Z`;
       const desiredEvents: { day: number; hora: string; targetJsDay: number; fechaStr: string; horaInicio: string; horaFin: string; rruleDay: string }[] = [];
@@ -318,9 +409,7 @@ Deno.serve(async (req) => {
             nextDate.setDate(nextDate.getDate() + 1);
           }
           if (nextDate.toDateString() === today.toDateString()) {
-            if (today.getHours() >= h) {
-              nextDate.setDate(nextDate.getDate() + 7);
-            }
+            if (today.getHours() >= h) nextDate.setDate(nextDate.getDate() + 7);
           }
           if (nextDate > endDate) continue;
 
@@ -333,11 +422,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Match existing events to desired events by BYDAY rule
       const usedExistingIds = new Set<string>();
 
       for (const desired of desiredEvents) {
-        // Try to find an existing event on the same BYDAY
         const matchIdx = existingRecurringEvents.findIndex((ev: any) => {
           if (usedExistingIds.has(ev.id)) return false;
           const rrule = (ev.recurrence || []).find((r: string) => r.includes("RRULE:"));
@@ -345,7 +432,6 @@ Deno.serve(async (req) => {
         });
 
         if (matchIdx >= 0) {
-          // UPDATE existing event (preserves attendees)
           const existingEv = existingRecurringEvents[matchIdx];
           usedExistingIds.add(existingEv.id);
           const patchBody: any = {
@@ -353,14 +439,18 @@ Deno.serve(async (req) => {
             end: { dateTime: `${desired.fechaStr}T${desired.horaFin}:00`, timeZone: "America/Mexico_City" },
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
+          // Add correos_enterado as attendees (merge with existing)
+          if (attendees.length > 0) {
+            const existingAttendees = (existingEv.attendees || []).filter((a: any) => !attendees.some((na: any) => na.email === a.email));
+            patchBody.attendees = [...existingAttendees, ...attendees];
+          }
           try {
             const res = await fetch(
               `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(existingEv.id)}`,
               { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(patchBody) },
             );
             if (!res.ok) {
-              const errText = await res.text();
-              errors.push(`UPDATE ${desired.fechaStr} ${desired.horaInicio}: ${errText}`);
+              errors.push(`UPDATE ${desired.fechaStr} ${desired.horaInicio}: ${await res.text()}`);
             } else {
               const updated = await res.json();
               console.log(`[sync] Updated event ${existingEv.id} to ${desired.rruleDay} ${desired.horaInicio}`);
@@ -370,7 +460,6 @@ Deno.serve(async (req) => {
             errors.push(`UPDATE ${desired.fechaStr} ${desired.horaInicio}: ${e.message}`);
           }
         } else {
-          // CREATE new event (no match found)
           const event: any = {
             summary: tipoCitaDescripcion,
             start: { dateTime: `${desired.fechaStr}T${desired.horaInicio}:00`, timeZone: "America/Mexico_City" },
@@ -378,7 +467,11 @@ Deno.serve(async (req) => {
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
 
-          // Try to create with Meet, fallback without if conference type not supported
+          // Add correos_enterado as attendees
+          if (attendees.length > 0) {
+            event.attendees = [...attendees];
+          }
+
           let createUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1`;
           event.conferenceData = {
             createRequest: {
@@ -394,7 +487,6 @@ Deno.serve(async (req) => {
               body: JSON.stringify(event),
             });
 
-            // If conference type error, retry without conferenceData
             if (!res.ok) {
               const errText = await res.text();
               if (res.status === 400 && errText.includes("Invalid conference type")) {
@@ -427,7 +519,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Delete unmatched existing events (slots removed from config)
+      // Delete unmatched existing events
       for (const ev of existingRecurringEvents) {
         if (!usedExistingIds.has(ev.id)) {
           console.log(`[sync] Deleting unmatched event ${ev.id}`);
@@ -438,7 +530,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, created_events: createdEvents, errors }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ---- Action: check available slots ----
+    // ---- Action: check available slots (legacy, single calendar) ----
     if (body.action === "check-availability") {
       if (!body.fecha) {
         return new Response(JSON.stringify({ error: "Falta el campo 'fecha'" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -458,7 +550,6 @@ Deno.serve(async (req) => {
     const totalMin = h * 60 + m + duracionMinutos;
     const horaFin = `${String(Math.floor(totalMin / 60) % 24).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
 
-    // Find existing active cita for this persona
     const { data: oldCitas } = await supabase
       .from("citas_capacitacion")
       .select("id, google_calendar_event_id")
@@ -468,7 +559,11 @@ Deno.serve(async (req) => {
     const existingEventId = oldCitas?.[0]?.google_calendar_event_id || undefined;
     const existingCitaId = oldCitas?.[0]?.id;
 
-    const available = await checkAvailability(token, fecha, hora_inicio, horaFin, calendarId, existingEventId, supabase, calendarOwnerEmail, tipoCitaId);
+    // Use the calendar_owner_email from the body if provided, or the selected one
+    const scheduleCalendarOwner = body.calendar_owner_email || calendarOwnerEmail;
+    const scheduleCalendarId = body.calendar_id || calendarId;
+
+    const available = await checkAvailability(token, fecha, hora_inicio, horaFin, scheduleCalendarId, existingEventId, supabase, scheduleCalendarOwner, tipoCitaId);
     if (!available) {
       return new Response(JSON.stringify({ error: "no_disponible", message: "El horario seleccionado no está disponible." }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -479,13 +574,12 @@ Deno.serve(async (req) => {
     }
 
     if (existingEventId) {
-      await deleteCalendarEvent(token, calendarId, existingEventId);
+      await deleteCalendarEvent(token, scheduleCalendarId, existingEventId);
     }
 
-    const calendarEvent = await createCalendarEvent(token, calendarId, fecha, hora_inicio, horaFin, summary, agent_email || "");
+    const calendarEvent = await createCalendarEvent(token, scheduleCalendarId, fecha, hora_inicio, horaFin, summary, agent_email || "");
 
     let resultCita;
-
     const meetLink = calendarEvent.hangoutLink || null;
 
     if (existingCitaId) {

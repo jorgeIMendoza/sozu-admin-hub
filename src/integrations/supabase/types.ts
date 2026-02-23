@@ -2791,6 +2791,7 @@ export type Database = {
           fecha_creacion: string
           hora: number
           id: number
+          id_configuracion_cita: number | null
           id_tipo_cita: number | null
           id_usuario_email: string
         }
@@ -2801,6 +2802,7 @@ export type Database = {
           fecha_creacion?: string
           hora: number
           id?: number
+          id_configuracion_cita?: number | null
           id_tipo_cita?: number | null
           id_usuario_email: string
         }
@@ -2811,10 +2813,18 @@ export type Database = {
           fecha_creacion?: string
           hora?: number
           id?: number
+          id_configuracion_cita?: number | null
           id_tipo_cita?: number | null
           id_usuario_email?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "configuracion_citas_horarios_id_configuracion_cita_fkey"
+            columns: ["id_configuracion_cita"]
+            isOneToOne: false
+            referencedRelation: "configuracion_citas_usuarios"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "configuracion_citas_horarios_id_tipo_cita_fkey"
             columns: ["id_tipo_cita"]
@@ -2824,36 +2834,78 @@ export type Database = {
           },
         ]
       }
+      configuracion_citas_proyectos: {
+        Row: {
+          id: number
+          id_configuracion_cita: number
+          id_proyecto: number
+        }
+        Insert: {
+          id?: number
+          id_configuracion_cita: number
+          id_proyecto: number
+        }
+        Update: {
+          id?: number
+          id_configuracion_cita?: number
+          id_proyecto?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuracion_citas_proyectos_id_configuracion_cita_fkey"
+            columns: ["id_configuracion_cita"]
+            isOneToOne: false
+            referencedRelation: "configuracion_citas_usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "configuracion_citas_proyectos_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       configuracion_citas_usuarios: {
         Row: {
           activo: boolean
           calendario_email: string | null
+          correos_enterado: string[] | null
           duracion_minutos: number
           fecha_actualizacion: string
           fecha_creacion: string
           id: number
           id_tipo_cita: number
           id_usuario_email: string
+          max_invitados: number
+          nombre: string
         }
         Insert: {
           activo?: boolean
           calendario_email?: string | null
+          correos_enterado?: string[] | null
           duracion_minutos?: number
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
           id_tipo_cita: number
           id_usuario_email: string
+          max_invitados?: number
+          nombre: string
         }
         Update: {
           activo?: boolean
           calendario_email?: string | null
+          correos_enterado?: string[] | null
           duracion_minutos?: number
           fecha_actualizacion?: string
           fecha_creacion?: string
           id?: number
           id_tipo_cita?: number
           id_usuario_email?: string
+          max_invitados?: number
+          nombre?: string
         }
         Relationships: [
           {
