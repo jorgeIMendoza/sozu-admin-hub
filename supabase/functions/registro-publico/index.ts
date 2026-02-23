@@ -10,6 +10,7 @@ interface RequestBody {
   email: string;
   telefono: string;
   clave_pais_telefono: string;
+  proyecto_ids?: number[];
 }
 
 Deno.serve(async (req) => {
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: RequestBody = await req.json();
-    const { nombre, email, telefono, clave_pais_telefono } = body;
+    const { nombre, email, telefono, clave_pais_telefono, proyecto_ids } = body;
 
     console.log('Registro público de agente:', { nombre, email: email.substring(0, 5) + '***' });
 
@@ -172,30 +173,36 @@ Deno.serve(async (req) => {
 
     console.log('Usuario created:', usuario.id);
 
-    // Assign access to all published projects
+    // Assign access only to selected projects
     try {
-      const { data: publishedProjects } = await supabase
-        .from('proyectos')
-        .select('id')
-        .eq('publicar', true)
-        .eq('activo', true);
+      if (proyecto_ids && proyecto_ids.length > 0) {
+        // Validate that all selected projects are actually published
+        const { data: validProjects } = await supabase
+          .from('proyectos')
+          .select('id')
+          .in('id', proyecto_ids)
+          .eq('publicar', true)
+          .eq('activo', true);
 
-      if (publishedProjects && publishedProjects.length > 0) {
-        const accessRecords = publishedProjects.map(p => ({
-          usuario_id: emailLower,
-          proyecto_id: p.id,
-          activo: true,
-          id_entidad_relacionada_dueno: null,
-        }));
+        const validIds = validProjects?.map(p => p.id) || [];
 
-        const { error: accessError } = await supabase
-          .from('proyectos_acceso')
-          .insert(accessRecords);
+        if (validIds.length > 0) {
+          const accessRecords = validIds.map(pid => ({
+            usuario_id: emailLower,
+            proyecto_id: pid,
+            activo: true,
+            id_entidad_relacionada_dueno: null,
+          }));
 
-        if (accessError) {
-          console.error('Error assigning project access:', accessError);
-        } else {
-          console.log(`Assigned access to ${publishedProjects.length} published projects`);
+          const { error: accessError } = await supabase
+            .from('proyectos_acceso')
+            .insert(accessRecords);
+
+          if (accessError) {
+            console.error('Error assigning project access:', accessError);
+          } else {
+            console.log(`Assigned access to ${validIds.length} selected projects`);
+          }
         }
       }
     } catch (accessErr) {

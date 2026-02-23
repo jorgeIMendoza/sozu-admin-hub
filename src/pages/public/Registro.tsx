@@ -1,9 +1,83 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { UserPlus } from "lucide-react";
+import { UserPlus, CheckCircle2, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import sozuLogoBlack from "@/assets/sozu-logo-black.png";
+
+interface PublishedProject {
+  id: number;
+  nombre: string;
+  url_imagen_portada: string | null;
+}
+
+function ProjectSelector({ projects, selected, onToggle }: {
+  projects: PublishedProject[];
+  selected: number[];
+  onToggle: (id: number) => void;
+}) {
+  if (projects.length === 0) return null;
+
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-[hsl(0_0%_5%)] mb-2">
+        Desarrollos de interés <span className="text-red-500">*</span>
+      </label>
+      <p className="text-xs mb-3" style={{ color: 'hsl(0 0% 50%)' }}>
+        Selecciona al menos 1 desarrollo al que deseas tener acceso
+      </p>
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin">
+        {projects.map((project) => {
+          const isSelected = selected.includes(project.id);
+          return (
+            <button
+              key={project.id}
+              type="button"
+              onClick={() => onToggle(project.id)}
+              className={`
+                relative flex-shrink-0 w-[140px] rounded-xl overflow-hidden border-2 transition-all duration-200 snap-start
+                ${isSelected
+                  ? 'border-[hsl(145_35%_51%)] shadow-[0_0_0_1px_hsl(145_35%_51%)]'
+                  : 'border-[hsl(0_0%_88%)] hover:border-[hsl(0_0%_70%)]'
+                }
+              `}
+            >
+              {/* Image */}
+              <div className="w-full h-[90px] bg-[hsl(0_0%_95%)] flex items-center justify-center overflow-hidden">
+                {project.url_imagen_portada ? (
+                  <img
+                    src={project.url_imagen_portada}
+                    alt={project.nombre}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Building2 className="w-8 h-8" style={{ color: 'hsl(0 0% 70%)' }} />
+                )}
+              </div>
+              {/* Name */}
+              <div className="px-2 py-2 text-center">
+                <span className="text-xs font-semibold text-[hsl(0_0%_15%)] line-clamp-2 leading-tight">
+                  {project.nombre}
+                </span>
+              </div>
+              {/* Check badge */}
+              {isSelected && (
+                <div className="absolute top-1.5 right-1.5">
+                  <CheckCircle2 className="w-5 h-5 text-white drop-shadow-md" fill="hsl(145 35% 51%)" />
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {/* Disclaimer */}
+      <p className="text-[11px] mt-3 leading-relaxed px-1" style={{ color: 'hsl(0 0% 55%)' }}>
+        ⚠️ El acceso a los desarrollos estará sujeto a la aprobación de un administrador.
+      </p>
+    </div>
+  );
+}
 
 export default function Registro() {
   const { toast } = useToast();
@@ -13,7 +87,29 @@ export default function Registro() {
     telefono: "",
     clave_pais_telefono: "MX",
   });
+  const [selectedProjects, setSelectedProjects] = useState<number[]>([]);
+  const [publishedProjects, setPublishedProjects] = useState<PublishedProject[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // Fetch published projects
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const { data } = await supabase
+        .from('proyectos')
+        .select('id, nombre, url_imagen_portada')
+        .eq('publicar', true)
+        .eq('activo', true)
+        .order('nombre');
+      if (data) setPublishedProjects(data);
+    };
+    fetchProjects();
+  }, []);
+
+  const toggleProject = (id: number) => {
+    setSelectedProjects(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
 
   const registerMutation = useMutation({
     mutationFn: async () => {
@@ -23,6 +119,7 @@ export default function Registro() {
           email: formData.email.trim().toLowerCase(),
           telefono: formData.telefono.trim(),
           clave_pais_telefono: formData.clave_pais_telefono,
+          proyecto_ids: selectedProjects,
         },
       });
 
@@ -71,6 +168,11 @@ export default function Registro() {
 
     if (!formData.telefono.trim() || formData.telefono.length !== 10) {
       toast({ title: "Campo requerido", description: "El teléfono debe tener 10 dígitos", variant: "destructive" });
+      return;
+    }
+
+    if (selectedProjects.length === 0) {
+      toast({ title: "Selección requerida", description: "Selecciona al menos 1 desarrollo de interés", variant: "destructive" });
       return;
     }
 
@@ -184,6 +286,13 @@ export default function Registro() {
               />
             </div>
           </div>
+
+          {/* Project Selection */}
+          <ProjectSelector
+            projects={publishedProjects}
+            selected={selectedProjects}
+            onToggle={toggleProject}
+          />
 
           {/* Submit */}
           <button
