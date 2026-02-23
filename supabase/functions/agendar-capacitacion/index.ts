@@ -540,14 +540,33 @@ Deno.serve(async (req) => {
     }
 
     // ---- Action: schedule (default) ----
-    const { fecha, hora_inicio, id_persona, agent_email, direccion_showroom, latitud_showroom, longitud_showroom } = body;
+    const { fecha, hora_inicio, id_persona, agent_email, direccion_showroom, latitud_showroom, longitud_showroom, config_id } = body;
 
     if (!fecha || !hora_inicio || !id_persona) {
       return new Response(JSON.stringify({ error: "Faltan campos obligatorios: fecha, hora_inicio, id_persona" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Resolve calendar from config_id if provided
+    let scheduleCalendarOwner = body.calendar_owner_email || calendarOwnerEmail;
+    let scheduleCalendarId = body.calendar_id || calendarId;
+    let scheduleDuracion = duracionMinutos;
+
+    if (config_id) {
+      const { data: cfgData } = await supabase
+        .from("configuracion_citas_usuarios")
+        .select("id_usuario_email, calendario_email, duracion_minutos, correos_enterado")
+        .eq("id", config_id)
+        .eq("activo", true)
+        .maybeSingle();
+      if (cfgData) {
+        scheduleCalendarOwner = cfgData.id_usuario_email;
+        scheduleCalendarId = cfgData.calendario_email || cfgData.id_usuario_email;
+        scheduleDuracion = cfgData.duracion_minutos || duracionMinutos;
+      }
+    }
+
     const [h, m] = hora_inicio.split(":").map(Number);
-    const totalMin = h * 60 + m + duracionMinutos;
+    const totalMin = h * 60 + m + scheduleDuracion;
     const horaFin = `${String(Math.floor(totalMin / 60) % 24).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
 
     const { data: oldCitas } = await supabase
@@ -558,10 +577,6 @@ Deno.serve(async (req) => {
 
     const existingEventId = oldCitas?.[0]?.google_calendar_event_id || undefined;
     const existingCitaId = oldCitas?.[0]?.id;
-
-    // Use the calendar_owner_email from the body if provided, or the selected one
-    const scheduleCalendarOwner = body.calendar_owner_email || calendarOwnerEmail;
-    const scheduleCalendarId = body.calendar_id || calendarId;
 
     const available = await checkAvailability(token, fecha, hora_inicio, horaFin, scheduleCalendarId, existingEventId, supabase, scheduleCalendarOwner, tipoCitaId);
     if (!available) {

@@ -383,7 +383,23 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
   const [saving, setSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedSlot, setSelectedSlot] = useState('');
+  const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
   const initializedFromCita = useRef(false);
+
+  // Fetch agent's project access
+  const { data: agentProjectIds = [] } = useQuery({
+    queryKey: ['agent-project-ids', personaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_proyecto')
+        .eq('id_persona', personaId)
+        .eq('activo', true)
+        .not('id_proyecto', 'is', null);
+      if (error) throw error;
+      return (data || []).map((d: any) => d.id_proyecto as number);
+    },
+  });
 
   // Fetch existing appointment
   const { data: existingCita } = useQuery({
@@ -402,34 +418,45 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     },
   });
 
-  // Fetch available slots when date changes
+  // Fetch available slots grouped by owner when date changes
   const fechaStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
-  const { data: availableSlots, isLoading: loadingSlots } = useQuery({
-    queryKey: ['training-available-slots', fechaStr],
+  const { data: groupedSlots, isLoading: loadingSlots } = useQuery({
+    queryKey: ['training-available-slots-grouped', fechaStr, agentProjectIds],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('agendar-capacitacion', {
-        body: { action: 'check-availability', fecha: fechaStr },
+        body: { action: 'check-availability-by-project', fecha: fechaStr, proyecto_ids: agentProjectIds },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      let slots = (data?.available_slots || []) as string[];
-      // If viewing the same date as the existing cita, inject its slot (it's occupied by itself in Google Calendar)
+      let groups = (data?.grouped_slots || []) as Array<{
+        config_id: number;
+        owner_email: string;
+        owner_name: string;
+        cita_nombre: string;
+        calendar_id: string;
+        duracion_minutos: number;
+        available_slots: string[];
+      }>;
+      // If viewing the same date as the existing cita, inject its slot into matching group
       if (existingCita?.fecha === fechaStr && existingCita?.hora_inicio) {
         const citaSlot = existingCita.hora_inicio.slice(0, 5);
-        if (!slots.includes(citaSlot)) {
-          slots = [...slots, citaSlot].sort();
-        }
+        groups = groups.map(g => {
+          if (!g.available_slots.includes(citaSlot)) {
+            return { ...g, available_slots: [...g.available_slots, citaSlot].sort() };
+          }
+          return g;
+        });
       }
-      return slots;
+      return groups;
     },
-    enabled: !!fechaStr,
+    enabled: !!fechaStr && agentProjectIds.length > 0,
   });
 
   // Reset slot when user manually changes date (not on initial load from existingCita)
   useEffect(() => {
     if (initializedFromCita.current) {
-      // After initial load, any date change resets the slot
       setSelectedSlot('');
+      setSelectedConfigId(null);
     }
   }, [fechaStr]);
 
@@ -457,9 +484,12 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     }
   };
 
+  // Find the selected group config for scheduling
+  const selectedGroup = groupedSlots?.find(g => g.config_id === selectedConfigId);
+
   const handleSchedule = async () => {
     onTrackSave?.();
-    if (!selectedDate || !selectedSlot) {
+    if (!selectedDate || !selectedSlot || !selectedConfigId) {
       toast.error("Selecciona fecha y hora.");
       return;
     }
@@ -498,6 +528,8 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
           hora_inicio: selectedSlot,
           id_persona: personaId,
           agent_email: persona?.email || '',
+          calendar_owner_email: selectedGroup?.owner_email || undefined,
+          config_id: selectedConfigId,
           direccion_showroom: showroomData?.descripcion_direccion || null,
           latitud_showroom: showroomData?.latitud || null,
           longitud_showroom: showroomData?.longitud || null,
@@ -507,18 +539,16 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       if (error) throw error;
       if (data?.error === 'no_disponible') {
         toast.error(data.message || "El horario no está disponible.");
-        // Refresh slots
-        queryClient.invalidateQueries({ queryKey: ['training-available-slots', fechaStr] });
+        queryClient.invalidateQueries({ queryKey: ['training-available-slots-grouped'] });
         return;
       }
       if (data?.error) throw new Error(data.error);
 
       toast.success("Cita de capacitación agendada correctamente.");
-      // Reset so the UI re-initializes from the updated cita
       initializedFromCita.current = false;
       queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
       queryClient.invalidateQueries({ queryKey: ['agent-training-cita', personaId] });
-      queryClient.invalidateQueries({ queryKey: ['training-available-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['training-available-slots-grouped'] });
       onSaved();
     } catch (err: any) {
       console.error("Error scheduling:", err);
@@ -618,7 +648,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
             )}
           </div>
 
-          {/* Time Slots */}
+          {/* Time Slots grouped by owner */}
           {selectedDate && (
             <div>
               <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
@@ -630,30 +660,39 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-sm">Consultando disponibilidad...</span>
                 </div>
-              ) : availableSlots && availableSlots.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {availableSlots.map((slot) => {
-                    const isExisting = existingCita?.hora_inicio?.slice(0, 5) === slot && existingCita?.fecha === fechaStr;
-                    const isSelected = selectedSlot === slot;
-                    return (
-                      <button
-                        key={slot}
-                        onClick={() => { setSelectedSlot(slot); onTrackFieldChange?.(); }}
-                        className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border relative ${
-                          isSelected
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
-                            : isExisting
-                              ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
-                              : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
-                        }`}
-                      >
-                        {slot}
-                        {isExisting && !isSelected && (
-                          <span className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-500 border-2 border-card" />
-                        )}
-                      </button>
-                    );
-                  })}
+              ) : groupedSlots && groupedSlots.some(g => g.available_slots.length > 0) ? (
+                <div className="space-y-4">
+                  {groupedSlots.filter(g => g.available_slots.length > 0).map((group) => (
+                    <div key={group.config_id} className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        {group.owner_name}
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {group.available_slots.map((slot) => {
+                          const isExisting = existingCita?.hora_inicio?.slice(0, 5) === slot && existingCita?.fecha === fechaStr;
+                          const isSelected = selectedSlot === slot && selectedConfigId === group.config_id;
+                          return (
+                            <button
+                              key={`${group.config_id}-${slot}`}
+                              onClick={() => { setSelectedSlot(slot); setSelectedConfigId(group.config_id); onTrackFieldChange?.(); }}
+                              className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border relative ${
+                                isSelected
+                                  ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
+                                  : isExisting
+                                    ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
+                                    : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                              }`}
+                            >
+                              {slot}
+                              {isExisting && !isSelected && (
+                                <span className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-500 border-2 border-card" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-6 rounded-xl border border-border/60 bg-muted/30">
