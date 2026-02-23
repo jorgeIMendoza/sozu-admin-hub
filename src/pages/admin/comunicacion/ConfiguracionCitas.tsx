@@ -317,6 +317,10 @@ export default function ConfiguracionCitas() {
       queryClient.invalidateQueries({ queryKey: ["config-citas-usuarios", selectedUserEmail, selectedTipoCita] });
       toast.success("Configuración de citas guardada");
       setHasChanges(false);
+      // Auto-sync meets in calendar if calendario email is set
+      if (calendarioEmail) {
+        createRecurringMeetsMutation.mutate();
+      }
     },
     onError: (error) => {
       toast.error(`Error al guardar: ${error.message}`);

@@ -287,6 +287,24 @@ Deno.serve(async (req) => {
       const createdEvents: any[] = [];
       const errors: string[] = [];
 
+      // --- Delete existing recurring events with same summary ---
+      try {
+        const searchMin = new Date().toISOString();
+        const searchMax = new Date(fecha_fin + "T23:59:59Z").toISOString();
+        const listUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${encodeURIComponent(searchMin)}&timeMax=${encodeURIComponent(searchMax)}&singleEvents=false&maxResults=2500&q=${encodeURIComponent(tipoCitaDescripcion)}`;
+        const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${token}` } });
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const matchingEvents = (listData.items || []).filter((e: any) => e.summary === tipoCitaDescripcion && e.recurrence);
+          console.log(`[sync] Found ${matchingEvents.length} existing recurring events with summary "${tipoCitaDescripcion}" to delete`);
+          for (const ev of matchingEvents) {
+            await deleteCalendarEvent(token, calendarId, ev.id);
+          }
+        }
+      } catch (e: any) {
+        console.error("[sync] Error cleaning old events:", e.message);
+      }
+
       // JS day mapping: dia_semana 1=Mon..6=Sat, JS 0=Sun,1=Mon..6=Sat
       for (const slotGroup of slots_config) {
         const { dia_semana, horas } = slotGroup;
