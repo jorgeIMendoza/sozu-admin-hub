@@ -145,6 +145,18 @@ export default function ConfiguracionCitas() {
 
   const toggleTipoCitaMutation = useMutation({
     mutationFn: async ({ id, activo }: { id: number; activo: boolean }) => {
+      // If deactivating, check if there are active configs using this tipo
+      if (!activo) {
+        const { count, error: countError } = await supabase
+          .from("configuracion_citas_usuarios")
+          .select("id", { count: "exact", head: true })
+          .eq("id_tipo_cita", id)
+          .eq("activo", true);
+        if (countError) throw countError;
+        if (count && count > 0) {
+          throw new Error(`No se puede desactivar: tiene ${count} cita(s) configurada(s) activa(s)`);
+        }
+      }
       const { error } = await supabase.from("tipos_cita").update({ activo }).eq("id", id);
       if (error) throw error;
     },
