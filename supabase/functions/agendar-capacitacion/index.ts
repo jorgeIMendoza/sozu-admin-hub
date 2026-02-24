@@ -796,80 +796,30 @@ Deno.serve(async (req) => {
         }
       }
 
-      // --- Step 3: Regenerate deleted events ---
+      // --- Step 3: Mark deleted events as externally cancelled (do NOT regenerate) ---
       for (const de of deletedEvents) {
-        const eventDate = de.fecha;
-        const eventDateObj = new Date(eventDate + "T12:00:00");
-        if (eventDateObj < today) {
-          console.log(`[sync] Skipping regeneration of past event ${de.fecha}`);
-          // Mark as inactive in DB
-          await supabase.from("citas_calendar_events").update({ activo: false }).eq("id", de.id);
-          continue;
+        console.log(`[sync] Marking event ${de.google_event_id} for ${de.fecha} hora ${de.hora} as cancelado_externamente`);
+        await supabase.from("citas_calendar_events")
+          .update({ cancelado_externamente: true, activo: true, fecha_actualizacion: new Date().toISOString() })
+          .eq("id", de.id);
+        // Also cancel any active reservations for this specific slot
+        const horaLabel = `${String(de.hora).padStart(2, "0")}:00:00`;
+        const { data: affectedReservations } = await supabase
+          .from("reservas_citas")
+          .select("id")
+          .eq("id_configuracion_cita", bodyConfigId)
+          .eq("fecha", de.fecha)
+          .eq("hora_inicio", horaLabel)
+          .eq("activo", true)
+          .eq("estatus", "programada");
+        if (affectedReservations && affectedReservations.length > 0) {
+          const ids = affectedReservations.map((r: any) => r.id);
+          await supabase.from("reservas_citas")
+            .update({ activo: false, estatus: "cancelada" })
+            .in("id", ids);
+          console.log(`[sync] Cancelled ${ids.length} reservations for deleted slot ${de.fecha} ${de.hora}`);
         }
-        if (eventDateObj > endDate) {
-          console.log(`[sync] Skipping regeneration of event beyond fecha_fin: ${de.fecha}`);
-          await supabase.from("citas_calendar_events").update({ activo: false }).eq("id", de.id);
-          continue;
-        }
-
-        const horaStr = `${String(de.hora).padStart(2, "0")}:00`;
-        const totalMinEnd = de.hora * 60 + duracionMinutos;
-        const horaFin = `${String(Math.floor(totalMinEnd / 60) % 24).padStart(2, "0")}:${String(totalMinEnd % 60).padStart(2, "0")}`;
-
-        const slotAttendees = buildAttendeesForSlot(eventDate, de.hora);
-        const event: any = {
-          summary: tipoCitaDescripcion,
-          start: { dateTime: `${eventDate}T${horaStr}:00`, timeZone: "America/Mexico_City" },
-          end: { dateTime: `${eventDate}T${horaFin}:00`, timeZone: "America/Mexico_City" },
-        };
-        // Always include attendees in description
-        event.description = buildDescriptionWithAttendees(eventDescription, slotAttendees);
-        if (slotAttendees.length > 0) event.attendees = [...slotAttendees];
-        event.conferenceData = {
-          createRequest: {
-            requestId: `meet-regen-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-            conferenceSolutionKey: { type: "hangoutsMeet" },
-          },
-        };
-
-        try {
-          let res = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
-            { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
-          );
-          if (!res.ok) {
-            const errText = await res.text();
-            if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
-              delete event.attendees;
-              // Description already has attendees from above
-              res = await fetch(
-                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
-                { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
-              );
-            }
-            if (!res.ok && res.status === 400) {
-              delete event.conferenceData;
-              res = await fetch(
-                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
-                { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
-              );
-            }
-            if (!res.ok) {
-              errors.push(`REGEN ${eventDate} ${horaStr}: ${await res.text()}`);
-              continue;
-            }
-          }
-          const created = await res.json();
-          console.log(`[sync] Regenerated event for ${eventDate} ${horaStr}: ${created.id}`);
-          createdEvents.push({ day: eventDateObj.getDay(), hora: horaStr, eventId: created.id, meetLink: created.hangoutLink || null, action: "regenerated" });
-
-          // Update DB record with new event ID
-          await supabase.from("citas_calendar_events")
-            .update({ google_event_id: created.id, activo: true, fecha_actualizacion: new Date().toISOString() })
-            .eq("id", de.id);
-        } catch (e: any) {
-          errors.push(`REGEN ${eventDate} ${horaStr}: ${e.message}`);
-        }
+        createdEvents.push({ day: new Date(de.fecha + "T12:00:00").getDay(), hora: `${String(de.hora).padStart(2, "0")}:00`, action: "cancelled_externally" });
       }
 
       // --- Step 4: Create NEW recurring events for slots not covered by stored events ---

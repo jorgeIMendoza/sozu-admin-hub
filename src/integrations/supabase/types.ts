@@ -2479,6 +2479,7 @@ export type Database = {
         Row: {
           activo: boolean
           calendar_email: string
+          cancelado_externamente: boolean
           fecha: string
           fecha_actualizacion: string
           fecha_creacion: string
@@ -2490,6 +2491,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           calendar_email: string
+          cancelado_externamente?: boolean
           fecha: string
           fecha_actualizacion?: string
           fecha_creacion?: string
@@ -2501,6 +2503,7 @@ export type Database = {
         Update: {
           activo?: boolean
           calendar_email?: string
+          cancelado_externamente?: boolean
           fecha?: string
           fecha_actualizacion?: string
           fecha_creacion?: string
