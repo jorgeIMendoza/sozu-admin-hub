@@ -73,7 +73,7 @@ export default function ConfiguracionCitas() {
   const [nuevoTipoNombre, setNuevoTipoNombre] = useState("");
   const [editingTipoId, setEditingTipoId] = useState<number | null>(null);
   const [editingTipoNombre, setEditingTipoNombre] = useState("");
-  const [fechaFinRecurrencia, setFechaFinRecurrencia] = useState<Date>(addMonths(new Date(), 3));
+  const [fechaFinRecurrencia, setFechaFinRecurrencia] = useState<Date | null>(null);
   const [meetCalendarOpen, setMeetCalendarOpen] = useState(false);
   const [nuevaCitaDialogOpen, setNuevaCitaDialogOpen] = useState(false);
   const [nuevaCitaTipoId, setNuevaCitaTipoId] = useState<string>("");
@@ -282,12 +282,18 @@ export default function ConfiguracionCitas() {
       setMaxInvitados(selectedConfig.max_invitados || 1);
       setCorreosEnterado(selectedConfig.correos_enterado || []);
       setDescripcionInvitacion(selectedConfig.descripcion_invitacion || "");
+      setFechaFinRecurrencia(
+        (selectedConfig as any).fecha_fin_recurrencia
+          ? new Date((selectedConfig as any).fecha_fin_recurrencia + "T00:00:00")
+          : addMonths(new Date(), 3)
+      );
     } else {
       setDuracionMinutos(60);
       setCalendarioEmail("");
       setMaxInvitados(1);
       setCorreosEnterado([]);
       setDescripcionInvitacion("");
+      setFechaFinRecurrencia(addMonths(new Date(), 3));
     }
   }, [selectedConfig]);
 
@@ -427,8 +433,11 @@ export default function ConfiguracionCitas() {
           max_invitados: maxInvitados,
           correos_enterado: correosEnterado,
           descripcion_invitacion: descripcionInvitacion || null,
+          fecha_fin_recurrencia: fechaFinRecurrencia
+            ? `${fechaFinRecurrencia.getFullYear()}-${String(fechaFinRecurrencia.getMonth() + 1).padStart(2, "0")}-${String(fechaFinRecurrencia.getDate()).padStart(2, "0")}`
+            : null,
           fecha_actualizacion: new Date().toISOString(),
-        })
+        } as any)
         .eq("id", configId);
       if (updateError) throw updateError;
 
@@ -495,7 +504,8 @@ export default function ConfiguracionCitas() {
       }
       if (slotsConfig.length === 0) throw new Error("No hay horarios seleccionados");
 
-      const fechaFinStr = `${fechaFinRecurrencia.getFullYear()}-${String(fechaFinRecurrencia.getMonth() + 1).padStart(2, "0")}-${String(fechaFinRecurrencia.getDate()).padStart(2, "0")}`;
+      const fechaFin = fechaFinRecurrencia || addMonths(new Date(), 3);
+      const fechaFinStr = `${fechaFin.getFullYear()}-${String(fechaFin.getMonth() + 1).padStart(2, "0")}-${String(fechaFin.getDate()).padStart(2, "0")}`;
 
       const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
         body: {
