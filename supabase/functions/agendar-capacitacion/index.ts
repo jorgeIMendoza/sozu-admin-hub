@@ -597,13 +597,22 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Faltan slots_config o fecha_fin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      let tipoCitaDescripcion = "";
-      const { data: tipoCitaData } = await supabase
-        .from("tipos_cita")
-        .select("nombre, descripcion")
-        .eq("id", tipoCitaId)
-        .maybeSingle();
-      tipoCitaDescripcion = tipoCitaData?.descripcion || tipoCitaData?.nombre || "Cita";
+      // Use the config's nombre (e.g. "Capacitación Daiku") as the event summary
+      let tipoCitaDescripcion = body.nombre_cita || "";
+      if (!tipoCitaDescripcion) {
+        // Fallback: try to get from user config
+        const userCfg = await getUserCitaConfig(supabase, calendarOwnerEmail, tipoCitaId);
+        tipoCitaDescripcion = userCfg?.nombre || "";
+      }
+      if (!tipoCitaDescripcion) {
+        // Last fallback: tipos_cita table
+        const { data: tipoCitaData } = await supabase
+          .from("tipos_cita")
+          .select("nombre, descripcion")
+          .eq("id", tipoCitaId)
+          .maybeSingle();
+        tipoCitaDescripcion = tipoCitaData?.descripcion || tipoCitaData?.nombre || "Cita";
+      }
 
       const eventDescription = descripcion_invitacion || userCitaConfig?.descripcion_invitacion || "";
 
@@ -889,14 +898,16 @@ Deno.serve(async (req) => {
     agentName = personaData?.nombre_legal || "";
     const agentEmailFinal = agent_email || personaData?.email || "";
 
-    // Get the tipo_cita summary (to find the recurring event)
-    let tipoCitaSummary = "";
-    const { data: tipoCitaInfo } = await supabase
-      .from("tipos_cita")
-      .select("nombre, descripcion")
-      .eq("id", tipoCitaId)
-      .maybeSingle();
-    tipoCitaSummary = tipoCitaInfo?.descripcion || tipoCitaInfo?.nombre || "Cita";
+    // Use the config's nombre (e.g. "Capacitación Daiku") to find the recurring event
+    let tipoCitaSummary = scheduleCitaNombre || "";
+    if (!tipoCitaSummary) {
+      const { data: tipoCitaInfo } = await supabase
+        .from("tipos_cita")
+        .select("nombre, descripcion")
+        .eq("id", tipoCitaId)
+        .maybeSingle();
+      tipoCitaSummary = tipoCitaInfo?.descripcion || tipoCitaInfo?.nombre || "Cita";
+    }
 
     // If re-scheduling, remove agent from old event's description
     if (existingEventId) {
@@ -926,7 +937,21 @@ Deno.serve(async (req) => {
     }
 
     // Try to find existing recurring event instance for this date/time
-    const existingInstance = await findRecurringEventInstance(token, scheduleCalendarId, tipoCitaSummary, fecha, hora_inicio, scheduleDuracion);
+    let existingInstance = await findRecurringEventInstance(token, scheduleCalendarId, tipoCitaSummary, fecha, hora_inicio, scheduleDuracion);
+    
+    // Fallback: try with tipos_cita name if config name didn't match (old events may use generic name)
+    if (!existingInstance && scheduleCitaNombre) {
+      const { data: tipoCitaFallback } = await supabase
+        .from("tipos_cita")
+        .select("nombre, descripcion")
+        .eq("id", tipoCitaId)
+        .maybeSingle();
+      const fallbackSummary = tipoCitaFallback?.descripcion || tipoCitaFallback?.nombre || "";
+      if (fallbackSummary && fallbackSummary !== tipoCitaSummary) {
+        console.log(`[schedule] Trying fallback summary: "${fallbackSummary}"`);
+        existingInstance = await findRecurringEventInstance(token, scheduleCalendarId, fallbackSummary, fecha, hora_inicio, scheduleDuracion);
+      }
+    }
     
     let calendarEvent: any;
     
