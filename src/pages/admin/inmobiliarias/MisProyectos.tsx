@@ -89,6 +89,8 @@ const ProjectsProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTr
                         className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0 ${
                           step.isComplete
                             ? "bg-emerald-500 text-white"
+                            : step.hasCancelledData
+                            ? "bg-red-500 text-white"
                             : step.hasPartialData
                             ? "border-2 border-emerald-500 text-emerald-600 bg-transparent"
                             : "bg-muted text-muted-foreground hover:bg-muted-foreground/10"

@@ -70,7 +70,7 @@ const DetailProfileMenu = ({ onLogout, onTrack }: { onLogout: () => void; onTrac
                 <div className="flex items-center gap-1">
                   {steps.map((step, i) => (
                     <React.Fragment key={step.id}>
-                      <button onClick={() => setActiveStep(step.id)} className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0 ${step.isComplete ? "bg-emerald-500 text-white" : step.hasPartialData ? "border-2 border-emerald-500 text-emerald-600 bg-transparent" : "bg-muted text-muted-foreground hover:bg-muted-foreground/10"}`} title={step.label}>
+                      <button onClick={() => setActiveStep(step.id)} className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0 ${step.isComplete ? "bg-emerald-500 text-white" : step.hasCancelledData ? "bg-red-500 text-white" : step.hasPartialData ? "border-2 border-emerald-500 text-emerald-600 bg-transparent" : "bg-muted text-muted-foreground hover:bg-muted-foreground/10"}`} title={step.label}>
                         {step.isComplete ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
                       </button>
                       {i < steps.length - 1 && <div className={`flex-1 h-0.5 rounded-full ${step.isComplete ? "bg-emerald-400" : "bg-muted"}`} />}
