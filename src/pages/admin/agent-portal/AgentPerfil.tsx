@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { APP_VERSION } from "@/lib/config";
 import { useAgentOnboardingStatus, type OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import { Progress } from "@/components/ui/progress";
@@ -244,6 +245,11 @@ const AgentPerfil = () => {
           }}
         />
       )}
+
+      {/* Version */}
+      <p className="text-center text-[10px] text-[hsl(var(--agent-muted))] pb-4 mt-6">
+        {APP_VERSION}
+      </p>
     </div>
   );
 };
