@@ -30,7 +30,7 @@ const AgentInventario = () => {
       // Fetch projects
       let query = (supabase as any)
         .from('proyectos')
-        .select('id, nombre, direccion, url_portada')
+        .select('id, nombre, direccion, url_imagen_portada')
         .eq('activo', true);
 
       if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
@@ -95,7 +95,7 @@ const AgentInventario = () => {
           id: p.id,
           nombre: p.nombre,
           ubicacion: p.direccion || "",
-          imagen_url: p.url_portada || null,
+          imagen_url: p.url_imagen_portada || null,
           precio_desde: stats.minPrice === Infinity ? null : stats.minPrice,
           unidades_disponibles: stats.available,
           total_unidades: stats.total,

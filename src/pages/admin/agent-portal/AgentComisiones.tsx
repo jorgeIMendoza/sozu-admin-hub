@@ -29,8 +29,8 @@ const AgentComisiones = () => {
       // Get comisionistas for this agent
       const { data: comisionistas } = await (supabase as any)
         .from('comisionistas')
-        .select('id, monto_comision, id_estatus_comision, id_cuenta_cobranza, fecha_creacion')
-        .eq('email', agentEmail)
+        .select('id_cuenta_cobranza, monto_comision, id_estatus_comision, fecha_creacion, porcentaje_comision')
+        .eq('email_usuario', agentEmail)
         .eq('activo', true)
         .order('fecha_creacion', { ascending: false });
 
@@ -207,7 +207,7 @@ const AgentComisiones = () => {
           comisiones.map((c: any) => {
             const status = getStatusConfig(c.id_estatus_comision);
             return (
-              <div key={c.id} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3.5">
+              <div key={c.id_cuenta_cobranza} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0 space-y-1">
                     <p className="text-sm font-medium text-[hsl(var(--agent-text))] truncate">
