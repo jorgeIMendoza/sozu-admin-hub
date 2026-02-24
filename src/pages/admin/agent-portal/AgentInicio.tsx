@@ -102,36 +102,47 @@ const AgentInicio = () => {
     <div className="p-4 space-y-5 pb-24">
       {/* Greeting */}
       <div>
-        <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">
-          {greeting}, {nombre}
-        </h1>
-        <p className="text-sm text-[hsl(var(--agent-text-secondary))]">
-          Aquí tienes un resumen de tu actividad
+        <p className="text-sm text-[hsl(var(--agent-primary))]">
+          {greeting}
         </p>
+        <h1 className="text-2xl font-bold text-[hsl(var(--agent-text))]">
+          {nombre}
+        </h1>
+        {attentionItems.length > 0 && (
+          <p className="text-xs text-[hsl(var(--agent-amber))] flex items-center gap-1 mt-1">
+            <AlertCircle className="h-3.5 w-3.5" />
+            Hoy tienes {attentionItems.length} acciones pendientes
+          </p>
+        )}
       </div>
 
       {/* Onboarding Progress Banner */}
       {percentage < 100 && (
-        <button
-          onClick={() => navigate('/admin/agent/perfil')}
-          className="w-full rounded-xl bg-[hsl(var(--agent-primary))] p-4 text-left space-y-2.5 active:scale-[0.98] transition-transform"
+        <div
+          className="w-full rounded-xl bg-white border border-gray-100 shadow-sm p-4 space-y-2.5"
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-white">
-              Completa tu perfil profesional
+            <span className="text-sm font-semibold text-[hsl(var(--agent-text))]">
+              Activa tu perfil profesional
             </span>
-            <span className="text-sm font-bold text-white/90">{percentage}%</span>
+            <span className="text-sm font-bold text-[hsl(var(--agent-amber))]">{percentage}%</span>
           </div>
-          <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+          <p className="text-xs text-[hsl(var(--agent-text-secondary))]">
+            Te faltan {Math.round((100 - percentage) / 25)} bloques para recibir comisiones.
+          </p>
+          <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-white rounded-full transition-all duration-700"
+              className="h-full bg-[hsl(var(--agent-amber))] rounded-full transition-all duration-700"
               style={{ width: `${percentage}%` }}
             />
           </div>
-          <p className="text-xs text-white/75">
-            Completa tu perfil para poder recibir comisiones
-          </p>
-        </button>
+          <button
+            onClick={() => navigate('/admin/agent/perfil')}
+            className="text-sm font-semibold text-[hsl(var(--agent-primary))] flex items-center gap-1 active:opacity-70"
+          >
+            Completar ahora <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       )}
 
       {/* Attention Items */}
