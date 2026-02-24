@@ -74,11 +74,11 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
       if (!personaId) return [];
       const { data, error } = await supabase
         .from('reservas_citas')
-        .select('id, estatus')
+        .select('id, estatus, activo')
         .eq('id_persona', personaId)
-        .eq('activo', true)
-        .in('estatus', ['asistio'])
-        .limit(1);
+        .in('estatus', ['asistio', 'programada', 'cancelada'])
+        .order('fecha_creacion', { ascending: false })
+        .limit(5);
       if (error) throw error;
       return data || [];
     },
@@ -121,7 +121,8 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const bankComplete = cuentas.length > 0;
 
-  const trainingComplete = citasCapacitacion.length > 0;
+  const trainingComplete = citasCapacitacion.some((c: any) => c.estatus === 'asistio' && c.activo);
+  const trainingPartial = !trainingComplete && citasCapacitacion.length > 0;
 
   const steps: OnboardingStep[] = [
     { id: 'basic', label: 'Info. Básica', isComplete: basicComplete, hasPartialData: basicPartial },
@@ -129,7 +130,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     { id: 'fiscal', label: 'Info. Fiscal', isComplete: fiscalComplete, hasPartialData: fiscalPartial },
     { id: 'documents', label: 'Documentos', isComplete: documentsComplete, hasPartialData: documentsPartial },
     { id: 'bank-accounts', label: 'Cuentas', isComplete: bankComplete, hasPartialData: false },
-    { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: false },
+    { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: trainingPartial },
   ];
 
   const completedCount = steps.filter(s => s.isComplete).length;
