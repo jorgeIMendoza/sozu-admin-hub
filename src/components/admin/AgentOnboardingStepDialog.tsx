@@ -422,7 +422,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
         .from('reservas_citas')
         .select('*')
         .eq('id_persona', personaId)
-        .in('estatus', ['programada', 'asistio', 'cancelada'])
+        .in('estatus', ['programada', 'asistio', 'cancelada', 'no_asistio'])
         .order('fecha_creacion', { ascending: false })
         .limit(1)
         .maybeSingle();
