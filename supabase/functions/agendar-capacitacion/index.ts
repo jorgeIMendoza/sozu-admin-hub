@@ -79,43 +79,42 @@ async function getAvailableSlots(
   let configuredSlots: Set<string> | null = null;
   if (supabaseClient && calendarOwnerEmail) {
     const dayOfWeek = getDayOfWeek(fecha);
-    if (dayOfWeek > 0) {
-      let query = supabaseClient
+    // Always check configured slots, including Sunday (day 0)
+    let query = supabaseClient
+      .from("configuracion_citas_horarios")
+      .select("hora")
+      .eq("activo", true);
+    
+    if (configId) {
+      query = query.eq("id_configuracion_cita", configId);
+    } else {
+      query = query.eq("id_usuario_email", calendarOwnerEmail);
+      if (tipoCitaId) query = query.eq("id_tipo_cita", tipoCitaId);
+    }
+    query = query.eq("dia_semana", dayOfWeek);
+
+    const { data: configData } = await query;
+
+    if (configData && configData.length > 0) {
+      configuredSlots = new Set(configData.map((c: any) => `${String(c.hora).padStart(2, "0")}:00`));
+      console.log(`[availability] Configured slots for ${calendarOwnerEmail} on day ${dayOfWeek}:`, Array.from(configuredSlots));
+    } else {
+      let checkQuery = supabaseClient
         .from("configuracion_citas_horarios")
-        .select("hora")
-        .eq("activo", true);
-      
+        .select("id")
+        .eq("activo", true)
+        .limit(1);
       if (configId) {
-        query = query.eq("id_configuracion_cita", configId);
+        checkQuery = checkQuery.eq("id_configuracion_cita", configId);
       } else {
-        query = query.eq("id_usuario_email", calendarOwnerEmail);
-        if (tipoCitaId) query = query.eq("id_tipo_cita", tipoCitaId);
+        checkQuery = checkQuery.eq("id_usuario_email", calendarOwnerEmail);
+        if (tipoCitaId) checkQuery = checkQuery.eq("id_tipo_cita", tipoCitaId);
       }
-      query = query.eq("dia_semana", dayOfWeek);
+      const { data: anyConfig } = await checkQuery;
 
-      const { data: configData } = await query;
-
-      if (configData && configData.length > 0) {
-        configuredSlots = new Set(configData.map((c: any) => `${String(c.hora).padStart(2, "0")}:00`));
-        console.log(`[availability] Configured slots for ${calendarOwnerEmail} on day ${dayOfWeek}:`, Array.from(configuredSlots));
-      } else {
-        let checkQuery = supabaseClient
-          .from("configuracion_citas_horarios")
-          .select("id")
-          .eq("activo", true)
-          .limit(1);
-        if (configId) {
-          checkQuery = checkQuery.eq("id_configuracion_cita", configId);
-        } else {
-          checkQuery = checkQuery.eq("id_usuario_email", calendarOwnerEmail);
-          if (tipoCitaId) checkQuery = checkQuery.eq("id_tipo_cita", tipoCitaId);
-        }
-        const { data: anyConfig } = await checkQuery;
-
-        if (anyConfig && anyConfig.length > 0) {
-          console.log(`[availability] No configured slots for day ${dayOfWeek}, returning empty`);
-          return [];
-        }
+      if (anyConfig && anyConfig.length > 0) {
+        console.log(`[availability] No configured slots for day ${dayOfWeek}, returning empty`);
+        return [];
       }
     }
   }
@@ -146,8 +145,8 @@ async function getAvailableSlots(
     }
   }
 
-  const timeMin = `${fecha}T09:00:00-06:00`;
-  const timeMax = `${fecha}T18:00:00-06:00`;
+  const timeMin = `${fecha}T06:00:00-06:00`;
+  const timeMax = `${fecha}T23:00:00-06:00`;
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`;
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -172,10 +171,19 @@ async function getAvailableSlots(
     }
   }
 
+  // Dynamic slot range based on configured hours or default 9-20
+  let minHour = 9;
+  let maxHour = 20;
+  if (configuredSlots && configuredSlots.size > 0) {
+    const hours = Array.from(configuredSlots).map(s => parseInt(s.split(":")[0]));
+    minHour = Math.min(...hours);
+    maxHour = Math.max(...hours);
+  }
+
   const slots: string[] = [];
-  for (let h = 9; h <= 16; h++) {
+  for (let h = minHour; h <= maxHour; h++) {
     for (const m of [0, 30]) {
-      if (h === 16 && m > 30) continue;
+      if (h === maxHour && m > 0) continue;
       const label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
       if (configuredSlots) {
@@ -213,7 +221,7 @@ async function checkAvailability(
 ): Promise<boolean> {
   if (supabaseClient && calendarOwnerEmail) {
     const dayOfWeek = getDayOfWeek(fecha);
-    if (dayOfWeek > 0) {
+    {
       const checkQuery = supabaseClient
         .from("configuracion_citas_horarios")
         .select("id")
