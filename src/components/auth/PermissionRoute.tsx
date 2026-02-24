@@ -2,7 +2,10 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAllowedMenus } from '@/hooks/useAllowedMenus';
 import { useDynamicMenus } from '@/hooks/useDynamicMenus';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+
+const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria"];
 
 interface PermissionRouteProps {
   children: ReactNode;
@@ -11,7 +14,10 @@ interface PermissionRouteProps {
 export function PermissionRoute({ children }: PermissionRouteProps) {
   const { isPathAllowed, isLoading, isSuperAdmin, allowedPaths } = useAllowedMenus();
   const { menuItems, isLoading: isMenuLoading } = useDynamicMenus();
+  const { profile } = useAuth();
   const location = useLocation();
+
+  const isSimplifiedRole = SIMPLIFIED_ROLES.includes(profile?.rol_nombre ?? "");
 
   // Always allow access to the access-denied page to prevent infinite redirects
   if (location.pathname === '/admin/access-denied') {
@@ -21,6 +27,11 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
   // Always allow access to agent portal routes (permission is role-based via AdminLayout)
   if (location.pathname.startsWith('/admin/agent')) {
     return <>{children}</>;
+  }
+
+  // Redirect simplified roles to agent portal if they hit any non-agent admin route
+  if (isSimplifiedRole && !location.pathname.startsWith('/admin/agent')) {
+    return <Navigate to="/admin/agent/inicio" replace />;
   }
 
   if (isLoading || isMenuLoading) {
