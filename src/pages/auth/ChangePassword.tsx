@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { activityLoggerService } from '@/services/activityLoggerService';
-import { Loader2, KeyRound, AlertCircle, CheckCircle, ShieldAlert, LogOut } from 'lucide-react';
+import { Loader2, KeyRound, AlertCircle, CheckCircle, ShieldAlert, LogOut, Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
 import sozuLogo from '@/assets/sozu-logo-black.png';
 
@@ -28,6 +28,8 @@ export default function ChangePassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   
   const { updatePassword, profile, signOut, session, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -170,31 +172,53 @@ export default function ChangePassword() {
           {/* New Password */}
           <div>
             <label className="block text-sm font-semibold text-[hsl(0_0%_5%)] mb-2">Nueva Contraseña</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              disabled={isLoading}
-              autoComplete="new-password"
-              required
-              className="login-input w-full"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={isLoading}
+                autoComplete="new-password"
+                required
+                className="login-input w-full pr-11"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md"
+                style={{ color: 'hsl(0 0% 50%)' }}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           {/* Confirm Password */}
           <div>
             <label className="block text-sm font-semibold text-[hsl(0_0%_5%)] mb-2">Confirmar Contraseña</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={isLoading}
-              autoComplete="new-password"
-              required
-              className="login-input w-full"
-            />
+            <div className="relative">
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isLoading}
+                autoComplete="new-password"
+                required
+                className="login-input w-full pr-11"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => setShowConfirm(!showConfirm)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md"
+                style={{ color: 'hsl(0 0% 50%)' }}
+              >
+                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           {/* Password requirements */}
