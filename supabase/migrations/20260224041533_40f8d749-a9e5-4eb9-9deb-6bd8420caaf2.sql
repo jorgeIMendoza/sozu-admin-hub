@@ -1,0 +1,2 @@
+ALTER TABLE public.configuracion_citas_usuarios
+ADD COLUMN fecha_fin_recurrencia DATE;

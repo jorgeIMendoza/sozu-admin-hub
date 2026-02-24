@@ -2930,6 +2930,7 @@ export type Database = {
           duracion_minutos: number
           fecha_actualizacion: string
           fecha_creacion: string
+          fecha_fin_recurrencia: string | null
           id: number
           id_tipo_cita: number
           id_usuario_email: string
@@ -2944,6 +2945,7 @@ export type Database = {
           duracion_minutos?: number
           fecha_actualizacion?: string
           fecha_creacion?: string
+          fecha_fin_recurrencia?: string | null
           id?: number
           id_tipo_cita: number
           id_usuario_email: string
@@ -2958,6 +2960,7 @@ export type Database = {
           duracion_minutos?: number
           fecha_actualizacion?: string
           fecha_creacion?: string
+          fecha_fin_recurrencia?: string | null
           id?: number
           id_tipo_cita?: number
           id_usuario_email?: string
