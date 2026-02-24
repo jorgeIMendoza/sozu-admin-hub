@@ -662,8 +662,52 @@ Deno.serve(async (req) => {
       }
 
       const eventDescription = descripcion_invitacion || userCitaConfig?.descripcion_invitacion || "";
-      const attendees = (correos_enterado || userCitaConfig?.correos_enterado || []).map((email: string) => ({ email }));
-      console.log(`[create-recurring-meets] Summary: "${tipoCitaDescripcion}", Attendees: ${JSON.stringify(attendees)}, CalendarId: ${calendarId}, ConfigId: ${bodyConfigId}`);
+      const ccAttendees = (correos_enterado || userCitaConfig?.correos_enterado || []).map((email: string) => ({ email }));
+
+      // Fetch active reservations to include booked persons as attendees
+      const reservationAttendeesBySlot = new Map<string, {email: string, nombre: string}[]>();
+      if (bodyConfigId) {
+        const { data: activeRes } = await supabase
+          .from("reservas_citas")
+          .select("fecha, hora_inicio, personas!reservas_citas_id_persona_fkey(email, nombre_legal)")
+          .eq("id_configuracion_cita", bodyConfigId)
+          .eq("activo", true)
+          .eq("estatus", "programada");
+        for (const r of (activeRes || [])) {
+          const hora = parseInt((r as any).hora_inicio?.split(":")[0] || "0");
+          const key = `${(r as any).fecha}_${hora}`;
+          if (!reservationAttendeesBySlot.has(key)) reservationAttendeesBySlot.set(key, []);
+          const persona = (r as any).personas;
+          if (persona?.email) {
+            reservationAttendeesBySlot.get(key)!.push({ email: persona.email, nombre: persona.nombre_legal || persona.email });
+          }
+        }
+        console.log(`[sync] Reservation attendees by slot: ${JSON.stringify(Object.fromEntries(reservationAttendeesBySlot))}`);
+      }
+
+      // Helper: build full attendees list (CC + reservation) for a given date/hora
+      const buildAttendeesForSlot = (fecha: string, hora: number) => {
+        const slotKey = `${fecha}_${hora}`;
+        const resAttendees = reservationAttendeesBySlot.get(slotKey) || [];
+        const allEmails = new Set<string>();
+        const result: {email: string}[] = [];
+        for (const a of ccAttendees) {
+          if (!allEmails.has(a.email)) { allEmails.add(a.email); result.push(a); }
+        }
+        for (const a of resAttendees) {
+          if (!allEmails.has(a.email)) { allEmails.add(a.email); result.push({ email: a.email }); }
+        }
+        return result;
+      };
+
+      // Helper: build description with attendee info as DWD fallback
+      const buildDescriptionWithAttendees = (baseDesc: string, allAttendees: {email: string}[]) => {
+        if (allAttendees.length === 0) return baseDesc;
+        const attendeeList = allAttendees.map(a => a.email).join(", ");
+        return baseDesc ? `${baseDesc}\n\nAsistentes: ${attendeeList}` : `Asistentes: ${attendeeList}`;
+      };
+
+      console.log(`[create-recurring-meets] Summary: "${tipoCitaDescripcion}", CC Attendees: ${JSON.stringify(ccAttendees)}, CalendarId: ${calendarId}, ConfigId: ${bodyConfigId}`);
 
       const endDate = new Date(fecha_fin + "T23:59:59-06:00");
       const today = new Date();
@@ -716,9 +760,10 @@ Deno.serve(async (req) => {
       // --- Step 2: Update existing stored events with new config ---
       for (const se of existingStoredEvents) {
         if (!se.calendarData) continue;
+        const slotAttendees = buildAttendeesForSlot(se.fecha, se.hora);
         const patchBody: any = { summary: tipoCitaDescripcion };
         if (eventDescription) patchBody.description = eventDescription;
-        patchBody.attendees = [...attendees];
+        if (slotAttendees.length > 0) patchBody.attendees = [...slotAttendees];
 
         try {
           let res = await fetch(
@@ -729,6 +774,8 @@ Deno.serve(async (req) => {
             const errText = await res.text();
             if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
               delete patchBody.attendees;
+              // DWD fallback: include attendee info in description
+              patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees);
               res = await fetch(
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}?sendUpdates=all`,
                 { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(patchBody) },
@@ -769,13 +816,14 @@ Deno.serve(async (req) => {
         const totalMinEnd = de.hora * 60 + duracionMinutos;
         const horaFin = `${String(Math.floor(totalMinEnd / 60) % 24).padStart(2, "0")}:${String(totalMinEnd % 60).padStart(2, "0")}`;
 
+        const slotAttendees = buildAttendeesForSlot(eventDate, de.hora);
         const event: any = {
           summary: tipoCitaDescripcion,
           start: { dateTime: `${eventDate}T${horaStr}:00`, timeZone: "America/Mexico_City" },
           end: { dateTime: `${eventDate}T${horaFin}:00`, timeZone: "America/Mexico_City" },
         };
         if (eventDescription) event.description = eventDescription;
-        if (attendees.length > 0) event.attendees = [...attendees];
+        if (slotAttendees.length > 0) event.attendees = [...slotAttendees];
         event.conferenceData = {
           createRequest: {
             requestId: `meet-regen-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
@@ -792,6 +840,8 @@ Deno.serve(async (req) => {
             const errText = await res.text();
             if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
               delete event.attendees;
+              // DWD fallback: include attendee info in description
+              event.description = buildDescriptionWithAttendees(eventDescription, slotAttendees);
               res = await fetch(
                 `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
                 { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
@@ -868,6 +918,11 @@ Deno.serve(async (req) => {
       const coveredByStored = new Set(
         existingStoredEvents.map((se: any) => `${se.fecha}_${se.hora}`)
       );
+      // Also mark regenerated (deleted then recreated) events as covered to prevent Step 4 duplicates
+      for (const de of deletedEvents) {
+        coveredByStored.add(`${de.fecha}_${de.hora}`);
+      }
+      console.log(`[sync] Covered by stored/regenerated: ${JSON.stringify([...coveredByStored])}`);
 
       const usedExistingIds = new Set<string>();
 
@@ -896,7 +951,8 @@ Deno.serve(async (req) => {
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
           if (eventDescription) patchBody.description = eventDescription;
-          patchBody.attendees = [...attendees];
+          const slotAttendees4 = buildAttendeesForSlot(desired.fechaStr, parseInt(desired.horaInicio));
+          if (slotAttendees4.length > 0) patchBody.attendees = [...slotAttendees4];
 
           try {
             let res = await fetch(
@@ -907,6 +963,7 @@ Deno.serve(async (req) => {
               const errText = await res.text();
               if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
                 delete patchBody.attendees;
+                patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees4);
                 res = await fetch(
                   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(existingEv.id)}?sendUpdates=all`,
                   { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(patchBody) },
@@ -936,7 +993,8 @@ Deno.serve(async (req) => {
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
           if (eventDescription) event.description = eventDescription;
-          if (attendees.length > 0) event.attendees = [...attendees];
+          const createSlotAttendees = buildAttendeesForSlot(desired.fechaStr, parseInt(desired.horaInicio));
+          if (createSlotAttendees.length > 0) event.attendees = [...createSlotAttendees];
           event.conferenceData = {
             createRequest: {
               requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
@@ -953,6 +1011,7 @@ Deno.serve(async (req) => {
               const errText = await res.text();
               if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
                 delete event.attendees;
+                event.description = buildDescriptionWithAttendees(eventDescription, createSlotAttendees);
                 res = await fetch(
                   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
                   { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
