@@ -700,11 +700,28 @@ Deno.serve(async (req) => {
         return result;
       };
 
-      // Helper: build description with attendee info as DWD fallback
-      const buildDescriptionWithAttendees = (baseDesc: string, allAttendees: {email: string}[]) => {
-        if (allAttendees.length === 0) return baseDesc;
-        const attendeeList = allAttendees.map(a => a.email).join(", ");
-        return baseDesc ? `${baseDesc}\n\nAsistentes: ${attendeeList}` : `Asistentes: ${attendeeList}`;
+      // Helper: build description with separated Enterados (CC) and Asistentes (booked)
+      const buildDescriptionWithAttendees = (baseDesc: string, _allAttendees: {email: string}[], fecha?: string, hora?: number) => {
+        const parts: string[] = [];
+        if (baseDesc) parts.push(baseDesc);
+        
+        // Enterados = CC emails (correos_enterado)
+        const ccEmails = ccAttendees.map(a => a.email);
+        if (ccEmails.length > 0) {
+          parts.push(`Enterados: ${ccEmails.join(", ")}`);
+        }
+        
+        // Asistentes = people who booked (reservations)
+        if (fecha !== undefined && hora !== undefined) {
+          const slotKey = `${fecha}_${hora}`;
+          const resAttendees = reservationAttendeesBySlot.get(slotKey) || [];
+          if (resAttendees.length > 0) {
+            const resEmails = resAttendees.map(a => a.email).join(", ");
+            parts.push(`Asistentes: ${resEmails}`);
+          }
+        }
+        
+        return parts.join("\n\n");
       };
 
       console.log(`[create-recurring-meets] Summary: "${tipoCitaDescripcion}", CC Attendees: ${JSON.stringify(ccAttendees)}, CalendarId: ${calendarId}, ConfigId: ${bodyConfigId}`);
@@ -763,7 +780,7 @@ Deno.serve(async (req) => {
         const slotAttendees = buildAttendeesForSlot(se.fecha, se.hora);
         const patchBody: any = { summary: tipoCitaDescripcion };
         // Always include attendees in description
-        patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees);
+        patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees, se.fecha, se.hora);
         if (slotAttendees.length > 0) patchBody.attendees = [...slotAttendees];
 
         try {
@@ -809,7 +826,7 @@ Deno.serve(async (req) => {
           summary: tipoCitaDescripcion,
           start: { dateTime: `${de.fecha}T${regenHoraStr}:00`, timeZone: "America/Mexico_City" },
           end: { dateTime: `${de.fecha}T${regenHoraFin}:00`, timeZone: "America/Mexico_City" },
-          description: buildDescriptionWithAttendees(eventDescription, slotAttendees),
+          description: buildDescriptionWithAttendees(eventDescription, slotAttendees, de.fecha, regenHora),
         };
         if (slotAttendees.length > 0) regenEvent.attendees = [...slotAttendees];
         regenEvent.conferenceData = {
@@ -960,7 +977,7 @@ Deno.serve(async (req) => {
             end: { dateTime: `${desired.fechaStr}T${desired.horaFin}:00`, timeZone: "America/Mexico_City" },
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
-          patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees4);
+          patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees4, desired.fechaStr, parseInt(desired.horaInicio));
           if (slotAttendees4.length > 0) patchBody.attendees = [...slotAttendees4];
 
           try {
@@ -1003,7 +1020,7 @@ Deno.serve(async (req) => {
           };
           const createSlotAttendees = buildAttendeesForSlot(desired.fechaStr, parseInt(desired.horaInicio));
           // Always include attendees in description
-          event.description = buildDescriptionWithAttendees(eventDescription, createSlotAttendees);
+          event.description = buildDescriptionWithAttendees(eventDescription, createSlotAttendees, desired.fechaStr, parseInt(desired.horaInicio));
           if (createSlotAttendees.length > 0) event.attendees = [...createSlotAttendees];
           event.conferenceData = {
             createRequest: {
