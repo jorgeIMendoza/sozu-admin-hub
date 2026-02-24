@@ -3773,6 +3773,27 @@ export type Database = {
         }
         Relationships: []
       }
+      estatus_cita: {
+        Row: {
+          activo: boolean
+          fecha_creacion: string
+          id: number
+          nombre: string
+        }
+        Insert: {
+          activo?: boolean
+          fecha_creacion?: string
+          id?: number
+          nombre: string
+        }
+        Update: {
+          activo?: boolean
+          fecha_creacion?: string
+          id?: number
+          nombre?: string
+        }
+        Relationships: []
+      }
       estatus_disponibilidad: {
         Row: {
           activo: boolean
@@ -5776,6 +5797,7 @@ export type Database = {
           estatus: string
           fecha: string
           fecha_actualizacion: string
+          fecha_asistencia: string | null
           fecha_confirmacion: string | null
           fecha_creacion: string
           google_calendar_event_id: string | null
@@ -5785,6 +5807,7 @@ export type Database = {
           id: number
           id_agente: number | null
           id_configuracion_cita: number | null
+          id_estatus_cita: number | null
           id_persona: number | null
           id_persona_prospecto: number | null
           id_proyecto: number | null
@@ -5798,6 +5821,7 @@ export type Database = {
           estatus?: string
           fecha: string
           fecha_actualizacion?: string
+          fecha_asistencia?: string | null
           fecha_confirmacion?: string | null
           fecha_creacion?: string
           google_calendar_event_id?: string | null
@@ -5807,6 +5831,7 @@ export type Database = {
           id?: number
           id_agente?: number | null
           id_configuracion_cita?: number | null
+          id_estatus_cita?: number | null
           id_persona?: number | null
           id_persona_prospecto?: number | null
           id_proyecto?: number | null
@@ -5820,6 +5845,7 @@ export type Database = {
           estatus?: string
           fecha?: string
           fecha_actualizacion?: string
+          fecha_asistencia?: string | null
           fecha_confirmacion?: string | null
           fecha_creacion?: string
           google_calendar_event_id?: string | null
@@ -5829,6 +5855,7 @@ export type Database = {
           id?: number
           id_agente?: number | null
           id_configuracion_cita?: number | null
+          id_estatus_cita?: number | null
           id_persona?: number | null
           id_persona_prospecto?: number | null
           id_proyecto?: number | null
@@ -5849,6 +5876,13 @@ export type Database = {
             columns: ["id_configuracion_cita"]
             isOneToOne: false
             referencedRelation: "configuracion_citas_usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_citas_id_estatus_cita_fkey"
+            columns: ["id_estatus_cita"]
+            isOneToOne: false
+            referencedRelation: "estatus_cita"
             referencedColumns: ["id"]
           },
           {

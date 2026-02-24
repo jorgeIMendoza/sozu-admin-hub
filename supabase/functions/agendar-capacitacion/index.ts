@@ -1344,6 +1344,7 @@ Deno.serve(async (req) => {
           google_calendar_event_id: calendarEvent.id, 
           google_meet_link: meetLink, 
           estatus: "programada",
+          id_estatus_cita: 1,
           id_configuracion_cita: config_id || null,
         })
         .eq("id", existingCitaId)
@@ -1358,6 +1359,7 @@ Deno.serve(async (req) => {
           id_tipo_cita: tipoCitaId || 1,
           id_persona, fecha, hora_inicio, hora_fin: horaFin, 
           ubicacion: "Presencial", estatus: "programada", 
+          id_estatus_cita: 1,
           google_calendar_event_id: calendarEvent.id, 
           google_meet_link: meetLink,
           id_configuracion_cita: config_id || null,

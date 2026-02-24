@@ -384,6 +384,8 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
+  const [mode, setMode] = useState<'schedule' | 'already-attended'>('schedule');
+  const [attendedDate, setAttendedDate] = useState<Date | undefined>(undefined);
   const initializedFromCita = useRef(false);
   const [citaCancelledExternally, setCitaCancelledExternally] = useState(false);
   const verifiedEventRef = useRef(false);
@@ -651,9 +653,14 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       return <Badge variant="destructive"><RefreshCw className="h-3 w-3 mr-1" />Cancelada externamente</Badge>;
     }
     if (!existingCita) return null;
+    // Use id_estatus_cita if available
+    const estatusCita = (existingCita as any).id_estatus_cita;
+    if (estatusCita === 3) return <Badge className="bg-emerald-500 text-white border-0"><CheckCircle2 className="h-3 w-3 mr-1" />Confirmada</Badge>;
+    if (estatusCita === 2) return <Badge className="bg-amber-500 text-white border-0"><Clock className="h-3 w-3 mr-1" />Pendiente de confirmación</Badge>;
+    if (estatusCita === 1) return <Badge className="bg-blue-500 text-white border-0"><CalendarDays className="h-3 w-3 mr-1" />Agendada</Badge>;
     switch (existingCita.estatus) {
-      case 'asistio': return <Badge className="bg-emerald-500 text-white border-0"><CheckCircle2 className="h-3 w-3 mr-1" />Completada</Badge>;
-      case 'programada': return <Badge className="bg-amber-500 text-white border-0"><Clock className="h-3 w-3 mr-1" />Programada</Badge>;
+      case 'asistio': return <Badge className="bg-emerald-500 text-white border-0"><CheckCircle2 className="h-3 w-3 mr-1" />Confirmada</Badge>;
+      case 'programada': return <Badge className="bg-blue-500 text-white border-0"><CalendarDays className="h-3 w-3 mr-1" />Agendada</Badge>;
       case 'no_asistio': return <Badge variant="destructive"><RefreshCw className="h-3 w-3 mr-1" />No asistió</Badge>;
       case 'cancelada': return <Badge variant="outline" className="text-muted-foreground">Cancelada</Badge>;
       default: return null;
@@ -744,10 +751,55 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     }
   };
 
-  const isCompleted = existingCita?.estatus === 'asistio';
-  const isProgrammed = existingCita?.estatus === 'programada' && !citaCancelledExternally;
+  const isCompleted = existingCita?.estatus === 'asistio' || (existingCita as any)?.id_estatus_cita === 3;
+  const isProgrammed = (existingCita?.estatus === 'programada' || (existingCita as any)?.id_estatus_cita === 1) && !citaCancelledExternally;
+  const isPendingConfirmation = (existingCita as any)?.id_estatus_cita === 2;
 
   const availableSlots = dbSlots.filter(s => !s.is_full);
+
+  const handleAlreadyAttended = async () => {
+    onTrackSave?.();
+    if (!attendedDate) {
+      toast.error("Selecciona la fecha en que acudiste.");
+      return;
+    }
+    setSaving(true);
+    try {
+      // Deactivate any existing booking
+      if (existingCita && existingCita.estatus === 'programada') {
+        await supabase
+          .from('reservas_citas')
+          .update({ activo: false, estatus: 'cancelada' })
+          .eq('id', existingCita.id);
+      }
+
+      // Insert a new record with status "Pendiente de confirmación"
+      const { error } = await supabase
+        .from('reservas_citas')
+        .insert({
+          id_tipo_cita: 1,
+          id_persona: personaId,
+          fecha: format(attendedDate, 'yyyy-MM-dd'),
+          hora_inicio: '00:00',
+          hora_fin: '00:00',
+          ubicacion: 'Presencial',
+          estatus: 'programada',
+          id_estatus_cita: 2,
+          fecha_asistencia: format(attendedDate, 'yyyy-MM-dd'),
+        });
+      if (error) throw error;
+
+      toast.success("Asistencia reportada. Pendiente de confirmación del administrador.");
+      initializedFromCita.current = false;
+      queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
+      queryClient.invalidateQueries({ queryKey: ['agent-training-cita', personaId] });
+      onSaved();
+    } catch (err: any) {
+      toast.error("Error: " + (err.message || "Error"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-4">
@@ -776,159 +828,221 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       {isCompleted ? (
         <div className="text-center py-6 space-y-2">
           <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
-          <p className="text-sm font-semibold text-emerald-600">¡Capacitación completada!</p>
+          <p className="text-sm font-semibold text-emerald-600">¡Capacitación confirmada!</p>
           <p className="text-xs text-muted-foreground">Tu asistencia fue confirmada por el administrador.</p>
+        </div>
+      ) : isPendingConfirmation ? (
+        <div className="text-center py-6 space-y-2">
+          <Clock className="h-12 w-12 text-amber-500 mx-auto" />
+          <p className="text-sm font-semibold text-amber-600">Pendiente de confirmación</p>
+          <p className="text-xs text-muted-foreground">Reportaste tu asistencia. Un administrador confirmará próximamente.</p>
         </div>
       ) : (
         <>
-          {/* Available Dates as chips */}
-          <div>
-            <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              Fechas disponibles
-            </Label>
-            {configName && (
-              <p className="text-xs text-muted-foreground font-medium -mt-1 mb-1">{configName}</p>
-            )}
-            {loadingDates || loadingConfigs ? (
-              <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Cargando fechas...</span>
-              </div>
-            ) : availableDates.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {availableDates.map((date) => {
-                  const dateStr = format(date, 'yyyy-MM-dd');
-                  const isSelected = selectedDate && format(selectedDate, 'yyyy-MM-dd') === dateStr;
-                  const isExistingDate = existingCita?.fecha === dateStr;
-                  const isCancelledDate = citaCancelledExternally && existingCita?.fecha === dateStr;
-                  return (
-                    <button
-                      key={dateStr}
-                      onClick={() => { setSelectedDate(date); onTrackFieldChange?.(); }}
-                      className={`py-2 px-3 rounded-xl text-xs font-medium transition-all duration-200 border relative ${
-                        isSelected
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
-                          : isCancelledDate
-                            ? 'bg-destructive/10 border-destructive/40 text-destructive hover:border-destructive/60'
-                            : isExistingDate
-                              ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
-                              : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
-                      }`}
-                    >
-                      <span className="capitalize">{format(date, "EEE d MMM", { locale: es })}</span>
-                      {isCancelledDate && !isSelected && (
-                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-card" />
-                      )}
-                      {isExistingDate && !isSelected && !isCancelledDate && (
-                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-card" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-6 rounded-xl border border-border/60 bg-muted/30">
-                <p className="text-sm text-muted-foreground">No hay fechas disponibles.</p>
-              </div>
-            )}
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMode('schedule')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                mode === 'schedule'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card border-border text-muted-foreground hover:border-primary/40'
+              }`}
+            >
+              Agendar cita
+            </button>
+            <button
+              onClick={() => setMode('already-attended')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                mode === 'already-attended'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card border-border text-muted-foreground hover:border-primary/40'
+              }`}
+            >
+              Ya acudí
+            </button>
           </div>
 
-          {/* Time Slots from DB */}
-          {selectedDate && (
-            <div>
-              <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
-                <Clock className="h-4 w-4 text-primary" />
-                Horarios disponibles — <span className="capitalize font-normal">{format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</span>
-              </Label>
-              {loadingSlots ? (
-                <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Consultando disponibilidad...</span>
+          {mode === 'already-attended' ? (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  ¿En qué fecha acudiste?
+                </Label>
+                <div className="border rounded-lg flex justify-center">
+                  <Calendar
+                    mode="single"
+                    selected={attendedDate}
+                    onSelect={(d) => { setAttendedDate(d); onTrackFieldChange?.(); }}
+                    disabled={(date) => date > new Date()}
+                  />
                 </div>
-              ) : dbSlots.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Group by config */}
-                  {trainingConfigs.filter((cfg: any) => dbSlots.some(s => s.config_id === cfg.id)).map((cfg: any) => {
-                    const cfgSlots = dbSlots.filter(s => s.config_id === cfg.id);
-                    return (
-                      <div key={cfg.id} className="space-y-2">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          {cfg.nombre}
-                        </p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {cfgSlots.map((slot) => {
-                            const isExisting = existingCita?.hora_inicio?.slice(0, 5) === slot.hora && existingCita?.fecha === fechaStr;
-                            const isCancelledSlot = (citaCancelledExternally && isExisting) || slot.is_cancelled_externally;
-                            const isSelected = selectedSlot === slot.hora && selectedConfigId === slot.config_id;
-                            const isDisabled = slot.is_full || isCancelledSlot;
-                            return (
-                              <button
-                                key={`${slot.config_id}-${slot.hora}`}
-                                onClick={() => {
-                                  if (!isDisabled) {
-                                    setSelectedSlot(slot.hora);
-                                    setSelectedConfigId(slot.config_id);
-                                    onTrackFieldChange?.();
-                                  }
-                                }}
-                                disabled={isDisabled}
-                                className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border relative ${
-                                  isCancelledSlot
-                                    ? 'bg-destructive/10 border-destructive/40 text-destructive/60 cursor-not-allowed line-through'
-                                    : slot.is_full
-                                      ? 'bg-muted/50 border-border/30 text-muted-foreground/50 cursor-not-allowed'
-                                      : isSelected
-                                        ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
-                                        : isExisting
-                                          ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
-                                          : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
-                                }`}
-                              >
-                                <span>{slot.hora}</span>
-                                {isCancelledSlot && (
-                                  <span className="ml-2 text-[10px] text-destructive/70">cancelado</span>
-                                )}
-                                {!isCancelledSlot && (
-                                  <span className={`ml-2 text-[10px] ${slot.is_full ? 'text-destructive/60' : 'text-muted-foreground'}`}>
-                                    {slot.attendees}/{slot.max_invitados}
-                                  </span>
-                                )}
-                                {isExisting && !isSelected && !isCancelledSlot && (
-                                  <span className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-500 border-2 border-card" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-6 rounded-xl border border-border/60 bg-muted/30">
-                  <p className="text-sm text-muted-foreground">No hay horarios disponibles para esta fecha.</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">Selecciona otra fecha.</p>
+                {attendedDate && (
+                  <p className="text-xs text-muted-foreground text-center mt-1">
+                    {format(attendedDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es })}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleAlreadyAttended}
+                disabled={saving || !attendedDate}
+                className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</> : "Reportar asistencia"}
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Available Dates as chips */}
+              <div>
+                <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  Fechas disponibles
+                </Label>
+                {configName && (
+                  <p className="text-xs text-muted-foreground font-medium -mt-1 mb-1">{configName}</p>
+                )}
+                {loadingDates || loadingConfigs ? (
+                  <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Cargando fechas...</span>
+                  </div>
+                ) : availableDates.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {availableDates.map((date) => {
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      const isSelected = selectedDate && format(selectedDate, 'yyyy-MM-dd') === dateStr;
+                      const isExistingDate = existingCita?.fecha === dateStr;
+                      const isCancelledDate = citaCancelledExternally && existingCita?.fecha === dateStr;
+                      return (
+                        <button
+                          key={dateStr}
+                          onClick={() => { setSelectedDate(date); onTrackFieldChange?.(); }}
+                          className={`py-2 px-3 rounded-xl text-xs font-medium transition-all duration-200 border relative ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
+                              : isCancelledDate
+                                ? 'bg-destructive/10 border-destructive/40 text-destructive hover:border-destructive/60'
+                                : isExistingDate
+                                  ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
+                                  : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                          }`}
+                        >
+                          <span className="capitalize">{format(date, "EEE d MMM", { locale: es })}</span>
+                          {isCancelledDate && !isSelected && (
+                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-card" />
+                          )}
+                          {isExistingDate && !isSelected && !isCancelledDate && (
+                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-card" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 rounded-xl border border-border/60 bg-muted/30">
+                    <p className="text-sm text-muted-foreground">No hay fechas disponibles.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Time Slots from DB */}
+              {selectedDate && (
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    Horarios disponibles — <span className="capitalize font-normal">{format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</span>
+                  </Label>
+                  {loadingSlots ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Consultando disponibilidad...</span>
+                    </div>
+                  ) : dbSlots.length > 0 ? (
+                    <div className="space-y-4">
+                      {trainingConfigs.filter((cfg: any) => dbSlots.some(s => s.config_id === cfg.id)).map((cfg: any) => {
+                        const cfgSlots = dbSlots.filter(s => s.config_id === cfg.id);
+                        return (
+                          <div key={cfg.id} className="space-y-2">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                              {cfg.nombre}
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {cfgSlots.map((slot) => {
+                                const isExisting = existingCita?.hora_inicio?.slice(0, 5) === slot.hora && existingCita?.fecha === fechaStr;
+                                const isCancelledSlot = (citaCancelledExternally && isExisting) || slot.is_cancelled_externally;
+                                const isSelected = selectedSlot === slot.hora && selectedConfigId === slot.config_id;
+                                const isDisabled = slot.is_full || isCancelledSlot;
+                                return (
+                                  <button
+                                    key={`${slot.config_id}-${slot.hora}`}
+                                    onClick={() => {
+                                      if (!isDisabled) {
+                                        setSelectedSlot(slot.hora);
+                                        setSelectedConfigId(slot.config_id);
+                                        onTrackFieldChange?.();
+                                      }
+                                    }}
+                                    disabled={isDisabled}
+                                    className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border relative ${
+                                      isCancelledSlot
+                                        ? 'bg-destructive/10 border-destructive/40 text-destructive/60 cursor-not-allowed line-through'
+                                        : slot.is_full
+                                          ? 'bg-muted/50 border-border/30 text-muted-foreground/50 cursor-not-allowed'
+                                          : isSelected
+                                            ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
+                                            : isExisting
+                                              ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
+                                              : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                                    }`}
+                                  >
+                                    <span>{slot.hora}</span>
+                                    {isCancelledSlot && (
+                                      <span className="ml-2 text-[10px] text-destructive/70">cancelado</span>
+                                    )}
+                                    {!isCancelledSlot && (
+                                      <span className={`ml-2 text-[10px] ${slot.is_full ? 'text-destructive/60' : 'text-muted-foreground'}`}>
+                                        {slot.attendees}/{slot.max_invitados}
+                                      </span>
+                                    )}
+                                    {isExisting && !isSelected && !isCancelledSlot && (
+                                      <span className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-500 border-2 border-card" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 rounded-xl border border-border/60 bg-muted/30">
+                      <p className="text-sm text-muted-foreground">No hay horarios disponibles para esta fecha.</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Selecciona otra fecha.</p>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {isProgrammed && (
-            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Ya tienes una cita programada. Si reagendas, se cancelará la anterior.
-              </p>
-            </div>
-          )}
+              {isProgrammed && (
+                <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Ya tienes una cita programada. Si reagendas, se cancelará la anterior.
+                  </p>
+                </div>
+              )}
 
-          <button
-            onClick={handleSchedule}
-            disabled={saving || !selectedDate || !selectedSlot}
-            className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
-          >
-            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : citaCancelledExternally ? "Reprogramar Cita" : isProgrammed ? "Reagendar Cita" : "Agendar Cita"}
-          </button>
+              <button
+                onClick={handleSchedule}
+                disabled={saving || !selectedDate || !selectedSlot}
+                className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : citaCancelledExternally ? "Reprogramar Cita" : isProgrammed ? "Reagendar Cita" : "Agendar Cita"}
+              </button>
+            </>
+          )}
         </>
       )}
     </div>

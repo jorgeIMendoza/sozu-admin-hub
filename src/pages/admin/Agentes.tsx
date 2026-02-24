@@ -57,7 +57,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reservas_citas')
-        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, fecha_asistencia')
         .eq('id_persona', personaId)
         .eq('activo', true)
         .order('fecha_creacion', { ascending: false })
@@ -72,7 +72,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
     if (!cita) return;
     const { error } = await supabase
       .from('reservas_citas')
-      .update({ estatus: 'asistio', fecha_confirmacion: new Date().toISOString() })
+      .update({ estatus: 'asistio', id_estatus_cita: 3, fecha_confirmacion: new Date().toISOString() })
       .eq('id', cita.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -84,14 +84,15 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
 
   const handleMarkNoShow = async () => {
     if (!cita) return;
+    // Set to "Pendiente" (id_estatus_cita null) and reset so agent can reschedule
     const { error } = await supabase
       .from('reservas_citas')
-      .update({ estatus: 'no_asistio', fecha_confirmacion: new Date().toISOString() })
+      .update({ estatus: 'no_asistio', id_estatus_cita: null, fecha_confirmacion: new Date().toISOString() })
       .eq('id', cita.id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Actualizado", description: "Marcado como no asistió." });
+      toast({ title: "Actualizado", description: "Marcado como no asistió. El agente puede reagendar." });
       queryClient.invalidateQueries({ queryKey: ['agent-training-cell', personaId] });
     }
   };
@@ -99,13 +100,54 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
   if (isLoading) return <span className="text-xs text-muted-foreground">...</span>;
   if (!cita) return <span className="text-xs text-muted-foreground">Sin cita</span>;
 
+  const estatusCita = (cita as any).id_estatus_cita;
+
   return (
     <div className="space-y-1">
       <div className="text-xs">
         <span className="font-medium">{cita.fecha}</span>
-        <span className="text-muted-foreground ml-1">{cita.hora_inicio?.slice(0,5)}-{cita.hora_fin?.slice(0,5)}</span>
+        {cita.hora_inicio !== '00:00' && (
+          <span className="text-muted-foreground ml-1">{cita.hora_inicio?.slice(0,5)}-{cita.hora_fin?.slice(0,5)}</span>
+        )}
       </div>
-      {cita.estatus === 'programada' && (
+
+      {/* Estatus: Agendada (1) - show Asistió / No asistió */}
+      {estatusCita === 1 && (
+        <div className="space-y-1">
+          <Badge className="bg-blue-500 text-white border-0 text-[10px]">Agendada</Badge>
+          <div className="flex gap-1">
+            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={handleConfirmAttendance}>
+              <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10" onClick={handleMarkNoShow}>
+              No asistió
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Estatus: Pendiente de confirmación (2) - show Asistió / No asistió */}
+      {estatusCita === 2 && (
+        <div className="space-y-1">
+          <Badge className="bg-amber-500 text-white border-0 text-[10px]">Pend. confirmación</Badge>
+          <div className="flex gap-1">
+            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={handleConfirmAttendance}>
+              <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10" onClick={handleMarkNoShow}>
+              No asistió
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Estatus: Confirmada (3) */}
+      {estatusCita === 3 && (
+        <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Confirmada</Badge>
+      )}
+
+      {/* Fallback for old records without id_estatus_cita */}
+      {!estatusCita && cita.estatus === 'programada' && (
         <div className="flex gap-1">
           <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={handleConfirmAttendance}>
             <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
@@ -115,13 +157,13 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
           </Button>
         </div>
       )}
-      {cita.estatus === 'asistio' && (
-        <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Completada</Badge>
+      {!estatusCita && cita.estatus === 'asistio' && (
+        <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Confirmada</Badge>
       )}
-      {cita.estatus === 'no_asistio' && (
+      {!estatusCita && cita.estatus === 'no_asistio' && (
         <Badge variant="destructive" className="text-[10px]">No asistió</Badge>
       )}
-      {cita.estatus === 'cancelada' && (
+      {!estatusCita && cita.estatus === 'cancelada' && (
         <Badge variant="outline" className="text-[10px] text-muted-foreground">Cancelada</Badge>
       )}
     </div>

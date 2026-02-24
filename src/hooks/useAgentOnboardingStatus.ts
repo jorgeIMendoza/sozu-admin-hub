@@ -75,7 +75,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
       if (!personaId) return [];
       const { data, error } = await supabase
         .from('reservas_citas')
-        .select('id, estatus, activo')
+        .select('id, estatus, activo, id_estatus_cita')
         .eq('id_persona', personaId)
         .in('estatus', ['asistio', 'programada', 'cancelada'])
         .order('fecha_creacion', { ascending: false })
@@ -123,8 +123,8 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const bankComplete = cuentas.length > 0;
 
-  const trainingComplete = citasCapacitacion.some((c: any) => c.estatus === 'asistio' && c.activo);
-  const trainingPartial = !trainingComplete && citasCapacitacion.some((c: any) => c.estatus === 'programada' && c.activo);
+  const trainingComplete = citasCapacitacion.some((c: any) => (c.id_estatus_cita === 3 || c.estatus === 'asistio') && c.activo);
+  const trainingPartial = !trainingComplete && citasCapacitacion.some((c: any) => (c.id_estatus_cita === 1 || c.id_estatus_cita === 2 || c.estatus === 'programada') && c.activo);
   const trainingCancelled = !trainingComplete && !trainingPartial && citasCapacitacion.some((c: any) => c.estatus === 'cancelada' || !c.activo);
 
   const steps: OnboardingStep[] = [
