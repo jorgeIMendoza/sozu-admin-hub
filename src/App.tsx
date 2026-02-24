@@ -19,6 +19,7 @@ import InmobiliariasThemeWrapper from "./components/admin/InmobiliariasThemeWrap
 // Auth pages
 const Login = lazy(() => import("./pages/auth/Login"));
 const ChangePassword = lazy(() => import("./pages/auth/ChangePassword"));
+const ConfirmacionEmail = lazy(() => import("./pages/auth/ConfirmacionEmail"));
 
 // Lazy load non-critical route components
 const Proyectos = lazy(() => import("./pages/admin/Proyectos"));
@@ -138,6 +139,7 @@ const App = () => (
                 {/* Auth Routes */}
                 <Route path="/auth/login" element={<Login />} />
                 <Route path="/auth/change-password" element={<ChangePassword />} />
+                <Route path="/auth/confirmacion-email" element={<ConfirmacionEmail />} />
                 
                 {/* Public Routes */}
                 <Route path="/registro" element={<Registro />} />
