@@ -449,11 +449,8 @@ Deno.serve(async (req) => {
           if (eventDescription) {
             patchBody.description = eventDescription;
           }
-          // Add correos_enterado as attendees (merge with existing)
-          if (attendees.length > 0) {
-            const existingAttendees = (existingEv.attendees || []).filter((a: any) => !attendees.some((na: any) => na.email === a.email));
-            patchBody.attendees = [...existingAttendees, ...attendees];
-          }
+          // Always send the full desired attendee list so removed correos_enterado are also removed from the event
+          patchBody.attendees = [...attendees];
           try {
             const res = await fetch(
               `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(existingEv.id)}?sendUpdates=all`,
