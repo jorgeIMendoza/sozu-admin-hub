@@ -533,6 +533,18 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
         .eq('activo', true)
         .in('estatus', ['programada']);
 
+      // Get externally cancelled slots for this date
+      const { data: cancelledSlots } = await supabase
+        .from('citas_calendar_events')
+        .select('id_configuracion_cita, hora')
+        .in('id_configuracion_cita', matchingConfigIds)
+        .eq('fecha', fechaStr)
+        .eq('cancelado_externamente', true)
+        .eq('activo', true);
+      const cancelledSet = new Set(
+        (cancelledSlots || []).map((cs: any) => `${cs.id_configuracion_cita}_${cs.hora}`)
+      );
+
       // Build slots grouped by config
       type SlotInfo = {
         config_id: number;
@@ -542,6 +554,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
         attendees: number;
         max_invitados: number;
         is_full: boolean;
+        is_cancelled_externally: boolean;
       };
 
       const result: SlotInfo[] = [];
@@ -550,8 +563,8 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
         if (!config) continue;
 
         const horaLabel = `${String(h.hora).padStart(2, '0')}:00`;
-        const correosEnteradoCount = Array.isArray(config.correos_enterado) ? config.correos_enterado.length : 0;
         const maxInvitados = (config.max_invitados || 1);
+        const isCancelledExternally = cancelledSet.has(`${config.id}_${h.hora}`);
 
         // Count bookings for this slot (excluding the current persona so they can reschedule)
         const slotBookings = (bookings || []).filter((b: any) =>
@@ -569,6 +582,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
           attendees: attendeeCount,
           max_invitados: maxInvitados,
           is_full: attendeeCount >= maxInvitados,
+          is_cancelled_externally: isCancelledExternally,
         });
       }
       return result;
@@ -845,7 +859,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
                         <div className="grid grid-cols-2 gap-2">
                           {cfgSlots.map((slot) => {
                             const isExisting = existingCita?.hora_inicio?.slice(0, 5) === slot.hora && existingCita?.fecha === fechaStr;
-                            const isCancelledSlot = citaCancelledExternally && isExisting;
+                            const isCancelledSlot = (citaCancelledExternally && isExisting) || slot.is_cancelled_externally;
                             const isSelected = selectedSlot === slot.hora && selectedConfigId === slot.config_id;
                             const isDisabled = slot.is_full || isCancelledSlot;
                             return (
