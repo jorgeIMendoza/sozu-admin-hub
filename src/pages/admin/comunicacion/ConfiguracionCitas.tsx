@@ -109,7 +109,7 @@ export default function ConfiguracionCitas() {
     queryKey: ["proyectos-publicados"],
     queryFn: async () => {
       const query = supabase.from("proyectos").select("id, nombre").eq("activo", true);
-      const { data, error } = await (query as any).eq("esta_publicado", true).order("nombre");
+      const { data, error } = await (query as any).eq("publicar", true).order("nombre");
       if (error) throw error;
       return (data || []) as { id: number; nombre: string }[];
     },
