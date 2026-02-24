@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +11,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
+import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 
 const AgentInicio = () => {
   const { profile, user } = useAuth();
@@ -17,6 +20,8 @@ const AgentInicio = () => {
   const personaId = profile?.id_persona;
   const agentEmail = user?.email || profile?.email;
   const { percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
+  const [addProspectoOpen, setAddProspectoOpen] = useState(false);
+  const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
 
   const nombre = profile?.nombre?.split(" ")[0] || "Agente";
 
@@ -196,7 +201,7 @@ const AgentInicio = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <button
-          onClick={() => navigate('/admin/agent/pipeline')}
+          onClick={() => setAgendarCitaOpen(true)}
           className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
         >
           <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -205,7 +210,7 @@ const AgentInicio = () => {
           <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Agendar cita</span>
         </button>
         <button
-          onClick={() => navigate('/admin/agent/inventario')}
+          onClick={() => setAddProspectoOpen(true)}
           className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
         >
           <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
@@ -257,6 +262,10 @@ const AgentInicio = () => {
           </div>
         )}
       </div>
+
+      {/* Dialogs */}
+      <AddProspectoFloatingDialog open={addProspectoOpen} onOpenChange={setAddProspectoOpen} />
+      <AgendarCitaShowroomDialog open={agendarCitaOpen} onOpenChange={setAgendarCitaOpen} />
     </div>
   );
 };
