@@ -386,18 +386,26 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
   const initializedFromCita = useRef(false);
 
-  // Fetch agent's project access
+  // Fetch agent's project access via proyectos_acceso (no RLS restrictions)
   const { data: agentProjectIds = [] } = useQuery({
     queryKey: ['agent-project-ids', personaId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('entidades_relacionadas')
-        .select('id_proyecto')
+      // First get the agent's email from usuarios
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('email')
         .eq('id_persona', personaId)
-        .eq('activo', true)
-        .not('id_proyecto', 'is', null);
+        .single();
+      if (!usuario?.email) return [];
+
+      // Then get their project access
+      const { data, error } = await supabase
+        .from('proyectos_acceso')
+        .select('proyecto_id')
+        .eq('usuario_id', usuario.email)
+        .eq('activo', true);
       if (error) throw error;
-      return (data || []).map((d: any) => d.id_proyecto as number);
+      return (data || []).map((d: any) => d.proyecto_id as number);
     },
   });
 
