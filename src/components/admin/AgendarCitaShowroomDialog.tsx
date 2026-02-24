@@ -90,9 +90,10 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
       const horaFin = `${String(h + 1).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
       const { error } = await supabase
-        .from("citas_showroom")
+        .from("reservas_citas")
         .insert([{
-          id_prospecto: parseInt(selectedProspecto),
+          id_tipo_cita: 2,
+          id_persona_prospecto: parseInt(selectedProspecto),
           id_proyecto: selectedProspectoData.proyecto_id,
           id_agente: profile?.id_persona,
           fecha: format(selectedDate, "yyyy-MM-dd"),

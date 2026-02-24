@@ -56,7 +56,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
     queryKey: ['agent-training-cell', personaId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('citas_capacitacion')
+        .from('reservas_citas')
         .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus')
         .eq('id_persona', personaId)
         .eq('activo', true)
@@ -71,7 +71,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
   const handleConfirmAttendance = async () => {
     if (!cita) return;
     const { error } = await supabase
-      .from('citas_capacitacion')
+      .from('reservas_citas')
       .update({ estatus: 'asistio', fecha_confirmacion: new Date().toISOString() })
       .eq('id', cita.id);
     if (error) {
@@ -85,7 +85,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
   const handleMarkNoShow = async () => {
     if (!cita) return;
     const { error } = await supabase
-      .from('citas_capacitacion')
+      .from('reservas_citas')
       .update({ estatus: 'no_asistio', fecha_confirmacion: new Date().toISOString() })
       .eq('id', cita.id);
     if (error) {

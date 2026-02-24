@@ -414,7 +414,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     queryKey: ['agent-training-cita', personaId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('citas_capacitacion')
+        .from('reservas_citas')
         .select('*')
         .eq('id_persona', personaId)
         .eq('activo', true)
@@ -504,7 +504,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
 
       // Get existing bookings for this date
       const { data: bookings } = await supabase
-        .from('citas_capacitacion')
+        .from('reservas_citas')
         .select('id_configuracion_cita, hora_inicio, id_persona')
         .in('id_configuracion_cita', matchingConfigIds)
         .eq('fecha', fechaStr)

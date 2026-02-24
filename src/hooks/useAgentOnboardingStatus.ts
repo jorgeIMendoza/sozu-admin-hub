@@ -73,7 +73,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     queryFn: async () => {
       if (!personaId) return [];
       const { data, error } = await supabase
-        .from('citas_capacitacion')
+        .from('reservas_citas')
         .select('id, estatus')
         .eq('id_persona', personaId)
         .eq('activo', true)

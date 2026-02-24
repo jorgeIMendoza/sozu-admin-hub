@@ -124,7 +124,7 @@ async function getAvailableSlots(
   let bookedSlotsCount: Map<string, number> = new Map();
   if (supabaseClient && configId && maxInvitados) {
     let bookingQuery = supabaseClient
-      .from("citas_capacitacion")
+      .from("reservas_citas")
       .select("hora_inicio")
       .eq("id_configuracion_cita", configId)
       .eq("fecha", fecha)
@@ -1071,7 +1071,7 @@ Deno.serve(async (req) => {
     // Check max_invitados capacity
     if (config_id) {
       const { data: existingBookings, error: bookErr } = await supabase
-        .from("citas_capacitacion")
+        .from("reservas_citas")
         .select("id")
         .eq("id_configuracion_cita", config_id)
         .eq("fecha", fecha)
@@ -1086,7 +1086,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: oldCitas } = await supabase
-      .from("citas_capacitacion")
+      .from("reservas_citas")
       .select("id, google_calendar_event_id")
       .eq("id_persona", id_persona)
       .eq("activo", true);
@@ -1203,7 +1203,7 @@ Deno.serve(async (req) => {
 
     if (existingCitaId) {
       const { data: updatedCita, error: updateError } = await supabase
-        .from("citas_capacitacion")
+        .from("reservas_citas")
         .update({ 
           fecha, hora_inicio, hora_fin: horaFin, 
           google_calendar_event_id: calendarEvent.id, 
@@ -1218,8 +1218,9 @@ Deno.serve(async (req) => {
       resultCita = updatedCita;
     } else {
       const { data: newCita, error: insertError } = await supabase
-        .from("citas_capacitacion")
+        .from("reservas_citas")
         .insert({ 
+          id_tipo_cita: tipoCitaId || 1,
           id_persona, fecha, hora_inicio, hora_fin: horaFin, 
           ubicacion: "Presencial", estatus: "programada", 
           google_calendar_event_id: calendarEvent.id, 

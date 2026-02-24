@@ -2519,145 +2519,6 @@ export type Database = {
           },
         ]
       }
-      citas_capacitacion: {
-        Row: {
-          activo: boolean
-          confirmada_por: string | null
-          estatus: string
-          fecha: string
-          fecha_actualizacion: string
-          fecha_confirmacion: string | null
-          fecha_creacion: string
-          google_calendar_event_id: string | null
-          google_meet_link: string | null
-          hora_fin: string
-          hora_inicio: string
-          id: number
-          id_configuracion_cita: number | null
-          id_persona: number
-          notas: string | null
-          ubicacion: string
-        }
-        Insert: {
-          activo?: boolean
-          confirmada_por?: string | null
-          estatus?: string
-          fecha: string
-          fecha_actualizacion?: string
-          fecha_confirmacion?: string | null
-          fecha_creacion?: string
-          google_calendar_event_id?: string | null
-          google_meet_link?: string | null
-          hora_fin: string
-          hora_inicio: string
-          id?: number
-          id_configuracion_cita?: number | null
-          id_persona: number
-          notas?: string | null
-          ubicacion: string
-        }
-        Update: {
-          activo?: boolean
-          confirmada_por?: string | null
-          estatus?: string
-          fecha?: string
-          fecha_actualizacion?: string
-          fecha_confirmacion?: string | null
-          fecha_creacion?: string
-          google_calendar_event_id?: string | null
-          google_meet_link?: string | null
-          hora_fin?: string
-          hora_inicio?: string
-          id?: number
-          id_configuracion_cita?: number | null
-          id_persona?: number
-          notas?: string | null
-          ubicacion?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "citas_capacitacion_id_configuracion_cita_fkey"
-            columns: ["id_configuracion_cita"]
-            isOneToOne: false
-            referencedRelation: "configuracion_citas_usuarios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "citas_capacitacion_id_persona_fkey"
-            columns: ["id_persona"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      citas_showroom: {
-        Row: {
-          activo: boolean
-          estatus: string
-          fecha: string
-          fecha_actualizacion: string
-          fecha_creacion: string
-          hora_fin: string
-          hora_inicio: string
-          id: number
-          id_agente: number
-          id_prospecto: number
-          id_proyecto: number
-          notas: string | null
-        }
-        Insert: {
-          activo?: boolean
-          estatus?: string
-          fecha: string
-          fecha_actualizacion?: string
-          fecha_creacion?: string
-          hora_fin: string
-          hora_inicio: string
-          id?: number
-          id_agente: number
-          id_prospecto: number
-          id_proyecto: number
-          notas?: string | null
-        }
-        Update: {
-          activo?: boolean
-          estatus?: string
-          fecha?: string
-          fecha_actualizacion?: string
-          fecha_creacion?: string
-          hora_fin?: string
-          hora_inicio?: string
-          id?: number
-          id_agente?: number
-          id_prospecto?: number
-          id_proyecto?: number
-          notas?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "citas_showroom_id_agente_fkey"
-            columns: ["id_agente"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "citas_showroom_id_prospecto_fkey"
-            columns: ["id_prospecto"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "citas_showroom_id_proyecto_fkey"
-            columns: ["id_proyecto"]
-            isOneToOne: false
-            referencedRelation: "proyectos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       comentarios_verificacion_documento: {
         Row: {
           activo: boolean
@@ -5901,6 +5762,118 @@ export type Database = {
             columns: ["id_persona_que_reserva"]
             isOneToOne: false
             referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservas_citas: {
+        Row: {
+          activo: boolean
+          confirmada_por: string | null
+          estatus: string
+          fecha: string
+          fecha_actualizacion: string
+          fecha_confirmacion: string | null
+          fecha_creacion: string
+          google_calendar_event_id: string | null
+          google_meet_link: string | null
+          hora_fin: string
+          hora_inicio: string
+          id: number
+          id_agente: number | null
+          id_configuracion_cita: number | null
+          id_persona: number | null
+          id_persona_prospecto: number | null
+          id_proyecto: number | null
+          id_tipo_cita: number
+          notas: string | null
+          ubicacion: string | null
+        }
+        Insert: {
+          activo?: boolean
+          confirmada_por?: string | null
+          estatus?: string
+          fecha: string
+          fecha_actualizacion?: string
+          fecha_confirmacion?: string | null
+          fecha_creacion?: string
+          google_calendar_event_id?: string | null
+          google_meet_link?: string | null
+          hora_fin: string
+          hora_inicio: string
+          id?: number
+          id_agente?: number | null
+          id_configuracion_cita?: number | null
+          id_persona?: number | null
+          id_persona_prospecto?: number | null
+          id_proyecto?: number | null
+          id_tipo_cita: number
+          notas?: string | null
+          ubicacion?: string | null
+        }
+        Update: {
+          activo?: boolean
+          confirmada_por?: string | null
+          estatus?: string
+          fecha?: string
+          fecha_actualizacion?: string
+          fecha_confirmacion?: string | null
+          fecha_creacion?: string
+          google_calendar_event_id?: string | null
+          google_meet_link?: string | null
+          hora_fin?: string
+          hora_inicio?: string
+          id?: number
+          id_agente?: number | null
+          id_configuracion_cita?: number | null
+          id_persona?: number | null
+          id_persona_prospecto?: number | null
+          id_proyecto?: number | null
+          id_tipo_cita?: number
+          notas?: string | null
+          ubicacion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservas_citas_id_agente_fkey"
+            columns: ["id_agente"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_citas_id_configuracion_cita_fkey"
+            columns: ["id_configuracion_cita"]
+            isOneToOne: false
+            referencedRelation: "configuracion_citas_usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_citas_id_persona_fkey"
+            columns: ["id_persona"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_citas_id_persona_prospecto_fkey"
+            columns: ["id_persona_prospecto"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_citas_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservas_citas_id_tipo_cita_fkey"
+            columns: ["id_tipo_cita"]
+            isOneToOne: false
+            referencedRelation: "tipos_cita"
             referencedColumns: ["id"]
           },
         ]
