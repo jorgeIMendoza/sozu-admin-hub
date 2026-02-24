@@ -2489,6 +2489,7 @@ export type Database = {
           hora_fin: string
           hora_inicio: string
           id: number
+          id_configuracion_cita: number | null
           id_persona: number
           notas: string | null
           ubicacion: string
@@ -2506,6 +2507,7 @@ export type Database = {
           hora_fin: string
           hora_inicio: string
           id?: number
+          id_configuracion_cita?: number | null
           id_persona: number
           notas?: string | null
           ubicacion: string
@@ -2523,11 +2525,19 @@ export type Database = {
           hora_fin?: string
           hora_inicio?: string
           id?: number
+          id_configuracion_cita?: number | null
           id_persona?: number
           notas?: string | null
           ubicacion?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "citas_capacitacion_id_configuracion_cita_fkey"
+            columns: ["id_configuracion_cita"]
+            isOneToOne: false
+            referencedRelation: "configuracion_citas_usuarios"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "citas_capacitacion_id_persona_fkey"
             columns: ["id_persona"]
