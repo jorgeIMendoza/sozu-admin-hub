@@ -166,11 +166,11 @@ Deno.serve(async (req) => {
       console.error('Error logging:', logErr);
     }
 
-    // Redirect to login page
-    return Response.redirect('https://inmobiliarias.sozu.com/auth/login', 302);
+    // Redirect to thank-you page
+    return Response.redirect('https://inmobiliarias.sozu.com/auth/confirmacion-email', 302);
 
   } catch (error) {
     console.error('Error in post-confirmacion-registro:', error);
-    return Response.redirect('https://inmobiliarias.sozu.com/auth/login', 302);
+    return Response.redirect('https://inmobiliarias.sozu.com/auth/confirmacion-email', 302);
   }
 });
