@@ -74,7 +74,7 @@ function getDayOfWeek(fecha: string): number {
 async function getAvailableSlots(
   token: string, fecha: string, calendarId: string, duracionMinutos: number,
   supabaseClient?: any, calendarOwnerEmail?: string, tipoCitaId?: number,
-  configId?: number, maxInvitados?: number
+  configId?: number, maxInvitados?: number, excludePersonaId?: number
 ): Promise<string[]> {
   let configuredSlots: Set<string> | null = null;
   if (supabaseClient && calendarOwnerEmail) {
@@ -123,13 +123,17 @@ async function getAvailableSlots(
   // Check existing bookings for this config+date to enforce max_invitados
   let bookedSlotsCount: Map<string, number> = new Map();
   if (supabaseClient && configId && maxInvitados) {
-    const { data: existingBookings } = await supabaseClient
+    let bookingQuery = supabaseClient
       .from("citas_capacitacion")
       .select("hora_inicio")
       .eq("id_configuracion_cita", configId)
       .eq("fecha", fecha)
       .eq("activo", true)
       .in("estatus", ["programada"]);
+    if (excludePersonaId) {
+      bookingQuery = bookingQuery.neq("id_persona", excludePersonaId);
+    }
+    const { data: existingBookings } = await bookingQuery;
     
     if (existingBookings) {
       for (const booking of existingBookings) {
@@ -514,7 +518,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Falta el campo 'fecha'" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const proyectoIds: number[] = body.proyecto_ids || [];
-      
+      const excludePersonaId: number | undefined = body.exclude_persona_id || undefined;
       let query = supabase
         .from("configuracion_citas_usuarios")
         .select("id, id_usuario_email, duracion_minutos, calendario_email, nombre, max_invitados")
@@ -567,7 +571,7 @@ Deno.serve(async (req) => {
         try {
           const slots = await getAvailableSlots(
             token, body.fecha, cfgCalendarId, cfgDuracion,
-            supabase, cfg.id_usuario_email, tipoCitaId, cfg.id, cfgMaxInvitados
+            supabase, cfg.id_usuario_email, tipoCitaId, cfg.id, cfgMaxInvitados, excludePersonaId
           );
           groupedSlots.push({
             config_id: cfg.id,

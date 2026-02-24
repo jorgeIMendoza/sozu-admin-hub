@@ -424,7 +424,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     queryKey: ['training-available-slots-grouped', fechaStr, agentProjectIds],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('agendar-capacitacion', {
-        body: { action: 'check-availability-by-project', fecha: fechaStr, proyecto_ids: agentProjectIds },
+        body: { action: 'check-availability-by-project', fecha: fechaStr, proyecto_ids: agentProjectIds, exclude_persona_id: personaId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
