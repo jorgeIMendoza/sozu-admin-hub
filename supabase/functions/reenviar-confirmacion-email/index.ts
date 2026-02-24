@@ -49,14 +49,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate confirmation link
-    const postConfirmUrl = `${supabaseUrl}/functions/v1/post-confirmacion-registro?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(usuario.nombre || '')}`;
+    // Generate confirmation link - redirect to frontend thank-you page
+    const thankYouUrl = `https://inmobiliarias.sozu.com/auth/confirmacion-email?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(usuario.nombre || '')}`;
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: emailLower,
       options: {
-        redirectTo: postConfirmUrl,
+        redirectTo: thankYouUrl,
       },
     });
 
@@ -67,14 +67,14 @@ Deno.serve(async (req) => {
 
     let confirmationUrl = linkData?.properties?.action_link;
 
-    // Rebuild the URL to ensure redirect goes to our edge function instead of Site URL
+    // Rebuild the URL to ensure redirect goes to thank-you page
     if (confirmationUrl) {
       try {
         const actionUrl = new URL(confirmationUrl);
         const token = actionUrl.searchParams.get('token');
         const type = actionUrl.searchParams.get('type');
         if (token) {
-          confirmationUrl = `${supabaseUrl}/auth/v1/verify?token=${token}&type=${type || 'magiclink'}&redirect_to=${encodeURIComponent(postConfirmUrl)}`;
+          confirmationUrl = `${supabaseUrl}/auth/v1/verify?token=${token}&type=${type || 'magiclink'}&redirect_to=${encodeURIComponent(thankYouUrl)}`;
         }
       } catch (e) {
         console.error('Error rebuilding confirmation URL:', e);

@@ -1,20 +1,38 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// This edge function is called AFTER the user confirms their email.
-// Supabase redirects here after email confirmation.
-// It sends the welcome/credentials email and redirects to login.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// This edge function is called from the ConfirmacionEmail page after the user confirms their email.
+// It sends the welcome/credentials email and performs post-confirmation tasks.
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
-    const url = new URL(req.url);
-    const email = url.searchParams.get('email');
-    const nombre = url.searchParams.get('nombre') || 'Agente';
+    let email: string | null = null;
+    let nombre: string | null = 'Agente';
+
+    // Support both GET (legacy redirect) and POST (from frontend)
+    if (req.method === 'POST') {
+      const body = await req.json();
+      email = body.email || null;
+      nombre = body.nombre || 'Agente';
+    } else {
+      const url = new URL(req.url);
+      email = url.searchParams.get('email');
+      nombre = url.searchParams.get('nombre') || 'Agente';
+    }
 
     console.log('Post-confirmacion-registro called for:', email?.substring(0, 5) + '***');
 
     if (!email) {
-      return new Response('<html><body>Parámetros inválidos. <a href="https://inmobiliarias.sozu.com/auth/login">Ir al login</a></body></html>', {
-        headers: { 'Content-Type': 'text/html' },
+      return new Response(JSON.stringify({ error: 'Parámetros inválidos' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
@@ -166,11 +184,16 @@ Deno.serve(async (req) => {
       console.error('Error logging:', logErr);
     }
 
-    // Redirect to thank-you page
-    return Response.redirect('https://inmobiliarias.sozu.com/auth/confirmacion-email', 302);
+    // Return success
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Error in post-confirmacion-registro:', error);
-    return Response.redirect('https://inmobiliarias.sozu.com/auth/confirmacion-email', 302);
+    return new Response(JSON.stringify({ error: 'Error interno' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
 });

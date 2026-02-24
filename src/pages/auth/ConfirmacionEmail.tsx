@@ -1,7 +1,27 @@
+import { useEffect, useRef } from 'react';
 import { CheckCircle, Mail } from 'lucide-react';
 import sozuLogo from '@/assets/sozu-logo-black.png';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function ConfirmacionEmail() {
+  const calledRef = useRef(false);
+
+  useEffect(() => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const email = params.get('email');
+    const nombre = params.get('nombre') || '';
+
+    if (email) {
+      // Fire-and-forget: trigger post-confirmation logic
+      supabase.functions.invoke('post-confirmacion-registro', {
+        body: { email, nombre },
+      }).catch(err => console.error('Post-confirm error:', err));
+    }
+  }, []);
+
   return (
     <div className="login-page">
       <div className="login-bg-gradient" />

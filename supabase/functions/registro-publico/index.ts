@@ -206,23 +206,23 @@ Deno.serve(async (req) => {
     }
 
     // 5. Generate email confirmation link using Supabase Auth
-    const postConfirmUrl = `${supabaseUrl}/functions/v1/post-confirmacion-registro?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(nombre.trim())}`;
+    // Redirect to the frontend thank-you page (which will call the post-confirmation edge function)
+    const thankYouUrl = `https://inmobiliarias.sozu.com/auth/confirmacion-email?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(nombre.trim())}`;
     
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'signup',
       email: emailLower,
       password: defaultPassword,
       options: {
-        redirectTo: postConfirmUrl,
+        redirectTo: thankYouUrl,
       },
     });
 
     if (linkError) {
       console.error('Error generating confirmation link:', linkError);
-      // User is created but unconfirmed - admin can resend
     }
 
-    // Extract token from action_link and rebuild URL to ensure redirect goes to our edge function
+    // Extract token from action_link and rebuild URL to ensure redirect goes to thank-you page
     let confirmationUrl = linkData?.properties?.action_link;
     if (confirmationUrl) {
       try {
@@ -230,8 +230,7 @@ Deno.serve(async (req) => {
         const token = actionUrl.searchParams.get('token');
         const type = actionUrl.searchParams.get('type');
         if (token) {
-          // Rebuild the verification URL with our edge function as redirect
-          confirmationUrl = `${supabaseUrl}/auth/v1/verify?token=${token}&type=${type || 'signup'}&redirect_to=${encodeURIComponent(postConfirmUrl)}`;
+          confirmationUrl = `${supabaseUrl}/auth/v1/verify?token=${token}&type=${type || 'signup'}&redirect_to=${encodeURIComponent(thankYouUrl)}`;
         }
       } catch (e) {
         console.error('Error rebuilding confirmation URL:', e);
