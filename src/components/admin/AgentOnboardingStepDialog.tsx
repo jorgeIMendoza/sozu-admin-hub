@@ -407,9 +407,10 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       if (error) throw error;
       return (data || []).map((d: any) => d.proyecto_id as number);
     },
+    staleTime: 0,
   });
 
-  // Fetch existing appointment
+  // Fetch existing appointment (only non-cancelled/active ones)
   const { data: existingCita } = useQuery({
     queryKey: ['agent-training-cita', personaId],
     queryFn: async () => {
@@ -418,12 +419,14 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
         .select('*')
         .eq('id_persona', personaId)
         .eq('activo', true)
+        .in('estatus', ['programada', 'asistio'])
         .order('fecha_creacion', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
+    staleTime: 0,
   });
 
   // Fetch training configs matching agent's projects (DB-only)
@@ -451,6 +454,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       });
     },
     enabled: agentProjectIds.length > 0,
+    staleTime: 0,
   });
 
   // Fetch horarios for matching configs → generate available dates
@@ -498,6 +502,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       return dates;
     },
     enabled: matchingConfigIds.length > 0,
+    staleTime: 0,
   });
 
   // When a date is selected, fetch available slots from DB
@@ -613,6 +618,14 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     }
 
     setSaving(true);
+
+    // Deactivate any existing programada booking before creating a new one
+    if (existingCita && existingCita.estatus === 'programada') {
+      await supabase
+        .from('reservas_citas')
+        .update({ activo: false, estatus: 'cancelada' })
+        .eq('id', existingCita.id);
+    }
     try {
       const { data: persona } = await supabase
         .from('personas')
