@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
+import { AgentPortalLayout } from "./agent-portal/AgentPortalLayout";
 
 const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria"];
 
@@ -21,6 +22,16 @@ export const AdminLayout = () => {
       setTheme("light");
     }
   }, [isSimplifiedRole, setTheme]);
+
+  // Redirect simplified roles to agent portal if they hit /admin directly
+  if (isSimplifiedRole && location.pathname === "/admin") {
+    return <Navigate to="/admin/agent/inicio" replace />;
+  }
+
+  // Use AgentPortalLayout for agent portal routes
+  if (isSimplifiedRole && location.pathname.startsWith("/admin/agent")) {
+    return <AgentPortalLayout />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

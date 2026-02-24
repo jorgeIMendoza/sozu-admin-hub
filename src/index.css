@@ -347,6 +347,23 @@ All colors MUST be HSL.
 }
 
 /* ═══════════════════════════════════════════════
+   Agent Portal Theme — Scoped to .agent-portal
+   Mobile-first portal for Agente/Inmobiliaria
+═══════════════════════════════════════════════ */
+
+.agent-portal {
+  --agent-primary: 147 33% 29%;       /* #2D5A3D */
+  --agent-primary-foreground: 0 0% 100%;
+  --agent-amber: 38 92% 50%;          /* #F59E0B */
+  --agent-amber-light: 48 96% 89%;    /* #FEF3C7 */
+  --agent-bg: 0 0% 98%;               /* #FAFAFA */
+  --agent-text: 0 0% 10%;             /* #1A1A1A */
+  --agent-text-secondary: 220 9% 46%; /* #6B7280 */
+  --agent-metric-green: 163 82% 27%;  /* #0D7C5F */
+  --agent-muted: 220 9% 64%;          /* #9CA3AF */
+}
+
+/* ═══════════════════════════════════════════════
    SOZU Theme — Scoped to .sozu-theme ancestor
    Only applies to "Datos Inmobiliarios" pages
 ═══════════════════════════════════════════════ */

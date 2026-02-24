@@ -18,6 +18,11 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
     return <>{children}</>;
   }
 
+  // Always allow access to agent portal routes (permission is role-based via AdminLayout)
+  if (location.pathname.startsWith('/admin/agent')) {
+    return <>{children}</>;
+  }
+
   if (isLoading || isMenuLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
