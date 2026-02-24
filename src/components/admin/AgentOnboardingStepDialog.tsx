@@ -385,6 +385,8 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
   const [selectedSlot, setSelectedSlot] = useState('');
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
   const initializedFromCita = useRef(false);
+  const [citaCancelledExternally, setCitaCancelledExternally] = useState(false);
+  const verifiedEventRef = useRef(false);
 
   // Fetch agent's project access via proyectos_acceso (no RLS restrictions)
   const { data: agentProjectIds = [] } = useQuery({
@@ -596,7 +598,40 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     }
   }, [existingCita]);
 
+  // Verify if the Google Calendar event still exists for programada citas
+  useEffect(() => {
+    if (existingCita?.estatus === 'programada' && existingCita?.google_calendar_event_id && !verifiedEventRef.current) {
+      verifiedEventRef.current = true;
+      const config = trainingConfigs.find((c: any) => c.id === existingCita.id_configuracion_cita);
+      supabase.functions.invoke('agendar-capacitacion', {
+        body: {
+          action: 'verify-event',
+          google_calendar_event_id: existingCita.google_calendar_event_id,
+          reserva_id: existingCita.id,
+          calendar_owner_email: config?.id_usuario_email || undefined,
+        },
+      }).then(({ data }) => {
+        if (data && data.exists === false && data.cancelled) {
+          setCitaCancelledExternally(true);
+          // Clear pre-selected date/slot so user must pick new ones
+          setSelectedDate(undefined);
+          setSelectedSlot('');
+          setSelectedConfigId(null);
+          // Refresh the existing cita query
+          queryClient.invalidateQueries({ queryKey: ['agent-training-cita', personaId] });
+          queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
+          queryClient.invalidateQueries({ queryKey: ['training-slots-db'] });
+        }
+      }).catch((err) => {
+        console.error('Error verifying calendar event:', err);
+      });
+    }
+  }, [existingCita, trainingConfigs, personaId, queryClient]);
+
   const getStatusBadge = () => {
+    if (citaCancelledExternally) {
+      return <Badge variant="destructive"><RefreshCw className="h-3 w-3 mr-1" />Cancelada externamente</Badge>;
+    }
     if (!existingCita) return null;
     switch (existingCita.estatus) {
       case 'asistio': return <Badge className="bg-emerald-500 text-white border-0"><CheckCircle2 className="h-3 w-3 mr-1" />Completada</Badge>;
@@ -692,7 +727,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
   };
 
   const isCompleted = existingCita?.estatus === 'asistio';
-  const isProgrammed = existingCita?.estatus === 'programada';
+  const isProgrammed = existingCita?.estatus === 'programada' && !citaCancelledExternally;
 
   const availableSlots = dbSlots.filter(s => !s.is_full);
 
@@ -704,10 +739,19 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       )}
 
       {/* Status */}
-      {existingCita && (
+      {(existingCita || citaCancelledExternally) && (
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-foreground">Estado actual:</span>
           {getStatusBadge()}
+        </div>
+      )}
+
+      {/* Cancelled externally warning */}
+      {citaCancelledExternally && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3">
+          <p className="text-xs text-destructive font-medium">
+            Tu cita fue cancelada desde el calendario. Selecciona una nueva fecha y horario para reprogramar.
+          </p>
         </div>
       )}
 
@@ -850,7 +894,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
             disabled={saving || !selectedDate || !selectedSlot}
             className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : isProgrammed ? "Reagendar Cita" : "Agendar Cita"}
+            {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : citaCancelledExternally ? "Reprogramar Cita" : isProgrammed ? "Reagendar Cita" : "Agendar Cita"}
           </button>
         </>
       )}
