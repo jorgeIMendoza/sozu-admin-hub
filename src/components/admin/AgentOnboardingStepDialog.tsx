@@ -607,7 +607,10 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       // If the cita is cancelled or inactive, mark as externally cancelled
       if (existingCita.estatus === 'cancelada' || !existingCita.activo) {
         setCitaCancelledExternally(true);
-        // Don't pre-select the cancelled date/slot
+        return;
+      }
+      // If admin marked "no asistió", allow rescheduling without pre-selecting old slot
+      if (existingCita.estatus === 'no_asistio') {
         return;
       }
       if (existingCita.fecha) {
@@ -619,7 +622,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     }
   }, [existingCita]);
 
-  // Verify if the Google Calendar event still exists for programada citas
+  // Verify if the Google Calendar event still exists for programada/agendada citas only
   useEffect(() => {
     if (existingCita?.estatus === 'programada' && existingCita?.activo && existingCita?.google_calendar_event_id && !verifiedEventRef.current) {
       verifiedEventRef.current = true;
@@ -679,8 +682,8 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
 
     setSaving(true);
 
-    // Deactivate any existing programada booking before creating a new one
-    if (existingCita && existingCita.estatus === 'programada') {
+    // Deactivate any existing booking before creating a new one
+    if (existingCita && (existingCita.estatus === 'programada' || existingCita.estatus === 'no_asistio')) {
       await supabase
         .from('reservas_citas')
         .update({ activo: false, estatus: 'cancelada' })
@@ -754,6 +757,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
   const isCompleted = existingCita?.estatus === 'asistio' || (existingCita as any)?.id_estatus_cita === 3;
   const isProgrammed = (existingCita?.estatus === 'programada' || (existingCita as any)?.id_estatus_cita === 1) && !citaCancelledExternally;
   const isPendingConfirmation = (existingCita as any)?.id_estatus_cita === 2;
+  const isNoShow = existingCita?.estatus === 'no_asistio';
 
   const availableSlots = dbSlots.filter(s => !s.is_full);
 
@@ -766,7 +770,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     setSaving(true);
     try {
       // Deactivate any existing booking
-      if (existingCita && existingCita.estatus === 'programada') {
+      if (existingCita && (existingCita.estatus === 'programada' || existingCita.estatus === 'no_asistio')) {
         await supabase
           .from('reservas_citas')
           .update({ activo: false, estatus: 'cancelada' })
@@ -821,6 +825,15 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
         <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3">
           <p className="text-xs text-destructive font-medium">
             Tu cita fue cancelada desde el calendario. Selecciona una nueva fecha y horario para reprogramar.
+          </p>
+        </div>
+      )}
+
+      {/* No show warning */}
+      {isNoShow && !citaCancelledExternally && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+          <p className="text-xs text-amber-700 font-medium">
+            Tu asistencia no fue confirmada en la cita anterior. Selecciona una nueva fecha y horario para reagendar.
           </p>
         </div>
       )}
