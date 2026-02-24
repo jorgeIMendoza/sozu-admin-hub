@@ -796,30 +796,90 @@ Deno.serve(async (req) => {
         }
       }
 
-      // --- Step 3: Mark deleted events as externally cancelled (do NOT regenerate) ---
+      // --- Step 3: REGENERATE deleted events (recreate in Google Calendar) ---
       for (const de of deletedEvents) {
-        console.log(`[sync] Marking event ${de.google_event_id} for ${de.fecha} hora ${de.hora} as cancelado_externamente`);
-        await supabase.from("citas_calendar_events")
-          .update({ cancelado_externamente: true, activo: true, fecha_actualizacion: new Date().toISOString() })
-          .eq("id", de.id);
-        // Also cancel any active reservations for this specific slot
-        const horaLabel = `${String(de.hora).padStart(2, "0")}:00:00`;
-        const { data: affectedReservations } = await supabase
-          .from("reservas_citas")
-          .select("id")
-          .eq("id_configuracion_cita", bodyConfigId)
-          .eq("fecha", de.fecha)
-          .eq("hora_inicio", horaLabel)
-          .eq("activo", true)
-          .eq("estatus", "programada");
-        if (affectedReservations && affectedReservations.length > 0) {
-          const ids = affectedReservations.map((r: any) => r.id);
-          await supabase.from("reservas_citas")
-            .update({ activo: false, estatus: "cancelada" })
-            .in("id", ids);
-          console.log(`[sync] Cancelled ${ids.length} reservations for deleted slot ${de.fecha} ${de.hora}`);
+        console.log(`[sync] Regenerating deleted event for ${de.fecha} hora ${de.hora}`);
+        const regenHora = de.hora;
+        const regenHoraStr = `${String(regenHora).padStart(2, "0")}:00`;
+        const totalMinEnd = regenHora * 60 + 0 + duracionMinutos;
+        const regenHoraFin = `${String(Math.floor(totalMinEnd / 60) % 24).padStart(2, "0")}:${String(totalMinEnd % 60).padStart(2, "0")}`;
+
+        const slotAttendees = buildAttendeesForSlot(de.fecha, regenHora);
+        const regenEvent: any = {
+          summary: tipoCitaDescripcion,
+          start: { dateTime: `${de.fecha}T${regenHoraStr}:00`, timeZone: "America/Mexico_City" },
+          end: { dateTime: `${de.fecha}T${regenHoraFin}:00`, timeZone: "America/Mexico_City" },
+          description: buildDescriptionWithAttendees(eventDescription, slotAttendees),
+        };
+        if (slotAttendees.length > 0) regenEvent.attendees = [...slotAttendees];
+        regenEvent.conferenceData = {
+          createRequest: {
+            requestId: `regen-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        };
+
+        try {
+          let res = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+            { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(regenEvent) },
+          );
+          if (!res.ok) {
+            const errText = await res.text();
+            if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
+              delete regenEvent.attendees;
+              res = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+                { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(regenEvent) },
+              );
+              if (!res.ok) {
+                const errText2 = await res.text();
+                if (res.status === 400 && errText2.includes("Invalid conference type")) {
+                  delete regenEvent.conferenceData;
+                  res = await fetch(
+                    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
+                    { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(regenEvent) },
+                  );
+                }
+              }
+            } else if (res.status === 400 && errText.includes("Invalid conference type")) {
+              delete regenEvent.conferenceData;
+              res = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
+                { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(regenEvent) },
+              );
+              if (!res.ok) {
+                const errText2 = await res.text();
+                if (res.status === 403 && errText2.includes("forbiddenForServiceAccounts")) {
+                  delete regenEvent.attendees;
+                  res = await fetch(
+                    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
+                    { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(regenEvent) },
+                  );
+                }
+              }
+            }
+            if (!res.ok) {
+              const finalErr = await res.text();
+              errors.push(`REGEN ${de.fecha} ${regenHoraStr}: ${finalErr}`);
+              continue;
+            }
+          }
+          const created = await res.json();
+          // Update DB record with new google_event_id and reset cancelado_externamente
+          await supabase.from("citas_calendar_events")
+            .update({
+              google_event_id: created.id,
+              cancelado_externamente: false,
+              activo: true,
+              fecha_actualizacion: new Date().toISOString(),
+            })
+            .eq("id", de.id);
+          console.log(`[sync] Regenerated event for ${de.fecha} ${regenHoraStr} -> new ID: ${created.id}`);
+          createdEvents.push({ day: new Date(de.fecha + "T12:00:00").getDay(), hora: regenHoraStr, eventId: created.id, meetLink: created.hangoutLink || null, action: "regenerated" });
+        } catch (e: any) {
+          errors.push(`REGEN ${de.fecha} ${regenHoraStr}: ${e.message}`);
         }
-        createdEvents.push({ day: new Date(de.fecha + "T12:00:00").getDay(), hora: `${String(de.hora).padStart(2, "0")}:00`, action: "cancelled_externally" });
       }
 
       // --- Step 4: Create NEW recurring events for slots not covered by stored events ---
