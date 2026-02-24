@@ -2475,6 +2475,50 @@ export type Database = {
         }
         Relationships: []
       }
+      citas_calendar_events: {
+        Row: {
+          activo: boolean
+          calendar_email: string
+          fecha: string
+          fecha_actualizacion: string
+          fecha_creacion: string
+          google_event_id: string
+          hora: number
+          id: number
+          id_configuracion_cita: number
+        }
+        Insert: {
+          activo?: boolean
+          calendar_email: string
+          fecha: string
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          google_event_id: string
+          hora: number
+          id?: number
+          id_configuracion_cita: number
+        }
+        Update: {
+          activo?: boolean
+          calendar_email?: string
+          fecha?: string
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          google_event_id?: string
+          hora?: number
+          id?: number
+          id_configuracion_cita?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "citas_calendar_events_id_configuracion_cita_fkey"
+            columns: ["id_configuracion_cita"]
+            isOneToOne: false
+            referencedRelation: "configuracion_citas_usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       citas_capacitacion: {
         Row: {
           activo: boolean

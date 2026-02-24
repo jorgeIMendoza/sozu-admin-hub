@@ -592,7 +592,7 @@ Deno.serve(async (req) => {
 
     // ---- Action: create recurring meets ----
     if (body.action === "create-recurring-meets") {
-      const { slots_config, fecha_fin, correos_enterado, descripcion_invitacion } = body;
+      const { slots_config, fecha_fin, correos_enterado, descripcion_invitacion, config_id: bodyConfigId } = body;
       if (!slots_config || !fecha_fin) {
         return new Response(JSON.stringify({ error: "Faltan slots_config o fecha_fin" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -600,12 +600,10 @@ Deno.serve(async (req) => {
       // Use the config's nombre (e.g. "Capacitación Daiku") as the event summary
       let tipoCitaDescripcion = body.nombre_cita || "";
       if (!tipoCitaDescripcion) {
-        // Fallback: try to get from user config
         const userCfg = await getUserCitaConfig(supabase, calendarOwnerEmail, tipoCitaId);
         tipoCitaDescripcion = userCfg?.nombre || "";
       }
       if (!tipoCitaDescripcion) {
-        // Last fallback: tipos_cita table
         const { data: tipoCitaData } = await supabase
           .from("tipos_cita")
           .select("nombre, descripcion")
@@ -615,18 +613,170 @@ Deno.serve(async (req) => {
       }
 
       const eventDescription = descripcion_invitacion || userCitaConfig?.descripcion_invitacion || "";
-
       const attendees = (correos_enterado || userCitaConfig?.correos_enterado || []).map((email: string) => ({ email }));
-      console.log(`[create-recurring-meets] Summary: "${tipoCitaDescripcion}", Attendees: ${JSON.stringify(attendees)}, CalendarId: ${calendarId}`);
+      console.log(`[create-recurring-meets] Summary: "${tipoCitaDescripcion}", Attendees: ${JSON.stringify(attendees)}, CalendarId: ${calendarId}, ConfigId: ${bodyConfigId}`);
 
       const endDate = new Date(fecha_fin + "T23:59:59-06:00");
       const today = new Date();
       const createdEvents: any[] = [];
       const errors: string[] = [];
 
+      // --- Step 1: Check stored events in DB and detect deleted ones ---
+      let storedEvents: any[] = [];
+      if (bodyConfigId) {
+        const { data: stored } = await supabase
+          .from("citas_calendar_events")
+          .select("*")
+          .eq("id_configuracion_cita", bodyConfigId)
+          .eq("activo", true);
+        storedEvents = stored || [];
+        console.log(`[sync] ${storedEvents.length} stored event references in DB for config ${bodyConfigId}`);
+      }
+
+      // Check each stored event against Google Calendar
+      const deletedEvents: any[] = [];
+      const existingStoredEvents: any[] = [];
+      for (const se of storedEvents) {
+        try {
+          const checkRes = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (checkRes.status === 404 || checkRes.status === 410) {
+            console.log(`[sync] Stored event ${se.google_event_id} for ${se.fecha} hora ${se.hora} was DELETED from Calendar`);
+            deletedEvents.push(se);
+          } else if (checkRes.ok) {
+            const evData = await checkRes.json();
+            if (evData.status === "cancelled") {
+              console.log(`[sync] Stored event ${se.google_event_id} for ${se.fecha} hora ${se.hora} was CANCELLED`);
+              deletedEvents.push(se);
+            } else {
+              existingStoredEvents.push({ ...se, calendarData: evData });
+            }
+          } else {
+            const txt = await checkRes.text();
+            console.error(`[sync] Error checking event ${se.google_event_id}: ${checkRes.status} ${txt}`);
+            existingStoredEvents.push(se);
+          }
+        } catch (e: any) {
+          console.error(`[sync] Error checking stored event: ${e.message}`);
+          existingStoredEvents.push(se);
+        }
+      }
+
+      // --- Step 2: Update existing stored events with new config ---
+      for (const se of existingStoredEvents) {
+        if (!se.calendarData) continue;
+        const patchBody: any = { summary: tipoCitaDescripcion };
+        if (eventDescription) patchBody.description = eventDescription;
+        patchBody.attendees = [...attendees];
+
+        try {
+          let res = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}?sendUpdates=all`,
+            { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(patchBody) },
+          );
+          if (!res.ok) {
+            const errText = await res.text();
+            if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
+              delete patchBody.attendees;
+              res = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}?sendUpdates=all`,
+                { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(patchBody) },
+              );
+            }
+            if (!res.ok) {
+              console.error(`[sync] Failed to update stored event ${se.google_event_id}: ${await res.text()}`);
+            } else {
+              const updated = await res.json();
+              createdEvents.push({ day: new Date(se.fecha + "T12:00:00").getDay(), hora: `${String(se.hora).padStart(2, "0")}:00`, eventId: updated.id, action: "updated" });
+            }
+          } else {
+            const updated = await res.json();
+            createdEvents.push({ day: new Date(se.fecha + "T12:00:00").getDay(), hora: `${String(se.hora).padStart(2, "0")}:00`, eventId: updated.id, action: "updated" });
+          }
+        } catch (e: any) {
+          errors.push(`UPDATE stored ${se.fecha} ${se.hora}: ${e.message}`);
+        }
+      }
+
+      // --- Step 3: Regenerate deleted events ---
+      for (const de of deletedEvents) {
+        const eventDate = de.fecha;
+        const eventDateObj = new Date(eventDate + "T12:00:00");
+        if (eventDateObj < today) {
+          console.log(`[sync] Skipping regeneration of past event ${de.fecha}`);
+          // Mark as inactive in DB
+          await supabase.from("citas_calendar_events").update({ activo: false }).eq("id", de.id);
+          continue;
+        }
+        if (eventDateObj > endDate) {
+          console.log(`[sync] Skipping regeneration of event beyond fecha_fin: ${de.fecha}`);
+          await supabase.from("citas_calendar_events").update({ activo: false }).eq("id", de.id);
+          continue;
+        }
+
+        const horaStr = `${String(de.hora).padStart(2, "0")}:00`;
+        const totalMinEnd = de.hora * 60 + duracionMinutos;
+        const horaFin = `${String(Math.floor(totalMinEnd / 60) % 24).padStart(2, "0")}:${String(totalMinEnd % 60).padStart(2, "0")}`;
+
+        const event: any = {
+          summary: tipoCitaDescripcion,
+          start: { dateTime: `${eventDate}T${horaStr}:00`, timeZone: "America/Mexico_City" },
+          end: { dateTime: `${eventDate}T${horaFin}:00`, timeZone: "America/Mexico_City" },
+        };
+        if (eventDescription) event.description = eventDescription;
+        if (attendees.length > 0) event.attendees = [...attendees];
+        event.conferenceData = {
+          createRequest: {
+            requestId: `meet-regen-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        };
+
+        try {
+          let res = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+            { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
+          );
+          if (!res.ok) {
+            const errText = await res.text();
+            if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
+              delete event.attendees;
+              res = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+                { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
+              );
+            }
+            if (!res.ok && res.status === 400) {
+              delete event.conferenceData;
+              res = await fetch(
+                `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?sendUpdates=all`,
+                { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
+              );
+            }
+            if (!res.ok) {
+              errors.push(`REGEN ${eventDate} ${horaStr}: ${await res.text()}`);
+              continue;
+            }
+          }
+          const created = await res.json();
+          console.log(`[sync] Regenerated event for ${eventDate} ${horaStr}: ${created.id}`);
+          createdEvents.push({ day: eventDateObj.getDay(), hora: horaStr, eventId: created.id, meetLink: created.hangoutLink || null, action: "regenerated" });
+
+          // Update DB record with new event ID
+          await supabase.from("citas_calendar_events")
+            .update({ google_event_id: created.id, activo: true, fecha_actualizacion: new Date().toISOString() })
+            .eq("id", de.id);
+        } catch (e: any) {
+          errors.push(`REGEN ${eventDate} ${horaStr}: ${e.message}`);
+        }
+      }
+
+      // --- Step 4: Create NEW recurring events for slots not covered by stored events ---
       const searchMin = new Date().toISOString();
       const searchMax = new Date(fecha_fin + "T23:59:59Z").toISOString();
-      
+
       let existingRecurringEvents: any[] = [];
       try {
         existingRecurringEvents = await findExistingEventsByServiceAccount(
@@ -665,9 +815,22 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Filter out desired events that already have stored (non-deleted) DB records
+      const coveredByStored = new Set(
+        existingStoredEvents.map((se: any) => `${se.fecha}_${se.hora}`)
+      );
+
       const usedExistingIds = new Set<string>();
 
       for (const desired of desiredEvents) {
+        // Check if this slot is already covered by a stored event that still exists
+        // We need to check all dates this recurring event would produce
+        const desiredKey = `${desired.fechaStr}_${parseInt(desired.horaInicio)}`;
+        if (coveredByStored.has(desiredKey)) {
+          console.log(`[sync] Slot ${desired.fechaStr} ${desired.horaInicio} already covered by stored event`);
+          continue;
+        }
+
         const matchIdx = existingRecurringEvents.findIndex((ev: any) => {
           if (usedExistingIds.has(ev.id)) return false;
           const rrule = (ev.recurrence || []).find((r: string) => r.includes("RRULE:"));
@@ -678,15 +841,14 @@ Deno.serve(async (req) => {
           const existingEv = existingRecurringEvents[matchIdx];
           usedExistingIds.add(existingEv.id);
           const patchBody: any = {
+            summary: tipoCitaDescripcion,
             start: { dateTime: `${desired.fechaStr}T${desired.horaInicio}:00`, timeZone: "America/Mexico_City" },
             end: { dateTime: `${desired.fechaStr}T${desired.horaFin}:00`, timeZone: "America/Mexico_City" },
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
-          if (eventDescription) {
-            patchBody.description = eventDescription;
-          }
+          if (eventDescription) patchBody.description = eventDescription;
           patchBody.attendees = [...attendees];
-          
+
           try {
             let res = await fetch(
               `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(existingEv.id)}?sendUpdates=all`,
@@ -694,10 +856,7 @@ Deno.serve(async (req) => {
             );
             if (!res.ok) {
               const errText = await res.text();
-              console.error(`[sync] PATCH failed for ${existingEv.id} (${res.status}): ${errText}`);
-              
               if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
-                console.log(`[sync] Cannot add attendees (no DWD), retrying PATCH without attendees`);
                 delete patchBody.attendees;
                 res = await fetch(
                   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(existingEv.id)}?sendUpdates=all`,
@@ -720,17 +879,15 @@ Deno.serve(async (req) => {
             errors.push(`UPDATE ${desired.fechaStr} ${desired.horaInicio}: ${e.message}`);
           }
         } else {
-          // Event does NOT exist -> CREATE
+          // CREATE new event
           const event: any = {
             summary: tipoCitaDescripcion,
             start: { dateTime: `${desired.fechaStr}T${desired.horaInicio}:00`, timeZone: "America/Mexico_City" },
             end: { dateTime: `${desired.fechaStr}T${desired.horaFin}:00`, timeZone: "America/Mexico_City" },
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
-
           if (eventDescription) event.description = eventDescription;
           if (attendees.length > 0) event.attendees = [...attendees];
-
           event.conferenceData = {
             createRequest: {
               requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
@@ -743,11 +900,8 @@ Deno.serve(async (req) => {
               `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
               { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
             );
-
             if (!res.ok) {
               const errText = await res.text();
-              console.error(`[sync] CREATE attempt failed (${res.status}): ${errText}`);
-              
               if (res.status === 403 && errText.includes("forbiddenForServiceAccounts")) {
                 delete event.attendees;
                 res = await fetch(
@@ -781,7 +935,6 @@ Deno.serve(async (req) => {
                   }
                 }
               }
-
               if (!res.ok) {
                 const finalErr = await res.text();
                 errors.push(`CREATE ${desired.fechaStr} ${desired.horaInicio}: ${finalErr}`);
@@ -796,11 +949,70 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Delete unmatched existing events
+      // Delete unmatched existing recurring events
       for (const ev of existingRecurringEvents) {
         if (!usedExistingIds.has(ev.id)) {
           console.log(`[sync] Deleting unmatched event ${ev.id}`);
           await deleteCalendarEvent(token, calendarId, ev.id);
+        }
+      }
+
+      // --- Step 5: Expand all recurring events to instances and store in DB ---
+      if (bodyConfigId) {
+        try {
+          const instancesTimeMin = new Date().toISOString();
+          const instancesTimeMax = new Date(fecha_fin + "T23:59:59Z").toISOString();
+          
+          // Collect all event IDs (both recurring and standalone) that we created/updated
+          const allEventIds = new Set<string>();
+          for (const ce of createdEvents) {
+            if (ce.eventId) allEventIds.add(ce.eventId);
+          }
+          // Also include existing stored events that are still valid
+          for (const se of existingStoredEvents) {
+            allEventIds.add(se.google_event_id);
+          }
+
+          // List all events by service account in the date range
+          const listUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${encodeURIComponent(instancesTimeMin)}&timeMax=${encodeURIComponent(instancesTimeMax)}&singleEvents=true&orderBy=startTime&q=${encodeURIComponent(tipoCitaDescripcion)}&maxResults=2500`;
+          const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${token}` } });
+          
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            const instances = (listData.items || []).filter((e: any) => {
+              const matchesSummary = e.summary === tipoCitaDescripcion;
+              const isServiceAccount = e.creator?.email === SERVICE_ACCOUNT_EMAIL || e.organizer?.email === SERVICE_ACCOUNT_EMAIL;
+              return matchesSummary && isServiceAccount && e.start?.dateTime;
+            });
+
+            console.log(`[sync] Found ${instances.length} expanded instances to store in DB`);
+
+            const upsertRows = instances.map((inst: any) => {
+              const dtMatch = inst.start.dateTime.match(/(\d{4}-\d{2}-\d{2})T(\d{2})/);
+              return {
+                id_configuracion_cita: bodyConfigId,
+                google_event_id: inst.id,
+                fecha: dtMatch ? dtMatch[1] : inst.start.dateTime.slice(0, 10),
+                hora: dtMatch ? parseInt(dtMatch[2]) : 0,
+                calendar_email: calendarId,
+                activo: true,
+                fecha_actualizacion: new Date().toISOString(),
+              };
+            });
+
+            if (upsertRows.length > 0) {
+              const { error: upsertErr } = await supabase
+                .from("citas_calendar_events")
+                .upsert(upsertRows, { onConflict: "id_configuracion_cita,fecha,hora" });
+              if (upsertErr) {
+                console.error(`[sync] Error upserting event references: ${JSON.stringify(upsertErr)}`);
+              } else {
+                console.log(`[sync] Stored ${upsertRows.length} event references in DB`);
+              }
+            }
+          }
+        } catch (e: any) {
+          console.error(`[sync] Error expanding instances: ${e.message}`);
         }
       }
 
