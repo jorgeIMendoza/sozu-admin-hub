@@ -507,6 +507,7 @@ export default function ConfiguracionCitas() {
           fecha_fin: fechaFinStr,
           correos_enterado: correosEnterado,
           descripcion_invitacion: descripcionInvitacion,
+          nombre_cita: selectedConfig.nombre,
         },
       });
 
