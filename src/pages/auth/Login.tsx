@@ -20,6 +20,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [showForgotMessage, setShowForgotMessage] = useState(false);
   
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
@@ -211,7 +212,27 @@ export default function Login() {
           </button>
         </form>
         
-        <div className="login-separator mt-7 text-center">
+        {/* Forgot password */}
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={() => setShowForgotMessage(!showForgotMessage)}
+            className="text-sm font-medium hover:underline transition-colors"
+            style={{ color: 'hsl(145 40% 40%)' }}
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+          {showForgotMessage && (
+            <div className="mt-3 flex items-start gap-3 px-4 py-3 rounded-xl text-sm text-left" style={{ color: 'hsl(210 20% 30%)', background: 'hsl(210 30% 96%)' }}>
+              <ShieldAlert className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'hsl(210 60% 50%)' }} />
+              <span>
+                Por razones de seguridad, contacta a tu asesor Sozu para restablecer tu contraseña. Él podrá darte acceso nuevamente.
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="login-separator mt-5 text-center">
           <span className="login-version">{APP_VERSION}</span>
         </div>
       </div>
