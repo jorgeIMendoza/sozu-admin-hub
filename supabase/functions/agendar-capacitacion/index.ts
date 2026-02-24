@@ -512,6 +512,55 @@ Deno.serve(async (req) => {
     const duracionMinutos = body.duracion_minutos || userCitaConfig?.duracion_minutos || 90;
     const calendarId = userCitaConfig?.calendario_email || calendarOwnerEmail;
 
+    // ---- Action: verify-event (check if calendar event still exists) ----
+    if (body.action === "verify-event") {
+      const { google_calendar_event_id, reserva_id } = body;
+      if (!google_calendar_event_id || !reserva_id) {
+        return new Response(JSON.stringify({ error: "Faltan google_calendar_event_id o reserva_id" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      try {
+        const res = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(google_calendar_event_id)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        if (res.status === 404) {
+          // Event was deleted - cancel the reservation
+          console.log(`[verify-event] Event ${google_calendar_event_id} not found (404), cancelling reserva ${reserva_id}`);
+          await supabase
+            .from("reservas_citas")
+            .update({ estatus: "cancelada", activo: false })
+            .eq("id", reserva_id);
+          return new Response(JSON.stringify({ exists: false, cancelled: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        if (!res.ok) {
+          // Could be permissions or other error - don't cancel, just report
+          const errText = await res.text();
+          console.error(`[verify-event] Error checking event (${res.status}): ${errText}`);
+          return new Response(JSON.stringify({ exists: true, error: errText }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        const eventData = await res.json();
+        // Also check if status is "cancelled"
+        if (eventData.status === "cancelled") {
+          console.log(`[verify-event] Event ${google_calendar_event_id} status is cancelled`);
+          await supabase
+            .from("reservas_citas")
+            .update({ estatus: "cancelada", activo: false })
+            .eq("id", reserva_id);
+          return new Response(JSON.stringify({ exists: false, cancelled: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        console.log(`[verify-event] Event ${google_calendar_event_id} exists, status: ${eventData.status}`);
+        return new Response(JSON.stringify({ exists: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (e: any) {
+        console.error(`[verify-event] Exception: ${e.message}`);
+        return new Response(JSON.stringify({ exists: true, error: e.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // ---- Action: check-availability-by-project ----
     if (body.action === "check-availability-by-project") {
       if (!body.fecha) {
