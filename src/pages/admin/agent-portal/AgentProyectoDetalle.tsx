@@ -2,16 +2,19 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
-import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight } from "lucide-react";
+import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight, HardHat, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { GoogleMapComponent } from "@/components/admin/GoogleMapComponent";
+import { useState } from "react";
 
 const AgentProyectoDetalle = () => {
   const { id } = useParams<{ id: string }>();
   const projectId = parseInt(id || "0");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [selectedImageIdx, setSelectedImageIdx] = useState(0);
 
   // Fetch project data
   const { data: project, isLoading: loadingProject } = useQuery({
@@ -19,7 +22,7 @@ const AgentProyectoDetalle = () => {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("proyectos")
-        .select("id, nombre, descripcion, direccion, url_imagen_portada, fecha_entrega, fecha_inicio_construccion")
+        .select("id, nombre, descripcion, direccion, url_imagen_portada, fecha_entrega, fecha_inicio_construccion, id_estatus_proyecto, latitud, longitud")
         .eq("id", projectId)
         .single();
       if (error) throw error;
@@ -27,6 +30,25 @@ const AgentProyectoDetalle = () => {
     },
     enabled: projectId > 0,
   });
+
+  // Fetch estatus_proyecto for avance calculation
+  const { data: estatusData } = useQuery({
+    queryKey: ["estatus-proyecto-all"],
+    queryFn: async () => {
+      const { data: allEstatus } = await (supabase as any)
+        .from("estatus_proyecto")
+        .select("id, nombre")
+        .eq("activo", true)
+        .order("id");
+      return allEstatus || [];
+    },
+  });
+
+  // Calculate avance from estatus
+  const totalEstatus = estatusData?.length || 13;
+  const idEstatus = project?.id_estatus_proyecto || 0;
+  const avanceObra = totalEstatus > 0 ? Math.round((idEstatus / totalEstatus) * 100) : 0;
+  const nombreEstatus = estatusData?.find((e: any) => e.id === idEstatus)?.nombre || "";
 
   // Fetch amenidades
   const { data: amenidades = [] } = useQuery({
@@ -43,23 +65,23 @@ const AgentProyectoDetalle = () => {
     enabled: projectId > 0,
   });
 
-  // Fetch stats (available/total/min price)
+  // Fetch stats (available/total)
   const { data: stats } = useQuery({
     queryKey: ["agent-proyecto-stats", projectId],
     queryFn: async () => {
       const { data: edificios } = await (supabase as any)
         .from("edificios").select("id").eq("id_proyecto", projectId).eq("activo", true);
-      if (!edificios?.length) return { available: 0, total: 0, avance: 0 };
+      if (!edificios?.length) return { available: 0, total: 0 };
 
       const edIds = edificios.map((e: any) => e.id);
       const { data: edModelos } = await (supabase as any)
         .from("edificios_modelos").select("id").in("id_edificio", edIds);
-      if (!edModelos?.length) return { available: 0, total: 0, avance: 0 };
+      if (!edModelos?.length) return { available: 0, total: 0 };
 
       const emIds = edModelos.map((em: any) => em.id);
       const { data: props } = await (supabase as any)
         .from("propiedades")
-        .select("id, id_estatus_disponibilidad, precio_lista")
+        .select("id, id_estatus_disponibilidad")
         .eq("activo", true).eq("es_aprobado", true)
         .in("id_edificio_modelo", emIds);
 
@@ -68,8 +90,7 @@ const AgentProyectoDetalle = () => {
         total++;
         if (p.id_estatus_disponibilidad === 2) available++;
       });
-      const avance = total > 0 ? Math.round(((total - available) / total) * 100) : 0;
-      return { available, total, avance };
+      return { available, total };
     },
     enabled: projectId > 0,
   });
@@ -106,7 +127,7 @@ const AgentProyectoDetalle = () => {
     enabled: projectId > 0,
   });
 
-  // Fetch galería multimedia
+  // Fetch galería multimedia (images)
   const { data: multimedia = [] } = useQuery({
     queryKey: ["agent-proyecto-multimedia", projectId],
     queryFn: async () => {
@@ -114,20 +135,39 @@ const AgentProyectoDetalle = () => {
         .from("multimedias_proyecto")
         .select("id, url")
         .eq("id_proyecto", projectId)
-        .eq("activo", true);
+        .eq("activo", true)
+        .eq("es_imagen", true);
       if (error) throw error;
       return data || [];
     },
     enabled: projectId > 0,
   });
 
-  // Fetch YouTube videos
-  const { data: videos = [] } = useQuery({
-    queryKey: ["agent-proyecto-videos", projectId],
+  // Fetch most recent YouTube video
+  const { data: latestVideo } = useQuery({
+    queryKey: ["agent-proyecto-latest-video", projectId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("videos_youtube")
         .select("id, link, nombre")
+        .eq("id_proyecto", projectId)
+        .eq("activo", true)
+        .order("fecha_creacion", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: projectId > 0,
+  });
+
+  // Fetch modelos del proyecto
+  const { data: modelos = [] } = useQuery({
+    queryKey: ["agent-proyecto-modelos", projectId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("modelos")
+        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano")
         .eq("id_proyecto", projectId)
         .eq("activo", true);
       if (error) throw error;
@@ -138,7 +178,6 @@ const AgentProyectoDetalle = () => {
 
   const brochure = documentos.find((d: any) => d.id_tipo_documento === 30);
   const fichaTecnica = documentos.find((d: any) => d.id_tipo_documento === 49);
-  const formatCurrency = (v: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(v);
 
   const handleShare = async () => {
     const text = `${project?.nombre}\n${project?.direccion || ''}\nVer más detalles en nuestra plataforma.`;
@@ -192,14 +231,15 @@ const AgentProyectoDetalle = () => {
         </button>
 
         {/* Avance badge */}
-        {stats && (
-          <div className="absolute bottom-16 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-800">
-            🏗 {stats.avance}% avance de obra
+        {avanceObra > 0 && (
+          <div className="absolute bottom-16 left-4 bg-[hsl(var(--agent-primary))] rounded-lg px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
+            <HardHat className="h-3.5 w-3.5 text-white" />
+            <span className="text-xs font-semibold text-white">{avanceObra}% avance de obra</span>
           </div>
         )}
 
         <div className="absolute bottom-0 left-0 right-0 p-4">
-          <h1 className="font-bold text-xl text-white">{project.nombre}</h1>
+          <h1 className="font-bold text-xl text-white leading-tight">{project.nombre}</h1>
           {project.direccion && (
             <p className="text-xs text-white/80 flex items-center gap-1 mt-0.5">
               <MapPin className="h-3 w-3" /> {project.direccion}
@@ -208,10 +248,10 @@ const AgentProyectoDetalle = () => {
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats row — 2 cols only */}
       {stats && (
         <div className="px-4 -mt-2">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 grid grid-cols-3 divide-x divide-gray-100">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 grid grid-cols-2 divide-x divide-gray-100">
             <div className="text-center py-3">
               <p className="text-lg font-bold text-foreground">{stats.available}</p>
               <p className="text-[11px] text-muted-foreground">Disponibles</p>
@@ -219,10 +259,6 @@ const AgentProyectoDetalle = () => {
             <div className="text-center py-3">
               <p className="text-lg font-bold text-foreground">{stats.total}</p>
               <p className="text-[11px] text-muted-foreground">Total unidades</p>
-            </div>
-            <div className="text-center py-3">
-              <p className="text-lg font-bold text-foreground">{stats.avance}%</p>
-              <p className="text-[11px] text-muted-foreground">Avance</p>
             </div>
           </div>
         </div>
@@ -234,9 +270,12 @@ const AgentProyectoDetalle = () => {
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-2">Concepto</h2>
             <p className="text-sm text-foreground leading-relaxed">{project.descripcion}</p>
-            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
               {project.fecha_entrega && (
-                <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Entrega: {new Date(project.fecha_entrega).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}</span>
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[hsl(var(--agent-primary))]" />
+                  Entrega: {new Date(project.fecha_entrega).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                </span>
               )}
             </div>
           </section>
@@ -250,9 +289,11 @@ const AgentProyectoDetalle = () => {
               {amenidades.map((a: any) => (
                 <div key={a.id} className="bg-white rounded-xl border border-gray-100 p-3 text-center">
                   {a.url ? (
-                    <img src={a.url} alt={a.nombre} className="h-7 w-7 mx-auto mb-1.5 object-contain" />
+                    <div className="h-9 w-9 mx-auto mb-1.5 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
+                      <img src={a.url} alt={a.nombre} className="h-5 w-5 object-contain" style={{ filter: 'hue-rotate(90deg) saturate(1.5)' }} />
+                    </div>
                   ) : (
-                    <div className="h-7 w-7 mx-auto mb-1.5 bg-gray-100 rounded-full" />
+                    <div className="h-9 w-9 mx-auto mb-1.5 bg-[hsl(var(--agent-primary))]/10 rounded-full" />
                   )}
                   <p className="text-[11px] text-foreground font-medium leading-tight">{a.nombre}</p>
                 </div>
@@ -262,70 +303,124 @@ const AgentProyectoDetalle = () => {
         )}
 
         {/* Avance de obra */}
-        {stats && (
+        {avanceObra > 0 && (
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Avance de obra</h2>
             <div className="bg-white rounded-xl border border-gray-100 p-4">
               <div className="flex items-baseline justify-between mb-1">
-                <span className="text-2xl font-bold text-foreground">{stats.avance}%</span>
-                <span className="text-[11px] text-muted-foreground">Completado</span>
+                <span className="text-2xl font-bold text-foreground">{avanceObra}%</span>
+                <span className="text-[11px] text-muted-foreground">{nombreEstatus}</span>
               </div>
-              <Progress value={stats.avance} className="h-2 mt-2" />
+              <Progress value={avanceObra} className="h-2 mt-2" />
             </div>
           </section>
         )}
 
-        {/* YouTube videos */}
-        {videos.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">🎥 Video de avance</h2>
-            {videos.map((v: any) => {
-              const embedUrl = getYoutubeEmbedUrl(v.link);
-              if (!embedUrl) return null;
-              return (
-                <div key={v.id} className="rounded-xl overflow-hidden border border-gray-100 mb-3">
-                  <iframe src={embedUrl} className="w-full aspect-video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                </div>
-              );
-            })}
-          </section>
-        )}
+        {/* Video de avance de obra (most recent) */}
+        {latestVideo && (() => {
+          const embedUrl = getYoutubeEmbedUrl(latestVideo.link);
+          if (!embedUrl) return null;
+          return (
+            <section>
+              <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Video de avance</h2>
+              {latestVideo.nombre && <p className="text-sm font-medium text-foreground mb-2">{latestVideo.nombre}</p>}
+              <div className="rounded-xl overflow-hidden border border-gray-100">
+                <iframe src={embedUrl} className="w-full aspect-video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Galería */}
         {multimedia.length > 0 && (
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Galería</h2>
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-              {multimedia.map((m: any) => (
-                <img key={m.id} src={m.url} alt="" className="h-32 w-48 rounded-xl object-cover flex-shrink-0" loading="lazy" />
+            {/* Main image */}
+            <div className="relative rounded-xl overflow-hidden border border-gray-100 mb-2">
+              <img
+                src={multimedia[selectedImageIdx]?.url}
+                alt=""
+                className="w-full aspect-[16/10] object-cover"
+                loading="lazy"
+              />
+              <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-2.5 py-1 flex items-center gap-1 text-xs font-medium text-gray-700">
+                <ImageIcon className="h-3.5 w-3.5" />
+                {selectedImageIdx + 1}/{multimedia.length}
+              </div>
+            </div>
+            {/* Thumbnails */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {multimedia.map((m: any, idx: number) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedImageIdx(idx)}
+                  className={`h-16 w-20 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
+                    idx === selectedImageIdx ? 'border-[hsl(var(--agent-primary))]' : 'border-transparent opacity-70'
+                  }`}
+                >
+                  <img src={m.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                </button>
               ))}
             </div>
           </section>
         )}
 
-        {/* Ubicación + Puntos de interés */}
-        {(project.direccion || puntosInteres.length > 0) && (
+        {/* Ubicación */}
+        {(project.direccion || (project.latitud && project.longitud)) && (
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Ubicación</h2>
+            {project.latitud && project.longitud && (
+              <div className="rounded-xl overflow-hidden border border-gray-100 mb-3">
+                <GoogleMapComponent
+                  onLocationSelect={() => {}}
+                  initialLocation={{ lat: project.latitud, lng: project.longitud }}
+                  readOnly
+                />
+              </div>
+            )}
             {project.direccion && (
-              <p className="text-sm text-foreground mb-3 flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <p className="text-sm text-foreground flex items-start gap-1.5">
+                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                 {project.direccion}
               </p>
             )}
-            {puntosInteres.length > 0 && (
-              <div className="space-y-0">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Puntos de interés</p>
-                {puntosInteres.map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
-                    <span className="text-sm text-foreground">{p.nombre}</span>
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {p.distancia_km < 1 ? `${(p.distancia_km * 1000).toFixed(0)} m` : `${p.distancia_km} km`}
-                    </span>
+          </section>
+        )}
+
+        {/* Puntos de interés */}
+        {puntosInteres.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Puntos de interés</h2>
+            <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100">
+              {puntosInteres.map((p: any) => (
+                <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-foreground">{p.nombre}</span>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {p.distancia_km < 1 ? `${(p.distancia_km * 1000).toFixed(0)} m` : `${p.distancia_km} km`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Modelos */}
+        {modelos.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Modelos</h2>
+            <div className="space-y-2">
+              {modelos.map((m: any) => (
+                <div key={m.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                  <p className="text-sm font-semibold text-foreground">{m.nombre}</p>
+                  {m.descripcion && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{m.descripcion}</p>}
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    {m.numero_recamaras > 0 && <span>{m.numero_recamaras} Rec.</span>}
+                    {m.numero_completo_banos > 0 && <span>{m.numero_completo_banos} Baños</span>}
+                    {m.numero_medio_bano > 0 && <span>{m.numero_medio_bano} ½ Baño</span>}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </section>
         )}
 
@@ -340,7 +435,7 @@ const AgentProyectoDetalle = () => {
                   onClick={() => window.open(brochure.url, '_blank')}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
                       <Download className="h-5 w-5 text-[hsl(var(--agent-primary))]" />
                     </div>
                     <div>
@@ -357,7 +452,7 @@ const AgentProyectoDetalle = () => {
                   onClick={() => window.open(fichaTecnica.url, '_blank')}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
                       <Download className="h-5 w-5 text-[hsl(var(--agent-primary))]" />
                     </div>
                     <div>
@@ -372,16 +467,19 @@ const AgentProyectoDetalle = () => {
           </section>
         )}
 
-        {/* CTA: Ver unidades */}
-        <section className="bg-gray-50 rounded-2xl p-5 text-center">
+        {/* CTA: Generar oferta comercial */}
+        <section className="bg-[hsl(var(--agent-primary))]/10 rounded-2xl p-5 text-center">
           <p className="text-sm font-semibold text-foreground mb-3">¿Tu cliente está interesado en este proyecto?</p>
           <Button
             onClick={() => navigate(`/admin/agent/inventario/proyecto/${projectId}/unidades`)}
             className="w-full bg-[hsl(var(--agent-primary))] hover:bg-[hsl(var(--agent-primary))]/90 text-white rounded-xl h-12 text-sm font-semibold"
           >
-            <ChevronRight className="h-4 w-4 mr-1" />
-            Ver unidades disponibles
+            <Share2 className="h-4 w-4 mr-2" />
+            Generar oferta comercial
           </Button>
+          <p className="text-xs text-muted-foreground mt-3">
+            Las ofertas permiten dar seguimiento formal al interés del cliente.
+          </p>
         </section>
 
         {/* Compartir */}

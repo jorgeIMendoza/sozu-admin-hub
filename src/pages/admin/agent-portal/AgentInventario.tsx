@@ -280,7 +280,7 @@ function ProjectCard({
             className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-medium text-foreground hover:bg-gray-50 transition-colors"
           >
             <Eye className="h-3.5 w-3.5" />
-            Ver proyecto
+            Ver Desarrollo
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setShareOpen(true); }}
