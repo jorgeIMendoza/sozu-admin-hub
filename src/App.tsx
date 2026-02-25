@@ -113,6 +113,7 @@ const AgentInventario = lazyRetry(() => import("./pages/admin/agent-portal/Agent
 const AgentPipeline = lazyRetry(() => import("./pages/admin/agent-portal/AgentPipeline"));
 const AgentComisiones = lazyRetry(() => import("./pages/admin/agent-portal/AgentComisiones"));
 const AgentPerfil = lazyRetry(() => import("./pages/admin/agent-portal/AgentPerfil"));
+const AgentUnidadesProyecto = lazyRetry(() => import("./pages/admin/agent-portal/AgentUnidadesProyecto"));
 
 const Registro = lazyRetry(() => import("./pages/public/Registro"));
 const AgentesLanding = lazyRetry(() => import("./pages/public/AgentesLanding"));
@@ -259,6 +260,7 @@ const App = () => (
                   <Route path="agent/pipeline" element={<AgentPipeline />} />
                   <Route path="agent/comisiones" element={<AgentComisiones />} />
                   <Route path="agent/perfil" element={<AgentPerfil />} />
+                  <Route path="agent/inventario/proyecto/:id/unidades" element={<AgentUnidadesProyecto />} />
                 </Route>
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
