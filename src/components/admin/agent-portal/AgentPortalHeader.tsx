@@ -14,7 +14,7 @@ export const AgentPortalHeader = ({ title, children, showAgentName = false }: Ag
   const personaId = profile?.id_persona;
   const { percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const isVerified = percentage === 100;
-  const nombre = profile?.nombre?.split(" ")[0] || "Agente";
+  const nombreCompleto = profile?.nombre || "Agente";
 
   return (
     <>
@@ -34,7 +34,7 @@ export const AgentPortalHeader = ({ title, children, showAgentName = false }: Ag
         <div className="flex items-center justify-between">
           <div>
             {showAgentName && (
-              <p className="text-sm text-[hsl(var(--agent-text-secondary))]">Hola, {nombre}</p>
+              <p className="text-sm text-[hsl(var(--agent-text-secondary))]">Agente: {nombreCompleto}</p>
             )}
             {title ? (
               <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">{title}</h1>

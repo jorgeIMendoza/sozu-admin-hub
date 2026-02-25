@@ -201,7 +201,7 @@ const AgentPipeline = () => {
 
   return (
     <div className="pb-24">
-      <AgentPortalHeader title="Pipeline" showAgentName>
+      <AgentPortalHeader showAgentName>
         {pipelinePerms.canUpdate && (
           <div className="flex items-center justify-end -mt-2">
             <button

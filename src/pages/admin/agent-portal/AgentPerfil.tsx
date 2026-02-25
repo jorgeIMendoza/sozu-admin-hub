@@ -73,7 +73,7 @@ const AgentPerfil = () => {
 
   return (
     <div className="pb-24">
-      <AgentPortalHeader title="Perfil" />
+      <AgentPortalHeader />
       <div className="p-4 space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
