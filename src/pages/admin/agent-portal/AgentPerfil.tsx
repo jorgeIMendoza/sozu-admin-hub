@@ -7,7 +7,7 @@ import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingSte
 import { Progress } from "@/components/ui/progress";
 import { 
   User, FileText, Receipt, Landmark, GraduationCap, 
-  Check, AlertTriangle, ChevronRight, Shield, Loader2 
+  Check, AlertTriangle, ChevronRight, Shield, Loader2, LogOut 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,7 @@ const ACTIVATION_BLOCKS = [
 ];
 
 const AgentPerfil = () => {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const personaId = profile?.id_persona;
   const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
@@ -250,8 +250,18 @@ const AgentPerfil = () => {
         />
       )}
 
+      <div className="pt-2 pb-1">
+        <button
+          onClick={signOut}
+          className="w-full rounded-xl border border-destructive/20 bg-destructive/5 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Cerrar sesión
+        </button>
+      </div>
+
       {/* Version */}
-      <p className="text-center text-[10px] text-[hsl(var(--agent-muted))] pb-4 mt-6">
+      <p className="text-center text-[10px] text-[hsl(var(--agent-muted))] pb-4 mt-2">
         {APP_VERSION}
       </p>
     </div>

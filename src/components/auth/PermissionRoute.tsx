@@ -24,14 +24,9 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
     return <>{children}</>;
   }
 
-  // Always allow access to agent portal routes (permission is role-based via AdminLayout)
-  if (location.pathname.startsWith('/admin/agent')) {
+  // Allow agent portal routes only for simplified role (Agente Inmobiliario)
+  if (location.pathname.startsWith('/admin/agent') && isSimplifiedRole) {
     return <>{children}</>;
-  }
-
-  // Redirect simplified roles to agent portal if they hit any non-agent admin route
-  if (isSimplifiedRole && !location.pathname.startsWith('/admin/agent')) {
-    return <Navigate to="/admin/agent/inicio" replace />;
   }
 
   if (isLoading || isMenuLoading) {
@@ -53,6 +48,14 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
   // Check if current path is allowed
   const currentPath = location.pathname;
   
+  // On /admin, respect dynamic menu order and send user to first allowed page
+  if (currentPath === '/admin') {
+    const firstAllowedPath = getFirstAllowedPath(menuItems);
+    if (firstAllowedPath && firstAllowedPath !== '/admin') {
+      return <Navigate to={firstAllowedPath} replace />;
+    }
+  }
+
   // Handle nested routes (e.g., /admin/cuentas-cobranza/:id/detalle)
   const basePath = getBasePath(currentPath);
   

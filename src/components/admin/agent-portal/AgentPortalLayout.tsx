@@ -1,10 +1,9 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, Building2, BarChart3, DollarSign, User, LucideIcon, LogOut } from "lucide-react";
+import { Home, Building2, BarChart3, DollarSign, User, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
-import { useAuth } from "@/contexts/AuthContext";
 
 const AGENT_MENU_ID = 16;
 
@@ -28,7 +27,6 @@ export const AgentPortalLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { permissions, isLoading: permLoading } = useAgentPortalPermissions();
-  const { signOut, profile } = useAuth();
 
   const { data: allTabs = FALLBACK_TABS } = useQuery({
     queryKey: ['agent-portal-tabs'],
@@ -63,19 +61,6 @@ export const AgentPortalLayout = () => {
 
   return (
     <div className="agent-portal min-h-screen flex flex-col" style={{ background: "hsl(var(--agent-bg))" }}>
-      {/* Top bar with logout */}
-      <header className="flex items-center justify-between px-4 pt-3 pb-1">
-        <span className="text-sm font-medium text-[hsl(var(--agent-text-secondary))]">
-          {profile?.nombre || ""}
-        </span>
-        <button
-          onClick={() => signOut()}
-          className="flex items-center gap-1.5 text-xs text-destructive hover:text-destructive/80 transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          Salir
-        </button>
-      </header>
       <main className="flex-1 pb-20 overflow-y-auto">
         <Outlet context={{ permissions }} />
       </main>

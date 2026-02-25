@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet, useLocation, Navigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
 import { cn } from "@/lib/utils";
@@ -22,11 +22,6 @@ export const AdminLayout = () => {
       setTheme("light");
     }
   }, [isSimplifiedRole, setTheme]);
-
-  // Redirect simplified roles to agent portal if they hit /admin directly
-  if (isSimplifiedRole && location.pathname === "/admin") {
-    return <Navigate to="/admin/agent/inicio" replace />;
-  }
 
   // Use AgentPortalLayout for agent portal routes
   if (isSimplifiedRole && location.pathname.startsWith("/admin/agent")) {
