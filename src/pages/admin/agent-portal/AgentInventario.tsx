@@ -208,7 +208,7 @@ function ProjectCard({ proyecto, formatCurrency }: { proyecto: ProyectoCard; for
           <Badge variant="outline" className={cn(
             "text-[10px]",
             isAgotado
-              ? "border-destructive/30 text-destructive"
+              ? "border-muted-foreground/30 text-muted-foreground"
               : "border-[hsl(var(--agent-primary))]/30 text-[hsl(var(--agent-primary))]"
           )}>
             {isAgotado ? "Agotado" : `${proyecto.unidades_disponibles} disponibles`}
@@ -224,7 +224,7 @@ function ProjectCard({ proyecto, formatCurrency }: { proyecto: ProyectoCard; for
           <div
             className={cn(
               "h-full rounded-full transition-all",
-              isAgotado ? "bg-destructive" : "bg-[hsl(var(--agent-primary))]"
+              "bg-[hsl(var(--agent-primary))]"
             )}
             style={{ width: `${proyecto.avance}%` }}
           />
