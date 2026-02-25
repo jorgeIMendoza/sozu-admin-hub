@@ -128,8 +128,8 @@ const AgentInventario = () => {
   });
 
   const filtered = useMemo(() => {
-    if (!search) return proyectos;
-    const s = search.toLowerCase();
+    const s = search.trim().toLowerCase();
+    if (!s) return proyectos;
     return proyectos.filter(p =>
       p.nombre.toLowerCase().includes(s) || p.ubicacion.toLowerCase().includes(s)
     );
