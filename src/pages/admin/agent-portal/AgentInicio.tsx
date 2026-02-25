@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,22 +125,25 @@ const AgentInicio = () => {
   };
 
   return (
-    <div className="p-4 space-y-5 pb-24">
-      {/* Greeting */}
-      <div>
-        <p className="text-sm text-[hsl(var(--agent-primary))]">
-          {greeting}
-        </p>
-        <h1 className="text-2xl font-bold text-[hsl(var(--agent-text))]">
-          {nombre}
-        </h1>
-        {attentionItems.length > 0 && (
-          <p className="text-xs text-[hsl(var(--agent-amber))] flex items-center gap-1 mt-1">
-            <AlertCircle className="h-3.5 w-3.5" />
-            Hoy tienes {attentionItems.length} acciones pendientes
+    <div className="pb-24">
+      <AgentPortalHeader>
+        <div>
+          <p className="text-sm text-[hsl(var(--agent-primary))]">
+            {greeting}
           </p>
-        )}
-      </div>
+          <h1 className="text-2xl font-bold text-[hsl(var(--agent-text))]">
+            {nombre}
+          </h1>
+          {attentionItems.length > 0 && (
+            <p className="text-xs text-[hsl(var(--agent-amber))] flex items-center gap-1 mt-1">
+              <AlertCircle className="h-3.5 w-3.5" />
+              Hoy tienes {attentionItems.length} acciones pendientes
+            </p>
+          )}
+        </div>
+      </AgentPortalHeader>
+
+      <div className="p-4 space-y-5">
 
       {/* Onboarding Progress Banner */}
       {percentage < 100 && (
@@ -273,6 +277,7 @@ const AgentInicio = () => {
           <AgendarCitaShowroomDialog open={agendarCitaOpen} onOpenChange={setAgendarCitaOpen} />
         </>
       )}
+      </div>
     </div>
   );
 };

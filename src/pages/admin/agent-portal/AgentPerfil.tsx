@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { APP_VERSION } from "@/lib/config";
 import { useAgentOnboardingStatus, type OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
@@ -71,7 +72,9 @@ const AgentPerfil = () => {
   }
 
   return (
-    <div className="p-4 space-y-5 pb-24">
+    <div className="pb-24">
+      <AgentPortalHeader title="Perfil" />
+      <div className="p-4 space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-14 w-14 rounded-full bg-[hsl(var(--agent-primary))] flex items-center justify-center text-white font-bold text-lg shrink-0">
@@ -85,12 +88,6 @@ const AgentPerfil = () => {
             {profile?.rol_nombre || "Agente Inmobiliario"}
           </p>
         </div>
-        {percentage === 100 && (
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200">
-            <Shield className="h-3.5 w-3.5 text-emerald-600" />
-            <span className="text-[11px] font-semibold text-emerald-700">Verificado</span>
-          </div>
-        )}
       </div>
 
       {/* Progress Card */}
@@ -264,6 +261,7 @@ const AgentPerfil = () => {
       <p className="text-center text-[10px] text-[hsl(var(--agent-muted))] pb-4 mt-2">
         {APP_VERSION}
       </p>
+      </div>
     </div>
   );
 };

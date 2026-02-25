@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -200,11 +201,9 @@ const AgentPipeline = () => {
 
   return (
     <div className="pb-24">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">Pipeline</h1>
-          {pipelinePerms.canUpdate && (
+      <AgentPortalHeader title="Pipeline">
+        {pipelinePerms.canUpdate && (
+          <div className="flex items-center justify-end -mt-2">
             <button
               onClick={() => navigate('/admin/agent/inventario')}
               className="flex items-center gap-1 text-xs font-medium text-[hsl(var(--agent-primary))] active:opacity-70"
@@ -212,14 +211,14 @@ const AgentPipeline = () => {
               <Plus className="h-4 w-4" />
               Nueva oferta
             </button>
-          )}
-        </div>
+          </div>
+        )}
         {!isLoading && (
-          <p className="text-xs text-[hsl(var(--agent-text-secondary))] mt-1">
+          <p className="text-xs text-[hsl(var(--agent-text-secondary))]">
             {ofertas.length} ofertas · {formatCurrency(totalMonto)} en proceso
           </p>
         )}
-      </div>
+      </AgentPortalHeader>
 
       {/* Stage Filters */}
       <ScrollArea className="w-full px-4 pb-3">

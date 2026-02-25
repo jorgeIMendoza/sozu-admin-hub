@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
@@ -146,9 +147,9 @@ const AgentComisiones = () => {
   // Blocked state
   if (!onboardingLoading && !canReceivePayments) {
     return (
-      <div className="p-4 pb-24 space-y-5">
-        <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">Comisiones</h1>
-
+      <div className="pb-24">
+        <AgentPortalHeader title="Comisiones" />
+        <div className="p-4 space-y-5">
         <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center">
@@ -176,15 +177,13 @@ const AgentComisiones = () => {
           </button>
         </div>
       </div>
+    </div>
     );
   }
 
   return (
     <div className="pb-24">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3">
-        <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">Comisiones</h1>
-      </div>
+      <AgentPortalHeader title="Comisiones" />
 
       {/* Summary cards */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-4">
