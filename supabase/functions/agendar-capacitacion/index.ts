@@ -314,7 +314,7 @@ async function patchEventWithAttendee(
   token: string, calendarId: string, eventId: string, 
   agentEmail: string, agentName: string,
   existingAttendees: any[], existingDescription: string,
-  correos_enterado: string[]
+  correos_enterado: string[], notas?: string
 ): Promise<any> {
   // Build new attendee list: existing + agent + correos_enterado
   const allAttendees = [...(existingAttendees || [])];
@@ -334,6 +334,21 @@ async function patchEventWithAttendee(
   // Build updated description with attendee list
   const attendeeSection = `\n\n--- Asistentes ---\n${agentName ? `• ${agentName} (${agentEmail})` : `• ${agentEmail}`}`;
   let newDescription = existingDescription || "";
+
+  // Add or update notas section
+  if (notas) {
+    if (newDescription.includes("Notas:")) {
+      newDescription = newDescription.replace(/Notas:.*(?:\n|$)/, `Notas: ${notas}\n`);
+    } else {
+      // Insert notas before attendee section if exists, otherwise append
+      const idx = newDescription.indexOf("--- Asistentes ---");
+      if (idx > -1) {
+        newDescription = newDescription.slice(0, idx) + `Notas: ${notas}\n\n` + newDescription.slice(idx);
+      } else {
+        newDescription += `\n\nNotas: ${notas}`;
+      }
+    }
+  }
   
   // Check if there's already an attendee section
   if (newDescription.includes("--- Asistentes ---")) {
@@ -1321,7 +1336,7 @@ Deno.serve(async (req) => {
         agentEmailFinal, agentName,
         existingInstance.attendees || [],
         existingInstance.description || scheduleDescInv || "",
-        scheduleCorrEnt
+        scheduleCorrEnt, notas
       );
     } else {
       // No recurring event found, create a standalone event
