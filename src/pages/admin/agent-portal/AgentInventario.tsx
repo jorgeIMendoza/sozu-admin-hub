@@ -43,36 +43,40 @@ const AgentInventario = () => {
       const projIds = projs.map((p: any) => p.id);
       if (projIds.length === 0) return [];
 
-      // Fetch property counts per project (available + total)
+      // Top-down: projects -> edificios -> edificios_modelos -> propiedades
+      const { data: edificios } = await (supabase as any)
+        .from('edificios')
+        .select('id, id_proyecto')
+        .in('id_proyecto', projIds)
+        .eq('activo', true);
+
+      if (!edificios || edificios.length === 0) return [];
+
+      const edificioIds = edificios.map((e: any) => e.id);
+      const edToProj = new Map<number, number>();
+      edificios.forEach((e: any) => edToProj.set(e.id, e.id_proyecto));
+
+      const { data: edModelos } = await (supabase as any)
+        .from('edificios_modelos')
+        .select('id, id_edificio')
+        .in('id_edificio', edificioIds);
+
+      if (!edModelos || edModelos.length === 0) return [];
+
+      const edModeloIds = edModelos.map((em: any) => em.id);
+      const edModeloToProj = new Map<number, number>();
+      edModelos.forEach((em: any) => {
+        const projId = edToProj.get(em.id_edificio);
+        if (projId) edModeloToProj.set(em.id, projId);
+      });
+
+      // Fetch properties scoped to these edificios_modelos
       const { data: propiedades } = await (supabase as any)
         .from('propiedades')
         .select('id, id_estatus_disponibilidad, precio_lista, id_edificio_modelo')
         .eq('activo', true)
-        .eq('es_aprobado', true);
-
-      // Map edificio_modelo -> proyecto
-      const edModeloIds = [...new Set((propiedades || []).map((p: any) => p.id_edificio_modelo).filter(Boolean))];
-      let edModeloToProj = new Map<number, number>();
-
-      if (edModeloIds.length > 0) {
-        const { data: edModelos } = await (supabase as any)
-          .from('edificios_modelos')
-          .select('id, id_edificio')
-          .in('id', edModeloIds);
-        const edificioIds = [...new Set((edModelos || []).map((em: any) => em.id_edificio).filter(Boolean))];
-        if (edificioIds.length > 0) {
-          const { data: edificios } = await (supabase as any)
-            .from('edificios')
-            .select('id, id_proyecto')
-            .in('id', edificioIds);
-          const edToProj = new Map<number, number>();
-          (edificios || []).forEach((e: any) => edToProj.set(e.id, e.id_proyecto));
-          (edModelos || []).forEach((em: any) => {
-            const projId = edToProj.get(em.id_edificio);
-            if (projId) edModeloToProj.set(em.id, projId);
-          });
-        }
-      }
+        .eq('es_aprobado', true)
+        .in('id_edificio_modelo', edModeloIds);
 
       // Count per project
       const projStats = new Map<number, { available: number; total: number; minPrice: number }>();
@@ -83,7 +87,7 @@ const AgentInventario = () => {
         stats.total++;
         if (p.id_estatus_disponibilidad === 2) { // Disponible
           stats.available++;
-          if (p.precio_lista && p.precio_lista < stats.minPrice) {
+          if (p.precio_lista && p.precio_lista > 0 && p.precio_lista < stats.minPrice) {
             stats.minPrice = p.precio_lista;
           }
         }
