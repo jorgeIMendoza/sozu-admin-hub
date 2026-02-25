@@ -1293,16 +1293,21 @@ Deno.serve(async (req) => {
         if (oldEvent.ok) {
           const oldEvData = await oldEvent.json();
           let oldDesc = oldEvData.description || "";
-          // Remove the agent line from description
-          if (agentEmailFinal && oldDesc.includes(agentEmailFinal)) {
-            const lines = oldDesc.split("\n").filter((l: string) => !l.includes(agentEmailFinal));
-            const newDesc = lines.join("\n").replace(/\n+$/, "");
-            await fetch(
-              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(scheduleCalendarId)}/events/${encodeURIComponent(existingEventId)}`,
-              { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ description: newDesc }) },
-            );
-            console.log(`[schedule] Removed agent from old event ${existingEventId} description`);
-          }
+          // Clear notas, asistentes, and agent info from old event description
+          let cleanDesc = oldDesc
+            .replace(/\n*Notas:.*(?:\n|$)/g, "")
+            .replace(/\n*--- Asistentes ---[\s\S]*/g, "")
+            .replace(/\n*--- Enterados ---[\s\S]*/g, "")
+            .replace(/\n+$/, "");
+          // Also remove attendees list from the event
+          const oldAttendees = (oldEvData.attendees || []).filter(
+            (a: any) => a.email !== agentEmailFinal
+          );
+          await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(scheduleCalendarId)}/events/${encodeURIComponent(existingEventId)}`,
+            { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ description: cleanDesc, attendees: oldAttendees }) },
+          );
+          console.log(`[schedule] Cleaned old event ${existingEventId} description and attendees`);
         }
       } catch (e: any) {
         console.error(`[schedule] Error cleaning old event: ${e.message}`);
