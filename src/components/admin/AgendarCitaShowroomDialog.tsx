@@ -4,11 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CalendarDays, Plus, Clock, Building2 } from "lucide-react";
+import { Loader2, CalendarDays, Plus, Clock, AlertCircle, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, addDays, isBefore, startOfDay, parse } from "date-fns";
+import { format, addDays, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +22,7 @@ interface AgendarCitaShowroomDialogProps {
 }
 
 export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaShowroomDialogProps) {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const queryClient = useQueryClient();
   const { track } = useCtaTracker();
   const hasTrackedFieldFill = useRef(false);
@@ -67,7 +67,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
           nombre: er.personas.nombre_legal,
           email: er.personas.email,
           proyecto_id: er.id_proyecto,
-          proyecto_nombre: er.proyectos?.nombre || "Sin proyecto",
+          proyecto_nombre: er.proyectos?.nombre || "Sin desarrollo",
         }));
     },
     enabled: open && !!profile?.id_persona,
@@ -79,13 +79,32 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
 
   const proyectoId = selectedProspectoData?.proyecto_id;
 
+  // Fetch existing appointment for the selected prospect
+  const { data: existingCita, isLoading: citaLoading } = useQuery({
+    queryKey: ["existing-cita-prospecto", selectedProspecto],
+    queryFn: async () => {
+      if (!selectedProspecto) return null;
+      const { data } = await supabase
+        .from("reservas_citas")
+        .select("id, fecha, hora_inicio, hora_fin, estatus, notas, id_configuracion_cita")
+        .eq("id_persona_prospecto", parseInt(selectedProspecto))
+        .eq("id_tipo_cita", 2)
+        .eq("activo", true)
+        .in("estatus", ["programada"])
+        .order("fecha", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data || null;
+    },
+    enabled: !!selectedProspecto,
+  });
+
   // Fetch availability configs for Visita Showroom (tipo_cita=2) matching the prospect's project
   const { data: availabilityData, isLoading: availLoading } = useQuery({
     queryKey: ["showroom-availability", proyectoId],
     queryFn: async () => {
       if (!proyectoId) return { configs: [], horarios: [] };
 
-      // Get configs linked to this project
       const { data: projectLinks } = await supabase
         .from("configuracion_citas_proyectos")
         .select("id_configuracion_cita")
@@ -95,7 +114,6 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
 
       const configIds = projectLinks.map((p: any) => p.id_configuracion_cita);
 
-      // Get active configs for Visita Showroom
       const { data: configs } = await supabase
         .from("configuracion_citas_usuarios")
         .select("id, nombre, duracion_minutos, fecha_fin_recurrencia, id_usuario_email")
@@ -105,14 +123,12 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
 
       if (!configs || configs.length === 0) return { configs: [], horarios: [] };
 
-      // Get horarios for these configs
       const { data: horarios } = await supabase
         .from("configuracion_citas_horarios")
         .select("id_configuracion_cita, dia_semana, hora")
         .eq("activo", true)
         .in("id_configuracion_cita", configs.map((c: any) => c.id));
 
-      // Get person name for the config owner
       const emails = [...new Set(configs.map((c: any) => c.id_usuario_email))];
       const { data: personas } = await supabase
         .from("personas")
@@ -152,23 +168,20 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
     if (!availabilityData?.configs?.length || !availabilityData?.horarios?.length) return [];
 
     const today = startOfDay(new Date());
-    const dates: { dateStr: string; label: string; slots: { hour: number; configId: number; responsable: string; nombre: string }[] }[] = [];
     const dateMap = new Map<string, { hour: number; configId: number; responsable: string; nombre: string }[]>();
 
     for (const config of availabilityData.configs) {
       const endDate = config.fecha_fin_recurrencia ? new Date(config.fecha_fin_recurrencia + "T23:59:59") : addDays(today, 60);
       const configHorarios = availabilityData.horarios.filter((h: any) => h.id_configuracion_cita === config.id);
 
-      // Generate dates for next 60 days or until fecha_fin_recurrencia
       for (let d = addDays(today, 1); isBefore(d, endDate) && isBefore(d, addDays(today, 61)); d = addDays(d, 1)) {
-        const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon...
+        const dayOfWeek = d.getDay();
         const matchingHorarios = configHorarios.filter((h: any) => h.dia_semana === dayOfWeek);
 
         if (matchingHorarios.length > 0) {
           const dateStr = format(d, "yyyy-MM-dd");
           if (!dateMap.has(dateStr)) dateMap.set(dateStr, []);
           for (const h of matchingHorarios) {
-            // Check if already booked
             const isBooked = existingReservations.some(
               (r: any) => r.fecha === dateStr && r.hora_inicio === `${String(h.hora).padStart(2, "0")}:00:00` && r.id_configuracion_cita === config.id
             );
@@ -185,7 +198,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
       }
     }
 
-    // Convert map to sorted array, filtering out dates with no available slots
+    const dates: { dateStr: string; label: string; slots: { hour: number; configId: number; responsable: string; nombre: string }[] }[] = [];
     for (const [dateStr, slots] of dateMap.entries()) {
       if (slots.length > 0) {
         dates.push({
@@ -211,32 +224,29 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
 
       const hour = parseInt(selectedHour);
       const horaInicio = `${String(hour).padStart(2, "0")}:00`;
-      const config = availabilityData?.configs?.find((c: any) => c.id === selectedConfigId);
-      const duracion = config?.duracion_minutos || 60;
-      const endHour = hour + Math.floor(duracion / 60);
-      const endMin = duracion % 60;
-      const horaFin = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
 
-      const { error } = await supabase
-        .from("reservas_citas")
-        .insert([{
-          id_tipo_cita: 2,
-          id_configuracion_cita: selectedConfigId,
-          id_persona_prospecto: parseInt(selectedProspecto),
-          id_proyecto: selectedProspectoData.proyecto_id,
-          id_agente: profile?.id_persona,
+      // Call edge function for calendar integration
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("agendar-capacitacion", {
+        body: {
           fecha: selectedDate,
           hora_inicio: horaInicio,
-          hora_fin: horaFin,
+          id_persona: parseInt(selectedProspecto), // prospect is the "person" for attendee
+          agent_email: user?.email || profile?.email,
+          config_id: selectedConfigId,
+          id_persona_prospecto: parseInt(selectedProspecto),
+          id_agente: profile?.id_persona,
+          id_proyecto: selectedProspectoData.proyecto_id,
           notas: notas || null,
-          estatus: "programada",
-        }]);
+        },
+      });
 
-      if (error) throw error;
+      if (fnError) throw fnError;
+      if (fnData?.error) throw new Error(fnData.error === "no_disponible" ? fnData.message : fnData.error);
     },
     onSuccess: () => {
       toast.success("Cita al showroom agendada exitosamente");
       queryClient.invalidateQueries({ queryKey: ["existing-reservations-showroom"] });
+      queryClient.invalidateQueries({ queryKey: ["existing-cita-prospecto"] });
       handleClose();
     },
     onError: (error: any) => {
@@ -273,6 +283,8 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
     setSelectedConfigId(configId);
     trackFieldFill();
   };
+
+  const isRescheduling = !!existingCita;
 
   return (
     <>
@@ -315,7 +327,6 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                   </SelectContent>
                 </Select>
               )}
-              {/* Crear prospecto link */}
               <button
                 type="button"
                 onClick={() => setAddProspectoOpen(true)}
@@ -326,11 +337,18 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
               </button>
             </div>
 
-            {/* Show project info */}
-            {selectedProspectoData && (
-              <div className="bg-muted/50 rounded-lg px-3 py-2 text-sm">
-                <span className="text-muted-foreground">Proyecto de interés: </span>
-                <span className="font-medium">{selectedProspectoData.proyecto_nombre}</span>
+            {/* Existing appointment banner */}
+            {selectedProspecto && existingCita && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 space-y-1">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-blue-800">
+                  <CalendarCheck className="h-4 w-4" />
+                  Cita existente
+                </div>
+                <p className="text-xs text-blue-700">
+                  {format(new Date(existingCita.fecha + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es })} a las {existingCita.hora_inicio?.slice(0, 5)}
+                  {existingCita.notas && <span className="block mt-0.5 text-blue-600">Notas: {existingCita.notas}</span>}
+                </p>
+                <p className="text-[10px] text-blue-600">Selecciona nueva fecha y horario para reagendar.</p>
               </div>
             )}
 
@@ -346,7 +364,13 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : availableDates.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">No hay fechas disponibles para este proyecto.</p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                    <p className="text-sm text-amber-800 flex items-center gap-1.5">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      No hay fechas disponibles para este desarrollo.
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">Contacta a tu Asesor Sozu para más información.</p>
+                  </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {availableDates.map((d) => (
@@ -377,7 +401,6 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                   Horarios disponibles — {format(new Date(selectedDate + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es })}
                 </Label>
                 <div className="space-y-3">
-                  {/* Group slots by config */}
                   {(() => {
                     const grouped = new Map<number, typeof selectedDateData.slots>();
                     for (const slot of selectedDateData.slots) {
@@ -433,14 +456,13 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                 disabled={createMutation.isPending || !selectedProspecto || !selectedDate || !selectedHour || !selectedConfigId}
                 className="bg-emerald-500 hover:bg-emerald-600 text-white"
               >
-                {createMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Agendando...</> : "Agendar Cita"}
+                {createMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Agendando...</> : isRescheduling ? "Reagendar Cita" : "Agendar Cita"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Nested dialog for creating a new prospect */}
       <AddProspectoFloatingDialog
         open={addProspectoOpen}
         onOpenChange={(v) => {

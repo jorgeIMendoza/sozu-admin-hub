@@ -1172,7 +1172,7 @@ Deno.serve(async (req) => {
     }
 
     // ---- Action: schedule (default) ----
-    const { fecha, hora_inicio, id_persona, agent_email, direccion_showroom, latitud_showroom, longitud_showroom, config_id } = body;
+    const { fecha, hora_inicio, id_persona, agent_email, direccion_showroom, latitud_showroom, longitud_showroom, config_id, id_persona_prospecto, id_agente, id_proyecto, notas } = body;
 
     if (!fecha || !hora_inicio || !id_persona) {
       return new Response(JSON.stringify({ error: "Faltan campos obligatorios: fecha, hora_inicio, id_persona" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -1228,11 +1228,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { data: oldCitas } = await supabase
+    // For showroom appointments, look up existing citas by prospect + tipo_cita
+    let oldCitaQuery = supabase
       .from("reservas_citas")
       .select("id, google_calendar_event_id")
-      .eq("id_persona", id_persona)
       .eq("activo", true);
+    
+    if (id_persona_prospecto) {
+      oldCitaQuery = oldCitaQuery.eq("id_persona_prospecto", id_persona_prospecto).eq("id_tipo_cita", 2);
+    } else {
+      oldCitaQuery = oldCitaQuery.eq("id_persona", id_persona);
+    }
+    
+    const { data: oldCitas } = await oldCitaQuery;
 
     const existingEventId = oldCitas?.[0]?.google_calendar_event_id || undefined;
     const existingCitaId = oldCitas?.[0]?.id;
@@ -1334,9 +1342,10 @@ Deno.serve(async (req) => {
         if (!bookingAttendees.some(a => a.email === cc)) bookingAttendees.push({ email: cc });
       }
       
+      const notasSection = notas ? `\n\nNotas: ${notas}` : "";
       const desc = scheduleDescInv 
-        ? `${scheduleDescInv}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`
-        : `Capacitación agendada para: ${agentEmailFinal}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`;
+        ? `${scheduleDescInv}${notasSection}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`
+        : `Cita agendada para: ${agentEmailFinal}${notasSection}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`;
       
       calendarEvent = await createCalendarEvent(token, scheduleCalendarId, fecha, hora_inicio, horaFin, summary, agentEmailFinal, bookingAttendees, desc);
     }
@@ -1345,33 +1354,45 @@ Deno.serve(async (req) => {
     const meetLink = calendarEvent.hangoutLink || null;
 
     if (existingCitaId) {
+      const updatePayload: any = { 
+        fecha, hora_inicio, hora_fin: horaFin, 
+        google_calendar_event_id: calendarEvent.id, 
+        google_meet_link: meetLink, 
+        estatus: "programada",
+        id_estatus_cita: 1,
+        id_configuracion_cita: config_id || null,
+      };
+      if (notas !== undefined) updatePayload.notas = notas || null;
+      if (id_persona_prospecto) updatePayload.id_persona_prospecto = id_persona_prospecto;
+      if (id_agente) updatePayload.id_agente = id_agente;
+      if (id_proyecto) updatePayload.id_proyecto = id_proyecto;
+
       const { data: updatedCita, error: updateError } = await supabase
         .from("reservas_citas")
-        .update({ 
-          fecha, hora_inicio, hora_fin: horaFin, 
-          google_calendar_event_id: calendarEvent.id, 
-          google_meet_link: meetLink, 
-          estatus: "programada",
-          id_estatus_cita: 1,
-          id_configuracion_cita: config_id || null,
-        })
+        .update(updatePayload)
         .eq("id", existingCitaId)
         .select()
         .single();
       if (updateError) console.error("DB update error:", updateError);
       resultCita = updatedCita;
     } else {
+      const insertPayload: any = { 
+        id_tipo_cita: tipoCitaId || 1,
+        id_persona, fecha, hora_inicio, hora_fin: horaFin, 
+        ubicacion: "Presencial", estatus: "programada", 
+        id_estatus_cita: 1,
+        google_calendar_event_id: calendarEvent.id, 
+        google_meet_link: meetLink,
+        id_configuracion_cita: config_id || null,
+      };
+      if (notas) insertPayload.notas = notas;
+      if (id_persona_prospecto) insertPayload.id_persona_prospecto = id_persona_prospecto;
+      if (id_agente) insertPayload.id_agente = id_agente;
+      if (id_proyecto) insertPayload.id_proyecto = id_proyecto;
+
       const { data: newCita, error: insertError } = await supabase
         .from("reservas_citas")
-        .insert({ 
-          id_tipo_cita: tipoCitaId || 1,
-          id_persona, fecha, hora_inicio, hora_fin: horaFin, 
-          ubicacion: "Presencial", estatus: "programada", 
-          id_estatus_cita: 1,
-          google_calendar_event_id: calendarEvent.id, 
-          google_meet_link: meetLink,
-          id_configuracion_cita: config_id || null,
-        })
+        .insert(insertPayload)
         .select()
         .single();
       if (insertError) console.error("DB insert error:", insertError);

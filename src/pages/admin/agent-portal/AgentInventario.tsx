@@ -128,7 +128,7 @@ const AgentInventario = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--agent-muted))]" />
           <Input
-            placeholder="Buscar proyecto..."
+            placeholder="Buscar desarrollo..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-9 h-10 rounded-xl bg-white border-gray-200"
@@ -144,7 +144,7 @@ const AgentInventario = () => {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-sm text-[hsl(var(--agent-text-secondary))]">
-            No se encontraron proyectos
+            No se encontraron desarrollos
           </div>
         ) : (
           filtered.map(proyecto => (

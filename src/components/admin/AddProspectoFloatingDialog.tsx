@@ -396,13 +396,31 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label>RFC</Label>
-                <Input placeholder="Ingresa el RFC (Ej: ABC123456DEF)" value={rfc} onChange={(e) => setRfc(e.target.value.toUpperCase())} />
+                <Input 
+                  placeholder="Ej: ABC123456DEF" 
+                  value={rfc} 
+                  onChange={(e) => setRfc(e.target.value.toUpperCase())} 
+                  maxLength={13}
+                  className={rfc && !/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc) ? "border-destructive" : ""}
+                />
+                {rfc && !/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc) && (
+                  <p className="text-[10px] text-destructive">Formato inválido (12-13 caracteres)</p>
+                )}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label>CURP</Label>
-                <Input placeholder="Ingresa la CURP (Ej: ABCD123456HMNEFD01)" value={curp} onChange={(e) => setCurp(e.target.value.toUpperCase())} />
+                <Input 
+                  placeholder="Ej: ABCD123456HMNEFD01" 
+                  value={curp} 
+                  onChange={(e) => setCurp(e.target.value.toUpperCase())} 
+                  maxLength={18}
+                  className={curp && !/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/.test(curp) ? "border-destructive" : ""}
+                />
+                {curp && !/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/.test(curp) && (
+                  <p className="text-[10px] text-destructive">Formato inválido (18 caracteres)</p>
+                )}
               </div>
             </div>
           </div>
