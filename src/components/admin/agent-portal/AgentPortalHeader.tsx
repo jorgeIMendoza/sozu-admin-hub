@@ -6,17 +6,18 @@ import { CheckCircle2 } from "lucide-react";
 interface AgentPortalHeaderProps {
   title?: string;
   children?: React.ReactNode;
+  showAgentName?: boolean;
 }
 
-export const AgentPortalHeader = ({ title, children }: AgentPortalHeaderProps) => {
+export const AgentPortalHeader = ({ title, children, showAgentName = false }: AgentPortalHeaderProps) => {
   const { profile } = useAuth();
   const personaId = profile?.id_persona;
   const { percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const isVerified = percentage === 100;
+  const nombre = profile?.nombre?.split(" ")[0] || "Agente";
 
   return (
     <>
-      {/* Floating "No verificado" badge - always visible */}
       {!isLoading && !isVerified && (
         <div className="fixed top-3 right-4 z-50">
           <Badge
@@ -31,9 +32,14 @@ export const AgentPortalHeader = ({ title, children }: AgentPortalHeaderProps) =
 
       <div className="sticky top-0 z-10 bg-[hsl(var(--agent-bg))] px-4 pt-4 pb-3 space-y-3">
         <div className="flex items-center justify-between">
-          {title ? (
-            <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">{title}</h1>
-          ) : <div />}
+          <div>
+            {showAgentName && (
+              <p className="text-sm text-[hsl(var(--agent-text-secondary))]">Hola, {nombre}</p>
+            )}
+            {title ? (
+              <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">{title}</h1>
+            ) : <div />}
+          </div>
           {!isLoading && isVerified && (
             <Badge
               variant="outline"

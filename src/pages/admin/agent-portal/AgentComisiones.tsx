@@ -148,7 +148,7 @@ const AgentComisiones = () => {
   if (!onboardingLoading && !canReceivePayments) {
     return (
       <div className="pb-24">
-        <AgentPortalHeader title="Comisiones" />
+        <AgentPortalHeader title="Comisiones" showAgentName />
         <div className="p-4 space-y-5">
         <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-5 space-y-4">
           <div className="flex items-center gap-3">
@@ -183,7 +183,7 @@ const AgentComisiones = () => {
 
   return (
     <div className="pb-24">
-      <AgentPortalHeader title="Comisiones" />
+      <AgentPortalHeader title="Comisiones" showAgentName />
 
       {/* Summary cards */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-4">
