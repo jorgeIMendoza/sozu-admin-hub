@@ -21,6 +21,7 @@ interface ProyectoCard {
   unidades_disponibles: number;
   total_unidades: number;
   avance: number;
+  id_estatus_proyecto: number | null;
 }
 
 const AgentInventario = () => {
@@ -29,12 +30,25 @@ const AgentInventario = () => {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
+  // Fetch estatus_proyecto for avance calculation
+  const { data: estatusData } = useQuery({
+    queryKey: ["estatus-proyecto-all"],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("estatus_proyecto")
+        .select("id, nombre")
+        .eq("activo", true)
+        .order("id");
+      return data || [];
+    },
+  });
+
   const { data: proyectos = [], isLoading: loadingData } = useQuery({
     queryKey: ['agent-inventario-proyectos', hasUnrestrictedAccess ? 'all' : accessibleProjectIds],
     queryFn: async (): Promise<ProyectoCard[]> => {
       let query = (supabase as any)
         .from('proyectos')
-        .select('id, nombre, direccion, url_imagen_portada')
+        .select('id, nombre, direccion, url_imagen_portada, id_estatus_proyecto')
         .eq('activo', true);
 
       if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
@@ -47,7 +61,6 @@ const AgentInventario = () => {
       const projIds = projs.map((p: any) => p.id);
       if (projIds.length === 0) return [];
 
-      // Top-down: projects -> edificios -> edificios_modelos -> propiedades
       const { data: edificios } = await (supabase as any)
         .from('edificios')
         .select('id, id_proyecto')
@@ -106,7 +119,8 @@ const AgentInventario = () => {
           precio_desde: stats.minPrice === Infinity ? null : stats.minPrice,
           unidades_disponibles: stats.available,
           total_unidades: stats.total,
-          avance: stats.total > 0 ? Math.round(((stats.total - stats.available) / stats.total) * 100) : 0,
+          avance: 0, // will be calculated with estatus_proyecto
+          id_estatus_proyecto: p.id_estatus_proyecto || null,
         };
       }).filter((p: ProyectoCard) => p.total_unidades > 0);
     },
@@ -114,13 +128,24 @@ const AgentInventario = () => {
     staleTime: 60_000,
   });
 
+  // Calculate avance for each project using estatus_proyecto
+  const proyectosConAvance = useMemo(() => {
+    const totalEstatus = estatusData?.length || 13;
+    return proyectos.map(p => ({
+      ...p,
+      avance: p.id_estatus_proyecto && totalEstatus > 0
+        ? Math.round((p.id_estatus_proyecto / totalEstatus) * 100)
+        : 0,
+    }));
+  }, [proyectos, estatusData]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    if (!s) return proyectos;
-    return proyectos.filter(p =>
+    if (!s) return proyectosConAvance;
+    return proyectosConAvance.filter(p =>
       p.nombre.toLowerCase().includes(s)
     );
-  }, [proyectos, search]);
+  }, [proyectosConAvance, search]);
 
   const isLoading = loadingAccess || loadingData;
 
