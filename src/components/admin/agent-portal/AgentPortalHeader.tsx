@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, User } from "lucide-react";
 
 interface AgentPortalHeaderProps {
   title?: string;
@@ -15,6 +15,12 @@ export const AgentPortalHeader = ({ title, children, showAgentName = false }: Ag
   const { percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const isVerified = percentage === 100;
   const nombreCompleto = profile?.nombre || "Agente";
+  const initials = nombreCompleto
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase())
+    .join("");
 
   return (
     <>
@@ -32,13 +38,24 @@ export const AgentPortalHeader = ({ title, children, showAgentName = false }: Ag
 
       <div className="sticky top-0 z-10 bg-[hsl(var(--agent-bg))] px-4 pt-4 pb-3 space-y-3">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-2.5">
             {showAgentName && (
-              <p className="text-sm text-[hsl(var(--agent-text-secondary))]">Agente: {nombreCompleto}</p>
+              <div className="h-9 w-9 rounded-full bg-[hsl(var(--agent-primary))] flex items-center justify-center shrink-0">
+                {initials ? (
+                  <span className="text-sm font-bold text-white leading-none">{initials}</span>
+                ) : (
+                  <User className="h-4 w-4 text-white" />
+                )}
+              </div>
             )}
-            {title ? (
-              <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">{title}</h1>
-            ) : <div />}
+            <div>
+              {showAgentName && (
+                <p className="text-sm font-medium text-[hsl(var(--agent-text))]">{nombreCompleto}</p>
+              )}
+              {title ? (
+                <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">{title}</h1>
+              ) : <div />}
+            </div>
           </div>
           {!isLoading && isVerified && (
             <Badge
