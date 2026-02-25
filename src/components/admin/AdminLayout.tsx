@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "next-themes";
 import { AgentPortalLayout } from "./agent-portal/AgentPortalLayout";
 
-const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria"];
+const SIMPLIFIED_ROLES = ["Agente Inmobiliario"];
 
 export const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
