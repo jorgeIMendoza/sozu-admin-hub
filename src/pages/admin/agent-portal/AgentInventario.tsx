@@ -49,14 +49,14 @@ const AgentInventario = () => {
       // Fetch brochures
       const { data: brochures } = await (supabase as any)
         .from('documentos')
-        .select('id_proyecto, documento_url')
+        .select('id_proyecto, url')
         .eq('id_tipo_documento', 30)
         .eq('activo', true)
         .in('id_proyecto', projIds);
 
       const brochureMap = new Map<number, string>();
       (brochures || []).forEach((b: any) => {
-        if (b.id_proyecto && b.documento_url) brochureMap.set(b.id_proyecto, b.documento_url);
+        if (b.id_proyecto && b.url) brochureMap.set(b.id_proyecto, b.url);
       });
 
       // Top-down: projects -> edificios -> edificios_modelos -> propiedades
