@@ -1199,7 +1199,7 @@ Deno.serve(async (req) => {
     if (config_id) {
       const { data: cfgData } = await supabase
         .from("configuracion_citas_usuarios")
-        .select("id_usuario_email, calendario_email, duracion_minutos, correos_enterado, descripcion_invitacion, max_invitados, nombre")
+        .select("id_usuario_email, calendario_email, duracion_minutos, correos_enterado, descripcion_invitacion, max_invitados, nombre, round_robin_enterados, round_robin_index")
         .eq("id", config_id)
         .eq("activo", true)
         .maybeSingle();
@@ -1211,6 +1211,20 @@ Deno.serve(async (req) => {
         scheduleCorrEnt = cfgData.correos_enterado || [];
         scheduleDescInv = cfgData.descripcion_invitacion || "";
         scheduleCitaNombre = cfgData.nombre || "";
+
+        // Round Robin: pick only one correo and advance the index
+        if (cfgData.round_robin_enterados && scheduleCorrEnt.length >= 2) {
+          const rrIndex = (cfgData.round_robin_index || 0) % scheduleCorrEnt.length;
+          const selectedCorreo = scheduleCorrEnt[rrIndex];
+          console.log(`[schedule] Round Robin: picking correo ${rrIndex} = ${selectedCorreo} from ${scheduleCorrEnt.length} enterados`);
+          scheduleCorrEnt = [selectedCorreo];
+          // Advance the index for next time
+          const nextIndex = (rrIndex + 1) % cfgData.correos_enterado.length;
+          await supabase
+            .from("configuracion_citas_usuarios")
+            .update({ round_robin_index: nextIndex } as any)
+            .eq("id", config_id);
+        }
       }
     } else if (userCitaConfig) {
       scheduleCorrEnt = userCitaConfig.correos_enterado || [];

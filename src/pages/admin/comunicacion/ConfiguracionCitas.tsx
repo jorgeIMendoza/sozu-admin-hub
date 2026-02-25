@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { format, addMonths } from "date-fns";
 import { es } from "date-fns/locale";
@@ -65,6 +66,7 @@ export default function ConfiguracionCitas() {
   const [maxInvitados, setMaxInvitados] = useState<number>(1);
   const [selectedProyectoIds, setSelectedProyectoIds] = useState<number[]>([]);
   const [correosEnterado, setCorreosEnterado] = useState<string[]>([]);
+  const [roundRobinEnterados, setRoundRobinEnterados] = useState(false);
   const [descripcionInvitacion, setDescripcionInvitacion] = useState<string>("");
   const [nuevoCorreo, setNuevoCorreo] = useState("");
   const [userSelectorOpen, setUserSelectorOpen] = useState(false);
@@ -281,6 +283,7 @@ export default function ConfiguracionCitas() {
       setCalendarioEmail(selectedConfig.calendario_email || "");
       setMaxInvitados(selectedConfig.max_invitados || 1);
       setCorreosEnterado(selectedConfig.correos_enterado || []);
+      setRoundRobinEnterados((selectedConfig as any).round_robin_enterados || false);
       setDescripcionInvitacion(selectedConfig.descripcion_invitacion || "");
       setFechaFinRecurrencia(
         (selectedConfig as any).fecha_fin_recurrencia
@@ -292,6 +295,7 @@ export default function ConfiguracionCitas() {
       setCalendarioEmail("");
       setMaxInvitados(1);
       setCorreosEnterado([]);
+      setRoundRobinEnterados(false);
       setDescripcionInvitacion("");
       setFechaFinRecurrencia(addMonths(new Date(), 3));
     }
@@ -432,6 +436,7 @@ export default function ConfiguracionCitas() {
           calendario_email: calendarioEmail || null,
           max_invitados: maxInvitados,
           correos_enterado: correosEnterado,
+          round_robin_enterados: roundRobinEnterados,
           descripcion_invitacion: descripcionInvitacion || null,
           fecha_fin_recurrencia: fechaFinRecurrencia
             ? `${fechaFinRecurrencia.getFullYear()}-${String(fechaFinRecurrencia.getMonth() + 1).padStart(2, "0")}-${String(fechaFinRecurrencia.getDate()).padStart(2, "0")}`
@@ -517,6 +522,7 @@ export default function ConfiguracionCitas() {
           slots_config: slotsConfig,
           fecha_fin: fechaFinStr,
           correos_enterado: correosEnterado,
+          round_robin_enterados: roundRobinEnterados,
           descripcion_invitacion: descripcionInvitacion,
           nombre_cita: selectedConfig.nombre,
         },
@@ -877,7 +883,22 @@ export default function ConfiguracionCitas() {
                                     <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => removeCorreo(email)} />
                                   </Badge>
                                 ))}
+                          {correosEnterado.length >= 2 && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <Checkbox
+                                  id="round-robin"
+                                  checked={roundRobinEnterados}
+                                  onCheckedChange={(checked) => { setRoundRobinEnterados(!!checked); setHasChanges(true); }}
+                                />
+                                <Label htmlFor="round-robin" className="text-sm font-normal cursor-pointer">
+                                  Round Robin
+                                </Label>
+                                <p className="text-xs text-muted-foreground ml-1">
+                                  Rotar correos: cada evento tendrá solo uno de los enterados, alternando en orden
+                                </p>
                               </div>
+                            )}
+                          </div>
                             )}
                           </div>
 

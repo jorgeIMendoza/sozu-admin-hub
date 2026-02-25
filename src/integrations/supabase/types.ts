@@ -2800,6 +2800,8 @@ export type Database = {
           id_usuario_email: string
           max_invitados: number
           nombre: string
+          round_robin_enterados: boolean
+          round_robin_index: number
         }
         Insert: {
           activo?: boolean
@@ -2815,6 +2817,8 @@ export type Database = {
           id_usuario_email: string
           max_invitados?: number
           nombre: string
+          round_robin_enterados?: boolean
+          round_robin_index?: number
         }
         Update: {
           activo?: boolean
@@ -2830,6 +2834,8 @@ export type Database = {
           id_usuario_email?: string
           max_invitados?: number
           nombre?: string
+          round_robin_enterados?: boolean
+          round_robin_index?: number
         }
         Relationships: [
           {
