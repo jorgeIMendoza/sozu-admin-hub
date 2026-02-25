@@ -5,7 +5,7 @@ import { useDynamicMenus } from '@/hooks/useDynamicMenus';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria"];
+const SIMPLIFIED_ROLES = ["Agente Inmobiliario"];
 
 interface PermissionRouteProps {
   children: ReactNode;
