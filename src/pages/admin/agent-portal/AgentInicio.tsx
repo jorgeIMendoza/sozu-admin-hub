@@ -203,15 +203,6 @@ const AgentInicio = () => {
       {inicioPerms.canCreate && (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => setAgendarCitaOpen(true)}
-            className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
-          >
-            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-              <CalendarPlus className="h-5 w-5 text-blue-600" />
-            </div>
-            <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Agendar cita</span>
-          </button>
-          <button
             onClick={() => setAddProspectoOpen(true)}
             className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
           >
@@ -219,6 +210,15 @@ const AgentInicio = () => {
               <UserPlus className="h-5 w-5 text-purple-600" />
             </div>
             <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Nuevo prospecto</span>
+          </button>
+          <button
+            onClick={() => setAgendarCitaOpen(true)}
+            className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
+          >
+            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <CalendarPlus className="h-5 w-5 text-blue-600" />
+            </div>
+            <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Agendar cita</span>
           </button>
         </div>
       )}
