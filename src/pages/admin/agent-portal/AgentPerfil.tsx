@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { APP_VERSION } from "@/lib/config";
 import { useAgentOnboardingStatus, type OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
+import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -45,6 +46,8 @@ const AgentPerfil = () => {
   const { profile } = useAuth();
   const personaId = profile?.id_persona;
   const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
+  const { permissions } = useAgentPortalPermissions();
+  const perfilPerms = permissions['/admin/agent/perfil'];
   const [activeStep, setActiveStep] = useState<OnboardingStep['id'] | null>(null);
 
   const getBlockStatus = (relatedSteps: readonly string[]) => {
@@ -141,7 +144,8 @@ const AgentPerfil = () => {
             return (
               <button
                 key={block.stepId}
-                onClick={() => setActiveStep(block.stepId)}
+                onClick={() => perfilPerms.canUpdate && setActiveStep(block.stepId)}
+                disabled={!perfilPerms.canUpdate}
                 className={cn(
                   "w-full rounded-xl bg-white border p-4 flex items-center gap-3 transition-all active:scale-[0.98]",
                   status === 'complete' 
@@ -195,7 +199,7 @@ const AgentPerfil = () => {
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center flex-1 last:flex-none">
                 <button
-                  onClick={() => setActiveStep(step.id)}
+                  onClick={() => perfilPerms.canUpdate && setActiveStep(step.id)}
                   className="flex flex-col items-center gap-1 group"
                   title={step.label}
                 >

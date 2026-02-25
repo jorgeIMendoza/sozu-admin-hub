@@ -3,6 +3,7 @@ import { Home, Building2, BarChart3, DollarSign, User, LucideIcon } from "lucide
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 
 const AGENT_MENU_ID = 16;
 
@@ -25,8 +26,9 @@ const FALLBACK_TABS = [
 export const AgentPortalLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { permissions, isLoading: permLoading } = useAgentPortalPermissions();
 
-  const { data: tabs = FALLBACK_TABS } = useQuery({
+  const { data: allTabs = FALLBACK_TABS } = useQuery({
     queryKey: ['agent-portal-tabs'],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
@@ -47,12 +49,20 @@ export const AgentPortalLayout = () => {
     staleTime: 5 * 60_000,
   });
 
+  // Filtrar tabs por permiso de lectura
+  const tabs = permLoading
+    ? allTabs
+    : allTabs.filter((tab) => {
+        const perm = permissions[tab.path as keyof typeof permissions];
+        return perm?.canRead !== false;
+      });
+
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
     <div className="agent-portal min-h-screen flex flex-col" style={{ background: "hsl(var(--agent-bg))" }}>
       <main className="flex-1 pb-20 overflow-y-auto">
-        <Outlet />
+        <Outlet context={{ permissions }} />
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">

@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
+import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { Progress } from "@/components/ui/progress";
 import { 
   CalendarPlus, UserPlus, TrendingUp, DollarSign, 
@@ -20,6 +21,8 @@ const AgentInicio = () => {
   const personaId = profile?.id_persona;
   const agentEmail = user?.email || profile?.email;
   const { percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
+  const { permissions } = useAgentPortalPermissions();
+  const inicioPerms = permissions['/admin/agent/inicio'];
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
 
@@ -140,9 +143,7 @@ const AgentInicio = () => {
 
       {/* Onboarding Progress Banner */}
       {percentage < 100 && (
-        <div
-          className="w-full rounded-xl bg-white border border-gray-100 shadow-sm p-4 space-y-2.5"
-        >
+        <div className="w-full rounded-xl bg-white border border-gray-100 shadow-sm p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-[hsl(var(--agent-text))]">
               Activa tu perfil profesional
@@ -198,27 +199,29 @@ const AgentInicio = () => {
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={() => setAgendarCitaOpen(true)}
-          className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
-        >
-          <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-            <CalendarPlus className="h-5 w-5 text-blue-600" />
-          </div>
-          <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Agendar cita</span>
-        </button>
-        <button
-          onClick={() => setAddProspectoOpen(true)}
-          className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
-        >
-          <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
-            <UserPlus className="h-5 w-5 text-purple-600" />
-          </div>
-          <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Nuevo prospecto</span>
-        </button>
-      </div>
+      {/* Quick Actions — solo si tiene permiso de crear */}
+      {inicioPerms.canCreate && (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setAgendarCitaOpen(true)}
+            className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
+          >
+            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <CalendarPlus className="h-5 w-5 text-blue-600" />
+            </div>
+            <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Agendar cita</span>
+          </button>
+          <button
+            onClick={() => setAddProspectoOpen(true)}
+            className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
+          >
+            <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <UserPlus className="h-5 w-5 text-purple-600" />
+            </div>
+            <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Nuevo prospecto</span>
+          </button>
+        </div>
+      )}
 
       {/* Metrics */}
       <div className="space-y-2">
@@ -264,8 +267,12 @@ const AgentInicio = () => {
       </div>
 
       {/* Dialogs */}
-      <AddProspectoFloatingDialog open={addProspectoOpen} onOpenChange={setAddProspectoOpen} />
-      <AgendarCitaShowroomDialog open={agendarCitaOpen} onOpenChange={setAgendarCitaOpen} />
+      {inicioPerms.canCreate && (
+        <>
+          <AddProspectoFloatingDialog open={addProspectoOpen} onOpenChange={setAddProspectoOpen} />
+          <AgendarCitaShowroomDialog open={agendarCitaOpen} onOpenChange={setAgendarCitaOpen} />
+        </>
+      )}
     </div>
   );
 };

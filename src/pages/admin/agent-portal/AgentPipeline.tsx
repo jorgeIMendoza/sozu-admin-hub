@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Loader2, Plus, User, Building2, DollarSign, Clock, ChevronRight } from "lucide-react";
@@ -51,6 +52,8 @@ const AgentPipeline = () => {
   const navigate = useNavigate();
   const agentEmail = user?.email || profile?.email;
   const [activeStage, setActiveStage] = useState<string>('all');
+  const { permissions } = useAgentPortalPermissions();
+  const pipelinePerms = permissions['/admin/agent/pipeline'];
 
   const { data: ofertas = [], isLoading } = useQuery({
     queryKey: ['agent-pipeline', agentEmail],
@@ -201,13 +204,15 @@ const AgentPipeline = () => {
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">Pipeline</h1>
-          <button
-            onClick={() => navigate('/admin/agent/inventario')}
-            className="flex items-center gap-1 text-xs font-medium text-[hsl(var(--agent-primary))] active:opacity-70"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva oferta
-          </button>
+          {pipelinePerms.canUpdate && (
+            <button
+              onClick={() => navigate('/admin/agent/inventario')}
+              className="flex items-center gap-1 text-xs font-medium text-[hsl(var(--agent-primary))] active:opacity-70"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva oferta
+            </button>
+          )}
         </div>
         {!isLoading && (
           <p className="text-xs text-[hsl(var(--agent-text-secondary))] mt-1">
