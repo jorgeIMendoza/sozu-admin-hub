@@ -17,9 +17,9 @@ export const AgentPortalHeader = ({ title, children }: AgentPortalHeaderProps) =
   return (
     <div className="sticky top-0 z-10 bg-[hsl(var(--agent-bg))] px-4 pt-4 pb-3 space-y-3">
       <div className="flex items-center justify-between">
-        {title && (
+        {title ? (
           <h1 className="text-xl font-bold text-[hsl(var(--agent-text))]">{title}</h1>
-        )}
+        ) : <div />}
         {!isLoading && (
           <Badge
             variant="outline"
