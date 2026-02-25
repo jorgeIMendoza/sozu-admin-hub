@@ -2,12 +2,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
-import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight, HardHat, Image as ImageIcon } from "lucide-react";
+import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight, HardHat, Image as ImageIcon, Maximize2, BedDouble, Bath, Mail, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleMapComponent } from "@/components/admin/GoogleMapComponent";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const AgentProyectoDetalle = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +16,29 @@ const AgentProyectoDetalle = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const publicUrl = `https://www.sozu.com/desarrollos/${projectId}`;
+
+  const handleShareMethod = (method: string) => {
+    const name = project?.nombre || "";
+    switch (method) {
+      case "whatsapp":
+        window.open(`https://wa.me/?text=${encodeURIComponent(`${name}\n${publicUrl}`)}`, "_blank");
+        break;
+      case "facebook":
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicUrl)}`, "_blank");
+        break;
+      case "email":
+        window.open(`mailto:?subject=${encodeURIComponent(name)}&body=${encodeURIComponent(`${name}\n${project?.direccion || ''}\n${publicUrl}`)}`, "_blank");
+        break;
+      case "copy":
+        navigator.clipboard.writeText(publicUrl);
+        toast({ title: "Copiado", description: "Link copiado al portapapeles." });
+        break;
+    }
+    setShareOpen(false);
+  };
 
   // Fetch project data
   const { data: project, isLoading: loadingProject } = useQuery({
@@ -161,17 +185,63 @@ const AgentProyectoDetalle = () => {
     enabled: projectId > 0,
   });
 
-  // Fetch modelos del proyecto
+  // Fetch modelos del proyecto with m2 and price
   const { data: modelos = [] } = useQuery({
     queryKey: ["agent-proyecto-modelos", projectId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("modelos")
-        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano")
-        .eq("id_proyecto", projectId)
-        .eq("activo", true);
-      if (error) throw error;
-      return data || [];
+      // Get edificios for this project
+      const { data: edificios } = await (supabase as any)
+        .from("edificios").select("id").eq("id_proyecto", projectId).eq("activo", true);
+      if (!edificios?.length) return [];
+
+      const edIds = edificios.map((e: any) => e.id);
+
+      // Get edificios_modelos with modelo info
+      const { data: edModelos } = await (supabase as any)
+        .from("edificios_modelos")
+        .select("id, id_modelo, id_edificio, modelos(id, nombre, numero_recamaras, numero_completo_banos, numero_medio_bano)")
+        .in("id_edificio", edIds);
+
+      if (!edModelos?.length) return [];
+
+      // Get min price and m2 per modelo from propiedades
+      const emIds = edModelos.map((em: any) => em.id);
+      const { data: props } = await (supabase as any)
+        .from("propiedades")
+        .select("id, precio_lista, m2_construccion, id_edificio_modelo, id_estatus_disponibilidad")
+        .eq("activo", true)
+        .eq("es_aprobado", true)
+        .in("id_edificio_modelo", emIds);
+
+      // Group by modelo
+      const modeloMap = new Map<number, { modelo: any; minPrice: number; m2: number; emIds: number[] }>();
+      edModelos.forEach((em: any) => {
+        if (!em.modelos) return;
+        const mid = em.modelos.id;
+        if (!modeloMap.has(mid)) {
+          modeloMap.set(mid, { modelo: em.modelos, minPrice: Infinity, m2: 0, emIds: [] });
+        }
+        modeloMap.get(mid)!.emIds.push(em.id);
+      });
+
+      (props || []).forEach((p: any) => {
+        const em = edModelos.find((e: any) => e.id === p.id_edificio_modelo);
+        if (!em?.modelos) return;
+        const entry = modeloMap.get(em.modelos.id);
+        if (!entry) return;
+        if (p.id_estatus_disponibilidad === 2 && p.precio_lista > 0 && p.precio_lista < entry.minPrice) {
+          entry.minPrice = p.precio_lista;
+        }
+        if (p.m2_construccion > 0 && (entry.m2 === 0 || p.m2_construccion < entry.m2)) {
+          entry.m2 = p.m2_construccion;
+        }
+      });
+
+      return Array.from(modeloMap.values()).map(v => ({
+        ...v.modelo,
+        minPrice: v.minPrice === Infinity ? null : v.minPrice,
+        m2: v.m2 || null,
+      }));
     },
     enabled: projectId > 0,
   });
@@ -179,20 +249,13 @@ const AgentProyectoDetalle = () => {
   const brochure = documentos.find((d: any) => d.id_tipo_documento === 30);
   const fichaTecnica = documentos.find((d: any) => d.id_tipo_documento === 49);
 
-  const handleShare = async () => {
-    const text = `${project?.nombre}\n${project?.direccion || ''}\nVer más detalles en nuestra plataforma.`;
-    if (navigator.share) {
-      try { await navigator.share({ title: project?.nombre, text }); } catch {}
-    } else {
-      await navigator.clipboard.writeText(text);
-      toast({ title: "Copiado", description: "Información copiada al portapapeles." });
-    }
-  };
-
   const getYoutubeEmbedUrl = (url: string) => {
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^&?]+)/);
     return match ? `https://www.youtube.com/embed/${match[1]}` : null;
   };
+
+  const formatCurrency = (v: number) =>
+    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(v);
 
   if (loadingProject) {
     return (
@@ -230,9 +293,9 @@ const AgentProyectoDetalle = () => {
           <ArrowLeft className="h-5 w-5 text-gray-700" />
         </button>
 
-        {/* Avance badge */}
+        {/* Avance badge — positioned above project name with spacing */}
         {avanceObra > 0 && (
-          <div className="absolute bottom-16 left-4 bg-[hsl(var(--agent-primary))] rounded-lg px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
+          <div className="absolute bottom-20 left-4 bg-[hsl(var(--agent-primary))] rounded-lg px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
             <HardHat className="h-3.5 w-3.5 text-white" />
             <span className="text-xs font-semibold text-white">{avanceObra}% avance de obra</span>
           </div>
@@ -241,14 +304,14 @@ const AgentProyectoDetalle = () => {
         <div className="absolute bottom-0 left-0 right-0 p-4">
           <h1 className="font-bold text-xl text-white leading-tight">{project.nombre}</h1>
           {project.direccion && (
-            <p className="text-xs text-white/80 flex items-center gap-1 mt-0.5">
-              <MapPin className="h-3 w-3" /> {project.direccion}
+            <p className="text-xs text-white/80 flex items-center gap-1 mt-1">
+              <MapPin className="h-3 w-3 flex-shrink-0" /> <span className="line-clamp-2">{project.direccion}</span>
             </p>
           )}
         </div>
       </div>
 
-      {/* Stats row — 2 cols only */}
+      {/* Stats row */}
       {stats && (
         <div className="px-4 -mt-2">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 grid grid-cols-2 divide-x divide-gray-100">
@@ -268,15 +331,24 @@ const AgentProyectoDetalle = () => {
         {/* Concepto */}
         {project.descripcion && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-2">Concepto</h2>
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-2">Concepto</h2>
             <p className="text-sm text-foreground leading-relaxed">{project.descripcion}</p>
-            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
-              {project.fecha_entrega && (
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-[hsl(var(--agent-primary))]" />
-                  Entrega: {new Date(project.fecha_entrega).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
-                </span>
-              )}
+          </section>
+        )}
+
+        {/* Fecha de entrega */}
+        {project.fecha_entrega && (
+          <section>
+            <div className="flex items-center gap-2 text-sm text-foreground">
+              <div className="h-8 w-8 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
+                <Calendar className="h-4 w-4 text-[hsl(var(--agent-primary))]" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Fecha de entrega</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {new Date(project.fecha_entrega).toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
             </div>
           </section>
         )}
@@ -284,17 +356,17 @@ const AgentProyectoDetalle = () => {
         {/* Amenidades */}
         {amenidades.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Amenidades</h2>
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Amenidades</h2>
             <div className="grid grid-cols-3 gap-2">
               {amenidades.map((a: any) => (
-                <div key={a.id} className="bg-white rounded-xl border border-gray-100 p-3 text-center">
-                  {a.url ? (
-                    <div className="h-9 w-9 mx-auto mb-1.5 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
-                      <img src={a.url} alt={a.nombre} className="h-5 w-5 object-contain" style={{ filter: 'hue-rotate(90deg) saturate(1.5)' }} />
-                    </div>
-                  ) : (
-                    <div className="h-9 w-9 mx-auto mb-1.5 bg-[hsl(var(--agent-primary))]/10 rounded-full" />
-                  )}
+                <div key={a.id} className="bg-white rounded-xl border border-gray-100 p-3 text-center shadow-sm">
+                  <div className="h-10 w-10 mx-auto mb-1.5 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
+                    {a.url ? (
+                      <img src={a.url} alt={a.nombre} className="h-5 w-5 object-contain" />
+                    ) : (
+                      <Building2 className="h-4 w-4 text-[hsl(var(--agent-primary))]" />
+                    )}
+                  </div>
                   <p className="text-[11px] text-foreground font-medium leading-tight">{a.nombre}</p>
                 </div>
               ))}
@@ -305,7 +377,7 @@ const AgentProyectoDetalle = () => {
         {/* Avance de obra */}
         {avanceObra > 0 && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Avance de obra</h2>
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Avance de obra</h2>
             <div className="bg-white rounded-xl border border-gray-100 p-4">
               <div className="flex items-baseline justify-between mb-1">
                 <span className="text-2xl font-bold text-foreground">{avanceObra}%</span>
@@ -322,7 +394,7 @@ const AgentProyectoDetalle = () => {
           if (!embedUrl) return null;
           return (
             <section>
-              <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Video de avance</h2>
+              <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Video de avance</h2>
               {latestVideo.nombre && <p className="text-sm font-medium text-foreground mb-2">{latestVideo.nombre}</p>}
               <div className="rounded-xl overflow-hidden border border-gray-100">
                 <iframe src={embedUrl} className="w-full aspect-video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
@@ -334,8 +406,7 @@ const AgentProyectoDetalle = () => {
         {/* Galería */}
         {multimedia.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Galería</h2>
-            {/* Main image */}
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Galería</h2>
             <div className="relative rounded-xl overflow-hidden border border-gray-100 mb-2">
               <img
                 src={multimedia[selectedImageIdx]?.url}
@@ -348,7 +419,6 @@ const AgentProyectoDetalle = () => {
                 {selectedImageIdx + 1}/{multimedia.length}
               </div>
             </div>
-            {/* Thumbnails */}
             <div className="flex gap-2 overflow-x-auto pb-1">
               {multimedia.map((m: any, idx: number) => (
                 <button
@@ -368,7 +438,7 @@ const AgentProyectoDetalle = () => {
         {/* Ubicación */}
         {(project.direccion || (project.latitud && project.longitud)) && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Ubicación</h2>
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Ubicación</h2>
             {project.latitud && project.longitud && (
               <div className="rounded-xl overflow-hidden border border-gray-100 mb-3">
                 <GoogleMapComponent
@@ -380,7 +450,7 @@ const AgentProyectoDetalle = () => {
             )}
             {project.direccion && (
               <p className="text-sm text-foreground flex items-start gap-1.5">
-                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <MapPin className="h-4 w-4 text-[hsl(var(--agent-primary))] flex-shrink-0 mt-0.5" />
                 {project.direccion}
               </p>
             )}
@@ -390,7 +460,7 @@ const AgentProyectoDetalle = () => {
         {/* Puntos de interés */}
         {puntosInteres.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Puntos de interés</h2>
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Puntos de interés</h2>
             <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100">
               {puntosInteres.map((p: any) => (
                 <div key={p.id} className="flex items-center justify-between px-4 py-3">
@@ -407,16 +477,49 @@ const AgentProyectoDetalle = () => {
         {/* Modelos */}
         {modelos.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Modelos</h2>
-            <div className="space-y-2">
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Modelos</h2>
+            <div className="space-y-3">
               {modelos.map((m: any) => (
-                <div key={m.id} className="bg-white rounded-xl border border-gray-100 p-4">
-                  <p className="text-sm font-semibold text-foreground">{m.nombre}</p>
-                  {m.descripcion && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{m.descripcion}</p>}
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    {m.numero_recamaras > 0 && <span>{m.numero_recamaras} Rec.</span>}
-                    {m.numero_completo_banos > 0 && <span>{m.numero_completo_banos} Baños</span>}
-                    {m.numero_medio_bano > 0 && <span>{m.numero_medio_bano} ½ Baño</span>}
+                <div key={m.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-base font-bold text-foreground">{m.nombre}</p>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        {m.m2 && (
+                          <span className="flex items-center gap-1">
+                            <Maximize2 className="h-3 w-3" />
+                            {m.m2} m²
+                          </span>
+                        )}
+                        {m.numero_recamaras > 0 && (
+                          <span className="flex items-center gap-1">
+                            <BedDouble className="h-3 w-3" />
+                            {m.numero_recamaras} rec
+                          </span>
+                        )}
+                        {m.numero_completo_banos > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Bath className="h-3 w-3" />
+                            {m.numero_completo_banos} baños
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {m.minPrice && (
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <p className="text-[10px] text-muted-foreground">Desde</p>
+                        <p className="text-base font-bold text-foreground italic">{formatCurrency(m.minPrice)}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3">
+                    <button
+                      onClick={() => navigate(`/admin/agent/inventario/proyecto/${projectId}/unidades?modelo=${m.id}`)}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors"
+                    >
+                      Ver unidades
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -427,7 +530,7 @@ const AgentProyectoDetalle = () => {
         {/* Material comercial */}
         {(brochure || fichaTecnica) && (
           <section>
-            <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Material comercial</h2>
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Material comercial</h2>
             <div className="space-y-2">
               {brochure && (
                 <div
@@ -443,7 +546,7 @@ const AgentProyectoDetalle = () => {
                       <p className="text-[11px] text-muted-foreground">PDF · Presentación del proyecto</p>
                     </div>
                   </div>
-                  <Share2 className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               )}
               {fichaTecnica && (
@@ -460,7 +563,7 @@ const AgentProyectoDetalle = () => {
                       <p className="text-[11px] text-muted-foreground">PDF · Especificaciones</p>
                     </div>
                   </div>
-                  <Share2 className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               )}
             </div>
@@ -482,14 +585,41 @@ const AgentProyectoDetalle = () => {
           </p>
         </section>
 
-        {/* Compartir */}
+        {/* Compartir proyecto — same modal as inventory card */}
         <div className="flex justify-center pb-4">
-          <Button variant="outline" onClick={handleShare} className="rounded-xl">
+          <Button variant="outline" onClick={() => setShareOpen(true)} className="rounded-xl">
             <Share2 className="h-4 w-4 mr-2" />
             Compartir proyecto
           </Button>
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Compartir — {project.nombre}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Button variant="outline" className="gap-2 justify-start" onClick={() => handleShareMethod("whatsapp")}>
+              <svg className="h-5 w-5 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              WhatsApp
+            </Button>
+            <Button variant="outline" className="gap-2 justify-start" onClick={() => handleShareMethod("facebook")}>
+              <svg className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              Facebook
+            </Button>
+            <Button variant="outline" className="gap-2 justify-start" onClick={() => handleShareMethod("email")}>
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              Correo
+            </Button>
+            <Button variant="outline" className="gap-2 justify-start" onClick={() => handleShareMethod("copy")}>
+              <Copy className="h-5 w-5 text-muted-foreground" />
+              Copiar link
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
