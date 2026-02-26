@@ -1,179 +1,139 @@
 
 
-## Rediseno del Portal de Agentes e Inmobiliarias con Bottom Tabs
+# Portal Agente: Permisos, Logs de Actividad y Mediciones CTA
 
-### Objetivo
-Reemplazar completamente la experiencia actual de los roles "Agente Inmobiliario" (3) e "Inmobiliaria" (4) con una nueva interfaz mobile-first basada en el mockup de https://sozu-agente-ventas.lovable.app/, incluyendo navegacion inferior con 5 pestanas: Inicio, Inventario, Pipeline, Comisiones y Perfil.
+## Resumen
 
-### Paleta de colores del mockup
-- **Verde oscuro (CTA principal)**: `#2D5A3D` (botones solidos como "Completar perfil profesional")
-- **Dorado/Amber (alertas y badges)**: `#F59E0B` / `#FEF3C7` (badges de oferta, alertas de atencion)
-- **Fondo**: `#FAFAFA` (gris muy claro)
-- **Tarjetas**: `#FFFFFF` con bordes suaves `border-gray-100`
-- **Texto principal**: `#1A1A1A`
-- **Texto secundario**: `#6B7280`
-- **Verde metrica**: `#0D7C5F` (tarjeta de "Comision pendiente")
-- **Borde lateral Pipeline**: Colores por etapa (gris, amarillo, verde, azul, etc.)
+Se realizaran 3 mejoras transversales a las 5 vistas del Portal Agente (Inicio, Inventario, Pipeline, Comisiones, Perfil) y se reconfigurara la pagina Mediciones CTA para soportar ambos contextos.
 
 ---
 
-### Estructura de archivos
+## 1. Inventario completo de CTAs por vista
 
-#### Archivos nuevos a crear
+### Inicio (`AgentInicio`)
+| CTA | Permiso actual | Permiso correcto | Log actividad | CTA Tracker |
+|-----|---------------|-------------------|---------------|-------------|
+| Nuevo prospecto | canCreate | OK | Falta | Falta |
+| Agendar cita | canCreate | OK | Falta | Falta |
+| Completar ahora (ir a perfil) | Ninguno | canRead (lectura) | Falta | Falta |
+| Click item atencion | Ninguno | canRead | Falta | Falta |
 
-1. **`src/components/admin/agent-portal/AgentPortalLayout.tsx`**
-   - Layout principal con bottom tab navigation
-   - 5 iconos: Home, Building, BarChart3, DollarSign, User
-   - Indicador visual de tab activo (verde oscuro)
-   - Renderiza el contenido de cada tab como sub-rutas
+### Inventario (`AgentInventario`)
+| CTA | Permiso actual | Permiso correcto | Log actividad | CTA Tracker |
+|-----|---------------|-------------------|---------------|-------------|
+| Ver unidades (por proyecto) | Ninguno | canRead | Falta | Falta |
+| Ver Desarrollo | Ninguno | canRead | Falta | Falta |
+| Compartir (abrir dialog) | Ninguno | canRead | Falta | Falta |
+| Compartir plataforma (WA/FB/Email/Copy) | Ninguno | canRead | Falta | Falta |
+| Buscar desarrollo (input) | N/A | N/A | N/A | Falta |
 
-2. **`src/pages/admin/agent-portal/AgentInicio.tsx`**
-   - Saludo personalizado ("Buenos dias, [nombre]")
-   - Banner de progreso de activacion profesional con barra de porcentaje
-   - Seccion "Requieren tu atencion": ofertas aprobadas pendientes de aceptacion del cliente, firma y enganche pendientes
-   - Seccion "Acciones clave": botones de "Agendar cita" y "Nuevo prospecto"
-   - Seccion "Metricas comerciales": 4 tarjetas (comision pendiente, comision pagada, ventas activas, ventas cerradas)
-   - Seccion "Showrooms activos": lista de showrooms con citas del dia
-   - Datos reales desde tablas: `ofertas`, `cuentas_cobranza`, `comisionistas`, `configuracion_citas`, `reservas_citas`
+### Detalle Desarrollo (`AgentProyectoDetalle`)
+| CTA | Permiso actual | Permiso correcto | Log actividad | CTA Tracker |
+|-----|---------------|-------------------|---------------|-------------|
+| Descargar brochure | Ninguno | canRead | Falta | Falta |
+| Descargar ficha tecnica | Ninguno | canRead | Falta | Falta |
+| Generar oferta comercial | Ninguno | canGenerateOffer | Falta | Falta |
+| Compartir proyecto | Ninguno | canRead | Falta | Falta |
+| Compartir plataforma | Ninguno | canRead | Falta | Falta |
+| Ver unidades (por modelo) | Ninguno | canRead | Falta | Falta |
 
-3. **`src/pages/admin/agent-portal/AgentInventario.tsx`**
-   - Barra de filtros + busqueda en la parte superior
-   - Lista de proyectos como tarjetas con imagen hero, nombre, ubicacion, precio desde, unidades disponibles, avance
-   - Accion "Ver unidades" que lleva al detalle del proyecto
-   - Datos reales desde `proyectos`, `propiedades`, `edificios`, `multimedia`
-   - Reutilizara la logica existente de `InventarioGlobal.tsx` adaptando la UI
+### Unidades (`AgentUnidadesProyecto`)
+| CTA | Permiso actual | Permiso correcto | Log actividad | CTA Tracker |
+|-----|---------------|-------------------|---------------|-------------|
+| Filtros (abrir drawer) | Ninguno | canRead | N/A | Falta |
+| Ordenar precio | Ninguno | canRead | N/A | Falta |
+| Click unidad (abrir detalle) | Ninguno | canRead | Falta | Falta |
+| Configurar Oferta | canGenerateOffer | OK | Falta | Falta |
 
-4. **`src/pages/admin/agent-portal/AgentPipeline.tsx`**
-   - Header con conteo total de ofertas y monto en proceso
-   - Filtros horizontales scrolleables por etapa (Todas, Prospectos, Pendiente, Ofertas, Apartados, Gen. Contrato, Firma, Cierre)
-   - Layout tipo Kanban en columnas (desktop) o stacked cards (mobile)
-   - Cada tarjeta de oferta muestra: nombre del cliente, proyecto/unidad, monto, esquema de pago, tiempo en etapa, CTA contextual
-   - Boton "+ Nueva oferta" que redirige al inventario
-   - Datos reales desde `ofertas`, `cuentas_cobranza`, `prospectos`, `propiedades`
+### Pipeline (`AgentPipeline`)
+| CTA | Permiso actual | Permiso correcto | Log actividad | CTA Tracker |
+|-----|---------------|-------------------|---------------|-------------|
+| Nueva oferta | canUpdate | canCreate | Falta | Falta |
+| Filtro por etapa | Ninguno | canRead | N/A | Falta |
 
-5. **`src/pages/admin/agent-portal/AgentComisiones.tsx`**
-   - Estado condicional: si el perfil no esta completo, muestra pantalla de bloqueo con checklist (Identidad, Datos fiscales, Cuenta bancaria)
-   - Si el perfil esta completo: tabla/lista de comisiones con estatus (pendiente, aprobada, pagada), montos y detalles de la venta
-   - Datos reales desde `comisionistas`, `cuentas_cobranza`, `documentos`
+### Comisiones (`AgentComisiones`)
+| CTA | Permiso actual | Permiso correcto | Log actividad | CTA Tracker |
+|-----|---------------|-------------------|---------------|-------------|
+| Completar perfil (bloqueado) | Ninguno | canRead | Falta | Falta |
+| Filtro por tab | Ninguno | canRead | N/A | Falta |
 
-6. **`src/pages/admin/agent-portal/AgentPerfil.tsx`**
-   - Header con avatar, nombre, tipo de agente, badge de estado
-   - Tarjeta "Nivel de Agente" con indicador visual
-   - Barra de progreso "Estado de tu perfil profesional"
-   - Alerta si no puede recibir pagos
-   - "Centro de Activacion": 4 items clickeables con icono (Identidad/Contrato, Info Fiscal, Cuenta Bancaria, Capacitacion)
-   - "Activacion profesional": 4 bloques expandibles con formularios integrados (no dialogs)
-     - Bloque 1: INE, datos personales, contrato, firma digital
-     - Bloque 2: RFC, regimen fiscal, uso CFDI, constancia
-     - Bloque 3: Banco, CLABE, titular
-     - Bloque 4: Agendar y completar capacitacion
-   - Datos reales desde `personas`, `documentos`, `entidades_relacionadas`, `reservas_citas`
-
-7. **`src/pages/admin/agent-portal/AgentPerfilBloque1.tsx`** - Formulario de Identidad y Contrato
-8. **`src/pages/admin/agent-portal/AgentPerfilBloque2.tsx`** - Formulario de Informacion Fiscal
-9. **`src/pages/admin/agent-portal/AgentPerfilBloque3.tsx`** - Formulario de Datos Bancarios
-10. **`src/pages/admin/agent-portal/AgentPerfilBloque4.tsx`** - Vista de Capacitacion (agendar/ver estado)
-
-#### Archivos existentes a modificar
-
-1. **`src/components/admin/AdminLayout.tsx`**
-   - Detectar roles simplificados (3 y 4) y renderizar `AgentPortalLayout` en lugar del layout con sidebar
-   - El layout actual con sidebar seguira para roles administrativos
-
-2. **`src/App.tsx`**
-   - Agregar nuevas rutas anidadas bajo `/admin` para las 5 pestanas del portal:
-     - `/admin/agent/inicio`
-     - `/admin/agent/inventario`
-     - `/admin/agent/pipeline`
-     - `/admin/agent/comisiones`
-     - `/admin/agent/perfil`
-     - `/admin/agent/perfil/bloque/:id`
-   - Redireccion automatica: cuando un usuario con rol 3 o 4 accede a `/admin`, redirigir a `/admin/agent/inicio`
-
-3. **`src/index.css`**
-   - Agregar variables CSS del portal de agentes dentro de `.agent-portal`:
-     - `--agent-primary: #2D5A3D`
-     - `--agent-amber: #F59E0B`
-     - `--agent-bg: #FAFAFA`
-     - Estilos de tarjetas, badges y bottom navigation
-
-4. **`src/components/auth/PermissionRoute.tsx`**
-   - Asegurar que las nuevas rutas `/admin/agent/*` esten permitidas para roles 3 y 4
+### Perfil (`AgentPerfil`)
+| CTA | Permiso actual | Permiso correcto | Log actividad | CTA Tracker |
+|-----|---------------|-------------------|---------------|-------------|
+| Abrir etapa onboarding | canUpdate | OK | Falta | Falta |
+| Cerrar sesion | Ninguno | Siempre visible | Falta | Falta |
 
 ---
 
-### Detalle tecnico por pestana
+## 2. Cambios por archivo
 
-#### 1. Inicio (AgentInicio)
+### A. Agregar permisos faltantes
 
-Consultas a la base de datos:
-- Perfil del agente: `personas` + `usuarios` + `entidades_relacionadas`
-- Ofertas pendientes de atencion: `ofertas` filtradas por `email_creador` del agente, con join a `propiedades`, `proyectos`
-- Metricas: `comisionistas` filtrado por email del agente, sumando montos por estatus
-- Showrooms activos: `configuracion_citas` con join a `proyectos`
+**AgentInventario.tsx**: Importar `useAgentPortalPermissions`, obtener permisos de `/admin/agent/inventario`. Condicionar "Ver unidades" y "Ver Desarrollo" a `canRead`, "Compartir" a `canRead`.
 
-#### 2. Inventario (AgentInventario)
+**AgentProyectoDetalle.tsx**: Importar `useAgentPortalPermissions`. Condicionar "Generar oferta comercial" a `canGenerateOffer`, descargas a `canRead`.
 
-- Reutiliza datos del `useInventarioDisponiblePaginado` existente
-- La UI cambia de la vista actual de propiedad individual a una vista agrupada por proyecto
-- Cada tarjeta de proyecto muestra imagen de portada, nombre, ubicacion, precio minimo, conteo disponible
+**AgentPipeline.tsx**: Cambiar "Nueva oferta" de `canUpdate` a `canCreate`.
 
-#### 3. Pipeline (AgentPipeline)
+**AgentComisiones.tsx**: Sin cambios de permisos (la vista ya muestra el bloqueo correcto por onboarding).
 
-Mapeo de etapas del mockup a la tabla `ofertas`:
-- **Prospectos Activos**: Ofertas con `id_estatus_oferta` en etapa inicial
-- **Pendiente Aprobacion**: Ofertas enviadas sin aprobar
-- **Ofertas Aprobadas**: Ofertas aprobadas pendientes de aceptacion
-- **Apartados**: Ofertas con apartado pagado
-- **Gen. Contrato**: En proceso legal
-- **Firma y Enganche**: Contrato firmado, enganche pendiente
-- **Cierre de Venta**: Venta completada
+### B. Agregar logs de actividad (`useActivityLogger`)
 
-Cada tarjeta incluye:
-- Nombre del prospecto/comprador
-- Proyecto + unidad
-- Monto y esquema de pago
-- Dias en la etapa actual
-- CTA contextual (Enviar oferta, Dar seguimiento, Ver estatus, etc.)
+En cada vista del portal agente, importar `useActivityLogger` y registrar:
 
-#### 4. Comisiones (AgentComisiones)
+- **Inicio**: `registrarCreacion('prospecto', ...)` al guardar prospecto, `registrarCreacion('cita_showroom', ...)` al agendar cita, `registrarVista('/admin/agent/inicio')` al cargar.
+- **Inventario**: `registrarVista('/admin/agent/inventario')` al cargar.
+- **Detalle**: `registrarVista('/admin/agent/inventario/proyecto/:id')`, `registrarExportacion('brochure', ...)`, `registrarExportacion('ficha_tecnica', ...)`.
+- **Unidades**: `registrarVista('/admin/agent/inventario/unidades')`, ya tiene log de oferta via `NewOfferDialog`.
+- **Pipeline**: `registrarVista('/admin/agent/pipeline')`.
+- **Comisiones**: `registrarVista('/admin/agent/comisiones')`.
+- **Perfil**: `registrarVista('/admin/agent/perfil')`, `registrarActualizacion('perfil_agente', ...)` en cada fase guardada.
 
-- Estado de bloqueo si falta completar perfil (3 checks: identidad, fiscal, bancarios)
-- Vista de comisiones con datos reales de `comisionistas` + `cuentas_cobranza`
+### C. Agregar CTA tracking (`useCtaTracker`)
 
-#### 5. Perfil (AgentPerfil)
+En cada vista, importar `useCtaTracker` y llamar `track()` en cada boton/accion relevante con `page` correspondiente al portal agente (ej. `agent_inicio`, `agent_inventario`, `agent_detalle_desarrollo`, `agent_unidades`, `agent_pipeline`, `agent_comisiones`, `agent_perfil`).
 
-- Formularios inline en lugar de dialogs modales
-- Cada bloque sera un componente independiente que se expande/colapsa o navega a sub-ruta
-- Progreso calculado segun campos completados en `personas` y `documentos`
+Cada CTA se registra con un `elementId` unico y descriptivo, por ejemplo:
+- `btn_nuevo_prospecto`, `btn_agendar_cita`, `btn_completar_perfil`
+- `btn_ver_unidades`, `btn_ver_desarrollo`, `btn_compartir`, `btn_compartir_plataforma`
+- `btn_descargar_brochure`, `btn_descargar_ficha`, `btn_generar_oferta`
+- `btn_detalle_unidad`, `btn_configurar_oferta`
+- `btn_nueva_oferta`, `btn_filtro_etapa`
+- `btn_completar_perfil_comisiones`, `btn_filtro_tab`
+- `btn_etapa_onboarding`, `btn_cerrar_sesion`
 
----
+### D. Reconfigurar Mediciones CTA (`MedicionesCTA.tsx`)
 
-### Navegacion inferior (Bottom Tab Bar)
+**Estructura actual**: La pagina muestra metricas de "Datos de inmobiliaria" (inventario, desarrollos, detalle).
 
-```text
-+--------+--------+--------+--------+--------+
-| Inicio | Invent | Pipeli | Comis  | Perfil |
-|  (home)|  (bldg)| (chart)| (dollar)| (user)|
-+--------+--------+--------+--------+--------+
-```
+**Nueva estructura**:
+1. Agregar un `Select` al inicio con dos opciones: "Datos de inmobiliaria" y "Portal Agente"
+2. Cuando se selecciona "Datos de inmobiliaria", se muestra exactamente lo que hay hoy (sin cambios)
+3. Cuando se selecciona "Portal Agente":
+   - Summary cards (total clicks, CTAs unicos, usuarios unicos, visitas)
+   - Tabs con los 5 botones de navegacion: Inicio, Inventario, Pipeline, Comisiones, Perfil
+   - Dentro de cada tab, grafico de barras con los CTAs de esa vista y sus conteos
+   - Seccion de conversion de modales (prospecto, cita) filtrada por portal
+   - Seccion de perfil/onboarding (fases) ya existente, reutilizada
 
-- Fija en la parte inferior de la pantalla
-- Tab activo: icono y texto en verde oscuro (#2D5A3D)
-- Tab inactivo: gris (#9CA3AF)
-- Fondo: blanco con sombra superior sutil
-- Altura: 64px en mobile, puede ocultarse en desktop si se usa sidebar
+El filtrado se hace por el campo `page` del `cta_events`, usando el prefijo `agent_` para distinguir eventos del portal agente.
 
 ---
 
-### Orden de implementacion sugerido
+## 3. Archivos a modificar
 
-1. AgentPortalLayout (layout + bottom tabs + rutas)
-2. AgentPerfil (perfil con bloques de activacion)
-3. AgentInicio (dashboard personalizado)
-4. AgentInventario (lista de proyectos)
-5. AgentPipeline (pipeline de ofertas)
-6. AgentComisiones (estado y lista de comisiones)
+1. `src/pages/admin/agent-portal/AgentInicio.tsx` - permisos, logs, CTA tracking
+2. `src/pages/admin/agent-portal/AgentInventario.tsx` - permisos, logs, CTA tracking
+3. `src/pages/admin/agent-portal/AgentProyectoDetalle.tsx` - permisos, logs, CTA tracking
+4. `src/pages/admin/agent-portal/AgentUnidadesProyecto.tsx` - logs, CTA tracking
+5. `src/pages/admin/agent-portal/AgentPipeline.tsx` - fix permiso Nueva oferta, logs, CTA tracking
+6. `src/pages/admin/agent-portal/AgentComisiones.tsx` - logs, CTA tracking
+7. `src/pages/admin/agent-portal/AgentPerfil.tsx` - logs, CTA tracking
+8. `src/pages/admin/MedicionesCTA.tsx` - reestructurar con selector + tabs por vista del portal
 
-Cada paso se puede probar independientemente. Se recomienda implementar en multiples iteraciones (1-2 pestanas por iteracion) para mantener los cambios manejables.
+---
+
+## 4. Sin cambios de base de datos
+
+No se requieren migraciones. La tabla `cta_events` ya soporta los campos necesarios (`page`, `element_id`, `element_label`, `metadata`). Los logs usan `logs_actividad` existente.
 
