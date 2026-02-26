@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
-import { Loader2, Upload, CheckCircle2, Clock, RefreshCw, Download, FileText, CalendarDays, Landmark, Trash2, Camera } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, Clock, RefreshCw, Download, FileText, CalendarDays, Landmark, Trash2, Camera, Shield } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,6 +22,14 @@ import { es } from "date-fns/locale";
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { cn } from "@/lib/utils";
+import {
+  useStabilityDetection,
+  CaptureFlash,
+  SelfieCameraOverlay,
+  DocCameraOverlay,
+  VerificationComparator,
+  type VerificationResult,
+} from "@/components/admin/DocumentVerification";
 
 interface AgentOnboardingStepDialogProps {
   step: OnboardingStep['id'];
@@ -60,6 +68,8 @@ const CAMERA_DOC_TYPES = [2, 3, 4]; // INE frente, INE reverso, Pasaporte
 const INE_DOC_TYPES = [2, 3];
 // Pasaporte document type
 const PASAPORTE_DOC_TYPE = 4;
+// Selfie document type
+const SELFIE_DOC_TYPE = 49;
 
 export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange }: AgentOnboardingStepDialogProps) {
   const isMobile = useIsMobile();
@@ -227,11 +237,17 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
 
   const [uploading, setUploading] = useState<number | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
-  const [cameraStep, setCameraStep] = useState<'front' | 'back' | 'passport'>('front');
+  const [cameraStep, setCameraStep] = useState<'front' | 'back' | 'passport' | 'selfie'>('front');
   const [capturedFront, setCapturedFront] = useState<string | null>(null);
+  const [showFlash, setShowFlash] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  const [verificationDocId, setVerificationDocId] = useState<number | null>(null);
+  const [capturedDocUrls, setCapturedDocUrls] = useState<{ front?: string; back?: string; passport?: string }>({});
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoCaptureLockRef = useRef(false);
 
   const getDocForType = (typeId: number) => {
     return existingDocs
@@ -306,13 +322,17 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   };
 
   // Camera functions
-  const startCamera = async (step: 'front' | 'back' | 'passport') => {
+  const startCamera = async (step: 'front' | 'back' | 'passport' | 'selfie') => {
     setCameraStep(step);
     setCameraActive(true);
     setCapturedFront(null);
+    setVerificationResult(null);
+    setVerificationDocId(null);
+    autoCaptureLockRef.current = false;
     try {
+      const facingMode = step === 'selfie' ? 'user' : 'environment';
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -331,42 +351,155 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     }
     setCameraActive(false);
     setCapturedFront(null);
+    autoCaptureLockRef.current = false;
   };
 
-  const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  // Upload and return the public URL + document ID
+  const uploadAndGetUrl = async (typeId: number, file: File): Promise<{ url: string; docId: number } | null> => {
+    setUploading(typeId);
+    onTrackFieldChange?.();
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `persona_${personaId}_doctype${typeId}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documentos')
+        .upload(fileName, file);
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('documentos')
+        .getPublicUrl(fileName);
+
+      // Deactivate previous documents of same type
+      await supabase
+        .from('documentos')
+        .update({ activo: false })
+        .eq('id_persona', personaId)
+        .eq('id_tipo_documento', typeId)
+        .eq('activo', true);
+
+      // Insert new
+      const { data: insertData, error: insertError } = await supabase
+        .from('documentos')
+        .insert({
+          url: urlData.publicUrl,
+          id_tipo_documento: typeId,
+          id_persona: personaId,
+          activo: true,
+          id_estatus_verificacion: 1,
+        })
+        .select('id')
+        .single();
+      if (insertError) throw insertError;
+
+      refetchDocs();
+      queryClient.invalidateQueries({ queryKey: ['agent-onboarding-docs'] });
+      return { url: urlData.publicUrl, docId: insertData.id };
+    } catch (err: any) {
+      toast.error("Error al subir documento: " + (err.message || "Error"));
+      return null;
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  // Verify document with AI
+  const verifyDocument = async (imageUrl: string, expectedType: string, selfieUrl?: string) => {
+    setVerifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('verificar-documento-identidad', {
+        body: { imageUrl, expectedType, selfieUrl },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as VerificationResult;
+    } catch (err: any) {
+      toast.error("Error verificando documento: " + (err.message || "Error"));
+      return null;
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const capturePhoto = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || autoCaptureLockRef.current) return;
+    autoCaptureLockRef.current = true;
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) { autoCaptureLockRef.current = false; return; }
     ctx.drawImage(video, 0, 0);
 
+    // Show flash
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 300);
+
     canvas.toBlob(async (blob) => {
-      if (!blob) return;
+      if (!blob) { autoCaptureLockRef.current = false; return; }
 
       if (cameraStep === 'front') {
-        // Save front, move to back
         const file = new File([blob], `ine_frente_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        await handleUpload(2, file); // INE frente = type 2
-        setCameraStep('back');
-        toast.success("INE frente capturado. Ahora captura el reverso.");
+        const result = await uploadAndGetUrl(2, file);
+        if (result) {
+          setCapturedDocUrls(prev => ({ ...prev, front: result.url }));
+          setCameraStep('back');
+          toast.success("INE frente capturado. Ahora captura el reverso.");
+          autoCaptureLockRef.current = false;
+        }
       } else if (cameraStep === 'back') {
-        // Save back, done
         const file = new File([blob], `ine_reverso_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        await handleUpload(3, file); // INE reverso = type 3
-        stopCamera();
-        toast.success("INE reverso capturado correctamente.");
+        const result = await uploadAndGetUrl(3, file);
+        if (result) {
+          setCapturedDocUrls(prev => ({ ...prev, back: result.url }));
+          setVerificationDocId(result.docId);
+          // Move to selfie step
+          stopCamera();
+          setTimeout(() => startCamera('selfie'), 300);
+        }
       } else if (cameraStep === 'passport') {
-        // Save passport, done
         const file = new File([blob], `pasaporte_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        await handleUpload(4, file); // Pasaporte = type 4
-        stopCamera();
-        toast.success("Pasaporte capturado correctamente.");
+        const result = await uploadAndGetUrl(4, file);
+        if (result) {
+          setCapturedDocUrls(prev => ({ ...prev, passport: result.url }));
+          setVerificationDocId(result.docId);
+          // Move to selfie step
+          stopCamera();
+          setTimeout(() => startCamera('selfie'), 300);
+        }
+      } else if (cameraStep === 'selfie') {
+        const file = new File([blob], `selfie_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const selfieResult = await uploadAndGetUrl(SELFIE_DOC_TYPE, file);
+        if (selfieResult) {
+          stopCamera();
+          // Now run AI verification
+          const docUrl = capturedDocUrls.front || capturedDocUrls.passport || '';
+          const expectedType = capturedDocUrls.passport ? 'ine_frente' : 'ine_frente';
+          const docType = capturedDocUrls.passport ? 'pasaporte' : 'ine_frente';
+          const aiResult = await verifyDocument(docUrl, docType, selfieResult.url);
+          if (aiResult) {
+            setVerificationResult(aiResult);
+          }
+        }
       }
     }, 'image/jpeg', 0.85);
-  };
+  }, [cameraStep, capturedDocUrls]);
+
+  // Stability detection for auto-capture
+  const onStableCapture = useCallback(() => {
+    if (!autoCaptureLockRef.current) {
+      capturePhoto();
+    }
+  }, [capturePhoto]);
+
+  const { stabilityProgress } = useStabilityDetection(
+    videoRef,
+    cameraActive && !uploading && !verifying,
+    onStableCapture
+  );
 
   // Cleanup camera on unmount
   useEffect(() => {
@@ -381,9 +514,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   const handleIdentityModeChange = async (mode: 'ine' | 'pasaporte') => {
     setIdentityMode(mode);
     onTrackFieldChange?.();
-    // Deactivate docs of the other mode
     if (mode === 'ine') {
-      // Deactivate pasaporte docs
       await supabase
         .from('documentos')
         .update({ activo: false })
@@ -391,7 +522,6 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         .eq('id_tipo_documento', PASAPORTE_DOC_TYPE)
         .eq('activo', true);
     } else {
-      // Deactivate INE docs
       for (const typeId of INE_DOC_TYPES) {
         await supabase
           .from('documentos')
@@ -415,67 +545,99 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     }
   });
 
+  // Fetch persona data for comparator
+  const { data: personaData } = useQuery({
+    queryKey: ['agent-persona-for-verification', personaId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('personas')
+        .select('nombre_legal, curp, fecha_nacimiento, sexo')
+        .eq('id', personaId)
+        .single();
+      return data;
+    },
+    enabled: !!verificationResult,
+  });
+
+  // Show verification result comparator
+  if (verificationResult && verificationDocId && personaData) {
+    return (
+      <div className="pb-4">
+        <CaptureFlash show={showFlash} />
+        <VerificationComparator
+          result={verificationResult}
+          persona={personaData}
+          personaId={personaId}
+          documentId={verificationDocId}
+          onAccepted={() => {
+            setVerificationResult(null);
+            setVerificationDocId(null);
+            setCapturedDocUrls({});
+            refetchDocs();
+          }}
+          onRejected={() => {
+            setVerificationResult(null);
+            setVerificationDocId(null);
+            setCapturedDocUrls({});
+            // Restart camera for retry
+            if (identityMode === 'ine') {
+              startCamera('front');
+            } else {
+              startCamera('passport');
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show verifying spinner
+  if (verifying) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
+        <CaptureFlash show={showFlash} />
+        <div className="relative">
+          <Shield className="h-12 w-12 text-primary animate-pulse" />
+          <Loader2 className="h-5 w-5 animate-spin text-primary absolute -bottom-1 -right-1" />
+        </div>
+        <p className="text-sm font-semibold text-foreground">Verificando documento...</p>
+        <p className="text-xs text-muted-foreground text-center">
+          Analizando autenticidad y extrayendo datos
+        </p>
+      </div>
+    );
+  }
+
   // Camera overlay
   if (cameraActive) {
-    const stepLabel = cameraStep === 'front' ? 'Foto frontal del INE' : cameraStep === 'back' ? 'Foto reverso del INE' : 'Foto del Pasaporte';
-    const stepHint = cameraStep === 'front' 
-      ? 'Coloca tu identificación dentro del marco y captura la imagen.'
-      : cameraStep === 'back'
-      ? 'Ahora voltea tu INE y captura el reverso.'
-      : 'Coloca tu pasaporte dentro del marco y captura la imagen.';
+    if (cameraStep === 'selfie') {
+      return (
+        <div>
+          <CaptureFlash show={showFlash} />
+          <SelfieCameraOverlay
+            videoRef={videoRef}
+            onCapture={capturePhoto}
+            onCancel={stopCamera}
+            uploading={uploading !== null}
+            stabilityProgress={stabilityProgress}
+          />
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
+      );
+    }
 
     return (
-      <div className="space-y-3 pb-4">
-        <div className="text-center space-y-1">
-          <h3 className="text-base font-bold text-foreground">{stepLabel}</h3>
-          <p className="text-xs text-muted-foreground">{stepHint}</p>
-        </div>
-
-        {/* Camera viewfinder */}
-        <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-emerald-500/40 bg-black aspect-[4/3]">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          {/* Corner frame guides */}
-          <div className="absolute inset-4 pointer-events-none">
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
-            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
-            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
-          </div>
-          {/* Step indicator for INE */}
-          {cameraStep !== 'passport' && (
-            <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full">
-              {cameraStep === 'front' ? '1/2' : '2/2'}
-            </div>
-          )}
-        </div>
-
+      <div>
+        <CaptureFlash show={showFlash} />
+        <DocCameraOverlay
+          videoRef={videoRef}
+          cameraStep={cameraStep}
+          onCapture={capturePhoto}
+          onCancel={stopCamera}
+          uploading={uploading !== null}
+          stabilityProgress={stabilityProgress}
+        />
         <canvas ref={canvasRef} className="hidden" />
-
-        {/* Capture button */}
-        <button
-          onClick={capturePhoto}
-          disabled={uploading !== null}
-          className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-emerald-700 flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          {uploading !== null ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Guardando...</>
-          ) : (
-            <><Camera className="h-5 w-5" /> {cameraStep === 'front' ? 'Capturar frente del INE' : cameraStep === 'back' ? 'Capturar reverso del INE' : 'Capturar Pasaporte'}</>
-          )}
-        </button>
-
-        <button
-          onClick={stopCamera}
-          className="w-full py-3 rounded-2xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
-        >
-          Cancelar
-        </button>
       </div>
     );
   }
