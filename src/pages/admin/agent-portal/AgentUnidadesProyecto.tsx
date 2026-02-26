@@ -393,7 +393,6 @@ const AgentUnidadesProyecto = () => {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-[hsl(var(--agent-text))]">{nombreCompleto}</p>
-            <h1 className="text-lg font-bold text-foreground truncate">Unidades</h1>
             <p className="text-xs text-emerald-700">{totalCount} unidades disponibles</p>
           </div>
         </div>
