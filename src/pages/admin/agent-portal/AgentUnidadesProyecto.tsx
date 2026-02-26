@@ -34,6 +34,7 @@ const AgentUnidadesProyecto = () => {
   const [schemesOpen, setSchemesOpen] = useState(false);
 
   // Filters
+  const [filterProjectNames, setFilterProjectNames] = useState<string[]>([]);
   const [filterModelNames, setFilterModelNames] = useState<string[]>([]);
   const [filterLevels, setFilterLevels] = useState<string[]>([]);
   const [filterBodega, setFilterBodega] = useState<TriState>("todos");
@@ -44,32 +45,34 @@ const AgentUnidadesProyecto = () => {
   const [recamarasFilter, setRecamarasFilter] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Project name state
-  const [projectName, setProjectName] = useState<string | null>(null);
-  const [projNameLoaded, setProjNameLoaded] = useState(false);
-
-  // Fetch project name from query param
+  // Resolve proyecto ID from URL to name for pre-selecting filter
+  const [paramsResolved, setParamsResolved] = useState(false);
   useEffect(() => {
-    if (!proyectoIdParam) { setProjNameLoaded(true); return; }
-    const pid = parseInt(proyectoIdParam);
-    if (isNaN(pid)) { setProjNameLoaded(true); return; }
-    (supabase as any).from("proyectos").select("nombre").eq("id", pid).maybeSingle().then(({ data }: any) => {
-      if (data?.nombre) setProjectName(data.nombre);
-      setProjNameLoaded(true);
-    });
-  }, [proyectoIdParam]);
-
-  // If modelo query param is present, resolve its name to pre-set filter
-  const [modeloParamResolved, setModeloParamResolved] = useState(false);
-  useEffect(() => {
-    if (!modeloIdParam) { setModeloParamResolved(true); return; }
-    const mid = parseInt(modeloIdParam);
-    if (isNaN(mid)) { setModeloParamResolved(true); return; }
-    (supabase as any).from("modelos").select("nombre").eq("id", mid).maybeSingle().then(({ data }: any) => {
-      if (data?.nombre) setFilterModelNames([data.nombre]);
-      setModeloParamResolved(true);
-    });
-  }, [modeloIdParam]);
+    const resolveParams = async () => {
+      const promises: Promise<void>[] = [];
+      if (proyectoIdParam) {
+        const pid = parseInt(proyectoIdParam);
+        if (!isNaN(pid)) {
+          promises.push(
+            (supabase as any).from("proyectos").select("nombre").eq("id", pid).maybeSingle()
+              .then(({ data }: any) => { if (data?.nombre) setFilterProjectNames([data.nombre]); })
+          );
+        }
+      }
+      if (modeloIdParam) {
+        const mid = parseInt(modeloIdParam);
+        if (!isNaN(mid)) {
+          promises.push(
+            (supabase as any).from("modelos").select("nombre").eq("id", mid).maybeSingle()
+              .then(({ data }: any) => { if (data?.nombre) setFilterModelNames([data.nombre]); })
+          );
+        }
+      }
+      await Promise.all(promises);
+      setParamsResolved(true);
+    };
+    resolveParams();
+  }, [proyectoIdParam, modeloIdParam]);
 
   const bedroomsForQuery = useMemo(() => {
     if (recamarasFilter.length === 0) return [];
@@ -85,7 +88,7 @@ const AgentUnidadesProyecto = () => {
   const estacionamientoValue = filterEstacionamiento === "si" ? true : filterEstacionamiento === "no" ? false : null;
 
   const { data: inventarioData, isLoading: isLoadingData, isFetching } = useInventarioDisponiblePaginado({
-    projectNames: projectName ? [projectName] : undefined,
+    projectNames: filterProjectNames.length > 0 ? filterProjectNames : undefined,
     modelNames: filterModelNames.length > 0 ? filterModelNames : undefined,
     bedrooms: bedroomsForQuery,
     levels: filterLevels.length > 0 ? filterLevels : undefined,
@@ -127,31 +130,52 @@ const AgentUnidadesProyecto = () => {
     });
   }, [inventarioData?.propiedades]);
 
+  const availableProjectNames = inventarioData?.filterOptions?.proyectos || [];
   const availableModelNames = inventarioData?.filterOptions?.modelos || [];
-  const availableLevelOptions = inventarioData?.filterOptions?.niveles || [];
+  const availableLevelOptions = useMemo(() => {
+    const levels = inventarioData?.filterOptions?.niveles || [];
+    // Sort numerically
+    return [...levels].sort((a, b) => {
+      const na = parseFloat(a);
+      const nb = parseFloat(b);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      if (!isNaN(na)) return -1;
+      if (!isNaN(nb)) return 1;
+      return a.localeCompare(b);
+    });
+  }, [inventarioData?.filterOptions?.niveles]);
   const availableRecamaras = inventarioData?.filterOptions?.recamaras || [];
   const totalCount = inventarioData?.totalCount || 0;
   const totalPages = inventarioData?.totalPages || 0;
+  const projectCounts = inventarioData?.projectCounts || {};
   const isLoading = isLoadingData;
 
-  // Compute price bounds from current results for slider
+  // Stable price bounds: cache initial bounds and only update when no price filter is active
+  const priceBoundsRef = useRef<{ min: number; max: number } | null>(null);
   const priceBounds = useMemo(() => {
     const props = inventarioData?.propiedades || [];
-    if (props.length === 0) return { min: 0, max: 10000000 };
+    if (props.length === 0) return priceBoundsRef.current || { min: 0, max: 10000000 };
     const prices = props.map(p => p.precio_lista).filter(Boolean) as number[];
-    if (prices.length === 0) return { min: 0, max: 10000000 };
-    return { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
-  }, [inventarioData?.propiedades]);
+    if (prices.length === 0) return priceBoundsRef.current || { min: 0, max: 10000000 };
+    const computed = { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
+    // Only update ref when no price filter is set (so it captures the "unfiltered" range)
+    if (!priceRange) {
+      priceBoundsRef.current = computed;
+    }
+    return priceBoundsRef.current || computed;
+  }, [inventarioData?.propiedades, priceRange]);
 
-  const hasActiveFilters = filterModelNames.length > 0 || recamarasFilter.length > 0 || filterLevels.length > 0 || filterBodega !== "todos" || filterEstacionamiento !== "todos" || priceRange !== null;
+  const hasActiveFilters = filterProjectNames.length > 0 || filterModelNames.length > 0 || recamarasFilter.length > 0 || filterLevels.length > 0 || filterBodega !== "todos" || filterEstacionamiento !== "todos" || priceRange !== null;
 
   const clearAllFilters = () => {
+    setFilterProjectNames([]);
     setFilterModelNames([]);
     setRecamarasFilter([]);
     setFilterLevels([]);
     setFilterBodega("todos");
     setFilterEstacionamiento("todos");
     setPriceRange(null);
+    priceBoundsRef.current = null;
     setPage(0);
   };
 
@@ -177,7 +201,7 @@ const AgentUnidadesProyecto = () => {
     return { precioAjustado, enganche, mensualidadesTotal, entrega, mensualidad, numMensualidades };
   };
 
-  useEffect(() => { setPage(0); }, [filterModelNames, recamarasFilter, filterLevels, filterBodega, filterEstacionamiento, priceRange]);
+  useEffect(() => { setPage(0); }, [filterProjectNames, filterModelNames, recamarasFilter, filterLevels, filterBodega, filterEstacionamiento, priceRange]);
   useEffect(() => { setSelectedSchemeId(null); setSchemesOpen(false); }, [selectedProperty?.id]);
 
   const SortIcon = sortOrder === "asc" ? ArrowUp : sortOrder === "desc" ? ArrowDown : ArrowUpDown;
@@ -210,14 +234,30 @@ const AgentUnidadesProyecto = () => {
   ];
 
   const chipClass = (active: boolean) =>
-    `px-3.5 py-2 rounded-full text-xs font-medium border transition-colors ${
+    `px-3.5 py-2 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
       active
-        ? "bg-[hsl(var(--agent-primary))] text-white border-[hsl(var(--agent-primary))]"
+        ? "bg-emerald-600 text-white border-emerald-600"
         : "bg-white border-gray-200 text-foreground hover:bg-gray-50"
     }`;
 
+  const activeFilterCount = (filterProjectNames.length > 0 ? 1 : 0) + (filterModelNames.length > 0 ? 1 : 0) + (recamarasFilter.length > 0 ? 1 : 0) + (filterLevels.length > 0 ? 1 : 0) + (filterBodega !== "todos" ? 1 : 0) + (filterEstacionamiento !== "todos" ? 1 : 0) + (priceRange ? 1 : 0);
+
   const filterContent = (
     <div className="space-y-6">
+      {/* Desarrollo - multi-select chips */}
+      {availableProjectNames.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Desarrollo</Label>
+          <div className="flex flex-wrap gap-2">
+            {availableProjectNames.map((name) => (
+              <button key={name} onClick={() => setFilterProjectNames(prev => toggleChip(prev, name))} className={chipClass(filterProjectNames.includes(name))}>
+                {name}{projectCounts[name] != null ? ` (${projectCounts[name]})` : ''}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Modelo - multi-select chips */}
       {availableModelNames.length > 0 && (
         <div className="space-y-2">
@@ -232,10 +272,10 @@ const AgentUnidadesProyecto = () => {
         </div>
       )}
 
-      {/* Torre / Nivel - multi-select chips */}
+      {/* Nivel - multi-select chips, sorted numerically */}
       {availableLevelOptions.length > 0 && (
         <div className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Torre / Nivel</Label>
+          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nivel</Label>
           <div className="flex flex-wrap gap-2">
             {availableLevelOptions.map((l) => (
               <button key={l} onClick={() => setFilterLevels(prev => toggleChip(prev, l))} className={chipClass(filterLevels.includes(l))}>
@@ -314,8 +354,10 @@ const AgentUnidadesProyecto = () => {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-foreground truncate">{projectName || "Unidades"}</h1>
-            <p className="text-xs text-[hsl(var(--agent-primary))]">{totalCount} unidades disponibles</p>
+            <h1 className="text-lg font-bold text-foreground truncate">
+              {filterProjectNames.length === 1 ? filterProjectNames[0] : "Unidades"}
+            </h1>
+            <p className="text-xs text-emerald-700">{totalCount} unidades disponibles</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -325,9 +367,9 @@ const AgentUnidadesProyecto = () => {
           >
             <SlidersHorizontal className="h-4 w-4" />
             Filtros
-            {hasActiveFilters && (
-              <span className="ml-0.5 h-5 min-w-[20px] px-1 rounded-full bg-[hsl(var(--agent-primary))] text-white text-[10px] font-bold flex items-center justify-center">
-                {(filterModelNames.length > 0 ? 1 : 0) + (recamarasFilter.length > 0 ? 1 : 0) + (filterLevels.length > 0 ? 1 : 0) + (filterBodega !== "todos" ? 1 : 0) + (filterEstacionamiento !== "todos" ? 1 : 0) + (priceRange ? 1 : 0)}
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 h-5 min-w-[20px] px-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {activeFilterCount}
               </span>
             )}
           </button>
@@ -336,7 +378,7 @@ const AgentUnidadesProyecto = () => {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 bg-white text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--agent-primary))]/20"
+              className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 bg-white text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
               placeholder="Buscar..."
             />
           </div>
@@ -344,7 +386,7 @@ const AgentUnidadesProyecto = () => {
             onClick={cycleSortOrder}
             className={`h-10 w-10 rounded-xl flex items-center justify-center border transition-colors ${
               sortOrder !== "none"
-                ? "bg-[hsl(var(--agent-primary))] text-white border-[hsl(var(--agent-primary))]"
+                ? "bg-emerald-600 text-white border-emerald-600"
                 : "bg-white border-gray-200 text-muted-foreground"
             }`}
             title={sortOrder === "none" ? "Ordenar por precio" : sortOrder === "asc" ? "Precio: menor a mayor" : "Precio: mayor a menor"}
@@ -354,6 +396,11 @@ const AgentUnidadesProyecto = () => {
         </div>
         {hasActiveFilters && (
           <div className="flex flex-wrap items-center gap-1.5">
+            {filterProjectNames.map(name => (
+              <Badge key={`p-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterProjectNames(prev => prev.filter(n => n !== name))}>
+                {name} <X className="h-2.5 w-2.5" />
+              </Badge>
+            ))}
             {filterModelNames.map(name => (
               <Badge key={`m-${name}`} variant="secondary" className="text-[10px] gap-1 cursor-pointer px-2 py-0.5" onClick={() => setFilterModelNames(prev => prev.filter(n => n !== name))}>
                 {name} <X className="h-2.5 w-2.5" />
@@ -402,7 +449,7 @@ const AgentUnidadesProyecto = () => {
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-6 max-h-[65vh]">{filterContent}</div>
           <div className="px-4 py-3 border-t">
-            <Button className="w-full rounded-full gap-2 bg-[hsl(var(--agent-primary))] hover:bg-[hsl(var(--agent-primary))]/90" onClick={() => setFiltersDrawerOpen(false)}>
+            <Button className="w-full rounded-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setFiltersDrawerOpen(false)}>
               <Search className="h-4 w-4" /> Ver {totalCount} unidades
             </Button>
           </div>
@@ -411,7 +458,7 @@ const AgentUnidadesProyecto = () => {
 
       {/* Properties Grid */}
       <div className="px-4 mt-2">
-        {isLoading || !projNameLoaded || !modeloParamResolved ? (
+        {isLoading || !paramsResolved ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -503,7 +550,7 @@ const AgentUnidadesProyecto = () => {
                   </div>
                 )}
                 {selectedProperty.precio_lista > 0 && (
-                  <div className="bg-[hsl(var(--agent-primary))]/5 rounded-xl p-4 text-center">
+                  <div className="bg-emerald-50 rounded-xl p-4 text-center">
                     <p className="text-xs text-muted-foreground">Precio de Lista</p>
                     <p className="text-xl font-bold text-foreground">{formatPrice(selectedProperty.precio_lista)}</p>
                   </div>
@@ -524,12 +571,12 @@ const AgentUnidadesProyecto = () => {
                             type="button"
                             onClick={() => setSelectedSchemeId(prev => prev === scheme.id ? null : scheme.id)}
                             className={`w-full text-left rounded-xl border p-4 shadow-sm space-y-2 transition-all duration-200 ${
-                              isSelected ? "border-[hsl(var(--agent-primary))] bg-[hsl(var(--agent-primary))]/5 ring-2 ring-[hsl(var(--agent-primary))]/20" : "border-border/60 bg-gradient-to-br from-card to-muted/30 hover:border-[hsl(var(--agent-primary))]/40"
+                              isSelected ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-600/20" : "border-border/60 bg-gradient-to-br from-card to-muted/30 hover:border-emerald-600/40"
                             }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                {isSelected && <span className="h-2 w-2 rounded-full bg-[hsl(var(--agent-primary))] shrink-0" />}
+                                {isSelected && <span className="h-2 w-2 rounded-full bg-emerald-600 shrink-0" />}
                                 <p className="font-semibold text-sm text-foreground">{scheme.nombre}</p>
                               </div>
                               {scheme.porcentaje_descuento_aumento !== 0 && scheme.porcentaje_descuento_aumento != null && (
@@ -561,7 +608,7 @@ const AgentUnidadesProyecto = () => {
                   </Collapsible>
                 )}
                 {selectedSchemeId && (
-                  <div className="bg-[hsl(var(--agent-primary))]/10 border border-[hsl(var(--agent-primary))]/20 rounded-lg px-3 py-2 text-xs text-[hsl(var(--agent-primary))] font-medium flex items-center gap-2">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-xs text-emerald-700 font-medium flex items-center gap-2">
                     <FileText className="h-3.5 w-3.5" />
                     Plan seleccionado: {getSchemesForProperty(selectedProperty).find((s: any) => s.id === selectedSchemeId)?.nombre || ""}
                   </div>
@@ -577,7 +624,7 @@ const AgentUnidadesProyecto = () => {
                       hidePdfOptions={true}
                       preSelectedSchemeId={selectedSchemeId}
                       customTrigger={
-                        <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-[hsl(var(--agent-primary))] text-white font-semibold text-sm shadow-lg hover:opacity-90 active:scale-[0.98] transition-all">
+                        <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-emerald-600 text-white font-semibold text-sm shadow-lg hover:bg-emerald-700 active:scale-[0.98] transition-all">
                           <FileText className="h-5 w-5" />
                           <span>
                             Generar Oferta
@@ -623,7 +670,7 @@ const UnitCard = React.memo(({ prop, formatPrice, onClick }: {
       </div>
     </div>
     <CardContent className="p-3 space-y-1.5">
-      <p className="text-[11px] text-muted-foreground">{prop.edificio_nombre} • {prop.modelo_nombre}</p>
+      <p className="text-[11px] text-muted-foreground">{prop.proyecto_nombre} • {prop.modelo_nombre}</p>
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         {prop.m2_total > 0 && (
           <span className="flex items-center gap-1"><Maximize2 className="h-3 w-3" /> {prop.m2_total.toFixed(1)} m²</span>
@@ -676,34 +723,33 @@ const DetailCarousel = ({ images }: { images: any[] }) => {
   useEffect(() => {
     if (!emblaApi) return;
     emblaApi.on("select", onSelect);
-    onSelect();
     return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi, onSelect]);
 
   if (images.length === 0) return null;
 
   return (
-    <div className="h-48 bg-muted rounded-lg relative overflow-hidden group">
-      <div ref={emblaRef} className="h-full overflow-hidden rounded-lg">
-        <div className="flex h-full">
-          {images.map((img: any) => (
-            <div key={img.id} className="flex-[0_0_100%] min-w-0 h-full">
-              <img src={img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+    <div className="relative rounded-xl overflow-hidden">
+      <div ref={emblaRef} className="overflow-hidden">
+        <div className="flex">
+          {images.map((img: any, i: number) => (
+            <div key={img.id || i} className="min-w-0 flex-[0_0_100%]">
+              <img src={img.url} alt="" className="w-full h-56 object-cover" loading="lazy" />
             </div>
           ))}
         </div>
       </div>
       {images.length > 1 && (
         <>
-          <button onClick={scrollPrev} className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={scrollPrev} className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button onClick={scrollNext} className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={scrollNext} className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center">
             <ChevronRight className="h-4 w-4" />
           </button>
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
             {images.map((_: any, i: number) => (
-              <span key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i === currentIndex ? "bg-white" : "bg-white/40"}`} />
+              <span key={i} className={`h-1.5 w-1.5 rounded-full ${i === currentIndex ? "bg-white" : "bg-white/50"}`} />
             ))}
           </div>
         </>
