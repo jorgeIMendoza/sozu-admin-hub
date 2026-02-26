@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
-import { Loader2, Upload, CheckCircle2, Clock, RefreshCw, Download, FileText, CalendarDays, Landmark, Trash2 } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, Clock, RefreshCw, Download, FileText, CalendarDays, Landmark, Trash2, Camera } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -48,12 +48,18 @@ const STEP_DESCRIPTIONS: Record<string, string> = {
   training: 'Agenda tu cita de capacitación presencial',
 };
 
-// Required document types for basic step (INE frente=2, INE reverso=3, Carta comercialización=48)
-const BASIC_DOC_TYPES = [2, 3, 48];
+// Required document types for basic step (INE frente=2, INE reverso=3, Pasaporte=4, Carta comercialización=48)
+const BASIC_DOC_TYPES = [2, 3, 4, 48];
 // Constancia de situación fiscal (type 6) for fiscal step
 const FISCAL_DOC_TYPES = [6];
 // All required doc types for onboarding queries
-const REQUIRED_DOC_TYPES = [2, 3, 6, 48];
+const REQUIRED_DOC_TYPES = [2, 3, 4, 6, 48];
+// Document types that support camera capture
+const CAMERA_DOC_TYPES = [2, 3, 4]; // INE frente, INE reverso, Pasaporte
+// INE document types (need both front and back)
+const INE_DOC_TYPES = [2, 3];
+// Pasaporte document type
+const PASAPORTE_DOC_TYPE = 4;
 
 export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange }: AgentOnboardingStepDialogProps) {
   const isMobile = useIsMobile();
@@ -173,6 +179,9 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
 
   const activeDocTypes = filterDocTypes || REQUIRED_DOC_TYPES;
   
+  // Determine if this is the basic step (has INE/Pasaporte docs)
+  const hasIdentityDocs = activeDocTypes.some(t => INE_DOC_TYPES.includes(t) || t === PASAPORTE_DOC_TYPE);
+  
   // Fetch doc type names from DB
   const { data: docTypes = [] } = useQuery({
     queryKey: ['agent-doc-types', activeDocTypes],
@@ -202,8 +211,27 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     },
   });
 
+  // Determine identity mode based on existing docs
+  const hasINEDocs = existingDocs.some((d: any) => INE_DOC_TYPES.includes(d.id_tipo_documento));
+  const hasPasaporteDocs = existingDocs.some((d: any) => d.id_tipo_documento === PASAPORTE_DOC_TYPE);
+  const [identityMode, setIdentityMode] = useState<'ine' | 'pasaporte'>('ine');
+  
+  // Sync identity mode from existing docs on first load
+  useEffect(() => {
+    if (hasPasaporteDocs && !hasINEDocs) {
+      setIdentityMode('pasaporte');
+    } else {
+      setIdentityMode('ine');
+    }
+  }, [hasPasaporteDocs, hasINEDocs]);
 
   const [uploading, setUploading] = useState<number | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraStep, setCameraStep] = useState<'front' | 'back' | 'passport'>('front');
+  const [capturedFront, setCapturedFront] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const getDocForType = (typeId: number) => {
     return existingDocs
@@ -252,7 +280,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           id_tipo_documento: typeId,
           id_persona: personaId,
           activo: true,
-          id_estatus_verificacion: 1, // Pendiente
+          id_estatus_verificacion: 1,
         });
       if (insertError) throw insertError;
 
@@ -277,15 +305,241 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     input.click();
   };
 
+  // Camera functions
+  const startCamera = async (step: 'front' | 'back' | 'passport') => {
+    setCameraStep(step);
+    setCameraActive(true);
+    setCapturedFront(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      toast.error("No se pudo acceder a la cámara. Verifica los permisos.");
+      setCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+    setCapturedFront(null);
+  };
+
+  const capturePhoto = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+
+      if (cameraStep === 'front') {
+        // Save front, move to back
+        const file = new File([blob], `ine_frente_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        await handleUpload(2, file); // INE frente = type 2
+        setCameraStep('back');
+        toast.success("INE frente capturado. Ahora captura el reverso.");
+      } else if (cameraStep === 'back') {
+        // Save back, done
+        const file = new File([blob], `ine_reverso_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        await handleUpload(3, file); // INE reverso = type 3
+        stopCamera();
+        toast.success("INE reverso capturado correctamente.");
+      } else if (cameraStep === 'passport') {
+        // Save passport, done
+        const file = new File([blob], `pasaporte_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        await handleUpload(4, file); // Pasaporte = type 4
+        stopCamera();
+        toast.success("Pasaporte capturado correctamente.");
+      }
+    }, 'image/jpeg', 0.85);
+  };
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  // Handle identity mode change - deactivate opposing docs
+  const handleIdentityModeChange = async (mode: 'ine' | 'pasaporte') => {
+    setIdentityMode(mode);
+    onTrackFieldChange?.();
+    // Deactivate docs of the other mode
+    if (mode === 'ine') {
+      // Deactivate pasaporte docs
+      await supabase
+        .from('documentos')
+        .update({ activo: false })
+        .eq('id_persona', personaId)
+        .eq('id_tipo_documento', PASAPORTE_DOC_TYPE)
+        .eq('activo', true);
+    } else {
+      // Deactivate INE docs
+      for (const typeId of INE_DOC_TYPES) {
+        await supabase
+          .from('documentos')
+          .update({ activo: false })
+          .eq('id_persona', personaId)
+          .eq('id_tipo_documento', typeId)
+          .eq('activo', true);
+      }
+    }
+    refetchDocs();
+    queryClient.invalidateQueries({ queryKey: ['agent-onboarding-docs'] });
+  };
+
+  // Filter doc types based on identity mode
+  const visibleDocTypes = activeDocTypes.filter(typeId => {
+    if (!hasIdentityDocs) return true;
+    if (identityMode === 'ine') {
+      return typeId !== PASAPORTE_DOC_TYPE;
+    } else {
+      return !INE_DOC_TYPES.includes(typeId);
+    }
+  });
+
+  // Camera overlay
+  if (cameraActive) {
+    const stepLabel = cameraStep === 'front' ? 'Foto frontal del INE' : cameraStep === 'back' ? 'Foto reverso del INE' : 'Foto del Pasaporte';
+    const stepHint = cameraStep === 'front' 
+      ? 'Coloca tu identificación dentro del marco y captura la imagen.'
+      : cameraStep === 'back'
+      ? 'Ahora voltea tu INE y captura el reverso.'
+      : 'Coloca tu pasaporte dentro del marco y captura la imagen.';
+
+    return (
+      <div className="space-y-3 pb-4">
+        <div className="text-center space-y-1">
+          <h3 className="text-base font-bold text-foreground">{stepLabel}</h3>
+          <p className="text-xs text-muted-foreground">{stepHint}</p>
+        </div>
+
+        {/* Camera viewfinder */}
+        <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-emerald-500/40 bg-black aspect-[4/3]">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+          {/* Corner frame guides */}
+          <div className="absolute inset-4 pointer-events-none">
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
+          </div>
+          {/* Step indicator for INE */}
+          {cameraStep !== 'passport' && (
+            <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+              {cameraStep === 'front' ? '1/2' : '2/2'}
+            </div>
+          )}
+        </div>
+
+        <canvas ref={canvasRef} className="hidden" />
+
+        {/* Capture button */}
+        <button
+          onClick={capturePhoto}
+          disabled={uploading !== null}
+          className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-emerald-700 flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {uploading !== null ? (
+            <><Loader2 className="h-4 w-4 animate-spin" /> Guardando...</>
+          ) : (
+            <><Camera className="h-5 w-5" /> {cameraStep === 'front' ? 'Capturar frente del INE' : cameraStep === 'back' ? 'Capturar reverso del INE' : 'Capturar Pasaporte'}</>
+          )}
+        </button>
+
+        <button
+          onClick={stopCamera}
+          className="w-full py-3 rounded-2xl border border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+        >
+          Cancelar
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3 pb-4">
-      {activeDocTypes.map((typeId) => {
+      {/* Identity type selector - only show when this section has identity docs */}
+      {hasIdentityDocs && (
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Tipo de identificación</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleIdentityModeChange('ine')}
+              className={cn(
+                "py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border",
+                identityMode === 'ine'
+                  ? "bg-primary text-primary-foreground border-primary shadow-md"
+                  : "bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5"
+              )}
+            >
+              INE
+            </button>
+            <button
+              onClick={() => handleIdentityModeChange('pasaporte')}
+              className={cn(
+                "py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border",
+                identityMode === 'pasaporte'
+                  ? "bg-primary text-primary-foreground border-primary shadow-md"
+                  : "bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5"
+              )}
+            >
+              Pasaporte
+            </button>
+          </div>
+
+          {/* Camera capture button for identity docs */}
+          {identityMode === 'ine' ? (
+            <button
+              onClick={() => startCamera('front')}
+              className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-emerald-700 flex items-center justify-center gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              Capturar INE con cámara
+            </button>
+          ) : (
+            <button
+              onClick={() => startCamera('passport')}
+              className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-emerald-700 flex items-center justify-center gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              Capturar Pasaporte con cámara
+            </button>
+          )}
+        </div>
+      )}
+
+      {visibleDocTypes.map((typeId) => {
         const docType = docTypes.find((d: any) => d.id === typeId);
         const doc = getDocForType(typeId);
         const status = getStatusInfo(doc);
         const StatusIcon = status.icon;
         const isValidated = doc?.id_estatus_verificacion === 2;
         const isUploading = uploading === typeId;
+        const isCameraDoc = CAMERA_DOC_TYPES.includes(typeId);
 
         return (
           <div
@@ -353,6 +607,23 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                         Subir
                       </>
                     )}
+                  </Button>
+                )}
+
+                {/* Camera button for identity docs */}
+                {isCameraDoc && !isValidated && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isUploading}
+                    onClick={() => {
+                      if (typeId === 2) startCamera('front');
+                      else if (typeId === 3) startCamera('back');
+                      else if (typeId === 4) startCamera('passport');
+                    }}
+                    className="h-10 px-3 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5 bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
                   </Button>
                 )}
 

@@ -34,7 +34,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
-  // Fetch documents (types 2=INE frente, 3=INE reverso, 6=Constancia, 48=Contrato comercialización)
+  // Fetch documents (types 2=INE frente, 3=INE reverso, 4=Pasaporte, 6=Constancia, 48=Contrato comercialización)
   const { data: documentos = [], isLoading: loadingDocs } = useQuery({
     queryKey: ['agent-onboarding-docs', personaId],
     queryFn: async () => {
@@ -44,7 +44,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
         .select('id_tipo_documento')
         .eq('id_persona', personaId)
         .eq('activo', true)
-        .in('id_tipo_documento', [2, 3, 6, 48]);
+        .in('id_tipo_documento', [2, 3, 4, 6, 48]);
       if (error) throw error;
       return data || [];
     },
@@ -118,7 +118,10 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
   const fiscalPartial = !fiscalComplete && !!(persona?.rfc || persona?.regimen || persona?.uso_cfdi);
 
   const docTypes = new Set(documentos.map((d: any) => d.id_tipo_documento));
-  const documentsComplete = docTypes.has(2) && docTypes.has(3) && docTypes.has(6) && docTypes.has(48);
+  const hasINE = docTypes.has(2) && docTypes.has(3);
+  const hasPasaporte = docTypes.has(4);
+  const hasIdentityDoc = hasINE || hasPasaporte;
+  const documentsComplete = hasIdentityDoc && docTypes.has(6) && docTypes.has(48);
   const documentsPartial = !documentsComplete && docTypes.size > 0;
 
   const bankComplete = cuentas.length > 0;
