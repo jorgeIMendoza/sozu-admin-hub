@@ -323,29 +323,29 @@ const AgentInicio = () => {
               label="Comisión pagada"
               value={formatCurrency(metrics?.comisionPagada || 0)}
               icon={CheckCircle2}
-              color="text-emerald-600"
-              bgColor="bg-emerald-50"
+              variant="highlight"
+              onClick={() => navigate('/admin/agent/comisiones')}
             />
             <MetricCard
               label="Comisión pendiente"
               value={formatCurrency(metrics?.comisionPendiente || 0)}
               icon={DollarSign}
-              color="text-[hsl(var(--agent-metric-green))]"
-              bgColor="bg-emerald-50"
+              variant="default"
+              onClick={() => navigate('/admin/agent/comisiones')}
             />
             <MetricCard
               label="Ventas activas"
               value={String(metrics?.ventasActivas || 0)}
               icon={TrendingUp}
-              color="text-blue-600"
-              bgColor="bg-blue-50"
+              variant="default"
+              onClick={() => navigate('/admin/agent/comisiones')}
             />
             <MetricCard
               label="Ventas cerradas"
               value={String(metrics?.ventasCerradas || 0)}
               icon={ShoppingCart}
-              color="text-purple-600"
-              bgColor="bg-purple-50"
+              variant="default"
+              onClick={() => navigate('/admin/agent/comisiones')}
             />
           </div>
         )}
@@ -363,21 +363,33 @@ const AgentInicio = () => {
   );
 };
 
-function MetricCard({ label, value, icon: Icon, color, bgColor }: {
+function MetricCard({ label, value, icon: Icon, variant = 'default', onClick }: {
   label: string;
   value: string;
   icon: any;
-  color: string;
-  bgColor: string;
+  variant?: 'highlight' | 'default';
+  onClick?: () => void;
 }) {
+  const isHighlight = variant === 'highlight';
   return (
-    <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-3.5 space-y-2">
-      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", bgColor)}>
-        <Icon className={cn("h-4 w-4", color)} />
+    <div
+      onClick={onClick}
+      className={cn(
+        "rounded-xl p-3.5 space-y-2 cursor-pointer active:scale-[0.97] transition-transform",
+        isHighlight
+          ? "bg-[hsl(var(--agent-primary))] shadow-md"
+          : "bg-white border border-gray-100 shadow-sm"
+      )}
+    >
+      <div className={cn(
+        "h-8 w-8 rounded-lg flex items-center justify-center",
+        isHighlight ? "bg-white/15" : "bg-emerald-50"
+      )}>
+        <Icon className={cn("h-4 w-4", isHighlight ? "text-white/60" : "text-[hsl(var(--agent-text-secondary))]")} />
       </div>
       <div>
-        <p className={cn("text-lg font-bold", color)}>{value}</p>
-        <p className="text-[11px] text-[hsl(var(--agent-text-secondary))]">{label}</p>
+        <p className={cn("text-lg font-bold", isHighlight ? "text-white" : "text-[hsl(var(--agent-text))]")}>{value}</p>
+        <p className={cn("text-[11px]", isHighlight ? "text-white/70" : "text-[hsl(var(--agent-text-secondary))]")}>{label}</p>
       </div>
     </div>
   );
