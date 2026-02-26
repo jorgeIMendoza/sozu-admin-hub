@@ -36,12 +36,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate PDFs for all offers by calling the generar-oferta-pdf function internally
-    const pdfResults: { offerId: number; url: string; fileName: string; tipo: string }[] = [];
+    // Generate PDFs for all offers, requesting base64 directly to avoid download/conversion issues
+    const attachments: { Name: string; Content: string; ContentType: string }[] = [];
+    const pdfResults: { offerId: number; fileName: string; tipo: string }[] = [];
 
     for (const offerId of offerIds) {
       try {
-        // Call the generar-oferta-pdf edge function internally
         const genUrl = `${supabaseUrl}/functions/v1/generar-oferta-pdf`;
         const res = await fetch(genUrl, {
           method: 'POST',
@@ -49,17 +49,22 @@ Deno.serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseServiceKey}`,
           },
-          body: JSON.stringify({ offerId }),
+          body: JSON.stringify({ offerId, includeBase64: true }),
         });
 
         const result = await res.json();
-        if (result.success && result.url_oferta) {
-          pdfResults.push({
-            offerId,
-            url: result.url_oferta,
-            fileName: result.fileName || `Oferta_${offerId}.pdf`,
-            tipo: result.tipoOferta || 'propiedad',
+        if (result.success && result.pdfBase64) {
+          const fileName = result.fileName || `Oferta_${offerId}.pdf`;
+          const tipo = result.tipoOferta || 'propiedad';
+
+          pdfResults.push({ offerId, fileName, tipo });
+          attachments.push({
+            Name: fileName,
+            Content: result.pdfBase64,
+            ContentType: 'application/pdf',
           });
+
+          console.log(`PDF generated for offer ${offerId}: ${fileName} (base64 length: ${result.pdfBase64.length})`);
         } else {
           console.error(`Error generating PDF for offer ${offerId}:`, result);
         }
@@ -68,36 +73,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (pdfResults.length === 0) {
+    if (attachments.length === 0) {
       return new Response(JSON.stringify({ error: 'No se pudieron generar los PDFs' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-    }
-
-    // Download PDFs and convert to base64 for Postmark attachments
-    const attachments: { Name: string; Content: string; ContentType: string }[] = [];
-    for (const pdf of pdfResults) {
-      try {
-        const pdfRes = await fetch(pdf.url);
-        if (pdfRes.ok) {
-          const arrayBuffer = await pdfRes.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          // Convert to base64
-          let binary = '';
-          for (let i = 0; i < uint8Array.length; i++) {
-            binary += String.fromCharCode(uint8Array[i]);
-          }
-          const base64 = btoa(binary);
-          
-          attachments.push({
-            Name: pdf.fileName,
-            Content: base64,
-            ContentType: 'application/pdf',
-          });
-        }
-      } catch (err) {
-        console.error(`Error downloading PDF for attachment: ${pdf.fileName}`, err);
-      }
     }
 
     // Build descriptions for the email body

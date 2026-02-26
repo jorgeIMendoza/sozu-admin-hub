@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { offerId } = await req.json();
+    const { offerId, includeBase64 } = await req.json();
 
     console.log('Received request with offerId:', offerId);
 
@@ -246,15 +246,24 @@ Deno.serve(async (req) => {
       EdgeRuntime.waitUntil(deleteTask());
     }
 
+    const responseBody: any = {
+      success: true,
+      url_oferta: urlData.publicUrl,
+      fileName: fileName,
+      expiresIn: '1 minute',
+      tipoOferta: tipoOferta,
+      offerId: oferta.id
+    };
+
+    // If requested, include base64-encoded PDF bytes directly
+    if (includeBase64) {
+      // Use Deno's built-in base64 encoding for reliable binary conversion
+      const { encode } = await import("https://deno.land/std@0.208.0/encoding/base64.ts");
+      responseBody.pdfBase64 = encode(pdfBytes);
+    }
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        url_oferta: urlData.publicUrl,
-        fileName: fileName,
-        expiresIn: '1 minute',
-        tipoOferta: tipoOferta,
-        offerId: oferta.id
-      }),
+      JSON.stringify(responseBody),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
