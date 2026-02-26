@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.enviar-oferta-email]
 verify_jwt = false
+
+[functions.verificar-documento-identidad]
+verify_jwt = false
