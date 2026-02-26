@@ -36,7 +36,15 @@ serve(async (req) => {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Failed to fetch image: ${url}`);
       const buf = await res.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const bytes = new Uint8Array(buf);
+      // Convert to base64 in chunks to avoid call stack overflow
+      let binary = "";
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+      }
+      const base64 = btoa(binary);
       const contentType = res.headers.get("content-type") || "image/jpeg";
       return { base64, contentType };
     };
