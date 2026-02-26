@@ -1,0 +1,1 @@
+UPDATE documentos SET activo = false WHERE id IN (9419, 9420, 9421);
