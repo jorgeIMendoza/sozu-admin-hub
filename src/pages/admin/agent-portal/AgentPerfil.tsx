@@ -47,6 +47,7 @@ const ACTIVATION_BLOCKS = [
 
 const AgentPerfil = () => {
   const { profile, signOut } = useAuth();
+  const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const personaId = profile?.id_persona;
   const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
@@ -192,7 +193,7 @@ const AgentPerfil = () => {
       </div>
 
       {/* Payment Warning */}
-      {!canReceivePayments && (
+      {isAgentRole && !canReceivePayments && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2.5">
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
