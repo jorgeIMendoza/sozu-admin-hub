@@ -244,6 +244,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [verificationDocId, setVerificationDocId] = useState<number | null>(null);
   const [capturedDocUrls, setCapturedDocUrls] = useState<{ front?: string; back?: string; passport?: string }>({});
+  const capturedDocUrlsRef = useRef<{ front?: string; back?: string; passport?: string }>({});
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -415,7 +416,11 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
       if (data?.error) throw new Error(data.error);
       return data as VerificationResult;
     } catch (err: any) {
-      toast.error("Error verificando documento: " + (err.message || "Error"));
+      console.error("Error verificando documento:", err);
+      toast.error("Error verificando documento", {
+        duration: 8000,
+        description: err.message || "Ocurrió un error inesperado. Intenta de nuevo.",
+      });
       return null;
     } finally {
       setVerifying(false);
@@ -445,18 +450,26 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         const file = new File([blob], `ine_frente_${Date.now()}.jpg`, { type: 'image/jpeg' });
         const result = await uploadAndGetUrl(2, file);
         if (result) {
-          setCapturedDocUrls(prev => ({ ...prev, front: result.url }));
+          setCapturedDocUrls(prev => {
+            const next = { ...prev, front: result.url };
+            capturedDocUrlsRef.current = next;
+            return next;
+          });
           setCameraStep('back');
-          toast.success("INE frente capturado. Ahora captura el reverso.");
+          toast.success("INE frente capturado. Ahora captura el reverso.", { duration: 4000 });
           autoCaptureLockRef.current = false;
         }
       } else if (cameraStep === 'back') {
         const file = new File([blob], `ine_reverso_${Date.now()}.jpg`, { type: 'image/jpeg' });
         const result = await uploadAndGetUrl(3, file);
         if (result) {
-          setCapturedDocUrls(prev => ({ ...prev, back: result.url }));
+          setCapturedDocUrls(prev => {
+            const next = { ...prev, back: result.url };
+            capturedDocUrlsRef.current = next;
+            return next;
+          });
           setVerificationDocId(result.docId);
-          // Move to selfie step
+          toast.success("INE reverso capturado. Ahora toma una selfie.", { duration: 4000 });
           stopCamera();
           setTimeout(() => startCamera('selfie'), 300);
         }
@@ -464,9 +477,13 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         const file = new File([blob], `pasaporte_${Date.now()}.jpg`, { type: 'image/jpeg' });
         const result = await uploadAndGetUrl(4, file);
         if (result) {
-          setCapturedDocUrls(prev => ({ ...prev, passport: result.url }));
+          setCapturedDocUrls(prev => {
+            const next = { ...prev, passport: result.url };
+            capturedDocUrlsRef.current = next;
+            return next;
+          });
           setVerificationDocId(result.docId);
-          // Move to selfie step
+          toast.success("Pasaporte capturado. Ahora toma una selfie.", { duration: 4000 });
           stopCamera();
           setTimeout(() => startCamera('selfie'), 300);
         }
@@ -475,22 +492,45 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         const selfieResult = await uploadAndGetUrl(SELFIE_DOC_TYPE, file);
         if (selfieResult) {
           stopCamera();
-          // Now run AI verification
-          const docUrl = capturedDocUrls.front || capturedDocUrls.passport || '';
-          const docType = capturedDocUrls.passport ? 'pasaporte' : 'ine_frente';
+          // Use ref for fresh URLs (avoids stale closure)
+          const urls = capturedDocUrlsRef.current;
+          const docUrl = urls.front || urls.passport || '';
+          const docType = urls.passport ? 'pasaporte' : 'ine_frente';
+          
+          if (!docUrl) {
+            toast.error("No se encontró la imagen del documento. Intenta de nuevo.", {
+              duration: 6000,
+              description: "Vuelve a capturar el documento desde el inicio.",
+            });
+            autoCaptureLockRef.current = false;
+            return;
+          }
+          
+          toast.loading("Verificando identidad con IA...", { id: 'ai-verify' });
           const aiResult = await verifyDocument(docUrl, docType, selfieResult.url);
+          toast.dismiss('ai-verify');
+          
           if (aiResult) {
             setVerificationResult(aiResult);
+            toast.success("Verificación completada", { 
+              duration: 3000,
+              description: "Revisa los resultados a continuación.",
+            });
           } else {
-            // Verification failed - show clear feedback
-            toast.error("No se pudo verificar el documento. Intenta capturar de nuevo.");
+            toast.error("No se pudo verificar el documento", {
+              duration: 8000,
+              description: "La verificación con IA falló. Intenta capturar de nuevo las fotos.",
+            });
+            // Reset to allow retry
+            autoCaptureLockRef.current = false;
           }
         } else {
+          toast.error("Error al subir la selfie. Intenta de nuevo.", { duration: 5000 });
           autoCaptureLockRef.current = false;
         }
       }
     }, 'image/jpeg', 0.85);
-  }, [cameraStep, capturedDocUrls]);
+  }, [cameraStep]);
 
   // Stability detection for auto-capture
   const onStableCapture = useCallback(() => {
@@ -585,12 +625,14 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
             setVerificationResult(null);
             setVerificationDocId(null);
             setCapturedDocUrls({});
+            capturedDocUrlsRef.current = {};
             refetchDocs();
           }}
           onRejected={() => {
             setVerificationResult(null);
             setVerificationDocId(null);
             setCapturedDocUrls({});
+            capturedDocUrlsRef.current = {};
             // Restart camera for retry
             if (identityMode === 'ine') {
               startCamera('front');
