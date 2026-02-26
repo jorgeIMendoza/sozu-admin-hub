@@ -46,54 +46,112 @@ const AgentInicio = () => {
 
   // Fetch agent metrics
   const { data: metrics, isLoading: metricsLoading } = useQuery({
-    queryKey: ['agent-metrics', agentEmail],
+    queryKey: ['agent-metrics', agentEmail, personaId],
     queryFn: async () => {
       if (!agentEmail) return null;
 
-      // Fetch comisionistas with their cuentas to calculate monto
+      // Fetch comisionistas
       const { data: comisionistas } = await (supabase as any)
         .from('comisionistas')
         .select('id_cuenta_cobranza, porcentaje_comision, aprobada, pagada')
         .eq('email_usuario', agentEmail)
         .eq('activo', true);
 
-      // Get precio_final from cuentas_cobranza
-      const cuentaIds = [...new Set((comisionistas || []).map((c: any) => c.id_cuenta_cobranza).filter(Boolean))];
-      let cuentaMap = new Map<number, number>();
+      if (!comisionistas || comisionistas.length === 0) {
+        return { comisionPendiente: 0, comisionPagada: 0, ventasActivas: 0, ventasCerradas: 0 };
+      }
+
+      // Get cuentas for precio_final and oferta link
+      const cuentaIds = [...new Set(comisionistas.map((c: any) => c.id_cuenta_cobranza).filter(Boolean))] as number[];
+      let cuentaMap = new Map<number, any>();
+
       if (cuentaIds.length > 0) {
         const { data: cuentas } = await (supabase as any)
           .from('cuentas_cobranza')
-          .select('id, precio_final')
+          .select('id, id_oferta, precio_final')
           .in('id', cuentaIds);
-        (cuentas || []).forEach((c: any) => cuentaMap.set(c.id, c.precio_final || 0));
+
+        if (cuentas) {
+          const ofertaIds = cuentas.map((c: any) => c.id_oferta).filter(Boolean);
+          let propStatusMap = new Map<number, number>();
+
+          if (ofertaIds.length > 0) {
+            const { data: ofertas } = await (supabase as any)
+              .from('ofertas')
+              .select('id, id_propiedad')
+              .in('id', ofertaIds);
+
+            const propIds = (ofertas || []).map((o: any) => o.id_propiedad).filter(Boolean);
+            let ofertaToProp = new Map<number, number>();
+            (ofertas || []).forEach((o: any) => { if (o.id_propiedad) ofertaToProp.set(o.id, o.id_propiedad); });
+
+            if (propIds.length > 0) {
+              const { data: props } = await (supabase as any)
+                .from('propiedades')
+                .select('id, id_estatus_disponibilidad')
+                .in('id', propIds);
+              (props || []).forEach((p: any) => propStatusMap.set(p.id, p.id_estatus_disponibilidad));
+            }
+
+            cuentas.forEach((c: any) => {
+              const propId = ofertaToProp.get(c.id_oferta);
+              cuentaMap.set(c.id, {
+                precio_final: c.precio_final || 0,
+                propSold: propId ? propStatusMap.get(propId) === 5 : false,
+              });
+            });
+          } else {
+            cuentas.forEach((c: any) => cuentaMap.set(c.id, { precio_final: c.precio_final || 0, propSold: false }));
+          }
+        }
       }
 
-      const enriched = (comisionistas || []).map((c: any) => {
-        const precio = cuentaMap.get(c.id_cuenta_cobranza) || 0;
-        return { monto: precio * (c.porcentaje_comision || 0) / 100, pagada: c.pagada };
+      // Check if agent has factura (doc tipo 46)
+      const { data: facturas } = await (supabase as any)
+        .from('documentos')
+        .select('id')
+        .eq('id_persona', personaId)
+        .eq('id_tipo_documento', 46)
+        .eq('activo', true)
+        .limit(1);
+      const hasFactura = (facturas || []).length > 0;
+
+      // Calculate detailed status and sums
+      let comisionPendiente = 0;
+      let comisionPagada = 0;
+      let ventasActivas = 0;   // pendiente + en_revision
+      let ventasCerradas = 0;  // programada + pagada
+
+      comisionistas.forEach((c: any) => {
+        const cuenta = cuentaMap.get(c.id_cuenta_cobranza);
+        const precio = cuenta?.precio_final || 0;
+        const monto = precio * (c.porcentaje_comision || 0) / 100;
+
+        let status: string;
+        if (c.pagada) {
+          status = 'pagada';
+        } else if (c.aprobada && hasFactura) {
+          status = 'programada';
+        } else if (c.aprobada && !hasFactura) {
+          status = 'factura_requerida';
+        } else if (cuenta?.propSold) {
+          status = 'en_revision';
+        } else {
+          status = 'pendiente';
+        }
+
+        if (c.pagada) {
+          comisionPagada += monto;
+        } else {
+          comisionPendiente += monto;
+        }
+
+        if (status === 'pendiente' || status === 'en_revision' || status === 'factura_requerida') {
+          ventasActivas++;
+        } else if (status === 'programada' || status === 'pagada') {
+          ventasCerradas++;
+        }
       });
-
-      const { data: ofertas } = await (supabase as any)
-        .from('ofertas')
-        .select('id, id_estatus_aprobacion')
-        .eq('email_creador', agentEmail)
-        .eq('activo', true);
-
-      const comisionPendiente = enriched
-        .filter((c: any) => !c.pagada)
-        .reduce((sum: number, c: any) => sum + c.monto, 0);
-
-      const comisionPagada = enriched
-        .filter((c: any) => c.pagada)
-        .reduce((sum: number, c: any) => sum + c.monto, 0);
-
-      const ventasActivas = (ofertas || []).filter((o: any) => 
-        o.id_estatus_aprobacion && ![8, 9, 10].includes(o.id_estatus_aprobacion)
-      ).length;
-
-      const ventasCerradas = (ofertas || []).filter((o: any) => 
-        o.id_estatus_aprobacion === 8
-      ).length;
 
       return { comisionPendiente, comisionPagada, ventasActivas, ventasCerradas };
     },
@@ -262,17 +320,17 @@ const AgentInicio = () => {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <MetricCard
+              label="Comisión pagada"
+              value={formatCurrency(metrics?.comisionPagada || 0)}
+              icon={CheckCircle2}
+              color="text-emerald-600"
+              bgColor="bg-emerald-50"
+            />
+            <MetricCard
               label="Comisión pendiente"
               value={formatCurrency(metrics?.comisionPendiente || 0)}
               icon={DollarSign}
               color="text-[hsl(var(--agent-metric-green))]"
-              bgColor="bg-emerald-50"
-            />
-            <MetricCard
-              label="Comisión pagada"
-              value={formatCurrency(metrics?.comisionPagada || 0)}
-              icon={CheckCircle2}
-              color="text-[hsl(var(--agent-primary))]"
               bgColor="bg-emerald-50"
             />
             <MetricCard
