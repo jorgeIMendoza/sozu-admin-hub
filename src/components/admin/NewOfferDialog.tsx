@@ -953,26 +953,68 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         });
       }
       
-      // Send offer PDFs via email instead of downloading
+      // Generate PDFs client-side (same quality as admin) and send via email
       try {
         const allOfferIds = [result.offerId];
-        // Add product offer IDs
         for (const productOffer of result.productOffersResults.createdOffers) {
           allOfferIds.push(productOffer.offerId);
         }
 
         toast({
+          title: "Generando PDFs...",
+          description: `Preparando ${allOfferIds.length} PDF(s) para enviar a ${result.leadEmail}`,
+        });
+
+        const { generateOfferPDFAsBase64 } = await import('@/services/htmlToPdfService');
+        const preGeneratedAttachments: { base64: string; filename: string; offerId: number; tipo: string }[] = [];
+
+        // Generate main property offer PDF
+        const mainPdfs = await generateOfferPDFAsBase64({
+          propertyId,
+          offerId: result.offerId,
+          propertyNumber,
+          leadName: result.leadName,
+          leadEmail: result.leadEmail,
+          leadPhone: result.leadPhone || '',
+          creatorEmail: profile?.email || '',
+        });
+        for (const pdf of mainPdfs) {
+          preGeneratedAttachments.push({ ...pdf, offerId: result.offerId, tipo: 'propiedad' });
+        }
+
+        // Generate product offer PDFs
+        for (const productOffer of result.productOffersResults.createdOffers) {
+          try {
+            const productPdfs = await generateOfferPDFAsBase64({
+              propertyId,
+              offerId: productOffer.offerId,
+              propertyNumber,
+              leadName: result.leadName,
+              leadEmail: result.leadEmail,
+              leadPhone: result.leadPhone || '',
+              creatorEmail: profile?.email || '',
+              isProductOffer: true,
+              productId: productOffer.productId,
+            });
+            for (const pdf of productPdfs) {
+              preGeneratedAttachments.push({ ...pdf, offerId: productOffer.offerId, tipo: 'producto' });
+            }
+          } catch (prodPdfErr) {
+            console.error(`Error generating product PDF for ${productOffer.productName}:`, prodPdfErr);
+          }
+        }
+
+        toast({
           title: "Enviando oferta por correo...",
-          description: `Enviando ${allOfferIds.length} PDF(s) a ${result.leadEmail}`,
+          description: `Enviando ${preGeneratedAttachments.length} PDF(s) a ${result.leadEmail}`,
         });
 
         const { data: emailResult, error: emailError } = await supabase.functions.invoke('enviar-oferta-email', {
           body: {
-            offerIds: allOfferIds,
+            preGeneratedAttachments,
             recipientEmail: result.leadEmail,
             recipientName: result.leadName,
             propertyNumber,
-            hideBanking: hideBankingInPdf,
           }
         });
 
@@ -986,7 +1028,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         } else {
           toast({
             title: "Oferta compartida",
-            description: `La oferta ha sido enviada a ${result.leadEmail} con ${emailResult?.attachmentsSent || allOfferIds.length} PDF(s) adjuntos.`,
+            description: `La oferta ha sido enviada a ${result.leadEmail} con ${emailResult?.attachmentsSent || preGeneratedAttachments.length} PDF(s) adjuntos.`,
           });
         }
       } catch (emailErr) {
