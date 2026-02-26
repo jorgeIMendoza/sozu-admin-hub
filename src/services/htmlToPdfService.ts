@@ -2085,3 +2085,170 @@ export const generateOfferPDF = async (offerData: OfferData) => {
   const service = new HTMLToPDFService();
   await service.generateOfferPDF(offerData);
 };
+
+/**
+ * Generate offer PDF(s) as base64 strings without downloading.
+ * Used for sending via email from the client side.
+ * Returns an array of { base64, filename } for the main offer and product offers.
+ */
+export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ base64: string; filename: string }[]> => {
+  const results: { base64: string; filename: string }[] = [];
+  
+  const { data: offerDetails, error: offerError } = await supabase
+    .from('ofertas')
+    .select('*')
+    .eq('id', offerData.offerId)
+    .single();
+
+  if (offerError || !offerDetails) {
+    throw new Error('Error fetching offer details');
+  }
+
+  const offerOptions = offerData.offerOptions || {
+    mostrar_piso_en_oferta: offerDetails.mostrar_piso_en_oferta ?? true,
+    mostrar_precio_m2_en_oferta: offerDetails.mostrar_precio_m2_en_oferta ?? true,
+    mostrar_seccion_efectivo_en_oferta: offerDetails.mostrar_seccion_efectivo_en_oferta ?? true,
+  };
+
+  if (offerData.isProductOffer && offerData.productId) {
+    // Product offer
+    const service = new HTMLToPDFService();
+    const propertyDetails = await (service as any).fetchPropertyDetails(offerData.propertyId);
+    const productDetails = await (service as any).fetchProductDetails(offerData.productId, offerData.propertyId);
+    
+    let clabeStp = offerDetails.clabe_stp_tmp_producto;
+    if (!clabeStp) {
+      const { data: cuentaCobranza } = await supabase
+        .from('cuentas_cobranza')
+        .select('clabe_stp')
+        .eq('id_oferta', offerData.offerId)
+        .single();
+      if (cuentaCobranza?.clabe_stp) clabeStp = cuentaCobranza.clabe_stp;
+    }
+
+    const { data: paymentSchemes } = await supabase
+      .from('esquemas_pago')
+      .select('*')
+      .eq('id_producto', offerData.productId)
+      .eq('activo', true)
+      .order('nombre', { ascending: true });
+
+    const [creatorInfo, leadInfo, legalNotices] = await Promise.all([
+      (service as any).fetchCreatorInfo(offerDetails.email_creador),
+      (service as any).fetchLeadInfo(offerDetails.id_persona_lead),
+      (service as any).fetchLegalNotices(offerData.propertyId)
+    ]);
+
+    let estatus_aprobacion_nombre: string | null = null;
+    if (offerDetails.id_estatus_aprobacion) {
+      const { data: estatusData } = await supabase
+        .from('estatus_aprobacion')
+        .select('nombre')
+        .eq('id', offerDetails.id_estatus_aprobacion)
+        .single();
+      estatus_aprobacion_nombre = estatusData?.nombre || null;
+    }
+
+    const { ofertaProductoPdfNativeService } = await import('./ofertaProductoPdfNativeService');
+    const { blob, filename } = await ofertaProductoPdfNativeService.generateOfferPDF({
+      offerData: {
+        id: offerData.offerId,
+        fecha_generacion: offerDetails.fecha_generacion,
+        propertyNumber: offerData.propertyNumber,
+        leadName: offerData.leadName,
+        leadEmail: offerData.leadEmail,
+        email_creador: offerData.creatorEmail,
+        id_esquema_pago_seleccionado: offerDetails.id_esquema_pago_seleccionado,
+        clabe_stp_tmp_producto: offerDetails.clabe_stp_tmp_producto,
+        clabe_stp: clabeStp,
+      } as any,
+      propertyDetails,
+      productDetails,
+      paymentSchemes: paymentSchemes || [],
+      creatorInfo,
+      leadInfo,
+      legalNotices,
+      id_estatus_aprobacion: offerDetails.id_estatus_aprobacion,
+      estatus_aprobacion_nombre,
+    });
+
+    const base64 = await blobToBase64(blob);
+    results.push({ base64, filename });
+  } else {
+    // Property offer
+    const service = new HTMLToPDFService();
+    const [propertyDetails, paymentSchemes, amenities, creatorInfo, leadInfo, legalNotices, estacionamientos, bodegas] = await Promise.all([
+      (service as any).fetchPropertyDetails(offerData.propertyId, offerData.offerId),
+      (service as any).fetchPaymentSchemes(offerData.propertyId, offerData.offerId),
+      (service as any).fetchProjectAmenities(offerData.propertyId),
+      (service as any).fetchCreatorInfo(offerDetails.email_creador),
+      (service as any).fetchLeadInfo(offerDetails.id_persona_lead),
+      (service as any).fetchLegalNotices(offerData.propertyId),
+      (service as any).fetchEstacionamientos(offerData.propertyId),
+      (service as any).fetchBodegas(offerData.propertyId)
+    ]);
+
+    let estatus_aprobacion_nombre: string | null = null;
+    if (offerDetails.id_estatus_aprobacion) {
+      const { data: estatusData } = await supabase
+        .from('estatus_aprobacion')
+        .select('nombre')
+        .eq('id', offerDetails.id_estatus_aprobacion)
+        .single();
+      estatus_aprobacion_nombre = estatusData?.nombre || null;
+    }
+
+    const finalPropertyDetails = {
+      ...propertyDetails,
+      projectData: {
+        ...propertyDetails.projectData,
+        mostrar_piso_en_oferta: offerOptions?.mostrar_piso_en_oferta ?? propertyDetails.projectData?.mostrar_piso_en_oferta,
+        mostrar_precio_m2_en_oferta: offerOptions?.mostrar_precio_m2_en_oferta ?? propertyDetails.projectData?.mostrar_precio_m2_en_oferta,
+        mostrar_seccion_efectivo_en_oferta: offerOptions?.mostrar_seccion_efectivo_en_oferta ?? propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta,
+      }
+    };
+
+    const { ofertaPdfNativeService } = await import('./ofertaPdfNativeService');
+    const { blob, filename } = await ofertaPdfNativeService.generateOfferPDF({
+      offerData: {
+        id: offerData.offerId,
+        fecha_generacion: offerDetails.fecha_generacion,
+        propertyNumber: offerData.propertyNumber,
+        leadName: offerData.leadName,
+        leadEmail: offerData.leadEmail,
+        email_creador: offerData.creatorEmail,
+      } as any,
+      propertyDetails: finalPropertyDetails,
+      paymentSchemes,
+      creatorInfo,
+      leadInfo,
+      estacionamientos,
+      bodegas,
+      id_estatus_aprobacion: offerDetails.id_estatus_aprobacion,
+      estatus_aprobacion_nombre,
+    });
+
+    // Also upload to storage
+    const { ofertaPdfStorageService } = await import('./ofertaPdfStorageService');
+    await ofertaPdfStorageService.uploadAndSave(offerData.offerId, blob, filename, false);
+
+    const base64 = await blobToBase64(blob);
+    results.push({ base64, filename });
+  }
+
+  return results;
+};
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      // Remove the data:application/pdf;base64, prefix
+      const base64 = dataUrl.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}

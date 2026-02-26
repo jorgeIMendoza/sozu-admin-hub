@@ -11,13 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { offerIds, recipientEmail, recipientName, propertyNumber, hideBanking } = await req.json();
-
-    if (!offerIds || !Array.isArray(offerIds) || offerIds.length === 0) {
-      return new Response(JSON.stringify({ error: 'offerIds (array) requerido' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const { offerIds, recipientEmail, recipientName, propertyNumber, hideBanking, preGeneratedAttachments } = await req.json();
 
     if (!recipientEmail) {
       return new Response(JSON.stringify({ error: 'recipientEmail requerido' }), {
@@ -36,41 +30,62 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate PDFs for all offers, requesting base64 directly to avoid download/conversion issues
     const attachments: { Name: string; Content: string; ContentType: string }[] = [];
     const pdfResults: { offerId: number; fileName: string; tipo: string }[] = [];
 
-    for (const offerId of offerIds) {
-      try {
-        const genUrl = `${supabaseUrl}/functions/v1/generar-oferta-pdf`;
-        const res = await fetch(genUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({ offerId, includeBase64: true, hideBanking: !!hideBanking }),
-        });
-
-        const result = await res.json();
-        if (result.success && result.pdfBase64) {
-          const fileName = result.fileName || `Oferta_${offerId}.pdf`;
-          const tipo = result.tipoOferta || 'propiedad';
-
-          pdfResults.push({ offerId, fileName, tipo });
+    // If pre-generated attachments are provided (client-side generated PDFs), use them directly
+    if (preGeneratedAttachments && Array.isArray(preGeneratedAttachments) && preGeneratedAttachments.length > 0) {
+      console.log(`Using ${preGeneratedAttachments.length} pre-generated attachment(s)`);
+      for (const att of preGeneratedAttachments) {
+        if (att.base64 && att.filename) {
           attachments.push({
-            Name: fileName,
-            Content: result.pdfBase64,
+            Name: att.filename,
+            Content: att.base64,
             ContentType: 'application/pdf',
           });
-
-          console.log(`PDF generated for offer ${offerId}: ${fileName} (base64 length: ${result.pdfBase64.length})`);
-        } else {
-          console.error(`Error generating PDF for offer ${offerId}:`, result);
+          pdfResults.push({ offerId: att.offerId || 0, fileName: att.filename, tipo: att.tipo || 'propiedad' });
+          console.log(`Pre-generated PDF: ${att.filename} (base64 length: ${att.base64.length})`);
         }
-      } catch (err) {
-        console.error(`Error calling generar-oferta-pdf for ${offerId}:`, err);
       }
+    } else if (offerIds && Array.isArray(offerIds) && offerIds.length > 0) {
+      // Fallback: generate PDFs server-side via generar-oferta-pdf edge function
+      console.log(`Generating ${offerIds.length} PDF(s) server-side`);
+      for (const offerId of offerIds) {
+        try {
+          const genUrl = `${supabaseUrl}/functions/v1/generar-oferta-pdf`;
+          const res = await fetch(genUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({ offerId, includeBase64: true, hideBanking: !!hideBanking }),
+          });
+
+          const result = await res.json();
+          if (result.success && result.pdfBase64) {
+            const fileName = result.fileName || `Oferta_${offerId}.pdf`;
+            const tipo = result.tipoOferta || 'propiedad';
+
+            pdfResults.push({ offerId, fileName, tipo });
+            attachments.push({
+              Name: fileName,
+              Content: result.pdfBase64,
+              ContentType: 'application/pdf',
+            });
+
+            console.log(`PDF generated for offer ${offerId}: ${fileName} (base64 length: ${result.pdfBase64.length})`);
+          } else {
+            console.error(`Error generating PDF for offer ${offerId}:`, result);
+          }
+        } catch (err) {
+          console.error(`Error calling generar-oferta-pdf for ${offerId}:`, err);
+        }
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'offerIds (array) o preGeneratedAttachments requerido' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (attachments.length === 0) {
