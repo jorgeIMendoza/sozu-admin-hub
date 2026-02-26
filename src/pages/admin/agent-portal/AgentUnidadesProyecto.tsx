@@ -25,6 +25,7 @@ const AgentUnidadesProyecto = () => {
   const [searchParams] = useSearchParams();
   const proyectoIdParam = searchParams.get("proyecto");
   const modeloIdParam = searchParams.get("modelo");
+  const openFiltersParam = searchParams.get("openFilters");
   const navigate = useNavigate();
   const { canGenerateOffer } = usePagePermissions('/admin/inmobiliarias/inventario');
 
@@ -39,7 +40,7 @@ const AgentUnidadesProyecto = () => {
   const [filterLevels, setFilterLevels] = useState<string[]>([]);
   const [filterBodega, setFilterBodega] = useState<TriState>("todos");
   const [filterEstacionamiento, setFilterEstacionamiento] = useState<TriState>("todos");
-  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
+  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(openFiltersParam === 'true');
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [recamarasFilter, setRecamarasFilter] = useState<string[]>([]);
