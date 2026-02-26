@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { APP_VERSION } from "@/lib/config";
 import { useAgentOnboardingStatus, type OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import { 
   FileText, Receipt, Landmark, GraduationCap, 
@@ -49,14 +51,20 @@ const AgentPerfil = () => {
   const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
   const perfilPerms = permissions['/admin/agent/perfil'];
+  const { registrarVista } = useActivityLogger();
+  const { track } = useCtaTracker();
   const [activeStep, setActiveStep] = useState<OnboardingStep['id'] | null>(null);
   const confettiFiredRef = useRef(false);
   const prevPercentageRef = useRef<number | null>(null);
 
+  // Log page view
+  useEffect(() => {
+    registrarVista('/admin/agent/perfil');
+  }, []);
+
   // Fire confetti when profile reaches 100%
   useEffect(() => {
     if (!isLoading && percentage === 100 && !confettiFiredRef.current) {
-      // Only fire if we transitioned to 100 (not on initial load if already 100)
       if (prevPercentageRef.current !== null && prevPercentageRef.current < 100) {
         confettiFiredRef.current = true;
         const duration = 3000;
@@ -125,7 +133,7 @@ const AgentPerfil = () => {
         </div>
       </div>
 
-      {/* Progress Steps - 4 step indicators */}
+      {/* Progress Steps */}
       <div className="rounded-xl bg-white p-4 border border-gray-100 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-[hsl(var(--agent-text))]">
@@ -139,7 +147,12 @@ const AgentPerfil = () => {
               <div key={step.id} className="flex items-center flex-1 last:flex-none">
                 <button
                   className="flex flex-col items-center gap-1 cursor-pointer"
-                  onClick={() => perfilPerms.canUpdate && setActiveStep(step.id)}
+                  onClick={() => {
+                    if (perfilPerms.canUpdate) {
+                      track({ page: 'agent_perfil', elementId: 'btn_etapa_onboarding', elementLabel: block?.label || step.label, metadata: { step_id: step.id } });
+                      setActiveStep(step.id);
+                    }
+                  }}
                   disabled={!perfilPerms.canUpdate}
                 >
                   <div
@@ -204,7 +217,12 @@ const AgentPerfil = () => {
             return (
               <button
                 key={block.stepId}
-                onClick={() => perfilPerms.canUpdate && setActiveStep(block.stepId)}
+                onClick={() => {
+                  if (perfilPerms.canUpdate) {
+                    track({ page: 'agent_perfil', elementId: 'btn_etapa_onboarding', elementLabel: block.label, metadata: { step_id: block.stepId } });
+                    setActiveStep(block.stepId);
+                  }
+                }}
                 disabled={!perfilPerms.canUpdate}
                 className={cn(
                   "w-full rounded-xl bg-white border p-4 flex items-center gap-3 transition-all active:scale-[0.98]",
@@ -263,7 +281,10 @@ const AgentPerfil = () => {
 
       <div className="pt-2 pb-1">
         <button
-          onClick={signOut}
+          onClick={() => {
+            track({ page: 'agent_perfil', elementId: 'btn_cerrar_sesion', elementLabel: 'Cerrar sesión' });
+            signOut();
+          }}
           className="w-full rounded-xl border border-destructive/20 bg-destructive/5 py-2.5 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors flex items-center justify-center gap-2"
         >
           <LogOut className="h-4 w-4" />

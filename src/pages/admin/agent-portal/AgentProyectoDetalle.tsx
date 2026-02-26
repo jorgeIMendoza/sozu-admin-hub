@@ -2,12 +2,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
+import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight, HardHat, Image as ImageIcon, Maximize2, BedDouble, Bath, Mail, Copy, Dumbbell, Car, TreePine, Shield, Coffee, Waves, Warehouse, ShoppingBag, PersonStanding, Clapperboard, Sofa, Dog, Bike, Baby, Utensils, Gamepad2, BookOpen, Wind, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleMapComponent } from "@/components/admin/GoogleMapComponent";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Map amenity names to minimalist Lucide icons
@@ -46,13 +49,25 @@ const AgentProyectoDetalle = () => {
   const projectId = parseInt(id || "0");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { permissions } = useAgentPortalPermissions();
+  const inventarioPerms = permissions['/admin/agent/inventario'];
+  const { registrarVista, registrarExportacion } = useActivityLogger();
+  const { track } = useCtaTracker();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
 
   const publicUrl = `https://www.sozu.com/desarrollos/${projectId}`;
 
+  // Log page view
+  useEffect(() => {
+    if (projectId > 0) {
+      registrarVista(`/admin/agent/inventario/proyecto/${projectId}`, { proyecto_id: projectId });
+    }
+  }, [projectId]);
+
   const handleShareMethod = (method: string) => {
     const name = project?.nombre || "";
+    track({ page: 'agent_detalle_desarrollo', elementId: 'btn_compartir_plataforma', elementLabel: `Compartir ${method}`, metadata: { plataforma: method, proyecto_id: projectId } });
     switch (method) {
       case "whatsapp":
         window.open(`https://wa.me/?text=${encodeURIComponent(`${name}\n${publicUrl}`)}`, "_blank");
@@ -550,7 +565,7 @@ const AgentProyectoDetalle = () => {
                   {m.availableCount > 0 && (
                     <div className="mt-3">
                       <button
-                        onClick={() => navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}&modelo=${m.id}`)}
+                        onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_ver_unidades_modelo', elementLabel: 'Ver unidades', metadata: { modelo_id: m.id } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}&modelo=${m.id}`); }}
                         className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors"
                       >
                         Ver unidades
@@ -572,7 +587,7 @@ const AgentProyectoDetalle = () => {
               {brochure && (
                 <div
                   className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between cursor-pointer active:bg-gray-50"
-                  onClick={() => window.open(brochure.url, '_blank')}
+                  onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_descargar_brochure', elementLabel: 'Brochure' }); registrarExportacion('brochure', { proyecto_id: projectId }); window.open(brochure.url, '_blank'); }}
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
@@ -589,7 +604,7 @@ const AgentProyectoDetalle = () => {
               {fichaTecnica && (
                 <div
                   className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between cursor-pointer active:bg-gray-50"
-                  onClick={() => window.open(fichaTecnica.url, '_blank')}
+                  onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_descargar_ficha', elementLabel: 'Ficha técnica' }); registrarExportacion('ficha_tecnica', { proyecto_id: projectId }); window.open(fichaTecnica.url, '_blank'); }}
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-[hsl(var(--agent-primary))]/10 flex items-center justify-center">
@@ -610,13 +625,15 @@ const AgentProyectoDetalle = () => {
         {/* CTA: Generar oferta comercial */}
         <section className="bg-[hsl(var(--agent-primary))]/10 rounded-2xl p-5 text-center">
           <p className="text-sm font-semibold text-foreground mb-3">¿Tu cliente está interesado en este proyecto?</p>
-          <Button
-            onClick={() => navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}`)}
-            className="w-full bg-[hsl(var(--agent-primary))] hover:bg-[hsl(var(--agent-primary))]/90 text-white rounded-xl h-12 text-sm font-semibold"
+          {inventarioPerms.canGenerateOffer && (
+            <Button
+              onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_generar_oferta', elementLabel: 'Generar oferta comercial', metadata: { proyecto_id: projectId } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}`); }}
+              className="w-full bg-[hsl(var(--agent-primary))] hover:bg-[hsl(var(--agent-primary))]/90 text-white rounded-xl h-12 text-sm font-semibold"
           >
             <Share2 className="h-4 w-4 mr-2" />
             Generar oferta comercial
           </Button>
+          )}
           <p className="text-xs text-muted-foreground mt-3">
             Las ofertas permiten dar seguimiento formal al interés del cliente.
           </p>
@@ -624,7 +641,7 @@ const AgentProyectoDetalle = () => {
 
         {/* Compartir proyecto — same modal as inventory card */}
         <div className="flex justify-center pb-4">
-          <Button variant="outline" onClick={() => setShareOpen(true)} className="rounded-xl">
+          <Button variant="outline" onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_compartir', elementLabel: 'Compartir proyecto' }); setShareOpen(true); }} className="rounded-xl">
             <Share2 className="h-4 w-4 mr-2" />
             Compartir proyecto
           </Button>

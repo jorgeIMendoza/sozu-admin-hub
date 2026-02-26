@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Progress } from "@/components/ui/progress";
 import { 
   CalendarPlus, UserPlus, TrendingUp, DollarSign, 
@@ -27,8 +29,15 @@ const AgentInicio = () => {
   const inicioPerms = permissions['/admin/agent/inicio'];
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
+  const { registrarVista } = useActivityLogger();
+  const { track } = useCtaTracker();
 
   const nombre = profile?.nombre?.split(" ")[0] || "Agente";
+
+  // Log page view
+  useEffect(() => {
+    registrarVista('/admin/agent/inicio');
+  }, []);
 
   // Get current hour for greeting
   const hour = new Date().getHours();
@@ -165,7 +174,10 @@ const AgentInicio = () => {
             />
           </div>
           <button
-            onClick={() => navigate('/admin/agent/perfil')}
+            onClick={() => {
+              track({ page: 'agent_inicio', elementId: 'btn_completar_perfil', elementLabel: 'Completar ahora' });
+              navigate('/admin/agent/perfil');
+            }}
             className="text-sm font-semibold text-[hsl(var(--agent-primary))] flex items-center gap-1 active:opacity-70"
           >
             Completar ahora <ChevronRight className="h-4 w-4" />
@@ -184,6 +196,9 @@ const AgentInicio = () => {
             {attentionItems.map((item: any) => (
               <div
                 key={item.id}
+                onClick={() => {
+                  track({ page: 'agent_inicio', elementId: 'btn_atencion_item', elementLabel: 'Item atención', metadata: { oferta_id: item.id } });
+                }}
                 className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3"
               >
                 <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
@@ -208,7 +223,10 @@ const AgentInicio = () => {
       {inicioPerms.canCreate && (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => setAddProspectoOpen(true)}
+            onClick={() => {
+              track({ page: 'agent_inicio', elementId: 'btn_nuevo_prospecto', elementLabel: 'Nuevo prospecto' });
+              setAddProspectoOpen(true);
+            }}
             className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
           >
             <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
@@ -217,7 +235,10 @@ const AgentInicio = () => {
             <span className="text-xs font-medium text-[hsl(var(--agent-text))]">Nuevo prospecto</span>
           </button>
           <button
-            onClick={() => setAgendarCitaOpen(true)}
+            onClick={() => {
+              track({ page: 'agent_inicio', elementId: 'btn_agendar_cita', elementLabel: 'Agendar cita' });
+              setAgendarCitaOpen(true);
+            }}
             className="rounded-xl bg-white border border-gray-100 shadow-sm p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform"
           >
             <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">

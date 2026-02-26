@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Loader2, Plus, User, Clock, Building2, Calendar, FileText } from "lucide-react";
@@ -68,6 +70,13 @@ const AgentPipeline = () => {
   const [activeStage, setActiveStage] = useState<string>('all');
   const { permissions } = useAgentPortalPermissions();
   const pipelinePerms = permissions['/admin/agent/pipeline'];
+  const { registrarVista } = useActivityLogger();
+  const { track } = useCtaTracker();
+
+  // Log page view
+  useEffect(() => {
+    registrarVista('/admin/agent/pipeline');
+  }, []);
 
   const { data: ofertas = [], isLoading } = useQuery({
     queryKey: ['agent-pipeline', agentEmail],
@@ -241,10 +250,13 @@ const AgentPipeline = () => {
   return (
     <div className="pb-24">
       <AgentPortalHeader showAgentName>
-        {pipelinePerms.canUpdate && (
+        {pipelinePerms.canCreate && (
           <div className="flex items-center justify-end -mt-2">
             <button
-              onClick={() => navigate('/admin/agent/inventario/unidades?openFilters=true')}
+              onClick={() => {
+                track({ page: 'agent_pipeline', elementId: 'btn_nueva_oferta', elementLabel: 'Nueva oferta' });
+                navigate('/admin/agent/inventario/unidades?openFilters=true');
+              }}
               className="flex items-center gap-1 text-xs font-medium text-[hsl(var(--agent-primary))] active:opacity-70"
             >
               <Plus className="h-4 w-4" />
@@ -272,7 +284,10 @@ const AgentPipeline = () => {
             return (
               <button
                 key={stage.key}
-                onClick={() => setActiveStage(stage.key)}
+                onClick={() => {
+                  track({ page: 'agent_pipeline', elementId: 'btn_filtro_etapa', elementLabel: stage.label, metadata: { etapa: stage.key } });
+                  setActiveStage(stage.key);
+                }}
                 className={cn(
                   "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border",
                   isActive
@@ -334,7 +349,6 @@ function OfertaCard({ oferta, formatCurrency, getStageInfo }: {
   return (
     <div className={cn("rounded-xl bg-white border-l-4 border border-gray-100 shadow-sm p-3.5", stageInfo.borderColor)}>
       <div className="space-y-1.5">
-        {/* Oferta ID + Badge */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] text-[hsl(var(--agent-text-secondary))] font-mono">
             Oferta: {ofertaLabel}
@@ -344,18 +358,15 @@ function OfertaCard({ oferta, formatCurrency, getStageInfo }: {
           </Badge>
         </div>
 
-        {/* Unit / Project */}
         <p className="text-sm font-medium text-[hsl(var(--agent-text))] truncate">
           {unitLabel}
         </p>
 
-        {/* Lead */}
         <div className="flex items-center gap-1.5 text-xs text-[hsl(var(--agent-text-secondary))]">
           <User className="h-3 w-3 shrink-0" />
           <span className="truncate">{oferta.lead_nombre}</span>
         </div>
 
-        {/* Inmobiliaria */}
         {oferta.inmobiliaria_nombre && (
           <div className="flex items-center gap-1.5 text-xs">
             <Building2 className="h-3 w-3 shrink-0 text-[hsl(var(--agent-text-secondary))]" />
@@ -365,7 +376,6 @@ function OfertaCard({ oferta, formatCurrency, getStageInfo }: {
           </div>
         )}
 
-        {/* Cuenta de cobranza */}
         {oferta.cuenta_cobranza_id && (
           <div className="flex items-center gap-1.5 text-xs text-[hsl(var(--agent-text-secondary))]">
             <FileText className="h-3 w-3 shrink-0" />
@@ -373,7 +383,6 @@ function OfertaCard({ oferta, formatCurrency, getStageInfo }: {
           </div>
         )}
 
-        {/* Price + Date */}
         <div className="flex items-center justify-between gap-2 pt-0.5">
           {oferta.precio != null && oferta.precio > 0 && (
             <span className="text-xs font-semibold text-[hsl(var(--agent-text))]">

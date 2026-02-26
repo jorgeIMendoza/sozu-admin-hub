@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Lock, CheckCircle2, AlertCircle, DollarSign, Clock, FileText, CalendarCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,13 @@ const AgentComisiones = () => {
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
   const [activeTab, setActiveTab] = useState<TabKey>('todas');
+  const { registrarVista } = useActivityLogger();
+  const { track } = useCtaTracker();
+
+  // Log page view
+  useEffect(() => {
+    registrarVista('/admin/agent/comisiones');
+  }, []);
 
   // Check profile completeness (fiscal + bank + docs)
   const fiscalComplete = steps.find(s => s.id === 'fiscal')?.isComplete ?? false;
@@ -76,7 +85,6 @@ const AgentComisiones = () => {
             let propMap = new Map<number, any>();
             let prodMap = new Map<number, string>();
 
-            // Fetch product names
             if (prodIds.length > 0) {
               const { data: prods } = await (supabase as any)
                 .from('productos_servicios')
@@ -140,7 +148,6 @@ const AgentComisiones = () => {
         }
       }
 
-      // Check for facturas (doc type 46) linked to this agent's comisionistas
       const { data: facturas } = await (supabase as any)
         .from('documentos')
         .select('id, id_tipo_documento')
@@ -155,12 +162,6 @@ const AgentComisiones = () => {
         const montoComision = precioFinal * (c.porcentaje_comision || 0) / 100;
         const propSold = cuenta?.id_estatus_disponibilidad === 5;
 
-        // Determine detailed status:
-        // pagada → pagada
-        // aprobada + has factura → programada
-        // aprobada + no factura → factura_requerida
-        // not aprobada + property sold → en_revision
-        // not aprobada + property not sold → pendiente
         let detailedStatus: string;
         if (c.pagada) {
           detailedStatus = 'pagada';
@@ -248,7 +249,10 @@ const AgentComisiones = () => {
           </div>
 
           <button
-            onClick={() => navigate('/admin/agent/perfil')}
+            onClick={() => {
+              track({ page: 'agent_comisiones', elementId: 'btn_completar_perfil_comisiones', elementLabel: 'Completar perfil' });
+              navigate('/admin/agent/perfil');
+            }}
             className="w-full py-2.5 rounded-xl bg-[hsl(var(--agent-primary))] text-white text-sm font-semibold active:scale-[0.98] transition-transform"
           >
             Completar perfil
@@ -269,9 +273,8 @@ const AgentComisiones = () => {
         <p className="text-sm text-[hsl(var(--agent-text-secondary))]">Tu wallet de ingresos</p>
       </div>
 
-      {/* Summary cards - wallet style */}
+      {/* Summary cards */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-4">
-        {/* Total cobrado - dark green card */}
         <div className="rounded-xl bg-[hsl(var(--agent-primary))] p-4 shadow-md">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[11px] text-white/80">Total cobrado</p>
@@ -280,7 +283,6 @@ const AgentComisiones = () => {
           <p className="text-xl font-bold text-white">{formatCurrency(totalCobrado)}</p>
           <p className="text-[10px] text-white/60 mt-0.5">MXN · acumulado</p>
         </div>
-        {/* Por cobrar - white card */}
         <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-4">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[11px] text-[hsl(var(--agent-text-secondary))]">Por cobrar</p>
@@ -302,7 +304,10 @@ const AgentComisiones = () => {
               return (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => {
+                    track({ page: 'agent_comisiones', elementId: 'btn_filtro_tab', elementLabel: tab.label, metadata: { tab: tab.key } });
+                    setActiveTab(tab.key);
+                  }}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border",
                     activeTab === tab.key

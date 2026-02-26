@@ -1,8 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Search, Building2, MapPin, ChevronRight, Eye, Share2, Mail, Copy } from "lucide-react";
@@ -27,8 +30,17 @@ interface ProyectoCard {
 const AgentInventario = () => {
   const { profile } = useAuth();
   const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: loadingAccess } = useProjectAccess();
+  const { permissions } = useAgentPortalPermissions();
+  const inventarioPerms = permissions['/admin/agent/inventario'];
+  const { registrarVista } = useActivityLogger();
+  const { track } = useCtaTracker();
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+
+  // Log page view
+  useEffect(() => {
+    registrarVista('/admin/agent/inventario');
+  }, []);
 
   // Fetch estatus_proyecto for avance calculation
   const { data: estatusData } = useQuery({
@@ -160,7 +172,12 @@ const AgentInventario = () => {
           <Input
             placeholder="Buscar desarrollo..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => {
+              setSearch(e.target.value);
+              if (e.target.value.length > 0) {
+                track({ page: 'agent_inventario', elementId: 'input_buscar_desarrollo', elementLabel: 'Buscar desarrollo', elementType: 'input' });
+              }
+            }}
             className="pl-9 h-10 rounded-xl bg-white border-gray-200"
           />
         </div>
@@ -181,11 +198,17 @@ const AgentInventario = () => {
               key={proyecto.id}
               proyecto={proyecto}
               formatCurrency={formatCurrency}
-              onViewProject={() => navigate(`/admin/agent/inventario/proyecto/${proyecto.id}`)}
+              canRead={inventarioPerms.canRead}
+              onViewProject={() => {
+                track({ page: 'agent_inventario', elementId: 'btn_ver_desarrollo', elementLabel: 'Ver Desarrollo', metadata: { proyecto_id: proyecto.id } });
+                navigate(`/admin/agent/inventario/proyecto/${proyecto.id}`);
+              }}
               onViewUnits={(e) => {
                 e.stopPropagation();
+                track({ page: 'agent_inventario', elementId: 'btn_ver_unidades', elementLabel: 'Ver unidades', metadata: { proyecto_id: proyecto.id } });
                 navigate(`/admin/agent/inventario/unidades?proyecto=${proyecto.id}`);
               }}
+              track={track}
             />
           ))
         )}
@@ -197,13 +220,17 @@ const AgentInventario = () => {
 function ProjectCard({
   proyecto,
   formatCurrency,
+  canRead,
   onViewProject,
   onViewUnits,
+  track,
 }: {
   proyecto: ProyectoCard;
   formatCurrency: (v: number) => string;
+  canRead: boolean;
   onViewProject: () => void;
   onViewUnits: (e: React.MouseEvent) => void;
+  track: (opts: any) => void;
 }) {
   const isAgotado = proyecto.unidades_disponibles === 0;
   const { toast } = useToast();
@@ -212,6 +239,7 @@ function ProjectCard({
   const publicUrl = `https://www.sozu.com/desarrollos/${proyecto.id}`;
 
   const handleShare = (method: string) => {
+    track({ page: 'agent_inventario', elementId: 'btn_compartir_plataforma', elementLabel: `Compartir ${method}`, metadata: { plataforma: method, proyecto_id: proyecto.id } });
     switch (method) {
       case "whatsapp":
         window.open(`https://wa.me/?text=${encodeURIComponent(`${proyecto.nombre}\n${publicUrl}`)}`, "_blank");
@@ -287,7 +315,7 @@ function ProjectCard({
             </div>
           </div>
 
-          {!isAgotado && (
+          {!isAgotado && canRead && (
             <button
               onClick={onViewUnits}
               className="flex items-center gap-1 text-xs font-semibold text-[hsl(var(--agent-primary))] hover:underline"
@@ -300,20 +328,28 @@ function ProjectCard({
 
         {/* Action buttons */}
         <div className="px-3.5 py-2.5 flex items-center gap-2">
-          <button
-            onClick={onViewProject}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-medium text-foreground hover:bg-gray-50 transition-colors"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            Ver Desarrollo
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setShareOpen(true); }}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[hsl(var(--agent-primary))] py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-            Compartir
-          </button>
+          {canRead && (
+            <button
+              onClick={onViewProject}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-medium text-foreground hover:bg-gray-50 transition-colors"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Ver Desarrollo
+            </button>
+          )}
+          {canRead && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                track({ page: 'agent_inventario', elementId: 'btn_compartir', elementLabel: 'Compartir', metadata: { proyecto_id: proyecto.id } });
+                setShareOpen(true);
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[hsl(var(--agent-primary))] py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              Compartir
+            </button>
+          )}
         </div>
       </div>
 
