@@ -244,7 +244,7 @@ const AgentPipeline = () => {
         {pipelinePerms.canUpdate && (
           <div className="flex items-center justify-end -mt-2">
             <button
-              onClick={() => navigate('/admin/agent/inventario')}
+              onClick={() => navigate('/admin/agent/inventario/unidades?openFilters=true')}
               className="flex items-center gap-1 text-xs font-medium text-[hsl(var(--agent-primary))] active:opacity-70"
             >
               <Plus className="h-4 w-4" />
