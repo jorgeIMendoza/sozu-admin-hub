@@ -127,11 +127,18 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
   const trainingPartial = !trainingComplete && citasCapacitacion.some((c: any) => (c.id_estatus_cita === 1 || c.id_estatus_cita === 2 || c.estatus === 'programada') && c.activo);
   const trainingCancelled = !trainingComplete && !trainingPartial && citasCapacitacion.some((c: any) => c.estatus === 'cancelada' || !c.activo);
 
+  // Consolidated into 4 stages for the profile view
+  // Stage 1: basic = basic info + address + documents (INE front/back + Carta comercialización)
+  const basicStageComplete = basicComplete && addressComplete && documentsComplete;
+  const basicStagePartial = !basicStageComplete && (basicPartial || basicComplete || addressPartial || addressComplete || documentsPartial);
+
+  // Stage 2: fiscal = fiscal info + constancia (doc type 6)
+  const fiscalStageComplete = fiscalComplete && docTypes.has(6);
+  const fiscalStagePartial = !fiscalStageComplete && (fiscalPartial || fiscalComplete || docTypes.has(6));
+
   const steps: OnboardingStep[] = [
-    { id: 'basic', label: 'Info. Básica', isComplete: basicComplete, hasPartialData: basicPartial },
-    { id: 'address', label: 'Dirección', isComplete: addressComplete, hasPartialData: addressPartial },
-    { id: 'fiscal', label: 'Info. Fiscal', isComplete: fiscalComplete, hasPartialData: fiscalPartial },
-    { id: 'documents', label: 'Documentos', isComplete: documentsComplete, hasPartialData: documentsPartial },
+    { id: 'basic', label: 'Identidad', isComplete: basicStageComplete, hasPartialData: basicStagePartial },
+    { id: 'fiscal', label: 'Fiscal', isComplete: fiscalStageComplete, hasPartialData: fiscalStagePartial },
     { id: 'bank-accounts', label: 'Cuentas', isComplete: bankComplete, hasPartialData: false },
     { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: trainingPartial, hasCancelledData: trainingCancelled },
   ];

@@ -29,7 +29,7 @@ interface AgentOnboardingStepDialogProps {
 }
 
 const STEP_TITLES: Record<string, string> = {
-  basic: 'Información Básica',
+  basic: 'Identidad y Contrato',
   address: 'Dirección',
   fiscal: 'Información Fiscal',
   documents: 'Documentos',
@@ -38,15 +38,19 @@ const STEP_TITLES: Record<string, string> = {
 };
 
 const STEP_DESCRIPTIONS: Record<string, string> = {
-  basic: 'Tu nombre, correo y teléfono',
+  basic: 'Datos personales, dirección, INE y contrato',
   address: 'Tu dirección física completa',
-  fiscal: 'RFC, régimen fiscal y dirección fiscal',
+  fiscal: 'RFC, régimen fiscal, constancia y dirección fiscal',
   documents: 'INE, Constancia y Contrato de comercialización',
   'bank-accounts': 'Agrega al menos una cuenta bancaria',
   training: 'Agenda tu cita de capacitación presencial',
 };
 
-// Required document types for onboarding
+// Required document types for basic step (INE frente=2, INE reverso=3, Carta comercialización=48)
+const BASIC_DOC_TYPES = [2, 3, 48];
+// Constancia de situación fiscal (type 6) for fiscal step
+const FISCAL_DOC_TYPES = [6];
+// All required doc types for onboarding queries
 const REQUIRED_DOC_TYPES = [2, 3, 6, 48];
 
 export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange }: AgentOnboardingStepDialogProps) {
@@ -95,7 +99,7 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
     </div>
   ) : step === 'documents' ? (
     <div className="px-1">
-      <AgentDocumentsStep personaId={personaId} onTrackFieldChange={() => {
+      <AgentDocumentsStep personaId={personaId} filterDocTypes={REQUIRED_DOC_TYPES} onTrackFieldChange={() => {
         if (!hasTrackedFieldChange.current) {
           hasTrackedFieldChange.current = true;
           track({ page: "modal_perfil", elementId: "perfil_fase_campo_modificado", metadata: { fase: step } });
@@ -131,12 +135,12 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[92vh] rounded-t-3xl overflow-hidden max-w-[100vw]">
+        <DrawerContent className="max-h-[95vh] rounded-t-3xl overflow-hidden max-w-[100vw]">
           <DrawerHeader className="text-left pb-2 px-4">
             <DrawerTitle className="text-lg">{title}</DrawerTitle>
             <DrawerDescription className="text-xs">{description}</DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-6 overflow-y-auto overflow-x-hidden w-full" style={{ maxHeight: 'calc(92vh - 100px)' }}>
+          <div className="px-4 pb-6 overflow-y-auto overflow-x-hidden w-full" style={{ maxHeight: 'calc(95vh - 100px)' }}>
             <div className="w-full max-w-full overflow-hidden">
               {content}
             </div>
@@ -161,17 +165,19 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
 
 // ---------- Agent Documents Step ----------
 
-function AgentDocumentsStep({ personaId, onTrackFieldChange, onTrackDocView }: { personaId: number; onTrackFieldChange?: () => void; onTrackDocView?: (docName: string) => void }) {
+function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onTrackDocView }: { personaId: number; filterDocTypes?: number[]; onTrackFieldChange?: () => void; onTrackDocView?: (docName: string) => void }) {
   const queryClient = useQueryClient();
 
+  const activeDocTypes = filterDocTypes || REQUIRED_DOC_TYPES;
+  
   // Fetch doc type names from DB
   const { data: docTypes = [] } = useQuery({
-    queryKey: ['agent-doc-types'],
+    queryKey: ['agent-doc-types', activeDocTypes],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tipos_documento')
         .select('id, nombre')
-        .in('id', REQUIRED_DOC_TYPES)
+        .in('id', activeDocTypes)
         .eq('activo', true);
       if (error) throw error;
       return data || [];
@@ -180,18 +186,19 @@ function AgentDocumentsStep({ personaId, onTrackFieldChange, onTrackDocView }: {
 
   // Fetch existing documents for this persona
   const { data: existingDocs = [], refetch: refetchDocs } = useQuery({
-    queryKey: ['agent-onboarding-docs-detail', personaId],
+    queryKey: ['agent-onboarding-docs-detail', personaId, activeDocTypes],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documentos')
         .select('id, id_tipo_documento, url, id_estatus_verificacion, fecha_creacion')
         .eq('id_persona', personaId)
         .eq('activo', true)
-        .in('id_tipo_documento', REQUIRED_DOC_TYPES);
+        .in('id_tipo_documento', activeDocTypes);
       if (error) throw error;
       return data || [];
     },
   });
+
 
   const [uploading, setUploading] = useState<number | null>(null);
 
@@ -269,7 +276,7 @@ function AgentDocumentsStep({ personaId, onTrackFieldChange, onTrackDocView }: {
 
   return (
     <div className="space-y-3 pb-4">
-      {REQUIRED_DOC_TYPES.map((typeId) => {
+      {activeDocTypes.map((typeId) => {
         const docType = docTypes.find((d: any) => d.id === typeId);
         const doc = getDocForType(typeId);
         const status = getStatusInfo(doc);
@@ -1121,6 +1128,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
   const [fIdEstado, setFIdEstado] = useState('');
   const [fIdMunicipio, setFIdMunicipio] = useState('');
   const [copiarDireccion, setCopiarDireccion] = useState(false);
+  const initializedRef = useRef(false);
 
   // Initialize from persona
   useEffect(() => {
@@ -1149,6 +1157,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
     setFIdPais(persona.direccion_fiscal_id_pais || '');
     setFIdEstado(persona.direccion_fiscal_id_estado?.toString() || '');
     setFIdMunicipio(persona.direccion_fiscal_id_municipio?.toString() || '');
+    initializedRef.current = true;
   }, [persona]);
 
   // Lookups
@@ -1174,7 +1183,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
       const { data } = await supabase.from('municipios_mx').select('id, nombre, id_estado').eq('activo', true).order('nombre');
       return data || [];
     },
-    enabled: step === 'address' || step === 'fiscal',
+    enabled: step === 'basic' || step === 'address' || step === 'fiscal',
   });
 
   const { data: regimenes = [] } = useQuery({
@@ -1195,8 +1204,9 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
     enabled: step === 'fiscal',
   });
 
-  // Copy address for fiscal
+  // Copy address for fiscal — clear when unchecked (skip initial mount)
   useEffect(() => {
+    if (!initializedRef.current) return;
     if (copiarDireccion) {
       setFCalle(calle || persona?.direccion_calle || '');
       setFNumExt(numExt || persona?.direccion_num_ext || '');
@@ -1206,6 +1216,15 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
       setFIdPais(idPais || persona?.direccion_id_pais || '');
       setFIdEstado(idEstado || persona?.direccion_id_estado?.toString() || '');
       setFIdMunicipio(idMunicipio || persona?.direccion_id_municipio?.toString() || '');
+    } else {
+      setFCalle('');
+      setFNumExt('');
+      setFNumInt('');
+      setFColonia('');
+      setFCp('');
+      setFIdPais('');
+      setFIdEstado('');
+      setFIdMunicipio('');
     }
   }, [copiarDireccion]);
 
@@ -1235,13 +1254,21 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
             return;
           }
         }
-        isIncomplete = !nombre.trim() || !email.trim() || !telefono.trim();
+        isIncomplete = !nombre.trim() || !email.trim() || !telefono.trim() || !calle.trim() || !numExt.trim() || !colonia.trim() || !cp.trim() || !idPais || !idEstado || !idMunicipio;
         updateData = {
           nombre_legal: nombre.trim() || null,
           email: email.trim() || null,
           telefono: telefono.trim() || null,
           curp: curp.trim().toUpperCase() || null,
           sexo: sexo || null,
+          direccion_calle: calle.trim() || null,
+          direccion_num_ext: numExt.trim() || null,
+          direccion_num_int: numInt.trim() || null,
+          direccion_colonia: colonia.trim() || null,
+          direccion_codigo_postal: cp.trim() || null,
+          direccion_id_pais: idPais || null,
+          direccion_id_estado: idEstado ? parseInt(idEstado) : null,
+          direccion_id_municipio: idMunicipio ? parseInt(idMunicipio) : null,
         };
       } else if (step === 'address') {
         isIncomplete = !calle.trim() || !numExt.trim() || !colonia.trim() || !cp.trim() || !idPais || !idEstado || !idMunicipio;
@@ -1384,6 +1411,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
     <div className="space-y-5 pb-4">
       {step === 'basic' && (
         <div className="space-y-4">
+          {/* Basic info fields */}
           <div>
             <Label className="text-sm font-semibold">Nombre completo *</Label>
             <Input value={nombre} onChange={(e) => { setNombre(e.target.value); onTrackFieldChange?.(); }} className="mt-1.5 neu-input h-auto" />
@@ -1414,6 +1442,17 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
               </SelectContent>
             </Select>
           </div>
+
+          {/* Address section */}
+          <p className="text-xs font-medium text-muted-foreground pt-2 border-t">Dirección</p>
+          {renderAddressFields(
+            'dir', calle, setCalle, numExt, setNumExt, numInt, setNumInt,
+            colonia, setColonia, cp, setCp, idPais, setIdPais, idEstado, setIdEstado, idMunicipio, setIdMunicipio
+          )}
+
+          {/* Documents section (INE frente/reverso + Carta comercialización) */}
+          <p className="text-xs font-medium text-muted-foreground pt-2 border-t">Documentos</p>
+          <AgentDocumentsStep personaId={personaId} filterDocTypes={BASIC_DOC_TYPES} onTrackFieldChange={onTrackFieldChange} />
         </div>
       )}
 
@@ -1461,6 +1500,10 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
             'fiscal', fCalle, setFCalle, fNumExt, setFNumExt, fNumInt, setFNumInt,
             fColonia, setFColonia, fCp, setFCp, fIdPais, setFIdPais, fIdEstado, setFIdEstado, fIdMunicipio, setFIdMunicipio
           )}
+
+          {/* Constancia de Situación Fiscal upload */}
+          <p className="text-xs font-medium text-muted-foreground pt-2 border-t">Constancia de Situación Fiscal</p>
+          <AgentDocumentsStep personaId={personaId} filterDocTypes={FISCAL_DOC_TYPES} onTrackFieldChange={onTrackFieldChange} />
         </div>
       )}
 

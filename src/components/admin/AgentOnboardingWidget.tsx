@@ -8,11 +8,9 @@ import { cn } from "@/lib/utils";
 
 const STEP_NUMBERS: Record<string, number> = {
   basic: 1,
-  address: 2,
-  fiscal: 3,
-  documents: 4,
-  'bank-accounts': 5,
-  training: 6,
+  fiscal: 2,
+  'bank-accounts': 3,
+  training: 4,
 };
 
 interface AgentOnboardingWidgetProps {

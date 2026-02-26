@@ -7,8 +7,8 @@ import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import { Progress } from "@/components/ui/progress";
 import { 
-  User, FileText, Receipt, Landmark, GraduationCap, 
-  Check, AlertTriangle, ChevronRight, Shield, Loader2, LogOut 
+  FileText, Receipt, Landmark, GraduationCap, 
+  Check, AlertTriangle, ChevronRight, Loader2, LogOut 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,9 +16,9 @@ const ACTIVATION_BLOCKS = [
   { 
     stepId: 'basic' as const, 
     label: 'Identidad y Contrato', 
-    description: 'INE, datos personales y contrato',
+    description: 'Datos personales, dirección, INE y contrato',
     icon: FileText,
-    relatedSteps: ['basic', 'address', 'documents'] as const,
+    relatedSteps: ['basic'] as const,
   },
   { 
     stepId: 'fiscal' as const, 
@@ -60,7 +60,7 @@ const AgentPerfil = () => {
   };
 
   const canReceivePayments = steps
-    .filter(s => ['fiscal', 'bank-accounts', 'documents'].includes(s.id))
+    .filter(s => ['fiscal', 'bank-accounts'].includes(s.id))
     .every(s => s.isComplete);
 
   if (isLoading) {
@@ -90,11 +90,11 @@ const AgentPerfil = () => {
         </div>
       </div>
 
-      {/* Progress Card */}
+      {/* Progress Card - moved to top */}
       <div className="rounded-xl bg-white p-4 border border-gray-100 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-[hsl(var(--agent-text))]">
-            Estado de tu perfil
+            Progreso
           </span>
           <span className="text-sm font-bold text-[hsl(var(--agent-primary))]">
             {percentage}%
@@ -110,7 +110,7 @@ const AgentPerfil = () => {
           }}
         />
         <p className="text-xs text-[hsl(var(--agent-text-secondary))]">
-          {completedCount} de {totalSteps} secciones completadas
+          {completedCount} de {totalSteps} etapas completadas
         </p>
       </div>
 
@@ -121,20 +121,20 @@ const AgentPerfil = () => {
           <div>
             <p className="text-sm font-medium text-amber-800">No puedes recibir pagos</p>
             <p className="text-xs text-amber-700 mt-0.5">
-              Completa tu información fiscal, documentos y cuenta bancaria para poder recibir comisiones.
+              Completa tu información fiscal y cuenta bancaria para poder recibir comisiones.
             </p>
           </div>
         </div>
       )}
 
-      {/* Activation Center */}
+      {/* Etapas de activación */}
       <div className="space-y-2">
         <h2 className="text-sm font-semibold text-[hsl(var(--agent-text))] px-1">
-          Centro de Activación
+          Etapas de activación
         </h2>
 
         <div className="space-y-2">
-          {ACTIVATION_BLOCKS.map((block) => {
+          {ACTIVATION_BLOCKS.map((block, index) => {
             const status = getBlockStatus(block.relatedSteps);
             const Icon = block.icon;
 
@@ -172,7 +172,7 @@ const AgentPerfil = () => {
                       ? "text-emerald-700" 
                       : "text-[hsl(var(--agent-text))]"
                   )}>
-                    {block.label}
+                    {index + 1}. {block.label}
                   </p>
                   <p className="text-xs text-[hsl(var(--agent-text-secondary))] truncate">
                     {block.description}
@@ -183,55 +183,6 @@ const AgentPerfil = () => {
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Detailed Step Circles */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-[hsl(var(--agent-text))] px-1">
-          Progreso detallado
-        </h2>
-        <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-4">
-          <div className="flex items-center justify-between gap-1">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center flex-1 last:flex-none">
-                <button
-                  onClick={() => perfilPerms.canUpdate && setActiveStep(step.id)}
-                  className="flex flex-col items-center gap-1 group"
-                  title={step.label}
-                >
-                  <div
-                    className={cn(
-                      "flex items-center justify-center rounded-full h-8 w-8 text-xs font-bold transition-all",
-                      step.isComplete
-                        ? "bg-[hsl(var(--agent-primary))] text-white"
-                        : step.hasCancelledData
-                        ? "bg-red-500 text-white"
-                        : step.hasPartialData
-                        ? "border-2 border-[hsl(var(--agent-primary))] text-[hsl(var(--agent-primary))] bg-white"
-                        : "bg-gray-100 text-[hsl(var(--agent-muted))]"
-                    )}
-                  >
-                    {step.isComplete ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : index + 1}
-                  </div>
-                  <span className={cn(
-                    "text-[8px] font-medium text-center leading-tight max-w-[48px]",
-                    step.isComplete
-                      ? "text-[hsl(var(--agent-primary))]"
-                      : "text-[hsl(var(--agent-muted))]"
-                  )}>
-                    {step.label}
-                  </span>
-                </button>
-                {index < steps.length - 1 && (
-                  <div className={cn(
-                    "flex-1 h-0.5 mx-0.5 rounded-full mt-[-14px]",
-                    step.isComplete ? "bg-[hsl(var(--agent-primary))]" : "bg-gray-100"
-                  )} />
-                )}
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
