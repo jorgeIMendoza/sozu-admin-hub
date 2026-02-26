@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,21 +7,23 @@ import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Loader2, Plus, User, Building2, DollarSign, Clock, ChevronRight } from "lucide-react";
+import { Loader2, Plus, User, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import { format, differenceInDays } from "date-fns";
-import { es } from "date-fns/locale";
+import { differenceInDays } from "date-fns";
 
 const STAGES = [
-  { key: 'all', label: 'Todas', borderColor: 'border-gray-400' },
-  { key: 'nuevas', label: 'Nuevas', borderColor: 'border-blue-400' },
-  { key: 'pendientes', label: 'Pendiente', borderColor: 'border-yellow-400' },
-  { key: 'aprobadas', label: 'Aprobadas', borderColor: 'border-green-400' },
-  { key: 'apartado', label: 'Apartado', borderColor: 'border-orange-400' },
-  { key: 'gen_contrato', label: 'Contrato', borderColor: 'border-indigo-400' },
-  { key: 'firma_contrato', label: 'Firma', borderColor: 'border-teal-400' },
-  { key: 'cierre', label: 'Cierre', borderColor: 'border-emerald-500' },
+  { key: 'all', label: 'Todas', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-400' },
+  { key: 'nuevas', label: 'Nuevas', color: 'bg-blue-100 text-blue-800', borderColor: 'border-blue-400' },
+  { key: 'pendientes', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800', borderColor: 'border-yellow-400' },
+  { key: 'aprobadas', label: 'Aprobadas', color: 'bg-green-100 text-green-800', borderColor: 'border-green-400' },
+  { key: 'rechazadas', label: 'Rechazadas', color: 'bg-red-100 text-red-800', borderColor: 'border-red-400' },
+  { key: 'revision', label: 'Revisión', color: 'bg-purple-100 text-purple-800', borderColor: 'border-purple-400' },
+  { key: 'apartado', label: 'Apartado', color: 'bg-orange-100 text-orange-800', borderColor: 'border-orange-400' },
+  { key: 'gen_contrato', label: 'Contrato', color: 'bg-indigo-100 text-indigo-800', borderColor: 'border-indigo-400' },
+  { key: 'firma_contrato', label: 'Firma', color: 'bg-teal-100 text-teal-800', borderColor: 'border-teal-400' },
+  { key: 'cierre', label: 'Cierre', color: 'bg-emerald-100 text-emerald-800', borderColor: 'border-emerald-500' },
+  { key: 'expiradas', label: 'Expiradas', color: 'bg-gray-100 text-gray-500', borderColor: 'border-gray-300' },
 ] as const;
 
 function isVigente(fechaGeneracion: string): boolean {
@@ -76,7 +78,6 @@ const AgentPipeline = () => {
 
       if (!ofertasData || ofertasData.length === 0) return [];
 
-      // Enrich with property, lead, and cuenta data
       const propIds = [...new Set(ofertasData.map((o: any) => o.id_propiedad).filter(Boolean))] as number[];
       const leadIds = [...new Set(ofertasData.map((o: any) => o.id_persona_lead).filter(Boolean))] as number[];
       const ofertaIds = ofertasData.map((o: any) => o.id);
@@ -93,7 +94,6 @@ const AgentPipeline = () => {
           : { data: [] as any[] },
       ]) as [{ data: any[] }, { data: any[] }, { data: any[] }];
 
-      // Map edificio_modelo -> proyecto name
       const edModeloIds = [...new Set((propRes.data || []).map((p: any) => p.id_edificio_modelo).filter(Boolean))];
       let propToProject = new Map<number, string>();
 
@@ -111,7 +111,6 @@ const AgentPipeline = () => {
             const projMap = new Map((projs || []).map((p: any) => [p.id, p.nombre]));
             const edToProjId = new Map((edificios || []).map((e: any) => [e.id, e.id_proyecto]));
             const emToEdId = new Map((edModelos || []).map((em: any) => [em.id, em.id_edificio]));
-            // prop.id_edificio_modelo -> edModelo.id_edificio -> edificio.id_proyecto -> proyecto.nombre
             (propRes.data || []).forEach((p: any) => {
               const edId = emToEdId.get(p.id_edificio_modelo);
               const projId = edId ? edToProjId.get(edId) : null;
@@ -122,7 +121,6 @@ const AgentPipeline = () => {
         }
       }
 
-      // Check signed contracts
       const cuentaIds = (cuentaRes.data || []).map((c: any) => c.id);
       let signedSet = new Set<number>();
       if (cuentaIds.length > 0) {
@@ -156,7 +154,7 @@ const AgentPipeline = () => {
         };
         enriched.stage = classifyOffer(enriched);
         return enriched;
-      }).filter((o: any) => o.stage !== 'expiradas');
+      });
     },
     enabled: !!agentEmail,
     staleTime: 30_000,
@@ -171,34 +169,23 @@ const AgentPipeline = () => {
     return map;
   }, [ofertas]);
 
+  // Non-expired offers for the summary
+  const nonExpiredOfertas = useMemo(() => ofertas.filter((o: any) => o.stage !== 'expiradas'), [ofertas]);
+
   const displayOfertas = useMemo(() => {
-    if (activeStage === 'all') return ofertas;
+    if (activeStage === 'all') return nonExpiredOfertas;
     return grouped[activeStage] || [];
-  }, [ofertas, grouped, activeStage]);
+  }, [nonExpiredOfertas, grouped, activeStage]);
 
   const totalMonto = useMemo(() => {
-    return ofertas.reduce((sum: number, o: any) => sum + (o.precio || 0), 0);
-  }, [ofertas]);
+    return nonExpiredOfertas.reduce((sum: number, o: any) => sum + (o.precio || 0), 0);
+  }, [nonExpiredOfertas]);
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(v);
 
-  const getStageColor = (stage: string) => {
-    const s = STAGES.find(s => s.key === stage);
-    return s?.borderColor || 'border-gray-300';
-  };
-
-  const getStageBadgeLabel = (stage: string) => {
-    switch (stage) {
-      case 'nuevas': return 'Nueva';
-      case 'pendientes': return 'Pendiente';
-      case 'aprobadas': return 'Aprobada';
-      case 'apartado': return 'Apartado';
-      case 'gen_contrato': return 'Contrato';
-      case 'firma_contrato': return 'Firma';
-      case 'cierre': return 'Cerrada';
-      default: return stage;
-    }
+  const getStageInfo = (stage: string) => {
+    return STAGES.find(s => s.key === stage) || STAGES[0];
   };
 
   return (
@@ -217,7 +204,7 @@ const AgentPipeline = () => {
         )}
         {!isLoading && (
           <p className="text-xs text-[hsl(var(--agent-text-secondary))]">
-            {ofertas.length} ofertas · {formatCurrency(totalMonto)} en proceso
+            {nonExpiredOfertas.length} ofertas · {formatCurrency(totalMonto)} en proceso
           </p>
         )}
       </AgentPortalHeader>
@@ -226,8 +213,10 @@ const AgentPipeline = () => {
       <ScrollArea className="w-full px-4 pb-3">
         <div className="flex gap-2 py-1">
           {STAGES.map(stage => {
-            const count = stage.key === 'all' ? ofertas.length : (grouped[stage.key]?.length || 0);
+            const count = stage.key === 'all' ? nonExpiredOfertas.length : (grouped[stage.key]?.length || 0);
             const isActive = activeStage === stage.key;
+            // Hide stages with 0 count (except 'all')
+            if (stage.key !== 'all' && count === 0) return null;
             return (
               <button
                 key={stage.key}
@@ -263,8 +252,7 @@ const AgentPipeline = () => {
               key={oferta.id}
               oferta={oferta}
               formatCurrency={formatCurrency}
-              getStageColor={getStageColor}
-              getStageBadgeLabel={getStageBadgeLabel}
+              getStageInfo={getStageInfo}
             />
           ))
         )}
@@ -273,19 +261,18 @@ const AgentPipeline = () => {
   );
 };
 
-function OfertaCard({ oferta, formatCurrency, getStageColor, getStageBadgeLabel }: {
+function OfertaCard({ oferta, formatCurrency, getStageInfo }: {
   oferta: any;
   formatCurrency: (v: number) => string;
-  getStageColor: (s: string) => string;
-  getStageBadgeLabel: (s: string) => string;
+  getStageInfo: (s: string) => { key: string; label: string; color: string; borderColor: string };
 }) {
   const days = differenceInDays(new Date(), new Date(oferta.fecha_generacion));
+  const stageInfo = getStageInfo(oferta.stage);
 
   return (
-    <div className={cn("rounded-xl bg-white border-l-4 border border-gray-100 shadow-sm p-3.5", getStageColor(oferta.stage))}>
+    <div className={cn("rounded-xl bg-white border-l-4 border border-gray-100 shadow-sm p-3.5", stageInfo.borderColor)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0 space-y-1.5">
-          {/* Lead name */}
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
               <User className="h-3.5 w-3.5 text-gray-500" />
@@ -300,7 +287,6 @@ function OfertaCard({ oferta, formatCurrency, getStageColor, getStageBadgeLabel 
             </div>
           </div>
 
-          {/* Amount & Days */}
           <div className="flex items-center gap-3">
             {oferta.precio && (
               <span className="text-xs font-semibold text-[hsl(var(--agent-text))]">
@@ -314,9 +300,8 @@ function OfertaCard({ oferta, formatCurrency, getStageColor, getStageBadgeLabel 
           </div>
         </div>
 
-        {/* Stage badge */}
-        <Badge variant="outline" className="text-[10px] shrink-0">
-          {getStageBadgeLabel(oferta.stage)}
+        <Badge className={cn("text-[10px] shrink-0 border-0", stageInfo.color)}>
+          {stageInfo.label}
         </Badge>
       </div>
     </div>
