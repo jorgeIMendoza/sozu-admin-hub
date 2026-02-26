@@ -21,6 +21,7 @@ const AgentInicio = () => {
   const navigate = useNavigate();
   const personaId = profile?.id_persona;
   const agentEmail = user?.email || profile?.email;
+  const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
   const inicioPerms = permissions['/admin/agent/inicio'];
@@ -145,8 +146,8 @@ const AgentInicio = () => {
 
       <div className="p-4 space-y-5">
 
-      {/* Onboarding Progress Banner */}
-      {percentage < 100 && (
+      {/* Onboarding Progress Banner - only for Agente Inmobiliario */}
+      {isAgentRole && percentage < 100 && (
         <div className="w-full rounded-xl bg-white border border-gray-100 shadow-sm p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-[hsl(var(--agent-text))]">

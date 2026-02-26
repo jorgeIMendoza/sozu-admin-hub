@@ -13,6 +13,7 @@ const AgentComisiones = () => {
   const navigate = useNavigate();
   const personaId = profile?.id_persona;
   const agentEmail = user?.email || profile?.email;
+  const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
 
   // Check profile completeness (fiscal + bank + docs)
@@ -144,8 +145,8 @@ const AgentComisiones = () => {
     .filter((c: any) => c.id_estatus_comision === 3)
     .reduce((sum: number, c: any) => sum + (c.monto_comision || 0), 0);
 
-  // Blocked state
-  if (!onboardingLoading && !canReceivePayments) {
+  // Blocked state - only for Agente Inmobiliario role
+  if (isAgentRole && !onboardingLoading && !canReceivePayments) {
     return (
       <div className="pb-24">
         <AgentPortalHeader showAgentName />
