@@ -9,6 +9,7 @@ import { Loader2, Lock, CheckCircle2, AlertCircle, DollarSign, Clock, FileText, 
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 
 type TabKey = 'todas' | 'pendiente' | 'en_revision' | 'factura_requerida' | 'programada' | 'pagada';
 
@@ -57,7 +58,7 @@ const AgentComisiones = () => {
       if (cuentaIds.length > 0) {
         const { data: cuentas } = await (supabase as any)
           .from('cuentas_cobranza')
-          .select('id, id_oferta, precio_final')
+          .select('id, id_oferta, precio_final, tipo')
           .in('id', cuentaIds);
 
         if (cuentas) {
@@ -130,6 +131,7 @@ const AgentComisiones = () => {
               propiedad: info?.numero_propiedad, 
               proyecto: info?.proyecto, 
               precio_final: c.precio_final, 
+              tipo: c.tipo,
               productoNombre: info?.productoNombre || '',
               id_estatus_disponibilidad: info?.id_estatus_disponibilidad,
             });
@@ -179,6 +181,7 @@ const AgentComisiones = () => {
           precio_final: precioFinal,
           monto_comision: montoComision,
           detailed_status: detailedStatus,
+          cuenta_cobranza_label: formatCuentaCobranzaId(c.id_cuenta_cobranza, cuenta?.tipo),
         };
       });
     },
@@ -334,6 +337,8 @@ const AgentComisiones = () => {
                       {c.propiedad ? ` · ${c.propiedad}` : ''}
                     </p>
                     <p className="text-xs text-[hsl(var(--agent-text-secondary))] truncate">
+                      {c.cuenta_cobranza_label}
+                      {' · '}
                       {c.productoNombre
                         ? `${c.productoNombre}${c.propiedad ? ` · Depto ${c.propiedad}` : ''}`
                         : c.propiedad ? `Departamento ${c.propiedad}` : 'Sin unidad'}
