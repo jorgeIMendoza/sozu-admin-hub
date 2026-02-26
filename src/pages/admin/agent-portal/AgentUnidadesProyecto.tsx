@@ -18,6 +18,9 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
+import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { useCtaTracker } from "@/hooks/useCtaTracker";
 
 const PAGE_SIZE = 30;
 type SortOrder = "none" | "asc" | "desc";
@@ -38,6 +41,18 @@ const AgentUnidadesProyecto = () => {
   const nombreCompleto = profile?.nombre || "Agente";
   const initials = nombreCompleto.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("");
 
+  // Permissions, logging, tracking
+  const { permissions } = useAgentPortalPermissions();
+  const unidadesPerms = permissions['/admin/agent/inventario'];
+  const { registrarVista } = useActivityLogger();
+  const { track } = useCtaTracker();
+
+  // Log page view
+  useEffect(() => {
+    registrarVista('/admin/agent/inventario/unidades');
+  }, []);
+
+  // State declarations from line 41 to line 100
   const [page, setPage] = useState(0);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [selectedSchemeId, setSelectedSchemeId] = useState<number | null>(null);
@@ -83,7 +98,6 @@ const AgentUnidadesProyecto = () => {
       }
       await Promise.all(promises);
       setParamsResolved(true);
-      // Clean URL params so filters remain independent
       navigate('/admin/agent/inventario/unidades', { replace: true });
     };
     resolveParams();
@@ -99,6 +113,7 @@ const AgentUnidadesProyecto = () => {
     return nums;
   }, [recamarasFilter]);
 
+  // bodegaValue, estacionamientoValue, query hook, pageProperties, filter options, price bounds, helpers - lines 102 to 258
   const bodegaValue = filterBodega === "si" ? true : filterBodega === "no" ? false : null;
   const estacionamientoValue = filterEstacionamiento === "si" ? true : filterEstacionamiento === "no" ? false : null;
 
@@ -151,7 +166,6 @@ const AgentUnidadesProyecto = () => {
   const availableModelNames = inventarioData?.filterOptions?.modelos || [];
   const availableLevelOptions = useMemo(() => {
     const levels = inventarioData?.filterOptions?.niveles || [];
-    // Sort numerically
     return [...levels].sort((a, b) => {
       const na = parseFloat(a);
       const nb = parseFloat(b);
@@ -167,7 +181,6 @@ const AgentUnidadesProyecto = () => {
   const projectCounts = inventarioData?.projectCounts || {};
   const isLoading = isLoadingData;
 
-  // Stable price bounds: cache initial bounds and only update when no price filter is active
   const priceBoundsRef = useRef<{ min: number; max: number } | null>(null);
   const priceBounds = useMemo(() => {
     const props = inventarioData?.propiedades || [];
@@ -175,7 +188,6 @@ const AgentUnidadesProyecto = () => {
     const prices = props.map(p => p.precio_lista).filter(Boolean) as number[];
     if (prices.length === 0) return priceBoundsRef.current || { min: 0, max: 10000000 };
     const computed = { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
-    // Only update ref when no price filter is set (so it captures the "unfiltered" range)
     if (!priceRange) {
       priceBoundsRef.current = computed;
     }
@@ -200,6 +212,7 @@ const AgentUnidadesProyecto = () => {
     const next = sortOrder === "none" ? "asc" : sortOrder === "asc" ? "desc" : "none";
     setSortOrder(next);
     setPage(0);
+    track({ page: 'agent_unidades', elementId: 'btn_ordenar_precio', elementLabel: 'Ordenar precio', metadata: { orden: next } });
   };
 
   const formatPrice = (price: number) =>
@@ -223,7 +236,6 @@ const AgentUnidadesProyecto = () => {
 
   const SortIcon = sortOrder === "asc" ? ArrowUp : sortOrder === "desc" ? ArrowDown : ArrowUpDown;
 
-  // Filter properties by search query only (price is now server-side)
   const filteredPageProperties = useMemo(() => {
     let result = pageProperties;
     if (searchQuery.trim()) {
@@ -233,7 +245,6 @@ const AgentUnidadesProyecto = () => {
     return result;
   }, [pageProperties, searchQuery]);
 
-  // Toggle helper for multi-select chips
   const toggleChip = <T,>(arr: T[], val: T): T[] =>
     arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
 
@@ -258,7 +269,6 @@ const AgentUnidadesProyecto = () => {
 
   const filterContent = (
     <div className="space-y-6">
-      {/* Desarrollo - multi-select chips */}
       {availableProjectNames.length > 0 && (
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Desarrollo</Label>
@@ -271,8 +281,6 @@ const AgentUnidadesProyecto = () => {
           </div>
         </div>
       )}
-
-      {/* Modelo - multi-select chips */}
       {availableModelNames.length > 0 && (
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Modelo</Label>
@@ -285,8 +293,6 @@ const AgentUnidadesProyecto = () => {
           </div>
         </div>
       )}
-
-      {/* Nivel - multi-select chips, sorted numerically */}
       {availableLevelOptions.length > 0 && (
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nivel</Label>
@@ -299,24 +305,16 @@ const AgentUnidadesProyecto = () => {
           </div>
         </div>
       )}
-
-      {/* Recámaras - multi-select chips */}
       <div className="space-y-2">
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recámaras</Label>
         <div className="flex flex-wrap gap-2">
           {recamarasOptions.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setRecamarasFilter(prev => toggleChip(prev, opt))}
-              className={chipClass(recamarasFilter.includes(opt))}
-            >
+            <button key={opt} onClick={() => setRecamarasFilter(prev => toggleChip(prev, opt))} className={chipClass(recamarasFilter.includes(opt))}>
               {opt}
             </button>
           ))}
         </div>
       </div>
-
-      {/* Rango de precio - Slider */}
       <div className="space-y-3">
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rango de precio</Label>
         <Slider
@@ -336,8 +334,6 @@ const AgentUnidadesProyecto = () => {
           <span>{formatPrice((priceRangeLocal || priceRange)?.[1] ?? priceBounds.max)}</span>
         </div>
       </div>
-
-      {/* Bodega - tri-state chips */}
       <div className="space-y-2">
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Con bodega</Label>
         <div className="flex gap-2">
@@ -348,8 +344,6 @@ const AgentUnidadesProyecto = () => {
           ))}
         </div>
       </div>
-
-      {/* Estacionamiento - tri-state chips */}
       <div className="space-y-2">
         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Con estacionamiento</Label>
         <div className="flex gap-2">
@@ -362,6 +356,20 @@ const AgentUnidadesProyecto = () => {
       </div>
     </div>
   );
+
+  const handleOpenFilters = () => {
+    setFiltersDrawerOpen(true);
+    track({ page: 'agent_unidades', elementId: 'btn_filtros', elementLabel: 'Filtros' });
+  };
+
+  const handleClickUnit = (prop: any) => {
+    setSelectedProperty(prop);
+    track({ page: 'agent_unidades', elementId: 'btn_detalle_unidad', elementLabel: `Depto ${prop.numero || prop.id}`, metadata: { propiedad_id: prop.id, proyecto: prop.proyecto_nombre } });
+  };
+
+  const handleConfigureOffer = () => {
+    track({ page: 'agent_unidades', elementId: 'btn_configurar_oferta', elementLabel: 'Configurar Oferta', metadata: { propiedad_id: selectedProperty?.id, proyecto: selectedProperty?.proyecto_nombre } });
+  };
 
   return (
     <div className="pb-24">
@@ -398,7 +406,7 @@ const AgentUnidadesProyecto = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setFiltersDrawerOpen(true)}
+            onClick={handleOpenFilters}
             className="flex items-center gap-2 px-4 h-10 rounded-xl border border-gray-200 bg-white text-sm font-medium"
           >
             <SlidersHorizontal className="h-4 w-4" />
@@ -507,7 +515,7 @@ const AgentUnidadesProyecto = () => {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPageProperties.map((prop: any) => (
-                <UnitCard key={prop.id} prop={prop} formatPrice={formatPrice} onClick={() => setSelectedProperty(prop)} />
+                <UnitCard key={prop.id} prop={prop} formatPrice={formatPrice} onClick={() => handleClickUnit(prop)} />
               ))}
             </div>
             {totalPages > 1 && (
@@ -652,7 +660,7 @@ const AgentUnidadesProyecto = () => {
               </div>
               <div className="shrink-0 px-6 py-4 border-t bg-background">
                 {canGenerateOffer ? (
-                  <div onClick={(e) => e.stopPropagation()}>
+                  <div onClick={(e) => { e.stopPropagation(); handleConfigureOffer(); }}>
                     <NewOfferDialog
                       propertyId={selectedProperty.id}
                       propertyNumber={selectedProperty.numero || `${selectedProperty.id}`}
@@ -713,10 +721,10 @@ const UnitCard = React.memo(({ prop, formatPrice, onClick }: {
           <span className="flex items-center gap-1"><Maximize2 className="h-3 w-3" /> {prop.m2_total.toFixed(1)} m²</span>
         )}
         {prop.recamaras > 0 && (
-          <span className="flex items-center gap-1"><BedDouble className="h-3 w-3" /> {prop.recamaras}</span>
+          <span className="flex items-center gap-1"><BedDouble className="h-4 w-4" /> {prop.recamaras}</span>
         )}
         {prop.banos > 0 && (
-          <span className="flex items-center gap-1"><Bath className="h-3 w-3" /> {prop.banos}</span>
+          <span className="flex items-center gap-1"><Bath className="h-4 w-4" /> {prop.banos}</span>
         )}
         {prop.bodegas_count > 0 && (
           <span className="flex items-center gap-1">
