@@ -57,7 +57,7 @@ export function useStabilityDetection(
   const lastCheckRef = useRef(0);
 
   const STABILITY_THRESHOLD = 0.02; // 2% difference
-  const STABILITY_DURATION = 1500; // 1.5 seconds
+  const STABILITY_DURATION = 750; // 0.75 seconds
   const CHECK_INTERVAL = 200; // every 200ms
   const SAMPLE_STEP = 10; // check every 10th pixel
 
