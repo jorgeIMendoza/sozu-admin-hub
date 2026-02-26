@@ -31,7 +31,7 @@ interface AgentOnboardingStepDialogProps {
 }
 
 const STEP_TITLES: Record<string, string> = {
-  basic: 'Identidad y Contrato',
+  basic: 'Identidad',
   address: 'Dirección',
   fiscal: 'Información Fiscal',
   documents: 'Documentos',
@@ -1423,7 +1423,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
             </div>
             <div>
               <Label className="text-sm font-semibold">Correo electrónico *</Label>
-              <Input type="email" value={email} onChange={(e) => { setEmail(e.target.value); onTrackFieldChange?.(); }} className="mt-1.5 neu-input h-auto" />
+              <Input type="email" value={email} disabled className="mt-1.5 neu-input h-auto opacity-60" />
             </div>
             <div>
               <Label className="text-sm font-semibold">Teléfono (10 dígitos) *</Label>

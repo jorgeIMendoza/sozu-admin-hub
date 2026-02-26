@@ -14,21 +14,21 @@ import { cn } from "@/lib/utils";
 const ACTIVATION_BLOCKS = [
   { 
     stepId: 'basic' as const, 
-    label: 'Identidad y Contrato', 
+    label: 'Identidad', 
     description: 'Datos personales, dirección, INE y contrato',
     icon: FileText,
     relatedSteps: ['basic'] as const,
   },
   { 
     stepId: 'fiscal' as const, 
-    label: 'Información Fiscal', 
+    label: 'Información fiscal', 
     description: 'RFC, régimen fiscal y constancia',
     icon: Receipt,
     relatedSteps: ['fiscal'] as const,
   },
   { 
     stepId: 'bank-accounts' as const, 
-    label: 'Cuenta Bancaria', 
+    label: 'Cuenta bancaria', 
     description: 'Banco, CLABE y titular',
     icon: Landmark,
     relatedSteps: ['bank-accounts'] as const,
@@ -95,39 +95,40 @@ const AgentPerfil = () => {
           <span className="text-sm font-semibold text-[hsl(var(--agent-text))]">
             Progreso
           </span>
-          <span className="text-xs text-[hsl(var(--agent-text-secondary))]">
-            {completedCount} de {totalSteps}
-          </span>
         </div>
         <div className="flex items-center gap-0">
           {steps.map((step, index) => {
             const block = ACTIVATION_BLOCKS[index];
             return (
               <div key={step.id} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center gap-1">
+                <button
+                  className="flex flex-col items-center gap-1 cursor-pointer"
+                  onClick={() => perfilPerms.canUpdate && setActiveStep(step.id)}
+                  disabled={!perfilPerms.canUpdate}
+                >
                   <div
                     className={cn(
                       "h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-all",
                       step.isComplete
                         ? "bg-emerald-500 text-white"
                         : step.hasPartialData
-                        ? "bg-amber-400 text-white"
+                        ? "bg-amber-500/70 text-white"
                         : "bg-gray-200 text-gray-500"
                     )}
                   >
                     {step.isComplete ? <Check className="h-4 w-4" strokeWidth={3} /> : index + 1}
                   </div>
                   <span className={cn(
-                    "text-[9px] font-medium text-center max-w-[56px] leading-tight",
+                    "text-[9px] font-medium text-center max-w-[64px] leading-tight",
                     step.isComplete
                       ? "text-emerald-600"
                       : step.hasPartialData
                       ? "text-amber-600"
                       : "text-gray-400"
                   )}>
-                    {block?.label.split(' ')[0] || step.label}
+                    {block?.label || step.label}
                   </span>
-                </div>
+                </button>
                 {index < steps.length - 1 && (
                   <div className={cn(
                     "flex-1 h-[2px] mx-1 mt-[-14px] rounded-full",

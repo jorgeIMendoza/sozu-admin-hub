@@ -86,8 +86,9 @@ export default function Login() {
         return;
       }
 
-      const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin';
-      navigate(from, { replace: true });
+      // Always navigate to /admin and let PermissionRoute handle redirection
+      // to the first allowed menu item based on the user's role
+      navigate('/admin', { replace: true });
     } catch (err) {
       setError('Error al iniciar sesión. Intenta de nuevo.');
       setIsLoading(false);

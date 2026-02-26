@@ -246,12 +246,12 @@ const AgentProyectoDetalle = () => {
         .in("id_edificio_modelo", emIds);
 
       // Group by modelo
-      const modeloMap = new Map<number, { modelo: any; minPrice: number; m2: number; emIds: number[] }>();
+      const modeloMap = new Map<number, { modelo: any; minPrice: number; m2: number; emIds: number[]; availableCount: number }>();
       edModelos.forEach((em: any) => {
         if (!em.modelos) return;
         const mid = em.modelos.id;
         if (!modeloMap.has(mid)) {
-          modeloMap.set(mid, { modelo: em.modelos, minPrice: Infinity, m2: 0, emIds: [] });
+          modeloMap.set(mid, { modelo: em.modelos, minPrice: Infinity, m2: 0, emIds: [], availableCount: 0 });
         }
         modeloMap.get(mid)!.emIds.push(em.id);
       });
@@ -261,8 +261,11 @@ const AgentProyectoDetalle = () => {
         if (!em?.modelos) return;
         const entry = modeloMap.get(em.modelos.id);
         if (!entry) return;
-        if (p.id_estatus_disponibilidad === 2 && p.precio_lista > 0 && p.precio_lista < entry.minPrice) {
-          entry.minPrice = p.precio_lista;
+        if (p.id_estatus_disponibilidad === 2) {
+          entry.availableCount++;
+          if (p.precio_lista > 0 && p.precio_lista < entry.minPrice) {
+            entry.minPrice = p.precio_lista;
+          }
         }
         if (p.m2_construccion > 0 && (entry.m2 === 0 || p.m2_construccion < entry.m2)) {
           entry.m2 = p.m2_construccion;
@@ -273,6 +276,7 @@ const AgentProyectoDetalle = () => {
         ...v.modelo,
         minPrice: v.minPrice === Infinity ? null : v.minPrice,
         m2: v.m2 || null,
+        availableCount: v.availableCount,
       }));
     },
     enabled: projectId > 0,
@@ -543,15 +547,17 @@ const AgentProyectoDetalle = () => {
                       </div>
                     )}
                   </div>
-                  <div className="mt-3">
-                    <button
-                      onClick={() => navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}&modelo=${m.id}`)}
-                      className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors"
-                    >
-                      Ver unidades
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {m.availableCount > 0 && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}&modelo=${m.id}`)}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors"
+                      >
+                        Ver unidades
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

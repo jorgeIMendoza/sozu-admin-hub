@@ -138,8 +138,8 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const steps: OnboardingStep[] = [
     { id: 'basic', label: 'Identidad', isComplete: basicStageComplete, hasPartialData: basicStagePartial },
-    { id: 'fiscal', label: 'Fiscal', isComplete: fiscalStageComplete, hasPartialData: fiscalStagePartial },
-    { id: 'bank-accounts', label: 'Cuentas', isComplete: bankComplete, hasPartialData: false },
+    { id: 'fiscal', label: 'Información fiscal', isComplete: fiscalStageComplete, hasPartialData: fiscalStagePartial },
+    { id: 'bank-accounts', label: 'Cuenta bancaria', isComplete: bankComplete, hasPartialData: false },
     { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: trainingPartial, hasCancelledData: trainingCancelled },
   ];
 
