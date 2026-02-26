@@ -1584,8 +1584,12 @@ function AgentBankAccountStep({ personaId, onTrackFieldChange, onTrackSave }: { 
       return;
     }
     const len = numeroCuenta.length;
+    if (!/^\d+$/.test(numeroCuenta)) {
+      toast.error("El número de cuenta solo debe contener dígitos.");
+      return;
+    }
     if (len < 8 || len > 34) {
-      toast.error("El número de cuenta debe tener entre 8 y 34 caracteres.");
+      toast.error("El número de cuenta debe tener entre 8 y 34 dígitos.");
       return;
     }
 
@@ -1697,7 +1701,7 @@ function AgentBankAccountStep({ personaId, onTrackFieldChange, onTrackSave }: { 
       </div>
       <div>
         <Label className="text-sm font-semibold">Número de Cuenta *</Label>
-        <Input value={numeroCuenta} onChange={(e) => { setNumeroCuenta(e.target.value); onTrackFieldChange?.(); }} placeholder="Entre 8 y 34 caracteres" className="mt-1.5 neu-input h-auto" />
+        <Input value={numeroCuenta} onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); setNumeroCuenta(v); onTrackFieldChange?.(); }} placeholder="Entre 8 y 34 dígitos" maxLength={34} className="mt-1.5 neu-input h-auto" />
       </div>
       <div>
         <Label className="text-sm font-semibold">CLABE <span className="text-muted-foreground text-xs font-normal">(opcional)</span></Label>
