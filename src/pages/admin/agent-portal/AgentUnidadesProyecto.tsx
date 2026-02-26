@@ -43,12 +43,15 @@ const AgentUnidadesProyecto = () => {
   const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(openFiltersParam === 'true');
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+  const [priceRangeLocal, setPriceRangeLocal] = useState<[number, number] | null>(null);
+  const priceCommitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [recamarasFilter, setRecamarasFilter] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Resolve proyecto ID from URL to name for pre-selecting filter
-  const [paramsResolved, setParamsResolved] = useState(false);
+  // Resolve proyecto/modelo ID from URL to name for pre-selecting filter, then clean URL
+  const [paramsResolved, setParamsResolved] = useState(!proyectoIdParam && !modeloIdParam);
   useEffect(() => {
+    if (!proyectoIdParam && !modeloIdParam) return;
     const resolveParams = async () => {
       const promises: Promise<void>[] = [];
       if (proyectoIdParam) {
@@ -71,9 +74,11 @@ const AgentUnidadesProyecto = () => {
       }
       await Promise.all(promises);
       setParamsResolved(true);
+      // Clean URL params so filters remain independent
+      navigate('/admin/agent/inventario/unidades', { replace: true });
     };
     resolveParams();
-  }, [proyectoIdParam, modeloIdParam]);
+  }, []);
 
   const bedroomsForQuery = useMemo(() => {
     if (recamarasFilter.length === 0) return [];
@@ -309,13 +314,17 @@ const AgentUnidadesProyecto = () => {
           min={priceBounds.min}
           max={priceBounds.max}
           step={10000}
-          value={priceRange || [priceBounds.min, priceBounds.max]}
-          onValueChange={(val) => setPriceRange(val as [number, number])}
+          value={priceRangeLocal || priceRange || [priceBounds.min, priceBounds.max]}
+          onValueChange={(val) => setPriceRangeLocal(val as [number, number])}
+          onValueCommit={(val) => {
+            setPriceRangeLocal(null);
+            setPriceRange(val as [number, number]);
+          }}
           className="w-full"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>{formatPrice(priceRange?.[0] ?? priceBounds.min)}</span>
-          <span>{formatPrice(priceRange?.[1] ?? priceBounds.max)}</span>
+          <span>{formatPrice((priceRangeLocal || priceRange)?.[0] ?? priceBounds.min)}</span>
+          <span>{formatPrice((priceRangeLocal || priceRange)?.[1] ?? priceBounds.max)}</span>
         </div>
       </div>
 
@@ -354,9 +363,7 @@ const AgentUnidadesProyecto = () => {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-foreground truncate">
-              {filterProjectNames.length === 1 ? filterProjectNames[0] : "Unidades"}
-            </h1>
+            <h1 className="text-lg font-bold text-foreground truncate">Unidades</h1>
             <p className="text-xs text-emerald-700">{totalCount} unidades disponibles</p>
           </div>
         </div>
