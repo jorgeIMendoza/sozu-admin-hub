@@ -560,7 +560,15 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   });
 
   // Show verification result comparator
-  if (verificationResult && verificationDocId && personaData) {
+  if (verificationResult && verificationDocId) {
+    if (!personaData) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm font-semibold text-foreground">Cargando datos del perfil...</p>
+        </div>
+      );
+    }
     return (
       <div className="pb-4">
         <CaptureFlash show={showFlash} />
@@ -594,16 +602,29 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   // Show verifying spinner
   if (verifying) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-3">
+      <div className="flex flex-col items-center justify-center py-16 gap-4">
         <CaptureFlash show={showFlash} />
         <div className="relative">
-          <Shield className="h-12 w-12 text-primary animate-pulse" />
-          <Loader2 className="h-5 w-5 animate-spin text-primary absolute -bottom-1 -right-1" />
+          <div className="h-20 w-20 rounded-full border-4 border-primary/20 flex items-center justify-center">
+            <Shield className="h-10 w-10 text-primary animate-pulse" />
+          </div>
+          <svg className="absolute inset-0 w-20 h-20 -rotate-90 animate-spin" style={{ animationDuration: '2s' }}>
+            <circle
+              cx="40" cy="40" r="38"
+              fill="none"
+              stroke="hsl(var(--primary))"
+              strokeWidth="4"
+              strokeDasharray="60 180"
+              strokeLinecap="round"
+            />
+          </svg>
         </div>
-        <p className="text-sm font-semibold text-foreground">Verificando documento...</p>
-        <p className="text-xs text-muted-foreground text-center">
-          Analizando autenticidad y extrayendo datos
-        </p>
+        <div className="text-center space-y-1">
+          <p className="text-sm font-bold text-foreground">Verificando identidad...</p>
+          <p className="text-xs text-muted-foreground">
+            Analizando autenticidad, extrayendo datos y comparando rostro
+          </p>
+        </div>
       </div>
     );
   }

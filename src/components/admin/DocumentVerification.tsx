@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { useQueryClient } from "@tanstack/react-query";
+import confetti from "canvas-confetti";
 
 // ============ Types ============
 
@@ -572,6 +573,29 @@ export function VerificationComparator({
       queryClient.invalidateQueries({ queryKey: ["agent-onboarding-docs-detail"] });
 
       toast.success("Documento verificado y datos actualizados");
+      
+      // Fire confetti celebration
+      const duration = 2500;
+      const end = Date.now() + duration;
+      const frame = () => {
+        confetti({
+          particleCount: 4,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 },
+          colors: ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24'],
+        });
+        confetti({
+          particleCount: 4,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 },
+          colors: ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24'],
+        });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+
       onAccepted();
     } catch (err: any) {
       toast.error("Error al guardar: " + (err.message || "Error"));
