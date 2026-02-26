@@ -98,6 +98,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = "/auth/login";
   }, []);
 
+  // Visibility change: refresh permissions when tab becomes visible (throttled 30s)
+  const lastVisibilityRefreshRef = useRef<number>(0);
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && user && profile) {
+        const now = Date.now();
+        if (now - lastVisibilityRefreshRef.current > 30000) {
+          lastVisibilityRefreshRef.current = now;
+          triggerPermissionRefresh();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [user, profile, triggerPermissionRefresh]);
+
   // Set up realtime subscriptions for permission changes
   useEffect(() => {
     if (!user || !profile) return;
