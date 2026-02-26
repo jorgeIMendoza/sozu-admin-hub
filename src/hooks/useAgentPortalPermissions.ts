@@ -140,5 +140,21 @@ export function useAgentPortalPermissions() {
     fetchPermissions();
   }, [fetchPermissions, permissionVersion]);
 
+  // Visibility change: re-fetch when tab becomes visible (throttled 30s)
+  const lastFetchRef = useRef<number>(0);
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now();
+        if (now - lastFetchRef.current > 30000) {
+          lastFetchRef.current = now;
+          fetchPermissions();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchPermissions]);
+
   return { permissions, isLoading, isSuperAdmin };
 }
