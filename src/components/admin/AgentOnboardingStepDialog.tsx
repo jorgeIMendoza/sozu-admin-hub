@@ -327,8 +327,12 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     setCameraStep(step);
     setCameraActive(true);
     setCapturedFront(null);
-    setVerificationResult(null);
-    setVerificationDocId(null);
+
+    if (step !== 'selfie') {
+      setVerificationResult(null);
+      setVerificationDocId(null);
+    }
+
     autoCaptureLockRef.current = false;
     try {
       const facingMode = step === 'selfie' ? 'user' : 'environment';
@@ -543,7 +547,8 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     videoRef,
     cameraActive && !uploading && !verifying,
     onStableCapture,
-    3000
+    3000,
+    cameraStep !== 'selfie'
   );
 
   // Cleanup camera on unmount

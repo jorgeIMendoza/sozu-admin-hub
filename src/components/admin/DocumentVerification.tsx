@@ -48,7 +48,8 @@ export function useStabilityDetection(
   videoRef: React.RefObject<HTMLVideoElement>,
   enabled: boolean,
   onStableCapture: () => void,
-  initialDelayMs: number = 3000
+  initialDelayMs: number = 3000,
+  requireDocumentPresence: boolean = true
 ) {
   const prevFrameRef = useRef<ImageData | null>(null);
   const stabilityMsRef = useRef(0);
@@ -68,6 +69,7 @@ export function useStabilityDetection(
   const MIN_EDGE_CONTRAST = 40; // Higher contrast threshold to filter noise
   const MIN_QUADRANTS_WITH_EDGES = 3; // At least 3 of 4 quadrants must have edges
   const QUADRANT_EDGE_THRESHOLD = 0.05; // 5% edges per quadrant
+  const MIN_SELFIE_CONTENT_THRESHOLD = 0.08; // Less strict for faces/selfies
 
   const checkStability = useCallback((timestamp: number) => {
     if (!enabled || !videoRef.current) {
@@ -164,10 +166,12 @@ export function useStabilityDetection(
         }
       }
 
-      const hasDocument = edgeRatio > MIN_CONTENT_THRESHOLD && activeQuadrants >= MIN_QUADRANTS_WITH_EDGES;
-      setDocumentDetected(hasDocument);
+      const hasRequiredContent = requireDocumentPresence
+        ? (edgeRatio > MIN_CONTENT_THRESHOLD && activeQuadrants >= MIN_QUADRANTS_WITH_EDGES)
+        : edgeRatio > MIN_SELFIE_CONTENT_THRESHOLD;
+      setDocumentDetected(hasRequiredContent);
 
-      if (diffRatio < STABILITY_THRESHOLD && hasDocument) {
+      if (diffRatio < STABILITY_THRESHOLD && hasRequiredContent) {
         stabilityMsRef.current += CHECK_INTERVAL;
         const progress = Math.min(100, (stabilityMsRef.current / STABILITY_DURATION) * 100);
         setStabilityProgress(progress);
@@ -188,7 +192,7 @@ export function useStabilityDetection(
 
     prevFrameRef.current = currentFrame;
     animFrameRef.current = requestAnimationFrame(checkStability);
-  }, [enabled, videoRef, onStableCapture, initialDelayMs, initialDelayDone]);
+  }, [enabled, videoRef, onStableCapture, initialDelayMs, initialDelayDone, requireDocumentPresence]);
 
   useEffect(() => {
     if (enabled) {
