@@ -62,22 +62,36 @@ export function useStabilityDetection(
   const [alignedQuadrants, setAlignedQuadrants] = useState({ tl: false, tr: false, bl: false, br: false });
   const lastCheckRef = useRef(0);
   const enabledAtRef = useRef<number>(0);
-  // Use refs to avoid recreating the callback when state changes
   const initialDelayDoneRef = useRef(false);
   const onStableCaptureRef = useRef(onStableCapture);
   onStableCaptureRef.current = onStableCapture;
+
+  // Selfie signal hardening
+  const faceDetectorEnabledRef = useRef<boolean>(typeof window !== "undefined" && "FaceDetector" in window);
+  const faceDetectorRef = useRef<any>(null);
+  const faceDetectInFlightRef = useRef(false);
+  const lastFaceCheckRef = useRef(0);
+  const faceDetectedRef = useRef(false);
 
   const STABILITY_DURATION = 1500;
   const SELFIE_STABILITY_DURATION = 2000;
   const CHECK_INTERVAL = 120;
   const SAMPLE_STEP = 6;
-  const MIN_CONTENT_THRESHOLD = 0.12;
-  const MIN_EDGE_CONTRAST = 30;
-  const MIN_SELFIE_CONTENT_THRESHOLD = 0.08;
-  const MIN_SELFIE_EDGE_CONTRAST = 25;
-  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.04;
-  const MIN_QUADRANTS_WITH_EDGES = 2;
-  const STRONG_DOC_EDGE_RATIO_THRESHOLD = 0.18;
+
+  // Document detection thresholds (stricter to avoid auto-capture without document)
+  const MIN_CONTENT_THRESHOLD = 0.13;
+  const MIN_EDGE_CONTRAST = 34;
+  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.05;
+  const MIN_QUADRANTS_WITH_EDGES = 3;
+  const SIDE_EDGE_RATIO_THRESHOLD = 0.05;
+  const MIN_SIDES_WITH_EDGES = 3;
+
+  // Selfie detection thresholds (stricter to avoid auto-capture without face)
+  const MIN_SELFIE_CONTENT_THRESHOLD = 0.1;
+  const MIN_SELFIE_EDGE_CONTRAST = 28;
+  const MIN_SELFIE_SKIN_RATIO = 0.08;
+  const MIN_SELFIE_CENTER_SKIN_RATIO = 0.1;
+
   const DOC_STABILITY_THRESHOLD = 0.14;
   const SELFIE_STABILITY_THRESHOLD = 0.12;
   const PIXEL_DIFF_THRESHOLD = 25;
@@ -88,14 +102,12 @@ export function useStabilityDetection(
   const OVAL_RX = 0.36;
   const OVAL_RY = 0.35;
 
-  // Stable callback ref that doesn't cause re-renders
   const checkStability = useCallback((timestamp: number) => {
     if (!enabled || !videoRef.current) {
       animFrameRef.current = requestAnimationFrame(checkStability);
       return;
     }
 
-    // Initial delay
     if (enabledAtRef.current > 0 && (timestamp - enabledAtRef.current) < initialDelayMs) {
       if (initialDelayDoneRef.current) {
         initialDelayDoneRef.current = false;
@@ -104,6 +116,7 @@ export function useStabilityDetection(
       animFrameRef.current = requestAnimationFrame(checkStability);
       return;
     }
+
     if (!initialDelayDoneRef.current) {
       initialDelayDoneRef.current = true;
       setInitialDelayDone(true);
@@ -125,11 +138,13 @@ export function useStabilityDetection(
     if (!canvasRef.current) {
       canvasRef.current = document.createElement("canvas");
     }
+
     const canvas = canvasRef.current;
     const w = Math.min(video.videoWidth, 320);
     const h = Math.min(video.videoHeight, 240);
     canvas.width = w;
     canvas.height = h;
+
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) {
       animFrameRef.current = requestAnimationFrame(checkStability);
@@ -139,14 +154,73 @@ export function useStabilityDetection(
     ctx.drawImage(video, 0, 0, w, h);
     const currentFrame = ctx.getImageData(0, 0, w, h);
 
+    // Selfie face detection (best-effort, async, browser-supported only)
+    if (!requireDocumentPresence && faceDetectorEnabledRef.current) {
+      if (!faceDetectorRef.current) {
+        try {
+          const FaceDetectorCtor = (window as any).FaceDetector;
+          faceDetectorRef.current = new FaceDetectorCtor({ fastMode: true, maxDetectedFaces: 1 });
+        } catch {
+          faceDetectorEnabledRef.current = false;
+        }
+      }
+
+      const canRunFaceCheck =
+        timestamp - lastFaceCheckRef.current > 450 &&
+        !faceDetectInFlightRef.current &&
+        !!faceDetectorRef.current;
+
+      if (canRunFaceCheck) {
+        faceDetectInFlightRef.current = true;
+        lastFaceCheckRef.current = timestamp;
+
+        faceDetectorRef.current
+          .detect(video)
+          .then((faces: any[]) => {
+            const hasFaceInsideGuide = (faces || []).some((face) => {
+              const box = face?.boundingBox;
+              if (!box) return false;
+
+              const centerX = box.x + box.width / 2;
+              const centerY = box.y + box.height / 2;
+              const areaRatio = (box.width * box.height) / (w * h);
+
+              const dx = (centerX - OVAL_CX * w) / (OVAL_RX * w);
+              const dy = (centerY - OVAL_CY * h) / (OVAL_RY * h);
+              const insideOval = (dx * dx + dy * dy) <= 1;
+
+              return insideOval && areaRatio >= 0.07 && areaRatio <= 0.7;
+            });
+
+            faceDetectedRef.current = hasFaceInsideGuide;
+          })
+          .catch(() => {
+            faceDetectorEnabledRef.current = false;
+            faceDetectedRef.current = false;
+          })
+          .finally(() => {
+            faceDetectInFlightRef.current = false;
+          });
+      }
+    }
+
     if (prevFrameRef.current) {
       const prev = prevFrameRef.current.data;
       const curr = currentFrame.data;
+
       let diffCount = 0;
       let totalSampled = 0;
       let edgeCount = 0;
+
       const edgeQuadrants = { tl: 0, tr: 0, bl: 0, br: 0 };
       const sampledQuadrants = { tl: 0, tr: 0, bl: 0, br: 0 };
+      const edgeSides = { top: 0, right: 0, bottom: 0, left: 0 };
+      const sampledSides = { top: 0, right: 0, bottom: 0, left: 0 };
+
+      let skinCount = 0;
+      let centerSkinCount = 0;
+      let totalOvalSampled = 0;
+      let totalCenterOvalSampled = 0;
 
       const docLeft = DOC_REGION.x * w;
       const docTop = DOC_REGION.y * h;
@@ -154,23 +228,20 @@ export function useStabilityDetection(
       const docBottom = (DOC_REGION.y + DOC_REGION.h) * h;
       const docMidX = docLeft + (DOC_REGION.w * w) / 2;
       const docMidY = docTop + (DOC_REGION.h * h) / 2;
+      const docBandX = DOC_REGION.w * w * 0.12;
+      const docBandY = DOC_REGION.h * h * 0.12;
 
       for (let i = 0; i < curr.length; i += 4 * SAMPLE_STEP) {
         const pixelIndex = i / 4;
         const px = pixelIndex % w;
         const py = Math.floor(pixelIndex / w);
 
-        // Region check inlined for performance
-        let insideRegion: boolean;
+        let insideRegion = false;
         if (requireDocumentPresence) {
           insideRegion = px >= docLeft && px <= docRight && py >= docTop && py <= docBottom;
         } else {
-          const cx = OVAL_CX * w;
-          const cy = OVAL_CY * h;
-          const rx = OVAL_RX * w;
-          const ry = OVAL_RY * h;
-          const dx = (px - cx) / rx;
-          const dy = (py - cy) / ry;
+          const dx = (px - OVAL_CX * w) / (OVAL_RX * w);
+          const dy = (py - OVAL_CY * h) / (OVAL_RY * h);
           insideRegion = (dx * dx + dy * dy) <= 1;
         }
         if (!insideRegion) continue;
@@ -184,6 +255,36 @@ export function useStabilityDetection(
           else if (px < docMidX && py >= docMidY) quadrant = "bl";
           else quadrant = "br";
           sampledQuadrants[quadrant]++;
+
+          if (py <= docTop + docBandY) sampledSides.top++;
+          if (py >= docBottom - docBandY) sampledSides.bottom++;
+          if (px <= docLeft + docBandX) sampledSides.left++;
+          if (px >= docRight - docBandX) sampledSides.right++;
+        } else {
+          totalOvalSampled++;
+          const cdx = (px - OVAL_CX * w) / (OVAL_RX * w * 0.6);
+          const cdy = (py - OVAL_CY * h) / (OVAL_RY * h * 0.6);
+          const isCenterOval = (cdx * cdx + cdy * cdy) <= 1;
+          if (isCenterOval) totalCenterOvalSampled++;
+
+          const r = curr[i];
+          const g = curr[i + 1];
+          const b = curr[i + 2];
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const isSkinLike =
+            r > 80 &&
+            g > 30 &&
+            b > 15 &&
+            r > g &&
+            r > b &&
+            (max - min) > 15 &&
+            Math.abs(r - g) > 10;
+
+          if (isSkinLike) {
+            skinCount++;
+            if (isCenterOval) centerSkinCount++;
+          }
         }
 
         const dr = Math.abs(curr[i] - prev[i]);
@@ -193,11 +294,22 @@ export function useStabilityDetection(
 
         const luminance = curr[i] * 0.299 + curr[i + 1] * 0.587 + curr[i + 2] * 0.114;
         if (i + 4 * SAMPLE_STEP < curr.length) {
-          const nextL = curr[i + 4 * SAMPLE_STEP] * 0.299 + curr[i + 4 * SAMPLE_STEP + 1] * 0.587 + curr[i + 4 * SAMPLE_STEP + 2] * 0.114;
-        const edgeContrast = requireDocumentPresence ? MIN_EDGE_CONTRAST : MIN_SELFIE_EDGE_CONTRAST;
+          const nextL =
+            curr[i + 4 * SAMPLE_STEP] * 0.299 +
+            curr[i + 4 * SAMPLE_STEP + 1] * 0.587 +
+            curr[i + 4 * SAMPLE_STEP + 2] * 0.114;
+
+          const edgeContrast = requireDocumentPresence ? MIN_EDGE_CONTRAST : MIN_SELFIE_EDGE_CONTRAST;
           if (Math.abs(luminance - nextL) > edgeContrast) {
             edgeCount++;
             if (quadrant) edgeQuadrants[quadrant]++;
+
+            if (requireDocumentPresence) {
+              if (py <= docTop + docBandY) edgeSides.top++;
+              if (py >= docBottom - docBandY) edgeSides.bottom++;
+              if (px <= docLeft + docBandX) edgeSides.left++;
+              if (px >= docRight - docBandX) edgeSides.right++;
+            }
           }
         }
       }
@@ -206,7 +318,7 @@ export function useStabilityDetection(
       const edgeRatio = totalSampled > 0 ? edgeCount / totalSampled : 0;
 
       const threshold = requireDocumentPresence ? MIN_CONTENT_THRESHOLD : MIN_SELFIE_CONTENT_THRESHOLD;
-      let hasContent = edgeRatio > threshold;
+      let hasContent = false;
 
       if (requireDocumentPresence) {
         const quadrantRatios = {
@@ -214,6 +326,13 @@ export function useStabilityDetection(
           tr: sampledQuadrants.tr > 0 ? edgeQuadrants.tr / sampledQuadrants.tr : 0,
           bl: sampledQuadrants.bl > 0 ? edgeQuadrants.bl / sampledQuadrants.bl : 0,
           br: sampledQuadrants.br > 0 ? edgeQuadrants.br / sampledQuadrants.br : 0,
+        };
+
+        const sideRatios = {
+          top: sampledSides.top > 0 ? edgeSides.top / sampledSides.top : 0,
+          right: sampledSides.right > 0 ? edgeSides.right / sampledSides.right : 0,
+          bottom: sampledSides.bottom > 0 ? edgeSides.bottom / sampledSides.bottom : 0,
+          left: sampledSides.left > 0 ? edgeSides.left / sampledSides.left : 0,
         };
 
         const nextAlignedQuadrants = {
@@ -224,38 +343,55 @@ export function useStabilityDetection(
         };
 
         const activeQuadrantCount = Object.values(nextAlignedQuadrants).filter(Boolean).length;
-        const hasStrongGlobalEdges = edgeRatio > STRONG_DOC_EDGE_RATIO_THRESHOLD;
-        const hasSufficientCornerSignal = activeQuadrantCount >= MIN_QUADRANTS_WITH_EDGES && edgeRatio > (threshold * 0.55);
-        hasContent = (edgeRatio > threshold && activeQuadrantCount >= MIN_QUADRANTS_WITH_EDGES) || hasStrongGlobalEdges || hasSufficientCornerSignal;
+        const activeSideCount = Object.values(sideRatios).filter((value) => value >= SIDE_EDGE_RATIO_THRESHOLD).length;
+
+        hasContent =
+          edgeRatio > threshold &&
+          activeQuadrantCount >= MIN_QUADRANTS_WITH_EDGES &&
+          activeSideCount >= MIN_SIDES_WITH_EDGES;
 
         setAlignedQuadrants(nextAlignedQuadrants);
 
-        // Only show progress when document is actually detected
         if (hasContent) {
           const cornerProgress = (activeQuadrantCount / 4) * 100;
-          const edgeProgress = Math.min(100, (edgeRatio / (threshold * 1.5)) * 100);
-          const blendedProgress = Math.round(cornerProgress * 0.5 + edgeProgress * 0.5);
-          setAlignmentProgress(blendedProgress);
+          const sideProgress = (activeSideCount / 4) * 100;
+          const edgeProgress = Math.min(100, (edgeRatio / (threshold * 1.4)) * 100);
+          setAlignmentProgress(Math.round(cornerProgress * 0.45 + sideProgress * 0.35 + edgeProgress * 0.2));
         } else {
           setAlignmentProgress(0);
         }
       } else {
         setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
-        setAlignmentProgress(Math.round(Math.min(100, (edgeRatio / (threshold * 1.6)) * 100)));
+
+        const skinRatio = totalOvalSampled > 0 ? skinCount / totalOvalSampled : 0;
+        const centerSkinRatio = totalCenterOvalSampled > 0 ? centerSkinCount / totalCenterOvalSampled : 0;
+
+        const baseSelfieSignal =
+          edgeRatio > threshold &&
+          skinRatio >= MIN_SELFIE_SKIN_RATIO &&
+          centerSkinRatio >= MIN_SELFIE_CENTER_SKIN_RATIO;
+
+        const faceSignal = faceDetectorEnabledRef.current ? faceDetectedRef.current : baseSelfieSignal;
+        hasContent = baseSelfieSignal && faceSignal;
+
+        if (hasContent) {
+          const edgeProgress = Math.min(100, (edgeRatio / (threshold * 1.5)) * 100);
+          const skinProgress = Math.min(100, (skinRatio / (MIN_SELFIE_SKIN_RATIO * 2)) * 100);
+          const centerProgress = Math.min(100, (centerSkinRatio / (MIN_SELFIE_CENTER_SKIN_RATIO * 2)) * 100);
+          setAlignmentProgress(Math.round(edgeProgress * 0.4 + skinProgress * 0.35 + centerProgress * 0.25));
+        } else {
+          setAlignmentProgress(0);
+        }
       }
 
       setDocumentDetected(hasContent);
 
-      const stabilityThreshold = requireDocumentPresence
-        ? DOC_STABILITY_THRESHOLD
-        : SELFIE_STABILITY_THRESHOLD;
-
+      const stabilityThreshold = requireDocumentPresence ? DOC_STABILITY_THRESHOLD : SELFIE_STABILITY_THRESHOLD;
       const currentStabilityDuration = requireDocumentPresence ? STABILITY_DURATION : SELFIE_STABILITY_DURATION;
 
       if (hasContent && diffRatio < stabilityThreshold) {
         stabilityMsRef.current += CHECK_INTERVAL;
-        const progress = Math.min(100, (stabilityMsRef.current / currentStabilityDuration) * 100);
-        setStabilityProgress(progress);
+        setStabilityProgress(Math.min(100, (stabilityMsRef.current / currentStabilityDuration) * 100));
 
         if (stabilityMsRef.current >= currentStabilityDuration) {
           onStableCaptureRef.current();
@@ -268,10 +404,8 @@ export function useStabilityDetection(
           return;
         }
       } else if (hasContent && diffRatio < stabilityThreshold * 1.5) {
-        // Small jitter: decay instead of hard reset
         stabilityMsRef.current = Math.max(0, stabilityMsRef.current - CHECK_INTERVAL * 0.3);
-        const progress = Math.min(100, (stabilityMsRef.current / currentStabilityDuration) * 100);
-        setStabilityProgress(progress);
+        setStabilityProgress(Math.min(100, (stabilityMsRef.current / currentStabilityDuration) * 100));
       } else {
         stabilityMsRef.current = Math.max(0, stabilityMsRef.current - CHECK_INTERVAL * 0.6);
         setStabilityProgress(Math.min(100, (stabilityMsRef.current / currentStabilityDuration) * 100));
@@ -280,7 +414,6 @@ export function useStabilityDetection(
 
     prevFrameRef.current = currentFrame;
     animFrameRef.current = requestAnimationFrame(checkStability);
-  // CRITICAL: Only depend on `enabled` and `requireDocumentPresence` — not on state that we set inside
   }, [enabled, videoRef, initialDelayMs, requireDocumentPresence]);
 
   useEffect(() => {
@@ -292,6 +425,8 @@ export function useStabilityDetection(
       setInitialDelayDone(false);
       setAlignmentProgress(0);
       setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
+      faceDetectedRef.current = false;
+      faceDetectInFlightRef.current = false;
       prevFrameRef.current = null;
       enabledAtRef.current = performance.now();
       animFrameRef.current = requestAnimationFrame(checkStability);
@@ -301,7 +436,10 @@ export function useStabilityDetection(
       setInitialDelayDone(false);
       setAlignmentProgress(0);
       setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
+      faceDetectedRef.current = false;
+      faceDetectInFlightRef.current = false;
     }
+
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
