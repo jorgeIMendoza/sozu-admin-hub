@@ -319,11 +319,23 @@ export function PipelineOfferDetailDialog({
                       const numMens = scheme.numero_mensualidades || 1;
                       const mensualidad = mensualidades / numMens;
 
+                      const pctEnganche = scheme.porcentaje_enganche || 0;
+                      const pctMensualidades = scheme.porcentaje_mensualidades || 0;
+                      const pctEntrega = scheme.porcentaje_entrega || 0;
+
+                      // Build header parts, skip 0%
+                      const headerParts: string[] = [];
+                      if (pctEnganche > 0) headerParts.push(`${pctEnganche}% Enganche`);
+                      if (pctMensualidades > 0) headerParts.push(`${pctMensualidades}% Mensualidades`);
+                      if (pctEntrega > 0) headerParts.push(`${pctEntrega}% Entrega`);
+
                       return (
                         <div
                           key={scheme.id}
                           onClick={() => {
-                            if (!isLocked) setSelectedSchemeId(scheme.id);
+                            if (!isLocked) {
+                              setSelectedSchemeId(prev => prev === scheme.id ? null : scheme.id);
+                            }
                           }}
                           className={cn(
                             "rounded-xl border-2 p-3 transition-all",
@@ -340,7 +352,7 @@ export function PipelineOfferDetailDialog({
                               {isLocked && !isSelected && <Lock className="h-3 w-3 text-muted-foreground" />}
                               <span className="text-sm font-semibold">{scheme.nombre}</span>
                             </div>
-                            {descuento && descuento !== 0 && (
+                            {descuento != null && descuento !== 0 && (
                               <Badge className={cn(
                                 "text-[10px]",
                                 descuento < 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
@@ -351,18 +363,14 @@ export function PipelineOfferDetailDialog({
                           </div>
 
                           <div className="text-xs text-muted-foreground space-y-0.5">
-                            <p>
-                              <span className="font-medium">{scheme.porcentaje_enganche}%</span> Enganche{' '}
-                              <span className="font-medium">{scheme.porcentaje_mensualidades}%</span> Mensualidades{' '}
-                              <span className="font-medium">{scheme.porcentaje_entrega}%</span> Entrega
-                            </p>
-                            <p>{numMens} meses</p>
+                            <p>{headerParts.join('  ')}</p>
+                            {numMens > 1 && <p>{numMens} meses</p>}
                           </div>
 
                           <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-2 text-[11px]">
-                            <span className="text-emerald-700 dark:text-emerald-400">Enganche: {formatCurrency(enganche)}</span>
-                            <span className="text-purple-700 dark:text-purple-400">Mensualidad: {formatCurrency(mensualidad)}</span>
-                            <span className="text-emerald-700 dark:text-emerald-400">Entrega: {formatCurrency(entrega)}</span>
+                            {enganche > 0 && <span className="text-emerald-700 dark:text-emerald-400">Enganche: {formatCurrency(enganche)}</span>}
+                            {mensualidad > 0 && <span className="text-purple-700 dark:text-purple-400">Mensualidad: {formatCurrency(mensualidad)}</span>}
+                            {entrega > 0 && <span className="text-emerald-700 dark:text-emerald-400">Entrega: {formatCurrency(entrega)}</span>}
                             <span className="text-muted-foreground">Precio final: {formatCurrency(precioFinal)}</span>
                           </div>
                         </div>
@@ -373,31 +381,34 @@ export function PipelineOfferDetailDialog({
               )}
             </div>
 
-            {/* Save button */}
-            {!alreadyHasScheme && selectedSchemeId && (
-              <Button
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-              >
-                {saveMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4" />
-                )}
-                Guardar plan seleccionado
-              </Button>
-            )}
-
-            {alreadyHasScheme && (
-              <div className="text-center py-1">
-                <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                  <Lock className="h-3 w-3" /> Plan ya seleccionado — no se puede cambiar
-                </p>
-              </div>
-            )}
           </div>
         </ScrollArea>
+
+        {/* Sticky save button */}
+        {!alreadyHasScheme && selectedSchemeId && (
+          <div className="border-t p-3 bg-background">
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              Guardar plan seleccionado
+            </Button>
+          </div>
+        )}
+
+        {alreadyHasScheme && (
+          <div className="border-t p-2 bg-background text-center">
+            <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
+              <Lock className="h-3 w-3" /> Plan ya seleccionado — no se puede cambiar
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
