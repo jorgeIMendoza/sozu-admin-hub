@@ -63,14 +63,16 @@ export function useStabilityDetection(
   const lastCheckRef = useRef(0);
   const enabledAtRef = useRef<number>(0);
 
-  const STABILITY_THRESHOLD = 0.08;
-  const STABILITY_DURATION = 1200;
+  // More tolerant stability/content thresholds to recover reliable auto-capture on real devices
+  const DOC_STABILITY_THRESHOLD = 0.14;
+  const SELFIE_STABILITY_THRESHOLD = 0.18;
+  const STABILITY_DURATION = 900;
   const CHECK_INTERVAL = 150;
   const SAMPLE_STEP = 8;
-  const MIN_CONTENT_THRESHOLD = 0.12; // Edge ratio inside guide region for docs
-  const MIN_EDGE_CONTRAST = 26;
-  const MIN_SELFIE_CONTENT_THRESHOLD = 0.07; // Edge ratio inside oval for selfies
-  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.08;
+  const MIN_CONTENT_THRESHOLD = 0.08; // Edge ratio inside guide region for docs
+  const MIN_EDGE_CONTRAST = 20;
+  const MIN_SELFIE_CONTENT_THRESHOLD = 0.045; // Edge ratio inside oval for selfies
+  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.05;
 
   // Guide region proportions (matching the UI overlays)
   // Document rectangle: centered and slightly wider to tolerate framing
@@ -226,7 +228,8 @@ export function useStabilityDetection(
         setAlignedQuadrants(nextAlignedQuadrants);
         setAlignmentProgress(blendedProgress);
 
-        hasContent = edgeRatio > threshold && alignedCount >= 2;
+        // At least one corner aligned + enough edges is enough to start stability countdown
+        hasContent = edgeRatio > threshold && alignedCount >= 1;
       } else {
         setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
         setAlignmentProgress(Math.round(Math.min(100, (edgeRatio / (threshold * 1.6)) * 100)));
@@ -234,7 +237,11 @@ export function useStabilityDetection(
 
       setDocumentDetected(hasContent);
 
-      if (diffRatio < STABILITY_THRESHOLD && hasContent) {
+      const stabilityThreshold = requireDocumentPresence
+        ? DOC_STABILITY_THRESHOLD
+        : SELFIE_STABILITY_THRESHOLD;
+
+      if (hasContent && diffRatio < stabilityThreshold) {
         stabilityMsRef.current += CHECK_INTERVAL;
         const progress = Math.min(100, (stabilityMsRef.current / STABILITY_DURATION) * 100);
         setStabilityProgress(progress);
@@ -249,6 +256,11 @@ export function useStabilityDetection(
           prevFrameRef.current = null;
           return;
         }
+      } else if (hasContent && diffRatio < stabilityThreshold * 1.35) {
+        // Small jitter: decay instead of hard reset to avoid getting stuck forever
+        stabilityMsRef.current = Math.max(0, stabilityMsRef.current - CHECK_INTERVAL * 0.35);
+        const progress = Math.min(100, (stabilityMsRef.current / STABILITY_DURATION) * 100);
+        setStabilityProgress(progress);
       } else {
         stabilityMsRef.current = 0;
         setStabilityProgress(0);
