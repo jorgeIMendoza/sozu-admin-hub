@@ -473,9 +473,28 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
             return next;
           });
           setVerificationDocId(result.docId);
-          toast.success("INE reverso capturado. Ahora toma una selfie.", { duration: 4000 });
           stopCamera();
-          setTimeout(() => startCamera('selfie'), 300);
+          // Pre-verify document before selfie
+          toast.loading("Verificando documento...", { id: 'pre-verify' });
+          const urls = capturedDocUrlsRef.current;
+          const [frontCheck, backCheck] = await Promise.all([
+            urls.front ? verifyDocument(urls.front, 'ine_frente') : Promise.resolve(null),
+            verifyDocument(result.url, 'ine_reverso'),
+          ]);
+          toast.dismiss('pre-verify');
+          const preResult = frontCheck ? {
+            ...frontCheck,
+            numero_identificacion: backCheck?.numero_identificacion || frontCheck.numero_identificacion,
+          } : backCheck;
+          if (preResult && !preResult.is_valid_document) {
+            // Not a valid INE — show result immediately, no selfie
+            setVerificationResult(preResult);
+            toast.error("El documento no es una identificación válida (INE/Pasaporte).", { duration: 6000 });
+            autoCaptureLockRef.current = false;
+          } else {
+            toast.success("INE reverso capturado. Ahora toma una selfie.", { duration: 4000 });
+            setTimeout(() => startCamera('selfie'), 300);
+          }
         }
       } else if (cameraStep === 'passport') {
         const file = new File([blob], `pasaporte_${Date.now()}.jpg`, { type: 'image/jpeg' });
@@ -487,9 +506,20 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
             return next;
           });
           setVerificationDocId(result.docId);
-          toast.success("Pasaporte capturado. Ahora toma una selfie.", { duration: 4000 });
           stopCamera();
-          setTimeout(() => startCamera('selfie'), 300);
+          // Pre-verify document before selfie
+          toast.loading("Verificando documento...", { id: 'pre-verify' });
+          const preResult = await verifyDocument(result.url, 'pasaporte');
+          toast.dismiss('pre-verify');
+          if (preResult && !preResult.is_valid_document) {
+            // Not a valid passport — show result immediately, no selfie
+            setVerificationResult(preResult);
+            toast.error("El documento no es una identificación válida (INE/Pasaporte).", { duration: 6000 });
+            autoCaptureLockRef.current = false;
+          } else {
+            toast.success("Pasaporte capturado. Ahora toma una selfie.", { duration: 4000 });
+            setTimeout(() => startCamera('selfie'), 300);
+          }
         }
       } else if (cameraStep === 'selfie') {
         const file = new File([blob], `selfie_${Date.now()}.jpg`, { type: 'image/jpeg' });

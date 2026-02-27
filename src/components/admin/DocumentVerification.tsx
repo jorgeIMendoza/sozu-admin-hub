@@ -887,7 +887,8 @@ export function VerificationComparator({
         </div>
       )}
 
-      {/* Data comparison table */}
+      {/* Data comparison table — only show for valid documents */}
+      {result.is_valid_document && (
       <div className="rounded-xl border overflow-hidden">
         <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-0 text-[10px] font-semibold text-muted-foreground bg-muted/50 px-3 py-2 border-b">
           <span>Dato</span>
@@ -896,120 +897,82 @@ export function VerificationComparator({
           <span className="text-center w-10">Guardar</span>
         </div>
         {fields
-          .filter((f) => f.docValue) // Only show fields with extracted data
+          .filter((f) => f.docValue)
           .map((f) => {
             const status = getMatchStatus(f);
-            const StatusIcon =
-              status === "match"
-                ? Check
-                : status === "partial"
-                ? Eye
-                : status === "missing"
-                ? AlertTriangle
-                : status === "differs"
-                ? X
-                : null;
-            const statusColor =
-              status === "match"
-                ? "text-emerald-500"
-                : status === "partial"
-                ? "text-amber-500"
-                : status === "missing"
-                ? "text-muted-foreground"
-                : status === "differs"
-                ? "text-destructive"
-                : "text-muted-foreground";
+            const isChecked = checkedFields[f.label] ?? false;
 
             return (
               <div
                 key={f.label}
-                className="grid grid-cols-[1fr_1fr_1fr_auto] gap-0 px-3 py-2 border-b last:border-0 items-center"
+                className={cn(
+                  "grid grid-cols-[1fr_1fr_1fr_auto] gap-0 items-center px-3 py-2 border-b last:border-b-0 transition-colors",
+                  status === "match"
+                    ? "bg-emerald-50/50 dark:bg-emerald-950/20"
+                    : status === "differs"
+                    ? "bg-amber-50/50 dark:bg-amber-950/20"
+                    : ""
+                )}
               >
                 <span className="text-[11px] font-medium text-foreground flex items-center gap-1">
                   {f.label}
-                  {StatusIcon && <StatusIcon className={cn("h-3 w-3", statusColor)} />}
-                </span>
-                <span className="text-[11px] text-foreground truncate pr-1">
-                  {f.docValue || "—"}
+                  {status === "match" && (
+                    <Check className="h-3 w-3 text-emerald-500" />
+                  )}
+                  {status === "differs" && (
+                    <AlertTriangle className="h-3 w-3 text-amber-500" />
+                  )}
                 </span>
                 <span className="text-[11px] text-muted-foreground truncate pr-1">
-                  {f.profileValue || (f.saveable ? "(vacío)" : "—")}
+                  {f.docValue}
                 </span>
-                <div className="w-10 flex justify-center">
+                <span className="text-[11px] text-muted-foreground truncate pr-1">
+                  {f.profileValue || (
+                    <span className="italic text-muted-foreground/60">
+                      (vacío)
+                    </span>
+                  )}
+                </span>
+                <div className="flex justify-center w-10">
                   {f.saveable && f.docValue ? (
-                    f.alwaysSave ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-500" />
-                    ) : (
-                      <Checkbox
-                        checked={checkedFields[f.label] ?? false}
-                        onCheckedChange={(checked) =>
-                          setCheckedFields((prev) => ({
-                            ...prev,
-                            [f.label]: !!checked,
-                          }))
-                        }
-                        className="h-4 w-4"
-                      />
-                    )
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={(v) =>
+                        setCheckedFields((prev) => ({
+                          ...prev,
+                          [f.label]: !!v,
+                        }))
+                      }
+                      className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                    />
                   ) : (
-                    <span className="text-[10px] text-muted-foreground">n/a</span>
+                    <span className="text-[10px] text-muted-foreground/40">
+                      n/a
+                    </span>
                   )}
                 </div>
               </div>
             );
           })}
       </div>
-
-      {/* Authenticity signals */}
-      {result.authenticity_signals.length > 0 && (
-        <div className="space-y-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            Señales de autenticidad
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {result.authenticity_signals.map((signal, i) => (
-              <Badge
-                key={i}
-                variant="outline"
-                className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
-              >
-                <Check className="h-2.5 w-2.5 mr-0.5" />
-                {signal}
-              </Badge>
-            ))}
-          </div>
-        </div>
       )}
 
-      {/* Face match */}
-      {result.face_match !== null && result.face_match !== undefined && (
-        <div
-          className={cn(
-            "rounded-xl border p-3 flex items-center gap-2.5",
-            result.face_match
-              ? "bg-emerald-50 border-emerald-200"
-              : "bg-destructive/10 border-destructive/20"
-          )}
-        >
-          <User className={cn("h-5 w-5", result.face_match ? "text-emerald-600" : "text-destructive")} />
-          <div className="flex-1">
-            <p className={cn("text-xs font-semibold", result.face_match ? "text-emerald-700" : "text-destructive")}>
-              {result.face_match ? "Coincidencia facial" : "No hay coincidencia facial"}
-            </p>
-            {result.face_match_confidence != null && (
-              <p className="text-[10px] text-muted-foreground">
-                Confianza: {result.face_match_confidence}%
-              </p>
-            )}
-          </div>
+      {/* If document is NOT valid, show a clear message that saving is blocked */}
+      {!result.is_valid_document && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4 text-center space-y-1">
+          <p className="text-sm font-semibold text-destructive">No se puede guardar este documento</p>
+          <p className="text-xs text-destructive/80">
+            Solo se aceptan INE o Pasaporte como identificación oficial. Vuelve a capturar con un documento válido.
+          </p>
         </div>
       )}
 
       {/* Action buttons */}
       <div className="flex gap-2 pt-1">
+        {result.is_valid_document && (
         <Button
           onClick={handleSaveAndAccept}
-          disabled={saving || (!result.is_valid_document && result.confidence < 50)}
+          disabled={saving}
           className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm gap-2"
         >
           {saving ? (
@@ -1019,13 +982,18 @@ export function VerificationComparator({
           )}
           Guardar y aceptar
         </Button>
+        )}
         <Button
           onClick={handleReject}
           disabled={saving}
           variant="outline"
-          className="h-12 rounded-2xl px-4 text-destructive border-destructive/30 hover:bg-destructive/10"
+          className={cn(
+            "h-12 rounded-2xl px-4 text-destructive border-destructive/30 hover:bg-destructive/10",
+            !result.is_valid_document && "flex-1"
+          )}
         >
           <X className="h-4 w-4" />
+          {!result.is_valid_document && <span className="ml-1">Cerrar y reintentar</span>}
         </Button>
       </div>
     </div>
