@@ -872,17 +872,17 @@ export function VerificationComparator({
       });
     } catch (e) { /* audio not supported */ }
 
-    // Round confetti burst
+    // Fine confetti burst — small & delicate
     const colors = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24', '#f97316', '#ec4899', '#8b5cf6'];
-    confetti({ particleCount: 100, spread: 120, origin: { x: 0.5, y: 0.4 }, colors, shapes: ['circle'], startVelocity: 50 });
+    confetti({ particleCount: 80, spread: 100, origin: { x: 0.5, y: 0.4 }, colors, shapes: ['circle'], scalar: 0.5, startVelocity: 40, gravity: 1.2 });
 
-    // Continuous round confetti + long streamers for 3.5 seconds
+    // Continuous fine confetti + thin streamers for 3.5 seconds
     const celebrationEnd = Date.now() + 3500;
     const frame = () => {
-      confetti({ particleCount: 4, angle: 60, spread: 65, origin: { x: 0, y: 0.7 }, colors, shapes: ['circle'] });
-      confetti({ particleCount: 4, angle: 120, spread: 65, origin: { x: 1, y: 0.7 }, colors, shapes: ['circle'] });
-      confetti({ particleCount: 2, angle: 60, spread: 25, origin: { x: 0, y: 0.5 }, colors, shapes: ['square'], scalar: 3, drift: 1, gravity: 0.5, ticks: 400 });
-      confetti({ particleCount: 2, angle: 120, spread: 25, origin: { x: 1, y: 0.5 }, colors, shapes: ['square'], scalar: 3, drift: -1, gravity: 0.5, ticks: 400 });
+      confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.7 }, colors, shapes: ['circle'], scalar: 0.4, gravity: 1.1 });
+      confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.7 }, colors, shapes: ['circle'], scalar: 0.4, gravity: 1.1 });
+      confetti({ particleCount: 2, angle: 60, spread: 25, origin: { x: 0, y: 0.5 }, colors, shapes: ['square'], scalar: 1.2, drift: 0.8, gravity: 0.7, ticks: 350 });
+      confetti({ particleCount: 2, angle: 120, spread: 25, origin: { x: 1, y: 0.5 }, colors, shapes: ['square'], scalar: 1.2, drift: -0.8, gravity: 0.7, ticks: 350 });
       if (Date.now() < celebrationEnd) requestAnimationFrame(frame);
     };
     frame();
