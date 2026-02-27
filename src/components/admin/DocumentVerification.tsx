@@ -61,16 +61,42 @@ export function useStabilityDetection(
   const lastCheckRef = useRef(0);
   const enabledAtRef = useRef<number>(0);
 
-  const STABILITY_THRESHOLD = 0.08; // Less strict movement threshold
-  const STABILITY_DURATION = 900; // Faster auto-capture once stable
+  const STABILITY_THRESHOLD = 0.06;
+  const STABILITY_DURATION = 1200;
   const CHECK_INTERVAL = 150;
-  const SAMPLE_STEP = 12;
-  const MIN_CONTENT_THRESHOLD = 0.20; // 20% edge ratio required for documents
-  const MIN_EDGE_CONTRAST = 40; // Strict for documents
-  const MIN_SELFIE_EDGE_CONTRAST = 22; // More permissive for selfies
-  const MIN_QUADRANTS_WITH_EDGES = 2; // At least 2 of 4 quadrants for docs
-  const QUADRANT_EDGE_THRESHOLD = 0.05; // 5% edges per quadrant
-  const MIN_SELFIE_CONTENT_THRESHOLD = 0.04; // Less strict for faces/selfies
+  const SAMPLE_STEP = 8;
+  const MIN_CONTENT_THRESHOLD = 0.18; // Edge ratio inside guide region for docs
+  const MIN_EDGE_CONTRAST = 35;
+  const MIN_SELFIE_CONTENT_THRESHOLD = 0.10; // Edge ratio inside oval for selfies
+
+  // Guide region proportions (matching the UI overlays)
+  // Document rectangle: centered, ~80% width, ~75% height (matching the corner guides with inset-4)
+  const DOC_REGION = { x: 0.10, y: 0.12, w: 0.80, h: 0.76 };
+  // Selfie oval: centered at ~44% height, rx ~32%, ry ~31% of frame (matching SVG 95/125 of 300/400)
+  const OVAL_CX = 0.50;
+  const OVAL_CY = 0.44;
+  const OVAL_RX = 0.32;
+  const OVAL_RY = 0.31;
+
+  const isInsideRegion = useCallback((px: number, py: number, w: number, h: number) => {
+    if (requireDocumentPresence) {
+      // Rectangle check
+      const x0 = DOC_REGION.x * w;
+      const y0 = DOC_REGION.y * h;
+      const x1 = (DOC_REGION.x + DOC_REGION.w) * w;
+      const y1 = (DOC_REGION.y + DOC_REGION.h) * h;
+      return px >= x0 && px <= x1 && py >= y0 && py <= y1;
+    } else {
+      // Oval check
+      const cx = OVAL_CX * w;
+      const cy = OVAL_CY * h;
+      const rx = OVAL_RX * w;
+      const ry = OVAL_RY * h;
+      const dx = (px - cx) / rx;
+      const dy = (py - cy) / ry;
+      return (dx * dx + dy * dy) <= 1;
+    }
+  }, [requireDocumentPresence]);
 
   const checkStability = useCallback((timestamp: number) => {
     if (!enabled || !videoRef.current) {
@@ -125,25 +151,15 @@ export function useStabilityDetection(
       let totalSampled = 0;
       let edgeCount = 0;
 
-      // Quadrant edge tracking
-      const halfW = w / 2;
-      const halfH = h / 2;
-      const quadrantEdges = [0, 0, 0, 0]; // TL, TR, BL, BR
-      const quadrantSamples = [0, 0, 0, 0];
-
-      const edgeContrastThreshold = requireDocumentPresence
-        ? MIN_EDGE_CONTRAST
-        : MIN_SELFIE_EDGE_CONTRAST;
-
       for (let i = 0; i < curr.length; i += 4 * SAMPLE_STEP) {
-        totalSampled++;
         const pixelIndex = i / 4;
         const px = pixelIndex % w;
         const py = Math.floor(pixelIndex / w);
 
-        // Determine quadrant
-        const qIdx = (py < halfH ? 0 : 2) + (px < halfW ? 0 : 1);
-        quadrantSamples[qIdx]++;
+        // Only analyze pixels INSIDE the guide region
+        if (!isInsideRegion(px, py, w, h)) continue;
+
+        totalSampled++;
 
         const dr = Math.abs(curr[i] - prev[i]);
         const dg = Math.abs(curr[i + 1] - prev[i + 1]);
@@ -153,9 +169,8 @@ export function useStabilityDetection(
         const luminance = curr[i] * 0.299 + curr[i + 1] * 0.587 + curr[i + 2] * 0.114;
         if (i + 4 * SAMPLE_STEP < curr.length) {
           const nextL = curr[i + 4 * SAMPLE_STEP] * 0.299 + curr[i + 4 * SAMPLE_STEP + 1] * 0.587 + curr[i + 4 * SAMPLE_STEP + 2] * 0.114;
-          if (Math.abs(luminance - nextL) > edgeContrastThreshold) {
+          if (Math.abs(luminance - nextL) > MIN_EDGE_CONTRAST) {
             edgeCount++;
-            quadrantEdges[qIdx]++;
           }
         }
       }
@@ -163,20 +178,11 @@ export function useStabilityDetection(
       const diffRatio = totalSampled > 0 ? diffCount / totalSampled : 1;
       const edgeRatio = totalSampled > 0 ? edgeCount / totalSampled : 0;
 
-      // Check quadrant distribution: at least 3 of 4 quadrants must have significant edges
-      let activeQuadrants = 0;
-      for (let q = 0; q < 4; q++) {
-        if (quadrantSamples[q] > 0 && (quadrantEdges[q] / quadrantSamples[q]) > QUADRANT_EDGE_THRESHOLD) {
-          activeQuadrants++;
-        }
-      }
+      const threshold = requireDocumentPresence ? MIN_CONTENT_THRESHOLD : MIN_SELFIE_CONTENT_THRESHOLD;
+      const hasContent = edgeRatio > threshold;
+      setDocumentDetected(hasContent);
 
-      const hasRequiredContent = requireDocumentPresence
-        ? (edgeRatio > MIN_CONTENT_THRESHOLD && activeQuadrants >= MIN_QUADRANTS_WITH_EDGES)
-        : edgeRatio > MIN_SELFIE_CONTENT_THRESHOLD;
-      setDocumentDetected(hasRequiredContent);
-
-      if (diffRatio < STABILITY_THRESHOLD && hasRequiredContent) {
+      if (diffRatio < STABILITY_THRESHOLD && hasContent) {
         stabilityMsRef.current += CHECK_INTERVAL;
         const progress = Math.min(100, (stabilityMsRef.current / STABILITY_DURATION) * 100);
         setStabilityProgress(progress);
@@ -197,7 +203,7 @@ export function useStabilityDetection(
 
     prevFrameRef.current = currentFrame;
     animFrameRef.current = requestAnimationFrame(checkStability);
-  }, [enabled, videoRef, onStableCapture, initialDelayMs, initialDelayDone, requireDocumentPresence]);
+  }, [enabled, videoRef, onStableCapture, initialDelayMs, initialDelayDone, requireDocumentPresence, isInsideRegion]);
 
   useEffect(() => {
     if (enabled) {
