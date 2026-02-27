@@ -70,11 +70,11 @@ export function useStabilityDetection(
   const STABILITY_DURATION = 1500;
   const CHECK_INTERVAL = 120;
   const SAMPLE_STEP = 6;
-  const MIN_CONTENT_THRESHOLD = 0.18;
-  const MIN_EDGE_CONTRAST = 30;
+  const MIN_CONTENT_THRESHOLD = 0.25;
+  const MIN_EDGE_CONTRAST = 40;
   const MIN_SELFIE_CONTENT_THRESHOLD = 0.035;
-  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.05;
-  const MIN_QUADRANTS_WITH_EDGES = 2;
+  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.06;
+  const MIN_QUADRANTS_WITH_EDGES = 3;
   const DOC_STABILITY_THRESHOLD = 0.14;
   const SELFIE_STABILITY_THRESHOLD = 0.22;
   const PIXEL_DIFF_THRESHOLD = 25;
@@ -219,17 +219,20 @@ export function useStabilityDetection(
           br: quadrantRatios.br >= QUADRANT_EDGE_RATIO_THRESHOLD,
         };
 
-        const alignedCount = Object.values(nextAlignedQuadrants).filter(Boolean).length;
-        const cornerProgress = (alignedCount / 4) * 100;
-        const edgeProgress = Math.min(100, (edgeRatio / (threshold * 1.8)) * 100);
-        const blendedProgress = Math.round(cornerProgress * 0.6 + edgeProgress * 0.4);
-
-        setAlignedQuadrants(nextAlignedQuadrants);
-        setAlignmentProgress(blendedProgress);
-
-        // Require minimum quadrants with edges to confirm a real document
         const activeQuadrantCount = Object.values(nextAlignedQuadrants).filter(Boolean).length;
         hasContent = edgeRatio > threshold && activeQuadrantCount >= MIN_QUADRANTS_WITH_EDGES;
+
+        setAlignedQuadrants(nextAlignedQuadrants);
+
+        // Only show progress when document is actually detected
+        if (hasContent) {
+          const cornerProgress = (activeQuadrantCount / 4) * 100;
+          const edgeProgress = Math.min(100, (edgeRatio / (threshold * 1.5)) * 100);
+          const blendedProgress = Math.round(cornerProgress * 0.5 + edgeProgress * 0.5);
+          setAlignmentProgress(blendedProgress);
+        } else {
+          setAlignmentProgress(0);
+        }
       } else {
         setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
         setAlignmentProgress(Math.round(Math.min(100, (edgeRatio / (threshold * 1.6)) * 100)));
