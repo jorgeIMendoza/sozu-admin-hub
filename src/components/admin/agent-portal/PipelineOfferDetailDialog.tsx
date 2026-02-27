@@ -41,7 +41,7 @@ export function PipelineOfferDetailDialog({
       if (!oferta?.id_propiedad) return null;
       const { data } = await (supabase as any)
         .from('propiedades')
-        .select('id, numero_propiedad, precio_lista, id_edificio_modelo, id_tipo_transaccion')
+        .select('id, numero_propiedad, precio_lista, id_edificio_modelo')
         .eq('id', oferta.id_propiedad)
         .limit(1)
         .single();
