@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
+import { PipelineOfferDetailDialog } from "@/components/admin/agent-portal/PipelineOfferDetailDialog";
 
 const STAGES = [
   { key: 'all', label: 'Todas', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-400' },
@@ -68,6 +69,7 @@ const AgentPipeline = () => {
   const navigate = useNavigate();
   const agentEmail = isImpersonating ? impersonatedAgentEmail : (user?.email || profile?.email);
   const [activeStage, setActiveStage] = useState<string>('all');
+  const [selectedOferta, setSelectedOferta] = useState<any>(null);
   const { permissions } = useAgentPortalPermissions();
   const pipelinePerms = permissions['/admin/agent/pipeline'];
   const { registrarVista } = useActivityLogger();
@@ -321,18 +323,30 @@ const AgentPipeline = () => {
               oferta={oferta}
               formatCurrency={formatCurrency}
               getStageInfo={getStageInfo}
+              onClick={() => setSelectedOferta(oferta)}
             />
           ))
         )}
       </div>
+
+      {selectedOferta && (
+        <PipelineOfferDetailDialog
+          open={!!selectedOferta}
+          onOpenChange={(v) => { if (!v) setSelectedOferta(null); }}
+          oferta={selectedOferta}
+          formatCurrency={formatCurrency}
+          stageInfo={getStageInfo(selectedOferta.stage)}
+        />
+      )}
     </div>
   );
 };
 
-function OfertaCard({ oferta, formatCurrency, getStageInfo }: {
+function OfertaCard({ oferta, formatCurrency, getStageInfo, onClick }: {
   oferta: any;
   formatCurrency: (v: number) => string;
   getStageInfo: (s: string) => { key: string; label: string; color: string; borderColor: string };
+  onClick?: () => void;
 }) {
   const stageInfo = getStageInfo(oferta.stage);
   const ofertaLabel = oferta.is_producto
@@ -348,7 +362,7 @@ function OfertaCard({ oferta, formatCurrency, getStageInfo }: {
   const cuentaTipo = oferta.is_producto ? 'Producto' : 'Propiedad';
 
   return (
-    <div className={cn("rounded-xl bg-white border-l-4 border border-gray-100 shadow-sm p-3.5", stageInfo.borderColor)}>
+    <div onClick={onClick} className={cn("rounded-xl bg-white border-l-4 border border-gray-100 shadow-sm p-3.5 cursor-pointer active:scale-[0.98] transition-transform", stageInfo.borderColor)}>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] text-[hsl(var(--agent-text-secondary))] font-mono">

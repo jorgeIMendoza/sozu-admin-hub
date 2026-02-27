@@ -663,85 +663,86 @@ export function VerificationComparator({
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [celebrationShown, setCelebrationShown] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
 
   const faceMatchConfidence = result.face_match_confidence ?? 0;
   const hasStrongFaceMatch = result.face_match === true && faceMatchConfidence >= 70;
   const faceMatchFailed = result.face_match === false;
   const faceMatchMissing = result.face_match == null;
 
-  // Play celebration fanfare sound
-  const playCelebrationSound = useCallback(async () => {
+  // Full celebration: fanfare + confetti + streamers + trumpets overlay (5 seconds)
+  const fireCelebration = useCallback(() => {
+    setCelebrating(true);
+    setTimeout(() => setCelebrating(false), 5000);
+
+    // Play fanfare sound (sawtooth + triangle brass) — same as AgentPerfil
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       const master = audioCtx.createGain();
-      master.gain.value = 0.5;
+      master.gain.value = 0.55;
       master.connect(audioCtx.destination);
       const notes = [
-        { freq: 523.25, start: 0, dur: 0.18 },
-        { freq: 659.25, start: 0.16, dur: 0.18 },
-        { freq: 783.99, start: 0.32, dur: 0.20 },
-        { freq: 1046.5, start: 0.50, dur: 0.45 },
-        { freq: 880.0, start: 1.0, dur: 0.14 },
-        { freq: 1174.66, start: 1.14, dur: 0.55 },
+        { freq: 523.25, start: 0, dur: 0.20 },
+        { freq: 659.25, start: 0.18, dur: 0.20 },
+        { freq: 783.99, start: 0.36, dur: 0.22 },
+        { freq: 1046.5, start: 0.56, dur: 0.50 },
+        { freq: 783.99, start: 1.10, dur: 0.14 },
+        { freq: 880.0,  start: 1.24, dur: 0.14 },
+        { freq: 1046.5, start: 1.38, dur: 0.18 },
+        { freq: 1174.66, start: 1.56, dur: 0.60 },
+        { freq: 1318.51, start: 2.20, dur: 0.70 },
       ];
       notes.forEach(({ freq, start, dur }) => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
-        gain.gain.setValueAtTime(0, audioCtx.currentTime + start);
-        gain.gain.linearRampToValueAtTime(0.16, audioCtx.currentTime + start + 0.025);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + start + dur);
-        osc.connect(gain);
-        gain.connect(master);
-        osc.start(audioCtx.currentTime + start);
-        osc.stop(audioCtx.currentTime + start + dur + 0.05);
-        // Warmth layer
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
+        gain1.gain.setValueAtTime(0, audioCtx.currentTime + start);
+        gain1.gain.linearRampToValueAtTime(0.18, audioCtx.currentTime + start + 0.025);
+        gain1.gain.setValueAtTime(0.15, audioCtx.currentTime + start + 0.06);
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + start + dur);
+        osc1.connect(gain1); gain1.connect(master);
+        osc1.start(audioCtx.currentTime + start);
+        osc1.stop(audioCtx.currentTime + start + dur + 0.05);
+
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
         osc2.type = 'triangle';
         osc2.frequency.setValueAtTime(freq * 0.5, audioCtx.currentTime + start);
         gain2.gain.setValueAtTime(0, audioCtx.currentTime + start);
-        gain2.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + start + 0.03);
+        gain2.gain.linearRampToValueAtTime(0.10, audioCtx.currentTime + start + 0.03);
         gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + start + dur);
-        osc2.connect(gain2);
-        gain2.connect(master);
+        osc2.connect(gain2); gain2.connect(master);
         osc2.start(audioCtx.currentTime + start);
         osc2.stop(audioCtx.currentTime + start + dur + 0.05);
       });
-    } catch (e) { /* audio blocked */ }
+    } catch (e) { /* audio not supported */ }
+
+    // Round confetti burst
+    const colors = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24', '#f97316', '#ec4899', '#8b5cf6'];
+    confetti({ particleCount: 100, spread: 120, origin: { x: 0.5, y: 0.4 }, colors, shapes: ['circle'], startVelocity: 50 });
+
+    // Continuous round confetti + long streamers for 5 seconds
+    const celebrationEnd = Date.now() + 5000;
+    const frame = () => {
+      confetti({ particleCount: 4, angle: 60, spread: 65, origin: { x: 0, y: 0.7 }, colors, shapes: ['circle'] });
+      confetti({ particleCount: 4, angle: 120, spread: 65, origin: { x: 1, y: 0.7 }, colors, shapes: ['circle'] });
+      confetti({ particleCount: 2, angle: 60, spread: 25, origin: { x: 0, y: 0.5 }, colors, shapes: ['square'], scalar: 3, drift: 1, gravity: 0.5, ticks: 400 });
+      confetti({ particleCount: 2, angle: 120, spread: 25, origin: { x: 1, y: 0.5 }, colors, shapes: ['square'], scalar: 3, drift: -1, gravity: 0.5, ticks: 400 });
+      if (Date.now() < celebrationEnd) requestAnimationFrame(frame);
+    };
+    frame();
   }, []);
 
-  // Auto-fire confetti + trumpets + streamers when verification is positive
+  // Auto-fire celebration when verification is positive
   useEffect(() => {
     if (celebrationShown) return;
-    const isSuccess = result.is_valid_document && result.confidence >= 70 && hasStrongFaceMatch;
-    if (isSuccess) {
+    if (result.is_valid_document && result.confidence >= 70 && hasStrongFaceMatch) {
       setCelebrationShown(true);
-      playCelebrationSound();
-
-      // Big burst
-      confetti({ particleCount: 80, spread: 100, origin: { x: 0.5, y: 0.4 }, startVelocity: 45,
-        colors: ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24', '#f97316', '#ec4899'] });
-
-      const duration = 3000;
-      const end = Date.now() + duration;
-      const colors = ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24', '#f97316', '#ec4899', '#8b5cf6'];
-      const frame = () => {
-        // Confetti
-        confetti({ particleCount: 4, angle: 60, spread: 65, origin: { x: 0, y: 0.6 }, colors });
-        confetti({ particleCount: 4, angle: 120, spread: 65, origin: { x: 1, y: 0.6 }, colors });
-        // Streamers
-        confetti({ particleCount: 2, angle: 60, spread: 30, origin: { x: 0, y: 0.5 }, colors,
-          shapes: ['square'], scalar: 2.2, drift: 0.8, gravity: 0.6, ticks: 300 });
-        confetti({ particleCount: 2, angle: 120, spread: 30, origin: { x: 1, y: 0.5 }, colors,
-          shapes: ['square'], scalar: 2.2, drift: -0.8, gravity: 0.6, ticks: 300 });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      };
-      frame();
+      fireCelebration();
     }
-  }, [result, celebrationShown, hasStrongFaceMatch, playCelebrationSound]);
+  }, [result, celebrationShown, hasStrongFaceMatch, fireCelebration]);
 
   // INE names come as "ApPaterno ApMaterno Nombre(s)" — reorder to "Nombre(s) ApPaterno ApMaterno"
   const isIneDoc = result.document_type === "ine_frente" || result.document_type === "ine_reverso" || !!result.clave_elector;
@@ -915,27 +916,8 @@ export function VerificationComparator({
 
       toast.success("Documento verificado y datos actualizados");
       
-      // Fire confetti celebration
-      const duration = 2500;
-      const end = Date.now() + duration;
-      const frame = () => {
-        confetti({
-          particleCount: 4,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0, y: 0.7 },
-          colors: ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24'],
-        });
-        confetti({
-          particleCount: 4,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1, y: 0.7 },
-          colors: ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24'],
-        });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      };
-      frame();
+      // Reuse the celebration function
+      fireCelebration();
 
       onAccepted();
     } catch (err: any) {
@@ -973,7 +955,35 @@ export function VerificationComparator({
       : "text-destructive";
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-4 pb-4 relative">
+      {/* Trumpet + flags celebration overlay */}
+      {celebrating && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
+          <div className="absolute left-4 top-1/3 animate-fade-in" style={{ animationDuration: '0.4s' }}>
+            <div className="text-6xl animate-bounce" style={{ animationDuration: '0.6s' }}>🎺</div>
+          </div>
+          <div className="absolute right-4 top-1/3 animate-fade-in" style={{ animationDuration: '0.4s', animationDelay: '0.15s', animationFillMode: 'both' }}>
+            <div className="text-6xl animate-bounce scale-x-[-1]" style={{ animationDuration: '0.6s' }}>🎺</div>
+          </div>
+          <div className="animate-scale-in flex flex-col items-center gap-2" style={{ animationDuration: '0.5s', animationDelay: '0.3s', animationFillMode: 'both' }}>
+            <div className="flex gap-3 text-5xl">
+              <span>🏳️</span>
+              <span>🎉</span>
+              <span>🏳️</span>
+            </div>
+            <div className="bg-emerald-500 text-white px-6 py-3 rounded-2xl shadow-2xl">
+              <p className="text-lg font-bold text-center">¡Identidad verificada!</p>
+              <p className="text-xs text-emerald-100 text-center">Documento y selfie coinciden</p>
+            </div>
+          </div>
+          <div className="absolute left-1/4 bottom-1/3 animate-fade-in" style={{ animationDuration: '0.4s', animationDelay: '0.25s', animationFillMode: 'both' }}>
+            <div className="text-4xl animate-bounce" style={{ animationDuration: '0.7s' }}>🎺</div>
+          </div>
+          <div className="absolute right-1/4 bottom-1/3 animate-fade-in" style={{ animationDuration: '0.4s', animationDelay: '0.35s', animationFillMode: 'both' }}>
+            <div className="text-4xl animate-bounce scale-x-[-1]" style={{ animationDuration: '0.7s' }}>🏁</div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center gap-2">
         <Shield className="h-5 w-5 text-primary" />
