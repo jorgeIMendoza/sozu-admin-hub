@@ -2234,7 +2234,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
 
   // Handler for precio final edit
   const handlePrecioFinalEdit = () => {
-    if (!cuentaDetalle?.precio_final || !lastAcuerdo) {
+    if (cuentaDetalle?.precio_final == null || !lastAcuerdo) {
       toast.error("No se puede editar el precio final: no hay datos suficientes");
       return;
     }
