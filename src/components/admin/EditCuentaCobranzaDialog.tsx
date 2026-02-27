@@ -2245,7 +2245,9 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       return;
     }
 
-    const difference = newPrecio - cuentaDetalle.precio_final;
+    // Calculate difference against the actual sum of active acuerdos (not the stored precio_final which may be stale/zero)
+    const sumaAcuerdosActivos = acuerdosPago?.reduce((sum: number, a: any) => sum + (a.monto || 0), 0) || 0;
+    const difference = newPrecio - sumaAcuerdosActivos;
     
     // Use a small epsilon to handle floating point precision issues
     // This allows changes as small as 0.01 (1 cent)
