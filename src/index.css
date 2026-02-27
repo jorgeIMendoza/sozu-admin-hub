@@ -479,3 +479,20 @@ All colors MUST be HSL.
     box-shadow: var(--shadow-lg);
   }
 }
+
+/* TipTap Placeholder Node Styles */
+.placeholder-node {
+  background-color: hsl(226 76% 93%);
+  color: hsl(243 75% 45%);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  user-select: none;
+  white-space: nowrap;
+  display: inline;
+}
+.dark .placeholder-node {
+  background-color: hsl(243 47% 25%);
+  color: hsl(226 76% 80%);
+}
