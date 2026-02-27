@@ -91,7 +91,7 @@ Si el documento está vencido (la vigencia ya pasó), indícalo.
 Si NO es un documento de identidad válido o es una foto de pantalla/fotocopia, recházalo con razón.`;
 
     if (selfieUrl) {
-      textPrompt += `\n\nTambién se proporciona una selfie (segunda imagen). Compara el rostro de la selfie con la foto del documento de identidad y determina si es la misma persona. Evalúa la similitud facial.`;
+      textPrompt += `\n\nTambién se proporciona una selfie (segunda imagen). Compara el rostro de la selfie con la foto del documento de identidad y determina si es la misma persona. Evalúa la similitud facial con criterio estricto de seguridad. Si existe duda razonable, diferencia clara de edad (menor vs adulto), rasgos incompatibles o proporciones faciales inconsistentes, DEBES marcar face_match=false.`;
     }
 
     userContent.push({ type: "text", text: textPrompt });
@@ -186,6 +186,9 @@ Si NO es un documento de identidad válido o es una foto de pantalla/fotocopia, 
               "document_type",
               "confidence",
               "authenticity_signals",
+              "face_match",
+              "face_match_confidence",
+              "face_match_reason"
             ],
             additionalProperties: false,
           },
@@ -207,7 +210,7 @@ Si NO es un documento de identidad válido o es una foto de pantalla/fotocopia, 
             {
               role: "system",
               content:
-                "Eres un experto verificador de documentos de identidad mexicanos (INE y Pasaporte). Analiza imágenes con precisión y extrae datos estructurados. Responde SIEMPRE usando la herramienta verify_identity_document. Fecha actual: " +
+                "Eres un experto verificador de documentos de identidad mexicanos (INE y Pasaporte). Analiza imágenes con precisión y extrae datos estructurados. Para selfie-vs-documento debes aplicar criterio estricto antifraude: si no hay evidencia clara de coincidencia facial, responde face_match=false. Responde SIEMPRE usando la herramienta verify_identity_document. Fecha actual: " +
                 new Date().toISOString().split("T")[0],
             },
             { role: "user", content: userContent },
@@ -255,6 +258,37 @@ Si NO es un documento de identidad válido o es una foto de pantalla/fotocopia, 
     }
 
     const result = JSON.parse(toolCall.function.arguments);
+
+    const acceptedDocumentTypes = new Set(["ine_frente", "ine_reverso", "pasaporte"]);
+    if (!acceptedDocumentTypes.has(result.document_type)) {
+      result.is_valid_document = false;
+      result.rejection_reason = result.rejection_reason || "Documento no permitido. Solo se acepta INE o Pasaporte.";
+    }
+
+    if (result.document_type !== expectedType) {
+      result.is_valid_document = false;
+      result.rejection_reason = result.rejection_reason || `Tipo de documento detectado (${result.document_type}) no coincide con el esperado (${expectedType}).`;
+    }
+
+    if (selfieUrl) {
+      const faceConfidence = typeof result.face_match_confidence === "number" ? result.face_match_confidence : 0;
+      const hasExplicitFaceDecision = typeof result.face_match === "boolean";
+
+      if (!hasExplicitFaceDecision) {
+        result.face_match = false;
+        result.face_match_reason = result.face_match_reason || "No fue posible confirmar la coincidencia facial de forma confiable.";
+      }
+
+      if (result.face_match === true && faceConfidence < 70) {
+        result.face_match = false;
+        result.face_match_reason = result.face_match_reason || "Coincidencia facial insuficiente para aprobar la identidad.";
+      }
+
+      if (result.face_match !== true) {
+        result.is_valid_document = false;
+        result.rejection_reason = result.rejection_reason || "La selfie no coincide con la foto del documento.";
+      }
+    }
 
     return new Response(JSON.stringify(result), {
       status: 200,

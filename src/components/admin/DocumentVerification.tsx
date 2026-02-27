@@ -58,6 +58,8 @@ export function useStabilityDetection(
   const [stabilityProgress, setStabilityProgress] = useState(0);
   const [documentDetected, setDocumentDetected] = useState(false);
   const [initialDelayDone, setInitialDelayDone] = useState(false);
+  const [alignmentProgress, setAlignmentProgress] = useState(0);
+  const [alignedQuadrants, setAlignedQuadrants] = useState({ tl: false, tr: false, bl: false, br: false });
   const lastCheckRef = useRef(0);
   const enabledAtRef = useRef<number>(0);
 
@@ -68,6 +70,7 @@ export function useStabilityDetection(
   const MIN_CONTENT_THRESHOLD = 0.18; // Edge ratio inside guide region for docs
   const MIN_EDGE_CONTRAST = 35;
   const MIN_SELFIE_CONTENT_THRESHOLD = 0.10; // Edge ratio inside oval for selfies
+  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.11;
 
   // Guide region proportions (matching the UI overlays)
   // Document rectangle: centered, ~80% width, ~75% height (matching the corner guides with inset-4)
@@ -109,6 +112,8 @@ export function useStabilityDetection(
       setInitialDelayDone(false);
       setDocumentDetected(false);
       setStabilityProgress(0);
+      setAlignmentProgress(0);
+      setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
       animFrameRef.current = requestAnimationFrame(checkStability);
       return;
     }
@@ -150,6 +155,13 @@ export function useStabilityDetection(
       let diffCount = 0;
       let totalSampled = 0;
       let edgeCount = 0;
+      const edgeQuadrants = { tl: 0, tr: 0, bl: 0, br: 0 };
+      const sampledQuadrants = { tl: 0, tr: 0, bl: 0, br: 0 };
+
+      const docLeft = DOC_REGION.x * w;
+      const docTop = DOC_REGION.y * h;
+      const docMidX = docLeft + (DOC_REGION.w * w) / 2;
+      const docMidY = docTop + (DOC_REGION.h * h) / 2;
 
       for (let i = 0; i < curr.length; i += 4 * SAMPLE_STEP) {
         const pixelIndex = i / 4;
@@ -161,6 +173,15 @@ export function useStabilityDetection(
 
         totalSampled++;
 
+        let quadrant: keyof typeof edgeQuadrants | null = null;
+        if (requireDocumentPresence) {
+          if (px < docMidX && py < docMidY) quadrant = "tl";
+          else if (px >= docMidX && py < docMidY) quadrant = "tr";
+          else if (px < docMidX && py >= docMidY) quadrant = "bl";
+          else quadrant = "br";
+          sampledQuadrants[quadrant]++;
+        }
+
         const dr = Math.abs(curr[i] - prev[i]);
         const dg = Math.abs(curr[i + 1] - prev[i + 1]);
         const db = Math.abs(curr[i + 2] - prev[i + 2]);
@@ -171,6 +192,7 @@ export function useStabilityDetection(
           const nextL = curr[i + 4 * SAMPLE_STEP] * 0.299 + curr[i + 4 * SAMPLE_STEP + 1] * 0.587 + curr[i + 4 * SAMPLE_STEP + 2] * 0.114;
           if (Math.abs(luminance - nextL) > MIN_EDGE_CONTRAST) {
             edgeCount++;
+            if (quadrant) edgeQuadrants[quadrant]++;
           }
         }
       }
@@ -179,7 +201,37 @@ export function useStabilityDetection(
       const edgeRatio = totalSampled > 0 ? edgeCount / totalSampled : 0;
 
       const threshold = requireDocumentPresence ? MIN_CONTENT_THRESHOLD : MIN_SELFIE_CONTENT_THRESHOLD;
-      const hasContent = edgeRatio > threshold;
+      let hasContent = edgeRatio > threshold;
+
+      if (requireDocumentPresence) {
+        const quadrantRatios = {
+          tl: sampledQuadrants.tl > 0 ? edgeQuadrants.tl / sampledQuadrants.tl : 0,
+          tr: sampledQuadrants.tr > 0 ? edgeQuadrants.tr / sampledQuadrants.tr : 0,
+          bl: sampledQuadrants.bl > 0 ? edgeQuadrants.bl / sampledQuadrants.bl : 0,
+          br: sampledQuadrants.br > 0 ? edgeQuadrants.br / sampledQuadrants.br : 0,
+        };
+
+        const nextAlignedQuadrants = {
+          tl: quadrantRatios.tl >= QUADRANT_EDGE_RATIO_THRESHOLD,
+          tr: quadrantRatios.tr >= QUADRANT_EDGE_RATIO_THRESHOLD,
+          bl: quadrantRatios.bl >= QUADRANT_EDGE_RATIO_THRESHOLD,
+          br: quadrantRatios.br >= QUADRANT_EDGE_RATIO_THRESHOLD,
+        };
+
+        const alignedCount = Object.values(nextAlignedQuadrants).filter(Boolean).length;
+        const cornerProgress = (alignedCount / 4) * 100;
+        const edgeProgress = Math.min(100, (edgeRatio / (threshold * 1.8)) * 100);
+        const blendedProgress = Math.round(cornerProgress * 0.7 + edgeProgress * 0.3);
+
+        setAlignedQuadrants(nextAlignedQuadrants);
+        setAlignmentProgress(blendedProgress);
+
+        hasContent = edgeRatio > threshold && alignedCount >= 2;
+      } else {
+        setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
+        setAlignmentProgress(Math.round(Math.min(100, (edgeRatio / (threshold * 1.6)) * 100)));
+      }
+
       setDocumentDetected(hasContent);
 
       if (diffRatio < STABILITY_THRESHOLD && hasContent) {
@@ -192,6 +244,8 @@ export function useStabilityDetection(
           stabilityMsRef.current = 0;
           setStabilityProgress(0);
           setDocumentDetected(false);
+          setAlignmentProgress(0);
+          setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
           prevFrameRef.current = null;
           return;
         }
@@ -211,19 +265,23 @@ export function useStabilityDetection(
       setStabilityProgress(0);
       setDocumentDetected(false);
       setInitialDelayDone(false);
+      setAlignmentProgress(0);
+      setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
       prevFrameRef.current = null;
       enabledAtRef.current = performance.now();
       animFrameRef.current = requestAnimationFrame(checkStability);
     } else {
       setDocumentDetected(false);
       setInitialDelayDone(false);
+      setAlignmentProgress(0);
+      setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
     }
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [enabled, checkStability]);
 
-  return { stabilityProgress, documentDetected, initialDelayDone };
+  return { stabilityProgress, documentDetected, initialDelayDone, alignmentProgress, alignedQuadrants };
 }
 
 // ============ Flash Overlay ============
@@ -387,6 +445,8 @@ interface DocCameraOverlayProps {
   stabilityProgress: number;
   documentDetected: boolean;
   initialDelayDone: boolean;
+  alignmentProgress: number;
+  alignedQuadrants: { tl: boolean; tr: boolean; bl: boolean; br: boolean };
 }
 
 export function DocCameraOverlay({
@@ -398,6 +458,8 @@ export function DocCameraOverlay({
   stabilityProgress,
   documentDetected,
   initialDelayDone,
+  alignmentProgress,
+  alignedQuadrants,
 }: DocCameraOverlayProps) {
   const stepLabel =
     cameraStep === "front"
@@ -406,26 +468,29 @@ export function DocCameraOverlay({
       ? "Foto reverso del INE"
       : "Foto del Pasaporte";
 
+  const alignedCornersCount = Object.values(alignedQuadrants).filter(Boolean).length;
+
   // Dynamic hint based on detection state
   const stepHint = !initialDelayDone
     ? "Preparando cámara... posiciona tu documento"
     : !documentDetected
-    ? "Coloca tu documento dentro del marco"
-    : "Documento detectado, mantén quieto...";
+    ? "Alinea las 4 esquinas con el marco"
+    : "Extremos alineados, mantén quieto para captura automática";
 
-  // Border color based on state
-  const borderColor = !initialDelayDone
+  const frameTone = !initialDelayDone
     ? "border-muted-foreground/40"
-    : documentDetected
+    : alignmentProgress >= 75
     ? "border-emerald-500"
-    : "border-amber-500";
+    : alignmentProgress >= 45
+    ? "border-amber-500"
+    : "border-destructive/60";
 
-  // Corner guide color
-  const cornerColor = !initialDelayDone
-    ? "border-muted-foreground"
-    : documentDetected
-    ? "border-emerald-400"
-    : "border-amber-400";
+  const getCornerTone = (isAligned: boolean) => {
+    if (!initialDelayDone) return "border-muted-foreground/50";
+    if (isAligned) return "border-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.7)]";
+    if (alignmentProgress >= 45) return "border-amber-400";
+    return "border-destructive/60";
+  };
 
   return (
     <div className="space-y-3 pb-4">
@@ -445,8 +510,8 @@ export function DocCameraOverlay({
 
       {/* Camera viewfinder */}
       <div className={cn(
-        "relative rounded-2xl overflow-hidden border-2 border-dashed bg-black aspect-[4/3] transition-colors duration-300",
-        borderColor
+        "relative rounded-2xl overflow-hidden border-4 bg-black aspect-[4/3] transition-colors duration-300",
+        frameTone
       )}>
         <video
           ref={videoRef}
@@ -455,12 +520,14 @@ export function DocCameraOverlay({
           muted
           className="w-full h-full object-cover"
         />
-        {/* Corner frame guides */}
+
+        {/* Full alignment frame + illuminated corners */}
+        <div className="absolute inset-4 rounded-xl border-4 border-white/45 pointer-events-none" />
         <div className="absolute inset-4 pointer-events-none">
-          <div className={cn("absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 rounded-tl-lg transition-colors duration-300", cornerColor)} />
-          <div className={cn("absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 rounded-tr-lg transition-colors duration-300", cornerColor)} />
-          <div className={cn("absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 rounded-bl-lg transition-colors duration-300", cornerColor)} />
-          <div className={cn("absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 rounded-br-lg transition-colors duration-300", cornerColor)} />
+          <div className={cn("absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 rounded-tl-lg transition-all duration-300", getCornerTone(alignedQuadrants.tl))} />
+          <div className={cn("absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 rounded-tr-lg transition-all duration-300", getCornerTone(alignedQuadrants.tr))} />
+          <div className={cn("absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 rounded-bl-lg transition-all duration-300", getCornerTone(alignedQuadrants.bl))} />
+          <div className={cn("absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 rounded-br-lg transition-all duration-300", getCornerTone(alignedQuadrants.br))} />
         </div>
         {/* Step indicator for INE */}
         {cameraStep !== "passport" && (
@@ -471,18 +538,24 @@ export function DocCameraOverlay({
 
         {/* Detection status indicator */}
         {initialDelayDone && (
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2 right-2 space-y-1.5">
             <div className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-colors duration-300",
+              "flex items-center justify-between px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-colors duration-300",
               documentDetected
                 ? "bg-emerald-500/80 text-white"
                 : "bg-amber-500/80 text-white"
             )}>
-              {documentDetected ? (
-                <><Check className="h-3 w-3" /> Detectado</>
-              ) : (
-                <><Eye className="h-3 w-3" /> Buscando...</>
-              )}
+              <span className="flex items-center gap-1">
+                {documentDetected ? <><Check className="h-3 w-3" /> Alineado</> : <><Eye className="h-3 w-3" /> Ajustando</>}
+              </span>
+              <span>{alignedCornersCount}/4 extremos</span>
+            </div>
+            <div className="bg-black/60 rounded-full px-2.5 py-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-white/80 whitespace-nowrap">Alineación</span>
+                <Progress value={alignmentProgress} className="h-1.5 bg-white/20" />
+                <span className="text-[10px] text-white font-bold">{alignmentProgress}%</span>
+              </div>
             </div>
           </div>
         )}
@@ -582,11 +655,15 @@ export function VerificationComparator({
   const [saving, setSaving] = useState(false);
   const [celebrationShown, setCelebrationShown] = useState(false);
 
+  const faceMatchConfidence = result.face_match_confidence ?? 0;
+  const hasStrongFaceMatch = result.face_match === true && faceMatchConfidence >= 70;
+  const faceMatchFailed = result.face_match === false;
+  const faceMatchMissing = result.face_match == null;
+
   // Auto-fire confetti when verification result is positive
   useEffect(() => {
     if (celebrationShown) return;
-    const isSuccess = result.is_valid_document && result.confidence >= 70 && 
-      (result.face_match === true || result.face_match === null || result.face_match === undefined);
+    const isSuccess = result.is_valid_document && result.confidence >= 70 && hasStrongFaceMatch;
     if (isSuccess) {
       setCelebrationShown(true);
       // Confetti burst
@@ -610,7 +687,7 @@ export function VerificationComparator({
       };
       frame();
     }
-  }, [result, celebrationShown]);
+  }, [result, celebrationShown, hasStrongFaceMatch]);
 
   // INE names come as "ApPaterno ApMaterno Nombre(s)" — reorder to "Nombre(s) ApPaterno ApMaterno"
   const isIneDoc = result.document_type === "ine_frente" || result.document_type === "ine_reverso" || !!result.clave_elector;
@@ -850,7 +927,7 @@ export function VerificationComparator({
       </div>
 
       {/* Success celebration banner */}
-      {result.is_valid_document && result.confidence >= 70 && result.face_match === true && (
+      {result.is_valid_document && result.confidence >= 70 && hasStrongFaceMatch && (
         <div className="rounded-2xl bg-gradient-to-r from-emerald-500 to-green-500 p-4 text-white text-center space-y-1 animate-scale-in shadow-lg">
           <div className="flex items-center justify-center gap-2">
             <ShieldCheck className="h-6 w-6" />
@@ -863,7 +940,7 @@ export function VerificationComparator({
       )}
 
       {/* Face match FAILED warning */}
-      {result.is_valid_document && result.face_match === false && (
+      {result.is_valid_document && faceMatchFailed && (
         <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-4 text-center space-y-1 animate-scale-in">
           <div className="flex items-center justify-center gap-2">
             <ShieldAlert className="h-6 w-6 text-destructive" />
@@ -872,11 +949,27 @@ export function VerificationComparator({
           <p className="text-xs text-destructive/80">
             La selfie no coincide con la foto del documento. No se puede guardar. Vuelve a capturar.
           </p>
-          {result.face_match_confidence != null && (
-            <p className="text-[10px] text-destructive/60 mt-1">
-              Coincidencia facial: {result.face_match_confidence}%
-            </p>
-          )}
+          <p className="text-[10px] text-destructive/60 mt-1">
+            Coincidencia facial: {faceMatchConfidence}%
+          </p>
+        </div>
+      )}
+
+      {/* Face match missing/weak warning */}
+      {result.is_valid_document && !faceMatchFailed && !hasStrongFaceMatch && (
+        <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-4 text-center space-y-1 animate-scale-in">
+          <div className="flex items-center justify-center gap-2">
+            <ShieldAlert className="h-6 w-6 text-destructive" />
+            <span className="text-base font-bold text-destructive">Validación facial insuficiente</span>
+          </div>
+          <p className="text-xs text-destructive/80">
+            {faceMatchMissing
+              ? "No se pudo confirmar la coincidencia facial. Debes recapturar documento y selfie."
+              : "La coincidencia facial fue débil. No se puede guardar hasta tener match facial confiable."}
+          </p>
+          <p className="text-[10px] text-destructive/60 mt-1">
+            Coincidencia facial: {faceMatchConfidence}%
+          </p>
         </div>
       )}
 
@@ -1002,7 +1095,7 @@ export function VerificationComparator({
 
       {/* Action buttons */}
       <div className="flex gap-2 pt-1">
-        {result.is_valid_document && result.face_match !== false && (
+        {result.is_valid_document && hasStrongFaceMatch && (
         <Button
           onClick={handleSaveAndAccept}
           disabled={saving}
@@ -1022,11 +1115,11 @@ export function VerificationComparator({
           variant="outline"
           className={cn(
             "h-12 rounded-2xl px-4 text-destructive border-destructive/30 hover:bg-destructive/10",
-            (!result.is_valid_document || result.face_match === false) && "flex-1"
+            (!result.is_valid_document || !hasStrongFaceMatch) && "flex-1"
           )}
         >
           <X className="h-4 w-4" />
-          {(!result.is_valid_document || result.face_match === false) && <span className="ml-1">Cerrar y reintentar</span>}
+          {(!result.is_valid_document || !hasStrongFaceMatch) && <span className="ml-1">Cerrar y reintentar</span>}
         </Button>
       </div>
     </div>

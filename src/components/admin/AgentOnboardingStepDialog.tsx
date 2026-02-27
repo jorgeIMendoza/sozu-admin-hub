@@ -570,10 +570,24 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           
           if (aiResult) {
             setVerificationResult(aiResult);
-            toast.success("Verificación completada", { 
-              duration: 3000,
-              description: "Revisa los resultados a continuación.",
-            });
+            const strongFaceMatch = aiResult.face_match === true && (aiResult.face_match_confidence ?? 0) >= 70;
+
+            if (!aiResult.is_valid_document) {
+              toast.error("Documento inválido", {
+                duration: 5000,
+                description: aiResult.rejection_reason || "Se rechazó la identificación. Vuelve a capturar.",
+              });
+            } else if (!strongFaceMatch) {
+              toast.error("Selfie no coincide con el documento", {
+                duration: 6000,
+                description: "No se permitirá guardar hasta obtener coincidencia facial confiable.",
+              });
+            } else {
+              toast.success("Verificación completada", {
+                duration: 3000,
+                description: "Revisa los resultados a continuación.",
+              });
+            }
           } else {
             toast.error("No se pudo verificar el documento", {
               duration: 8000,
@@ -597,7 +611,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     }
   }, [capturePhoto]);
 
-  const { stabilityProgress, documentDetected, initialDelayDone } = useStabilityDetection(
+  const { stabilityProgress, documentDetected, initialDelayDone, alignmentProgress, alignedQuadrants } = useStabilityDetection(
     videoRef,
     cameraActive && !uploading && !verifying,
     onStableCapture,
@@ -786,6 +800,8 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           stabilityProgress={stabilityProgress}
           documentDetected={documentDetected}
           initialDelayDone={initialDelayDone}
+          alignmentProgress={alignmentProgress}
+          alignedQuadrants={alignedQuadrants}
         />
         <canvas ref={canvasRef} className="hidden" />
       </div>
