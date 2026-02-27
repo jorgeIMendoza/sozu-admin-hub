@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { APP_VERSION } from "@/lib/config";
@@ -64,27 +64,61 @@ const AgentPerfil = () => {
     track({ page: 'agent_perfil', elementId: 'page_view', elementType: 'page' });
   }, []);
 
-  // Fire confetti when profile reaches 100%
+  // Play celebration sound
+  const playCelebrationSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Trumpet-like fanfare using oscillators
+      const notes = [
+        { freq: 523.25, start: 0, dur: 0.15 },    // C5
+        { freq: 659.25, start: 0.15, dur: 0.15 },  // E5
+        { freq: 783.99, start: 0.30, dur: 0.15 },  // G5
+        { freq: 1046.50, start: 0.45, dur: 0.4 },  // C6 (long)
+        { freq: 783.99, start: 0.90, dur: 0.12 },  // G5
+        { freq: 1046.50, start: 1.05, dur: 0.5 },  // C6 (finale)
+      ];
+      notes.forEach(({ freq, start, dur }) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, audioCtx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + start + 0.03);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + start + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + start);
+        osc.stop(audioCtx.currentTime + start + dur + 0.05);
+      });
+    } catch (e) {
+      // Audio not supported, silently ignore
+    }
+  }, []);
+
+  // Fire confetti + sound when profile reaches 100%
   useEffect(() => {
     if (!isLoading && percentage === 100 && !confettiFiredRef.current) {
       if (prevPercentageRef.current !== null && prevPercentageRef.current < 100) {
         confettiFiredRef.current = true;
+        playCelebrationSound();
         const duration = 3000;
         const end = Date.now() + duration;
         const frame = () => {
           confetti({
-            particleCount: 3,
+            particleCount: 5,
             angle: 60,
-            spread: 55,
+            spread: 65,
             origin: { x: 0, y: 0.7 },
-            colors: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
+            colors: ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24', '#f97316'],
+            shapes: ['circle', 'square'],
           });
           confetti({
-            particleCount: 3,
+            particleCount: 5,
             angle: 120,
-            spread: 55,
+            spread: 65,
             origin: { x: 1, y: 0.7 },
-            colors: ['#10b981', '#059669', '#34d399', '#6ee7b7'],
+            colors: ['#10b981', '#059669', '#34d399', '#6ee7b7', '#fbbf24', '#f97316'],
+            shapes: ['circle', 'square'],
           });
           if (Date.now() < end) requestAnimationFrame(frame);
         };
@@ -94,7 +128,7 @@ const AgentPerfil = () => {
     } else if (!isLoading) {
       prevPercentageRef.current = percentage;
     }
-  }, [percentage, isLoading]);
+  }, [percentage, isLoading, playCelebrationSound]);
 
   const getBlockStatus = (relatedSteps: readonly string[]) => {
     const related = steps.filter(s => relatedSteps.includes(s.id));
