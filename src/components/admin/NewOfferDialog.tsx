@@ -953,8 +953,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         });
       }
       
-      // Generate PDFs client-side
-      const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
+      // Generate PDFs client-side and download
       try {
         const allOfferIds = [result.offerId];
         for (const productOffer of result.productOffersResults.createdOffers) {
@@ -963,9 +962,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
 
         toast({
           title: "Generando PDFs...",
-          description: isAgentRole
-            ? `Preparando ${allOfferIds.length} PDF(s) para enviar a ${result.leadEmail}`
-            : `Preparando ${allOfferIds.length} PDF(s) para descarga`,
+          description: `Preparando ${allOfferIds.length} PDF(s) para descarga`,
         });
 
         const { generateOfferPDFAsBase64 } = await import('@/services/htmlToPdfService');
@@ -1007,63 +1004,32 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           }
         }
 
-        if (isAgentRole) {
-          // Agent role: send via email
-          toast({
-            title: "Enviando oferta por correo...",
-            description: `Enviando ${preGeneratedAttachments.length} PDF(s) a ${result.leadEmail}`,
-          });
-
-          const { data: emailResult, error: emailError } = await supabase.functions.invoke('enviar-oferta-email', {
-            body: {
-              preGeneratedAttachments,
-              recipientEmail: result.leadEmail,
-              recipientName: result.leadName,
-              propertyNumber,
+        // Download PDFs directly for all roles
+        for (const attachment of preGeneratedAttachments) {
+          try {
+            const byteCharacters = atob(attachment.base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
-          });
-
-          if (emailError) {
-            console.error('Error sending offer email:', emailError);
-            toast({
-              title: "Error al enviar oferta",
-              description: "La oferta se creó pero no se pudo enviar por correo.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Oferta compartida",
-              description: `La oferta ha sido enviada a ${result.leadEmail} con ${emailResult?.attachmentsSent || preGeneratedAttachments.length} PDF(s) adjuntos.`,
-            });
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = attachment.filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          } catch (dlErr) {
+            console.error('Error downloading PDF:', dlErr);
           }
-        } else {
-          // Non-agent roles: download PDFs directly
-          for (const attachment of preGeneratedAttachments) {
-            try {
-              const byteCharacters = atob(attachment.base64);
-              const byteNumbers = new Array(byteCharacters.length);
-              for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-              }
-              const byteArray = new Uint8Array(byteNumbers);
-              const blob = new Blob([byteArray], { type: 'application/pdf' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = attachment.filename;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-            } catch (dlErr) {
-              console.error('Error downloading PDF:', dlErr);
-            }
-          }
-          toast({
-            title: "Oferta generada",
-            description: `Se descargaron ${preGeneratedAttachments.length} PDF(s).`,
-          });
         }
+        toast({
+          title: "Oferta generada",
+          description: `Se descargaron ${preGeneratedAttachments.length} PDF(s).`,
+        });
       } catch (emailErr) {
         console.error('Error generating/sending offer:', emailErr);
         toast({
@@ -2352,9 +2318,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                 disabled={createOfferMutation.isPending || (usarTramosPersonalizados && !tramosValidation.isValid)}
                 className="px-6 py-2.5 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {createOfferMutation.isPending 
-                  ? (profile?.rol_nombre === 'Agente Inmobiliario' ? "Enviando..." : "Generando...") 
-                  : (profile?.rol_nombre === 'Agente Inmobiliario' ? "Compartir Oferta" : "Generar Oferta")}
+                {createOfferMutation.isPending ? "Generando..." : "Generar Oferta"}
               </button>
             </div>
           </form>
@@ -2509,9 +2473,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             onClick={handleConfirmGenerate}
             disabled={createOfferMutation.isPending}
           >
-            {createOfferMutation.isPending 
-              ? (profile?.rol_nombre === 'Agente Inmobiliario' ? "Enviando..." : "Generando...") 
-              : (profile?.rol_nombre === 'Agente Inmobiliario' ? "Compartir Ofertas" : "Generar Ofertas")}
+            {createOfferMutation.isPending ? "Generando..." : "Generar Ofertas"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
