@@ -41,7 +41,7 @@ export function PipelineOfferDetailDialog({
       if (!oferta?.id_propiedad) return null;
       const { data } = await (supabase as any)
         .from('propiedades')
-        .select('id, numero_propiedad, precio_lista, id_edificio_modelo, tipo_transaccion')
+        .select('id, numero_propiedad, precio_lista, id_edificio_modelo, id_tipo_transaccion')
         .eq('id', oferta.id_propiedad)
         .limit(1)
         .single();
@@ -57,7 +57,7 @@ export function PipelineOfferDetailDialog({
       if (!oferta?.id_propiedad) return [];
       const [{ data: bodegas }, { data: estacs }] = await Promise.all([
         (supabase as any).from('bodegas').select('id, nombre, m2, es_incluido, id_producto').eq('id_propiedad', oferta.id_propiedad).eq('activo', true),
-        (supabase as any).from('estacionamientos').select('id, nombre, m2, es_incluido, id_producto, id_tipo_estacionamiento').eq('id_propiedad', oferta.id_propiedad).eq('activo', true),
+        (supabase as any).from('estacionamientos').select('id, nombre, m2, es_incluido, id_producto').eq('id_propiedad', oferta.id_propiedad).eq('activo', true),
       ]);
 
       const prodIds = [
@@ -78,8 +78,7 @@ export function PipelineOfferDetailDialog({
       });
       (estacs || []).forEach((e: any) => {
         const prod = prodMap.get(e.id_producto);
-        const tipoLabel = e.id_tipo_estacionamiento === 2 ? '(Normal)' : e.id_tipo_estacionamiento === 3 ? '(Doble)' : '';
-        items.push({ type: 'estacionamiento', name: `${e.nombre} ${tipoLabel}`, es_incluido: e.es_incluido, precio: prod?.precio_lista || 0 });
+        items.push({ type: 'estacionamiento', name: e.nombre, es_incluido: e.es_incluido, precio: prod?.precio_lista || 0 });
       });
       return items;
     },
@@ -91,11 +90,19 @@ export function PipelineOfferDetailDialog({
     queryKey: ['pipeline-schemes', oferta?.id_propiedad, isProducto, oferta?.id_producto],
     queryFn: async () => {
       if (isProducto) {
+        // For product offers, fetch esquemas_pago from the product's project
         if (!oferta?.id_producto) return [];
+        const { data: prod } = await (supabase as any)
+          .from('productos_servicios')
+          .select('id_proyecto')
+          .eq('id', oferta.id_producto)
+          .limit(1)
+          .single();
+        if (!prod?.id_proyecto) return [];
         const { data } = await (supabase as any)
-          .from('esquemas_pago_productos')
+          .from('esquemas_pago')
           .select('*')
-          .eq('id_producto', oferta.id_producto)
+          .eq('id_proyecto', prod.id_proyecto)
           .eq('activo', true)
           .eq('es_manual', false)
           .order('nombre');
