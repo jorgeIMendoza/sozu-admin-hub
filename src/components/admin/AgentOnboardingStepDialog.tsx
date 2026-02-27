@@ -498,10 +498,13 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           stopCamera();
           // Use ref for fresh URLs (avoids stale closure)
           const urls = capturedDocUrlsRef.current;
-          const docUrl = urls.front || urls.passport || '';
-          const docType = urls.passport ? 'pasaporte' : 'ine_frente';
+          const isPasaporteFlow = !!urls.passport;
+          const frontUrl = urls.front || '';
+          const backUrl = urls.back || '';
+          const passportUrl = urls.passport || '';
+          const primaryDocUrl = passportUrl || frontUrl;
           
-          if (!docUrl) {
+          if (!primaryDocUrl) {
             toast.error("No se encontró la imagen del documento. Intenta de nuevo.", {
               duration: 6000,
               description: "Vuelve a capturar el documento desde el inicio.",
@@ -511,7 +514,28 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           }
           
           toast.loading("Verificando identidad con IA...", { id: 'ai-verify' });
-          const aiResult = await verifyDocument(docUrl, docType, selfieResult.url);
+
+          let aiResult: VerificationResult | null = null;
+
+          if (isPasaporteFlow) {
+            aiResult = await verifyDocument(primaryDocUrl, 'pasaporte', selfieResult.url);
+          } else {
+            const [frontVerification, backVerification] = await Promise.all([
+              verifyDocument(frontUrl, 'ine_frente', selfieResult.url),
+              backUrl ? verifyDocument(backUrl, 'ine_reverso') : Promise.resolve(null),
+            ]);
+
+            if (frontVerification) {
+              aiResult = {
+                ...frontVerification,
+                numero_identificacion:
+                  backVerification?.numero_identificacion || frontVerification.numero_identificacion,
+              };
+            } else {
+              aiResult = backVerification;
+            }
+          }
+
           toast.dismiss('ai-verify');
           
           if (aiResult) {
@@ -547,7 +571,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     videoRef,
     cameraActive && !uploading && !verifying,
     onStableCapture,
-    3000,
+    1500,
     cameraStep !== 'selfie'
   );
 

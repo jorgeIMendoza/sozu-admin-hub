@@ -61,15 +61,16 @@ export function useStabilityDetection(
   const lastCheckRef = useRef(0);
   const enabledAtRef = useRef<number>(0);
 
-  const STABILITY_THRESHOLD = 0.05;
-  const STABILITY_DURATION = 1500; // 1.5s for reliable captures
+  const STABILITY_THRESHOLD = 0.08; // Less strict movement threshold
+  const STABILITY_DURATION = 900; // Faster auto-capture once stable
   const CHECK_INTERVAL = 150;
   const SAMPLE_STEP = 12;
-  const MIN_CONTENT_THRESHOLD = 0.30; // 30% edge ratio required
-  const MIN_EDGE_CONTRAST = 40; // Higher contrast threshold to filter noise
-  const MIN_QUADRANTS_WITH_EDGES = 3; // At least 3 of 4 quadrants must have edges
+  const MIN_CONTENT_THRESHOLD = 0.20; // 20% edge ratio required for documents
+  const MIN_EDGE_CONTRAST = 40; // Strict for documents
+  const MIN_SELFIE_EDGE_CONTRAST = 22; // More permissive for selfies
+  const MIN_QUADRANTS_WITH_EDGES = 2; // At least 2 of 4 quadrants for docs
   const QUADRANT_EDGE_THRESHOLD = 0.05; // 5% edges per quadrant
-  const MIN_SELFIE_CONTENT_THRESHOLD = 0.08; // Less strict for faces/selfies
+  const MIN_SELFIE_CONTENT_THRESHOLD = 0.04; // Less strict for faces/selfies
 
   const checkStability = useCallback((timestamp: number) => {
     if (!enabled || !videoRef.current) {
@@ -130,6 +131,10 @@ export function useStabilityDetection(
       const quadrantEdges = [0, 0, 0, 0]; // TL, TR, BL, BR
       const quadrantSamples = [0, 0, 0, 0];
 
+      const edgeContrastThreshold = requireDocumentPresence
+        ? MIN_EDGE_CONTRAST
+        : MIN_SELFIE_EDGE_CONTRAST;
+
       for (let i = 0; i < curr.length; i += 4 * SAMPLE_STEP) {
         totalSampled++;
         const pixelIndex = i / 4;
@@ -148,7 +153,7 @@ export function useStabilityDetection(
         const luminance = curr[i] * 0.299 + curr[i + 1] * 0.587 + curr[i + 2] * 0.114;
         if (i + 4 * SAMPLE_STEP < curr.length) {
           const nextL = curr[i + 4 * SAMPLE_STEP] * 0.299 + curr[i + 4 * SAMPLE_STEP + 1] * 0.587 + curr[i + 4 * SAMPLE_STEP + 2] * 0.114;
-          if (Math.abs(luminance - nextL) > MIN_EDGE_CONTRAST) {
+          if (Math.abs(luminance - nextL) > edgeContrastThreshold) {
             edgeCount++;
             quadrantEdges[qIdx]++;
           }
@@ -715,7 +720,15 @@ export function VerificationComparator({
       };
       const numField = fields.find((f) => f.documentField === "numero");
       if (numField?.docValue && checkedFields[numField.label]) {
-        docUpdate.numero = numField.docValue;
+        const isIneResult =
+          result.document_type === "ine_reverso" ||
+          result.document_type === "ine_frente" ||
+          !!result.clave_elector;
+        const normalizedNumber =
+          isIneResult && /^\d{8,}$/.test(numField.docValue)
+            ? `IDMEX${numField.docValue}`
+            : numField.docValue;
+        docUpdate.numero = normalizedNumber;
       }
 
       const { error: docError } = await supabase
@@ -962,7 +975,6 @@ export function VerificationComparator({
             {result.face_match_confidence != null && (
               <p className="text-[10px] text-muted-foreground">
                 Confianza: {result.face_match_confidence}%
-                {result.face_match_reason ? ` — ${result.face_match_reason}` : ""}
               </p>
             )}
           </div>
