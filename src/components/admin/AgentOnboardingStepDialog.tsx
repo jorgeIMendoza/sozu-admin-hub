@@ -539,10 +539,11 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     }
   }, [capturePhoto]);
 
-  const { stabilityProgress } = useStabilityDetection(
+  const { stabilityProgress, documentDetected, initialDelayDone } = useStabilityDetection(
     videoRef,
     cameraActive && !uploading && !verifying,
-    onStableCapture
+    onStableCapture,
+    3000
   );
 
   // Cleanup camera on unmount
@@ -706,6 +707,8 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
             onCancel={stopCamera}
             uploading={uploading !== null}
             stabilityProgress={stabilityProgress}
+            documentDetected={documentDetected}
+            initialDelayDone={initialDelayDone}
           />
           <canvas ref={canvasRef} className="hidden" />
         </div>
@@ -722,6 +725,8 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           onCancel={stopCamera}
           uploading={uploading !== null}
           stabilityProgress={stabilityProgress}
+          documentDetected={documentDetected}
+          initialDelayDone={initialDelayDone}
         />
         <canvas ref={canvasRef} className="hidden" />
       </div>

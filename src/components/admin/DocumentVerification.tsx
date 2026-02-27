@@ -47,26 +47,43 @@ interface PersonaData {
 export function useStabilityDetection(
   videoRef: React.RefObject<HTMLVideoElement>,
   enabled: boolean,
-  onStableCapture: () => void
+  onStableCapture: () => void,
+  initialDelayMs: number = 3000
 ) {
   const prevFrameRef = useRef<ImageData | null>(null);
   const stabilityMsRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [stabilityProgress, setStabilityProgress] = useState(0);
+  const [documentDetected, setDocumentDetected] = useState(false);
+  const [initialDelayDone, setInitialDelayDone] = useState(false);
   const lastCheckRef = useRef(0);
+  const enabledAtRef = useRef<number>(0);
 
-  const STABILITY_THRESHOLD = 0.05; // 5% difference (more tolerant)
-  const STABILITY_DURATION = 1000; // 1 second for more reliable captures
-  const CHECK_INTERVAL = 150; // every 150ms
-  const SAMPLE_STEP = 12; // check every 12th pixel
-  const MIN_CONTENT_THRESHOLD = 0.15; // at least 15% of pixels must differ from uniform bg
+  const STABILITY_THRESHOLD = 0.05;
+  const STABILITY_DURATION = 1500; // 1.5s for reliable captures
+  const CHECK_INTERVAL = 150;
+  const SAMPLE_STEP = 12;
+  const MIN_CONTENT_THRESHOLD = 0.30; // 30% edge ratio required
+  const MIN_EDGE_CONTRAST = 40; // Higher contrast threshold to filter noise
+  const MIN_QUADRANTS_WITH_EDGES = 3; // At least 3 of 4 quadrants must have edges
+  const QUADRANT_EDGE_THRESHOLD = 0.05; // 5% edges per quadrant
 
   const checkStability = useCallback((timestamp: number) => {
     if (!enabled || !videoRef.current) {
       animFrameRef.current = requestAnimationFrame(checkStability);
       return;
     }
+
+    // Initial delay: don't evaluate anything for the first N ms
+    if (enabledAtRef.current > 0 && (timestamp - enabledAtRef.current) < initialDelayMs) {
+      setInitialDelayDone(false);
+      setDocumentDetected(false);
+      setStabilityProgress(0);
+      animFrameRef.current = requestAnimationFrame(checkStability);
+      return;
+    }
+    if (!initialDelayDone) setInitialDelayDone(true);
 
     const elapsed = timestamp - lastCheckRef.current;
     if (elapsed < CHECK_INTERVAL) {
@@ -85,7 +102,6 @@ export function useStabilityDetection(
       canvasRef.current = document.createElement("canvas");
     }
     const canvas = canvasRef.current;
-    // Use smaller resolution for performance
     const w = Math.min(video.videoWidth, 320);
     const h = Math.min(video.videoHeight, 240);
     canvas.width = w;
@@ -104,31 +120,52 @@ export function useStabilityDetection(
       const curr = currentFrame.data;
       let diffCount = 0;
       let totalSampled = 0;
-      // Check if there's actual content in frame (not just empty/uniform background)
       let edgeCount = 0;
-      let brightPixels = 0;
-      let darkPixels = 0;
+
+      // Quadrant edge tracking
+      const halfW = w / 2;
+      const halfH = h / 2;
+      const quadrantEdges = [0, 0, 0, 0]; // TL, TR, BL, BR
+      const quadrantSamples = [0, 0, 0, 0];
 
       for (let i = 0; i < curr.length; i += 4 * SAMPLE_STEP) {
         totalSampled++;
+        const pixelIndex = i / 4;
+        const px = pixelIndex % w;
+        const py = Math.floor(pixelIndex / w);
+
+        // Determine quadrant
+        const qIdx = (py < halfH ? 0 : 2) + (px < halfW ? 0 : 1);
+        quadrantSamples[qIdx]++;
+
         const dr = Math.abs(curr[i] - prev[i]);
         const dg = Math.abs(curr[i + 1] - prev[i + 1]);
         const db = Math.abs(curr[i + 2] - prev[i + 2]);
         if ((dr + dg + db) / 3 > 35) diffCount++;
-        // Detect edges/contrast for document presence
+
         const luminance = curr[i] * 0.299 + curr[i + 1] * 0.587 + curr[i + 2] * 0.114;
-        if (luminance > 200) brightPixels++;
-        if (luminance < 50) darkPixels++;
-        // Check local contrast with neighbor
         if (i + 4 * SAMPLE_STEP < curr.length) {
           const nextL = curr[i + 4 * SAMPLE_STEP] * 0.299 + curr[i + 4 * SAMPLE_STEP + 1] * 0.587 + curr[i + 4 * SAMPLE_STEP + 2] * 0.114;
-          if (Math.abs(luminance - nextL) > 30) edgeCount++;
+          if (Math.abs(luminance - nextL) > MIN_EDGE_CONTRAST) {
+            edgeCount++;
+            quadrantEdges[qIdx]++;
+          }
         }
       }
 
       const diffRatio = totalSampled > 0 ? diffCount / totalSampled : 1;
       const edgeRatio = totalSampled > 0 ? edgeCount / totalSampled : 0;
-      const hasDocument = edgeRatio > MIN_CONTENT_THRESHOLD;
+
+      // Check quadrant distribution: at least 3 of 4 quadrants must have significant edges
+      let activeQuadrants = 0;
+      for (let q = 0; q < 4; q++) {
+        if (quadrantSamples[q] > 0 && (quadrantEdges[q] / quadrantSamples[q]) > QUADRANT_EDGE_THRESHOLD) {
+          activeQuadrants++;
+        }
+      }
+
+      const hasDocument = edgeRatio > MIN_CONTENT_THRESHOLD && activeQuadrants >= MIN_QUADRANTS_WITH_EDGES;
+      setDocumentDetected(hasDocument);
 
       if (diffRatio < STABILITY_THRESHOLD && hasDocument) {
         stabilityMsRef.current += CHECK_INTERVAL;
@@ -139,8 +176,9 @@ export function useStabilityDetection(
           onStableCapture();
           stabilityMsRef.current = 0;
           setStabilityProgress(0);
+          setDocumentDetected(false);
           prevFrameRef.current = null;
-          return; // Don't schedule next frame, let caller restart if needed
+          return;
         }
       } else {
         stabilityMsRef.current = 0;
@@ -150,21 +188,27 @@ export function useStabilityDetection(
 
     prevFrameRef.current = currentFrame;
     animFrameRef.current = requestAnimationFrame(checkStability);
-  }, [enabled, videoRef, onStableCapture]);
+  }, [enabled, videoRef, onStableCapture, initialDelayMs, initialDelayDone]);
 
   useEffect(() => {
     if (enabled) {
       stabilityMsRef.current = 0;
       setStabilityProgress(0);
+      setDocumentDetected(false);
+      setInitialDelayDone(false);
       prevFrameRef.current = null;
+      enabledAtRef.current = performance.now();
       animFrameRef.current = requestAnimationFrame(checkStability);
+    } else {
+      setDocumentDetected(false);
+      setInitialDelayDone(false);
     }
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, [enabled, checkStability]);
 
-  return { stabilityProgress };
+  return { stabilityProgress, documentDetected, initialDelayDone };
 }
 
 // ============ Flash Overlay ============
@@ -202,6 +246,8 @@ interface SelfieCameraProps {
   onCancel: () => void;
   uploading: boolean;
   stabilityProgress: number;
+  documentDetected: boolean;
+  initialDelayDone: boolean;
 }
 
 export function SelfieCameraOverlay({
@@ -210,6 +256,8 @@ export function SelfieCameraOverlay({
   onCancel,
   uploading,
   stabilityProgress,
+  documentDetected,
+  initialDelayDone,
 }: SelfieCameraProps) {
   return (
     <div className="space-y-3 pb-4">
@@ -322,6 +370,8 @@ interface DocCameraOverlayProps {
   onCancel: () => void;
   uploading: boolean;
   stabilityProgress: number;
+  documentDetected: boolean;
+  initialDelayDone: boolean;
 }
 
 export function DocCameraOverlay({
@@ -331,6 +381,8 @@ export function DocCameraOverlay({
   onCancel,
   uploading,
   stabilityProgress,
+  documentDetected,
+  initialDelayDone,
 }: DocCameraOverlayProps) {
   const stepLabel =
     cameraStep === "front"
@@ -338,22 +390,49 @@ export function DocCameraOverlay({
       : cameraStep === "back"
       ? "Foto reverso del INE"
       : "Foto del Pasaporte";
-  const stepHint =
-    cameraStep === "front"
-      ? "Coloca tu identificación dentro del marco y captura la imagen."
-      : cameraStep === "back"
-      ? "Ahora voltea tu INE y captura el reverso."
-      : "Coloca tu pasaporte dentro del marco y captura la imagen.";
+
+  // Dynamic hint based on detection state
+  const stepHint = !initialDelayDone
+    ? "Preparando cámara... posiciona tu documento"
+    : !documentDetected
+    ? "Coloca tu documento dentro del marco"
+    : "Documento detectado, mantén quieto...";
+
+  // Border color based on state
+  const borderColor = !initialDelayDone
+    ? "border-muted-foreground/40"
+    : documentDetected
+    ? "border-emerald-500"
+    : "border-amber-500";
+
+  // Corner guide color
+  const cornerColor = !initialDelayDone
+    ? "border-muted-foreground"
+    : documentDetected
+    ? "border-emerald-400"
+    : "border-amber-400";
 
   return (
     <div className="space-y-3 pb-4">
       <div className="text-center space-y-1">
         <h3 className="text-base font-bold text-foreground">{stepLabel}</h3>
-        <p className="text-xs text-muted-foreground">{stepHint}</p>
+        <p className={cn(
+          "text-xs font-medium transition-colors duration-300",
+          !initialDelayDone
+            ? "text-muted-foreground"
+            : documentDetected
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-amber-600 dark:text-amber-400"
+        )}>
+          {stepHint}
+        </p>
       </div>
 
       {/* Camera viewfinder */}
-      <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-emerald-500/40 bg-black aspect-[4/3]">
+      <div className={cn(
+        "relative rounded-2xl overflow-hidden border-2 border-dashed bg-black aspect-[4/3] transition-colors duration-300",
+        borderColor
+      )}>
         <video
           ref={videoRef}
           autoPlay
@@ -363,10 +442,10 @@ export function DocCameraOverlay({
         />
         {/* Corner frame guides */}
         <div className="absolute inset-4 pointer-events-none">
-          <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-400 rounded-tl-lg" />
-          <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-400 rounded-tr-lg" />
-          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-400 rounded-bl-lg" />
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-400 rounded-br-lg" />
+          <div className={cn("absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 rounded-tl-lg transition-colors duration-300", cornerColor)} />
+          <div className={cn("absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 rounded-tr-lg transition-colors duration-300", cornerColor)} />
+          <div className={cn("absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 rounded-bl-lg transition-colors duration-300", cornerColor)} />
+          <div className={cn("absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 rounded-br-lg transition-colors duration-300", cornerColor)} />
         </div>
         {/* Step indicator for INE */}
         {cameraStep !== "passport" && (
@@ -375,8 +454,36 @@ export function DocCameraOverlay({
           </div>
         )}
 
+        {/* Detection status indicator */}
+        {initialDelayDone && (
+          <div className="absolute top-2 left-2">
+            <div className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold transition-colors duration-300",
+              documentDetected
+                ? "bg-emerald-500/80 text-white"
+                : "bg-amber-500/80 text-white"
+            )}>
+              {documentDetected ? (
+                <><Check className="h-3 w-3" /> Detectado</>
+              ) : (
+                <><Eye className="h-3 w-3" /> Buscando...</>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Initial delay indicator */}
+        {!initialDelayDone && (
+          <div className="absolute bottom-3 left-4 right-4">
+            <div className="bg-black/60 rounded-full px-3 py-1.5 flex items-center gap-2 justify-center">
+              <Loader2 className="h-3 w-3 animate-spin text-white/80" />
+              <span className="text-[10px] text-white/80">Posiciona tu documento...</span>
+            </div>
+          </div>
+        )}
+
         {/* Stability indicator */}
-        {stabilityProgress > 0 && stabilityProgress < 100 && (
+        {initialDelayDone && stabilityProgress > 0 && stabilityProgress < 100 && (
           <div className="absolute bottom-3 left-4 right-4">
             <div className="bg-black/60 rounded-full px-3 py-1.5 flex items-center gap-2">
               <span className="text-[10px] text-white/80">Mantén quieto...</span>
