@@ -67,14 +67,15 @@ export function useStabilityDetection(
   const onStableCaptureRef = useRef(onStableCapture);
   onStableCaptureRef.current = onStableCapture;
 
-  const STABILITY_DURATION = 800;
+  const STABILITY_DURATION = 1500;
   const CHECK_INTERVAL = 120;
   const SAMPLE_STEP = 6;
-  const MIN_CONTENT_THRESHOLD = 0.06;
-  const MIN_EDGE_CONTRAST = 15;
+  const MIN_CONTENT_THRESHOLD = 0.18;
+  const MIN_EDGE_CONTRAST = 30;
   const MIN_SELFIE_CONTENT_THRESHOLD = 0.035;
-  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.04;
-  const DOC_STABILITY_THRESHOLD = 0.16;
+  const QUADRANT_EDGE_RATIO_THRESHOLD = 0.05;
+  const MIN_QUADRANTS_WITH_EDGES = 2;
+  const DOC_STABILITY_THRESHOLD = 0.14;
   const SELFIE_STABILITY_THRESHOLD = 0.22;
   const PIXEL_DIFF_THRESHOLD = 25;
 
@@ -226,8 +227,9 @@ export function useStabilityDetection(
         setAlignedQuadrants(nextAlignedQuadrants);
         setAlignmentProgress(blendedProgress);
 
-        // ANY content with edges is enough — no minimum quadrant requirement
-        hasContent = edgeRatio > threshold;
+        // Require minimum quadrants with edges to confirm a real document
+        const activeQuadrantCount = Object.values(nextAlignedQuadrants).filter(Boolean).length;
+        hasContent = edgeRatio > threshold && activeQuadrantCount >= MIN_QUADRANTS_WITH_EDGES;
       } else {
         setAlignedQuadrants({ tl: false, tr: false, bl: false, br: false });
         setAlignmentProgress(Math.round(Math.min(100, (edgeRatio / (threshold * 1.6)) * 100)));
