@@ -1699,6 +1699,7 @@ interface StepFormProps {
 
 function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackFieldChange }: StepFormProps) {
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState(step === 'basic' ? 'personal' : step === 'fiscal' ? 'datos' : '');
 
   // Basic fields
   const [nombre, setNombre] = useState('');
@@ -2012,7 +2013,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
   return (
     <div className="space-y-5 pb-4">
       {step === 'basic' && (
-        <Tabs defaultValue="personal" className="w-full">
+        <Tabs defaultValue="personal" className="w-full" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="personal" className="text-xs">Datos personales</TabsTrigger>
             <TabsTrigger value="address" className="text-xs">Dirección</TabsTrigger>
@@ -2068,7 +2069,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
       )}
 
       {step === 'fiscal' && (
-        <Tabs defaultValue="datos" className="w-full">
+        <Tabs defaultValue="datos" className="w-full" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="datos" className="text-xs">Datos</TabsTrigger>
             <TabsTrigger value="direccion" className="text-xs">Dirección</TabsTrigger>
@@ -2118,13 +2119,16 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
         </Tabs>
       )}
 
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
-      >
-        {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando...</> : "Guardar"}
-      </button>
+      {/* Hide save button on document-only tabs (documents in basic, constancia in fiscal) */}
+      {activeTab !== 'documents' && activeTab !== 'constancia' && (
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Guardando...</> : "Guardar"}
+        </button>
+      )}
     </div>
   );
 }
