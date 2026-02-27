@@ -561,6 +561,8 @@ interface VerificationComparatorProps {
 interface ComparableField {
   label: string;
   docValue: string | null | undefined;
+  displayDocValue?: string | null | undefined; // Display value (e.g., "Masculino" instead of "M")
+  displayProfileValue?: string | null | undefined; // Display value for profile
   profileValue: string | null | undefined;
   personaField?: string; // Field name in personas table
   documentField?: string; // Field name in documentos table
@@ -650,9 +652,22 @@ export function VerificationComparator({
         // INE uses H=Hombre, M=Mujer; DB uses M=Masculino, F=Femenino
         const raw = result.sexo;
         if (!raw) return raw;
-        if (raw === "H") return "M";
-        if (raw === "M") return "F";
+        if (raw === "H") return "M"; // DB value for Masculino
+        if (raw === "M") return "F"; // DB value for Femenino
         return raw;
+      })(),
+      displayDocValue: (() => {
+        const raw = result.sexo;
+        if (!raw) return raw;
+        if (raw === "H") return "Masculino";
+        if (raw === "M") return "Femenino";
+        return raw;
+      })(),
+      displayProfileValue: (() => {
+        const val = persona.sexo;
+        if (val === "M") return "Masculino";
+        if (val === "F") return "Femenino";
+        return val;
       })(),
       profileValue: persona.sexo,
       personaField: "sexo",
@@ -847,6 +862,24 @@ export function VerificationComparator({
         </div>
       )}
 
+      {/* Face match FAILED warning */}
+      {result.is_valid_document && result.face_match === false && (
+        <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-4 text-center space-y-1 animate-scale-in">
+          <div className="flex items-center justify-center gap-2">
+            <ShieldAlert className="h-6 w-6 text-destructive" />
+            <span className="text-base font-bold text-destructive">Rostro no coincide</span>
+          </div>
+          <p className="text-xs text-destructive/80">
+            La selfie no coincide con la foto del documento. No se puede guardar. Vuelve a capturar.
+          </p>
+          {result.face_match_confidence != null && (
+            <p className="text-[10px] text-destructive/60 mt-1">
+              Coincidencia facial: {result.face_match_confidence}%
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Validity + Confidence */}
       <div className="flex items-center gap-3">
         {result.is_valid_document ? (
@@ -924,10 +957,10 @@ export function VerificationComparator({
                   )}
                 </span>
                 <span className="text-[11px] text-muted-foreground truncate pr-1">
-                  {f.docValue}
+                  {f.displayDocValue || f.docValue}
                 </span>
                 <span className="text-[11px] text-muted-foreground truncate pr-1">
-                  {f.profileValue || (
+                  {f.displayProfileValue || f.profileValue || (
                     <span className="italic text-muted-foreground/60">
                       (vacío)
                     </span>
@@ -969,7 +1002,7 @@ export function VerificationComparator({
 
       {/* Action buttons */}
       <div className="flex gap-2 pt-1">
-        {result.is_valid_document && (
+        {result.is_valid_document && result.face_match !== false && (
         <Button
           onClick={handleSaveAndAccept}
           disabled={saving}
@@ -989,11 +1022,11 @@ export function VerificationComparator({
           variant="outline"
           className={cn(
             "h-12 rounded-2xl px-4 text-destructive border-destructive/30 hover:bg-destructive/10",
-            !result.is_valid_document && "flex-1"
+            (!result.is_valid_document || result.face_match === false) && "flex-1"
           )}
         >
           <X className="h-4 w-4" />
-          {!result.is_valid_document && <span className="ml-1">Cerrar y reintentar</span>}
+          {(!result.is_valid_document || result.face_match === false) && <span className="ml-1">Cerrar y reintentar</span>}
         </Button>
       </div>
     </div>

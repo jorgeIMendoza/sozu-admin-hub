@@ -543,7 +543,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
             return;
           }
           
-          toast.loading("Verificando identidad con IA...", { id: 'ai-verify' });
+          // Spinner is shown via the `verifying` state — no toast needed
 
           let aiResult: VerificationResult | null = null;
 
@@ -566,7 +566,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
             }
           }
 
-          toast.dismiss('ai-verify');
+          // verification done — verifying state is cleared by verifyDocument
           
           if (aiResult) {
             setVerificationResult(aiResult);
