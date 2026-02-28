@@ -23,6 +23,7 @@ import {
 
 const PLACEHOLDERS = [
   { key: "nombre_agente", label: "Nombre completo del agente", editable: true },
+  { key: "rfc_agente", label: "RFC del agente", editable: true },
   { key: "fecha_actual", label: "Fecha actual", editable: false },
   { key: "fecha_fin", label: "Fecha fin (+3 meses)", editable: false },
 ];
