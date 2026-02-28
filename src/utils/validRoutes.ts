@@ -46,6 +46,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/consultas-ia',
   '/admin/reservas',
   '/admin/legal/contratos',
+  '/admin/legal/carta-acuerdos',
   '/admin/reportes/discrepancias',
   '/admin/logs-actividad',
   '/admin/rastreo-clabes-stp',
