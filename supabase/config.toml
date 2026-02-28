@@ -98,3 +98,12 @@ verify_jwt = false
 
 [functions.verificar-documento-identidad]
 verify_jwt = false
+
+[functions.mifiel-crear-documento]
+verify_jwt = false
+
+[functions.mifiel-webhook]
+verify_jwt = false
+
+[functions.mifiel-consultar-documento]
+verify_jwt = false

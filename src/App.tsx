@@ -73,6 +73,7 @@ const RevisionDocumentacion = lazyRetry(() => import("./pages/admin/RevisionDocu
 const ConsultasIA = lazyRetry(() => import("./pages/admin/ConsultasIA"));
 const Reservas = lazyRetry(() => import("./pages/admin/Reservas"));
 const Contratos = lazyRetry(() => import("./pages/admin/legal/Contratos"));
+const CartaAcuerdos = lazyRetry(() => import("./pages/admin/legal/CartaAcuerdos"));
 const Comisiones = lazyRetry(() => import("./pages/admin/Comisiones"));
 const AprobacionComisiones = lazyRetry(() => import("./pages/admin/AprobacionComisiones"));
 const ComisionesExternas = lazyRetry(() => import("./pages/admin/ComisionesExternas"));
@@ -225,6 +226,7 @@ const App = () => (
                   <Route path="consultas-ia" element={<ConsultasIA />} />
                   <Route path="reservas" element={<Reservas />} />
                   <Route path="legal/contratos" element={<Contratos />} />
+                  <Route path="legal/carta-acuerdos" element={<CartaAcuerdos />} />
                   <Route path="reportes/discrepancias" element={<ReporteDiscrepancias />} />
                   <Route path="logs-actividad" element={<LogsActividad />} />
                   <Route path="rastreo-clabes-stp" element={<RastreoClabeSTP />} />
