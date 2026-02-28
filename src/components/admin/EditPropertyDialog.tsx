@@ -597,45 +597,6 @@ export const EditPropertyDialog = ({ property, onClose, onSuccess }: EditPropert
         description: "⚠️ IMPORTANTE: La propiedad pasará a estado DRAFT para que puedas verificar los cambios antes de aprobarla nuevamente.",
       });
 
-      // Si se cambió manualmente a Vendido (5), disparar generación de factura de comisión Sozu
-      if (originalStatusId !== null && currentStatusId === ESTATUS_VENDIDO && originalStatusId !== ESTATUS_VENDIDO) {
-        try {
-          // Buscar la cuenta de cobranza activa asociada a esta propiedad
-          const { data: cuentaData } = await supabase
-            .from('cuentas_cobranza')
-            .select('id, id_oferta')
-            .eq('activo', true)
-            .is('id_cuenta_cobranza_padre', null);
-
-          // Filtrar por propiedad a través de la oferta
-          if (cuentaData && cuentaData.length > 0) {
-            for (const cuenta of cuentaData) {
-              const { data: ofertaData } = await supabase
-                .from('ofertas')
-                .select('id_propiedad')
-                .eq('id', cuenta.id_oferta)
-                .single();
-
-              if (ofertaData?.id_propiedad === property.id) {
-                console.log(`[EditPropertyDialog] Propiedad ${property.id} cambiada a Vendido. Generando factura comisión para cuenta ${cuenta.id}`);
-                supabase.functions.invoke('generar-factura-comision-sozu', {
-                  body: { id_cuenta_cobranza: cuenta.id }
-                }).then(({ data, error: fnError }) => {
-                  if (fnError) {
-                    console.error('[EditPropertyDialog] Error generando factura comisión:', fnError);
-                  } else {
-                    console.log('[EditPropertyDialog] Factura comisión resultado:', data);
-                  }
-                });
-                break;
-              }
-            }
-          }
-        } catch (facturaErr) {
-          console.error('[EditPropertyDialog] Error buscando cuenta para factura:', facturaErr);
-          // No bloquear el flujo principal
-        }
-      }
 
       // Registrar actividad
       registrarActualizacion('propiedad', 
