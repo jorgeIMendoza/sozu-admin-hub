@@ -1,0 +1,1 @@
+UPDATE cuentas_cobranza SET clabe_stp = 646180287400096701 WHERE id = 1140;
