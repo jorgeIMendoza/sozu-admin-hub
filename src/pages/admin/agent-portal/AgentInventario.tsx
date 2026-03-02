@@ -62,7 +62,8 @@ const AgentInventario = () => {
       let query = (supabase as any)
         .from('proyectos')
         .select('id, nombre, direccion, url_imagen_portada, id_estatus_proyecto')
-        .eq('activo', true);
+        .eq('activo', true)
+        .eq('publicar', true);
 
       if (!hasUnrestrictedAccess && accessibleProjectIds.length > 0) {
         query = query.in('id', accessibleProjectIds);
