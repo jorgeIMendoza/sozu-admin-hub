@@ -54,9 +54,9 @@ Deno.serve(async (req) => {
         try {
           const { data: oferta, error: ofertaError } = await supabase
             .from('ofertas')
-            .select('url, tipo_oferta')
+            .select('url')
             .eq('id', offerId)
-            .single();
+            .maybeSingle();
 
           if (ofertaError || !oferta?.url) {
             console.error(`Oferta ${offerId} sin URL de PDF:`, ofertaError);
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
           const urlParts = oferta.url.split('/');
           const fileName = decodeURIComponent(urlParts[urlParts.length - 1] || `Oferta_${offerId}.pdf`);
-          const tipo = oferta.tipo_oferta || 'propiedad';
+          const tipo = 'propiedad';
 
           pdfResults.push({ offerId, fileName, tipo });
           attachments.push({ Name: fileName, Content: base64, ContentType: 'application/pdf' });
