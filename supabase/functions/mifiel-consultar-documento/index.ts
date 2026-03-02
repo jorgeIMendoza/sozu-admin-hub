@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MIFIEL_API_URL = "https://app-sandbox.mifiel.com/api/v1";
+const MIFIEL_API_URL = Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

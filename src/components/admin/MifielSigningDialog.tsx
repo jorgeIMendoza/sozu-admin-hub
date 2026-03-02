@@ -30,7 +30,8 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
       const widget = document.createElement('mifiel-widget') as any;
       widget.setAttribute('id', 'mifiel-widget');
       widget.setAttribute('widget-id', widgetId);
-      widget.setAttribute('environment', 'production');
+      const env = import.meta.env.VITE_MIFIEL_ENVIRONMENT || 'sandbox';
+      widget.setAttribute('environment', env === 'production' ? 'production' : 'sandbox');
       containerRef.current.appendChild(widget);
 
       // Listen for events
@@ -45,7 +46,9 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
     // Load the Mifiel CDN script if not already loaded
     if (!scriptLoadedRef.current && !document.querySelector('script[src*="mifiel.com/widget"]')) {
       const script = document.createElement('script');
-      script.src = 'https://app-sandbox.mifiel.com/sign-widget-assets/v3/index.js';
+      const mifielEnv = import.meta.env.VITE_MIFIEL_ENVIRONMENT || 'sandbox';
+      const mifielHost = mifielEnv === 'production' ? 'app.mifiel.com' : 'app-sandbox.mifiel.com';
+      script.src = `https://${mifielHost}/sign-widget-assets/v3/index.js`;
       script.type = 'module';
       script.onload = () => {
         scriptLoadedRef.current = true;
