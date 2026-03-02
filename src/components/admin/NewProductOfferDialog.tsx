@@ -700,7 +700,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
       // Disclaimer: si no hay esquema de pago o RFC válido, no se mostrará la sección de datos bancarios
       {
         const missingScheme = !schemeId;
-        const missingRFC = !isValidRFC(selectedPerson?.rfc);
+        const missingRFC = !isValidRFC(formValues.rfc);
 
         if (missingScheme || missingRFC) {
           const reasons: string[] = [];

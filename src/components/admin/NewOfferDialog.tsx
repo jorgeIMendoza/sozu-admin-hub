@@ -923,7 +923,8 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         leadEmail: data.email,
         leadPhone: data.telefono,
         productOffersResults,
-        schemeId
+        schemeId,
+        leadRfc: data.rfc || null
       };
     },
     onSuccess: async (result) => {
@@ -948,7 +949,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
       // Disclaimer: si no hay esquema de pago o RFC válido, no se mostrará la sección de datos bancarios
       {
         const missingScheme = !result.schemeId;
-        const missingRFC = !isValidRFC(selectedPerson?.rfc);
+        const missingRFC = !isValidRFC(result.leadRfc);
 
         if (missingScheme || missingRFC) {
           const reasons: string[] = [];
