@@ -1,38 +1,57 @@
 
-
-# Restriccion: No enviar email si la oferta no muestra datos bancarios
+# Fix: Enviar el PDF original de la oferta por correo (no regenerar)
 
 ## Problema
-El sistema envia ofertas por correo incluso cuando el PDF no contiene la seccion de "Datos Bancarios". El usuario quiere que si la oferta no muestra datos bancarios, NO se envie el correo.
+Cuando se envia la oferta por correo, el sistema llama al edge function `generar-oferta-pdf` para regenerar el PDF en el servidor. Esta regeneracion produce un PDF diferente al original (le falta la seccion "Esquemas de pago", muestra "Titular: N/A", pierde imagenes y formato).
 
-## Logica actual de "Datos Bancarios" en el PDF
-La seccion se muestra cuando se cumplen TODAS estas condiciones (definido en `ofertaPdfNativeService.ts` lineas 791-798):
-
-```text
-showBanking = hasValidRFC 
-  AND id_esquema_pago_seleccionado exists 
-  AND (clabe_stp_tmp_apartado exists OR (proyecto mostrar_seccion_efectivo AND ownerStpBankAccount exists))
-```
+El PDF correcto ya existe almacenado en Supabase Storage y su URL esta guardada en el campo `url` de la tabla `ofertas`.
 
 ## Solucion
 
-### Archivo: `src/services/ofertaEmailService.ts`
+En lugar de regenerar el PDF, descargar el archivo existente desde la URL almacenada en la tabla `ofertas` y adjuntarlo al correo.
 
-Modificar `sendOfferEmailAfterDownload` para consultar la oferta con su propiedad y proyecto, y aplicar la misma logica de visibilidad de datos bancarios antes de enviar:
+### Archivo: `supabase/functions/enviar-oferta-email/index.ts`
 
-1. Consultar la oferta con `id_esquema_pago_seleccionado`, `id_propiedad`, `id_persona_lead`
-2. Consultar la propiedad con `clabe_stp_tmp_apartado` y datos del proyecto (`mostrar_seccion_efectivo_en_oferta`)
-3. Consultar el RFC del lead desde `personas`
-4. Evaluar `showBanking` con la misma formula que usa el PDF
-5. Si `showBanking` es `false`, hacer `return` sin enviar y loguear la razon
+Cambiar el flujo del fallback (cuando no hay `preGeneratedAttachments`) para:
 
-Para ofertas de producto: consultar si la oferta tiene `clabe_stp_tmp_producto`. Si no tiene, no enviar.
+1. Consultar la tabla `ofertas` para obtener la `url` de cada offerId
+2. Descargar el PDF desde esa URL publica de Storage
+3. Convertir el contenido a base64
+4. Adjuntarlo al correo
 
-### Puntos de envio afectados (ambos pasan por esta funcion)
-- `NewOfferDialog.tsx` - linea 1047: envia email para oferta principal y productos
-- `NewProductOfferDialog.tsx` - linea 747: envia email para oferta de producto
+```text
+// En lugar de llamar a generar-oferta-pdf:
+for (const offerId of offerIds) {
+  // 1. Obtener URL del PDF desde la tabla ofertas
+  const { data: oferta } = await supabase
+    .from('ofertas')
+    .select('url, tipo_oferta')
+    .eq('id', offerId)
+    .single();
 
-Como ambos usan `sendOfferEmailAfterDownload`, la validacion centralizada en el servicio cubre todos los casos sin necesidad de modificar los dialogos.
+  if (!oferta?.url) {
+    console.error(`Oferta ${offerId} sin URL de PDF`);
+    continue;
+  }
 
-### Archivo unico a modificar
-- `src/services/ofertaEmailService.ts`
+  // 2. Descargar el PDF desde Storage
+  const pdfResponse = await fetch(oferta.url);
+  const pdfBuffer = await pdfResponse.arrayBuffer();
+
+  // 3. Convertir a base64
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+
+  // 4. Extraer nombre del archivo de la URL
+  const fileName = oferta.url.split('/').pop() || `Oferta_${offerId}.pdf`;
+
+  attachments.push({ Name: fileName, Content: base64, ContentType: 'application/pdf' });
+  pdfResults.push({ offerId, fileName, tipo: oferta.tipo_oferta || 'propiedad' });
+}
+```
+
+### Sin cambios en otros archivos
+- `ofertaEmailService.ts` sigue enviando `offerIds` al edge function, sin cambios
+- `NewOfferDialog.tsx` y `NewProductOfferDialog.tsx` sin cambios
+
+### Resultado
+El correo adjuntara exactamente el mismo PDF que el usuario descarga, con todas las secciones (esquemas de pago, titular correcto, imagenes, formato completo).
