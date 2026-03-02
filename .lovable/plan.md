@@ -1,57 +1,19 @@
 
-# Fix: Enviar el PDF original de la oferta por correo (no regenerar)
+# Agentes con inmobiliaria = Verificado
 
-## Problema
-Cuando se envia la oferta por correo, el sistema llama al edge function `generar-oferta-pdf` para regenerar el PDF en el servidor. Esta regeneracion produce un PDF diferente al original (le falta la seccion "Esquemas de pago", muestra "Titular: N/A", pierde imagenes y formato).
+## Cambio
+Modificar `useAgentOnboardingStatus` para que, si el agente (personaId) tiene una inmobiliaria relacionada en la tabla `entidades_relacionadas` (tipo 19, activo), retorne automaticamente `percentage: 100` y todos los pasos como completos.
 
-El PDF correcto ya existe almacenado en Supabase Storage y su URL esta guardada en el campo `url` de la tabla `ofertas`.
+## Archivo a modificar
+**`src/hooks/useAgentOnboardingStatus.ts`**
 
-## Solucion
+1. Agregar un query para buscar si el agente tiene una inmobiliaria:
+   - Consultar `entidades_relacionadas` donde `id_persona = personaId`, `id_tipo_entidad = 19`, `activo = true`, y `id_persona_duena_lead IS NOT NULL`
+2. Si existe al menos un registro, retornar todos los steps como completos (percentage = 100) sin evaluar los demas datos
+3. Si no tiene inmobiliaria, continuar con la logica actual de validacion paso a paso
 
-En lugar de regenerar el PDF, descargar el archivo existente desde la URL almacenada en la tabla `ofertas` y adjuntarlo al correo.
-
-### Archivo: `supabase/functions/enviar-oferta-email/index.ts`
-
-Cambiar el flujo del fallback (cuando no hay `preGeneratedAttachments`) para:
-
-1. Consultar la tabla `ofertas` para obtener la `url` de cada offerId
-2. Descargar el PDF desde esa URL publica de Storage
-3. Convertir el contenido a base64
-4. Adjuntarlo al correo
-
-```text
-// En lugar de llamar a generar-oferta-pdf:
-for (const offerId of offerIds) {
-  // 1. Obtener URL del PDF desde la tabla ofertas
-  const { data: oferta } = await supabase
-    .from('ofertas')
-    .select('url, tipo_oferta')
-    .eq('id', offerId)
-    .single();
-
-  if (!oferta?.url) {
-    console.error(`Oferta ${offerId} sin URL de PDF`);
-    continue;
-  }
-
-  // 2. Descargar el PDF desde Storage
-  const pdfResponse = await fetch(oferta.url);
-  const pdfBuffer = await pdfResponse.arrayBuffer();
-
-  // 3. Convertir a base64
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
-
-  // 4. Extraer nombre del archivo de la URL
-  const fileName = oferta.url.split('/').pop() || `Oferta_${offerId}.pdf`;
-
-  attachments.push({ Name: fileName, Content: base64, ContentType: 'application/pdf' });
-  pdfResults.push({ offerId, fileName, tipo: oferta.tipo_oferta || 'propiedad' });
-}
-```
-
-### Sin cambios en otros archivos
-- `ofertaEmailService.ts` sigue enviando `offerIds` al edge function, sin cambios
-- `NewOfferDialog.tsx` y `NewProductOfferDialog.tsx` sin cambios
-
-### Resultado
-El correo adjuntara exactamente el mismo PDF que el usuario descarga, con todas las secciones (esquemas de pago, titular correcto, imagenes, formato completo).
+## Efecto
+- En el header del portal, mostrara "Verificado" en verde
+- El widget de onboarding mostrara "Perfil completo"
+- No se bloqueara el acceso a comisiones
+- Los agentes sin inmobiliaria siguen con el flujo normal de verificacion
