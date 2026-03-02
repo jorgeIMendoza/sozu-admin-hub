@@ -69,7 +69,7 @@ serve(async (req) => {
           const authHeader = "Basic " + btoa(`${MIFIEL_API_ID}:${MIFIEL_API_SECRET}`);
 
           const pdfResponse = await fetch(
-            `${Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1"}/documents/${documentId}/file`,
+            `${(Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1").replace(/\/+$/, "")}/documents/${documentId}/file`,
             { headers: { Authorization: authHeader } }
           );
 

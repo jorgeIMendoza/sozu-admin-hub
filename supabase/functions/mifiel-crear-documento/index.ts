@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MIFIEL_API_URL = Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1";
+const MIFIEL_API_URL = (Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1").replace(/\/+$/, "");
 const SOZU_SIGNER_EMAIL = "rodrigo.terveen@sozu.com";
 const SOZU_SIGNER_NAME = "Rodrigo Terveen";
 
@@ -95,7 +95,9 @@ serve(async (req) => {
     formData.append("signatories[1][email]", agente_email);
     formData.append("callback_url", `${supabaseUrl}/functions/v1/mifiel-webhook`);
 
-    const mifielResponse = await fetch(`${MIFIEL_API_URL}/documents`, {
+    const mifielUrl = `${MIFIEL_API_URL}/documents`;
+    console.log("Mifiel URL:", mifielUrl);
+    const mifielResponse = await fetch(mifielUrl, {
       method: "POST",
       headers: {
         Authorization: authHeader,
