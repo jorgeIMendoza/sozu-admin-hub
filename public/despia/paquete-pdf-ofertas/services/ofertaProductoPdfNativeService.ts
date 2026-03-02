@@ -463,7 +463,7 @@ export class OfertaProductoPdfNativeService {
     const hasClabe = data.offerData.clabe_stp_tmp_producto || data.offerData.clabe_stp;
     const hasCashAccount = data.productDetails.ownerStpBankAccount;
 
-    if (hasClabe || hasCashAccount) {
+    if (data.offerData.id_esquema_pago_seleccionado && (hasClabe || hasCashAccount)) {
       drawLine(y);
       y += 6;
 

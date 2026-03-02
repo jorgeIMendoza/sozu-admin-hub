@@ -429,7 +429,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
         )}
 
         {/* Divider Line before Banking Data - Only show if lead has RFC */}
-        {leadInfo?.rfc && (
+        {leadInfo?.rfc && offerData.id_esquema_pago_seleccionado && (
           <div style={{ 
             width: '100%',
             height: '4px',
@@ -439,7 +439,7 @@ export const OfferPDFTemplateProducto = forwardRef<HTMLDivElement, OfferPDFTempl
         )}
 
         {/* Banking Data Section - Only show if there's a CLABE (meaning a scheme was selected) */}
-        {(offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && (
+        {offerData.id_esquema_pago_seleccionado && (offerData.clabe_stp_tmp_producto || offerData.clabe_stp) && (
           <div style={{ marginBottom: '60px' }}>
             <h2 style={{ 
               fontSize: '51px', 

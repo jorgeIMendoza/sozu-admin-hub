@@ -792,6 +792,7 @@ export class OfertaPdfNativeService {
     const hasValidRFC = isValidRFC(data.leadInfo?.rfc);
     const showBanking =
       hasValidRFC &&
+      !!data.offerData.id_esquema_pago_seleccionado &&
       (data.propertyDetails.clabe_stp_tmp_apartado ||
         (data.propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta &&
           data.propertyDetails.ownerStpBankAccount));
