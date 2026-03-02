@@ -66,6 +66,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { Switch } from "@/components/ui/switch";
+import { isValidRFC } from "@/utils/fiscalDataValidation";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import {
   Tooltip,
@@ -944,14 +945,22 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         description: `La oferta para la propiedad ${propertyNumber} ha sido generada exitosamente.`,
       });
 
-      // Disclaimer: si no hay esquema de pago seleccionado, no se mostrará la sección de datos bancarios
-      if (!result.schemeId) {
-        toast({
-          title: "Aviso: Sin datos bancarios",
-          description: "La oferta se generó sin la sección de datos bancarios porque no se seleccionó un plan de pago.",
-          variant: "default",
-          duration: 8000,
-        });
+      // Disclaimer: si no hay esquema de pago o RFC válido, no se mostrará la sección de datos bancarios
+      {
+        const missingScheme = !result.schemeId;
+        const missingRFC = !isValidRFC(selectedPerson?.rfc);
+
+        if (missingScheme || missingRFC) {
+          const reasons: string[] = [];
+          if (missingRFC) reasons.push("el prospecto no tiene un RFC válido");
+          if (missingScheme) reasons.push("no se seleccionó un plan de pago");
+
+          toast({
+            title: "Aviso: Sin datos bancarios",
+            description: `La oferta se generó sin la sección de datos bancarios porque ${reasons.join(" y ")}.`,
+            duration: 8000,
+          });
+        }
       }
 
       // Show product offers results

@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { isValidRFC } from "@/utils/fiscalDataValidation";
 
 // Form validation schema - made more flexible for both modes
 const formSchema = z.object({
@@ -696,14 +697,22 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         description: "Oferta de producto/servicio generada correctamente. Descargando PDF...",
       });
 
-      // Disclaimer: si no hay esquema de pago seleccionado, no se mostrará la sección de datos bancarios
-      if (!schemeId) {
-        toast({
-          title: "Aviso: Sin datos bancarios",
-          description: "La oferta se generó sin la sección de datos bancarios porque no se seleccionó un plan de pago.",
-          variant: "default",
-          duration: 8000,
-        });
+      // Disclaimer: si no hay esquema de pago o RFC válido, no se mostrará la sección de datos bancarios
+      {
+        const missingScheme = !schemeId;
+        const missingRFC = !isValidRFC(selectedPerson?.rfc);
+
+        if (missingScheme || missingRFC) {
+          const reasons: string[] = [];
+          if (missingRFC) reasons.push("el prospecto no tiene un RFC válido");
+          if (missingScheme) reasons.push("no se seleccionó un plan de pago");
+
+          toast({
+            title: "Aviso: Sin datos bancarios",
+            description: `La oferta se generó sin la sección de datos bancarios porque ${reasons.join(" y ")}.`,
+            duration: 8000,
+          });
+        }
       }
 
       // Generate PDF for the created offer
