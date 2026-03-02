@@ -6497,6 +6497,37 @@ const Propiedades = () => {
                               try {
                                 setDownloadingOfferId(offer.id);
                                 
+                                const { ofertaPdfStorageService } = await import('@/services/ofertaPdfStorageService');
+                                
+                                // Verificar si ya existe URL guardada
+                                const existingUrl = await ofertaPdfStorageService.getExistingUrl(offer.id);
+                                
+                                if (existingUrl) {
+                                  // Validar que los datos críticos no hayan cambiado
+                                  const validation = await ofertaPdfStorageService.validateOfferDataAndInvalidateIfNeeded(offer.id);
+                                  
+                                  if (!validation.wasInvalidated) {
+                                    // URL válida, descargar directamente
+                                    toast({
+                                      title: "Descargando PDF",
+                                      description: "Descargando el PDF de la oferta...",
+                                    });
+                                    const filename = existingUrl.split('/').pop() || `oferta-producto-${offer.id}.pdf`;
+                                    await ofertaPdfStorageService.downloadFromUrl(existingUrl, filename);
+                                    toast({
+                                      title: "PDF descargado",
+                                      description: "La oferta se ha descargado exitosamente",
+                                    });
+                                    return;
+                                  }
+                                  
+                                  toast({
+                                    title: "Regenerando PDF",
+                                    description: "Los datos han cambiado, regenerando...",
+                                  });
+                                }
+                                
+                                // No hay URL o fue invalidada, generar nuevo PDF
                                 const { generateOfferPDF } = await import('@/services/htmlToPdfService');
                                 
                                 await generateOfferPDF({
