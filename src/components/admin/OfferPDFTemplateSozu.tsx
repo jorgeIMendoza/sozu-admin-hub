@@ -620,7 +620,7 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
         }} />
 
         {/* Banking Data Section - Only show if lead has valid RFC */}
-        {leadInfo?.hasValidRFC && (propertyDetails.clabe_stp_tmp_apartado || (propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount)) && (
+        {leadInfo?.hasValidRFC && offerData.id_esquema_pago_seleccionado && (propertyDetails.clabe_stp_tmp_apartado || (propertyDetails.projectData?.mostrar_seccion_efectivo_en_oferta && propertyDetails.ownerStpBankAccount)) && (
           <div style={{ 
             marginBottom: '40px'
           }}>

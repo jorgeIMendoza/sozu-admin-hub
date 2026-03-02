@@ -87,6 +87,7 @@ interface OfferPDFTemplateProps {
     propertyNumber: string;
     leadName: string;
     leadEmail: string;
+    id_esquema_pago_seleccionado?: number | null;
   };
   propertyDetails: PropertyDetails;
   paymentSchemes: PaymentScheme[];
@@ -378,7 +379,7 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
         </div>
 
         {/* Banking Data Page - Only show if lead has RFC */}
-        {leadInfo?.rfc && (
+        {leadInfo?.rfc && offerData.id_esquema_pago_seleccionado && (
           <div className="min-h-screen p-10 break-before-page">
             <h2 className="text-xl font-bold mb-6 text-primary text-center">Datos Bancarios</h2>
             
