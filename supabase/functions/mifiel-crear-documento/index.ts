@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,24 +72,86 @@ serve(async (req) => {
       (_match: string, key: string) => values[key] || `[${key}]`
     );
 
-    // 3. Generate PDF from HTML
-    const fullHtml = `<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>
-  body { font-family: Arial, sans-serif; padding: 40px; font-size: 12px; line-height: 1.6; color: #1a1a1a; }
-  h1 { font-size: 18px; } h2 { font-size: 15px; } h3 { font-size: 13px; }
-  ul, ol { padding-left: 1.5em; }
-</style>
-</head><body>${html}</body></html>`;
+    // 3. Generate real PDF from HTML text using pdf-lib
+    // Strip HTML tags to get plain text
+    const plainText = html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<\/h[1-6]>/gi, "\n\n")
+      .replace(/<\/li>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "  • ")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
 
-    const pdfContent = new TextEncoder().encode(fullHtml);
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const fontSize = 11;
+    const margin = 50;
+    const pageWidth = 612; // Letter
+    const pageHeight = 792;
+    const maxWidth = pageWidth - margin * 2;
+    const lineHeight = fontSize * 1.5;
+
+    // Word-wrap and paginate
+    const lines: string[] = [];
+    for (const paragraph of plainText.split("\n")) {
+      if (paragraph.trim() === "") {
+        lines.push("");
+        continue;
+      }
+      const words = paragraph.split(/\s+/);
+      let currentLine = "";
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const width = font.widthOfTextAtSize(testLine, fontSize);
+        if (width > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+    }
+
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let y = pageHeight - margin;
+
+    for (const line of lines) {
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - margin;
+      }
+      if (line === "") {
+        y -= lineHeight * 0.5;
+        continue;
+      }
+      page.drawText(line, {
+        x: margin,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(0.1, 0.1, 0.1),
+      });
+      y -= lineHeight;
+    }
+
+    const pdfBytes = await pdfDoc.save();
 
     // 4. Create document in Mifiel
     const authHeader = "Basic " + btoa(`${MIFIEL_API_ID}:${MIFIEL_API_SECRET}`);
 
     const formData = new FormData();
-    const blob = new Blob([pdfContent], { type: "text/html" });
-    formData.append("file", blob, "carta-acuerdos.html");
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    formData.append("file", blob, "carta-acuerdos.pdf");
     formData.append("signatories[0][name]", SOZU_SIGNER_NAME);
     formData.append("signatories[0][email]", SOZU_SIGNER_EMAIL);
     formData.append("signatories[1][name]", agente_nombre);
