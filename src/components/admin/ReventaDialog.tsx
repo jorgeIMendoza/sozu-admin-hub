@@ -64,7 +64,27 @@ export const ReventaDialog = ({
       // They should remain active until the draft property is approved.
       // The cancellation will happen when the draft is approved.
 
-      // Update property: status to Disponible (2), transaction type to Re-venta (2), clear CLABE, and set to Draft
+      // Step 1: Get id_entidad_relacionada_dueno to generate a new CLABE
+      const { data: propData, error: propError } = await supabase
+        .from('propiedades')
+        .select('id_entidad_relacionada_dueno')
+        .eq('id', propertyId)
+        .single();
+
+      if (propError) throw propError;
+
+      // Step 2: Generate a new CLABE STP via stored procedure
+      let nuevaClabe: string | null = null;
+      if (propData?.id_entidad_relacionada_dueno) {
+        const { data: clabeData, error: clabeError } = await supabase
+          .rpc('crear_referencia_bancaria', {
+            id_er_dueno: propData.id_entidad_relacionada_dueno,
+          });
+        if (clabeError) throw clabeError;
+        nuevaClabe = clabeData;
+      }
+
+      // Step 3: Update property with new CLABE instead of null
       const { error: updateError } = await supabase
         .from('propiedades')
         .update({
@@ -72,7 +92,7 @@ export const ReventaDialog = ({
           id_tipo_transaccion: ID_TIPO_REVENTA,
           precio_lista: nuevoPrecioLista / 100, // Convert from cents
           monto_apartado: nuevoMontoApartado / 100, // Convert from cents
-          clabe_stp_tmp_apartado: null, // Clear temporary CLABE
+          clabe_stp_tmp_apartado: nuevaClabe, // Assign new CLABE
           es_aprobado: false, // Set to Draft
           fecha_actualizacion: new Date().toISOString(),
         })
