@@ -107,15 +107,40 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const isLoading = loadingInmo || loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
 
-  // If agent has an inmobiliaria, return fully verified
+  // If agent has an inmobiliaria, only require Identity step (basic + address + docs)
   if (hasInmobiliaria && !isLoading) {
-    const verifiedSteps: OnboardingStep[] = [
-      { id: 'basic', label: 'Identidad', isComplete: true, hasPartialData: false },
+    const basicComplete = !!(persona?.nombre_legal && persona?.email && persona?.telefono);
+    const basicPartial = !basicComplete && !!(persona?.nombre_legal || persona?.email || persona?.telefono);
+
+    const addressComplete = !!(
+      persona?.direccion_calle &&
+      persona?.direccion_num_ext &&
+      persona?.direccion_colonia &&
+      persona?.direccion_codigo_postal &&
+      persona?.direccion_id_pais &&
+      persona?.direccion_id_estado &&
+      persona?.direccion_id_municipio
+    );
+    const addressPartial = !addressComplete && !!(persona?.direccion_calle || persona?.direccion_num_ext || persona?.direccion_colonia || persona?.direccion_codigo_postal);
+
+    const docTypes = new Set(documentos.map((d: any) => d.id_tipo_documento));
+    const hasINE = docTypes.has(2) && docTypes.has(3);
+    const hasPasaporte = docTypes.has(4);
+    const hasIdentityDoc = hasINE || hasPasaporte;
+    const identityDocsComplete = hasIdentityDoc && docTypes.has(48);
+    const identityDocsPartial = !identityDocsComplete && docTypes.size > 0;
+
+    const identityComplete = basicComplete && addressComplete && identityDocsComplete;
+    const identityPartial = !identityComplete && (basicPartial || basicComplete || addressPartial || addressComplete || identityDocsPartial);
+
+    const inmoSteps: OnboardingStep[] = [
+      { id: 'basic', label: 'Identidad', isComplete: identityComplete, hasPartialData: identityPartial },
       { id: 'fiscal', label: 'Información fiscal', isComplete: true, hasPartialData: false },
       { id: 'bank-accounts', label: 'Cuenta bancaria', isComplete: true, hasPartialData: false },
       { id: 'training', label: 'Capacitación', isComplete: true, hasPartialData: false },
     ];
-    return { steps: verifiedSteps, completedCount: 4, totalSteps: 4, percentage: 100, isLoading: false };
+    const inmoCompleted = inmoSteps.filter(s => s.isComplete).length;
+    return { steps: inmoSteps, completedCount: inmoCompleted, totalSteps: 4, percentage: Math.round((inmoCompleted / 4) * 100), isLoading: false };
   }
 
   // Evaluate steps
