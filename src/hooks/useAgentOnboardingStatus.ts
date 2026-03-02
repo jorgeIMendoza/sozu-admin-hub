@@ -18,6 +18,24 @@ interface OnboardingStatus {
 }
 
 export function useAgentOnboardingStatus(personaId: number | null | undefined): OnboardingStatus {
+  // Check if agent belongs to an inmobiliaria (auto-verified)
+  const { data: hasInmobiliaria, isLoading: loadingInmo } = useQuery({
+    queryKey: ['agent-onboarding-inmo', personaId],
+    queryFn: async () => {
+      if (!personaId) return false;
+      const { data } = await supabase
+        .from('entidades_relacionadas')
+        .select('id')
+        .eq('id_persona', personaId)
+        .eq('id_tipo_entidad', 19)
+        .eq('activo', true)
+        .not('id_persona_duena_lead', 'is', null)
+        .limit(1);
+      return (data && data.length > 0) || false;
+    },
+    enabled: !!personaId,
+  });
+
   // Fetch persona data
   const { data: persona, isLoading: loadingPersona } = useQuery({
     queryKey: ['agent-onboarding-persona', personaId],
@@ -87,7 +105,18 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     staleTime: 0,
   });
 
-  const isLoading = loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
+  const isLoading = loadingInmo || loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
+
+  // If agent has an inmobiliaria, return fully verified
+  if (hasInmobiliaria && !isLoading) {
+    const verifiedSteps: OnboardingStep[] = [
+      { id: 'basic', label: 'Identidad', isComplete: true, hasPartialData: false },
+      { id: 'fiscal', label: 'Información fiscal', isComplete: true, hasPartialData: false },
+      { id: 'bank-accounts', label: 'Cuenta bancaria', isComplete: true, hasPartialData: false },
+      { id: 'training', label: 'Capacitación', isComplete: true, hasPartialData: false },
+    ];
+    return { steps: verifiedSteps, completedCount: 4, totalSteps: 4, percentage: 100, isLoading: false };
+  }
 
   // Evaluate steps
   const basicComplete = !!(persona?.nombre_legal && persona?.email && persona?.telefono);
