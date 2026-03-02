@@ -123,11 +123,14 @@ const AgentPerfil = () => {
     }
   }, []);
 
-  // Fire confetti + streamers + trumpets when profile reaches 100%
+  // Fire confetti + streamers + trumpets when profile reaches 100% FOR THE FIRST TIME EVER
+  const celebrationStorageKey = `agent_celebration_fired_${personaId}`;
   useEffect(() => {
     if (!isLoading && percentage === 100 && !confettiFiredRef.current) {
-      if (prevPercentageRef.current === null || prevPercentageRef.current < 100) {
+      const alreadyCelebrated = localStorage.getItem(celebrationStorageKey);
+      if (!alreadyCelebrated) {
         confettiFiredRef.current = true;
+        localStorage.setItem(celebrationStorageKey, 'true');
 
         // Show trumpet overlay
         setShowTrumpets(true);
@@ -197,11 +200,8 @@ const AgentPerfil = () => {
         };
         frame();
       }
-      prevPercentageRef.current = percentage;
-    } else if (!isLoading) {
-      prevPercentageRef.current = percentage;
     }
-  }, [percentage, isLoading, playCelebrationSound]);
+  }, [percentage, isLoading, playCelebrationSound, celebrationStorageKey]);
 
   const getBlockStatus = (relatedSteps: readonly string[]) => {
     const related = steps.filter(s => relatedSteps.includes(s.id));
