@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { APP_VERSION } from "@/lib/config";
@@ -54,6 +56,27 @@ const AgentPerfil = () => {
   const perfilPerms = permissions['/admin/agent/perfil'];
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
+
+  // Fetch agency name for this agent
+  const { data: agencyName } = useQuery({
+    queryKey: ['agent-agency', personaId],
+    queryFn: async () => {
+      if (!personaId) return null;
+      const { data } = await supabase
+        .from('entidades_relacionadas')
+        .select('personas!entidades_relacionadas_id_persona_duena_lead_fkey(nombre_legal)')
+        .eq('id_persona', personaId)
+        .eq('id_tipo_entidad', 19)
+        .eq('activo', true)
+        .not('id_persona_duena_lead', 'is', null)
+        .limit(1)
+        .maybeSingle();
+      return (data?.personas as any)?.nombre_legal || null;
+    },
+    enabled: !!personaId,
+    staleTime: Infinity,
+  });
+
   const [activeStep, setActiveStep] = useState<OnboardingStep['id'] | null>(null);
   const confettiFiredRef = useRef(false);
   const prevPercentageRef = useRef<number | null>(null);
@@ -266,6 +289,11 @@ const AgentPerfil = () => {
           <p className="text-sm text-[hsl(var(--agent-text-secondary))]">
             {profile?.rol_nombre || "Agente Inmobiliario"}
           </p>
+          {agencyName && (
+            <p className="text-xs text-[hsl(var(--agent-text-secondary))]">
+              {agencyName}
+            </p>
+          )}
         </div>
       </div>
 
