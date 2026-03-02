@@ -711,6 +711,14 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
           isProductOffer: true,
           productId: selectedProduct
         });
+        // Enviar por correo al prospecto (fire-and-forget)
+        const { sendOfferEmailAfterDownload } = await import('@/services/ofertaEmailService');
+        sendOfferEmailAfterDownload({
+          offerId: ofertaData.id,
+          propertyNumber: propertyNumber || '',
+          recipientEmail: formValues.email,
+          recipientName: formValues.razon_social,
+        });
       } catch (pdfError) {
         console.error('Error generating PDF:', pdfError);
         toast({

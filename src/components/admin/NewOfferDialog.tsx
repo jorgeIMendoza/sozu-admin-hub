@@ -1038,6 +1038,18 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           title: "Oferta generada",
           description: `Se descargaron ${preGeneratedAttachments.length} PDF(s).`,
         });
+
+        // Enviar por correo al prospecto (fire-and-forget)
+        const { sendOfferEmailAfterDownload } = await import('@/services/ofertaEmailService');
+        // Enviar email para la oferta principal y cada oferta de producto
+        for (const oid of allOfferIds) {
+          sendOfferEmailAfterDownload({
+            offerId: oid,
+            propertyNumber,
+            recipientEmail: result.leadEmail,
+            recipientName: result.leadName,
+          });
+        }
       } catch (emailErr) {
         console.error('Error generating/sending offer:', emailErr);
         toast({
