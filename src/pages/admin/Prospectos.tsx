@@ -660,46 +660,43 @@ export default function Prospectos() {
       // Usar el entidad_relacionada_id específico para evitar violar unique constraint
       const entidadRelacionadaId = (editingProspecto as any)?.entidad_relacionada_id;
 
-      // Actualizar proyecto del prospecto (cuando venga en el payload)
-      if (id_proyecto !== undefined && entidadRelacionadaId) {
-        let proyectoValue: number | null;
-        
-        if (id_proyecto === null || id_proyecto === '' || id_proyecto === 'null' || id_proyecto === 'undefined') {
-          proyectoValue = null;
-        } else if (typeof id_proyecto === 'number') {
-          proyectoValue = id_proyecto;
-        } else {
-          const parsed = parseInt(id_proyecto as string, 10);
-          proyectoValue = Number.isNaN(parsed) ? null : parsed;
-        }
-        
-        const { error: projectError } = await supabase
-          .from('entidades_relacionadas')
-          .update({ id_proyecto: proyectoValue })
-          .eq('id', entidadRelacionadaId);
-          
-        if (projectError) throw projectError;
-      }
+      // Construir un solo objeto de actualización para entidades_relacionadas
+      // para evitar estados intermedios que violen la unique constraint
+      if (entidadRelacionadaId) {
+        const entidadUpdate: Record<string, unknown> = {};
 
-      // Actualizar agente dueño del lead
-      if (id_persona_duena_lead !== undefined && entidadRelacionadaId) {
-        let agenteValue: number | null = null;
-
-        if (id_persona_duena_lead !== null && id_persona_duena_lead !== '' && id_persona_duena_lead !== 'undefined') {
-          if (typeof id_persona_duena_lead === 'number') {
-            agenteValue = id_persona_duena_lead;
+        if (id_proyecto !== undefined) {
+          if (id_proyecto === null || id_proyecto === '' || id_proyecto === 'null' || id_proyecto === 'undefined') {
+            entidadUpdate.id_proyecto = null;
+          } else if (typeof id_proyecto === 'number') {
+            entidadUpdate.id_proyecto = id_proyecto;
           } else {
-            const parsed = parseInt(id_persona_duena_lead as string, 10);
-            agenteValue = Number.isNaN(parsed) ? null : parsed;
+            const parsed = parseInt(id_proyecto as string, 10);
+            entidadUpdate.id_proyecto = Number.isNaN(parsed) ? null : parsed;
           }
         }
-        
-        const { error: agentError } = await supabase
-          .from('entidades_relacionadas')
-          .update({ id_persona_duena_lead: agenteValue })
-          .eq('id', entidadRelacionadaId);
-        
-        if (agentError) throw agentError;
+
+        if (id_persona_duena_lead !== undefined) {
+          let agenteValue: number | null = null;
+          if (id_persona_duena_lead !== null && id_persona_duena_lead !== '' && id_persona_duena_lead !== 'undefined') {
+            if (typeof id_persona_duena_lead === 'number') {
+              agenteValue = id_persona_duena_lead;
+            } else {
+              const parsed = parseInt(id_persona_duena_lead as string, 10);
+              agenteValue = Number.isNaN(parsed) ? null : parsed;
+            }
+          }
+          entidadUpdate.id_persona_duena_lead = agenteValue;
+        }
+
+        if (Object.keys(entidadUpdate).length > 0) {
+          const { error: entidadError } = await supabase
+            .from('entidades_relacionadas')
+            .update(entidadUpdate)
+            .eq('id', entidadRelacionadaId);
+
+          if (entidadError) throw entidadError;
+        }
       }
     },
     onSuccess: () => {
