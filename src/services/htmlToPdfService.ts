@@ -309,6 +309,7 @@ class HTMLToPDFService {
       leadName: string;
       leadEmail: string;
       email_creador: string;
+      id_esquema_pago_seleccionado?: number | null;
       id_estatus_aprobacion?: number | null;
       estatus_aprobacion_nombre?: string | null;
     },
@@ -2217,6 +2218,7 @@ export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ 
         leadName: offerData.leadName,
         leadEmail: offerData.leadEmail,
         email_creador: offerData.creatorEmail,
+        id_esquema_pago_seleccionado: offerDetails.id_esquema_pago_seleccionado,
       } as any,
       propertyDetails: finalPropertyDetails,
       paymentSchemes,
