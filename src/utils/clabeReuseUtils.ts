@@ -1,19 +1,21 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export interface ClabeResult {
+  clabe: string;
+  sourceOfferIds: number[];  // IDs de ofertas cuya CLABE se reutilizó (vacío si se generó nueva)
+  isNew: boolean;            // true si se generó nueva CLABE
+}
+
 /**
- * Intenta obtener una CLABE existente de ofertas de productos anteriores
- * que no tengan cuenta de cobranza, o genera una nueva si no hay disponibles.
- * 
- * @param propertyId - ID de la propiedad
- * @param productId - ID del producto
- * @param idErDueno - ID de la entidad relacionada dueña del producto
- * @returns La CLABE a usar (existente reutilizada o nueva generada)
+ * Obtiene una CLABE reutilizable de ofertas anteriores sin cuenta de cobranza,
+ * o genera una nueva. NO limpia CLABEs de ofertas existentes — el llamador
+ * debe hacerlo después de guardar exitosamente la nueva oferta.
  */
 export async function getOrCreateProductClabe(
   propertyId: number,
   productId: number,
   idErDueno: number
-): Promise<string> {
+): Promise<ClabeResult> {
   console.log('🔍 Buscando CLABEs reutilizables para propiedad:', propertyId, 'producto:', productId);
 
   // 1. Buscar ofertas existentes del mismo producto/propiedad con CLABE
@@ -60,33 +62,20 @@ export async function getOrCreateProductClabe(
 
   console.log('📋 Ofertas sin cuenta de cobranza:', offersWithoutAccount.length);
 
-  // 3. Si hay ofertas con CLABE disponible, usar la más reciente
+  // 3. Si hay ofertas con CLABE disponible, retornar la más reciente
   if (offersWithoutAccount.length > 0) {
-    // La primera es la más reciente (ordenamos DESC por id)
     const clabeToReuse = offersWithoutAccount[0].clabe_stp_tmp_producto;
-    console.log('♻️ Reutilizando CLABE existente:', clabeToReuse);
+    const sourceOfferIds = offersWithoutAccount.map(o => o.id);
+    console.log('♻️ CLABE reutilizable encontrada:', clabeToReuse, 'de ofertas:', sourceOfferIds);
 
-    // 4. PRIMERO limpiar las CLABEs de TODAS las ofertas (incluyendo la que vamos a reutilizar)
-    // Esto evita violaciones de constraint de unicidad
-    const allOfferIds = offersWithoutAccount.map(o => o.id);
-    
-    console.log('🧹 Limpiando CLABEs de TODAS las ofertas antes de reutilizar:', allOfferIds);
-    
-    const { error: updateError } = await supabase
-      .from('ofertas')
-      .update({ clabe_stp_tmp_producto: null })
-      .in('id', allOfferIds);
-    
-    if (updateError) {
-      console.error('❌ Error limpiando CLABEs anteriores:', updateError);
-      throw updateError; // Ahora sí lanzamos error porque es crítico
-    }
-
-    console.log('✅ CLABEs limpiadas, retornando CLABE para nueva oferta:', clabeToReuse);
-    return clabeToReuse;
+    return {
+      clabe: clabeToReuse,
+      sourceOfferIds,
+      isNew: false,
+    };
   }
 
-  // 5. Si no hay CLABEs disponibles, generar una nueva
+  // 4. Si no hay CLABEs disponibles, generar una nueva
   console.log('🆕 No hay CLABEs reutilizables, generando nueva...');
   
   const { data: generatedClabe, error: clabeError } = await supabase
@@ -106,5 +95,30 @@ export async function getOrCreateProductClabe(
   }
 
   console.log('✅ Nueva CLABE generada:', generatedClabe);
-  return generatedClabe;
+  return {
+    clabe: generatedClabe,
+    sourceOfferIds: [],
+    isNew: true,
+  };
+}
+
+/**
+ * Limpia las CLABEs de ofertas fuente después de que la nueva oferta
+ * haya sido guardada exitosamente.
+ */
+export async function clearSourceOfferClabes(sourceOfferIds: number[]): Promise<void> {
+  if (sourceOfferIds.length === 0) return;
+  
+  console.log('🧹 Limpiando CLABEs de ofertas fuente:', sourceOfferIds);
+  const { error } = await supabase
+    .from('ofertas')
+    .update({ clabe_stp_tmp_producto: null })
+    .in('id', sourceOfferIds);
+  
+  if (error) {
+    console.error('❌ Error limpiando CLABEs de ofertas fuente:', error);
+    // No lanzamos error aquí porque la oferta nueva ya se guardó correctamente
+  } else {
+    console.log('✅ CLABEs de ofertas fuente limpiadas');
+  }
 }

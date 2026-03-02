@@ -618,15 +618,17 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
 
       // Step 3: Get CLABE STP ONLY if a scheme is selected
       // Reutiliza CLABEs existentes de ofertas sin cuenta de cobranza o genera una nueva
+      let clabeResult: { clabe: string; sourceOfferIds: number[]; isNew: boolean } | null = null;
       if (schemeId) {
         console.log('🔍 Obteniendo CLABE (reutilizada o nueva) para propiedad:', propertyId, 'producto:', selectedProduct);
         
         const { getOrCreateProductClabe } = await import('@/utils/clabeReuseUtils');
-        clabeData = await getOrCreateProductClabe(
+        clabeResult = await getOrCreateProductClabe(
           propertyId,
           selectedProduct!,
           selectedProductData.id_entidad_relacionada_dueno
         );
+        clabeData = clabeResult.clabe;
         
         console.log('✨ CLABE obtenida:', clabeData);
       } else {
@@ -648,6 +650,12 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         .single();
       
       if (ofertaError) throw ofertaError;
+
+      // Limpiar CLABEs de ofertas fuente SOLO después de crear exitosamente
+      if (clabeResult && clabeResult.sourceOfferIds.length > 0) {
+        const { clearSourceOfferClabes } = await import('@/utils/clabeReuseUtils');
+        await clearSourceOfferClabes(clabeResult.sourceOfferIds);
+      }
 
       // Assign prospect to agent (logged-in user) in entidades_relacionadas
       const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;

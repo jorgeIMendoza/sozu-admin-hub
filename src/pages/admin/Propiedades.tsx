@@ -6310,24 +6310,29 @@ const Propiedades = () => {
                                   
                                   if (productError) throw productError;
                                   
-                                  // Get or reuse CLABE from existing offers without account
-                                  const { getOrCreateProductClabe } = await import('@/utils/clabeReuseUtils');
-                                  const clabeToUse = await getOrCreateProductClabe(
-                                    selectedPropertyForProductOffers!.id,
-                                    offer.id_producto!,
-                                    productData.id_entidad_relacionada_dueno
-                                  );
-                                  
-                                  // Update offer with scheme and CLABE
-                                  const { error: updateError } = await supabase
-                                    .from('ofertas')
-                                    .update({
-                                      id_esquema_pago_seleccionado: parseInt(schemeId),
-                                      clabe_stp_tmp_producto: clabeToUse
-                                    })
-                                    .eq('id', offer.id);
-                                  
-                                  if (updateError) throw updateError;
+                                   // Get or reuse CLABE from existing offers without account
+                                   const { getOrCreateProductClabe, clearSourceOfferClabes } = await import('@/utils/clabeReuseUtils');
+                                   const clabeResult = await getOrCreateProductClabe(
+                                     selectedPropertyForProductOffers!.id,
+                                     offer.id_producto!,
+                                     productData.id_entidad_relacionada_dueno
+                                   );
+                                   
+                                   // Update offer with scheme and CLABE
+                                   const { error: updateError } = await supabase
+                                     .from('ofertas')
+                                     .update({
+                                       id_esquema_pago_seleccionado: parseInt(schemeId),
+                                       clabe_stp_tmp_producto: clabeResult.clabe
+                                     })
+                                     .eq('id', offer.id);
+                                   
+                                   if (updateError) throw updateError;
+                                   
+                                   // Limpiar CLABEs de ofertas fuente SOLO después de actualizar exitosamente
+                                   if (clabeResult.sourceOfferIds.length > 0) {
+                                     await clearSourceOfferClabes(clabeResult.sourceOfferIds);
+                                   }
                                   
                                   toast({
                                     title: "Esquema asignado",

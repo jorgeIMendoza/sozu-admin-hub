@@ -856,14 +856,16 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
 
         // Generate or reuse CLABE only if a payment scheme is selected
         let clabeData: string | null = null;
+        let clabeResult: { clabe: string; sourceOfferIds: number[]; isNew: boolean } | null = null;
         if (selectedSchemeId && productService?.id_entidad_relacionada_dueno) {
           try {
             const { getOrCreateProductClabe } = await import('@/utils/clabeReuseUtils');
-            clabeData = await getOrCreateProductClabe(
+            clabeResult = await getOrCreateProductClabe(
               propertyId,
               productId,
               productService.id_entidad_relacionada_dueno
             );
+            clabeData = clabeResult.clabe;
             console.log(`✅ CLABE obtenida para ${product.nombre}:`, clabeData);
           } catch (clabeError: any) {
             console.error(`Error generating CLABE for ${product.nombre}:`, clabeError);
@@ -903,6 +905,12 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             productName: product.nombre
           });
           console.log(`Created product offer for ${product.nombre} with ID ${createdProductOffer.id}`);
+          
+          // Limpiar CLABEs de ofertas fuente SOLO después de crear exitosamente
+          if (clabeResult && clabeResult.sourceOfferIds.length > 0) {
+            const { clearSourceOfferClabes } = await import('@/utils/clabeReuseUtils');
+            await clearSourceOfferClabes(clabeResult.sourceOfferIds);
+          }
         }
       }
 
