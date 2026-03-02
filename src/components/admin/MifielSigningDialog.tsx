@@ -44,16 +44,20 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
     };
 
     // Load the Mifiel CDN script if not already loaded
-    if (!scriptLoadedRef.current && !document.querySelector('script[src*="mifiel.com/widget"]')) {
+    const mifielEnv = import.meta.env.VITE_MIFIEL_ENVIRONMENT || 'sandbox';
+    const mifielHost = mifielEnv === 'production' ? 'app.mifiel.com' : 'app-sandbox.mifiel.com';
+    const scriptSrc = `https://${mifielHost}/sign-widget-assets/v3/index.js`;
+
+    if (!scriptLoadedRef.current && !document.querySelector(`script[src="${scriptSrc}"]`)) {
       const script = document.createElement('script');
-      const mifielEnv = import.meta.env.VITE_MIFIEL_ENVIRONMENT || 'sandbox';
-      const mifielHost = mifielEnv === 'production' ? 'app.mifiel.com' : 'app-sandbox.mifiel.com';
-      script.src = `https://${mifielHost}/sign-widget-assets/v3/index.js`;
+      script.src = scriptSrc;
       script.type = 'module';
       script.onload = () => {
         scriptLoadedRef.current = true;
-        // Small delay to let the custom element register
         setTimeout(loadWidget, 500);
+      };
+      script.onerror = () => {
+        console.error('Failed to load Mifiel widget script from:', scriptSrc);
       };
       document.head.appendChild(script);
     } else {
