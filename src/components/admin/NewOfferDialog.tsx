@@ -921,7 +921,8 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         leadName: data.nombre_completo,
         leadEmail: data.email,
         leadPhone: data.telefono,
-        productOffersResults
+        productOffersResults,
+        schemeId
       };
     },
     onSuccess: async (result) => {
@@ -942,6 +943,16 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         title: "Oferta creada",
         description: `La oferta para la propiedad ${propertyNumber} ha sido generada exitosamente.`,
       });
+
+      // Disclaimer: si no hay esquema de pago seleccionado, no se mostrará la sección de datos bancarios
+      if (!result.schemeId) {
+        toast({
+          title: "Aviso: Sin datos bancarios",
+          description: "La oferta se generó sin la sección de datos bancarios porque no se seleccionó un plan de pago.",
+          variant: "default",
+          duration: 8000,
+        });
+      }
 
       // Show product offers results
       if (result.productOffersResults.created > 0) {

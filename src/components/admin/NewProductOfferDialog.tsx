@@ -696,6 +696,16 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         description: "Oferta de producto/servicio generada correctamente. Descargando PDF...",
       });
 
+      // Disclaimer: si no hay esquema de pago seleccionado, no se mostrará la sección de datos bancarios
+      if (!schemeId) {
+        toast({
+          title: "Aviso: Sin datos bancarios",
+          description: "La oferta se generó sin la sección de datos bancarios porque no se seleccionó un plan de pago.",
+          variant: "default",
+          duration: 8000,
+        });
+      }
+
       // Generate PDF for the created offer
       try {
         const { generateOfferPDF } = await import('@/services/htmlToPdfService');

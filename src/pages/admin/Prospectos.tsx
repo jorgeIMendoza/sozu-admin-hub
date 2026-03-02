@@ -657,11 +657,11 @@ export default function Prospectos() {
         }
       }
 
-      // Determinar el id de persona a usar para entidades_relacionadas
-      const personaId = editingProspecto?.id ?? id;
+      // Usar el entidad_relacionada_id específico para evitar violar unique constraint
+      const entidadRelacionadaId = (editingProspecto as any)?.entidad_relacionada_id;
 
       // Actualizar proyecto del prospecto (cuando venga en el payload)
-      if (id_proyecto !== undefined && personaId) {
+      if (id_proyecto !== undefined && entidadRelacionadaId) {
         let proyectoValue: number | null;
         
         if (id_proyecto === null || id_proyecto === '' || id_proyecto === 'null' || id_proyecto === 'undefined') {
@@ -676,14 +676,13 @@ export default function Prospectos() {
         const { error: projectError } = await supabase
           .from('entidades_relacionadas')
           .update({ id_proyecto: proyectoValue })
-          .eq('id_persona', personaId)
-          .eq('id_tipo_entidad', 7); // Prospecto type
+          .eq('id', entidadRelacionadaId);
           
         if (projectError) throw projectError;
       }
 
       // Actualizar agente dueño del lead
-      if (id_persona_duena_lead !== undefined && personaId) {
+      if (id_persona_duena_lead !== undefined && entidadRelacionadaId) {
         let agenteValue: number | null = null;
 
         if (id_persona_duena_lead !== null && id_persona_duena_lead !== '' && id_persona_duena_lead !== 'undefined') {
@@ -698,8 +697,7 @@ export default function Prospectos() {
         const { error: agentError } = await supabase
           .from('entidades_relacionadas')
           .update({ id_persona_duena_lead: agenteValue })
-          .eq('id_persona', personaId)
-          .eq('id_tipo_entidad', 7);
+          .eq('id', entidadRelacionadaId);
         
         if (agentError) throw agentError;
       }
