@@ -52,7 +52,7 @@ async function shouldShowBankingForProperty(offerId: number): Promise<boolean> {
     if (oferta.id_propiedad) {
       const { data: propiedad } = await (supabase as any)
         .from('propiedades')
-        .select('clabe_stp_tmp_apartado, id_proyecto')
+        .select('clabe_stp_tmp_apartado, id_edificio_modelo')
         .eq('id', oferta.id_propiedad)
         .single();
 
@@ -62,35 +62,51 @@ async function shouldShowBankingForProperty(offerId: number): Promise<boolean> {
 
       if (hasClabe) return true;
 
-      // Si no tiene CLABE, verificar si el proyecto tiene sección efectivo habilitada
-      if (propiedad.id_proyecto) {
-        const { data: proyecto } = await (supabase as any)
-          .from('proyectos')
-          .select('mostrar_seccion_efectivo_en_oferta')
-          .eq('id', propiedad.id_proyecto)
+      // Si no tiene CLABE, buscar el proyecto a través de edificios_modelos → edificios → proyectos
+      if (propiedad.id_edificio_modelo) {
+        const { data: edModelo } = await (supabase as any)
+          .from('edificios_modelos')
+          .select('id_edificio')
+          .eq('id', propiedad.id_edificio_modelo)
           .single();
 
-        if (proyecto?.mostrar_seccion_efectivo_en_oferta) {
-          // Verificar si hay cuenta bancaria del dueño (ownerStpBankAccount)
-          const { data: duenos } = await (supabase as any)
-            .from('duenos_proyectos')
-            .select('id_persona')
-            .eq('id_proyecto', propiedad.id_proyecto)
-            .eq('activo', true)
-            .eq('id_tipo_dueno', 1)
-            .limit(1);
+        if (edModelo?.id_edificio) {
+          const { data: edificio } = await (supabase as any)
+            .from('edificios')
+            .select('id_proyecto')
+            .eq('id', edModelo.id_edificio)
+            .single();
 
-          if (duenos && duenos.length > 0) {
-            const { data: cuentas } = await (supabase as any)
-              .from('cuentas_bancarias')
-              .select('clabe_stp')
-              .eq('id_persona', duenos[0].id_persona)
-              .eq('activo', true)
-              .not('clabe_stp', 'is', null)
-              .limit(1);
+          if (edificio?.id_proyecto) {
+            const { data: proyecto } = await (supabase as any)
+              .from('proyectos')
+              .select('mostrar_seccion_efectivo_en_oferta')
+              .eq('id', edificio.id_proyecto)
+              .single();
 
-            if (cuentas && cuentas.length > 0 && cuentas[0].clabe_stp) {
-              return true;
+            if (proyecto?.mostrar_seccion_efectivo_en_oferta) {
+              // Verificar si hay cuenta bancaria del dueño (ownerStpBankAccount)
+              const { data: duenos } = await (supabase as any)
+                .from('duenos_proyectos')
+                .select('id_persona')
+                .eq('id_proyecto', edificio.id_proyecto)
+                .eq('activo', true)
+                .eq('id_tipo_dueno', 1)
+                .limit(1);
+
+              if (duenos && duenos.length > 0) {
+                const { data: cuentas } = await (supabase as any)
+                  .from('cuentas_bancarias')
+                  .select('clabe_stp')
+                  .eq('id_persona', duenos[0].id_persona)
+                  .eq('activo', true)
+                  .not('clabe_stp', 'is', null)
+                  .limit(1);
+
+                if (cuentas && cuentas.length > 0 && cuentas[0].clabe_stp) {
+                  return true;
+                }
+              }
             }
           }
         }
@@ -115,7 +131,7 @@ async function shouldShowBankingForProduct(offerId: number): Promise<boolean> {
   try {
     const { data: oferta } = await (supabase as any)
       .from('ofertas')
-      .select('id_esquema_pago_seleccionado, clabe_stp_tmp_producto, clabe_stp')
+      .select('id_esquema_pago_seleccionado, clabe_stp_tmp_producto')
       .eq('id', offerId)
       .single();
 
@@ -126,7 +142,7 @@ async function shouldShowBankingForProduct(offerId: number): Promise<boolean> {
       return false;
     }
 
-    const hasClabe = oferta.clabe_stp_tmp_producto || oferta.clabe_stp;
+    const hasClabe = !!oferta.clabe_stp_tmp_producto;
     if (hasClabe) return true;
 
     // Sin CLABE, verificar si hay cuenta de efectivo del dueño del producto
