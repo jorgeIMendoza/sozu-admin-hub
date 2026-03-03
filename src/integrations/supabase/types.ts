@@ -2448,6 +2448,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cartas_acuerdo: {
+        Row: {
+          activo: boolean | null
+          contenido_html: string
+          created_at: string | null
+          descripcion: string | null
+          firmantes_config: Json | null
+          id: string
+          nombre: string
+          requiere_validacion_biometrica: boolean | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          contenido_html?: string
+          created_at?: string | null
+          descripcion?: string | null
+          firmantes_config?: Json | null
+          id?: string
+          nombre: string
+          requiere_validacion_biometrica?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          contenido_html?: string
+          created_at?: string | null
+          descripcion?: string | null
+          firmantes_config?: Json | null
+          id?: string
+          nombre?: string
+          requiere_validacion_biometrica?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       categorias_producto: {
         Row: {
           activo: boolean
@@ -3960,6 +3999,7 @@ export type Database = {
       }
       firmas_digitales: {
         Row: {
+          carta_acuerdo_id: string | null
           created_at: string
           estado: string
           firmantes: Json
@@ -3973,6 +4013,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          carta_acuerdo_id?: string | null
           created_at?: string
           estado?: string
           firmantes?: Json
@@ -3986,6 +4027,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          carta_acuerdo_id?: string | null
           created_at?: string
           estado?: string
           firmantes?: Json
@@ -3998,7 +4040,15 @@ export type Database = {
           tipo_documento?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "firmas_digitales_carta_acuerdo_id_fkey"
+            columns: ["carta_acuerdo_id"]
+            isOneToOne: false
+            referencedRelation: "cartas_acuerdo"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       logs_actividad: {
         Row: {

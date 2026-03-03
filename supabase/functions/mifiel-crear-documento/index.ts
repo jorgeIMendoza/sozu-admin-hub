@@ -322,24 +322,54 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { agente_email, agente_nombre, agente_persona_id } = await req.json();
+    const { agente_email, agente_nombre, agente_persona_id, carta_acuerdo_id } = await req.json();
     if (!agente_email || !agente_nombre) {
       throw new Error("agente_email y agente_nombre son requeridos");
     }
 
-    // 1. Get the template + firmantes_config
-    const { data: templateData, error: templateErr } = await supabase
-      .from("carta_acuerdos_template")
-      .select("contenido_html, firmantes_config")
-      .order("id")
-      .limit(1)
-      .single();
+    // 1. Get the template + firmantes_config from cartas_acuerdo (new table) or fallback
+    let templateData: any = null;
+    if (carta_acuerdo_id) {
+      const { data, error } = await supabase
+        .from("cartas_acuerdo")
+        .select("contenido_html, firmantes_config, requiere_validacion_biometrica")
+        .eq("id", carta_acuerdo_id)
+        .single();
+      if (error) throw new Error("No se encontró la carta de acuerdo: " + error.message);
+      templateData = data;
+    } else {
+      // Fallback: use first active carta from new table
+      const { data, error } = await supabase
+        .from("cartas_acuerdo")
+        .select("id, contenido_html, firmantes_config, requiere_validacion_biometrica")
+        .eq("activo", true)
+        .order("created_at")
+        .limit(1)
+        .single();
+      if (error || !data) {
+        // Last resort: old table
+        const { data: oldData, error: oldErr } = await supabase
+          .from("carta_acuerdos_template")
+          .select("contenido_html, firmantes_config")
+          .order("id")
+          .limit(1)
+          .single();
+        if (oldErr || !oldData?.contenido_html) {
+          throw new Error("No se encontró el template de carta de acuerdos");
+        }
+        templateData = { ...oldData, requiere_validacion_biometrica: false };
+      } else {
+        templateData = data;
+      }
+    }
 
-    if (templateErr || !templateData?.contenido_html) {
+    if (!templateData?.contenido_html) {
       throw new Error("No se encontró el template de carta de acuerdos");
     }
 
+    const usedCartaId = carta_acuerdo_id || templateData.id || null;
     const firmantesConfig: { name: string; email: string; cargo?: string }[] = templateData.firmantes_config || [];
+    const requiereBiometrica: boolean = templateData.requiere_validacion_biometrica || false;
 
     // 2. Replace placeholders
     const now = new Date();
@@ -410,7 +440,7 @@ serve(async (req) => {
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
     formData.append("file", blob, "carta-acuerdos.pdf");
 
-    const preferredSignatureMethods = ["FESSV"]; // firma simple sin verificación (compatible con Sandbox)
+    const preferredSignatureMethods = requiereBiometrica ? ["FESCV"] : ["FESSV"];
     signatories.forEach((s, i) => {
       formData.append(`signatories[${i}][name]`, s.name);
       formData.append(`signatories[${i}][email]`, s.email);
@@ -456,6 +486,7 @@ serve(async (req) => {
     const { error: insertErr } = await supabase.from("firmas_digitales").insert({
       tipo_documento: "carta_acuerdos",
       referencia_id: agente_persona_id || null,
+      carta_acuerdo_id: usedCartaId,
       mifiel_document_id: mifielDoc.id,
       estado: "enviado",
       firmantes,
