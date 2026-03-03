@@ -66,6 +66,7 @@ export default function ConfiguracionCitas() {
   const [maxInvitados, setMaxInvitados] = useState<number>(1);
   const [selectedProyectoIds, setSelectedProyectoIds] = useState<number[]>([]);
   const [correosEnterado, setCorreosEnterado] = useState<string[]>([]);
+  const [correosEnteradoFijos, setCorreosEnteradoFijos] = useState<string[]>([]);
   const [roundRobinEnterados, setRoundRobinEnterados] = useState(false);
   const [descripcionInvitacion, setDescripcionInvitacion] = useState<string>("");
   const [nuevoCorreo, setNuevoCorreo] = useState("");
@@ -283,6 +284,7 @@ export default function ConfiguracionCitas() {
       setCalendarioEmail(selectedConfig.calendario_email || "");
       setMaxInvitados(selectedConfig.max_invitados || 1);
       setCorreosEnterado(selectedConfig.correos_enterado || []);
+      setCorreosEnteradoFijos((selectedConfig as any).correos_enterado_fijos || []);
       setRoundRobinEnterados((selectedConfig as any).round_robin_enterados || false);
       setDescripcionInvitacion(selectedConfig.descripcion_invitacion || "");
       setFechaFinRecurrencia(
@@ -295,6 +297,7 @@ export default function ConfiguracionCitas() {
       setCalendarioEmail("");
       setMaxInvitados(1);
       setCorreosEnterado([]);
+      setCorreosEnteradoFijos([]);
       setRoundRobinEnterados(false);
       setDescripcionInvitacion("");
       setFechaFinRecurrencia(addMonths(new Date(), 3));
@@ -357,13 +360,26 @@ export default function ConfiguracionCitas() {
     const email = nuevoCorreo.trim().toLowerCase();
     if (!email || !email.includes("@")) { toast.error("Ingresa un correo válido"); return; }
     if (correosEnterado.includes(email)) { toast.error("Este correo ya fue agregado"); return; }
-    setCorreosEnterado((prev) => [...prev, email]);
+    const newList = [...correosEnterado, email];
+    setCorreosEnterado(newList);
+    // If it's the only email, auto-mark as fijo
+    if (newList.length === 1) {
+      setCorreosEnteradoFijos([email]);
+    }
     setNuevoCorreo("");
     setHasChanges(true);
   };
 
   const removeCorreo = (email: string) => {
     setCorreosEnterado((prev) => prev.filter((c) => c !== email));
+    setCorreosEnteradoFijos((prev) => prev.filter((c) => c !== email));
+    setHasChanges(true);
+  };
+
+  const toggleCorreoFijo = (email: string) => {
+    setCorreosEnteradoFijos((prev) =>
+      prev.includes(email) ? prev.filter((c) => c !== email) : [...prev, email]
+    );
     setHasChanges(true);
   };
 
@@ -436,6 +452,7 @@ export default function ConfiguracionCitas() {
           calendario_email: calendarioEmail || null,
           max_invitados: maxInvitados,
           correos_enterado: correosEnterado,
+          correos_enterado_fijos: correosEnteradoFijos,
           round_robin_enterados: roundRobinEnterados,
           descripcion_invitacion: descripcionInvitacion || null,
           fecha_fin_recurrencia: fechaFinRecurrencia
@@ -876,29 +893,55 @@ export default function ConfiguracionCitas() {
                               </Button>
                             </div>
                             {correosEnterado.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-1">
-                                {correosEnterado.map((email) => (
-                                  <Badge key={email} variant="secondary" className="text-xs gap-1.5 px-2.5 py-1">
-                                    {email}
-                                    <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => removeCorreo(email)} />
-                                  </Badge>
-                                ))}
-                          {correosEnterado.length >= 2 && (
-                              <div className="flex items-center gap-2 mt-2">
-                                <Checkbox
-                                  id="round-robin"
-                                  checked={roundRobinEnterados}
-                                  onCheckedChange={(checked) => { setRoundRobinEnterados(!!checked); setHasChanges(true); }}
-                                />
-                                <Label htmlFor="round-robin" className="text-sm font-normal cursor-pointer">
-                                  Round Robin
-                                </Label>
-                                <p className="text-xs text-muted-foreground ml-1">
-                                  Rotar correos: cada evento tendrá solo uno de los enterados, alternando en orden
-                                </p>
+                              <div className="space-y-2 mt-1">
+                                <div className="flex flex-wrap gap-1.5">
+                                  {correosEnterado.map((email) => {
+                                    const isFijo = correosEnteradoFijos.includes(email);
+                                    const autoFijo = correosEnterado.length === 1;
+                                    return (
+                                      <Badge
+                                        key={email}
+                                        variant="secondary"
+                                        className={cn(
+                                          "text-xs gap-1.5 px-2.5 py-1 cursor-pointer select-none transition-colors border",
+                                          (isFijo || autoFijo)
+                                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700"
+                                            : "hover:bg-muted"
+                                        )}
+                                        onClick={() => { if (!autoFijo) toggleCorreoFijo(email); }}
+                                      >
+                                        {(isFijo || autoFijo) && <Check className="h-3 w-3" />}
+                                        {email}
+                                        <X
+                                          className="h-3 w-3 cursor-pointer hover:text-destructive"
+                                          onClick={(e) => { e.stopPropagation(); removeCorreo(email); }}
+                                        />
+                                      </Badge>
+                                    );
+                                  })}
+                                </div>
+                                {correosEnterado.length >= 2 && (
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <Check className="h-3 w-3 text-emerald-600" />
+                                    Haz clic en un correo para marcarlo como <strong>siempre enterado</strong>. Los correos seleccionados (verde) recibirán siempre la invitación, sin importar el Round Robin.
+                                  </p>
+                                )}
+                                {correosEnterado.length >= 2 && (
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      id="round-robin"
+                                      checked={roundRobinEnterados}
+                                      onCheckedChange={(checked) => { setRoundRobinEnterados(!!checked); setHasChanges(true); }}
+                                    />
+                                    <Label htmlFor="round-robin" className="text-sm font-normal cursor-pointer">
+                                      Round Robin
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground ml-1">
+                                      Rotar correos: cada evento tendrá solo uno de los enterados no fijos, alternando en orden
+                                    </p>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
                             )}
                           </div>
 

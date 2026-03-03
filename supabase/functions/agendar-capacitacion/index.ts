@@ -1199,7 +1199,7 @@ Deno.serve(async (req) => {
     if (config_id) {
       const { data: cfgData } = await supabase
         .from("configuracion_citas_usuarios")
-        .select("id_usuario_email, calendario_email, duracion_minutos, correos_enterado, descripcion_invitacion, max_invitados, nombre, round_robin_enterados, round_robin_index")
+        .select("id_usuario_email, calendario_email, duracion_minutos, correos_enterado, correos_enterado_fijos, descripcion_invitacion, max_invitados, nombre, round_robin_enterados, round_robin_index")
         .eq("id", config_id)
         .eq("activo", true)
         .maybeSingle();
@@ -1212,18 +1212,27 @@ Deno.serve(async (req) => {
         scheduleDescInv = cfgData.descripcion_invitacion || "";
         scheduleCitaNombre = cfgData.nombre || "";
 
-        // Round Robin: pick only one correo and advance the index
+        // Round Robin: pick only one correo from non-fixed ones, always include fixed ones
+        const correosFijos: string[] = cfgData.correos_enterado_fijos || [];
         if (cfgData.round_robin_enterados && scheduleCorrEnt.length >= 2) {
-          const rrIndex = (cfgData.round_robin_index || 0) % scheduleCorrEnt.length;
-          const selectedCorreo = scheduleCorrEnt[rrIndex];
-          console.log(`[schedule] Round Robin: picking correo ${rrIndex} = ${selectedCorreo} from ${scheduleCorrEnt.length} enterados`);
-          scheduleCorrEnt = [selectedCorreo];
-          // Advance the index for next time
-          const nextIndex = (rrIndex + 1) % cfgData.correos_enterado.length;
-          await supabase
-            .from("configuracion_citas_usuarios")
-            .update({ round_robin_index: nextIndex } as any)
-            .eq("id", config_id);
+          const correosRotables = scheduleCorrEnt.filter((c: string) => !correosFijos.includes(c));
+          if (correosRotables.length >= 2) {
+            const rrIndex = (cfgData.round_robin_index || 0) % correosRotables.length;
+            const selectedCorreo = correosRotables[rrIndex];
+            console.log(`[schedule] Round Robin: picking correo ${rrIndex} = ${selectedCorreo} from ${correosRotables.length} rotables (${correosFijos.length} fijos siempre incluidos)`);
+            scheduleCorrEnt = [...correosFijos, selectedCorreo];
+            const nextIndex = (rrIndex + 1) % correosRotables.length;
+            await supabase
+              .from("configuracion_citas_usuarios")
+              .update({ round_robin_index: nextIndex } as any)
+              .eq("id", config_id);
+          } else if (correosRotables.length === 1) {
+            // Only 1 rotable + fijos = include all
+            scheduleCorrEnt = [...new Set([...correosFijos, ...correosRotables])];
+          } else {
+            // All are fixed, include all
+            scheduleCorrEnt = [...correosFijos];
+          }
         }
       }
     } else if (userCitaConfig) {

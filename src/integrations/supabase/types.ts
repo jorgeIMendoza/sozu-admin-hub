@@ -2853,6 +2853,7 @@ export type Database = {
           activo: boolean
           calendario_email: string | null
           correos_enterado: string[] | null
+          correos_enterado_fijos: string[] | null
           descripcion_invitacion: string | null
           duracion_minutos: number
           fecha_actualizacion: string
@@ -2870,6 +2871,7 @@ export type Database = {
           activo?: boolean
           calendario_email?: string | null
           correos_enterado?: string[] | null
+          correos_enterado_fijos?: string[] | null
           descripcion_invitacion?: string | null
           duracion_minutos?: number
           fecha_actualizacion?: string
@@ -2887,6 +2889,7 @@ export type Database = {
           activo?: boolean
           calendario_email?: string | null
           correos_enterado?: string[] | null
+          correos_enterado_fijos?: string[] | null
           descripcion_invitacion?: string | null
           duracion_minutos?: number
           fecha_actualizacion?: string
