@@ -169,6 +169,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
     }
     setSyncing(true);
     let removed = 0;
+    let updated = 0;
     try {
       for (const firma of toCheck) {
         try {
@@ -179,6 +180,15 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
           if (notFound) {
             await (supabase as any).from("firmas_digitales").delete().eq("id", firma.id);
             removed++;
+          } else if (data?.document?.signers) {
+            // Update firmantes with signed status from Mifiel
+            const mifielSigners = data.document.signers as any[];
+            const updatedFirmantes = (firma.firmantes || []).map((f: any) => {
+              const mifielSigner = mifielSigners.find((s: any) => s.email?.toLowerCase() === f.email?.toLowerCase());
+              return { ...f, signed: mifielSigner?.signed ?? f.signed ?? false };
+            });
+            await (supabase as any).from("firmas_digitales").update({ firmantes: updatedFirmantes }).eq("id", firma.id);
+            updated++;
           }
         } catch {
           // skip individual errors
@@ -188,7 +198,11 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
       queryClient.invalidateQueries({ queryKey: ["cartas-acuerdo-firma-counts"] });
       toast({
         title: removed > 0 ? `🗑️ ${removed} firma(s) eliminada(s)` : "✅ Todo sincronizado",
-        description: removed > 0 ? "Se eliminaron firmas que ya no existen en Mifiel." : "Todas las firmas están al día.",
+        description: removed > 0
+          ? "Se eliminaron firmas que ya no existen en Mifiel."
+          : updated > 0
+            ? `Se actualizó el estado de firma de ${updated} documento(s).`
+            : "Todas las firmas están al día.",
       });
     } finally {
       setSyncing(false);
@@ -443,10 +457,16 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                             <div className="space-y-1">
                               {(firma.firmantes || []).map((f: any, i: number) => {
                                 const canSign = !!f.widget_id && firma.estado !== "completado";
+                                const hasSigned = f.signed === true;
                                 return (
                                   <div key={i} className="flex items-center gap-2">
+                                    {hasSigned ? (
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                                    ) : (
+                                      <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                    )}
                                     <div className="text-xs">
-                                      <span className="font-medium">{f.name}</span>
+                                      <span className={`font-medium ${hasSigned ? "text-green-700" : ""}`}>{f.name}</span>
                                       {f.email && (
                                         <button
                                           type="button"
@@ -460,8 +480,9 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                                           ({f.email})
                                         </button>
                                       )}
+                                      {hasSigned && <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 border-green-300 text-green-700">Firmado</Badge>}
                                     </div>
-                                    {canSign && (
+                                    {canSign && !hasSigned && (
                                       <Button variant="outline" size="sm" className="h-6 text-xs px-2" onClick={() => openSigningWidget(f.widget_id)}>
                                         <PenTool className="h-3 w-3 mr-1" />
                                         Firmar
