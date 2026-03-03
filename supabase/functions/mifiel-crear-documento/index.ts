@@ -339,7 +339,7 @@ serve(async (req) => {
       throw new Error("No se encontró el template de carta de acuerdos");
     }
 
-    const firmantesConfig: { name: string; email: string }[] = templateData.firmantes_config || [];
+    const firmantesConfig: { name: string; email: string; cargo?: string }[] = templateData.firmantes_config || [];
 
     // 2. Replace placeholders
     const now = new Date();
@@ -359,6 +359,7 @@ serve(async (req) => {
     let html = templateData.contenido_html;
     const values: Record<string, string> = {
       nombre_agente: agente_nombre,
+      rfc_agente: "", // Will be filled if provided
       fecha_actual: fechaActual,
       fecha_fin: fechaFinStr,
     };
@@ -368,13 +369,37 @@ serve(async (req) => {
       (_match: string, key: string) => values[key] || `[${key}]`
     );
 
-    // 3. Generate rich PDF from HTML
+    // 3. Auto-generate signature blocks from firmantes_config + agent
+    let firmaBlocksHtml = '<br><hr><h3>Firmas</h3>';
+    
+    // Add configured firmantes blocks
+    for (const f of firmantesConfig) {
+      firmaBlocksHtml += `
+        <p><strong>${f.name}</strong><br>
+        Cargo: ${f.cargo || ''}<br>
+        Firma: ___________________________<br>
+        Fecha: ${fechaActual}</p>
+      `;
+    }
+    
+    // Add agent block
+    firmaBlocksHtml += `
+      <p><strong>EL AGENTE</strong><br>
+      Nombre/Razón Social: ${agente_nombre}<br>
+      RFC: ${values.rfc_agente || '[rfc_agente]'}<br>
+      Firma: ___________________________<br>
+      Fecha: ${fechaActual}</p>
+    `;
+
+    html += firmaBlocksHtml;
+
+    // 4. Generate rich PDF from HTML
     const blocks = parseHtmlToBlocks(html);
     const pdfBytes = await renderBlocksToPdf(blocks);
 
-    // 4. Build signatories: configured firmantes + agent
+    // 5. Build signatories: configured firmantes + agent
     const signatories: { name: string; email: string }[] = [
-      ...firmantesConfig,
+      ...firmantesConfig.map(f => ({ name: f.name, email: f.email })),
       { name: agente_nombre, email: agente_email },
     ];
 

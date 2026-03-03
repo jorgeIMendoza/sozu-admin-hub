@@ -31,6 +31,7 @@ const ESTADO_CONFIG: Record<string, { label: string; variant: "default" | "secon
 interface Firmante {
   name: string;
   email: string;
+  cargo: string;
 }
 
 export default function CartaAcuerdos() {
@@ -43,6 +44,7 @@ export default function CartaAcuerdos() {
   const [firmantesLoaded, setFirmantesLoaded] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newCargo, setNewCargo] = useState("");
 
   // Mifiel signing dialog state
   const [signingOpen, setSigningOpen] = useState(false);
@@ -107,13 +109,14 @@ export default function CartaAcuerdos() {
   const currentHtml = editorHtml ?? template?.contenido_html ?? "";
 
   const addFirmante = () => {
-    if (!newName.trim() || !newEmail.trim()) {
-      toast({ title: "Completa nombre y correo", variant: "destructive" });
+    if (!newName.trim() || !newEmail.trim() || !newCargo.trim()) {
+      toast({ title: "Completa nombre, cargo y correo", variant: "destructive" });
       return;
     }
-    setFirmantes([...firmantes, { name: newName.trim(), email: newEmail.trim() }]);
+    setFirmantes([...firmantes, { name: newName.trim(), email: newEmail.trim(), cargo: newCargo.trim() }]);
     setNewName("");
     setNewEmail("");
+    setNewCargo("");
   };
 
   const removeFirmante = (index: number) => {
@@ -204,6 +207,7 @@ export default function CartaAcuerdos() {
                 <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{f.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{f.cargo}</p>
                     <p className="text-xs text-muted-foreground truncate">{f.email}</p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => removeFirmante(i)} className="shrink-0">
@@ -213,27 +217,38 @@ export default function CartaAcuerdos() {
               ))}
 
               {/* Add firmante form */}
-              <div className="flex items-end gap-2 pt-2 border-t">
-                <div className="flex-1">
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Nombre</label>
-                  <Input
-                    placeholder="Nombre completo"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                  />
+              <div className="space-y-2 pt-2 border-t">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Nombre</label>
+                    <Input
+                      placeholder="Nombre completo"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Cargo</label>
+                    <Input
+                      placeholder="Director Comercial"
+                      value={newCargo}
+                      onChange={(e) => setNewCargo(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Correo</label>
+                    <Input
+                      placeholder="correo@empresa.com"
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addFirmante()}
+                    />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Correo</label>
-                  <Input
-                    placeholder="correo@empresa.com"
-                    type="email"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addFirmante()}
-                  />
-                </div>
-                <Button onClick={addFirmante} size="icon" variant="outline" className="shrink-0">
-                  <Plus className="h-4 w-4" />
+                <Button onClick={addFirmante} size="sm" variant="outline" className="w-full">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Agregar firmante
                 </Button>
               </div>
 
