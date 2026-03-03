@@ -315,12 +315,17 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
       const remoteCancelledStates = new Set(['deleted', 'canceled', 'cancelled', 'void', 'voided', 'expired', 'rejected']);
       const remoteCompletedStates = new Set(['completed', 'signed']);
 
+      // Check if the agent has already signed
+      const mifielSigners = mifielData.document?.signers || mifielData.document?.signatories || [];
+      const agentSigner = mifielSigners.find((s: any) => s.email === personaForMifiel?.email);
+      const agentAlreadySigned = agentSigner?.signed === true || agentSigner?.current === false;
+
       if (remoteCancelledStates.has(remoteState) && data.estado !== 'cancelado') {
         await (supabase as any)
           .from('firmas_digitales')
           .update({ estado: 'cancelado' })
           .eq('id', data.id);
-        return { ...data, estado: 'cancelado' };
+        return { ...data, estado: 'cancelado', agentAlreadySigned };
       }
 
       if (remoteCompletedStates.has(remoteState) && data.estado !== 'completado') {
@@ -328,10 +333,10 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           .from('firmas_digitales')
           .update({ estado: 'completado' })
           .eq('id', data.id);
-        return { ...data, estado: 'completado' };
+        return { ...data, estado: 'completado', agentAlreadySigned };
       }
 
-      return data;
+      return { ...data, agentAlreadySigned };
     },
     enabled: activeDocTypes.includes(48),
     refetchInterval: 30000,
@@ -1081,11 +1086,15 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           const firmaEstado = firmaExistente?.estado;
           const firmaCompletada = firmaEstado === 'completado';
           const firmaEnProgreso = firmaEstado === 'enviado' || firmaEstado === 'firmado_parcial';
+          const agentAlreadySigned = !!firmaExistente?.agentAlreadySigned;
+          const pendienteContraparte = firmaEnProgreso && agentAlreadySigned;
           const pdfUrl = firmaExistente?.pdf_firmado_url;
 
           // Determine status display for firma
           const firmaStatus = firmaCompletada
             ? { label: 'Firmado', color: 'text-emerald-600', bg: 'bg-emerald-500/10', icon: CheckCircle2 }
+            : pendienteContraparte
+            ? { label: 'Pendiente contraparte', color: 'text-blue-600', bg: 'bg-blue-500/10', icon: Clock }
             : firmaEnProgreso
             ? { label: firmaEstado === 'firmado_parcial' ? 'Firma parcial' : 'Enviado', color: 'text-amber-600', bg: 'bg-amber-500/10', icon: Clock }
             : isValidated
@@ -1162,12 +1171,27 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={handleContinuarFirma}
-                      disabled={syncingFirma}
-                      className="flex-1 h-10 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
+                      onClick={pendienteContraparte ? undefined : handleContinuarFirma}
+                      disabled={syncingFirma || pendienteContraparte}
+                      className={cn(
+                        "flex-1 h-10 rounded-2xl shadow-md font-semibold text-xs gap-1.5",
+                        pendienteContraparte
+                          ? "opacity-70 cursor-not-allowed"
+                          : "hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                      )}
                     >
-                      {syncingFirma ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                      {syncingFirma ? 'Sincronizando...' : 'Continuar firma'}
+                      {syncingFirma ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : pendienteContraparte ? (
+                        <Clock className="h-3.5 w-3.5" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" />
+                      )}
+                      {syncingFirma
+                        ? 'Sincronizando...'
+                        : pendienteContraparte
+                        ? 'Pendiente firma SOZU'
+                        : 'Continuar firma'}
                     </Button>
                   )}
 

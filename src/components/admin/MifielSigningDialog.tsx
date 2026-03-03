@@ -65,8 +65,8 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
   }, [open, widgetId, onSuccess, onError]);
 
   const content = (
-    <div className="min-h-[400px] flex flex-col">
-      <div ref={containerRef} className="flex-1 min-h-[350px] flex items-center justify-center">
+    <div className="min-h-[70vh] flex flex-col">
+      <div ref={containerRef} className="flex-1 min-h-[65vh] flex items-center justify-center [&>mifiel-widget]:w-full [&>mifiel-widget]:h-full [&>mifiel-widget]:min-h-[65vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Cargando firma digital...</p>
@@ -93,7 +93,7 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Firma Digital</DialogTitle>
           <DialogDescription>Firma la Carta de Acuerdos de forma electrónica</DialogDescription>
