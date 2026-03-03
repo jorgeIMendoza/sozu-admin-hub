@@ -1,31 +1,36 @@
 
 
-## Plan: Sincronizar firmas con Mifiel y renombrar/editar cartas
+## Plan: Forzar firma biométrica sin mostrar opciones
 
-### Problema 1: Firmas eliminadas en Mifiel siguen apareciendo
-Las firmas en la tabla `firmas_digitales` no se sincronizan cuando se eliminan documentos directamente desde Mifiel. Se necesita verificar el estado real contra Mifiel y limpiar las que ya no existen.
+### Hallazgo clave
+La documentación de Mifiel (sección "Actualizar participante") especifica los valores válidos para `allowed_signature_methods`:
+- **FEA** — Firma Electrónica Avanzada (e.firma/FIEL)
+- **FESCV** — Firma Electrónica con verificación biométrica (con validación de identidad)
+- **FESSV** — Firma Electrónica Simple sin validación
 
-**Solución**: Agregar un botón "Sincronizar con Mifiel" en la pestaña de Firmas que consulte cada firma con `mifiel_document_id` contra la edge function `mifiel-consultar-documento`. Si Mifiel retorna un error 404 (documento no existe), marcar la firma como "cancelado" o eliminarla de la base de datos.
+El código actual usa `"efirma"` que no es un valor válido de la API. Además, cuando `requiereBiometrica` es `true`, omite el parámetro por completo, lo que hace que Mifiel muestre TODAS las opciones disponibles en lugar de forzar solo la biométrica.
 
-**Cambios en `CartaAcuerdoDetalle.tsx`**:
-- Agregar botón "Sincronizar" en el header de la pestaña Firmas
-- Implementar lógica que itere las firmas con estado != "cancelado" y != "completado", consulte Mifiel, y si el documento no existe (404/error), actualice el estado a "cancelado" o elimine el registro
-- Mostrar feedback de progreso y resultado
+### Cambio requerido
 
-### Problema 2: Nombre del menú y título editable
-En la imagen 2 se ve "Carta de Cumplimiento" como título. El nombre viene de la tabla `cartas_acuerdo.nombre` y se muestra en `CartaAcuerdoDetalle` como `{cartaNombre}`.
+**Archivo**: `supabase/functions/mifiel-crear-documento/index.ts` (líneas 443-455)
 
-**Solución**: Hacer el título editable inline.
+Cambiar la lógica para:
+- Cuando `requiereBiometrica = true` → enviar `allowed_signature_methods = ["FESCV"]` (solo biométrica, sin opciones)
+- Cuando `requiereBiometrica = false` → enviar `allowed_signature_methods = ["FEA"]` (solo e.firma, valor correcto)
 
-**Cambios en `CartaAcuerdoDetalle.tsx`**:
-- Reemplazar el título estático `{cartaNombre}` por un campo editable (click para editar o input inline)
-- Al cambiar el nombre, actualizar `cartas_acuerdo.nombre` en Supabase e invalidar queries
+```typescript
+signatories.forEach((s, i) => {
+  formData.append(`signatories[${i}][name]`, s.name);
+  formData.append(`signatories[${i}][email]`, s.email);
+  if (requiereBiometrica) {
+    // Force biometric only - no choice screen
+    formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FESCV");
+  } else {
+    // e.firma only
+    formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FEA");
+  }
+});
+```
 
-**Cambios en `CartaAcuerdos.tsx`** (página principal):
-- El título principal ya dice "Cartas de Acuerdo" correctamente
-- Verificar que el menú lateral también diga "Cartas de Acuerdo" (esto depende de la configuración de menús dinámicos en la BD, se le indicará al usuario si necesita actualizarlo manualmente)
-
-### Resumen de archivos a modificar
-1. **`src/components/admin/CartaAcuerdoDetalle.tsx`** — Agregar sincronización con Mifiel + título editable inline
-2. **`src/pages/admin/legal/CartaAcuerdos.tsx`** — Asegurar título correcto "Cartas de Acuerdo"
+Esto hará que Mifiel vaya directamente al flujo biométrico sin mostrar la pantalla de selección de método. Requiere redesplegar la edge function después del cambio.
 
