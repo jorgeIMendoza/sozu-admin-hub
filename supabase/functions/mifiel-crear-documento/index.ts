@@ -446,12 +446,13 @@ serve(async (req) => {
     signatories.forEach((s, i) => {
       formData.append(`signatories[${i}][name]`, s.name);
       formData.append(`signatories[${i}][email]`, s.email);
-      if (!requiereBiometrica) {
-        // Restrict to only simple signature (no biometric)
-        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "efirma");
+      if (requiereBiometrica) {
+        // Force biometric only - no choice screen
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FESCV");
+      } else {
+        // e.firma only
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FEA");
       }
-      // If requiereBiometrica is true, we omit allowed_signature_methods
-      // so Mifiel shows ALL enabled methods (including biometric/FESCV)
     });
 
     formData.append("send_invites", "true");
