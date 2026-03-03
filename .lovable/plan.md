@@ -1,70 +1,114 @@
 
 
-# Centralizar URL de Mifiel en variable de entorno
+## Plan: Firmantes configurables + PDF enriquecido + Firma autografa del agente
 
-## Problema
+### Resumen
 
-La URL `https://app-sandbox.mifiel.com/api/v1` esta hardcodeada en 3 edge functions:
-- `mifiel-crear-documento`
-- `mifiel-consultar-documento`
-- `mifiel-webhook`
+Eliminar todos los firmantes hardcodeados (incluyendo Rodrigo). Los firmantes se configuran desde la UI de Legal > Carta de Acuerdos y se guardan en la base de datos. Cuando el agente firma autografamente desde su portal, su firma queda registrada inmediatamente (estado "firmado_parcial") y los demas firmantes configurados reciben un correo de Mifiel para firmar cuando gusten (desde la seccion Firmas o desde su correo).
 
-Cuando se pase a produccion, habria que editar las 3 funciones manualmente.
+### Flujo completo
 
-## Solucion
+1. Admin configura firmantes en Legal > Carta de Acuerdos (ej: Rodrigo, Director Legal, etc.)
+2. Agente abre su portal > Perfil > Identidad > Documentos > "Firmar carta"
+3. Se crea el documento en Mifiel con todos los firmantes (los configurados + el agente)
+4. El agente firma autografamente con el widget embebido (garabato)
+5. Al firmar, Mifiel envia correos a los demas firmantes y el webhook actualiza estado a "firmado_parcial"
+6. Los otros firmantes pueden firmar desde su correo o desde la seccion Legal > Firmas (con un boton "Firmar" que abre el widget con su widget_id)
+7. Cuando todos firman, el webhook marca "completado" y genera el documento tipo 48
 
-Crear un secret `MIFIEL_API_URL` en Supabase con el valor actual (`https://app-sandbox.mifiel.com/api/v1`) y reemplazar la constante hardcodeada en las 3 funciones por `Deno.env.get("MIFIEL_API_URL")`.
+---
 
-Tambien aplica para el widget CDN en el frontend (`MifielSigningDialog.tsx`), que usa `https://app-sandbox.mifiel.com/sign-widget-assets/v3/index.js`. Para el frontend se usara una variable `VITE_MIFIEL_ENVIRONMENT` (valor: `sandbox` o `production`) que determine la URL del widget.
+### Cambios en base de datos
 
-## Cambios
+**Agregar columna `firmantes_config` a `carta_acuerdos_template`:**
 
-### 1. Agregar secret MIFIEL_API_URL en Supabase
-
-Valor: `https://app-sandbox.mifiel.com/api/v1`
-
-### 2. Actualizar edge functions (3 archivos)
-
-En cada una, reemplazar:
-```typescript
-const MIFIEL_API_URL = "https://app-sandbox.mifiel.com/api/v1";
-```
-Por:
-```typescript
-const MIFIEL_API_URL = Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1";
+```text
+ALTER TABLE carta_acuerdos_template
+ADD COLUMN firmantes_config JSONB DEFAULT '[]'::jsonb;
 ```
 
-Archivos:
-- `supabase/functions/mifiel-crear-documento/index.ts`
-- `supabase/functions/mifiel-consultar-documento/index.ts`
-- `supabase/functions/mifiel-webhook/index.ts` (la URL inline en el fetch del PDF tambien usara la variable)
-
-### 3. Actualizar frontend widget URL
-
-**Archivo:** `src/components/admin/MifielSigningDialog.tsx`
-
-Agregar variable de entorno `VITE_MIFIEL_ENVIRONMENT` a los archivos `.env`:
-- Valor: `sandbox` (desarrollo) o `production` (produccion)
-
-En el componente, construir la URL del widget dinamicamente:
-```typescript
-const mifielEnv = import.meta.env.VITE_MIFIEL_ENVIRONMENT || 'sandbox';
-const mifielHost = mifielEnv === 'production' ? 'app.mifiel.com' : 'app-sandbox.mifiel.com';
-const widgetUrl = `https://${mifielHost}/sign-widget-assets/v3/index.js`;
+Estructura del campo:
+```text
+[
+  { "name": "Rodrigo Terveen", "email": "rodrigo.terveen@sozu.com" },
+  { "name": "Otro Director", "email": "otro@empresa.com" }
+]
 ```
 
-### 4. Actualizar archivos .env
+---
 
-Agregar `VITE_MIFIEL_ENVIRONMENT=sandbox` a:
-- `.env`
-- `.env.development`
-- `.env.production` (cambiar a `production` cuando sea el momento)
-- `.env.example`
+### Cambios en archivos
 
-## Beneficio
+#### 1. `src/pages/admin/legal/CartaAcuerdos.tsx`
 
-Para cambiar de sandbox a produccion solo se necesita:
-1. Cambiar el secret `MIFIEL_API_URL` en Supabase Dashboard
-2. Cambiar `VITE_MIFIEL_ENVIRONMENT` a `production` en `.env.production`
+- Agregar una tercera pestania "Firmantes" (o seccion dentro del editor)
+- UI para CRUD de firmantes: lista con nombre + email, boton agregar, boton eliminar
+- El agente NO aparece aqui (es dinamico, se agrega automaticamente al crear el documento)
+- Indicador visual de que el agente se agrega automaticamente
+- Guardar `firmantes_config` junto con el template al hacer clic en "Guardar"
+- En la pestania "Firmas": agregar boton "Firmar" para firmantes pendientes que tengan widget_id, abriendo el MifielSigningDialog
 
-Sin tocar codigo.
+#### 2. `supabase/functions/mifiel-crear-documento/index.ts`
+
+- Eliminar constantes hardcodeadas `SOZU_SIGNER_EMAIL` y `SOZU_SIGNER_NAME`
+- Leer `firmantes_config` de la tabla `carta_acuerdos_template` junto con `contenido_html`
+- Construir la lista de firmantes dinamicamente: firmantes_config + agente
+- Enviar `send_invites: true` para que los firmantes fijos reciban correo inmediatamente
+- **Mejorar parser HTML-to-PDF** para preservar formato:
+  - `<strong>` / `<b>`: usar HelveticaBold
+  - `<h1>`-`<h3>`: tamanio de fuente mayor + bold
+  - `<ol>` / `<ul>` / `<li>`: listas con numeracion o vinetas
+  - `<p>`, `<br>`: saltos de parrafo y linea
+  - Preservar espaciado y margenes
+
+#### 3. `supabase/functions/mifiel-webhook/index.ts`
+
+- Sin cambios mayores. Ya maneja `firmado_parcial` y `completado` correctamente.
+- El estado "firmado_parcial" se activa cuando el agente firma pero los demas no han firmado aun.
+
+#### 4. `src/components/admin/AgentOnboardingStepDialog.tsx`
+
+- Sin cambios en el flujo del agente. El agente sigue viendo "Firmar carta", se abre el widget, firma con garabato, y queda en estado "firmado_parcial" o "enviado" hasta que todos firmen.
+
+---
+
+### Detalles tecnicos
+
+**Parser HTML mejorado en la Edge Function:**
+
+```text
+Logica de renderizado:
+1. Tokenizar el HTML por bloques (h1-h3, p, ul/ol/li, strong, br)
+2. Para cada bloque:
+   - Encabezados: fontSize 16-20 + boldFont + espaciado extra
+   - Parrafos: fontSize 11 + font regular
+   - Negritas inline: cambiar a boldFont para ese segmento
+   - Listas: prefijo "1." o "o" con indentacion
+   - Saltos: incrementar Y
+3. Word-wrap respetando cambios de fuente bold/regular
+4. Paginacion automatica
+```
+
+**UI de Firmantes en CartaAcuerdos:**
+
+```text
++------------------------------------------+
+| Firmantes Configurados                   |
++------------------------------------------+
+| Rodrigo Terveen                          |
+| rodrigo.terveen@sozu.com          [X]    |
++------------------------------------------+
+| Director Legal                           |
+| legal@empresa.com                 [X]    |
++------------------------------------------+
+| [Nombre]  [Email]  [+ Agregar]           |
++------------------------------------------+
+| (i) El agente se agrega automaticamente  |
+|     al momento de firmar                 |
++------------------------------------------+
+```
+
+**Boton "Firmar" en tabla de Firmas (para firmantes pendientes):**
+
+En la pestania Firmas de CartaAcuerdos, cada firma con estado != "completado" mostrara un boton "Firmar" junto a cada firmante que tenga widget_id. Al hacer clic, abre el MifielSigningDialog con ese widget_id, permitiendo que Rodrigo (u otro firmante) firme directamente desde la seccion Legal.
+
