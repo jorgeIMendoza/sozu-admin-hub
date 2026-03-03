@@ -46,7 +46,7 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
     // Load the Mifiel CDN script if not already loaded
     const mifielEnv = import.meta.env.VITE_MIFIEL_ENVIRONMENT || 'sandbox';
     const mifielHost = mifielEnv === 'production' ? 'app.mifiel.com' : 'app-sandbox.mifiel.com';
-    const scriptSrc = `https://${mifielHost}/sign-widget-assets/v3/index.js`;
+    const scriptSrc = `https://${mifielHost}/widget/index.js`;
 
     if (!scriptLoadedRef.current && !document.querySelector(`script[src="${scriptSrc}"]`)) {
       const script = document.createElement('script');
