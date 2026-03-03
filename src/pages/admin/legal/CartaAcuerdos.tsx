@@ -168,11 +168,49 @@ export default function CartaAcuerdos() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <TemplateEditorWithPreview
-                  value={currentHtml}
-                  onChange={setEditorHtml}
-                  placeholders={PLACEHOLDERS}
-                />
+                <>
+                  <TemplateEditorWithPreview
+                    value={currentHtml}
+                    onChange={setEditorHtml}
+                    placeholders={PLACEHOLDERS}
+                  />
+
+                  {/* Dynamic read-only signature preview */}
+                  <div className="mt-6 border-t pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <PenTool className="h-4 w-4 text-muted-foreground" />
+                      <h4 className="text-sm font-semibold text-muted-foreground">Sección de Firmas (generada automáticamente)</h4>
+                    </div>
+                    <div className="bg-muted/40 border rounded-lg p-4 space-y-4 pointer-events-none select-none opacity-80">
+                      <p className="font-bold text-sm border-b pb-2">Firmas</p>
+                      {firmantes.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">
+                          No hay firmantes configurados. Agrega firmantes en la pestaña "Firmantes".
+                        </p>
+                      )}
+                      {firmantes.map((f, i) => (
+                        <div key={i} className="space-y-0.5 text-sm">
+                          <p className="font-bold">{f.name || "SOZU"}</p>
+                          <p>Nombre: {f.name}</p>
+                          <p>Cargo: {f.cargo}</p>
+                          <p>Firma: ___________________________</p>
+                          <p>Fecha: <Badge variant="secondary" className="text-xs">{"{{fecha_actual}}"}</Badge></p>
+                        </div>
+                      ))}
+                      <div className="space-y-0.5 text-sm border-t pt-3">
+                        <p className="font-bold">EL AGENTE</p>
+                        <p>Nombre/Razón Social: <Badge variant="secondary" className="text-xs">{"{{nombre_agente}}"}</Badge></p>
+                        <p>RFC: <Badge variant="secondary" className="text-xs">{"{{rfc_agente}}"}</Badge></p>
+                        <p>Firma: ___________________________</p>
+                        <p>Fecha: <Badge variant="secondary" className="text-xs">{"{{fecha_actual}}"}</Badge></p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      Esta sección se genera automáticamente al crear el PDF. No es necesario incluirla en el editor.
+                    </p>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
