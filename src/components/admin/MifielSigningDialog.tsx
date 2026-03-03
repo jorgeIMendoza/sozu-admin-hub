@@ -95,18 +95,13 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
   );
 
   const content = (
-    <div className="flex flex-col flex-1">
-      {isMobile && zoomControls}
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {zoomControls}
       <div className="flex-1 overflow-auto">
-        <div
-          style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', width: zoom > 1 ? `${100 / zoom}%` : '100%' }}
-          className="transition-transform duration-200"
-        >
-          <div ref={containerRef} className="min-h-[60vh] flex items-center justify-center [&>mifiel-widget]:w-full [&>mifiel-widget]:h-full [&>mifiel-widget]:min-h-[60vh] mifiel-fullwidth">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Cargando firma digital...</p>
-            </div>
+        <div ref={containerRef} className="min-h-[60vh] flex items-center justify-center mifiel-fullwidth" style={{ transformOrigin: 'top center' }}>
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Cargando firma digital...</p>
           </div>
         </div>
       </div>
@@ -122,6 +117,9 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
         .mifiel-fullwidth iframe {
           width: 100% !important;
           min-height: 70vh !important;
+          transform: scale(${zoom});
+          transform-origin: top center;
+          transition: transform 0.2s ease;
         }
       `}</style>
     </div>
