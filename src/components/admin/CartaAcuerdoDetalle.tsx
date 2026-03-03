@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { PdfViewerDialog } from "@/components/admin/PdfViewerDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +60,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
   const [signingOpen, setSigningOpen] = useState(false);
   const [signingWidgetId, setSigningWidgetId] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [editableName, setEditableName] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -521,7 +523,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                           </TableCell>
                           <TableCell>
                             {firma.pdf_firmado_url && (
-                              <Button variant="ghost" size="sm" onClick={() => window.open(firma.pdf_firmado_url, "_blank")}>
+                              <Button variant="ghost" size="sm" onClick={() => setPdfViewerUrl(firma.pdf_firmado_url)}>
                                 Ver PDF
                               </Button>
                             )}
@@ -542,7 +544,6 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
         onOpenChange={(open) => {
           setSigningOpen(open);
           if (!open) {
-            // When dialog closes (by any means), refresh data
             queryClient.invalidateQueries({ queryKey: ["firmas-digitales", cartaId] });
           }
         }}
@@ -557,6 +558,13 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
           toast({ title: "Error en firma", description: err, variant: "destructive" });
           setSigningOpen(false);
         }}
+      />
+
+      <PdfViewerDialog
+        open={!!pdfViewerUrl}
+        onOpenChange={(open) => { if (!open) setPdfViewerUrl(null); }}
+        url={pdfViewerUrl || ""}
+        title="Carta de Acuerdo Firmada"
       />
     </div>
   );

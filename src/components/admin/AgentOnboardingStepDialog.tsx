@@ -5,6 +5,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MifielSigningDialog } from "@/components/admin/MifielSigningDialog";
+import { PdfViewerDialog } from "@/components/admin/PdfViewerDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -279,6 +280,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   const [mifielWidgetId, setMifielWidgetId] = useState<string | null>(null);
   const [sendingToMifiel, setSendingToMifiel] = useState(false);
   const [syncingFirma, setSyncingFirma] = useState(false);
+  const [cartaPdfViewerUrl, setCartaPdfViewerUrl] = useState<string | null>(null);
 
   // Fetch persona data for Mifiel (name + email)
   const { data: personaForMifiel } = useQuery({
@@ -1161,7 +1163,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(pdfUrl || doc?.url, '_blank')}
+                      onClick={() => setCartaPdfViewerUrl(pdfUrl || doc?.url || null)}
                       className="h-10 px-3 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5 border-primary/20"
                     >
                       <FileText className="h-3.5 w-3.5" />
@@ -1345,6 +1347,13 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           onError={(err) => toast.error("Error en firma: " + err)}
         />
       )}
+
+      <PdfViewerDialog
+        open={!!cartaPdfViewerUrl}
+        onOpenChange={(open) => { if (!open) setCartaPdfViewerUrl(null); }}
+        url={cartaPdfViewerUrl || ""}
+        title="Carta de Cumplimiento"
+      />
     </div>
   );
 }
