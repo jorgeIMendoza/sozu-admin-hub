@@ -173,6 +173,7 @@ export default function CartaAcuerdos() {
                     value={currentHtml}
                     onChange={setEditorHtml}
                     placeholders={PLACEHOLDERS}
+                    firmantes={firmantes}
                   />
 
                   {/* Dynamic read-only signature preview */}

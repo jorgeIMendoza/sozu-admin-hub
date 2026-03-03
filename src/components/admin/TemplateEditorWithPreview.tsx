@@ -15,16 +15,24 @@ interface PlaceholderConfig {
   editable?: boolean;
 }
 
+interface FirmanteConfig {
+  name: string;
+  email: string;
+  cargo: string;
+}
+
 interface TemplateEditorWithPreviewProps {
   value: string;
   onChange: (html: string) => void;
   placeholders: PlaceholderConfig[];
+  firmantes?: FirmanteConfig[];
 }
 
 export function TemplateEditorWithPreview({
   value,
   onChange,
   placeholders,
+  firmantes = [],
 }: TemplateEditorWithPreviewProps) {
   const today = new Date();
 
@@ -53,6 +61,19 @@ export function TemplateEditorWithPreview({
     [value, placeholderValues]
   );
 
+  const firmasHtml = useMemo(() => {
+    const fechaActual = placeholderValues["fecha_actual"] || "";
+    const nombreAgente = placeholderValues["nombre_agente"] || "{{nombre_agente}}";
+    const rfcAgente = placeholderValues["rfc_agente"] || "{{rfc_agente}}";
+
+    let html = '<hr style="margin-top:24px"><h3><strong>Firmas</strong></h3>';
+    for (const f of firmantes) {
+      html += `<p><strong>${f.name}</strong><br>Cargo: ${f.cargo}<br>Firma: ___________________________<br>Fecha: ${fechaActual}</p>`;
+    }
+    html += `<p><strong>EL AGENTE</strong><br>Nombre/Razón Social: ${nombreAgente}<br>RFC: ${rfcAgente}<br>Firma: ___________________________<br>Fecha: ${fechaActual}</p>`;
+    return html;
+  }, [firmantes, placeholderValues]);
+
   const iframeSrcDoc = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   body { font-family: system-ui, sans-serif; padding: 24px; font-size: 14px; line-height: 1.6; color: #1a1a1a; }
@@ -60,7 +81,7 @@ export function TemplateEditorWithPreview({
   ul, ol { padding-left: 1.5em; }
   a { color: #2563eb; }
   img { max-width: 100%; border-radius: 4px; }
-</style></head><body>${previewHtml}</body></html>`;
+</style></head><body>${previewHtml}${firmasHtml}</body></html>`;
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>, key: string) => {
     e.dataTransfer.setData("application/placeholder-key", key);
