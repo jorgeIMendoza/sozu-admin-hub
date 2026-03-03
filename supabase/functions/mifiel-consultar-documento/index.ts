@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,12 @@ serve(async (req) => {
     if (!MIFIEL_API_ID || !MIFIEL_API_SECRET) {
       throw new Error("Mifiel credentials not configured");
     }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseAdmin = supabaseUrl && supabaseServiceKey
+      ? createClient(supabaseUrl, supabaseServiceKey)
+      : null;
 
     const { document_id } = await req.json();
     if (!document_id) {
@@ -51,7 +58,54 @@ serve(async (req) => {
 
     const data = await response.json();
 
-    return new Response(JSON.stringify({ success: true, document: data }), {
+    let signedPdfUrl: string | null = null;
+    let pdfStorageUrl: string | null = null;
+
+    try {
+      const pdfResponse = await fetch(`${MIFIEL_API_URL}/documents/${document_id}/file`, {
+        headers: { Authorization: authHeader },
+      });
+
+      if (pdfResponse.ok && supabaseAdmin) {
+        const pdfBuffer = await pdfResponse.arrayBuffer();
+        const filePath = `cartas/${document_id}.pdf`;
+
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from("firmas-digitales")
+          .upload(filePath, pdfBuffer, {
+            contentType: "application/pdf",
+            upsert: true,
+          });
+
+        if (!uploadError) {
+          const { data: publicUrlData } = supabaseAdmin.storage
+            .from("firmas-digitales")
+            .getPublicUrl(filePath);
+          pdfStorageUrl = publicUrlData?.publicUrl || null;
+
+          const { data: signedUrlData } = await supabaseAdmin.storage
+            .from("firmas-digitales")
+            .createSignedUrl(filePath, 3600);
+          signedPdfUrl = signedUrlData?.signedUrl || null;
+
+          if (pdfStorageUrl) {
+            await supabaseAdmin
+              .from("firmas_digitales")
+              .update({ pdf_firmado_url: pdfStorageUrl })
+              .eq("mifiel_document_id", document_id);
+          }
+        } else {
+          console.error("Error uploading Mifiel PDF to storage:", uploadError);
+        }
+      } else if (!pdfResponse.ok) {
+        const pdfErrorBody = await pdfResponse.text();
+        console.error("Error fetching Mifiel PDF:", pdfResponse.status, pdfErrorBody);
+      }
+    } catch (pdfError) {
+      console.error("Error resolving signed PDF URL:", pdfError);
+    }
+
+    return new Response(JSON.stringify({ success: true, document: data, signed_pdf_url: signedPdfUrl, pdf_storage_url: pdfStorageUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
