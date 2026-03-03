@@ -86,9 +86,8 @@ export function PdfViewerDialog({ open, onOpenChange, url, title = "Documento PD
       .then(({ data, error: err }) => {
         if (err || !data?.signedUrl) {
           console.error("[PdfViewerDialog] Error creating signed URL:", err, "bucket:", storageInfo.bucket, "path:", storageInfo.path);
-          // Fallback: try using the original URL directly
-          console.log("[PdfViewerDialog] Falling back to original URL:", url);
-          setSignedUrl(url);
+          setError("No se pudo generar un enlace seguro para el PDF.");
+          setSignedUrl(null);
         } else {
           console.log("[PdfViewerDialog] Signed URL generated successfully");
           setSignedUrl(data.signedUrl);

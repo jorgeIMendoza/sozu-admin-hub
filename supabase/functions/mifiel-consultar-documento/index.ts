@@ -88,14 +88,16 @@ serve(async (req) => {
           });
 
         if (!uploadError) {
-          const { data: publicUrlData } = supabaseAdmin.storage
-            .from("firmas-digitales")
-            .getPublicUrl(filePath);
-          pdfStorageUrl = publicUrlData?.publicUrl || null;
+          pdfStorageUrl = filePath;
 
-          const { data: signedUrlData } = await supabaseAdmin.storage
+          const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
             .from("firmas-digitales")
             .createSignedUrl(filePath, 3600);
+
+          if (signedUrlError) {
+            console.error("Error creating signed URL for uploaded Mifiel PDF:", signedUrlError);
+          }
+
           signedPdfUrl = signedUrlData?.signedUrl || null;
 
           if (pdfStorageUrl) {
