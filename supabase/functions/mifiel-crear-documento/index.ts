@@ -461,8 +461,8 @@ serve(async (req) => {
       formData.append(`signatories[${i}][email]`, s.email);
       const isAgent = s.email === agente_email;
       if (isAgent) {
-        // Agent uses biometric (FESCV) or e.firma (FEA) based on config
-        formData.append(`signatories[${i}][allowed_signature_methods][0]`, requiereBiometrica ? "FESCV" : "FEA");
+        // Agent uses FESCV (biometric) or FSSV (simple) based on config
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, requiereBiometrica ? "FESCV" : "FSSV");
       } else {
         // Non-agent firmantes always use simple signature (FSSV)
         formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FSSV");
