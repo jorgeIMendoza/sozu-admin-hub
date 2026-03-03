@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const MIFIEL_API_URL = (Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1").replace(/\/+$/, "").replace(/\/documents$/i, "");
@@ -32,7 +32,21 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errBody = await response.text();
-      throw new Error(`Mifiel API error [${response.status}]: ${errBody}`);
+      let parsedError: unknown = errBody;
+      try {
+        parsedError = JSON.parse(errBody);
+      } catch {
+        // keep raw text
+      }
+
+      return new Response(JSON.stringify({
+        success: false,
+        upstream_status: response.status,
+        error: `Mifiel API error [${response.status}]`,
+        details: parsedError,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();

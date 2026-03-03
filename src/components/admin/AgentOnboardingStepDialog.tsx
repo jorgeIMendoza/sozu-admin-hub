@@ -294,8 +294,11 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         body: { document_id: data.mifiel_document_id },
       });
 
-      const errorMessage = mifielError?.message || mifielData?.error || '';
-      const mifielNotFound = /404|not found|no existe|deleted/i.test(errorMessage);
+      const upstreamStatus = Number(mifielData?.upstream_status || 0);
+      const errorMessage = [mifielError?.message, mifielData?.error, JSON.stringify(mifielData?.details ?? '')]
+        .filter(Boolean)
+        .join(' | ');
+      const mifielNotFound = upstreamStatus === 404 || /404|not found|no existe|deleted/i.test(errorMessage);
 
       if (mifielError || !mifielData?.success) {
         if (mifielNotFound) {
@@ -377,8 +380,11 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         body: { document_id: firmaExistente.mifiel_document_id },
       });
 
-      const errorMessage = mifielError?.message || mifielData?.error || '';
-      const mifielNotFound = /404|not found|no existe|deleted/i.test(errorMessage);
+      const upstreamStatus = Number(mifielData?.upstream_status || 0);
+      const errorMessage = [mifielError?.message, mifielData?.error, JSON.stringify(mifielData?.details ?? '')]
+        .filter(Boolean)
+        .join(' | ');
+      const mifielNotFound = upstreamStatus === 404 || /404|not found|no existe|deleted/i.test(errorMessage);
 
       if (mifielError || !mifielData?.success) {
         if (mifielNotFound) {
