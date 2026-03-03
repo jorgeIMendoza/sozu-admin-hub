@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Loader2 } from "lucide-react";
+import { Loader2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 
 interface MifielSigningDialogProps {
   open: boolean;
@@ -16,14 +17,17 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
+  const [zoom, setZoom] = useState(isMobile ? 1.4 : 1);
+
+  useEffect(() => {
+    if (open) setZoom(isMobile ? 1.4 : 1);
+  }, [open, isMobile]);
 
   useEffect(() => {
     if (!open || !widgetId) return;
 
     const loadWidget = () => {
       if (!containerRef.current) return;
-
-      // Clear previous widget
       containerRef.current.innerHTML = '';
 
       const widget = document.createElement('mifiel-widget') as any;
@@ -32,16 +36,12 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
       widget.setAttribute('environment', env === 'production' ? 'production' : 'sandbox');
       containerRef.current.appendChild(widget);
 
-      // Listen for official widget events
-      widget.addEventListener('signSuccess', () => {
-        onSuccess?.();
-      });
+      widget.addEventListener('signSuccess', () => { onSuccess?.(); });
       widget.addEventListener('signError', (e: any) => {
         onError?.(e?.detail?.message || 'Error en la firma');
       });
     };
 
-    // Load the Mifiel CDN script if not already loaded
     const mifielEnv = import.meta.env.VITE_MIFIEL_ENVIRONMENT || 'sandbox';
     const mifielHost = mifielEnv === 'production' ? 'app.mifiel.com' : 'app-sandbox.mifiel.com';
     const scriptSrc = `https://${mifielHost}/widget-component/index.js`;
@@ -64,12 +64,45 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
     }
   }, [open, widgetId, onSuccess, onError]);
 
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 3));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.6));
+  const handleZoomReset = () => setZoom(isMobile ? 1.4 : 1);
+
+  const zoomControls = (
+    <div className="flex items-center justify-center gap-1 py-1.5 shrink-0 border-b bg-muted/30">
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleZoomOut} disabled={zoom <= 0.6}>
+        <ZoomOut className="h-3.5 w-3.5" />
+      </Button>
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs font-mono min-w-[3rem]" onClick={handleZoomReset}>
+        {Math.round(zoom * 100)}%
+      </Button>
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleZoomIn} disabled={zoom >= 3}>
+        <ZoomIn className="h-3.5 w-3.5" />
+      </Button>
+      {zoom !== (isMobile ? 1.4 : 1) && (
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleZoomReset}>
+          <RotateCcw className="h-3 w-3" />
+        </Button>
+      )}
+    </div>
+  );
+
   const content = (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div ref={containerRef} className="flex-1 overflow-auto mifiel-fullwidth flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Cargando firma digital...</p>
+      {zoomControls}
+      <div className="flex-1 overflow-auto">
+        <div
+          ref={containerRef}
+          className="mifiel-fullwidth flex items-center justify-center"
+          style={{
+            zoom: zoom,
+            WebkitTextSizeAdjust: '100%',
+          }}
+        >
+          <div className="flex flex-col items-center gap-3 py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Cargando firma digital...</p>
+          </div>
         </div>
       </div>
       <style>{`
@@ -83,11 +116,6 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
           max-width: 100% !important;
           width: 100% !important;
         }
-        .mifiel-fullwidth iframe {
-          width: 100% !important;
-          min-height: 80vh !important;
-          height: 80vh !important;
-        }
       `}</style>
     </div>
   );
@@ -100,7 +128,7 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
             <DrawerTitle>Firma Digital</DrawerTitle>
             <DrawerDescription>Firma la Carta de Acuerdos de forma electrónica</DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1 overflow-hidden flex flex-col px-2 pb-2">
+          <div className="flex-1 overflow-hidden flex flex-col px-1 pb-1">
             {content}
           </div>
         </DrawerContent>
@@ -110,12 +138,14 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-[95vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-[95vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Firma Digital</DialogTitle>
           <DialogDescription>Firma la Carta de Acuerdos de forma electrónica</DialogDescription>
         </DialogHeader>
-        {content}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {content}
+        </div>
       </DialogContent>
     </Dialog>
   );
