@@ -256,6 +256,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   const [mifielDialogOpen, setMifielDialogOpen] = useState(false);
   const [mifielWidgetId, setMifielWidgetId] = useState<string | null>(null);
   const [sendingToMifiel, setSendingToMifiel] = useState(false);
+  const [syncingFirma, setSyncingFirma] = useState(false);
 
   // Fetch persona data for Mifiel (name + email)
   const { data: personaForMifiel } = useQuery({
@@ -271,7 +272,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     enabled: activeDocTypes.includes(48),
   });
 
-  // Fetch existing firma digital for this agent
+  // Fetch existing firma digital for this agent and sync against Mifiel state
   const { data: firmaExistente, refetch: refetchFirma } = useQuery({
     queryKey: ['agent-firma-digital', personaId],
     queryFn: async () => {
@@ -284,9 +285,50 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data || null;
+      if (!data) return null;
+
+      const firmaEnProgreso = data.estado === 'enviado' || data.estado === 'firmado_parcial';
+      if (!firmaEnProgreso || !data.mifiel_document_id) return data;
+
+      const { data: mifielData, error: mifielError } = await supabase.functions.invoke('mifiel-consultar-documento', {
+        body: { document_id: data.mifiel_document_id },
+      });
+
+      const errorMessage = mifielError?.message || mifielData?.error || '';
+      const mifielNotFound = /404|not found|no existe|deleted/i.test(errorMessage);
+
+      if (mifielError || !mifielData?.success) {
+        if (mifielNotFound) {
+          await (supabase as any)
+            .from('firmas_digitales')
+            .update({ estado: 'cancelado' })
+            .eq('id', data.id);
+          return { ...data, estado: 'cancelado' };
+        }
+        return data;
+      }
+
+      const remoteState = String(mifielData?.document?.state || '').toLowerCase();
+      if (remoteState === 'deleted' && data.estado !== 'cancelado') {
+        await (supabase as any)
+          .from('firmas_digitales')
+          .update({ estado: 'cancelado' })
+          .eq('id', data.id);
+        return { ...data, estado: 'cancelado' };
+      }
+
+      if (remoteState === 'completed' && data.estado !== 'completado') {
+        await (supabase as any)
+          .from('firmas_digitales')
+          .update({ estado: 'completado' })
+          .eq('id', data.id);
+        return { ...data, estado: 'completado' };
+      }
+
+      return data;
     },
     enabled: activeDocTypes.includes(48),
+    refetchInterval: 30000,
   });
 
   const handleFirmarCarta = async () => {
@@ -320,16 +362,48 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     }
   };
 
-  const handleContinuarFirma = () => {
-    // Get widget_id from firmantes
-    const firmantes = firmaExistente?.firmantes || [];
-    const agentFirmante = firmantes.find((f: any) => f.email === personaForMifiel?.email);
-    const wid = agentFirmante?.widget_id || null;
-    if (wid) {
-      setMifielWidgetId(wid);
-      setMifielDialogOpen(true);
-    } else {
-      toast.error("No se encontró el widget de firma. Contacta soporte.");
+  const handleContinuarFirma = async () => {
+    if (!firmaExistente?.mifiel_document_id) {
+      toast.error("No se encontró un documento activo para continuar firma.");
+      return;
+    }
+
+    setSyncingFirma(true);
+    try {
+      const { data: mifielData, error: mifielError } = await supabase.functions.invoke('mifiel-consultar-documento', {
+        body: { document_id: firmaExistente.mifiel_document_id },
+      });
+
+      const errorMessage = mifielError?.message || mifielData?.error || '';
+      const mifielNotFound = /404|not found|no existe|deleted/i.test(errorMessage);
+
+      if (mifielError || !mifielData?.success) {
+        if (mifielNotFound) {
+          await (supabase as any)
+            .from('firmas_digitales')
+            .update({ estado: 'cancelado' })
+            .eq('id', firmaExistente.id);
+          await refetchFirma();
+          toast.error("Este documento ya no existe en Mifiel. Se sincronizó el estado en la BD.");
+          return;
+        }
+        throw new Error(errorMessage || 'No se pudo sincronizar el estado de firma');
+      }
+
+      const mifielSigners = mifielData.document?.signers || mifielData.document?.signatories || [];
+      const agentSigner = mifielSigners.find((s: any) => s.email === personaForMifiel?.email);
+      const wid = agentSigner?.widget_id || null;
+
+      if (wid) {
+        setMifielWidgetId(wid);
+        setMifielDialogOpen(true);
+      } else {
+        toast.error("No se encontró el widget de firma del agente en Mifiel.");
+      }
+    } catch (err: any) {
+      toast.error("Error al sincronizar firma: " + (err.message || "Error"));
+    } finally {
+      setSyncingFirma(false);
     }
   };
 
@@ -1054,10 +1128,11 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                       size="sm"
                       variant="outline"
                       onClick={handleContinuarFirma}
+                      disabled={syncingFirma}
                       className="flex-1 h-10 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
                     >
-                      <Send className="h-3.5 w-3.5" />
-                      Continuar firma
+                      {syncingFirma ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      {syncingFirma ? 'Sincronizando...' : 'Continuar firma'}
                     </Button>
                   )}
 
