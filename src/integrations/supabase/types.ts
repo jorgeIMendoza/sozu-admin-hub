@@ -2427,18 +2427,21 @@ export type Database = {
       carta_acuerdos_template: {
         Row: {
           contenido_html: string
+          firmantes_config: Json | null
           id: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           contenido_html?: string
+          firmantes_config?: Json | null
           id?: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           contenido_html?: string
+          firmantes_config?: Json | null
           id?: number
           updated_at?: string
           updated_by?: string | null

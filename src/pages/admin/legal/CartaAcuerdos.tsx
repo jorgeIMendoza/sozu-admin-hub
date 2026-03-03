@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TemplateEditorWithPreview } from "@/components/admin/TemplateEditorWithPreview";
+import { MifielSigningDialog } from "@/components/admin/MifielSigningDialog";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Save, Loader2, CheckCircle2, Clock, XCircle, Send } from "lucide-react";
+import { FileText, Save, Loader2, CheckCircle2, Clock, XCircle, Send, Plus, Trash2, Users, Info, PenTool } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -26,10 +28,25 @@ const ESTADO_CONFIG: Record<string, { label: string; variant: "default" | "secon
   cancelado: { label: "Cancelado", variant: "destructive", icon: XCircle },
 };
 
+interface Firmante {
+  name: string;
+  email: string;
+}
+
 export default function CartaAcuerdos() {
   const { toast } = useToast();
   const { profile } = useAuth();
   const queryClient = useQueryClient();
+
+  const [editorHtml, setEditorHtml] = useState<string | null>(null);
+  const [firmantes, setFirmantes] = useState<Firmante[]>([]);
+  const [firmantesLoaded, setFirmantesLoaded] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+
+  // Mifiel signing dialog state
+  const [signingOpen, setSigningOpen] = useState(false);
+  const [signingWidgetId, setSigningWidgetId] = useState("");
 
   // Fetch template
   const { data: template, isLoading: templateLoading } = useQuery({
@@ -42,6 +59,11 @@ export default function CartaAcuerdos() {
         .limit(1)
         .single();
       if (error) throw error;
+      // Initialize firmantes from DB
+      if (!firmantesLoaded && data?.firmantes_config) {
+        setFirmantes(data.firmantes_config);
+        setFirmantesLoaded(true);
+      }
       return data;
     },
   });
@@ -60,17 +82,21 @@ export default function CartaAcuerdos() {
     },
   });
 
-  // Save template
+  // Save template + firmantes
   const saveMutation = useMutation({
-    mutationFn: async (html: string) => {
+    mutationFn: async ({ html, firmantesConfig }: { html: string; firmantesConfig: Firmante[] }) => {
       const { error } = await (supabase as any)
         .from("carta_acuerdos_template")
-        .update({ contenido_html: html, updated_by: profile?.email || "unknown" })
+        .update({
+          contenido_html: html,
+          firmantes_config: firmantesConfig,
+          updated_by: profile?.email || "unknown",
+        })
         .eq("id", template?.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast({ title: "✅ Template guardado", description: "La carta de acuerdos se guardó correctamente." });
+      toast({ title: "✅ Template guardado", description: "La carta y firmantes se guardaron correctamente." });
       queryClient.invalidateQueries({ queryKey: ["carta-acuerdos-template"] });
     },
     onError: (err: any) => {
@@ -78,8 +104,30 @@ export default function CartaAcuerdos() {
     },
   });
 
-  const [editorHtml, setEditorHtml] = useState<string | null>(null);
   const currentHtml = editorHtml ?? template?.contenido_html ?? "";
+
+  const addFirmante = () => {
+    if (!newName.trim() || !newEmail.trim()) {
+      toast({ title: "Completa nombre y correo", variant: "destructive" });
+      return;
+    }
+    setFirmantes([...firmantes, { name: newName.trim(), email: newEmail.trim() }]);
+    setNewName("");
+    setNewEmail("");
+  };
+
+  const removeFirmante = (index: number) => {
+    setFirmantes(firmantes.filter((_, i) => i !== index));
+  };
+
+  const handleSave = () => {
+    saveMutation.mutate({ html: currentHtml, firmantesConfig: firmantes });
+  };
+
+  const openSigningWidget = (widgetId: string) => {
+    setSigningWidgetId(widgetId);
+    setSigningOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -91,6 +139,7 @@ export default function CartaAcuerdos() {
           </CardTitle>
           <TabsList>
             <TabsTrigger value="editor">Editor</TabsTrigger>
+            <TabsTrigger value="firmantes">Firmantes</TabsTrigger>
             <TabsTrigger value="firmas">Firmas ({firmas.length})</TabsTrigger>
           </TabsList>
         </div>
@@ -101,7 +150,7 @@ export default function CartaAcuerdos() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Template de la Carta</CardTitle>
                 <Button
-                  onClick={() => saveMutation.mutate(currentHtml)}
+                  onClick={handleSave}
                   disabled={saveMutation.isPending || templateLoading}
                   size="sm"
                 >
@@ -122,6 +171,80 @@ export default function CartaAcuerdos() {
                   placeholders={PLACEHOLDERS}
                 />
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="firmantes" className="mt-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Firmantes Configurados
+                </CardTitle>
+                <Button
+                  onClick={handleSave}
+                  disabled={saveMutation.isPending || templateLoading}
+                  size="sm"
+                >
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                  Guardar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Configured firmantes list */}
+              {firmantes.length === 0 && (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  No hay firmantes configurados. Agrega al menos uno.
+                </div>
+              )}
+              {firmantes.map((f, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{f.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{f.email}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => removeFirmante(i)} className="shrink-0">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+
+              {/* Add firmante form */}
+              <div className="flex items-end gap-2 pt-2 border-t">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Nombre</label>
+                  <Input
+                    placeholder="Nombre completo"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Correo</label>
+                  <Input
+                    placeholder="correo@empresa.com"
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addFirmante()}
+                  />
+                </div>
+                <Button onClick={addFirmante} size="icon" variant="outline" className="shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Info note */}
+              <div className="flex items-start gap-2 p-3 rounded-lg border bg-muted/50">
+                <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  El agente se agrega automáticamente al momento de firmar desde su portal. 
+                  Los firmantes configurados aquí recibirán un correo de Mifiel para firmar cuando el agente inicie el proceso.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -157,27 +280,45 @@ export default function CartaAcuerdos() {
                       const Icon = config.icon;
                       return (
                         <TableRow key={firma.id}>
-                          <TableCell className="font-mono text-xs">{firma.id}</TableCell>
+                          <TableCell className="font-mono text-xs">{firma.id?.substring?.(0, 8) || firma.id}</TableCell>
                           <TableCell>
-                            <div className="space-y-0.5">
-                              {(firma.firmantes || []).map((f: any, i: number) => (
-                                <div key={i} className="text-xs flex items-center gap-1">
-                                  <span>{f.name || f.email}</span>
-                                  {f.email && (
-                                    <button
-                                      type="button"
-                                      className="text-muted-foreground hover:text-primary cursor-pointer underline decoration-dotted"
-                                      title="Copiar correo"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(f.email);
-                                        toast({ title: "Correo copiado", description: f.email });
-                                      }}
-                                    >
-                                      {f.email}
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
+                            <div className="space-y-1">
+                              {(firma.firmantes || []).map((f: any, i: number) => {
+                                const hasWidgetId = !!f.widget_id;
+                                const isCompleted = firma.estado === "completado";
+                                const canSign = hasWidgetId && !isCompleted;
+                                return (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <div className="text-xs">
+                                      <span className="font-medium">{f.name}</span>
+                                      {f.email && (
+                                        <button
+                                          type="button"
+                                          className="ml-1 text-muted-foreground hover:text-primary cursor-pointer underline decoration-dotted"
+                                          title="Copiar correo"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(f.email);
+                                            toast({ title: "Correo copiado", description: f.email });
+                                          }}
+                                        >
+                                          ({f.email})
+                                        </button>
+                                      )}
+                                    </div>
+                                    {canSign && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 text-xs px-2"
+                                        onClick={() => openSigningWidget(f.widget_id)}
+                                      >
+                                        <PenTool className="h-3 w-3 mr-1" />
+                                        Firmar
+                                      </Button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -210,6 +351,21 @@ export default function CartaAcuerdos() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Mifiel Signing Dialog */}
+      <MifielSigningDialog
+        open={signingOpen}
+        onOpenChange={setSigningOpen}
+        widgetId={signingWidgetId}
+        onSuccess={() => {
+          toast({ title: "✅ Firma registrada", description: "Tu firma se ha registrado correctamente." });
+          setSigningOpen(false);
+          queryClient.invalidateQueries({ queryKey: ["firmas-digitales"] });
+        }}
+        onError={(err) => {
+          toast({ title: "Error en firma", description: err, variant: "destructive" });
+        }}
+      />
     </div>
   );
 }
