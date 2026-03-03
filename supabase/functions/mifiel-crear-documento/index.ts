@@ -327,6 +327,19 @@ serve(async (req) => {
       throw new Error("agente_email y agente_nombre son requeridos");
     }
 
+    // Fetch agent's RFC from personas table
+    let agente_rfc = "";
+    if (agente_persona_id) {
+      const { data: personaData } = await supabase
+        .from("personas")
+        .select("rfc")
+        .eq("id", agente_persona_id)
+        .single();
+      if (personaData?.rfc) {
+        agente_rfc = personaData.rfc;
+      }
+    }
+
     // 1. Get the template + firmantes_config from cartas_acuerdo (new table) or fallback
     let templateData: any = null;
     if (carta_acuerdo_id) {
@@ -389,7 +402,7 @@ serve(async (req) => {
     let html = templateData.contenido_html;
     const values: Record<string, string> = {
       nombre_agente: agente_nombre,
-      rfc_agente: "", // Will be filled if provided
+      rfc_agente: agente_rfc,
       fecha_actual: fechaActual,
       fecha_fin: fechaFinStr,
     };
@@ -446,12 +459,13 @@ serve(async (req) => {
     signatories.forEach((s, i) => {
       formData.append(`signatories[${i}][name]`, s.name);
       formData.append(`signatories[${i}][email]`, s.email);
-      if (requiereBiometrica) {
-        // Force biometric only - no choice screen
-        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FESCV");
+      const isAgent = s.email === agente_email;
+      if (isAgent) {
+        // Agent uses biometric (FESCV) or e.firma (FEA) based on config
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, requiereBiometrica ? "FESCV" : "FEA");
       } else {
-        // e.firma only
-        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FEA");
+        // Non-agent firmantes always use simple signature (FSSV)
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FSSV");
       }
     });
 
