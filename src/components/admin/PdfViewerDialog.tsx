@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PdfViewerDialogProps {
   open: boolean;
@@ -11,18 +13,84 @@ interface PdfViewerDialogProps {
   title?: string;
 }
 
+function extractStoragePath(url: string): { bucket: string; path: string } | null {
+  // Match full Supabase storage URLs: .../storage/v1/object/public/bucket/path
+  const publicMatch = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/);
+  if (publicMatch) return { bucket: publicMatch[1], path: publicMatch[2] };
+
+  // If it's just a relative path like "cartas/xxx.pdf", assume firmas-digitales bucket
+  if (!url.startsWith("http") && !url.startsWith("blob:")) {
+    return { bucket: "firmas-digitales", path: url };
+  }
+
+  return null;
+}
+
 export function PdfViewerDialog({ open, onOpenChange, url, title = "Documento PDF" }: PdfViewerDialogProps) {
   const isMobile = useIsMobile();
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !url) {
+      setSignedUrl(null);
+      setError(null);
+      return;
+    }
+
+    const storageInfo = extractStoragePath(url);
+    if (!storageInfo) {
+      // It's a regular URL, use directly
+      setSignedUrl(url);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    supabase.storage
+      .from(storageInfo.bucket)
+      .createSignedUrl(storageInfo.path, 3600) // 1 hour
+      .then(({ data, error: err }) => {
+        if (err || !data?.signedUrl) {
+          console.error("Error creating signed URL:", err);
+          setError("No se pudo acceder al documento. Verifica que exista.");
+          setSignedUrl(null);
+        } else {
+          setSignedUrl(data.signedUrl);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [open, url]);
+
+  const effectiveUrl = signedUrl || "";
 
   const content = (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex justify-end mb-2">
-        <Button variant="outline" size="sm" onClick={() => window.open(url, "_blank")} className="gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!effectiveUrl}
+          onClick={() => window.open(effectiveUrl, "_blank")}
+          className="gap-1.5"
+        >
           <Download className="h-4 w-4" />
           Descargar
         </Button>
       </div>
-      <iframe src={url} className="flex-1 w-full rounded border" title={title} />
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : error ? (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          {error}
+        </div>
+      ) : (
+        <iframe src={effectiveUrl} className="flex-1 w-full rounded border" title={title} />
+      )}
     </div>
   );
 
