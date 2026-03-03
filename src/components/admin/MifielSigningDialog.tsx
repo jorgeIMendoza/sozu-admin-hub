@@ -65,13 +65,27 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
   }, [open, widgetId, onSuccess, onError]);
 
   const content = (
-    <div className="min-h-[70vh] flex flex-col">
-      <div ref={containerRef} className="flex-1 min-h-[65vh] flex items-center justify-center [&>mifiel-widget]:w-full [&>mifiel-widget]:h-full [&>mifiel-widget]:min-h-[65vh]">
+    <div className="min-h-[75vh] flex flex-col">
+      <div ref={containerRef} className="flex-1 min-h-[70vh] flex items-center justify-center [&>mifiel-widget]:w-full [&>mifiel-widget]:h-full [&>mifiel-widget]:min-h-[70vh] [&>mifiel-widget]:flex [&>mifiel-widget]:flex-col [&_mifiel-widget>div]:flex [&_mifiel-widget>div]:flex-col [&_mifiel-widget>div]:h-full mifiel-fullwidth">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Cargando firma digital...</p>
         </div>
       </div>
+      <style>{`
+        .mifiel-fullwidth mifiel-widget {
+          --mifiel-widget-max-width: 100% !important;
+        }
+        .mifiel-fullwidth mifiel-widget > div,
+        .mifiel-fullwidth mifiel-widget > div > div {
+          max-width: 100% !important;
+          width: 100% !important;
+        }
+        .mifiel-fullwidth iframe {
+          width: 100% !important;
+          min-height: 70vh !important;
+        }
+      `}</style>
     </div>
   );
 
@@ -93,7 +107,7 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Firma Digital</DialogTitle>
           <DialogDescription>Firma la Carta de Acuerdos de forma electrónica</DialogDescription>
