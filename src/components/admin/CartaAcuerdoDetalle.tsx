@@ -162,7 +162,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
 
   // Sync firmas with Mifiel
   const handleSyncMifiel = async () => {
-    const toCheck = firmas.filter((f: any) => f.mifiel_document_id && f.estado !== "cancelado" && f.estado !== "completado");
+    const toCheck = firmas.filter((f: any) => f.mifiel_document_id && f.estado !== "cancelado");
     if (toCheck.length === 0) {
       toast({ title: "No hay firmas pendientes para sincronizar" });
       return;
@@ -180,14 +180,31 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
           if (notFound) {
             await (supabase as any).from("firmas_digitales").delete().eq("id", firma.id);
             removed++;
-          } else if (data?.document?.signers) {
+          } else if (data?.document) {
             // Update firmantes with signed status from Mifiel
-            const mifielSigners = data.document.signers as any[];
+            const mifielSigners = (data.document.signers || []) as any[];
             const updatedFirmantes = (firma.firmantes || []).map((f: any) => {
               const mifielSigner = mifielSigners.find((s: any) => s.email?.toLowerCase() === f.email?.toLowerCase());
               return { ...f, signed: mifielSigner?.signed ?? f.signed ?? false };
             });
-            await (supabase as any).from("firmas_digitales").update({ firmantes: updatedFirmantes }).eq("id", firma.id);
+
+            // Check if all firmantes have signed → update estado to completado
+            const allSigned = updatedFirmantes.length > 0 && updatedFirmantes.every((f: any) => f.signed === true);
+            const mifielStatus = data.document.status;
+            let newEstado = firma.estado;
+            if (allSigned || mifielStatus === "completed" || mifielStatus === "signed") {
+              newEstado = "completado";
+            } else if (mifielStatus === "partially_signed" || updatedFirmantes.some((f: any) => f.signed)) {
+              newEstado = "firmado_parcial";
+            }
+
+            // Try to get signed PDF URL if completed
+            const updatePayload: any = { firmantes: updatedFirmantes, estado: newEstado };
+            if (newEstado === "completado" && !firma.pdf_firmado_url && data.document.file) {
+              updatePayload.pdf_firmado_url = data.document.file;
+            }
+
+            await (supabase as any).from("firmas_digitales").update(updatePayload).eq("id", firma.id);
             updated++;
           }
         } catch {
@@ -522,14 +539,24 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
 
       <MifielSigningDialog
         open={signingOpen}
-        onOpenChange={setSigningOpen}
+        onOpenChange={(open) => {
+          setSigningOpen(open);
+          if (!open) {
+            // When dialog closes (by any means), refresh data
+            queryClient.invalidateQueries({ queryKey: ["firmas-digitales", cartaId] });
+          }
+        }}
         widgetId={signingWidgetId}
         onSuccess={() => {
           toast({ title: "✅ Firma registrada" });
           setSigningOpen(false);
           queryClient.invalidateQueries({ queryKey: ["firmas-digitales", cartaId] });
+          queryClient.invalidateQueries({ queryKey: ["cartas-acuerdo-firma-counts"] });
         }}
-        onError={(err) => toast({ title: "Error en firma", description: err, variant: "destructive" })}
+        onError={(err) => {
+          toast({ title: "Error en firma", description: err, variant: "destructive" });
+          setSigningOpen(false);
+        }}
       />
     </div>
   );
