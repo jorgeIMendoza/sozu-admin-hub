@@ -14,9 +14,9 @@ interface PdfViewerDialogProps {
 }
 
 function extractStoragePath(url: string): { bucket: string; path: string } | null {
-  // Match full Supabase storage URLs: .../storage/v1/object/public/bucket/path
-  const publicMatch = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/);
-  if (publicMatch) return { bucket: publicMatch[1], path: publicMatch[2] };
+  // If it's a full public Supabase storage URL, extract bucket+path for signed URL
+  const publicMatch = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?.*)?$/);
+  if (publicMatch) return { bucket: publicMatch[1], path: decodeURIComponent(publicMatch[2]) };
 
   // If it's just a relative path like "cartas/xxx.pdf", assume firmas-digitales bucket
   if (!url.startsWith("http") && !url.startsWith("blob:")) {
@@ -49,15 +49,19 @@ export function PdfViewerDialog({ open, onOpenChange, url, title = "Documento PD
     setLoading(true);
     setError(null);
 
+    console.log("[PdfViewerDialog] Generating signed URL for:", storageInfo.bucket, storageInfo.path);
+
     supabase.storage
       .from(storageInfo.bucket)
       .createSignedUrl(storageInfo.path, 3600) // 1 hour
       .then(({ data, error: err }) => {
         if (err || !data?.signedUrl) {
-          console.error("Error creating signed URL:", err);
-          setError("No se pudo acceder al documento. Verifica que exista.");
-          setSignedUrl(null);
+          console.error("[PdfViewerDialog] Error creating signed URL:", err, "bucket:", storageInfo.bucket, "path:", storageInfo.path);
+          // Fallback: try using the original URL directly
+          console.log("[PdfViewerDialog] Falling back to original URL:", url);
+          setSignedUrl(url);
         } else {
+          console.log("[PdfViewerDialog] Signed URL generated successfully");
           setSignedUrl(data.signedUrl);
         }
       })
