@@ -200,10 +200,14 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
               newEstado = "firmado_parcial";
             }
 
-            // Try to get signed PDF URL if completed
+            // Try to persist a stable PDF URL when completed
             const updatePayload: any = { firmantes: updatedFirmantes, estado: newEstado };
-            if (newEstado === "completado" && !firma.pdf_firmado_url && data.document.file) {
-              updatePayload.pdf_firmado_url = data.document.file;
+            if (newEstado === "completado" && !firma.pdf_firmado_url) {
+              if (data?.pdf_storage_url) {
+                updatePayload.pdf_firmado_url = data.pdf_storage_url;
+              } else if (typeof data?.document?.file === "string" && data.document.file.includes("/storage/v1/object/")) {
+                updatePayload.pdf_firmado_url = data.document.file;
+              }
             }
 
             await (supabase as any).from("firmas_digitales").update(updatePayload).eq("id", firma.id);

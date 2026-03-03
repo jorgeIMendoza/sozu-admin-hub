@@ -18,6 +18,11 @@ function extractStoragePath(url: string): { bucket: string; path: string } | nul
   const publicMatch = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+?)(?:\?.*)?$/);
   if (publicMatch) return { bucket: publicMatch[1], path: decodeURIComponent(publicMatch[2]) };
 
+  // Mifiel API file endpoints are handled separately via edge function
+  if (/\/?api\/v1\/documents\/[^/]+\/file(?:\?.*)?$/i.test(url)) {
+    return null;
+  }
+
   // If it's just a relative path like "cartas/xxx.pdf", assume firmas-digitales bucket
   if (!url.startsWith("http") && !url.startsWith("blob:")) {
     return { bucket: "firmas-digitales", path: url };
@@ -36,6 +41,30 @@ export function PdfViewerDialog({ open, onOpenChange, url, title = "Documento PD
     if (!open || !url) {
       setSignedUrl(null);
       setError(null);
+      return;
+    }
+
+    const mifielMatch = url.match(/\/?api\/v1\/documents\/([^/]+)\/file(?:\?.*)?$/i);
+    if (mifielMatch?.[1]) {
+      setLoading(true);
+      setError(null);
+      supabase.functions
+        .invoke("mifiel-consultar-documento", { body: { document_id: mifielMatch[1] } })
+        .then(({ data, error: invokeError }) => {
+          if (invokeError || !data?.success) {
+            setError("No se pudo cargar el PDF firmado.");
+            setSignedUrl(null);
+            return;
+          }
+          const resolvedUrl = data?.signed_pdf_url || data?.pdf_storage_url || null;
+          if (!resolvedUrl) {
+            setError("No se encontró el PDF firmado.");
+            setSignedUrl(null);
+            return;
+          }
+          setSignedUrl(resolvedUrl);
+        })
+        .finally(() => setLoading(false));
       return;
     }
 
