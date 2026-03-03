@@ -349,6 +349,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           agente_email: personaForMifiel.email,
           agente_nombre: personaForMifiel.nombre_legal,
           agente_persona_id: personaId,
+          carta_acuerdo_id: "ce94b2d7-dcc8-4f91-a8d8-882264556c3e",
         },
       });
       if (error) throw error;
