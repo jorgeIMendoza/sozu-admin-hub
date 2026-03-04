@@ -32,9 +32,13 @@ serve(async (req) => {
       headers: { Authorization: authHeader },
     });
 
-    // 404 means already deleted — treat as success
-    if (response.ok || response.status === 404) {
-      return new Response(JSON.stringify({ success: true, already_deleted: response.status === 404 }), {
+    // 404 = already deleted, 410 = fully signed (can't delete but is finalized) — treat both as success
+    if (response.ok || response.status === 404 || response.status === 410) {
+      return new Response(JSON.stringify({
+        success: true,
+        already_deleted: response.status === 404,
+        already_signed: response.status === 410,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
