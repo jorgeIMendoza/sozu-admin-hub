@@ -66,6 +66,8 @@ export function EditUserDialog({
   const { registrarActualizacion } = useActivityLogger();
 
   const isAgentRole = userRoleId === ROLE_AGENTE_INMOBILIARIO || userRoleId === ROLE_AGENTE_INTERNO;
+  const isInmobiliariaRole = userRoleId === ROLE_INMOBILIARIA;
+  const needsInmobiliaria = isAgentRole || isInmobiliariaRole;
   const showEmailConfirmation = userRoleId === ROLE_AGENTE_INMOBILIARIO || userRoleId === ROLE_INMOBILIARIA;
 
   // Fetch email confirmation status
@@ -113,11 +115,11 @@ export function EditUserDialog({
         nombre: item.nombre_comercial || item.nombre_legal
       })) as InmobiliariaOption[];
     },
-    enabled: open && isAgentRole,
+    enabled: open && needsInmobiliaria,
   });
 
-  // Fetch current inmobiliaria for this agent
-  const { data: currentInmobiliaria, isLoading: isLoadingInmobiliaria } = useQuery({
+  // Fetch current inmobiliaria for this agent (via entidades_relacionadas tipo 19)
+  const { data: currentAgentInmobiliaria, isLoading: isLoadingAgentInmob } = useQuery({
     queryKey: ['agent_inmobiliaria', userPersonaId],
     queryFn: async () => {
       if (!userPersonaId) return null;
@@ -136,6 +138,38 @@ export function EditUserDialog({
     enabled: open && isAgentRole && !!userPersonaId,
   });
 
+  // Fetch current inmobiliaria for Inmobiliaria role users (via proyectos_acceso)
+  const { data: currentInmobInmobiliaria, isLoading: isLoadingInmobInmob } = useQuery({
+    queryKey: ['inmob_user_inmobiliaria', userEmail],
+    queryFn: async () => {
+      if (!userEmail) return null;
+      
+      const { data: accesos } = await supabase
+        .from('proyectos_acceso')
+        .select('id_entidad_relacionada_dueno')
+        .eq('usuario_id', userEmail)
+        .not('id_entidad_relacionada_dueno', 'is', null)
+        .eq('activo', true)
+        .limit(1);
+      
+      if (accesos && accesos.length > 0) {
+        const erDueno = accesos[0].id_entidad_relacionada_dueno;
+        const { data: er } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona')
+          .eq('id', erDueno)
+          .eq('id_tipo_entidad', 5)
+          .single();
+        return er?.id_persona || null;
+      }
+      return null;
+    },
+    enabled: open && isInmobiliariaRole,
+  });
+
+  const currentInmobiliaria = isAgentRole ? currentAgentInmobiliaria : currentInmobInmobiliaria;
+  const isLoadingInmobiliaria = isAgentRole ? isLoadingAgentInmob : isLoadingInmobInmob;
+
   // Reset form when dialog opens with new data
   useEffect(() => {
     if (open) {
@@ -146,12 +180,12 @@ export function EditUserDialog({
 
   // Set inmobiliaria when data is loaded
   useEffect(() => {
-    if (open && isAgentRole && !isLoadingInmobiliaria) {
+    if (open && needsInmobiliaria && !isLoadingInmobiliaria) {
       const inmobId = currentInmobiliaria?.toString() || "";
       setSelectedInmobiliariaId(inmobId);
       setOriginalInmobiliariaId(inmobId);
     }
-  }, [open, isAgentRole, isLoadingInmobiliaria, currentInmobiliaria]);
+  }, [open, needsInmobiliaria, isLoadingInmobiliaria, currentInmobiliaria]);
 
   // Resend confirmation email mutation
   const resendConfirmationMutation = useMutation({
@@ -226,8 +260,8 @@ export function EditUserDialog({
         }
       }
 
-      // If inmobiliaria changed and user is an agent, update entidades_relacionadas
-      if (personaId && newInmobiliariaId !== undefined) {
+      // If inmobiliaria changed for agent role, update entidades_relacionadas
+      if (isAgentRole && personaId && newInmobiliariaId !== undefined) {
         const { data: existingEntidad } = await supabase
           .from('entidades_relacionadas')
           .select('id')
@@ -303,6 +337,72 @@ export function EditUserDialog({
         }
       }
 
+      // If inmobiliaria changed for Inmobiliaria role, update proyectos_acceso
+      if (isInmobiliariaRole && newInmobiliariaId !== undefined) {
+        const finalEmail = oldEmail !== newEmail ? newEmail : oldEmail;
+        
+        // Resolve the entidad_relacionada ID for the new inmobiliaria
+        const { data: inmobEntidad } = await supabase
+          .from('entidades_relacionadas')
+          .select('id')
+          .eq('id_persona', newInmobiliariaId)
+          .eq('id_tipo_entidad', 5)
+          .eq('activo', true)
+          .maybeSingle();
+
+        if (inmobEntidad) {
+          // Update existing proyectos_acceso entries
+          await supabase
+            .from('proyectos_acceso')
+            .update({ 
+              id_entidad_relacionada_dueno: inmobEntidad.id,
+              fecha_actualizacion: new Date().toISOString()
+            })
+            .eq('usuario_id', finalEmail);
+
+          // Also copy any project access from the inmobiliaria primary user
+          const { data: inmobiliariaPersona } = await supabase
+            .from("personas")
+            .select("email")
+            .eq("id", newInmobiliariaId)
+            .single();
+
+          if (inmobiliariaPersona?.email) {
+            const { data: inmobiliariaAccess } = await supabase
+              .from("proyectos_acceso")
+              .select("proyecto_id")
+              .eq("usuario_id", inmobiliariaPersona.email)
+              .eq("activo", true);
+
+            if (inmobiliariaAccess && inmobiliariaAccess.length > 0) {
+              const { data: existingAccess } = await supabase
+                .from("proyectos_acceso")
+                .select("proyecto_id")
+                .eq("usuario_id", finalEmail)
+                .eq("activo", true);
+
+              const existingProjectIds = new Set((existingAccess || []).map(a => a.proyecto_id));
+
+              const newAccessEntries = inmobiliariaAccess
+                .filter(access => !existingProjectIds.has(access.proyecto_id))
+                .map(access => ({
+                  usuario_id: finalEmail,
+                  proyecto_id: access.proyecto_id,
+                  id_entidad_relacionada_dueno: inmobEntidad.id,
+                  activo: true
+                }));
+
+              if (newAccessEntries.length > 0) {
+                await supabase
+                  .from("proyectos_acceso")
+                  .insert(newAccessEntries);
+                console.log(`Added ${newAccessEntries.length} project access entries for inmobiliaria user`);
+              }
+            }
+          }
+        }
+      }
+
       return { oldEmail, newEmail, newNombre, newInmobiliariaId };
     },
     onSuccess: (data) => {
@@ -351,17 +451,17 @@ export function EditUserDialog({
       return;
     }
 
-    // Inmobiliaria is optional for agent roles
+    // Inmobiliaria change support for agents and Inmobiliaria role
     updateUserMutation.mutate({
       oldEmail: userEmail,
       newEmail: email.trim(),
       newNombre: nombre.trim(),
-      newInmobiliariaId: isAgentRole && selectedInmobiliariaId ? parseInt(selectedInmobiliariaId) : undefined,
+      newInmobiliariaId: needsInmobiliaria && selectedInmobiliariaId ? parseInt(selectedInmobiliariaId) : undefined,
       personaId: userPersonaId,
     });
   };
 
-  const inmobiliariaChanged = isAgentRole && selectedInmobiliariaId !== originalInmobiliariaId;
+  const inmobiliariaChanged = needsInmobiliaria && selectedInmobiliariaId !== originalInmobiliariaId;
   const hasChanges = nombre !== userName || email !== userEmail || inmobiliariaChanged;
 
   return (
@@ -441,8 +541,8 @@ export function EditUserDialog({
             )}
           </div>
 
-          {/* Inmobiliaria selector - only for agent roles */}
-          {isAgentRole && (
+          {/* Inmobiliaria selector - for agent and Inmobiliaria roles */}
+          {needsInmobiliaria && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
