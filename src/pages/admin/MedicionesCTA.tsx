@@ -28,6 +28,14 @@ const PAGE_LABELS: Record<string, string> = {
   agent_pipeline: "Pipeline",
   agent_comisiones: "Comisiones",
   agent_perfil: "Perfil",
+  inmob_dashboard: "Dashboard",
+  inmob_agentes: "Agentes",
+  inmob_pipeline: "Pipeline",
+  inmob_prospectos: "Prospectos",
+  inmob_citas: "Citas",
+  inmob_comisiones: "Comisiones",
+  inmob_reportes: "Reportes",
+  inmob_configuracion: "Configuración",
 };
 
 const AGENT_PAGES = [
@@ -46,6 +54,17 @@ const AGENT_PAGE_GROUPS: Record<string, string[]> = {
   agent_comisiones: ["agent_comisiones"],
   agent_perfil: ["agent_perfil"],
 };
+
+const INMOB_PAGES = [
+  { key: "inmob_dashboard", label: "Dashboard" },
+  { key: "inmob_agentes", label: "Agentes" },
+  { key: "inmob_pipeline", label: "Pipeline" },
+  { key: "inmob_prospectos", label: "Prospectos" },
+  { key: "inmob_citas", label: "Citas" },
+  { key: "inmob_comisiones", label: "Comisiones" },
+  { key: "inmob_reportes", label: "Reportes" },
+  { key: "inmob_configuracion", label: "Configuración" },
+];
 
 const MedicionesCTA = () => {
   const [timeRange, setTimeRange] = useState<string>("7d");
@@ -75,8 +94,9 @@ const MedicionesCTA = () => {
   });
 
   // Split events by context
-  const inmobiliariaEvents = useMemo(() => events.filter((e: any) => !e.page?.startsWith("agent_")), [events]);
+  const inmobiliariaEvents = useMemo(() => events.filter((e: any) => !e.page?.startsWith("agent_") && !e.page?.startsWith("inmob_")), [events]);
   const agentEvents = useMemo(() => events.filter((e: any) => e.page?.startsWith("agent_")), [events]);
+  const inmobPortalEvents = useMemo(() => events.filter((e: any) => e.page?.startsWith("inmob_")), [events]);
 
   // ===== Inmobiliaria helpers (unchanged) =====
   const countByElement = (page: string, elementId: string) =>
@@ -269,7 +289,27 @@ const MedicionesCTA = () => {
       const guardado = agentEvents.filter((e: any) => e.page === "agent_perfil" && e.element_id === "perfil_fase_guardar" && (e.metadata as any)?.fase === fase).length;
       return { fase: labels[fase] || fase, abierto, guardado, tasa: abierto > 0 ? ((guardado / abierto) * 100).toFixed(1) + "%" : "—" };
     });
-  }, [agentEvents]);
+  // ===== Inmob Portal helpers =====
+  const inmobUniqueUsers = useMemo(() => new Set(inmobPortalEvents.map((e: any) => e.user_email)).size, [inmobPortalEvents]);
+  const inmobUniqueCTAs = useMemo(() => {
+    const set = new Set<string>();
+    inmobPortalEvents.forEach((e: any) => set.add(`${e.page}::${e.element_id}`));
+    return set.size;
+  }, [inmobPortalEvents]);
+  const inmobTotalClicks = inmobPortalEvents.length;
+  const inmobPageViews = useMemo(() => inmobPortalEvents.filter((e: any) => e.element_id === "page_view").length, [inmobPortalEvents]);
+
+  const getInmobPageViews = (pageKey: string) =>
+    inmobPortalEvents.filter((e: any) => e.page === pageKey && e.element_id === "page_view").length;
+
+  const getInmobPageCTAs = (pageKey: string) => {
+    const map = new Map<string, number>();
+    inmobPortalEvents.filter((e: any) => e.page === pageKey && e.element_id !== "page_view").forEach((e: any) => {
+      const key = e.element_label || e.element_id;
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, clicks]) => ({ name: name.length > 30 ? name.slice(0, 27) + "…" : name, clicks })).sort((a, b) => b.clicks - a.clicks).slice(0, 10);
+  };
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -289,6 +329,7 @@ const MedicionesCTA = () => {
           <SelectContent>
             <SelectItem value="inmobiliaria">Datos de inmobiliaria</SelectItem>
             <SelectItem value="agent">Portal Agente</SelectItem>
+            <SelectItem value="inmob_portal">Portal Inmobiliaria</SelectItem>
           </SelectContent>
         </Select>
         <Select value={timeRange} onValueChange={setTimeRange}>
@@ -321,7 +362,7 @@ const MedicionesCTA = () => {
           maxCount={maxCount}
           countByElement={countByElement}
         />
-      ) : (
+      ) : context === "agent" ? (
         <AgentPortalView
           totalClicks={agentTotalClicks}
           uniqueCTAs={agentUniqueCTAs}
@@ -331,6 +372,15 @@ const MedicionesCTA = () => {
           getGroupViews={getAgentGroupViews}
           modalData={agentModalData}
           profilePhases={agentProfilePhases}
+        />
+      ) : (
+        <InmobPortalView
+          totalClicks={inmobTotalClicks}
+          uniqueCTAs={inmobUniqueCTAs}
+          uniqueUsers={inmobUniqueUsers}
+          pageViews={inmobPageViews}
+          getPageViews={getInmobPageViews}
+          getPageCTAs={getInmobPageCTAs}
         />
       )}
     </div>
@@ -804,6 +854,96 @@ const AgentPortalView = ({
         </div>
       </CardContent>
     </Card>
+  </>
+);
+
+// ===== Inmob Portal View =====
+const InmobPortalView = ({
+  totalClicks, uniqueCTAs, uniqueUsers, pageViews,
+  getPageViews, getPageCTAs,
+}: {
+  totalClicks: number;
+  uniqueCTAs: number;
+  uniqueUsers: number;
+  pageViews: number;
+  getPageViews: (key: string) => number;
+  getPageCTAs: (key: string) => { name: string; clicks: number }[];
+}) => (
+  <>
+    {/* Summary cards */}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <Card>
+        <CardContent className="pt-6 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><MousePointer className="h-6 w-6 text-primary" /></div>
+          <div><p className="text-2xl font-bold text-foreground">{totalClicks}</p><p className="text-xs text-muted-foreground">Total clicks</p></div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="pt-6 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><BarChart3 className="h-6 w-6 text-primary" /></div>
+          <div><p className="text-2xl font-bold text-foreground">{uniqueCTAs}</p><p className="text-xs text-muted-foreground">CTAs únicos</p></div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="pt-6 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><TrendingUp className="h-6 w-6 text-primary" /></div>
+          <div><p className="text-2xl font-bold text-foreground">{uniqueUsers}</p><p className="text-xs text-muted-foreground">Usuarios únicos</p></div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="pt-6 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><Eye className="h-6 w-6 text-primary" /></div>
+          <div><p className="text-2xl font-bold text-foreground">{pageViews}</p><p className="text-xs text-muted-foreground">Visitas a páginas</p></div>
+        </CardContent>
+      </Card>
+    </div>
+
+    {/* Page views by section */}
+    <Card>
+      <CardHeader><CardTitle className="text-sm">Visitas por Sección</CardTitle></CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
+          {INMOB_PAGES.map(({ key, label }) => (
+            <div key={key} className="text-center p-3 rounded-lg bg-muted/50">
+              <p className="text-2xl font-bold text-foreground">{getPageViews(key)}</p>
+              <p className="text-xs text-muted-foreground">{label}</p>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Tabs by section */}
+    <Tabs defaultValue="inmob_dashboard" className="space-y-4">
+      <TabsList className="flex flex-wrap h-auto gap-1">
+        {INMOB_PAGES.map(({ key, label }) => (
+          <TabsTrigger key={key} value={key}>{label}</TabsTrigger>
+        ))}
+      </TabsList>
+
+      {INMOB_PAGES.map(({ key, label }) => (
+        <TabsContent key={key} value={key} className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">CTAs — {label}</CardTitle></CardHeader>
+            <CardContent>
+              {getPageCTAs(key).length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={getPageCTAs(key)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" />
+                    <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="clicks" radius={[0, 6, 6, 0]}>
+                      {getPageCTAs(key).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <p className="text-sm text-muted-foreground text-center py-8">Sin datos para {label}</p>}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      ))}
+    </Tabs>
   </>
 );
 
