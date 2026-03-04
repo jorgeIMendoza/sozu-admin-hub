@@ -660,26 +660,11 @@ Deno.serve(async (req) => {
 
       for (const se of (storedEvents || [])) {
         try {
-          // Server-side safety: check if event has real attendees before deleting
-          const evRes = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
-          if (evRes.ok) {
-            const evData = await evRes.json();
-            const realAttendees = (evData.attendees || []).filter(
-              (a: any) => a.email !== SERVICE_ACCOUNT_EMAIL
-            );
-            if (realAttendees.length > 0) {
-              console.log(`[delete-config-events] Skipping event ${se.google_event_id} on ${se.fecha}: has ${realAttendees.length} attendees`);
-              skippedCount++;
-              continue;
-            }
-          }
           await deleteCalendarEvent(token, se.calendar_email, se.google_event_id);
           deletedCount++;
           deletedEventIds.push(se.id);
         } catch (e: any) {
+          console.error(`[delete-config-events] Error deleting event ${se.google_event_id}: ${e.message}`);
           errors.push(`Event ${se.google_event_id}: ${e.message}`);
         }
       }
