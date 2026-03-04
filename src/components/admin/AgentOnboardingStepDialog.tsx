@@ -281,6 +281,9 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   const [sendingToMifiel, setSendingToMifiel] = useState(false);
   const [syncingFirma, setSyncingFirma] = useState(false);
   const [cartaPdfViewerUrl, setCartaPdfViewerUrl] = useState<string | null>(null);
+  const [agentSignaturePadOpen, setAgentSignaturePadOpen] = useState(false);
+  const [agentSignatureDataUrl, setAgentSignatureDataUrl] = useState<string | null>(null);
+  const [pendingSignAction, setPendingSignAction] = useState<"firmar" | "continuar" | null>(null);
 
   // Fetch persona data for Mifiel (name + email)
   const { data: personaForMifiel } = useQuery({
@@ -366,19 +369,37 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     refetchInterval: 30000,
   });
 
-  const handleFirmarCarta = async () => {
+  // Step 1: Ask for autograph before creating/continuing Mifiel doc
+  const handleRequestAgentSignature = (action: "firmar" | "continuar") => {
     if (!personaForMifiel?.email || !personaForMifiel?.nombre_legal) {
       toast.error("Faltan datos del agente (nombre o email) para enviar a firma.");
       return;
     }
+    setPendingSignAction(action);
+    setAgentSignaturePadOpen(true);
+  };
+
+  // Step 2: After autograph is captured, proceed with the action
+  const handleAgentSignatureSaved = async (dataUrl: string) => {
+    setAgentSignatureDataUrl(dataUrl);
+    if (pendingSignAction === "firmar") {
+      await doFirmarCarta(dataUrl);
+    } else if (pendingSignAction === "continuar") {
+      await handleContinuarFirmaInternal();
+    }
+    setPendingSignAction(null);
+  };
+
+  const doFirmarCarta = async (firmaAutografa: string) => {
     setSendingToMifiel(true);
     try {
       const { data, error } = await supabase.functions.invoke("mifiel-crear-documento", {
         body: {
-          agente_email: personaForMifiel.email,
-          agente_nombre: personaForMifiel.nombre_legal,
+          agente_email: personaForMifiel!.email,
+          agente_nombre: personaForMifiel!.nombre_legal,
           agente_persona_id: personaId,
           carta_acuerdo_id: "ce94b2d7-dcc8-4f91-a8d8-882264556c3e",
+          firma_autografa_agente: firmaAutografa,
         },
       });
       if (error) throw error;
