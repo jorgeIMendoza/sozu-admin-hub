@@ -21,7 +21,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { format, addMonths } from "date-fns";
 import { es } from "date-fns/locale";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const DIAS_SEMANA = [
   { id: 1, nombre: "Lunes", short: "Lun" },
@@ -81,6 +91,8 @@ export default function ConfiguracionCitas() {
   const [nuevaCitaDialogOpen, setNuevaCitaDialogOpen] = useState(false);
   const [nuevaCitaTipoId, setNuevaCitaTipoId] = useState<string>("");
   const [nuevaCitaNombre, setNuevaCitaNombre] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfigTarget, setDeleteConfigTarget] = useState<{ id: number; nombre: string } | null>(null);
 
   useEffect(() => {
     if (!isSuperAdmin && profile?.email) {
@@ -421,7 +433,26 @@ export default function ConfiguracionCitas() {
     onError: (e) => toast.error(`Error: ${e.message}`),
   });
 
-  // Delete cita config (also removes Google Calendar events)
+  // Check if target config has active reservations (attendees)
+  const { data: deleteTargetReservations } = useQuery({
+    queryKey: ["config-active-reservations", deleteConfigTarget?.id],
+    queryFn: async () => {
+      if (!deleteConfigTarget?.id) return [];
+      const { data } = await supabase
+        .from("reservas_citas")
+        .select("id")
+        .eq("id_configuracion_cita", deleteConfigTarget.id)
+        .eq("activo", true)
+        .eq("estatus", "programada")
+        .limit(1);
+      return data || [];
+    },
+    enabled: !!deleteConfigTarget?.id,
+  });
+
+  const hasActiveReservations = (deleteTargetReservations?.length || 0) > 0;
+
+
   const deleteCitaMutation = useMutation({
     mutationFn: async (configId: number) => {
       // First, delete all associated Google Calendar events
@@ -448,9 +479,14 @@ export default function ConfiguracionCitas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["config-citas-usuarios-all", selectedUserEmail] });
       setSelectedConfigId("");
+      setDeleteDialogOpen(false);
+      setDeleteConfigTarget(null);
       toast.success("Cita eliminada y eventos de calendario limpiados");
     },
-    onError: (e) => toast.error(`Error: ${e.message}`),
+    onError: (e) => {
+      setDeleteDialogOpen(false);
+      toast.error(`Error: ${e.message}`);
+    },
   });
 
   const saveMutation = useMutation({
@@ -793,7 +829,8 @@ export default function ConfiguracionCitas() {
                               variant="ghost"
                               className="text-destructive hover:text-destructive"
                               onClick={() => {
-                                if (confirm(`¿Eliminar la cita "${cfg.nombre}"?`)) deleteCitaMutation.mutate(cfg.id);
+                                setDeleteConfigTarget({ id: cfg.id, nombre: cfg.nombre });
+                                setDeleteDialogOpen(true);
                               }}
                             >
                               <Trash2 className="h-4 w-4 mr-1" /> Eliminar
@@ -1138,6 +1175,51 @@ export default function ConfiguracionCitas() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteDialogOpen(false);
+          setDeleteConfigTarget(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Eliminar cita "{deleteConfigTarget?.nombre}"
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>¿Estás seguro de que deseas eliminar esta configuración de cita?</p>
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                <p className="font-medium text-destructive">⚠️ Esta acción eliminará todos los eventos asociados en Google Calendar.</p>
+                <p className="mt-1 text-muted-foreground">Los horarios configurados, proyectos vinculados y eventos del calendario serán eliminados permanentemente.</p>
+              </div>
+              {hasActiveReservations && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm">
+                  <p className="font-medium text-amber-700 dark:text-amber-400">🚫 Esta cita tiene invitados con reserva activa.</p>
+                  <p className="mt-1 text-muted-foreground">No es posible eliminar una cita que tiene eventos con asistentes confirmados. Primero cancela o reagenda las citas pendientes.</p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteCitaMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={hasActiveReservations || deleteCitaMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfigTarget) deleteCitaMutation.mutate(deleteConfigTarget.id);
+              }}
+            >
+              {deleteCitaMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Eliminando...</>
+              ) : (
+                <><Trash2 className="h-4 w-4 mr-2" /> Eliminar cita</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
