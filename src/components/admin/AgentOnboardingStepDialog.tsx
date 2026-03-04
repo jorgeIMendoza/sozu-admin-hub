@@ -419,7 +419,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     }
   };
 
-  const handleContinuarFirma = async () => {
+  const handleContinuarFirmaInternal = async () => {
     if (!firmaExistente?.mifiel_document_id) {
       toast.error("No se encontró un documento activo para continuar firma.");
       return;
@@ -1197,7 +1197,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                     <Button
                       size="sm"
                       disabled={sendingToMifiel}
-                      onClick={handleFirmarCarta}
+                      onClick={() => handleRequestAgentSignature("firmar")}
                       className="flex-1 h-10 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
                     >
                       {sendingToMifiel ? (
