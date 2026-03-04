@@ -188,13 +188,13 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
 
   // Sync firmas with Mifiel
   const handleSyncMifiel = async () => {
-    const toCheck = firmas.filter((f: any) => f.mifiel_document_id && f.estado !== "cancelado");
+    const toCheck = firmas.filter((f: any) => f.mifiel_document_id && f.estado !== "cancelado" && f.estado !== "completado");
     if (toCheck.length === 0) {
       toast({ title: "No hay firmas pendientes para sincronizar" });
       return;
     }
     setSyncing(true);
-    let removed = 0;
+    let cancelled = 0;
     let updated = 0;
     try {
       for (const firma of toCheck) {
@@ -204,10 +204,10 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
           });
           const notFound = error || !data?.success || data?.upstream_status === 404;
           const mifielStatus = data?.document?.status;
-          const isArchived = mifielStatus === "archived" || mifielStatus === "deleted";
+          const isArchived = mifielStatus === "archived" || mifielStatus === "deleted" || mifielStatus === "canceled" || mifielStatus === "cancelled";
           if (notFound || isArchived) {
-            await (supabase as any).from("firmas_digitales").delete().eq("id", firma.id);
-            removed++;
+            await (supabase as any).from("firmas_digitales").update({ estado: "cancelado" }).eq("id", firma.id);
+            cancelled++;
           } else if (data?.document) {
             // Update firmantes with signed status from Mifiel
             const mifielSigners = (data.document.signers || []) as any[];
@@ -246,9 +246,9 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
       queryClient.invalidateQueries({ queryKey: ["firmas-digitales", cartaId] });
       queryClient.invalidateQueries({ queryKey: ["cartas-acuerdo-firma-counts"] });
       toast({
-        title: removed > 0 ? `🗑️ ${removed} firma(s) eliminada(s)` : "✅ Todo sincronizado",
-        description: removed > 0
-          ? "Se eliminaron firmas que ya no existen en Mifiel."
+        title: cancelled > 0 ? `⚠️ ${cancelled} firma(s) cancelada(s)` : "✅ Todo sincronizado",
+        description: cancelled > 0
+          ? "Se marcaron como canceladas firmas que ya no existen en Mifiel."
           : updated > 0
             ? `Se actualizó el estado de firma de ${updated} documento(s).`
             : "Todas las firmas están al día.",
@@ -683,7 +683,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar documento de firma?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El documento será eliminado permanentemente.
+              Esta acción eliminará el documento tanto en Mifiel como en la base de datos. No se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -691,11 +691,29 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={async () => {
+                const firmaToDelete = firmas.find((f: any) => f.id === deleteConfirmId);
                 try {
-                  await (supabase as any).from("firmas_digitales").delete().eq("id", deleteConfirmId);
-                  queryClient.invalidateQueries({ queryKey: ["firmas-digitales", cartaId] });
-                  queryClient.invalidateQueries({ queryKey: ["cartas-acuerdo-firma-counts"] });
-                  toast({ title: "🗑️ Documento eliminado" });
+                  // 1. Delete from Mifiel if there's a mifiel_document_id
+                  if (firmaToDelete?.mifiel_document_id) {
+                    const { data: mifielResult, error: mifielError } = await supabase.functions.invoke("mifiel-cancelar-documento", {
+                      body: { document_id: firmaToDelete.mifiel_document_id },
+                    });
+                    if (mifielError || !mifielResult?.success) {
+                      console.error("Mifiel cancel error:", mifielError || mifielResult);
+                      toast({ title: "Error al eliminar en Mifiel", description: mifielError?.message || mifielResult?.error || "Error desconocido", variant: "destructive" });
+                      setDeleteConfirmId(null);
+                      return;
+                    }
+                  }
+                  // 2. Delete from DB
+                  const { error: dbError } = await (supabase as any).from("firmas_digitales").delete().eq("id", deleteConfirmId);
+                  if (dbError) {
+                    toast({ title: "Error al eliminar de la base de datos", description: dbError.message, variant: "destructive" });
+                  } else {
+                    queryClient.invalidateQueries({ queryKey: ["firmas-digitales", cartaId] });
+                    queryClient.invalidateQueries({ queryKey: ["cartas-acuerdo-firma-counts"] });
+                    toast({ title: "🗑️ Documento eliminado", description: "Se eliminó de Mifiel y de la base de datos." });
+                  }
                 } catch (err: any) {
                   toast({ title: "Error", description: err.message, variant: "destructive" });
                 } finally {
