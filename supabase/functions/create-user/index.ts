@@ -363,6 +363,19 @@ serve(async (req) => {
           .eq("id", id_inmobiliaria)
           .single();
 
+        // Resolve the entidad_relacionada ID for this inmobiliaria to use as fallback
+        let inmobiliariaEntidadId: number | null = null;
+        const { data: inmobEntidad } = await supabaseAdmin
+          .from("entidades_relacionadas")
+          .select("id")
+          .eq("id_persona", id_inmobiliaria)
+          .eq("id_tipo_entidad", 5)
+          .eq("activo", true)
+          .maybeSingle();
+        if (inmobEntidad) {
+          inmobiliariaEntidadId = inmobEntidad.id;
+        }
+
         if (inmobiliariaPersona?.email) {
           const { data: inmobiliariaAccess } = await supabaseAdmin
             .from("proyectos_acceso")
@@ -374,7 +387,7 @@ serve(async (req) => {
             const accessToInsert = inmobiliariaAccess.map((access: any) => ({
               usuario_id: email,
               proyecto_id: access.proyecto_id,
-              id_entidad_relacionada_dueno: access.id_entidad_relacionada_dueno,
+              id_entidad_relacionada_dueno: access.id_entidad_relacionada_dueno || inmobiliariaEntidadId,
               activo: true
             }));
 
@@ -389,6 +402,38 @@ serve(async (req) => {
               console.error("Error copying project access:", accessError);
             } else {
               console.log(`Copied ${accessToInsert.length} project access entries to user ${email}`);
+            }
+          } else if (inmobiliariaEntidadId) {
+            // No access entries found from primary user, but we know the inmobiliaria entity
+            // Check if there are projects linked to this inmobiliaria entity
+            const { data: entityAccess } = await supabaseAdmin
+              .from("proyectos_acceso")
+              .select("proyecto_id")
+              .eq("id_entidad_relacionada_dueno", inmobiliariaEntidadId)
+              .eq("activo", true)
+              .limit(50);
+
+            if (entityAccess && entityAccess.length > 0) {
+              const uniqueProjects = [...new Set(entityAccess.map((a: any) => a.proyecto_id))];
+              const accessToInsert = uniqueProjects.map(projId => ({
+                usuario_id: email,
+                proyecto_id: projId,
+                id_entidad_relacionada_dueno: inmobiliariaEntidadId,
+                activo: true
+              }));
+
+              const { error: accessError } = await supabaseAdmin
+                .from("proyectos_acceso")
+                .upsert(accessToInsert, {
+                  onConflict: "usuario_id,proyecto_id",
+                  ignoreDuplicates: true
+                });
+
+              if (accessError) {
+                console.error("Error copying entity project access:", accessError);
+              } else {
+                console.log(`Copied ${accessToInsert.length} entity-based project access entries to user ${email}`);
+              }
             }
           }
         }
