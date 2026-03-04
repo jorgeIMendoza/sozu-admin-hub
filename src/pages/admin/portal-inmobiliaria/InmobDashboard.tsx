@@ -128,29 +128,30 @@ export default function InmobDashboard() {
     queryKey: ["inmob-dash-financials", propIds],
     queryFn: async () => {
       if (!propIds.length) return { cobrado: 0, porCobrar: 0 };
-      // Get cuentas_cobranza linked to these properties via ofertas
-      const { data: cuentas } = await supabase
+      const { data: cuentas } = await (supabase
         .from("cuentas_cobranza")
         .select("id, precio_final, activo")
         .in("id_propiedad", propIds)
-        .eq("activo", true) as any;
+        .eq("activo", true) as any);
 
       if (!cuentas?.length) return { cobrado: 0, porCobrar: 0 };
 
-      const cuentaIds = cuentas.map((c: any) => c.id);
-      // Fetch applied payments in batches (limit 1000)
+      const cuentaIds = (cuentas as any[]).map((c: any) => c.id);
       let allPagos: any[] = [];
       for (let i = 0; i < cuentaIds.length; i += 50) {
         const batch = cuentaIds.slice(i, i + 50);
-        const { data: pagos } = await supabase
+        const { data: acuerdos } = await (supabase
+          .from("acuerdos_pago")
+          .select("id")
+          .in("id_cuenta_cobranza", batch)
+          .eq("activo", true) as any);
+        const acuerdoIds = (acuerdos || []).map((a: any) => a.id);
+        if (!acuerdoIds.length) continue;
+        const { data: pagos } = await (supabase
           .from("aplicaciones_pago")
-          .select("monto, id_acuerdo_pago, activo")
-          .in("id_acuerdo_pago", (await supabase
-            .from("acuerdos_pago")
-            .select("id")
-            .in("id_cuenta_cobranza", batch)
-            .eq("activo", true) as any).data?.map((a: any) => a.id) || [])
-          .eq("activo", true) as any;
+          .select("monto, activo")
+          .in("id_acuerdo_pago", acuerdoIds)
+          .eq("activo", true) as any);
         if (pagos) allPagos = [...allPagos, ...pagos];
       }
 
