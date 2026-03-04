@@ -1,41 +1,50 @@
 
 
-## Plan: Agregar Domain-Wide Delegation (subject/sub) al JWT de la cuenta de servicio
+# Plan: Corregir Dashboard Ejecutivo - Colores, Datos y Embudo
 
-### Problema actual
-La función `getAccessToken` genera un JWT sin el campo `sub`, por lo que Google Calendar ve las operaciones como hechas por la cuenta de servicio directamente. Esto impide que los invitados reciban correos de notificación del evento.
+## Problemas identificados
 
-### Cambio necesario
+1. **Colores negros en iconos**: Los iconos de KPI cards usan `bg-primary/10 text-primary` pero visualmente se ven negros. Necesito usar colores explícitos verdes SOZU (`#57AE75`) y colores específicos por card (naranja para "Por cobrar", etc.)
 
-**Archivo**: `supabase/functions/agendar-capacitacion/index.ts`
+2. **Montos en cero**: Los KPIs financieros (Ingresos cobrados, Por cobrar, Estimados) calculan sobre `comisionistas.monto_comision` (comisiones de agentes), no sobre los pagos reales de las cuentas de cobranza. Debo corregir la lógica:
+   - **Ingresos cobrados**: Suma de `pagos.monto` donde `aplicado = true` en cuentas vinculadas a propiedades de ofertas de agentes
+   - **Por cobrar**: `precio_lista - pagos aplicados` de propiedades apartadas/vendidas
+   - **Estimados**: `precio_lista` de propiedades apartadas (estatus 4)
 
-1. **Modificar `getAccessToken`** para aceptar un parámetro opcional `subject` (el email del dueño del calendario) y agregarlo al payload JWT:
-   ```
-   sub: subject  // e.g. "jorge.mendoza@sozu.com"
-   ```
+3. **Embudo de conversión**: Actualmente son barras horizontales con labels a la izquierda. El diseño de referencia muestra un embudo SVG tipo trapecio invertido con degradado verde, números centrados en cada nivel, y labels a la derecha. Incluye header "EMBUDO DE CONVERSIÓN COMERCIAL" / "Pipeline Global" con link "Ver pipeline".
 
-2. **Actualizar la llamada** a `getAccessToken(sa)` → `getAccessToken(sa, calendarOwnerEmail)` en el `Deno.serve` principal (línea 519), para que el token se genere impersonando al dueño del calendario.
+## Cambios en `InmobDashboard.tsx`
 
-3. Agregar el scope `https://www.googleapis.com/auth/calendar.events` al JWT (ya lo tienes en el Admin Console, pero el código solo pide `calendar`).
+### A. Colores de iconos KPI
+Cada card tendrá un color de icono específico usando colores directos:
+- Agentes: verde `#57AE75`
+- Pipeline: verde oscuro
+- Ofertas: verde
+- Apartados: verde
+- Ingresos cobrados: verde
+- Por cobrar: naranja `#F59E0B`
+- Estimados: gris
 
-### Detalle técnico
+### B. Lógica de datos financieros
+Agregar query de `cuentas_cobranza` con sus pagos para calcular ingresos reales:
+- Query propiedades con `id_estatus_disponibilidad IN (4,5)` de proyectos del agente
+- Query `cuentas_cobranza` vinculadas a esas propiedades
+- Query `pagos` aplicados en esas cuentas
+- **Ingresos cobrados** = suma pagos aplicados
+- **Por cobrar** = suma (precio_lista - pagos aplicados) de propiedades activas
+- **Estimados** = suma precio_lista de propiedades apartadas
 
-```text
-// Antes (línea 18-23):
-payload = { iss, scope: "...calendar", aud, iat, exp }
+### C. Embudo SVG tipo funnel real
+Reemplazar `FunnelChart` con un SVG que dibuja trapecios verdes apilados con degradado (más oscuro arriba, más claro abajo), centrados horizontalmente, con:
+- Cada nivel más angosto que el anterior (forma de embudo invertido)
+- Número blanco bold centrado en cada trapecio
+- Label a la derecha de cada nivel
+- Líneas blancas separando cada nivel
+- Header con "EMBUDO DE CONVERSIÓN COMERCIAL" en uppercase gris pequeño, "Pipeline Global" bold, y link "Ver pipeline >" a la derecha
 
-// Después:
-payload = { iss, sub: subject, scope: "...calendar ...calendar.events", aud, iat, exp }
-```
+### D. Card labels
+Agregar el label pequeño arriba del icono (ej: "Agentes activos" en texto xs gris) tal como en la referencia.
 
-La llamada cambia de:
-```text
-const token = await getAccessToken(sa);
-```
-A:
-```text
-const token = await getAccessToken(sa, calendarOwnerEmail);
-```
-
-Esto hará que Google Calendar trate las operaciones como si las hiciera el usuario real (calendarOwnerEmail), permitiendo el envío automático de correos a los invitados.
+## Archivo a modificar
+- `src/pages/admin/portal-inmobiliaria/InmobDashboard.tsx`
 
