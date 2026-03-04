@@ -827,7 +827,9 @@ Deno.serve(async (req) => {
       }
 
       const eventDescription = descripcion_invitacion || userCitaConfig?.descripcion_invitacion || "";
-      const ccAttendees = (correos_enterado || userCitaConfig?.correos_enterado || []).map((email: string) => ({ email }));
+      // NOTE: ccAttendees are NOT added when creating/syncing recurring slots.
+      // They are only added when someone actually books a slot (schedule action).
+      const ccEmails = (correos_enterado || userCitaConfig?.correos_enterado || []) as string[];
 
       // Fetch active reservations to include booked persons as attendees
       const reservationAttendeesBySlot = new Map<string, {email: string, nombre: string}[]>();
@@ -850,14 +852,16 @@ Deno.serve(async (req) => {
         console.log(`[sync] Reservation attendees by slot: ${JSON.stringify(Object.fromEntries(reservationAttendeesBySlot))}`);
       }
 
-      // Helper: build full attendees list (CC + reservation) for a given date/hora
+      // Helper: build attendees for a slot — only includes actual booked people + CC (only when bookings exist)
       const buildAttendeesForSlot = (fecha: string, hora: number) => {
         const slotKey = `${fecha}_${hora}`;
         const resAttendees = reservationAttendeesBySlot.get(slotKey) || [];
+        if (resAttendees.length === 0) return []; // No bookings = no attendees on the event
         const allEmails = new Set<string>();
         const result: {email: string}[] = [];
-        for (const a of ccAttendees) {
-          if (!allEmails.has(a.email)) { allEmails.add(a.email); result.push(a); }
+        // Include CC only when there are real bookings
+        for (const cc of ccEmails) {
+          if (!allEmails.has(cc)) { allEmails.add(cc); result.push({ email: cc }); }
         }
         for (const a of resAttendees) {
           if (!allEmails.has(a.email)) { allEmails.add(a.email); result.push({ email: a.email }); }
@@ -865,17 +869,16 @@ Deno.serve(async (req) => {
         return result;
       };
 
-      // Helper: build description with separated Enterados (CC) and Asistentes (booked)
+      // Helper: build description — only adds Enterados and Asistentes sections when there are real bookings
       const buildDescriptionWithAttendees = (baseDesc: string, _allAttendees: {email: string}[], fecha?: string, hora?: number) => {
         const parts: string[] = [];
         if (baseDesc) parts.push(baseDesc);
         
-        // Solo agregar Enterados y Asistentes cuando hay reservas reales en el slot
+        // Only add Enterados and Asistentes when there are actual bookings in the slot
         if (fecha !== undefined && hora !== undefined) {
           const slotKey = `${fecha}_${hora}`;
           const resAttendees = reservationAttendeesBySlot.get(slotKey) || [];
           if (resAttendees.length > 0) {
-            const ccEmails = ccAttendees.map(a => a.email);
             if (ccEmails.length > 0) {
               parts.push(`Enterados: ${ccEmails.join(", ")}`);
             }
@@ -886,7 +889,7 @@ Deno.serve(async (req) => {
         return parts.join("\n\n");
       };
 
-      console.log(`[create-recurring-meets] Summary: "${tipoCitaDescripcion}", CC Attendees: ${JSON.stringify(ccAttendees)}, CalendarId: ${calendarId}, ConfigId: ${bodyConfigId}`);
+      console.log(`[create-recurring-meets] Summary: "${tipoCitaDescripcion}", CC Emails (deferred): ${JSON.stringify(ccEmails)}, CalendarId: ${calendarId}, ConfigId: ${bodyConfigId}`);
 
       const endDate = new Date(fecha_fin + "T23:59:59-06:00");
       const today = new Date();
@@ -941,13 +944,13 @@ Deno.serve(async (req) => {
         if (!se.calendarData) continue;
         const slotAttendees = buildAttendeesForSlot(se.fecha, se.hora);
         const patchBody: any = { summary: tipoCitaDescripcion };
-        // Always include attendees in description
         patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees, se.fecha, se.hora);
         if (slotAttendees.length > 0) patchBody.attendees = [...slotAttendees];
+        const sendParam = slotAttendees.length > 0 ? "all" : "none";
 
         try {
           let res = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}?sendUpdates=all`,
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}?sendUpdates=${sendParam}`,
             { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(patchBody) },
           );
           if (!res.ok) {
@@ -998,9 +1001,10 @@ Deno.serve(async (req) => {
           },
         };
 
+        const regenSendParam = slotAttendees.length > 0 ? "all" : "none";
         try {
           let res = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=${regenSendParam}`,
             { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(regenEvent) },
           );
           if (!res.ok) {
@@ -1139,8 +1143,9 @@ Deno.serve(async (req) => {
             end: { dateTime: `${desired.fechaStr}T${desired.horaFin}:00`, timeZone: "America/Mexico_City" },
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
-          patchBody.description = buildDescriptionWithAttendees(eventDescription, slotAttendees4, desired.fechaStr, parseInt(desired.horaInicio));
-          if (slotAttendees4.length > 0) patchBody.attendees = [...slotAttendees4];
+          const updateSlotAttendees = buildAttendeesForSlot(desired.fechaStr, parseInt(desired.horaInicio));
+          patchBody.description = buildDescriptionWithAttendees(eventDescription, updateSlotAttendees, desired.fechaStr, parseInt(desired.horaInicio));
+          if (updateSlotAttendees.length > 0) patchBody.attendees = [...updateSlotAttendees];
 
           try {
             let res = await fetch(
@@ -1181,7 +1186,6 @@ Deno.serve(async (req) => {
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
           const createSlotAttendees = buildAttendeesForSlot(desired.fechaStr, parseInt(desired.horaInicio));
-          // Always include attendees in description
           event.description = buildDescriptionWithAttendees(eventDescription, createSlotAttendees, desired.fechaStr, parseInt(desired.horaInicio));
           if (createSlotAttendees.length > 0) event.attendees = [...createSlotAttendees];
           event.conferenceData = {
@@ -1190,10 +1194,11 @@ Deno.serve(async (req) => {
               conferenceSolutionKey: { type: "hangoutsMeet" },
             },
           };
+          const createSendParam = createSlotAttendees.length > 0 ? "all" : "none";
 
           try {
             let res = await fetch(
-              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=${createSendParam}`,
               { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
             );
             if (!res.ok) {
