@@ -306,6 +306,26 @@ export default function ConfiguracionCitas() {
           ? new Date((selectedConfig as any).fecha_fin_recurrencia + "T00:00:00")
           : addMonths(new Date(), 3)
       );
+      // Auto-verify if calendar email already exists
+      if (selectedConfig.calendario_email) {
+        setCalendarAccessStatus("idle");
+        // Trigger verification automatically
+        (async () => {
+          const email = selectedConfig.calendario_email?.trim();
+          if (!email || !email.includes("@")) return;
+          setCalendarVerifying(true);
+          try {
+            const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
+              body: { action: "verify-calendar-access", calendar_email: email, calendar_owner_email: email },
+            });
+            if (error) { setCalendarAccessStatus("error"); return; }
+            setCalendarAccessStatus(data?.accessible ? "ok" : "error");
+          } catch { setCalendarAccessStatus("error"); }
+          finally { setCalendarVerifying(false); }
+        })();
+      } else {
+        setCalendarAccessStatus("idle");
+      }
     } else {
       setDuracionMinutos(60);
       setCalendarioEmail("");
@@ -315,6 +335,7 @@ export default function ConfiguracionCitas() {
       setRoundRobinEnterados(false);
       setDescripcionInvitacion("");
       setFechaFinRecurrencia(addMonths(new Date(), 3));
+      setCalendarAccessStatus("idle");
     }
   }, [selectedConfig]);
 
@@ -499,6 +520,8 @@ export default function ConfiguracionCitas() {
     mutationFn: async () => {
       if (!selectedConfigId || !selectedConfig) throw new Error("No config selected");
       if (selectedProyectoIds.length === 0) throw new Error("Selecciona al menos un proyecto");
+      if (!calendarioEmail.trim() || !calendarioEmail.includes("@")) throw new Error("El email del calendario Google es obligatorio");
+      if (calendarAccessStatus !== "ok") throw new Error("El acceso al calendario debe estar verificado correctamente antes de guardar");
       const configId = parseInt(selectedConfigId);
 
       // 1. Update configuracion_citas_usuarios
@@ -716,7 +739,7 @@ export default function ConfiguracionCitas() {
         </Collapsible>
       )}
         {hasChanges && (
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || calendarAccessStatus !== "ok" || calendarVerifying}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Guardar
           </Button>
