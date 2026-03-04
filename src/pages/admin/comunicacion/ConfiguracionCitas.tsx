@@ -421,9 +421,25 @@ export default function ConfiguracionCitas() {
     onError: (e) => toast.error(`Error: ${e.message}`),
   });
 
-  // Delete cita config
+  // Delete cita config (also removes Google Calendar events)
   const deleteCitaMutation = useMutation({
     mutationFn: async (configId: number) => {
+      // First, delete all associated Google Calendar events
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke("agendar-capacitacion", {
+          body: {
+            action: "delete-config-events",
+            config_id: configId,
+            calendar_owner_email: selectedUserEmail,
+          },
+        });
+        if (fnError) console.error("Error limpiando eventos de calendario:", fnError);
+        else console.log(`Eventos de calendario eliminados:`, data);
+      } catch (e) {
+        console.error("Error llamando edge function para limpiar calendario:", e);
+      }
+
+      // Then delete DB records
       await supabase.from("configuracion_citas_proyectos").delete().eq("id_configuracion_cita", configId);
       await supabase.from("configuracion_citas_horarios").delete().eq("id_configuracion_cita", configId);
       const { error } = await supabase.from("configuracion_citas_usuarios").delete().eq("id", configId);
@@ -432,7 +448,7 @@ export default function ConfiguracionCitas() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["config-citas-usuarios-all", selectedUserEmail] });
       setSelectedConfigId("");
-      toast.success("Cita eliminada");
+      toast.success("Cita eliminada y eventos de calendario limpiados");
     },
     onError: (e) => toast.error(`Error: ${e.message}`),
   });

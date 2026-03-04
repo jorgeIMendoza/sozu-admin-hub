@@ -579,6 +579,59 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- Action: delete-config-events (delete all calendar events for a config) ----
+    if (body.action === "delete-config-events") {
+      const configId = body.config_id;
+      if (!configId) {
+        return new Response(JSON.stringify({ error: "Falta config_id" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      console.log(`[delete-config-events] Deleting all calendar events for config ${configId}`);
+
+      // 1. Get all stored calendar events for this config
+      const { data: storedEvents } = await supabase
+        .from("citas_calendar_events")
+        .select("*")
+        .eq("id_configuracion_cita", configId)
+        .eq("activo", true);
+
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      for (const se of (storedEvents || [])) {
+        try {
+          await deleteCalendarEvent(token, se.calendar_email, se.google_event_id);
+          deletedCount++;
+        } catch (e: any) {
+          errors.push(`Event ${se.google_event_id}: ${e.message}`);
+        }
+      }
+
+      // 2. Mark all stored events as inactive
+      if (storedEvents && storedEvents.length > 0) {
+        await supabase
+          .from("citas_calendar_events")
+          .update({ activo: false })
+          .eq("id_configuracion_cita", configId);
+      }
+
+      // 3. Also cancel any active reservations for this config
+      await supabase
+        .from("reservas_citas")
+        .update({ activo: false, estatus: "cancelada" })
+        .eq("id_configuracion_cita", configId)
+        .eq("activo", true);
+
+      console.log(`[delete-config-events] Deleted ${deletedCount}/${(storedEvents || []).length} events, errors: ${errors.length}`);
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        deleted_count: deletedCount, 
+        total: (storedEvents || []).length,
+        errors 
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ---- Action: check-availability-by-project ----
     if (body.action === "check-availability-by-project") {
       if (!body.fecha) {
