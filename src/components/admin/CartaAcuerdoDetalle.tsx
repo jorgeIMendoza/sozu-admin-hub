@@ -584,21 +584,48 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                             {new Date(firma.created_at).toLocaleDateString("es-MX")}
                           </TableCell>
                           <TableCell>
-                            {firma.pdf_firmado_url && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  setPdfViewerUrl(
-                                    firma.mifiel_document_id
-                                      ? `/api/v1/documents/${firma.mifiel_document_id}/file_signed`
-                                      : firma.pdf_firmado_url,
-                                  )
-                                }
-                              >
-                                Ver PDF
-                              </Button>
-                            )}
+                            <div className="flex items-center gap-1">
+                              {firma.pdf_firmado_url && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    setPdfViewerUrl(
+                                      firma.mifiel_document_id
+                                        ? `/api/v1/documents/${firma.mifiel_document_id}/file_signed`
+                                        : firma.pdf_firmado_url,
+                                    )
+                                  }
+                                >
+                                  Ver PDF
+                                </Button>
+                              )}
+                              {/* Delete button - only enabled when NO firmante has signed */}
+                              {(() => {
+                                const anySigned = (firma.firmantes || []).some((f: any) => f.signed === true);
+                                return (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={anySigned}
+                                    title={anySigned ? "No se puede eliminar: ya hay firmas registradas" : "Eliminar documento"}
+                                    onClick={async () => {
+                                      if (!confirm("¿Estás seguro de eliminar este documento de firma?")) return;
+                                      try {
+                                        await (supabase as any).from("firmas_digitales").delete().eq("id", firma.id);
+                                        queryClient.invalidateQueries({ queryKey: ["firmas-digitales", cartaId] });
+                                        queryClient.invalidateQueries({ queryKey: ["cartas-acuerdo-firma-counts"] });
+                                        toast({ title: "🗑️ Documento eliminado" });
+                                      } catch (err: any) {
+                                        toast({ title: "Error", description: err.message, variant: "destructive" });
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                );
+                              })()}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
