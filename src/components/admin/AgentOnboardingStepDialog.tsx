@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MifielSigningDialog } from "@/components/admin/MifielSigningDialog";
 import { PdfViewerDialog } from "@/components/admin/PdfViewerDialog";
+import { SignaturePadDialog } from "@/components/admin/SignaturePadDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1351,6 +1352,16 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
         onOpenChange={(open) => { if (!open) setCartaPdfViewerUrl(null); }}
         url={cartaPdfViewerUrl || ""}
         title="Carta de Cumplimiento"
+      />
+
+      <SignaturePadDialog
+        open={agentSignaturePadOpen}
+        onOpenChange={(open) => {
+          setAgentSignaturePadOpen(open);
+          if (!open) setPendingSignAction(null);
+        }}
+        initialImage={agentSignatureDataUrl || undefined}
+        onSave={handleAgentSignatureSaved}
       />
     </div>
   );

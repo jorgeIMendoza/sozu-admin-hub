@@ -62,6 +62,11 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
 
   const content = (
     <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="rounded-md border border-primary/20 bg-primary/5 p-3 mx-1 mb-3">
+        <p className="text-xs text-primary font-medium">
+          🔐 La firma digital robustecerá la veracidad legal del documento, complementando tu firma autógrafa.
+        </p>
+      </div>
       <div className="flex-1 overflow-auto">
         <div ref={containerRef} className="mifiel-fullwidth min-h-full flex items-start justify-center">
           <div className="flex flex-col items-center gap-3 py-8">
