@@ -289,7 +289,27 @@ const MedicionesCTA = () => {
       const guardado = agentEvents.filter((e: any) => e.page === "agent_perfil" && e.element_id === "perfil_fase_guardar" && (e.metadata as any)?.fase === fase).length;
       return { fase: labels[fase] || fase, abierto, guardado, tasa: abierto > 0 ? ((guardado / abierto) * 100).toFixed(1) + "%" : "—" };
     });
-  }, [agentEvents]);
+  // ===== Inmob Portal helpers =====
+  const inmobUniqueUsers = useMemo(() => new Set(inmobPortalEvents.map((e: any) => e.user_email)).size, [inmobPortalEvents]);
+  const inmobUniqueCTAs = useMemo(() => {
+    const set = new Set<string>();
+    inmobPortalEvents.forEach((e: any) => set.add(`${e.page}::${e.element_id}`));
+    return set.size;
+  }, [inmobPortalEvents]);
+  const inmobTotalClicks = inmobPortalEvents.length;
+  const inmobPageViews = useMemo(() => inmobPortalEvents.filter((e: any) => e.element_id === "page_view").length, [inmobPortalEvents]);
+
+  const getInmobPageViews = (pageKey: string) =>
+    inmobPortalEvents.filter((e: any) => e.page === pageKey && e.element_id === "page_view").length;
+
+  const getInmobPageCTAs = (pageKey: string) => {
+    const map = new Map<string, number>();
+    inmobPortalEvents.filter((e: any) => e.page === pageKey && e.element_id !== "page_view").forEach((e: any) => {
+      const key = e.element_label || e.element_id;
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, clicks]) => ({ name: name.length > 30 ? name.slice(0, 27) + "…" : name, clicks })).sort((a, b) => b.clicks - a.clicks).slice(0, 10);
+  };
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -309,6 +329,7 @@ const MedicionesCTA = () => {
           <SelectContent>
             <SelectItem value="inmobiliaria">Datos de inmobiliaria</SelectItem>
             <SelectItem value="agent">Portal Agente</SelectItem>
+            <SelectItem value="inmob_portal">Portal Inmobiliaria</SelectItem>
           </SelectContent>
         </Select>
         <Select value={timeRange} onValueChange={setTimeRange}>
@@ -341,7 +362,7 @@ const MedicionesCTA = () => {
           maxCount={maxCount}
           countByElement={countByElement}
         />
-      ) : (
+      ) : context === "agent" ? (
         <AgentPortalView
           totalClicks={agentTotalClicks}
           uniqueCTAs={agentUniqueCTAs}
@@ -351,6 +372,15 @@ const MedicionesCTA = () => {
           getGroupViews={getAgentGroupViews}
           modalData={agentModalData}
           profilePhases={agentProfilePhases}
+        />
+      ) : (
+        <InmobPortalView
+          totalClicks={inmobTotalClicks}
+          uniqueCTAs={inmobUniqueCTAs}
+          uniqueUsers={inmobUniqueUsers}
+          pageViews={inmobPageViews}
+          getPageViews={getInmobPageViews}
+          getPageCTAs={getInmobPageCTAs}
         />
       )}
     </div>
