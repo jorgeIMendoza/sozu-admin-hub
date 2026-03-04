@@ -7,16 +7,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, User, Mail, Users, Eye, AlertTriangle, CheckCircle2, Loader2, RefreshCw, Clock, Calendar as CalendarIcon } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import {
+  ChevronLeft, ChevronRight, User, Mail, Users, Eye, AlertTriangle,
+  CheckCircle2, Loader2, RefreshCw, Clock, Calendar as CalendarIcon,
+  FileText, MapPin, Info
+} from "lucide-react";
 import { format, startOfWeek, addDays, isBefore, isToday, addWeeks, subWeeks, getDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const STATUS_MAP: Record<number, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  1: { label: "Agendada", variant: "outline" },
-  2: { label: "Pendiente", variant: "secondary" },
-  3: { label: "Confirmada", variant: "default" },
+const STATUS_MAP: Record<number, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; color: string }> = {
+  1: { label: "Agendada", variant: "outline", color: "text-blue-600" },
+  2: { label: "Pendiente", variant: "secondary", color: "text-amber-600" },
+  3: { label: "Confirmada", variant: "default", color: "text-emerald-600" },
 };
 
 interface ConfigCita {
@@ -53,7 +58,6 @@ interface CitaRaw {
   notas: string | null;
   google_calendar_event_id: string | null;
   activo: boolean;
-  // Joined
   prospecto?: { nombre: string; apellido_paterno: string; email: string } | null;
   agente?: { nombre: string; apellido_paterno: string; email: string } | null;
 }
@@ -63,7 +67,6 @@ interface Cita extends CitaRaw {
   email_agente: string | null;
 }
 
-// A unified slot that can be empty or have a cita
 interface CalendarSlot {
   type: "empty" | "cita";
   config?: ConfigCita;
@@ -80,26 +83,40 @@ function parseTime(t: string): number {
   return h + (m || 0) / 60;
 }
 
-// ─── Slot Card (renders inside the calendar grid) ───
+// ─── Detail Row ───
+function DetailRow({ icon: Icon, label, children, className }: {
+  icon: any; label: string; children: React.ReactNode; className?: string;
+}) {
+  return (
+    <div className={cn("flex items-start gap-3 py-2", className)}>
+      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+        <div className="mt-0.5 text-sm text-foreground">{children}</div>
+      </div>
+    </div>
+  );
+}
 
+// ─── Slot Card ───
 function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calendarStatus: CalendarStatus; onClick: () => void }) {
   if (slot.type === "empty") {
     return (
       <div
         onClick={onClick}
-        className="absolute inset-x-0.5 rounded border border-dashed border-border/50 px-1.5 py-0.5 text-[10px] leading-tight cursor-pointer transition-colors hover:bg-muted/30 bg-muted/10 text-muted-foreground"
+        className="absolute inset-x-1 inset-y-0.5 rounded-md border border-dashed border-muted-foreground/20 px-2 py-1 text-[10px] leading-tight cursor-pointer transition-all hover:border-primary/40 hover:bg-primary/5 bg-muted/5 text-muted-foreground group"
       >
-        <div className="flex items-center gap-1 truncate">
-          <Clock className="h-2.5 w-2.5 flex-shrink-0" />
-          <span className="truncate">{slot.config?.nombre || "Disponible"}</span>
+        <div className="flex items-center gap-1.5 truncate">
+          <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 flex-shrink-0" />
+          <span className="truncate font-medium">{slot.config?.nombre || "Disponible"}</span>
         </div>
-        <div className="text-[9px] truncate opacity-70">{slot.config?.id_usuario_email}</div>
+        <div className="text-[9px] truncate opacity-60 mt-0.5">{slot.config?.id_usuario_email}</div>
       </div>
     );
   }
 
   const cita = slot.cita!;
-  const st = STATUS_MAP[cita.id_estatus_cita] || { label: "?", variant: "outline" as const };
+  const st = STATUS_MAP[cita.id_estatus_cita ?? 0] || { label: "?", variant: "outline" as const, color: "" };
   const hasInvitados = !!(cita.email_agente || cita.nombre_prospecto);
   const isCancelledCalendar = cita.estatus === "cancelada_calendar" || calendarStatus === "missing";
 
@@ -107,33 +124,37 @@ function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calen
     <div
       onClick={onClick}
       className={cn(
-        "absolute inset-x-0.5 rounded border px-1.5 py-0.5 text-[10px] leading-tight overflow-hidden cursor-pointer transition-colors z-10 hover:ring-1 hover:ring-primary/40",
+        "absolute inset-x-1 inset-y-0.5 rounded-md border px-2 py-1 text-[10px] leading-tight overflow-hidden cursor-pointer transition-all group",
         isCancelledCalendar
-          ? "bg-destructive/10 border-destructive/30 text-destructive"
+          ? "bg-destructive/8 border-destructive/25 hover:bg-destructive/15"
           : hasInvitados
-            ? "bg-primary/10 border-primary/30 text-foreground"
-            : "bg-accent/40 border-accent text-accent-foreground"
+            ? "bg-primary/8 border-primary/25 hover:bg-primary/15 hover:shadow-sm"
+            : "bg-secondary/50 border-secondary hover:bg-secondary/80"
       )}
     >
-      <div className="flex items-center gap-1 font-medium truncate">
-        {isCancelledCalendar && <AlertTriangle className="h-2.5 w-2.5 flex-shrink-0" />}
-        {calendarStatus === "verified" && <CheckCircle2 className="h-2.5 w-2.5 flex-shrink-0 text-emerald-500" />}
-        {calendarStatus === "pending" && <Loader2 className="h-2.5 w-2.5 flex-shrink-0 animate-spin" />}
-        <Badge variant={isCancelledCalendar ? "destructive" : st.variant} className="text-[8px] px-1 py-0 h-3.5 leading-none">
-          {isCancelledCalendar ? "No en Cal" : st.label}
-        </Badge>
+      {/* Status dot + name */}
+      <div className="flex items-center gap-1.5 font-medium truncate text-foreground">
+        {isCancelledCalendar ? (
+          <AlertTriangle className="h-3 w-3 flex-shrink-0 text-destructive" />
+        ) : calendarStatus === "verified" ? (
+          <CheckCircle2 className="h-3 w-3 flex-shrink-0 text-emerald-500" />
+        ) : calendarStatus === "pending" ? (
+          <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          <div className={cn("w-2 h-2 rounded-full flex-shrink-0",
+            cita.id_estatus_cita === 1 ? "bg-blue-500" :
+            cita.id_estatus_cita === 2 ? "bg-amber-500" :
+            cita.id_estatus_cita === 3 ? "bg-emerald-500" : "bg-muted-foreground"
+          )} />
+        )}
         <span className="truncate">{slot.config?.nombre || "Cita"}</span>
       </div>
+
+      {/* Invitado */}
       {cita.nombre_prospecto && (
-        <div className="truncate flex items-center gap-0.5 mt-0.5">
-          <Users className="h-2.5 w-2.5 flex-shrink-0" />
-          {cita.nombre_prospecto}
-        </div>
-      )}
-      {cita.email_agente && (
-        <div className="truncate flex items-center gap-0.5">
-          <Mail className="h-2.5 w-2.5 flex-shrink-0" />
-          {cita.email_agente}
+        <div className="truncate flex items-center gap-1 mt-0.5 text-muted-foreground">
+          <User className="h-2.5 w-2.5 flex-shrink-0" />
+          <span className="truncate">{cita.nombre_prospecto}</span>
         </div>
       )}
     </div>
@@ -141,7 +162,6 @@ function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calen
 }
 
 // ─── Detail Dialog ───
-
 function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
   slot: CalendarSlot | null;
   calendarStatus: CalendarStatus;
@@ -151,136 +171,140 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
   if (!slot) return null;
   const config = slot.config;
   const cita = slot.cita;
-  const st = cita ? (STATUS_MAP[cita.id_estatus_cita] || { label: "?", variant: "outline" as const }) : null;
+  const st = cita ? (STATUS_MAP[cita.id_estatus_cita ?? 0] || { label: "?", variant: "outline" as const, color: "" }) : null;
   const isCancelledCalendar = cita && (cita.estatus === "cancelada_calendar" || calendarStatus === "missing");
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            {isCancelledCalendar && <AlertTriangle className="h-5 w-5 text-destructive" />}
-            {config?.nombre || "Slot"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 text-sm">
-          {/* Status */}
-          {cita && st && (
-            <div className="flex items-center gap-3">
-              <span className="text-muted-foreground font-medium min-w-[100px]">Estatus</span>
-              <Badge variant={isCancelledCalendar ? "destructive" : st.variant}>
+      <DialogContent className="max-w-md p-0 overflow-hidden">
+        {/* Header with gradient */}
+        <div className={cn(
+          "px-6 pt-6 pb-4",
+          isCancelledCalendar
+            ? "bg-destructive/5"
+            : cita
+              ? "bg-primary/5"
+              : "bg-muted/30"
+        )}>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              {isCancelledCalendar && <AlertTriangle className="h-5 w-5 text-destructive" />}
+              {config?.nombre || "Espacio disponible"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Status badge */}
+          <div className="mt-3">
+            {cita && st ? (
+              <Badge
+                variant={isCancelledCalendar ? "destructive" : st.variant}
+                className="text-xs"
+              >
                 {isCancelledCalendar ? "No existe en Calendar" : st.label}
               </Badge>
-            </div>
-          )}
-          {!cita && (
-            <div className="flex items-center gap-3">
-              <span className="text-muted-foreground font-medium min-w-[100px]">Estatus</span>
-              <Badge variant="outline">Sin agendar</Badge>
-            </div>
-          )}
+            ) : (
+              <Badge variant="outline" className="text-xs">Sin agendar</Badge>
+            )}
+          </div>
+        </div>
 
-          {/* Date & Time */}
-          {cita && (
-            <>
-              <div className="flex items-center gap-3">
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground font-medium min-w-[80px]">Fecha</span>
-                <span>{cita.fecha ? format(new Date(cita.fecha + "T12:00:00"), "EEEE d 'de' MMMM yyyy", { locale: es }) : "—"}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground font-medium min-w-[80px]">Horario</span>
-                <span>{cita.hora_inicio} – {cita.hora_fin}</span>
-              </div>
-            </>
-          )}
-
-          {/* Dueño */}
+        {/* Body */}
+        <div className="px-6 pb-6 space-y-1">
+          {/* Owner */}
           {config && (
-            <div className="flex items-center gap-3">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground font-medium min-w-[80px]">Dueño</span>
-              <span>{config.id_usuario_email}</span>
-            </div>
+            <DetailRow icon={User} label="Dueño">
+              {config.id_usuario_email}
+            </DetailRow>
           )}
 
           {/* Calendar email */}
           {config?.calendario_email && (
-            <div className="flex items-center gap-3">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground font-medium min-w-[80px]">Calendar</span>
-              <span className="truncate">{config.calendario_email}</span>
-            </div>
+            <DetailRow icon={CalendarIcon} label="Calendar">
+              {config.calendario_email}
+            </DetailRow>
           )}
 
-          {/* Descripción de la config */}
+          {/* Description */}
           {config?.descripcion_invitacion && (
-            <div className="flex items-start gap-3">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <span className="text-muted-foreground font-medium min-w-[80px]">Descripción</span>
-              <span className="text-foreground">{config.descripcion_invitacion}</span>
-            </div>
+            <DetailRow icon={FileText} label="Descripción">
+              {config.descripcion_invitacion}
+            </DetailRow>
           )}
 
-          {/* Prospecto */}
-          {cita?.nombre_prospecto && (
-            <div className="flex items-center gap-3">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground font-medium min-w-[80px]">Prospecto</span>
-              <span className="font-medium">{cita.nombre_prospecto}</span>
-            </div>
+          {/* Date & Time (only for booked citas) */}
+          {cita && (
+            <>
+              <Separator className="my-2" />
+              <DetailRow icon={CalendarIcon} label="Fecha">
+                {cita.fecha ? format(new Date(cita.fecha + "T12:00:00"), "EEEE d 'de' MMMM yyyy", { locale: es }) : "—"}
+              </DetailRow>
+              <DetailRow icon={Clock} label="Horario">
+                {cita.hora_inicio} – {cita.hora_fin}
+              </DetailRow>
+            </>
           )}
 
-          {/* Agent */}
-          {cita?.email_agente && (
-            <div className="flex items-center gap-3">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground font-medium min-w-[80px]">Agente</span>
-              <span>{cita.email_agente}</span>
-            </div>
-          )}
-
-          {/* Enterados siempre */}
-          {config?.correos_enterado_fijos && config.correos_enterado_fijos.length > 0 && (
-            <div className="flex items-start gap-3">
-              <Eye className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <span className="text-muted-foreground font-medium min-w-[80px]">Siempre CC</span>
-              <div className="flex flex-wrap gap-1">
-                {config.correos_enterado_fijos.map(e => (
-                  <Badge key={e} variant="secondary" className="text-xs">{e}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Enterados */}
-          {config?.correos_enterado && config.correos_enterado.length > 0 && (
-            <div className="flex items-start gap-3">
-              <Eye className="h-4 w-4 text-muted-foreground mt-0.5" />
-              <span className="text-muted-foreground font-medium min-w-[80px]">Enterados</span>
-              <div className="flex flex-wrap gap-1">
-                {config.correos_enterado.map(e => (
-                  <Badge key={e} variant="outline" className="text-xs">{e}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Duracion & max invitados */}
+          {/* Duration */}
           {config && (
-            <div className="flex items-center gap-6 text-muted-foreground text-xs pt-2 border-t">
-              <span>Duración: {config.duracion_minutos} min</span>
-              <span>Máx invitados: {config.max_invitados}</span>
-            </div>
+            <DetailRow icon={Clock} label="Duración">
+              {config.duracion_minutos} minutos
+            </DetailRow>
+          )}
+
+          {/* Invitados section */}
+          {cita && (cita.nombre_prospecto || cita.email_agente) && (
+            <>
+              <Separator className="my-2" />
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pt-1">Invitados</p>
+
+              {cita.nombre_prospecto && (
+                <DetailRow icon={Users} label="Prospecto">
+                  <span className="font-medium">{cita.nombre_prospecto}</span>
+                </DetailRow>
+              )}
+
+              {cita.email_agente && (
+                <DetailRow icon={Mail} label="Agente">
+                  {cita.email_agente}
+                </DetailRow>
+              )}
+            </>
+          )}
+
+          {/* CC & Enterados */}
+          {config && ((config.correos_enterado_fijos?.length ?? 0) > 0 || (config.correos_enterado?.length ?? 0) > 0) && (
+            <>
+              <Separator className="my-2" />
+              {config.correos_enterado_fijos && config.correos_enterado_fijos.length > 0 && (
+                <DetailRow icon={Eye} label="Siempre CC">
+                  <div className="flex flex-wrap gap-1.5">
+                    {config.correos_enterado_fijos.map(e => (
+                      <Badge key={e} variant="secondary" className="text-[11px] font-normal">{e}</Badge>
+                    ))}
+                  </div>
+                </DetailRow>
+              )}
+              {config.correos_enterado && config.correos_enterado.length > 0 && (
+                <DetailRow icon={Eye} label="Enterados">
+                  <div className="flex flex-wrap gap-1.5">
+                    {config.correos_enterado.map(e => (
+                      <Badge key={e} variant="outline" className="text-[11px] font-normal">{e}</Badge>
+                    ))}
+                  </div>
+                </DetailRow>
+              )}
+            </>
           )}
 
           {/* Notes */}
           {cita?.notas && (
-            <div className="bg-muted/50 rounded-lg p-3 text-sm">
-              <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Notas</span>
-              <p className="mt-1">{cita.notas}</p>
-            </div>
+            <>
+              <Separator className="my-2" />
+              <div className="bg-muted/40 rounded-lg p-3">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notas</p>
+                <p className="text-sm text-foreground">{cita.notas}</p>
+              </div>
+            </>
           )}
         </div>
       </DialogContent>
@@ -365,7 +389,6 @@ export default function TodasLasCitas() {
     return Array.from(set).sort();
   }, [configs]);
 
-  // Compute time range from horarios
   const { minHour, maxHour } = useMemo(() => {
     let min = 9, max = 20;
     const relevantHorarios = ownerFilter === "all" ? horarios : horarios.filter(h => {
@@ -375,7 +398,7 @@ export default function TodasLasCitas() {
     if (relevantHorarios.length > 0) {
       const horas = relevantHorarios.map(h => h.hora);
       min = Math.min(...horas);
-      max = Math.max(...horas) + 1; // +1 because hora is start of slot
+      max = Math.max(...horas) + 1;
     }
     return { minHour: min, maxHour: max };
   }, [horarios, ownerFilter, configMap]);
@@ -386,7 +409,6 @@ export default function TodasLasCitas() {
     return h;
   }, [minHour, maxHour]);
 
-  // Mon-Sat (no Sunday)
   const days = useMemo(() => {
     const allDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     return allDays.filter(d => getDay(d) !== 0);
@@ -400,9 +422,8 @@ export default function TodasLasCitas() {
     });
   }, [citas, ownerFilter, configMap]);
 
-  // Group citas by day+hour for quick lookup
   const citasIndex = useMemo(() => {
-    const map = new Map<string, Cita[]>(); // key: "yyyy-MM-dd_HH"
+    const map = new Map<string, Cita[]>();
     filteredCitas.forEach(c => {
       const startHour = Math.floor(parseTime(c.hora_inicio));
       const key = `${c.fecha}_${startHour}`;
@@ -412,7 +433,6 @@ export default function TodasLasCitas() {
     return map;
   }, [filteredCitas]);
 
-  // Filtered horarios by owner
   const filteredHorarios = useMemo(() => {
     if (ownerFilter === "all") return horarios;
     return horarios.filter(h => {
@@ -421,27 +441,20 @@ export default function TodasLasCitas() {
     });
   }, [horarios, ownerFilter, configMap]);
 
-  // Build empty slots per day
   const emptySlotsByDay = useMemo(() => {
-    const map = new Map<string, CalendarSlot[]>(); // key: "yyyy-MM-dd_HH"
+    const map = new Map<string, CalendarSlot[]>();
     days.forEach(day => {
-      const dayOfWeek = getDay(day); // 0=Sun..6=Sat
+      const dayOfWeek = getDay(day);
       const dayHorarios = filteredHorarios.filter(h => h.dia_semana === dayOfWeek);
       const dayKey = format(day, "yyyy-MM-dd");
 
       dayHorarios.forEach(h => {
         const key = `${dayKey}_${h.hora}`;
         const existingCitas = citasIndex.get(key) || [];
-        // Only show empty slot if no cita exists for this config at this hour
         const hasCitaForConfig = existingCitas.some(c => c.id_configuracion_cita === h.id_configuracion_cita);
         if (!hasCitaForConfig) {
           const config = h.id_configuracion_cita ? configMap.get(h.id_configuracion_cita) : undefined;
-          const slot: CalendarSlot = {
-            type: "empty",
-            config,
-            hora: h.hora,
-            configId: h.id_configuracion_cita || 0,
-          };
+          const slot: CalendarSlot = { type: "empty", config, hora: h.hora, configId: h.id_configuracion_cita || 0 };
           if (!map.has(key)) map.set(key, []);
           map.get(key)!.push(slot);
         }
@@ -455,7 +468,6 @@ export default function TodasLasCitas() {
   const verifyMutation = useMutation({
     mutationFn: async (reservaIds: number[]) => {
       if (reservaIds.length === 0) return { results: [] };
-
       const pendingMap = new Map<number, CalendarStatus>();
       reservaIds.forEach(id => pendingMap.set(id, "pending"));
       setCalendarStatuses(prev => {
@@ -463,14 +475,8 @@ export default function TodasLasCitas() {
         pendingMap.forEach((v, k) => next.set(k, v));
         return next;
       });
-
       const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
-        body: {
-          action: "verify-events-batch",
-          reserva_ids: reservaIds,
-          calendar_owner_email: "jorge.mendoza@sozu.com",
-          tipo_cita_id: 1,
-        },
+        body: { action: "verify-events-batch", reserva_ids: reservaIds, calendar_owner_email: "jorge.mendoza@sozu.com", tipo_cita_id: 1 },
       });
       if (error) throw error;
       return data as { results: { reserva_id: number; exists: boolean; cancelled: boolean }[] };
@@ -495,14 +501,23 @@ export default function TodasLasCitas() {
   }, [filteredCitas, verifyMutation]);
 
   const now = new Date();
-  const slotHeight = 64;
+  const slotHeight = 72;
   const numDays = days.length;
 
+  // Stats
+  const totalAgendadas = filteredCitas.length;
+  const totalDisponibles = Array.from(emptySlotsByDay.values()).reduce((acc, slots) => acc + slots.length, 0);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold text-foreground">Todas las Citas</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Todas las Citas</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {totalAgendadas} agendada{totalAgendadas !== 1 ? "s" : ""} · {totalDisponibles} disponible{totalDisponibles !== 1 ? "s" : ""}
+          </p>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleVerifyAll} disabled={verifyMutation.isPending} className="gap-1.5">
             {verifyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
@@ -515,38 +530,89 @@ export default function TodasLasCitas() {
               {owners.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(subWeeks(weekStart, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoy</Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addWeeks(weekStart, 1))}><ChevronRight className="h-4 w-4" /></Button>
-          <span className="text-sm font-medium text-foreground whitespace-nowrap">
-            {format(weekStart, "d MMM", { locale: es })} – {format(weekEnd, "d MMM yyyy", { locale: es })}
-          </span>
         </div>
       </div>
 
+      {/* Week navigation */}
+      <div className="flex items-center justify-between bg-card border rounded-lg px-4 py-2.5">
+        <Button variant="ghost" size="icon" onClick={() => setWeekStart(subWeeks(weekStart, 1))}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs">
+            Hoy
+          </Button>
+          <span className="text-sm font-semibold text-foreground">
+            {format(weekStart, "d MMM", { locale: es })} – {format(weekEnd, "d MMM yyyy", { locale: es })}
+          </span>
+        </div>
+        <Button variant="ghost" size="icon" onClick={() => setWeekStart(addWeeks(weekStart, 1))}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-dashed border-border/50 bg-muted/10" /> Disponible</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-accent/40 border border-accent" /> Agendada sin invitados</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-primary/10 border border-primary/30" /> Agendada con invitados</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-destructive/10 border border-destructive/30" /> No en Calendar</span>
-        <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Verificada</span>
+      <div className="flex flex-wrap gap-5 text-xs text-muted-foreground px-1">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded border border-dashed border-muted-foreground/25 bg-muted/5" />
+          Disponible
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+          Agendada
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+          Pendiente
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+          Confirmada
+        </span>
+        <span className="flex items-center gap-1.5">
+          <AlertTriangle className="h-3 w-3 text-destructive" />
+          No en Calendar
+        </span>
+        <span className="flex items-center gap-1.5">
+          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+          Verificada
+        </span>
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-center py-8">Cargando citas...</p>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Cargando citas...</span>
+        </div>
       ) : (
-        <div className="border rounded-lg overflow-auto bg-card">
-          <div className="grid min-w-[700px]" style={{ gridTemplateColumns: `60px repeat(${numDays}, 1fr)` }}>
-            {/* Header */}
-            <div className="border-b border-r bg-muted/30 p-2" />
+        <div className="border rounded-xl overflow-auto bg-card shadow-sm">
+          <div className="grid min-w-[800px]" style={{ gridTemplateColumns: `64px repeat(${numDays}, 1fr)` }}>
+            {/* Day headers */}
+            <div className="border-b border-r bg-muted/20 p-2" />
             {days.map(day => {
               const past = isBefore(day, now) && !isToday(day);
               const today = isToday(day);
               return (
-                <div key={day.toISOString()} className={cn("border-b border-r p-2 text-center text-xs font-medium", today && "bg-primary/5", past && "bg-muted/40 text-muted-foreground")}>
-                  <div className="uppercase">{format(day, "EEE", { locale: es })}</div>
-                  <div className={cn("text-lg font-bold", today && "text-primary")}>{format(day, "d")}</div>
+                <div
+                  key={day.toISOString()}
+                  className={cn(
+                    "border-b border-r py-3 px-2 text-center transition-colors",
+                    today && "bg-primary/5",
+                    past && "bg-muted/30"
+                  )}
+                >
+                  <div className={cn(
+                    "text-[11px] font-medium uppercase tracking-wider",
+                    today ? "text-primary" : "text-muted-foreground"
+                  )}>
+                    {format(day, "EEE", { locale: es })}
+                  </div>
+                  <div className={cn(
+                    "text-xl font-bold mt-0.5",
+                    today ? "text-primary" : past ? "text-muted-foreground" : "text-foreground"
+                  )}>
+                    {format(day, "d")}
+                  </div>
                 </div>
               );
             })}
@@ -554,7 +620,10 @@ export default function TodasLasCitas() {
             {/* Time grid */}
             {hours.map(hour => (
               <div key={`row-${hour}`} className="contents">
-                <div className="border-r border-b text-[10px] text-muted-foreground pr-1 text-right pt-0.5" style={{ height: slotHeight }}>
+                <div
+                  className="border-r border-b text-[11px] text-muted-foreground pr-2 text-right pt-1 font-medium"
+                  style={{ height: slotHeight }}
+                >
                   {String(hour).padStart(2, "0")}:00
                 </div>
                 {days.map(day => {
@@ -563,7 +632,6 @@ export default function TodasLasCitas() {
                   const today = isToday(day);
                   const key = `${dayKey}_${hour}`;
 
-                  // Citas in this slot
                   const slotCitas = (citasIndex.get(key) || []).map(cita => ({
                     type: "cita" as const,
                     cita,
@@ -572,25 +640,20 @@ export default function TodasLasCitas() {
                     configId: cita.id_configuracion_cita,
                   }));
 
-                  // Empty slots
                   const emptySlots = emptySlotsByDay.get(key) || [];
-
-                  // Also include citas that START in a different hour but overlap this one
-                  const overlapCitas = filteredCitas.filter(c => {
-                    const start = parseTime(c.hora_inicio);
-                    const end = parseTime(c.hora_fin);
-                    const startHour = Math.floor(start);
-                    return startHour !== hour && start < hour + 1 && end > hour;
-                  });
 
                   return (
                     <div
                       key={`${hour}-${dayKey}`}
-                      className={cn("border-r border-b relative", past && "bg-muted/20", today && "bg-primary/[0.02]")}
+                      className={cn(
+                        "border-r border-b relative",
+                        past && "bg-muted/10",
+                        today && "bg-primary/[0.02]"
+                      )}
                       style={{ height: slotHeight }}
                     >
-                      {/* Half-hour line */}
-                      <div className="absolute left-0 right-0 border-b border-dashed border-border/40" style={{ top: slotHeight / 2 }} />
+                      {/* Half-hour guide */}
+                      <div className="absolute left-0 right-0 border-b border-dashed border-border/20" style={{ top: slotHeight / 2 }} />
 
                       {/* Empty slots */}
                       {emptySlots.map((slot, idx) => {
