@@ -19,7 +19,6 @@ const COLORS = ["#57AE75", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
 
 export default function InmobDashboard() {
   const { registrarVista } = useActivityLogger();
-  const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const { data: agents = [], isLoading: agentsLoading } = useInmobAgents();
 
