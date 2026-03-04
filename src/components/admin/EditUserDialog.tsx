@@ -180,12 +180,12 @@ export function EditUserDialog({
 
   // Set inmobiliaria when data is loaded
   useEffect(() => {
-    if (open && isAgentRole && !isLoadingInmobiliaria) {
+    if (open && needsInmobiliaria && !isLoadingInmobiliaria) {
       const inmobId = currentInmobiliaria?.toString() || "";
       setSelectedInmobiliariaId(inmobId);
       setOriginalInmobiliariaId(inmobId);
     }
-  }, [open, isAgentRole, isLoadingInmobiliaria, currentInmobiliaria]);
+  }, [open, needsInmobiliaria, isLoadingInmobiliaria, currentInmobiliaria]);
 
   // Resend confirmation email mutation
   const resendConfirmationMutation = useMutation({
