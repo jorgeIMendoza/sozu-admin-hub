@@ -1212,12 +1212,12 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                     </Button>
                   )}
 
-                  {/* Continuar firma button */}
+                  {/* Continuar firma button - skip autograph since doc already exists */}
                   {firmaEnProgreso && (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={pendienteContraparte ? undefined : () => handleRequestAgentSignature("continuar")}
+                      onClick={pendienteContraparte ? undefined : () => handleContinuarFirmaInternal()}
                       disabled={syncingFirma || pendienteContraparte}
                       className={cn(
                         "flex-1 h-10 rounded-2xl shadow-md font-semibold text-xs gap-1.5",

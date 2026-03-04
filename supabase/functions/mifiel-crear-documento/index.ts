@@ -547,18 +547,16 @@ serve(async (req) => {
     const blob = new Blob([pdfBytes], { type: "application/pdf" });
     formData.append("file", blob, "carta-acuerdos.pdf");
 
-    // When biometric is NOT required, restrict to only e.firma (efirma).
-    // When biometric IS required, do NOT restrict methods so all enabled methods
-    // (including FESCV/biometric) are available to the signer.
+    // Signing methods:
+    // Agent: FSSV (simple) when biometric is OFF, FSCV (biometric) when ON
+    // Non-agent firmantes: always FSSV (simple)
     signatories.forEach((s, i) => {
       formData.append(`signatories[${i}][name]`, s.name);
       formData.append(`signatories[${i}][email]`, s.email);
       const isAgent = s.email === agente_email;
       if (isAgent) {
-        // Agent uses FESCV (biometric) or FSSV (simple) based on config
-        formData.append(`signatories[${i}][allowed_signature_methods][0]`, requiereBiometrica ? "FESCV" : "FSSV");
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, requiereBiometrica ? "FSCV" : "FSSV");
       } else {
-        // Non-agent firmantes always use simple signature (FSSV)
         formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FSSV");
       }
     });
