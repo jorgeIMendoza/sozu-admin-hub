@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,7 +79,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [signatureTargetIndex, setSignatureTargetIndex] = useState<number>(-1);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-
+  const autoSyncDoneRef = useRef(false);
   // Fetch carta
   const { data: carta, isLoading: cartaLoading } = useQuery({
     queryKey: ["carta-acuerdo", cartaId],
@@ -287,7 +287,12 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="editor">
+      <Tabs defaultValue="editor" onValueChange={(val) => {
+        if (val === "firmas" && !autoSyncDoneRef.current && !syncing && firmas.length > 0) {
+          autoSyncDoneRef.current = true;
+          handleSyncMifiel();
+        }
+      }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
