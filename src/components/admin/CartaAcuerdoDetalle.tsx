@@ -620,6 +620,17 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
         url={pdfViewerUrl || ""}
         title="Carta de Acuerdo Firmada"
       />
+
+      <SignaturePadDialog
+        open={signatureDialogOpen}
+        onOpenChange={setSignatureDialogOpen}
+        initialImage={signatureTargetIndex >= 0 ? firmantes[signatureTargetIndex]?.firma_imagen : undefined}
+        onSave={(dataUrl) => {
+          if (signatureTargetIndex >= 0) {
+            setFirmantes(prev => prev.map((f, i) => i === signatureTargetIndex ? { ...f, firma_imagen: dataUrl } : f));
+          }
+        }}
+      />
     </div>
   );
 }
