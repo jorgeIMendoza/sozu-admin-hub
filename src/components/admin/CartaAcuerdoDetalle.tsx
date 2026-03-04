@@ -372,7 +372,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                               <img
                                 src={f.firma_imagen}
                                 alt={`Firma de ${f.name}`}
-                                className="absolute left-1/2 -translate-x-1/2 bottom-1 h-32 max-w-[260px] object-contain object-left-bottom"
+                                className="absolute left-12 bottom-1 h-32 max-w-[260px] object-contain"
                               />
                             ) : null}
                             <p className="absolute left-0 bottom-0 m-0">Firma: ___________________________</p>
