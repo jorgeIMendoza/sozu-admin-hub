@@ -537,6 +537,29 @@ Deno.serve(async (req) => {
     const token = await getAccessToken(sa, dwdSubject);
     console.log(`[auth] Token generated with DWD subject: ${dwdSubject} (config owner: ${calendarOwnerEmail})`);
 
+    // ---- Action: verify-calendar-access (check if service account has calendar access) ----
+    if (body.action === "verify-calendar-access") {
+      const targetEmail = body.calendar_email;
+      if (!targetEmail) {
+        return new Response(JSON.stringify({ error: "Falta calendar_email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      try {
+        const verifyToken = await getAccessToken(sa, targetEmail);
+        const calUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetEmail)}/events?maxResults=1&timeMin=${encodeURIComponent(new Date().toISOString())}`;
+        const calRes = await fetch(calUrl, { headers: { Authorization: `Bearer ${verifyToken}` } });
+        if (calRes.ok) {
+          console.log(`[verify-calendar-access] Access OK for ${targetEmail}`);
+          return new Response(JSON.stringify({ success: true, accessible: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const errText = await calRes.text();
+        console.log(`[verify-calendar-access] Access DENIED for ${targetEmail}: ${calRes.status} ${errText}`);
+        return new Response(JSON.stringify({ success: true, accessible: false, status: calRes.status, detail: errText }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (e: any) {
+        console.error(`[verify-calendar-access] Error: ${e.message}`);
+        return new Response(JSON.stringify({ success: true, accessible: false, error: e.message }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // ---- Action: verify-event (check if calendar event still exists) ----
     if (body.action === "verify-event") {
       const { google_calendar_event_id, reserva_id } = body;
