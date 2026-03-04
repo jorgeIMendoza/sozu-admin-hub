@@ -188,13 +188,13 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
 
   // Sync firmas with Mifiel
   const handleSyncMifiel = async () => {
-    const toCheck = firmas.filter((f: any) => f.mifiel_document_id && f.estado !== "cancelado");
+    const toCheck = firmas.filter((f: any) => f.mifiel_document_id && f.estado !== "cancelado" && f.estado !== "completado");
     if (toCheck.length === 0) {
       toast({ title: "No hay firmas pendientes para sincronizar" });
       return;
     }
     setSyncing(true);
-    let removed = 0;
+    let cancelled = 0;
     let updated = 0;
     try {
       for (const firma of toCheck) {
@@ -204,10 +204,10 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
           });
           const notFound = error || !data?.success || data?.upstream_status === 404;
           const mifielStatus = data?.document?.status;
-          const isArchived = mifielStatus === "archived" || mifielStatus === "deleted";
+          const isArchived = mifielStatus === "archived" || mifielStatus === "deleted" || mifielStatus === "canceled" || mifielStatus === "cancelled";
           if (notFound || isArchived) {
-            await (supabase as any).from("firmas_digitales").delete().eq("id", firma.id);
-            removed++;
+            await (supabase as any).from("firmas_digitales").update({ estado: "cancelado" }).eq("id", firma.id);
+            cancelled++;
           } else if (data?.document) {
             // Update firmantes with signed status from Mifiel
             const mifielSigners = (data.document.signers || []) as any[];
