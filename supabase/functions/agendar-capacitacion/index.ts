@@ -609,6 +609,108 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- Action: verify-events-batch (check multiple reservas against Google Calendar) ----
+    if (body.action === "verify-events-batch") {
+      const reservaIds: number[] = body.reserva_ids;
+      if (!reservaIds || !Array.isArray(reservaIds) || reservaIds.length === 0) {
+        return new Response(JSON.stringify({ error: "Falta reserva_ids (array)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Fetch reservas with their google_calendar_event_id and config
+      const { data: reservas } = await supabase
+        .from("reservas_citas")
+        .select("id, google_calendar_event_id, id_configuracion_cita, fecha, hora_inicio")
+        .in("id", reservaIds)
+        .eq("activo", true);
+
+      if (!reservas || reservas.length === 0) {
+        return new Response(JSON.stringify({ results: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Get unique config IDs to fetch calendar emails
+      const configIds = [...new Set(reservas.map((r: any) => r.id_configuracion_cita).filter(Boolean))];
+      const { data: configs } = await supabase
+        .from("configuracion_citas_usuarios")
+        .select("id, calendario_email, id_usuario_email")
+        .in("id", configIds);
+
+      const configMap = new Map<number, any>();
+      (configs || []).forEach((c: any) => configMap.set(c.id, c));
+
+      // Group by calendar email for token reuse
+      const byCalendar = new Map<string, any[]>();
+      for (const r of reservas) {
+        if (!r.google_calendar_event_id) continue;
+        const cfg = configMap.get(r.id_configuracion_cita);
+        const calEmail = cfg?.calendario_email || cfg?.id_usuario_email;
+        if (!calEmail) continue;
+        if (!byCalendar.has(calEmail)) byCalendar.set(calEmail, []);
+        byCalendar.get(calEmail)!.push({ ...r, calendar_email: calEmail });
+      }
+
+      const results: { reserva_id: number; exists: boolean; cancelled: boolean }[] = [];
+
+      // Reservas without google_calendar_event_id are "not in calendar"
+      for (const r of reservas) {
+        if (!r.google_calendar_event_id) {
+          results.push({ reserva_id: r.id, exists: false, cancelled: false });
+        }
+      }
+
+      for (const [calEmail, items] of byCalendar) {
+        let calToken: string;
+        try {
+          calToken = await getAccessToken(sa, calEmail);
+        } catch (e: any) {
+          console.error(`[verify-batch] Token error for ${calEmail}: ${e.message}`);
+          items.forEach((i: any) => results.push({ reserva_id: i.id, exists: true, cancelled: false }));
+          continue;
+        }
+
+        for (const item of items) {
+          try {
+            const res = await fetch(
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calEmail)}/events/${encodeURIComponent(item.google_calendar_event_id)}`,
+              { headers: { Authorization: `Bearer ${calToken}` } },
+            );
+
+            if (res.status === 404 || res.status === 410) {
+              console.log(`[verify-batch] Event ${item.google_calendar_event_id} NOT FOUND for reserva ${item.id}`);
+              await supabase.from("reservas_citas").update({ 
+                estatus: "cancelada_calendar", 
+                fecha_actualizacion: new Date().toISOString() 
+              }).eq("id", item.id);
+              results.push({ reserva_id: item.id, exists: false, cancelled: true });
+              continue;
+            }
+
+            if (res.ok) {
+              const evData = await res.json();
+              if (evData.status === "cancelled") {
+                console.log(`[verify-batch] Event ${item.google_calendar_event_id} CANCELLED for reserva ${item.id}`);
+                await supabase.from("reservas_citas").update({ 
+                  estatus: "cancelada_calendar", 
+                  fecha_actualizacion: new Date().toISOString() 
+                }).eq("id", item.id);
+                results.push({ reserva_id: item.id, exists: false, cancelled: true });
+              } else {
+                results.push({ reserva_id: item.id, exists: true, cancelled: false });
+              }
+            } else {
+              console.error(`[verify-batch] Error checking event ${item.google_calendar_event_id}: ${res.status}`);
+              results.push({ reserva_id: item.id, exists: true, cancelled: false });
+            }
+          } catch (e: any) {
+            console.error(`[verify-batch] Exception for reserva ${item.id}: ${e.message}`);
+            results.push({ reserva_id: item.id, exists: true, cancelled: false });
+          }
+        }
+      }
+
+      console.log(`[verify-batch] Verified ${results.length} reservas`);
+      return new Response(JSON.stringify({ results }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ---- Action: check-config-future-attendees (check if future events have real attendees) ----
     if (body.action === "check-config-future-attendees") {
       const configId = body.config_id;

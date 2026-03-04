@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Calendar, Clock, User, Mail, Users, Eye } from "lucide-react";
-import { format, startOfWeek, addDays, isBefore, isToday, isSameDay, addWeeks, subWeeks } from "date-fns";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChevronLeft, ChevronRight, User, Mail, Users, Eye, AlertTriangle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { format, startOfWeek, addDays, isBefore, isToday, addWeeks, subWeeks } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const STATUS_MAP: Record<number, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   1: { label: "Agendada", variant: "outline" },
@@ -35,14 +37,18 @@ interface Cita {
   id: number;
   id_configuracion_cita: number;
   id_estatus_cita: number;
+  estatus: string;
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
   nombre_prospecto: string | null;
   email_agente: string | null;
   notas: string | null;
+  google_calendar_event_id: string | null;
   activo: boolean;
 }
+
+type CalendarStatus = "verified" | "missing" | "pending" | "unknown";
 
 function parseTime(t: string): number {
   if (!t) return 0;
@@ -50,25 +56,47 @@ function parseTime(t: string): number {
   return h + (m || 0) / 60;
 }
 
-function CitaCard({ cita, config }: { cita: Cita; config?: ConfigCita }) {
+function CalendarStatusIcon({ status }: { status: CalendarStatus }) {
+  if (status === "verified") return <CheckCircle2 className="h-3 w-3 text-emerald-500" />;
+  if (status === "missing") return <AlertTriangle className="h-3 w-3 text-destructive" />;
+  if (status === "pending") return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
+  return null;
+}
+
+function CitaCard({ cita, config, calendarStatus }: { cita: Cita; config?: ConfigCita; calendarStatus: CalendarStatus }) {
   const st = STATUS_MAP[cita.id_estatus_cita] || { label: "?", variant: "outline" as const };
   const hasInvitados = !!(cita.email_agente || cita.nombre_prospecto);
   const isPast = isBefore(new Date(cita.fecha + "T23:59:59"), new Date()) && !isToday(new Date(cita.fecha));
+  const isCancelledCalendar = cita.estatus === "cancelada_calendar" || calendarStatus === "missing";
 
   return (
     <div
       className={cn(
         "absolute inset-x-0.5 rounded border px-1.5 py-0.5 text-[10px] leading-tight overflow-hidden cursor-default transition-colors z-10",
-        isPast
-          ? "bg-muted/60 border-muted text-muted-foreground"
-          : hasInvitados
-            ? "bg-primary/10 border-primary/30 text-foreground"
-            : "bg-muted/40 border-border text-muted-foreground opacity-60"
+        isCancelledCalendar
+          ? "bg-destructive/10 border-destructive/30 text-destructive"
+          : isPast
+            ? "bg-muted/60 border-muted text-muted-foreground"
+            : hasInvitados
+              ? "bg-primary/10 border-primary/30 text-foreground"
+              : "bg-muted/40 border-border text-muted-foreground opacity-60"
       )}
       title={`${cita.hora_inicio} - ${cita.hora_fin}\n${cita.nombre_prospecto || ""}\n${cita.email_agente || ""}`}
     >
       <div className="flex items-center gap-1 font-medium truncate">
-        <Badge variant={st.variant} className="text-[8px] px-1 py-0 h-3.5 leading-none">{st.label}</Badge>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex-shrink-0"><CalendarStatusIcon status={isCancelledCalendar ? "missing" : calendarStatus} /></span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              {isCancelledCalendar ? "No existe en Google Calendar" : calendarStatus === "verified" ? "Verificado en Calendar" : calendarStatus === "pending" ? "Verificando..." : "Sin verificar"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <Badge variant={isCancelledCalendar ? "destructive" : st.variant} className="text-[8px] px-1 py-0 h-3.5 leading-none">
+          {isCancelledCalendar ? "No en Calendar" : st.label}
+        </Badge>
         <span className="truncate">{config?.nombre || `#${cita.id_configuracion_cita}`}</span>
       </div>
       {cita.nombre_prospecto && (
@@ -110,6 +138,7 @@ export default function TodasLasCitas() {
   const { track } = useCtaTracker();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [ownerFilter, setOwnerFilter] = useState("all");
+  const [calendarStatuses, setCalendarStatuses] = useState<Map<number, CalendarStatus>>(new Map());
 
   useEffect(() => {
     registrarVista("/admin/comunicacion/todas-las-citas");
@@ -152,7 +181,6 @@ export default function TodasLasCitas() {
     return Array.from(set).sort();
   }, [configs]);
 
-  // Compute time range from configs or default 9-20
   const { minHour, maxHour } = useMemo(() => {
     let min = 9, max = 20;
     if (configs.length > 0) {
@@ -180,7 +208,6 @@ export default function TodasLasCitas() {
     });
   }, [citas, ownerFilter, configMap]);
 
-  // Group citas by day
   const citasByDay = useMemo(() => {
     const map = new Map<string, Cita[]>();
     filteredCitas.forEach(c => {
@@ -191,14 +218,83 @@ export default function TodasLasCitas() {
     return map;
   }, [filteredCitas]);
 
+  // Batch verify mutation
+  const verifyMutation = useMutation({
+    mutationFn: async (reservaIds: number[]) => {
+      if (reservaIds.length === 0) return { results: [] };
+
+      // Set all to pending
+      const pendingMap = new Map<number, CalendarStatus>();
+      reservaIds.forEach(id => pendingMap.set(id, "pending"));
+      setCalendarStatuses(prev => {
+        const next = new Map(prev);
+        pendingMap.forEach((v, k) => next.set(k, v));
+        return next;
+      });
+
+      const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
+        body: {
+          action: "verify-events-batch",
+          reserva_ids: reservaIds,
+          calendar_owner_email: "jorge.mendoza@sozu.com", // required by function but not used for batch
+          tipo_cita_id: 1,
+        },
+      });
+
+      if (error) throw error;
+      return data as { results: { reserva_id: number; exists: boolean; cancelled: boolean }[] };
+    },
+    onSuccess: (data) => {
+      const newMap = new Map<number, CalendarStatus>();
+      data.results.forEach(r => {
+        newMap.set(r.reserva_id, r.exists ? "verified" : "missing");
+      });
+      setCalendarStatuses(prev => {
+        const next = new Map(prev);
+        newMap.forEach((v, k) => next.set(k, v));
+        return next;
+      });
+      const missing = data.results.filter(r => !r.exists).length;
+      if (missing > 0) {
+        toast.warning(`${missing} cita(s) ya no existen en Google Calendar`);
+      } else {
+        toast.success("Todas las citas verificadas en Calendar");
+      }
+    },
+    onError: (err: any) => {
+      toast.error("Error verificando citas: " + (err.message || "desconocido"));
+    },
+  });
+
+  const handleVerifyAll = useCallback(() => {
+    const ids = filteredCitas
+      .filter(c => c.google_calendar_event_id && c.estatus !== "cancelada_calendar")
+      .map(c => c.id);
+    if (ids.length === 0) {
+      toast.info("No hay citas con evento de Calendar para verificar");
+      return;
+    }
+    verifyMutation.mutate(ids);
+  }, [filteredCitas, verifyMutation]);
+
   const now = new Date();
-  const slotHeight = 64; // px per hour
+  const slotHeight = 64;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold text-foreground">Todas las Citas</h1>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleVerifyAll}
+            disabled={verifyMutation.isPending}
+            className="gap-1.5"
+          >
+            {verifyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Verificar Calendar
+          </Button>
           <Select value={ownerFilter} onValueChange={setOwnerFilter}>
             <SelectTrigger className="w-[220px]"><SelectValue placeholder="Dueño" /></SelectTrigger>
             <SelectContent>
@@ -219,6 +315,16 @@ export default function TodasLasCitas() {
             {format(weekStart, "d MMM", { locale: es })} – {format(weekEnd, "d MMM yyyy", { locale: es })}
           </span>
         </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-primary/10 border border-primary/30" /> Con invitados</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-muted/40 border border-border opacity-60" /> Sin invitados</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-muted/60 border border-muted" /> Pasada</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-destructive/10 border border-destructive/30" /> No en Calendar</span>
+        <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Verificada</span>
+        <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-destructive" /> Eliminada de Calendar</span>
       </div>
 
       {isLoading ? (
@@ -249,17 +355,14 @@ export default function TodasLasCitas() {
             {/* Time grid */}
             {hours.map(hour => (
               <>
-                {/* Time label */}
                 <div key={`label-${hour}`} className="border-r border-b text-[10px] text-muted-foreground pr-1 text-right pt-0.5" style={{ height: slotHeight }}>
                   {String(hour).padStart(2, "0")}:00
                 </div>
-                {/* Day columns */}
                 {days.map(day => {
                   const dayKey = format(day, "yyyy-MM-dd");
                   const past = isBefore(day, now) && !isToday(day);
                   const today = isToday(day);
                   const dayCitas = citasByDay.get(dayKey) || [];
-                  // Citas that overlap this hour slot
                   const slotCitas = dayCitas.filter(c => {
                     const start = parseTime(c.hora_inicio);
                     const end = parseTime(c.hora_fin);
@@ -276,30 +379,23 @@ export default function TodasLasCitas() {
                       )}
                       style={{ height: slotHeight }}
                     >
-                      {/* Half-hour line */}
                       <div className="absolute left-0 right-0 border-b border-dashed border-border/40" style={{ top: slotHeight / 2 }} />
 
                       {slotCitas.map(cita => {
                         const start = parseTime(cita.hora_inicio);
-                        const end = parseTime(cita.hora_fin);
-                        const topOffset = Math.max(0, (start - hour)) * slotHeight;
-                        const bottomClip = Math.min(1, end - hour) * slotHeight;
-                        const h = bottomClip - topOffset;
+                        if (start < hour || start >= hour + 1) return null;
 
-                        // Only render from the slot where it starts
-                        if (start < hour && start >= hour - 1) return null;
-                        if (Math.floor(start) !== hour && start >= hour) return null;
-                        // Render if starts in this hour
-                        if (start >= hour && start < hour + 1) {
-                          const totalDuration = end - start;
-                          const cardHeight = totalDuration * slotHeight;
-                          return (
-                            <div key={cita.id} className="absolute inset-x-0" style={{ top: topOffset, height: cardHeight, zIndex: 10 }}>
-                              <CitaCard cita={cita} config={configMap.get(cita.id_configuracion_cita)} />
-                            </div>
-                          );
-                        }
-                        return null;
+                        const end = parseTime(cita.hora_fin);
+                        const topOffset = (start - hour) * slotHeight;
+                        const totalDuration = end - start;
+                        const cardHeight = totalDuration * slotHeight;
+                        const status = calendarStatuses.get(cita.id) || (cita.estatus === "cancelada_calendar" ? "missing" : "unknown");
+
+                        return (
+                          <div key={cita.id} className="absolute inset-x-0" style={{ top: topOffset, height: cardHeight, zIndex: 10 }}>
+                            <CitaCard cita={cita} config={configMap.get(cita.id_configuracion_cita)} calendarStatus={status} />
+                          </div>
+                        );
                       })}
                     </div>
                   );
