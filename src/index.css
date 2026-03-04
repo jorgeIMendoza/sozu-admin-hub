@@ -344,6 +344,29 @@ All colors MUST be HSL.
     color: hsl(var(--entregado-foreground));
     border-color: hsl(var(--entregado));
   }
+
+  /* SOZU Portal utility cards */
+  .sozu-card {
+    border-radius: 0.75rem;
+    border: 1px solid hsl(0 0% 91%);
+    background: hsl(0 0% 100%);
+    box-shadow: 0 1px 6px -1px hsl(0 0% 0% / 0.06), 0 1px 2px hsl(0 0% 0% / 0.04);
+  }
+
+  .sozu-stat-card {
+    @apply sozu-card;
+    padding: 1.25rem;
+  }
+
+  .sozu-table-header {
+    background: hsl(0 0% 97%);
+    border-bottom: 1px solid hsl(0 0% 91%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: hsl(0 0% 34%);
+  }
 }
 
 /* ═══════════════════════════════════════════════

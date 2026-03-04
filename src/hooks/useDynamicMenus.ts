@@ -106,13 +106,22 @@
   '/admin/comunicacion/ejecuciones': History,
   '/admin/crm/workflow-ofertas': ClipboardList,
   '/admin/crm/dashboard-ejecutivo': BarChart3,
-  // Agent Portal
-  '/admin/agent/inicio': LayoutDashboard,
-  '/admin/agent/inventario': Building,
-  '/admin/agent/pipeline': Activity,
-  '/admin/agent/comisiones': Banknote,
-  '/admin/agent/perfil': User,
-};
+   // Agent Portal
+   '/admin/agent/inicio': LayoutDashboard,
+   '/admin/agent/inventario': Building,
+   '/admin/agent/pipeline': Activity,
+   '/admin/agent/comisiones': Banknote,
+   '/admin/agent/perfil': User,
+   // Portal Inmobiliaria
+   '/admin/portal-inmobiliaria/dashboard': LayoutDashboard,
+   '/admin/portal-inmobiliaria/agentes': Users,
+   '/admin/portal-inmobiliaria/pipeline': Activity,
+   '/admin/portal-inmobiliaria/prospectos': UserSearch,
+   '/admin/portal-inmobiliaria/citas': Calendar,
+   '/admin/portal-inmobiliaria/comisiones': Banknote,
+   '/admin/portal-inmobiliaria/reportes': BarChart3,
+   '/admin/portal-inmobiliaria/configuracion': Cog,
+ };
  
  // Mapeo de iconos por menu_id para los grupos
  const iconMapByMenuId: Record<number, LucideIcon> = {
@@ -131,8 +140,9 @@
     13: Activity,        // Configuraciones/Logs
     14: Mail,            // Comunicación
     15: Briefcase,        // CRM
-    16: User,              // Portal Agente
-  };
+     16: User,              // Portal Agente
+     17: Building2,          // Portal Inmobiliaria
+   };
  
  export interface DynamicMenuItem {
    title: string;

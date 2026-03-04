@@ -108,6 +108,16 @@ const WorkflowOfertas = lazyRetry(() => import("./pages/admin/crm/WorkflowOferta
 const DashboardEjecutivo = lazyRetry(() => import("./pages/admin/crm/DashboardEjecutivo"));
 const ConfiguracionCitas = lazyRetry(() => import("./pages/admin/comunicacion/ConfiguracionCitas"));
 
+// Portal Inmobiliaria pages
+const InmobDashboard = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobDashboard"));
+const InmobAgentes = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobAgentes"));
+const InmobPipeline = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobPipeline"));
+const InmobProspectos = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobProspectos"));
+const InmobCitas = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobCitas"));
+const InmobComisiones = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobComisiones"));
+const InmobReportes = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobReportes"));
+const InmobConfiguracion = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobConfiguracion"));
+
 // Agent Portal pages
 const AgentInicio = lazyRetry(() => import("./pages/admin/agent-portal/AgentInicio"));
 const AgentInventario = lazyRetry(() => import("./pages/admin/agent-portal/AgentInventario"));
@@ -257,6 +267,15 @@ const App = () => (
                   <Route path="crm/dashboard-ejecutivo" element={<DashboardEjecutivo />} />
                   <Route path="mediciones-cta" element={<MedicionesCTA />} />
                   <Route path="ab-tests" element={<ABTests />} />
+                  {/* Portal Inmobiliaria Routes */}
+                  <Route path="portal-inmobiliaria/dashboard" element={<InmobDashboard />} />
+                  <Route path="portal-inmobiliaria/agentes" element={<InmobAgentes />} />
+                  <Route path="portal-inmobiliaria/pipeline" element={<InmobPipeline />} />
+                  <Route path="portal-inmobiliaria/prospectos" element={<InmobProspectos />} />
+                  <Route path="portal-inmobiliaria/citas" element={<InmobCitas />} />
+                  <Route path="portal-inmobiliaria/comisiones" element={<InmobComisiones />} />
+                  <Route path="portal-inmobiliaria/reportes" element={<InmobReportes />} />
+                  <Route path="portal-inmobiliaria/configuracion" element={<InmobConfiguracion />} />
                   {/* Agent Portal Routes */}
                   <Route path="agent/inicio" element={<AgentInicio />} />
                   <Route path="agent/inventario" element={<AgentInventario />} />

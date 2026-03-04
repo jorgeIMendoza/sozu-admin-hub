@@ -3507,7 +3507,7 @@ export type Database = {
           activo: boolean
           costo_por_hr: number
           descripcion: string | null
-          duracion_reserva: unknown
+          duracion_reserva: string | null
           fecha_actualizacion: string | null
           fecha_creacion: string | null
           id: number
@@ -3520,7 +3520,7 @@ export type Database = {
           activo?: boolean
           costo_por_hr?: number
           descripcion?: string | null
-          duracion_reserva?: unknown
+          duracion_reserva?: string | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id?: number
@@ -3533,7 +3533,7 @@ export type Database = {
           activo?: boolean
           costo_por_hr?: number
           descripcion?: string | null
-          duracion_reserva?: unknown
+          duracion_reserva?: string | null
           fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           id?: number

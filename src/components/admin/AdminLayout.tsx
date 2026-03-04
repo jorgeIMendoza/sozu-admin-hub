@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AdminSidebar } from "./AdminSidebar";
+import { PortalInmobiliariaLayout } from "./portal-inmobiliaria/PortalInmobiliariaLayout";
 import { AdminHeader } from "./AdminHeader";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +27,11 @@ export const AdminLayout = () => {
   // Use AgentPortalLayout for ALL roles on agent portal routes
   if (location.pathname.startsWith("/admin/agent")) {
     return <AgentPortalLayout />;
+  }
+
+  // Use PortalInmobiliariaLayout for portal inmobiliaria routes
+  if (location.pathname.startsWith("/admin/portal-inmobiliaria")) {
+    return <PortalInmobiliariaLayout />;
   }
 
   return (

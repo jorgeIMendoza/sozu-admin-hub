@@ -1,46 +1,41 @@
 
 
-## Plan: Portal de Inmobiliarias (con CTA Tracking y Activity Logs)
+## Plan: Agregar Domain-Wide Delegation (subject/sub) al JWT de la cuenta de servicio
 
-### Fase 1: Infraestructura
+### Problema actual
+La función `getAccessToken` genera un JWT sin el campo `sub`, por lo que Google Calendar ve las operaciones como hechas por la cuenta de servicio directamente. Esto impide que los invitados reciban correos de notificación del evento.
 
-1. **Migración SQL** — Insertar en `menus`, `submenus`, `submenus_permisos`, `submenus_permisos_disponibles`:
-   - Menu: "Portal Inmobiliaria"
-   - 8 submenus: Dashboard, Agentes, Pipeline, Prospectos, Citas, Comisiones, Reportes, Configuracion
-   - Permisos para rol 1 (Super Admin) y rol 4 (Inmobiliaria)
+### Cambio necesario
 
-2. **Layout** — Crear `PortalInmobiliariaLayout.tsx` con sidebar SOZU (verde, logo, iconos). Detectar en `AdminLayout.tsx` rutas `/admin/portal-inmobiliaria/*`.
+**Archivo**: `supabase/functions/agendar-capacitacion/index.ts`
 
-3. **Rutas** — 8 rutas lazy-loaded en `App.tsx`, envueltas en `InmobiliariasThemeWrapper`. Actualizar `validRoutes.ts` y `useDynamicMenus.ts`.
+1. **Modificar `getAccessToken`** para aceptar un parámetro opcional `subject` (el email del dueño del calendario) y agregarlo al payload JWT:
+   ```
+   sub: subject  // e.g. "jorge.mendoza@sozu.com"
+   ```
 
-### Fase 2: Páginas (datos reales)
+2. **Actualizar la llamada** a `getAccessToken(sa)` → `getAccessToken(sa, calendarOwnerEmail)` en el `Deno.serve` principal (línea 519), para que el token se genere impersonando al dueño del calendario.
 
-Cada página filtra datos por agentes vinculados a la inmobiliaria via `entidades_relacionadas` (`id_tipo_entidad = 19`).
+3. Agregar el scope `https://www.googleapis.com/auth/calendar.events` al JWT (ya lo tienes en el Admin Console, pero el código solo pide `calendar`).
 
-- **Dashboard**: KPIs (agentes, pipeline, ofertas, apartados, ingresos), embudo de conversión, gráficos recharts, tabla desempeño por agente
-- **Agentes**: Tabla con estatus, proyectos, prospectos, ofertas, ventas, conversión
-- **Pipeline**: Vista Kanban por estatus de oferta
-- **Prospectos**: Tabla con cliente, proyecto, unidad, agente, estatus
-- **Citas**: Grid de cards con badge estatus, fecha, hora, agente
-- **Comisiones**: KPIs + tabla detalle por agente
-- **Reportes**: 4 gráficos (ingreso por agente, por proyecto, comisión mensual, conversión)
-- **Configuración**: Datos fiscales, bancarios, roles (lectura)
+### Detalle técnico
 
-### Fase 3: CTA Tracking y Activity Logs
+```text
+// Antes (línea 18-23):
+payload = { iss, scope: "...calendar", aud, iat, exp }
 
-- **CTA Tracking** (`useCtaTracker`): Prefijo `inmob_` para page views y acciones clave. Actualizar `MedicionesCTA.tsx` con contexto "Portal Inmobiliaria".
-- **Activity Logs** (`useActivityLogger`): `registrarVista` en cada página, `registrarExportacion` en descargas, acciones CRUD con métodos correspondientes.
+// Después:
+payload = { iss, sub: subject, scope: "...calendar ...calendar.events", aud, iat, exp }
+```
 
-### Fase 4: Estilos
+La llamada cambia de:
+```text
+const token = await getAccessToken(sa);
+```
+A:
+```text
+const token = await getAccessToken(sa, calendarOwnerEmail);
+```
 
-- Tema `sozu-theme` via wrapper existente
-- Clases `sozu-card`, `sozu-stat-card`, `sozu-table-header` en `index.css`
-- Sidebar blanco, texto gris, activo verde SOZU, logo superior
-
-### Orden de implementación (3-4 mensajes)
-
-1. Infraestructura (migración, layout, rutas) + Dashboard con tracking
-2. Agentes + Pipeline + Prospectos con tracking
-3. Citas + Comisiones + Reportes + Configuración con tracking
-4. Contexto "Portal Inmobiliaria" en MedicionesCTA
+Esto hará que Google Calendar trate las operaciones como si las hiciera el usuario real (calendarOwnerEmail), permitiendo el envío automático de correos a los invitados.
 
