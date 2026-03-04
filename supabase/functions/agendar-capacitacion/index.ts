@@ -598,6 +598,7 @@ Deno.serve(async (req) => {
 
       let hasAttendees = false;
       let eventsWithAttendees = 0;
+      const datesWithAttendees: string[] = [];
       const totalFutureEvents = (storedEvents || []).length;
 
       for (const se of (storedEvents || [])) {
@@ -617,6 +618,7 @@ Deno.serve(async (req) => {
           if (realAttendees.length > 0) {
             hasAttendees = true;
             eventsWithAttendees++;
+            if (se.fecha) datesWithAttendees.push(se.fecha);
             console.log(`[check-attendees] Event ${se.google_event_id} on ${se.fecha} has ${realAttendees.length} attendees`);
           }
         } catch (e: any) {
@@ -629,6 +631,7 @@ Deno.serve(async (req) => {
         has_attendees: hasAttendees,
         total_future_events: totalFutureEvents,
         events_with_attendees: eventsWithAttendees,
+        dates_with_attendees: datesWithAttendees,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

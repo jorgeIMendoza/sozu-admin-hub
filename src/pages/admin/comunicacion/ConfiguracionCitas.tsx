@@ -1206,6 +1206,14 @@ export default function ConfiguracionCitas() {
               {hasFutureAttendees && !loadingFutureAttendees && (
                 <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm">
                   <p className="font-medium text-amber-700 dark:text-amber-400">🚫 Esta cita tiene {futureAttendeesData?.events_with_attendees} evento(s) futuro(s) con invitados.</p>
+                  {futureAttendeesData?.dates_with_attendees?.length > 0 && (
+                    <p className="mt-1 text-amber-600 dark:text-amber-300 text-xs">
+                      Fecha(s): {futureAttendeesData.dates_with_attendees.map((d: string) => {
+                        const [y, m, day] = d.split("-");
+                        return `${day}/${m}/${y}`;
+                      }).join(", ")}
+                    </p>
+                  )}
                   <p className="mt-1 text-muted-foreground">No es posible eliminar una cita que tiene eventos futuros con asistentes. Primero cancela o reagenda las citas pendientes.</p>
                 </div>
               )}
