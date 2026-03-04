@@ -31,10 +31,14 @@ export function MifielSigningDialog({ open, onOpenChange, widgetId, onSuccess, o
       containerRef.current.appendChild(widget);
 
       widget.addEventListener("signSuccess", () => {
+        // Hide widget immediately to prevent showing Mifiel's post-sign screen
+        if (containerRef.current) containerRef.current.innerHTML = "";
         onOpenChange(false);
         onSuccess?.();
       });
       widget.addEventListener("signError", (e: any) => {
+        if (containerRef.current) containerRef.current.innerHTML = "";
+        onOpenChange(false);
         onError?.(e?.detail?.message || "Error en la firma");
       });
     };
