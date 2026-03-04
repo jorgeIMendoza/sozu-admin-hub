@@ -128,11 +128,12 @@ export default function InmobDashboard() {
     queryKey: ["inmob-dash-financials", propIds],
     queryFn: async () => {
       if (!propIds.length) return { cobrado: 0, porCobrar: 0 };
-      const { data: cuentas } = await (supabase
+      const cuentasQuery = supabase
         .from("cuentas_cobranza")
         .select("id, precio_final, activo")
-        .in("id_propiedad", propIds)
-        .eq("activo", true) as any);
+        .in("id_propiedad", propIds as any)
+        .eq("activo", true);
+      const { data: cuentas } = await (cuentasQuery as any);
 
       if (!cuentas?.length) return { cobrado: 0, porCobrar: 0 };
 
