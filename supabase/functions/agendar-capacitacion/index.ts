@@ -869,17 +869,16 @@ Deno.serve(async (req) => {
         return result;
       };
 
-      // Helper: build description with separated Enterados (CC) and Asistentes (booked)
+      // Helper: build description — only adds Enterados and Asistentes sections when there are real bookings
       const buildDescriptionWithAttendees = (baseDesc: string, _allAttendees: {email: string}[], fecha?: string, hora?: number) => {
         const parts: string[] = [];
         if (baseDesc) parts.push(baseDesc);
         
-        // Solo agregar Enterados y Asistentes cuando hay reservas reales en el slot
+        // Only add Enterados and Asistentes when there are actual bookings in the slot
         if (fecha !== undefined && hora !== undefined) {
           const slotKey = `${fecha}_${hora}`;
           const resAttendees = reservationAttendeesBySlot.get(slotKey) || [];
           if (resAttendees.length > 0) {
-            const ccEmails = ccAttendees.map(a => a.email);
             if (ccEmails.length > 0) {
               parts.push(`Enterados: ${ccEmails.join(", ")}`);
             }
