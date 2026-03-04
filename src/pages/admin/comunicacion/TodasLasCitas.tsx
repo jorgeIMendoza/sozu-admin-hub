@@ -335,13 +335,19 @@ export default function TodasLasCitas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reservas_citas")
-        .select("*")
+        .select("id, id_configuracion_cita, id_estatus_cita, estatus, fecha, hora_inicio, hora_fin, id_persona_prospecto, id_agente, notas, google_calendar_event_id, activo, prospecto:personas!reservas_citas_id_persona_prospecto_fkey(nombre, apellido_paterno, email), agente:personas!reservas_citas_id_agente_fkey(nombre, apellido_paterno, email)")
         .eq("activo", true)
         .gte("fecha", format(weekStart, "yyyy-MM-dd"))
         .lte("fecha", format(weekEnd, "yyyy-MM-dd"))
         .order("hora_inicio", { ascending: true });
       if (error) { console.error("Error fetching citas:", error); return []; }
-      return (data || []) as Cita[];
+      return ((data || []) as unknown as CitaRaw[]).map(r => ({
+        ...r,
+        id_configuracion_cita: r.id_configuracion_cita || 0,
+        id_estatus_cita: r.id_estatus_cita || 0,
+        nombre_prospecto: r.prospecto ? `${r.prospecto.nombre} ${r.prospecto.apellido_paterno}` : null,
+        email_agente: r.agente?.email || null,
+      })) as Cita[];
     },
   });
 
