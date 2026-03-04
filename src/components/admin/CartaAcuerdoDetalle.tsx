@@ -157,6 +157,14 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
   };
 
   const handleSave = () => {
+    if (!firmantesLoaded) {
+      toast({
+        title: "Espera",
+        description: "Los datos de la carta aún se están cargando. Intenta de nuevo en un momento.",
+        variant: "destructive",
+      });
+      return;
+    }
     const sinFirma = firmantes.filter(f => !f.firma_imagen);
     if (sinFirma.length > 0) {
       toast({

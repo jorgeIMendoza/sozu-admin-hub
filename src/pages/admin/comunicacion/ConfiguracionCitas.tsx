@@ -93,6 +93,8 @@ export default function ConfiguracionCitas() {
   const [nuevaCitaNombre, setNuevaCitaNombre] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfigTarget, setDeleteConfigTarget] = useState<{ id: number; nombre: string } | null>(null);
+  const [calendarVerifying, setCalendarVerifying] = useState(false);
+  const [calendarAccessStatus, setCalendarAccessStatus] = useState<"idle" | "ok" | "error">("idle");
 
   useEffect(() => {
     if (!isSuperAdmin && profile?.email) {
@@ -881,12 +883,37 @@ export default function ConfiguracionCitas() {
 
                           <div className="space-y-2">
                             <Label>Email del calendario Google</Label>
-                            <Input
-                              type="email"
-                              placeholder="ejemplo@dominio.com"
-                              value={calendarioEmail}
-                              onChange={(e) => { setCalendarioEmail(e.target.value); setHasChanges(true); }}
-                            />
+                            <div className="flex items-center gap-2 max-w-md">
+                              <Input
+                                type="email"
+                                placeholder="ejemplo@dominio.com"
+                                value={calendarioEmail}
+                                onChange={(e) => { setCalendarioEmail(e.target.value); setCalendarAccessStatus("idle"); setHasChanges(true); }}
+                                onBlur={async () => {
+                                  const email = calendarioEmail.trim();
+                                  if (!email || !email.includes("@")) return;
+                                  setCalendarVerifying(true);
+                                  setCalendarAccessStatus("idle");
+                                  try {
+                                    const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
+                                      body: { action: "verify-calendar-access", calendar_email: email, calendar_owner_email: email },
+                                    });
+                                    if (error) { setCalendarAccessStatus("error"); return; }
+                                    setCalendarAccessStatus(data?.accessible ? "ok" : "error");
+                                  } catch { setCalendarAccessStatus("error"); }
+                                  finally { setCalendarVerifying(false); }
+                                }}
+                              />
+                              {calendarVerifying && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />}
+                              {!calendarVerifying && calendarAccessStatus === "ok" && <Check className="h-5 w-5 text-green-600 shrink-0" />}
+                              {!calendarVerifying && calendarAccessStatus === "error" && <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />}
+                            </div>
+                            {calendarAccessStatus === "error" && (
+                              <p className="text-xs text-destructive">La cuenta de servicio no tiene permisos en este calendario. Verifique la configuración de Google Calendar.</p>
+                            )}
+                            {calendarAccessStatus === "ok" && (
+                              <p className="text-xs text-green-600">✓ Acceso verificado correctamente</p>
+                            )}
                             <p className="text-xs text-muted-foreground">Calendario donde se agendan las citas</p>
                             <div className="mt-2 p-3 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
                               <div className="flex items-start gap-2">
