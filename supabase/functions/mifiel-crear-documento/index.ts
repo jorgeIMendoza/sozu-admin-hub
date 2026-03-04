@@ -555,9 +555,9 @@ serve(async (req) => {
       formData.append(`signatories[${i}][email]`, s.email);
       const isAgent = s.email === agente_email;
       if (isAgent) {
-        formData.append(`signatories[${i}][allowed_signature_methods][0]`, requiereBiometrica ? "FSCV" : "FSSV");
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, requiereBiometrica ? "FESCV" : "FESSV");
       } else {
-        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FSSV");
+        formData.append(`signatories[${i}][allowed_signature_methods][0]`, "FESSV");
       }
     });
 
