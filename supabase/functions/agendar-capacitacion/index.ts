@@ -1001,9 +1001,10 @@ Deno.serve(async (req) => {
           },
         };
 
+        const regenSendParam = slotAttendees.length > 0 ? "all" : "none";
         try {
           let res = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=${regenSendParam}`,
             { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(regenEvent) },
           );
           if (!res.ok) {
@@ -1185,7 +1186,6 @@ Deno.serve(async (req) => {
             recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${desired.rruleDay};UNTIL=${untilStr}`],
           };
           const createSlotAttendees = buildAttendeesForSlot(desired.fechaStr, parseInt(desired.horaInicio));
-          // Always include attendees in description
           event.description = buildDescriptionWithAttendees(eventDescription, createSlotAttendees, desired.fechaStr, parseInt(desired.horaInicio));
           if (createSlotAttendees.length > 0) event.attendees = [...createSlotAttendees];
           event.conferenceData = {
@@ -1194,10 +1194,11 @@ Deno.serve(async (req) => {
               conferenceSolutionKey: { type: "hangoutsMeet" },
             },
           };
+          const createSendParam = createSlotAttendees.length > 0 ? "all" : "none";
 
           try {
             let res = await fetch(
-              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?conferenceDataVersion=1&sendUpdates=${createSendParam}`,
               { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(event) },
             );
             if (!res.ok) {
