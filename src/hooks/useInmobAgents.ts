@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 
 export interface InmobAgent {
   email: string;
@@ -15,8 +15,7 @@ export interface InmobAgent {
  * Reusable across all Portal Inmobiliaria pages.
  */
 export function useInmobAgents() {
-  const { profile } = useAuth();
-  const personaId = profile?.id_persona;
+  const { personaId } = useInmobiliariaPersonaId();
 
   return useQuery({
     queryKey: ["inmob-agents-full", personaId],

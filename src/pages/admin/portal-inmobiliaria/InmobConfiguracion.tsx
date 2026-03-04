@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ export default function InmobConfiguracion() {
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const { profile } = useAuth();
-  const personaId = profile?.id_persona;
+  const { personaId } = useInmobiliariaPersonaId();
 
   useEffect(() => {
     registrarVista("/admin/portal-inmobiliaria/configuracion");

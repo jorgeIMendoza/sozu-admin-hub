@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 import sozuLogoBlack from "@/assets/sozu-logo-black.png";
 
 const PORTAL_INMOB_MENU_ID = 17;
@@ -38,20 +39,21 @@ export const PortalInmobiliariaLayout = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const isInmobiliariaRole = profile?.rol_nombre === "Inmobiliaria";
+  const { personaId } = useInmobiliariaPersonaId();
 
   // Fetch agency name
   const { data: agencyName } = useQuery({
-    queryKey: ["inmob-agency-name", profile?.id_persona],
+    queryKey: ["inmob-agency-name", personaId],
     queryFn: async () => {
-      if (!profile?.id_persona) return "Mi Inmobiliaria";
+      if (!personaId) return "Mi Inmobiliaria";
       const { data } = await (supabase as any)
         .from("personas")
         .select("nombre_comercial, nombre_legal")
-        .eq("id", profile.id_persona)
+        .eq("id", personaId)
         .single();
       return data?.nombre_comercial || data?.nombre_legal || "Mi Inmobiliaria";
     },
-    enabled: !!profile?.id_persona,
+    enabled: !!personaId,
     staleTime: 10 * 60_000,
   });
 
