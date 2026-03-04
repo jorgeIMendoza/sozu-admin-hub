@@ -287,7 +287,12 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="editor">
+      <Tabs defaultValue="editor" onValueChange={(val) => {
+        if (val === "firmas" && !autoSyncDoneRef.current && !syncing && firmas.length > 0) {
+          autoSyncDoneRef.current = true;
+          handleSyncMifiel();
+        }
+      }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
