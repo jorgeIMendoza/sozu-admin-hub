@@ -534,7 +534,7 @@ serve(async (req) => {
       fechaActual,
     });
 
-    // 5. Build signatories: configured firmantes + agent
+    // 4. Build signatories: configured firmantes + agent
     const signatories: { name: string; email: string }[] = [
       ...firmantesConfig.map(f => ({ name: f.name, email: f.email })),
       { name: agente_nombre, email: agente_email },
