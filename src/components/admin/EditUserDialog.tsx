@@ -541,8 +541,8 @@ export function EditUserDialog({
             )}
           </div>
 
-          {/* Inmobiliaria selector - only for agent roles */}
-          {isAgentRole && (
+          {/* Inmobiliaria selector - for agent and Inmobiliaria roles */}
+          {needsInmobiliaria && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
