@@ -94,8 +94,9 @@ const MedicionesCTA = () => {
   });
 
   // Split events by context
-  const inmobiliariaEvents = useMemo(() => events.filter((e: any) => !e.page?.startsWith("agent_")), [events]);
+  const inmobiliariaEvents = useMemo(() => events.filter((e: any) => !e.page?.startsWith("agent_") && !e.page?.startsWith("inmob_")), [events]);
   const agentEvents = useMemo(() => events.filter((e: any) => e.page?.startsWith("agent_")), [events]);
+  const inmobPortalEvents = useMemo(() => events.filter((e: any) => e.page?.startsWith("inmob_")), [events]);
 
   // ===== Inmobiliaria helpers (unchanged) =====
   const countByElement = (page: string, elementId: string) =>
