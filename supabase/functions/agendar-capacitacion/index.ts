@@ -9,19 +9,23 @@ const SERVICE_ACCOUNT_EMAIL = "cuenta-conexiones-drive@sozu-38755.iam.gserviceac
 
 // ---------- Google Auth ----------
 
-async function getAccessToken(sa: any): Promise<string> {
+async function getAccessToken(sa: any, subject?: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const encode = (o: any) =>
     btoa(JSON.stringify(o)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 
   const header = encode({ alg: "RS256", typ: "JWT" });
-  const payload = encode({
+  const jwtPayload: Record<string, any> = {
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/calendar",
+    scope: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
-  });
+  };
+  if (subject) {
+    jwtPayload.sub = subject;
+  }
+  const payload = encode(jwtPayload);
 
   const unsigned = `${header}.${payload}`;
   const pem = sa.private_key
@@ -516,14 +520,16 @@ Deno.serve(async (req) => {
     if (!saStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON secret not configured");
     const sa = JSON.parse(saStr);
     const body = await req.json();
-    const token = await getAccessToken(sa);
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const tipoCitaId = body.tipo_cita_id || 1;
     const calendarOwnerEmail = body.calendar_owner_email || "jorge.mendoza@sozu.com";
+
+    // Generate token with Domain-Wide Delegation (sub = calendar owner)
+    const token = await getAccessToken(sa, calendarOwnerEmail);
+    console.log(`[auth] Token generated with DWD subject: ${calendarOwnerEmail}`);
 
     // Fetch dynamic config
     const userCitaConfig = await getUserCitaConfig(supabase, calendarOwnerEmail, tipoCitaId);
