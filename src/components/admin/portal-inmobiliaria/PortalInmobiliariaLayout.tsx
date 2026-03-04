@@ -195,7 +195,7 @@ export const PortalInmobiliariaLayout = () => {
           )}
         </header>
 
-        <main className="p-4 lg:p-6 pb-24 lg:pb-6">
+        <main className="p-4 lg:p-6 pb-28 lg:pb-6">
           <Outlet />
         </main>
       </div>
