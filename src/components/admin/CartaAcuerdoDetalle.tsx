@@ -367,15 +367,18 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                         <div key={i} className="space-y-1 text-sm">
                           <p className="font-bold text-base">{f.name || "SOZU"}</p>
                           <p>Cargo: {f.cargo}</p>
-                          <div className="relative h-36 my-2">
-                            {f.firma_imagen ? (
-                              <img
-                                src={f.firma_imagen}
-                                alt={`Firma de ${f.name}`}
-                                className="absolute left-12 bottom-1 h-32 max-w-[260px] object-contain"
-                              />
-                            ) : null}
-                            <p className="absolute left-0 bottom-0 m-0">Firma: ___________________________</p>
+                          <div className="flex items-end gap-1 my-2">
+                            <span>Firma:</span>
+                            <div className="relative flex-1 h-36">
+                              {f.firma_imagen ? (
+                                <img
+                                  src={f.firma_imagen}
+                                  alt={`Firma de ${f.name}`}
+                                  className="absolute left-1/2 -translate-x-1/2 bottom-1 h-32 max-w-[260px] object-contain"
+                                />
+                              ) : null}
+                              <span className="absolute left-0 bottom-0">___________________________</span>
+                            </div>
                           </div>
                           <p>Fecha: <Badge variant="secondary" className="text-xs">{"{{fecha_actual}}"}</Badge></p>
                         </div>
@@ -384,8 +387,11 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                         <p className="font-bold text-base">EL AGENTE</p>
                         <p>Nombre/Razón Social: <Badge variant="secondary" className="text-xs">{"{{nombre_agente}}"}</Badge></p>
                         <p>RFC: <Badge variant="secondary" className="text-xs">{"{{rfc_agente}}"}</Badge></p>
-                        <div className="relative h-36 my-2">
-                          <p className="absolute left-0 bottom-0 m-0">Firma: ___________________________</p>
+                        <div className="flex items-end gap-1 my-2">
+                          <span>Firma:</span>
+                          <div className="relative flex-1 h-36">
+                            <span className="absolute left-0 bottom-0">___________________________</span>
+                          </div>
                         </div>
                         <p>Fecha: <Badge variant="secondary" className="text-xs">{"{{fecha_actual}}"}</Badge></p>
                       </div>
