@@ -107,6 +107,7 @@ const EjecucionesAvisos = lazyRetry(() => import("./pages/admin/comunicacion/Eje
 const WorkflowOfertas = lazyRetry(() => import("./pages/admin/crm/WorkflowOfertas"));
 const DashboardEjecutivo = lazyRetry(() => import("./pages/admin/crm/DashboardEjecutivo"));
 const ConfiguracionCitas = lazyRetry(() => import("./pages/admin/comunicacion/ConfiguracionCitas"));
+const TodasLasCitas = lazyRetry(() => import("./pages/admin/comunicacion/TodasLasCitas"));
 
 // Portal Inmobiliaria pages
 const InmobDashboard = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobDashboard"));
@@ -263,6 +264,7 @@ const App = () => (
                   <Route path="comunicacion/enviar-avisos" element={<EnviarAvisos />} />
                   <Route path="comunicacion/ejecuciones" element={<EjecucionesAvisos />} />
                   <Route path="comunicacion/configuracion-citas" element={<ConfiguracionCitas />} />
+                  <Route path="comunicacion/todas-las-citas" element={<TodasLasCitas />} />
                   <Route path="crm/workflow-ofertas" element={<WorkflowOfertas />} />
                   <Route path="crm/dashboard-ejecutivo" element={<DashboardEjecutivo />} />
                   <Route path="mediciones-cta" element={<MedicionesCTA />} />

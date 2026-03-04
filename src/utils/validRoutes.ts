@@ -75,6 +75,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/mediciones-cta',
   '/admin/ab-tests',
   '/admin/comunicacion/configuracion-citas',
+  '/admin/comunicacion/todas-las-citas',
   '/admin/agent/inicio',
   '/admin/agent/inventario',
   '/admin/agent/pipeline',

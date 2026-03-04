@@ -103,7 +103,8 @@
   '/admin/administrar-menus': Settings,
   '/admin/comunicacion/administrar-avisos': Mail,
   '/admin/comunicacion/enviar-avisos': Send,
-  '/admin/comunicacion/ejecuciones': History,
+   '/admin/comunicacion/ejecuciones': History,
+   '/admin/comunicacion/todas-las-citas': Calendar,
   '/admin/crm/workflow-ofertas': ClipboardList,
   '/admin/crm/dashboard-ejecutivo': BarChart3,
    // Agent Portal
