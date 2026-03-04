@@ -192,7 +192,9 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
             body: { document_id: firma.mifiel_document_id },
           });
           const notFound = error || !data?.success || data?.upstream_status === 404;
-          if (notFound) {
+          const mifielStatus = data?.document?.status;
+          const isArchived = mifielStatus === "archived" || mifielStatus === "deleted";
+          if (notFound || isArchived) {
             await (supabase as any).from("firmas_digitales").delete().eq("id", firma.id);
             removed++;
           } else if (data?.document) {

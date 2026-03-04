@@ -1,0 +1,1 @@
+DELETE FROM firmas_digitales WHERE id = 8;
