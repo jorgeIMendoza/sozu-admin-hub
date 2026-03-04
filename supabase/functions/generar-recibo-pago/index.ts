@@ -501,11 +501,45 @@ Deno.serve(async (req) => {
     const m2EnLetras = numberToWordsM2(m2Totales);
 
     // Build the main paragraph - adjust text based on whether it's a product or property
+    // Determine the payer name based on number of buyers and payment method
+    const numCompradores = compradores?.length || 0;
+    const esSTP = pago.id_metodos_pago === 6 || pago.id_metodos_pago === 7;
+    let nombrePagador = nombreComprador.toUpperCase();
+    let prefijoPagador = '';
+
+    if (numCompradores > 1) {
+      if (esSTP && pago.clave_rastreo) {
+        // Multiple buyers + STP: use nombre_ordenante from pagos_stp_raw
+        const { data: stpRaw } = await supabase
+          .from('pagos_stp_raw')
+          .select('nombre_ordenante')
+          .eq('claverastreo', pago.clave_rastreo)
+          .single();
+        if (stpRaw?.nombre_ordenante) {
+          nombrePagador = stpRaw.nombre_ordenante.toUpperCase();
+        }
+        console.log('Multiple buyers + STP, using nombre_ordenante:', nombrePagador);
+      } else {
+        // Multiple buyers + non-STP: use "del cliente (NAME1/NAME2/...)"
+        const todosNombres = compradores!
+          .map((c: any) => (c.personas?.nombre_legal || '').toUpperCase())
+          .filter((n: string) => n)
+          .join('/');
+        nombrePagador = todosNombres;
+        prefijoPagador = 'del cliente ';
+        console.log('Multiple buyers + non-STP, using all names:', nombrePagador);
+      }
+    }
+
+    const recibimosTexto = prefijoPagador
+      ? `Recibimos ${prefijoPagador}(${nombrePagador})`
+      : `Recibimos de ${nombrePagador}`;
+
     let conceptoText = '';
     if (categoriaProducto) {
-      conceptoText = `Recibimos de ${nombreComprador.toUpperCase()} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de un(a) ${categoriaProducto.toLowerCase()} del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, cuyas características serán:`;
+      conceptoText = `${recibimosTexto} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de un(a) ${categoriaProducto.toLowerCase()} del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, cuyas características serán:`;
     } else {
-      conceptoText = `Recibimos de ${nombreComprador.toUpperCase()} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, al efecto de adquirir la siguiente unidad condominal, cuyas características serán:`;
+      conceptoText = `${recibimosTexto} la cantidad de ${montoFormateado} (${montoEnLetras}), el día ${fechaFormateada}, por concepto de depósito en garantía de cumplimiento de conformidad que tiene como objetivo la gestión para la adquisición de una unidad condominal del desarrollo inmobiliario ${proyectoNombre.toUpperCase()}, al efecto de adquirir la siguiente unidad condominal, cuyas características serán:`;
     }
     const mainParagraph = conceptoText;
 
