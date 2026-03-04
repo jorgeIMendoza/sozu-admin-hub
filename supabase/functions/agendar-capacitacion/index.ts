@@ -579,6 +579,59 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- Action: check-config-future-attendees (check if future events have real attendees) ----
+    if (body.action === "check-config-future-attendees") {
+      const configId = body.config_id;
+      if (!configId) {
+        return new Response(JSON.stringify({ error: "Falta config_id" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      console.log(`[check-config-future-attendees] Checking future events for config ${configId}`);
+
+      const { data: storedEvents } = await supabase
+        .from("citas_calendar_events")
+        .select("*")
+        .eq("id_configuracion_cita", configId)
+        .eq("activo", true)
+        .gte("fecha", todayStr);
+
+      let hasAttendees = false;
+      let eventsWithAttendees = 0;
+      const totalFutureEvents = (storedEvents || []).length;
+
+      for (const se of (storedEvents || [])) {
+        try {
+          const evRes = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (!evRes.ok) {
+            console.log(`[check-attendees] Could not fetch event ${se.google_event_id}: ${evRes.status}`);
+            continue;
+          }
+          const evData = await evRes.json();
+          const realAttendees = (evData.attendees || []).filter(
+            (a: any) => a.email !== SERVICE_ACCOUNT_EMAIL
+          );
+          if (realAttendees.length > 0) {
+            hasAttendees = true;
+            eventsWithAttendees++;
+            console.log(`[check-attendees] Event ${se.google_event_id} on ${se.fecha} has ${realAttendees.length} attendees`);
+          }
+        } catch (e: any) {
+          console.error(`[check-attendees] Error checking event ${se.google_event_id}: ${e.message}`);
+        }
+      }
+
+      console.log(`[check-config-future-attendees] Result: has_attendees=${hasAttendees}, events_with_attendees=${eventsWithAttendees}/${totalFutureEvents}`);
+      return new Response(JSON.stringify({
+        has_attendees: hasAttendees,
+        total_future_events: totalFutureEvents,
+        events_with_attendees: eventsWithAttendees,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ---- Action: delete-config-events (delete only future calendar events without attendees) ----
     if (body.action === "delete-config-events") {
       const configId = body.config_id;
@@ -598,28 +651,45 @@ Deno.serve(async (req) => {
         .gte("fecha", todayStr);
 
       let deletedCount = 0;
-      const skippedCount = 0;
+      let skippedCount = 0;
       const errors: string[] = [];
+      const deletedEventIds: number[] = [];
 
       for (const se of (storedEvents || [])) {
         try {
+          // Server-side safety: check if event has real attendees before deleting
+          const evRes = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(se.calendar_email)}/events/${encodeURIComponent(se.google_event_id)}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          if (evRes.ok) {
+            const evData = await evRes.json();
+            const realAttendees = (evData.attendees || []).filter(
+              (a: any) => a.email !== SERVICE_ACCOUNT_EMAIL
+            );
+            if (realAttendees.length > 0) {
+              console.log(`[delete-config-events] Skipping event ${se.google_event_id} on ${se.fecha}: has ${realAttendees.length} attendees`);
+              skippedCount++;
+              continue;
+            }
+          }
           await deleteCalendarEvent(token, se.calendar_email, se.google_event_id);
           deletedCount++;
+          deletedEventIds.push(se.id);
         } catch (e: any) {
           errors.push(`Event ${se.google_event_id}: ${e.message}`);
         }
       }
 
-      // 2. Mark only future stored events as inactive
-      if (storedEvents && storedEvents.length > 0) {
-        const futureIds = storedEvents.map((se: any) => se.id);
+      // 2. Mark only deleted events as inactive (skipped ones remain active)
+      if (deletedEventIds.length > 0) {
         await supabase
           .from("citas_calendar_events")
           .update({ activo: false })
-          .in("id", futureIds);
+          .in("id", deletedEventIds);
       }
 
-      // 3. Cancel only future active reservations (without attendees — already validated in frontend)
+      // 3. Cancel only future active reservations
       await supabase
         .from("reservas_citas")
         .update({ activo: false, estatus: "cancelada" })
@@ -627,11 +697,12 @@ Deno.serve(async (req) => {
         .eq("activo", true)
         .gte("fecha", todayStr);
 
-      console.log(`[delete-config-events] Deleted ${deletedCount}/${(storedEvents || []).length} future events, errors: ${errors.length}`);
+      console.log(`[delete-config-events] Deleted ${deletedCount}, skipped ${skippedCount}/${(storedEvents || []).length} future events, errors: ${errors.length}`);
 
       return new Response(JSON.stringify({ 
         success: true, 
         deleted_count: deletedCount, 
+        skipped_count: skippedCount,
         total: (storedEvents || []).length,
         errors 
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
