@@ -723,19 +723,16 @@ Deno.serve(async (req) => {
         const parts: string[] = [];
         if (baseDesc) parts.push(baseDesc);
         
-        // Enterados = CC emails (correos_enterado)
-        const ccEmails = ccAttendees.map(a => a.email);
-        if (ccEmails.length > 0) {
-          parts.push(`Enterados: ${ccEmails.join(", ")}`);
-        }
-        
-        // Asistentes = people who booked (reservations)
+        // Solo agregar Enterados y Asistentes cuando hay reservas reales en el slot
         if (fecha !== undefined && hora !== undefined) {
           const slotKey = `${fecha}_${hora}`;
           const resAttendees = reservationAttendeesBySlot.get(slotKey) || [];
           if (resAttendees.length > 0) {
-            const resEmails = resAttendees.map(a => a.email).join(", ");
-            parts.push(`Asistentes: ${resEmails}`);
+            const ccEmails = ccAttendees.map(a => a.email);
+            if (ccEmails.length > 0) {
+              parts.push(`Enterados: ${ccEmails.join(", ")}`);
+            }
+            parts.push(`Asistentes: ${resAttendees.map(a => a.email).join(", ")}`);
           }
         }
         
