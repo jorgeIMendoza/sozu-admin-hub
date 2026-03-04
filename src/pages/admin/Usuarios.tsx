@@ -306,6 +306,7 @@ export default function Usuarios() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   
   const [isInmobiliariaLocked, setIsInmobiliariaLocked] = useState(false);
+  const [isInmobiliariaPopoverOpen, setIsInmobiliariaPopoverOpen] = useState(false);
   // Pagination state
   const [currentPageActive, setCurrentPageActive] = useState(1);
   const [currentPageInactive, setCurrentPageInactive] = useState(1);
@@ -1347,7 +1348,7 @@ export default function Usuarios() {
                   Inmobiliaria *
                   {isInmobiliariaLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
                 </Label>
-                <Popover>
+                <Popover open={isInmobiliariaPopoverOpen} onOpenChange={setIsInmobiliariaPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -1377,9 +1378,10 @@ export default function Usuarios() {
                               <CommandItem
                                 key={inmob.id}
                                 value={inmob.nombre}
-                                onSelect={() => {
-                                  setNewUserForm(prev => ({ ...prev, id_inmobiliaria: inmob.id.toString() }));
-                                }}
+                              onSelect={() => {
+                                setNewUserForm(prev => ({ ...prev, id_inmobiliaria: inmob.id.toString() }));
+                                setIsInmobiliariaPopoverOpen(false);
+                              }}
                               >
                                 <Check
                                   className={cn(
