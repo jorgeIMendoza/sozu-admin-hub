@@ -797,25 +797,109 @@ export default function InmobDashboard() {
     return result.slice(0, 5);
   }, [ofertas, propMap]);
 
-  // Agent performance — use classifiedOfertas and deduped for consistency with KPIs
+  // Resolve names for non-agent internal users who created offers
+  const { data: internalUserNames = new Map<string, string>() } = useQuery({
+    queryKey: ["inmob-dash-internal-names", classifiedOfertas.map(o => o.email_creador).join(","), agentEmails.join(",")],
+    queryFn: async () => {
+      const unknownEmails = [...new Set(classifiedOfertas.map((o: any) => o.email_creador).filter((e: string) => e && !agentEmails.includes(e)))];
+      if (!unknownEmails.length) return new Map<string, string>();
+      const m = new Map<string, string>();
+      for (let i = 0; i < unknownEmails.length; i += 200) {
+        const batch = unknownEmails.slice(i, i + 200);
+        const { data: usuarios } = await supabase.from("usuarios").select("email, id_persona").in("email", batch) as any;
+        if (usuarios?.length) {
+          const pIds = [...new Set(usuarios.map((u: any) => u.id_persona).filter(Boolean))] as number[];
+          if (pIds.length) {
+            const { data: personas } = await supabase.from("personas").select("id, nombre_legal, nombre_comercial").in("id", pIds) as any;
+            const pMap = new Map<number, string>();
+            (personas || []).forEach((p: any) => pMap.set(p.id, p.nombre_legal || p.nombre_comercial || ""));
+            usuarios.forEach((u: any) => {
+              const name = pMap.get(u.id_persona);
+              m.set(u.email, name || u.email.split("@")[0]);
+            });
+          }
+        }
+      }
+      return m;
+    },
+    enabled: classifiedOfertas.length > 0 && agentEmails.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  // Fetch comisiones for internal non-agent users
+  const internalEmails = useMemo(() => {
+    return [...new Set(classifiedOfertas.map((o: any) => o.email_creador).filter((e: string) => e && !agentEmails.includes(e)))];
+  }, [classifiedOfertas, agentEmails]);
+
+  const { data: internalComisiones = [] } = useQuery({
+    queryKey: ["inmob-dash-internal-comisiones", internalEmails, selectedMonths],
+    queryFn: async () => {
+      if (!internalEmails.length) return [];
+      const ranges = dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }];
+      const all: any[] = [];
+      for (const range of ranges) {
+        const { data } = await (supabase as any)
+          .from("comisionistas")
+          .select("id, email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, monto_comision, fecha_creacion")
+          .in("email_usuario", internalEmails)
+          .eq("activo", true)
+          .gte("fecha_creacion", range.start)
+          .lte("fecha_creacion", range.end);
+        if (data) all.push(...data);
+      }
+      const seen = new Set<number>();
+      return all.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
+    },
+    enabled: internalEmails.length > 0,
+    staleTime: 3 * 60_000,
+  });
+
+  // Combined comisiones (agents + internals)
+  const allComisiones = useMemo(() => [...comisiones, ...internalComisiones], [comisiones, internalComisiones]);
+
+  // Agent performance — includes both agents AND internal non-agent users
   const agentPerformance = useMemo(() => {
-    return agents.filter(a => a.activo).map(agent => {
-      const agentOfertas = classifiedOfertas.filter((o: any) => o.email_creador === agent.email);
-      const agentCierres = dedupedAdvancedOfertas.filter((o: any) => o.email_creador === agent.email && o.stage === "cierre");
-      const agentApartadosCount = dedupedAdvancedOfertas.filter((o: any) => o.email_creador === agent.email && ADVANCED_STAGES.has(o.stage) && o.stage !== "cierre").length;
-      const agentPipeline = dedupedAdvancedOfertas
-        .filter((o: any) => o.email_creador === agent.email)
+    const buildPerf = (email: string, nombre: string, isInternal: boolean) => {
+      const userOfertas = classifiedOfertas.filter((o: any) => o.email_creador === email);
+      const userCierres = dedupedAdvancedOfertas.filter((o: any) => o.email_creador === email && o.stage === "cierre");
+      const userApartadosCount = dedupedAdvancedOfertas.filter((o: any) => o.email_creador === email && ADVANCED_STAGES.has(o.stage) && o.stage !== "cierre").length;
+      const userPipeline = dedupedAdvancedOfertas
+        .filter((o: any) => o.email_creador === email)
         .reduce((s: number, o: any) => {
           const cuenta = cuentasMap.get(o.id);
           return s + (Number(cuenta?.precio_final) || 0);
         }, 0);
-      const agentComisiones = comisiones.filter((c: any) => c.email_usuario === agent.email);
-      const ingreso = agentComisiones.reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
-      const comision = agentComisiones.filter((c: any) => c.pagada).reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
-      const conv = agentOfertas.length > 0 ? ((agentCierres.length / agentOfertas.length) * 100) : 0;
-      return { nombre: agent.nombre, prospectos: 0, ofertas: agentOfertas.length, apartados: agentApartadosCount, ventas: agentCierres.length, pipeline: agentPipeline, ingreso, comision, conversion: Math.round(conv * 10) / 10 };
-    }).sort((a, b) => b.ventas - a.ventas);
-  }, [agents, classifiedOfertas, dedupedAdvancedOfertas, cuentasMap, comisiones]);
+      const userComisiones = allComisiones.filter((c: any) => c.email_usuario === email);
+      const ingreso = userComisiones.reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
+      const comision = userComisiones.filter((c: any) => c.pagada).reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
+      const conv = userOfertas.length > 0 ? ((userCierres.length / userOfertas.length) * 100) : 0;
+      return {
+        nombre: isInternal ? `${nombre} (Interno)` : nombre,
+        prospectos: 0,
+        ofertas: userOfertas.length,
+        apartados: userApartadosCount,
+        ventas: userCierres.length,
+        pipeline: userPipeline,
+        ingreso,
+        comision,
+        conversion: Math.round(conv * 10) / 10,
+      };
+    };
+
+    const agentRows = agents.filter(a => a.activo).map(agent => buildPerf(agent.email, agent.nombre, false));
+
+    // Add internal non-agent users who have offers
+    const internalRows = internalEmails
+      .filter(email => classifiedOfertas.some((o: any) => o.email_creador === email))
+      .map(email => {
+        const name = internalUserNames.get(email) || email.split("@")[0];
+        return buildPerf(email, name, true);
+      });
+
+    return [...agentRows, ...internalRows]
+      .filter(r => r.ofertas > 0 || r.ventas > 0)
+      .sort((a, b) => b.ventas - a.ventas);
+  }, [agents, classifiedOfertas, dedupedAdvancedOfertas, cuentasMap, allComisiones, internalEmails, internalUserNames]);
 
   // Bar chart data
   const agentChartData = useMemo(() => {
