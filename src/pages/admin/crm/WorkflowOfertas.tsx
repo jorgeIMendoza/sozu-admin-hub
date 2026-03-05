@@ -1032,35 +1032,55 @@ export default function WorkflowOfertas() {
                       <p className="text-muted-foreground italic">Sin esquema seleccionado</p>
                     ) : (
                       <>
-                        {selectedOferta.esquema_nombre && !selectedOferta.esquema_es_manual && (
-                          <p className="font-medium mb-1">{selectedOferta.esquema_nombre}</p>
-                        )}
-                        <div className="space-y-1 bg-muted/30 rounded-md p-2">
-                          {selectedOferta.porcentaje_enganche != null && selectedOferta.porcentaje_enganche > 0 && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground">Enganche ({selectedOferta.porcentaje_enganche}%)</span>
-                              <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_enganche / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                        <p className="font-medium mb-1">
+                          {selectedOferta.esquema_es_manual ? 'Manual' : (selectedOferta.esquema_nombre || 'Sin nombre')}
+                        </p>
+                        {(() => {
+                          const hasBreakdown = (selectedOferta.porcentaje_enganche > 0) || (selectedOferta.porcentaje_mensualidades > 0) || (selectedOferta.porcentaje_entrega > 0) || (descAumento !== 0);
+                          if (!hasBreakdown) {
+                            return (
+                              <div className="bg-muted/30 rounded-md p-2">
+                                <p className="text-muted-foreground text-xs italic">
+                                  {selectedOferta.esquema_es_manual ? 'Esquema personalizado — los pagos se configuran en la cuenta de cobranza' : 'Sin desglose de porcentajes'}
+                                </p>
+                                {precioConAjuste > 0 && (
+                                  <div className="flex justify-between items-center mt-1">
+                                    <span className="text-muted-foreground">Precio final</span>
+                                    <span className="font-medium">${precioConAjuste.toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="space-y-1 bg-muted/30 rounded-md p-2">
+                              {selectedOferta.porcentaje_enganche != null && selectedOferta.porcentaje_enganche > 0 && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-muted-foreground">Enganche ({selectedOferta.porcentaje_enganche}%)</span>
+                                  <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_enganche / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                                </div>
+                              )}
+                              {selectedOferta.porcentaje_mensualidades != null && selectedOferta.porcentaje_mensualidades > 0 && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-muted-foreground">Mensualidades ({selectedOferta.porcentaje_mensualidades}%) · {selectedOferta.numero_mensualidades} meses</span>
+                                  <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_mensualidades / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                                </div>
+                              )}
+                              {selectedOferta.porcentaje_entrega != null && selectedOferta.porcentaje_entrega > 0 && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-muted-foreground">Entrega ({selectedOferta.porcentaje_entrega}%)</span>
+                                  <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_entrega / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                                </div>
+                              )}
+                              {descAumento !== 0 && (
+                                <div className="flex justify-between items-center border-t pt-1 mt-1">
+                                  <span className={descAumento < 0 ? 'text-green-600' : 'text-destructive'}>{descAumento > 0 ? 'Incremento' : 'Descuento'} ({Math.abs(descAumento)}%)</span>
+                                  <span className={`font-medium ${descAumento < 0 ? 'text-green-600' : 'text-destructive'}`}>{descAumento < 0 ? '-' : '+'}${Math.abs(precioFinal * descAumento / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {selectedOferta.porcentaje_mensualidades != null && selectedOferta.porcentaje_mensualidades > 0 && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground">Mensualidades ({selectedOferta.porcentaje_mensualidades}%) · {selectedOferta.numero_mensualidades} meses</span>
-                              <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_mensualidades / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
-                            </div>
-                          )}
-                          {selectedOferta.porcentaje_entrega != null && selectedOferta.porcentaje_entrega > 0 && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-muted-foreground">Entrega ({selectedOferta.porcentaje_entrega}%)</span>
-                              <span className="font-medium">${(precioConAjuste * selectedOferta.porcentaje_entrega / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
-                            </div>
-                          )}
-                          {descAumento !== 0 && (
-                            <div className="flex justify-between items-center border-t pt-1 mt-1">
-                              <span className={descAumento < 0 ? 'text-green-600' : 'text-destructive'}>{descAumento > 0 ? 'Incremento' : 'Descuento'} ({Math.abs(descAumento)}%)</span>
-                              <span className={`font-medium ${descAumento < 0 ? 'text-green-600' : 'text-destructive'}`}>{descAumento < 0 ? '-' : '+'}${Math.abs(precioFinal * descAumento / 100).toLocaleString('es-MX', { maximumFractionDigits: 0 })}</span>
-                            </div>
-                          )}
-                        </div>
+                          );
+                        })()}
                       </>
                     )}
                     {selectedOferta.comentario_justificacion && (

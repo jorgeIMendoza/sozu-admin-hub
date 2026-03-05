@@ -251,8 +251,11 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
                           </div>
 
                           <div className="text-xs text-muted-foreground space-y-0.5">
-                            <p>{headerParts.join("  ")}</p>
+                            {headerParts.length > 0 && <p>{headerParts.join("  ")}</p>}
                             {numMens > 1 && <p>{numMens} meses</p>}
+                            {scheme.es_manual && headerParts.length === 0 && (
+                              <p className="italic">Esquema personalizado — pagos en cuenta de cobranza</p>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 mt-2 text-[11px]">
