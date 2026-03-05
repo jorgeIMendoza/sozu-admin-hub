@@ -247,6 +247,15 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
               </div>
             ) : null}
 
+            {/* Price disclaimer for Asignada / Registro */}
+            {(isAsignada || isRegistro) && precioBase != null && precioBase > 0 && (
+              <div className="rounded-xl bg-muted/40 border border-border p-3 text-center space-y-1">
+                <p className="text-xs text-muted-foreground">Precio de lista {isProducto ? "Producto" : "Propiedad"}:</p>
+                <p className="text-lg font-bold text-muted-foreground line-through">{formatCurrency(precioBase)}</p>
+                <p className="text-[11px] text-muted-foreground">Contabilidad: <span className="font-semibold text-foreground">$0.00</span></p>
+              </div>
+            )}
+
             {/* Special cases or Payment Schemes */}
             {isAsignada ? (
               <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4 flex items-start gap-3">

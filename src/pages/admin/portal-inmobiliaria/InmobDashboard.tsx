@@ -681,14 +681,16 @@ export default function InmobDashboard() {
 
   // Secondary KPIs — current month
   const conversionGlobal = ofertas.length > 0 ? ((ventasCerradas / ofertas.length) * 100) : 0;
-  const ticketPromedio = ventasCerradas > 0
-    ? dedupedAdvancedOfertas
-        .filter((o: any) => o.stage === "cierre")
-        .reduce((s: number, o: any) => {
-          const cuenta = cuentasMap.get(o.id);
-          return s + (Number(cuenta?.precio_final) || 0);
-        }, 0) / ventasCerradas
-    : 0;
+  const { ticketPromedio, ticketPropiedades, ticketProductos } = useMemo(() => {
+    const cierres = dedupedAdvancedOfertas.filter((o: any) => o.stage === "cierre");
+    const props = cierres.filter((o: any) => !o.id_producto);
+    const prods = cierres.filter((o: any) => !!o.id_producto);
+    const avg = (arr: any[]) => {
+      if (arr.length === 0) return 0;
+      return arr.reduce((s: number, o: any) => s + (Number(cuentasMap.get(o.id)?.precio_final) || 0), 0) / arr.length;
+    };
+    return { ticketPromedio: avg(cierres), ticketPropiedades: avg(props), ticketProductos: avg(prods) };
+  }, [dedupedAdvancedOfertas, cuentasMap]);
   const comisionPromAgente = totalAgentes > 0
     ? comisiones.reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0) / totalAgentes
     : 0;
@@ -961,7 +963,8 @@ export default function InmobDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "Conversión global", value: `${conversionGlobal.toFixed(1)}%`, icon: Percent, trend: trendConversion },
-            { label: "Ticket promedio", value: fmtShort(ticketPromedio), icon: BarChart3, trend: trendTicket },
+            { label: "Ticket prom. Prop.", value: fmtShort(ticketPropiedades), icon: Home, trend: trendTicket },
+            { label: "Ticket prom. Prod.", value: fmtShort(ticketProductos), icon: BarChart3, trend: null },
             { label: "Comisión prom/agente", value: fmtShort(comisionPromAgente), icon: DollarSign, trend: trendComisionProm },
             { label: "Tiempo prom. cierre", value: tiempoPromCierre > 0 ? `${tiempoPromCierre} días` : "— días", icon: Timer, trend: trendTiempoCierre },
           ].map((m) => (
