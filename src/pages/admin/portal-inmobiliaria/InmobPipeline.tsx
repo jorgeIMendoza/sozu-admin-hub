@@ -14,7 +14,8 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronLeft, ChevronRight, User, Building2, Calendar, DollarSign, X, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, Building2, Calendar, DollarSign, X, CalendarDays, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -668,7 +669,21 @@ export default function InmobPipeline() {
               </Select>
             </div>
 
-            {/* Month selector */}
+            {/* Offer ID search */}
+            <div className="min-w-[160px]">
+              <label className="text-sm font-medium mb-1 block">Buscar Oferta</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="O-001234"
+                  value={searchOfertaId}
+                  onChange={(e) => setSearchOfertaId(e.target.value)}
+                  className="pl-8 h-10"
+                />
+              </div>
+            </div>
+
+
             <div className="min-w-[180px]">
               <label className="text-sm font-medium mb-1 block">Periodo</label>
               <Popover>
