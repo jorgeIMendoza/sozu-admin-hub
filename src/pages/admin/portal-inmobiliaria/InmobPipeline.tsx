@@ -519,7 +519,6 @@ export default function InmobPipeline() {
           const paddedId = String(o.id).padStart(6, "0");
           return paddedId.includes(searchClean) || String(o.id).includes(searchClean);
         });
-        }
       }
     }
     if (selectedAgentes.length > 0) {
