@@ -8,7 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, User, MapPin, Search } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { MonthMultiSelector, getCurrentMonthKey, getMonthFilterLabel, buildDateRangesFromMonths } from "@/components/ui/month-multi-selector";
+import { Calendar, Clock, User, MapPin, Search, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -24,6 +27,10 @@ export default function InmobCitas() {
   const { data: agents = [] } = useInmobAgents();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([getCurrentMonthKey()]);
+
+  const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
+  const dateRanges = useMemo(() => buildDateRangesFromMonths(selectedMonths), [selectedMonths]);
 
   useEffect(() => {
     registrarVista("/admin/portal-inmobiliaria/citas");
@@ -38,16 +45,22 @@ export default function InmobCitas() {
   }, [agents]);
 
   const { data: citas = [], isLoading } = useQuery({
-    queryKey: ["inmob-citas", agentEmails],
+    queryKey: ["inmob-citas", agentEmails, dateRanges],
     queryFn: async () => {
       if (agentEmails.length === 0) return [];
-      const { data } = await (supabase
-        .from("reservas_citas") as any)
+      let query = (supabase.from("reservas_citas") as any)
         .select("*")
         .in("email_agente", agentEmails)
         .eq("activo", true)
         .order("fecha", { ascending: false })
-        .limit(200);
+        .limit(500);
+
+      if (dateRanges.length > 0) {
+        const orClauses = dateRanges.map(r => `and(fecha.gte.${r.start},fecha.lte.${r.end})`).join(",");
+        query = query.or(orClauses);
+      }
+
+      const { data } = await query;
       return data || [];
     },
     enabled: agentEmails.length > 0,
@@ -75,7 +88,20 @@ export default function InmobCitas() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Citas</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold text-foreground">Citas</h1>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <CalendarDays className="h-4 w-4" />
+              {monthFilterLabel}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-auto p-0">
+            <MonthMultiSelector value={selectedMonths} onChange={setSelectedMonths} />
+          </PopoverContent>
+        </Popover>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
