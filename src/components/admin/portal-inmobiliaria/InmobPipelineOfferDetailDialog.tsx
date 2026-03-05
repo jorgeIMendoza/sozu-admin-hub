@@ -80,6 +80,22 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
 
       if (!projectId) return [];
 
+      // If the offer has a selected scheme, check if it's manual
+      if (card?.id_esquema_pago_seleccionado) {
+        const { data: selectedScheme } = await (supabase as any)
+          .from("esquemas_pago")
+          .select("*")
+          .eq("id", card.id_esquema_pago_seleccionado)
+          .limit(1)
+          .single();
+
+        if (selectedScheme?.es_manual) {
+          // Manual offer: show only the manual scheme with label "Manual"
+          return [{ ...selectedScheme, nombre: "Manual" }];
+        }
+      }
+
+      // Non-manual: show all preloaded schemes
       const { data: nonManual } = await (supabase as any)
         .from("esquemas_pago")
         .select("*")
@@ -88,20 +104,7 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
         .eq("es_manual", false)
         .order("nombre");
 
-      const result = nonManual || [];
-
-      // If the selected scheme is manual (not in the list), fetch it separately
-      if (card?.id_esquema_pago_seleccionado && !result.some((s: any) => s.id === card.id_esquema_pago_seleccionado)) {
-        const { data: selected } = await (supabase as any)
-          .from("esquemas_pago")
-          .select("*")
-          .eq("id", card.id_esquema_pago_seleccionado)
-          .limit(1)
-          .single();
-        if (selected) result.unshift(selected);
-      }
-
-      return result;
+      return nonManual || [];
     },
     enabled: open && (isProducto ? !!card?.id_producto : !!propertyDetail?.id_edificio_modelo),
   });
