@@ -266,16 +266,19 @@ export default function InmobDashboard() {
     staleTime: 5 * 60_000,
   });
 
-  // For Sozu: get ALL inmobiliaria agent emails to exclude from offers
+  // For Sozu: get inmobiliaria agent emails from OTHER inmobiliarias to exclude from offers
+  // (Sozu's own tipo 19 agents should NOT be excluded)
   const { data: inmobAgentEmails = new Set<string>() } = useQuery({
-    queryKey: ["all-inmob-agent-emails"],
+    queryKey: ["all-inmob-agent-emails-external", personaId],
     queryFn: async () => {
-      // Get all persona IDs linked as inmob agents (tipo 19)
+      if (!personaId) return new Set<string>();
+      // Get tipo 19 agents NOT owned by this inmobiliaria
       const { data: rels } = await supabase
         .from("entidades_relacionadas")
         .select("id_persona")
         .eq("id_tipo_entidad", 19)
-        .eq("activo", true) as any;
+        .eq("activo", true)
+        .neq("id_persona_duena_lead", personaId) as any;
       if (!rels?.length) return new Set<string>();
       const pIds = [...new Set(rels.map((r: any) => r.id_persona).filter(Boolean))] as number[];
       const allEmails = new Set<string>();
@@ -287,7 +290,7 @@ export default function InmobDashboard() {
       }
       return allEmails;
     },
-    enabled: isSozu,
+    enabled: isSozu && !!personaId,
     staleTime: 10 * 60_000,
   });
 
