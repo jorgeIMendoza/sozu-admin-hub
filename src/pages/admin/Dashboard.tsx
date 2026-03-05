@@ -28,6 +28,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const isInmobiliariaRole = profile?.rol_id === 4;
+
+  // Month filter – defaults to current month
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([getCurrentMonthKey()]);
+  const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
   
   // Project access control
   const { 
