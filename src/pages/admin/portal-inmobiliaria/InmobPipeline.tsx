@@ -207,7 +207,7 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
       producto_nombre: producto?.nombre || undefined,
       proyecto_nombre: projInfo?.nombre || undefined,
       proyecto_id: projInfo?.id || undefined,
-      agente_nombre: agentNameMap.get(o.email_creador) || o.email_creador,
+      agente_nombre: fullNameMap.get(o.email_creador) || o.email_creador,
       precio: isProducto ? (producto?.precio_lista || null) : (prop?.precio_lista || null),
       estatus_disponibilidad: prop?.id_estatus_disponibilidad,
       cuenta_cobranza_id: cuenta?.id,
