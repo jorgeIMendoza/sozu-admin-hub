@@ -604,14 +604,17 @@ export default function InmobDashboard() {
     return classifiedOfertas.filter((o: any) => ADVANCED_STAGES.has(o.stage)).length;
   }, [classifiedOfertas]);
 
-  // Ofertas activas: before apartado, NOT expiradas, NOT rechazadas
+  // Ofertas activas: all non-expired, non-rejected offers in the period
+  // For dashboard KPI purposes, count offers that are in active negotiation stages
+  // (not just vigente — include all from the selected period that aren't expired/rejected)
   const ofertasActivas = useMemo(() => {
-    return classifiedOfertas.filter((o: any) => PRE_APARTADO.has(o.stage)).length;
+    const activeStages = new Set(["nuevas", "pendientes", "aprobadas", "revision", ...ADVANCED_STAGES]);
+    return classifiedOfertas.filter((o: any) => activeStages.has(o.stage)).length;
   }, [classifiedOfertas]);
 
-  // Apartados: only those in "apartado" stage
+  // Apartados: all offers from Apartado onwards (matches funnel "Apartadas")
   const apartados = useMemo(() => {
-    return classifiedOfertas.filter((o: any) => o.stage === "apartado").length;
+    return classifiedOfertas.filter((o: any) => ADVANCED_STAGES.has(o.stage)).length;
   }, [classifiedOfertas]);
 
   const ventasCerradas = useMemo(() => {
