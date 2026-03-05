@@ -415,19 +415,27 @@ export default function InmobDashboard() {
     return classifiedOfertas.filter((o: any) => o.stage === "cierre").length;
   }, [classifiedOfertas]);
 
+  // Helper: get net commission for a comisionista entry (Sozu subtracts external dispersions)
+  const getNetComision = useCallback((c: any) => {
+    const monto = Number(c.monto_comision) || 0;
+    if (!isSozu) return monto;
+    const external = externalComisionByCuenta.get(c.id_cuenta_cobranza) || 0;
+    return Math.max(0, monto - external);
+  }, [isSozu, externalComisionByCuenta]);
+
   // Ingresos cobrados: comisionistas pagadas for the inmobiliaria
   const ingresosCobrados = useMemo(() => {
     return inmobComisionistas
       .filter((c: any) => c.pagada === true)
-      .reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
-  }, [inmobComisionistas]);
+      .reduce((s: number, c: any) => s + getNetComision(c), 0);
+  }, [inmobComisionistas, getNetComision]);
 
   // Por cobrar: comisionistas aprobadas pero no pagadas
   const porCobrar = useMemo(() => {
     return inmobComisionistas
       .filter((c: any) => c.aprobada === true && c.pagada !== true)
-      .reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
-  }, [inmobComisionistas]);
+      .reduce((s: number, c: any) => s + getNetComision(c), 0);
+  }, [inmobComisionistas, getNetComision]);
 
   // Estimados: sum of commission from apartado onwards
   // Build a set of cuenta_cobranza IDs linked to advanced-stage offers
@@ -445,8 +453,8 @@ export default function InmobDashboard() {
   const estimados = useMemo(() => {
     return inmobComisionistas
       .filter((c: any) => advancedCuentaIds.has(c.id_cuenta_cobranza))
-      .reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
-  }, [inmobComisionistas, advancedCuentaIds]);
+      .reduce((s: number, c: any) => s + getNetComision(c), 0);
+  }, [inmobComisionistas, advancedCuentaIds, getNetComision]);
 
   // Secondary KPIs
   const conversionGlobal = ofertas.length > 0 ? ((ventasCerradas / ofertas.length) * 100).toFixed(1) : "0";
