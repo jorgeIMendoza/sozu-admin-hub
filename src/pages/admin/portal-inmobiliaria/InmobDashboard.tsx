@@ -271,6 +271,56 @@ export default function InmobDashboard() {
     staleTime: 3 * 60_000,
   });
 
+  // For Sozu: get ALL comisionistas on the same cuentas to subtract external inmobiliarias' amounts
+  const inmobCuentaIds = useMemo(() => {
+    return [...new Set(inmobComisionistas.map((c: any) => c.id_cuenta_cobranza).filter(Boolean))] as number[];
+  }, [inmobComisionistas]);
+
+  const { data: allComisionistasOnCuentas = [] } = useQuery({
+    queryKey: ["inmob-dash-all-comisionistas-sozu", inmobCuentaIds],
+    queryFn: async () => {
+      if (!inmobCuentaIds.length) return [];
+      const results: any[] = [];
+      for (let i = 0; i < inmobCuentaIds.length; i += 100) {
+        const batch = inmobCuentaIds.slice(i, i + 100);
+        const { data } = await (supabase as any)
+          .from("comisionistas")
+          .select("id, email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, monto_comision")
+          .in("id_cuenta_cobranza", batch)
+          .eq("activo", true)
+          .neq("email_usuario", inmobiliariaEmail);
+        if (data) results.push(...data);
+      }
+      return results;
+    },
+    enabled: isSozu && inmobCuentaIds.length > 0 && !!inmobiliariaEmail,
+    staleTime: 3 * 60_000,
+  });
+
+  // Build map: cuenta_id -> sum of external comisionistas' monto
+  const externalComisionByCuenta = useMemo(() => {
+    const map = new Map<number, number>();
+    if (!isSozu) return map;
+    allComisionistasOnCuentas.forEach((c: any) => {
+      const prev = map.get(c.id_cuenta_cobranza) || 0;
+      map.set(c.id_cuenta_cobranza, prev + (Number(c.monto_comision) || 0));
+    });
+    return map;
+  }, [isSozu, allComisionistasOnCuentas]);
+
+  // Inmobiliaria commission percentage (most common from comisionistas)
+  const inmobComisionPorcentaje = useMemo(() => {
+    if (!inmobComisionistas.length) return null;
+    const pcts = inmobComisionistas.map((c: any) => Number(c.porcentaje_comision) || 0).filter((p: number) => p > 0);
+    if (!pcts.length) return null;
+    // Return most frequent
+    const freq = new Map<number, number>();
+    pcts.forEach((p: number) => freq.set(p, (freq.get(p) || 0) + 1));
+    let maxP = pcts[0], maxCount = 0;
+    freq.forEach((count, p) => { if (count > maxCount) { maxCount = count; maxP = p; } });
+    return maxP;
+  }, [inmobComisionistas]);
+
   // Also keep agent-level comisiones for the agent performance table
   const { data: comisiones = [] } = useQuery({
     queryKey: ["inmob-dash-comisiones", agentEmails],
