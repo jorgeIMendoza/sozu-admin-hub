@@ -8,11 +8,13 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText, Mail, Phone, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ChevronLeft, ChevronRight, CheckCircle2, Circle, AlertCircle, User, Building2, Calendar, DollarSign, FileText, Mail, Phone, X, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { MultiSelectFilter } from '@/components/ui/multi-select-filter';
+import { cn } from '@/lib/utils';
 
 interface OfertaCard {
   id: number;
