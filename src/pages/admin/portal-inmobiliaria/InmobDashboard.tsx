@@ -307,12 +307,15 @@ export default function InmobDashboard() {
     queryKey: ["inmob-dash-props", propIds],
     queryFn: async () => {
       if (!propIds.length) return new Map<number, any>();
-      const { data } = await supabase
-        .from("propiedades")
-        .select("id, id_estatus_disponibilidad, precio_lista, id_proyecto")
-        .in("id", propIds) as any;
       const m = new Map<number, any>();
-      (data || []).forEach((p: any) => m.set(p.id, p));
+      for (let i = 0; i < propIds.length; i += 200) {
+        const batch = propIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("propiedades")
+          .select("id, id_estatus_disponibilidad, precio_lista")
+          .in("id", batch) as any;
+        (data || []).forEach((p: any) => m.set(p.id, p));
+      }
       return m;
     },
     enabled: propIds.length > 0,
