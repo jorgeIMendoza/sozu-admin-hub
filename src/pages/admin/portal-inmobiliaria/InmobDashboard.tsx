@@ -585,7 +585,15 @@ export default function InmobDashboard() {
       {/* Header + Project filter */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard Ejecutivo</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard Ejecutivo</h1>
+            {inmobComisionPorcentaje !== null && (
+              <Badge variant="outline" className="text-sm font-semibold border-primary/30 text-primary">
+                <Percent className="h-3.5 w-3.5 mr-1" />
+                Comisión: {inmobComisionPorcentaje.toFixed(2)}%
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">Vista general del desempeño inmobiliario</p>
         </div>
         <Select value={selectedProject} onValueChange={setSelectedProject}>
