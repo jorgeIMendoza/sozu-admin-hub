@@ -756,81 +756,47 @@ export default function InmobDashboard() {
         .map((o: any) => o.email_creador)
         .filter((e: string) => e && !agentEmailSetLower.has(e.toLowerCase())))];
       if (!unknownEmails.length) return new Map<string, string>();
+
       const m = new Map<string, string>();
       for (let i = 0; i < unknownEmails.length; i += 200) {
         const batch = unknownEmails.slice(i, i + 200);
-        const { data: usuarios } = await supabase.from("usuarios").select("email, id_persona, nombre").in("email", batch) as any;
-        if (usuarios?.length) {
-          const pIds = [...new Set(usuarios.map((u: any) => u.id_persona).filter(Boolean))] as number[];
-          const pMap = new Map<number, string>();
-          if (pIds.length) {
-            const { data: personas } = await supabase.from("personas").select("id, nombre_legal, nombre_comercial").in("id", pIds) as any;
-            (personas || []).forEach((p: any) => pMap.set(p.id, p.nombre_legal || p.nombre_comercial || ""));
-          }
-          usuarios.forEach((u: any) => {
-            const personaName = u.id_persona ? pMap.get(u.id_persona) : "";
-            m.set(u.email, personaName || u.nombre || u.email.split("@")[0]);
-          });
+        const { data: usuarios } = await supabase
+          .from("usuarios")
+          .select("email, id_persona, nombre")
+          .in("email", batch) as any;
+
+        if (!usuarios?.length) continue;
+
+        const pIds = [...new Set(usuarios.map((u: any) => u.id_persona).filter(Boolean))] as number[];
+        const pMap = new Map<number, string>();
+
+        if (pIds.length) {
+          const { data: personas } = await supabase
+            .from("personas")
+            .select("id, nombre_legal, nombre_comercial")
+            .in("id", pIds) as any;
+          (personas || []).forEach((p: any) => pMap.set(p.id, p.nombre_legal || p.nombre_comercial || ""));
         }
-          }
-        }
+
+        usuarios.forEach((u: any) => {
+          const personaName = u.id_persona ? pMap.get(u.id_persona) : "";
+          m.set(u.email, personaName || u.nombre || u.email.split("@")[0]);
+        });
       }
+
       return m;
     },
     enabled: classifiedOfertas.length > 0 && agentEmails.length > 0,
     staleTime: 5 * 60_000,
   });
 
-  // Fetch comisiones for internal non-agent users
   const internalEmails = useMemo(() => {
-    return [...new Set(classifiedOfertas.map((o: any) => o.email_creador).filter((e: string) => e && !agentEmails.includes(e)))];
-  }, [classifiedOfertas, agentEmails]);
+    return [...new Set(classifiedOfertas
+      .map((o: any) => o.email_creador)
+      .filter((e: string) => e && !agentEmailSetLower.has(e.toLowerCase())))];
+  }, [classifiedOfertas, agentEmailSetLower]);
 
-  const { data: internalComisiones = [] } = useQuery({
-    queryKey: ["inmob-dash-internal-comisiones-v2", internalEmails, selectedMonths],
-    queryFn: async () => {
-      if (!internalEmails.length) return [];
-      const ranges = dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }];
-      const all: any[] = [];
-      for (const range of ranges) {
-        const { data } = await (supabase as any)
-          .from("comisionistas")
-          .select("id, email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, fecha_creacion")
-          .in("email_usuario", internalEmails)
-          .eq("activo", true)
-          .gte("fecha_creacion", range.start)
-          .lte("fecha_creacion", range.end);
-        if (data) all.push(...data);
-      }
-      const seen = new Set<number>();
-      const deduped = all.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
-
-      // Enrich with precio_final to compute monto
-      if (deduped.length > 0) {
-        const cuentaIds = [...new Set(deduped.map(c => c.id_cuenta_cobranza).filter(Boolean))] as number[];
-        const precioMap = new Map<number, number>();
-        for (let i = 0; i < cuentaIds.length; i += 200) {
-          const batch = cuentaIds.slice(i, i + 200);
-          const { data: cuentas } = await supabase
-            .from("cuentas_cobranza")
-            .select("id, precio_final")
-            .in("id", batch) as any;
-          (cuentas || []).forEach((cc: any) => precioMap.set(cc.id, Number(cc.precio_final) || 0));
-        }
-        deduped.forEach(c => {
-          const precioFinal = precioMap.get(c.id_cuenta_cobranza) || 0;
-          c.monto_comision = (Number(c.porcentaje_comision) || 0) / 100 * precioFinal;
-        });
-      }
-
-      return deduped;
-    },
-    enabled: internalEmails.length > 0,
-    staleTime: 3 * 60_000,
-  });
-
-  // Combined comisiones (agents + internals)
-  const allComisiones = useMemo(() => [...comisiones, ...internalComisiones], [comisiones, internalComisiones]);
+  const allComisiones = comisiones;
 
   // Recompute comisionPromAgente with all comisiones
   const comisionPromAgente = totalAgentes > 0
