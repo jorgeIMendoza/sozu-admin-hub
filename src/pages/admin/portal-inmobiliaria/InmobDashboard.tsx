@@ -294,38 +294,48 @@ export default function InmobDashboard() {
   // Ofertas — filtered by current month (fecha_generacion)
   // For Sozu: fetch by property IDs (any creator, excluding inmob agents). For others: by agent emails.
   const { data: ofertas = [], isLoading: ofertasLoading } = useQuery({
-    queryKey: ["inmob-dash-ofertas", isSozu ? sozuPropertyIds : agentEmails, monthStart, monthEnd, isSozu, inmobAgentEmails.size],
+    queryKey: ["inmob-dash-ofertas", isSozu ? sozuPropertyIds : agentEmails, selectedMonths, isSozu, inmobAgentEmails.size],
     queryFn: async () => {
+      const ranges = dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }];
+
       if (isSozu) {
         if (!sozuPropertyIds.length) return [];
-        // Fetch all offers for properties in Sozu projects
         const allOfertas: any[] = [];
-        for (let i = 0; i < sozuPropertyIds.length; i += 200) {
-          const batch = sozuPropertyIds.slice(i, i + 200);
-          const { data, error } = await supabase
-            .from("ofertas")
-            .select("id, email_creador, fecha_generacion, id_estatus_aprobacion, id_propiedad, id_esquema_pago_seleccionado, id_producto")
-            .in("id_propiedad", batch)
-            .eq("activo", true)
-            .gte("fecha_generacion", monthStart)
-            .lte("fecha_generacion", monthEnd) as any;
-          if (error) console.error("[InmobDashboard] ofertas query error:", error);
-          if (data) allOfertas.push(...data);
+        for (const range of ranges) {
+          for (let i = 0; i < sozuPropertyIds.length; i += 200) {
+            const batch = sozuPropertyIds.slice(i, i + 200);
+            const { data, error } = await supabase
+              .from("ofertas")
+              .select("id, email_creador, fecha_generacion, id_estatus_aprobacion, id_propiedad, id_esquema_pago_seleccionado, id_producto")
+              .in("id_propiedad", batch)
+              .eq("activo", true)
+              .gte("fecha_generacion", range.start)
+              .lte("fecha_generacion", range.end) as any;
+            if (error) console.error("[InmobDashboard] ofertas query error:", error);
+            if (data) allOfertas.push(...data);
+          }
         }
-        // Exclude offers created by inmobiliaria agents
-        return allOfertas.filter((o: any) => !inmobAgentEmails.has((o.email_creador || "").toLowerCase()));
+        // Deduplicate and exclude inmob agents
+        const seen = new Set<number>();
+        const deduped = allOfertas.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
+        return deduped.filter((o: any) => !inmobAgentEmails.has((o.email_creador || "").toLowerCase()));
       }
 
       if (!agentEmails.length) return [];
-      const { data, error } = await supabase
-        .from("ofertas")
-        .select("id, email_creador, fecha_generacion, id_estatus_aprobacion, id_propiedad, id_esquema_pago_seleccionado, id_producto")
-        .in("email_creador", agentEmails)
-        .eq("activo", true)
-        .gte("fecha_generacion", monthStart)
-        .lte("fecha_generacion", monthEnd) as any;
-      if (error) console.error("[InmobDashboard] ofertas query error:", error);
-      return data || [];
+      const allOfertas: any[] = [];
+      for (const range of ranges) {
+        const { data, error } = await supabase
+          .from("ofertas")
+          .select("id, email_creador, fecha_generacion, id_estatus_aprobacion, id_propiedad, id_esquema_pago_seleccionado, id_producto")
+          .in("email_creador", agentEmails)
+          .eq("activo", true)
+          .gte("fecha_generacion", range.start)
+          .lte("fecha_generacion", range.end) as any;
+        if (error) console.error("[InmobDashboard] ofertas query error:", error);
+        if (data) allOfertas.push(...data);
+      }
+      const seen = new Set<number>();
+      return allOfertas.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
     },
     enabled: isSozu ? sozuPropertyIds.length > 0 : agentEmails.length > 0,
     staleTime: 3 * 60_000,
@@ -395,18 +405,23 @@ export default function InmobDashboard() {
 
   // Comisionistas for the inmobiliaria — filtered by current month via cuentas_cobranza creation date
   const { data: inmobComisionistas = [], isLoading: comisionesLoading } = useQuery({
-    queryKey: ["inmob-dash-comisionistas-inmob", inmobiliariaEmail, monthStart, monthEnd],
+    queryKey: ["inmob-dash-comisionistas-inmob", inmobiliariaEmail, selectedMonths],
     queryFn: async () => {
       if (!inmobiliariaEmail) return [];
-      // Get comisionistas, then we'll filter by the cuenta's fecha_creacion in current month
-      const { data } = await (supabase as any)
-        .from("comisionistas")
-        .select("id, email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, monto_comision, fecha_creacion")
-        .eq("email_usuario", inmobiliariaEmail)
-        .eq("activo", true)
-        .gte("fecha_creacion", monthStart)
-        .lte("fecha_creacion", monthEnd);
-      return data || [];
+      const ranges = dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }];
+      const all: any[] = [];
+      for (const range of ranges) {
+        const { data } = await (supabase as any)
+          .from("comisionistas")
+          .select("id, email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, monto_comision, fecha_creacion")
+          .eq("email_usuario", inmobiliariaEmail)
+          .eq("activo", true)
+          .gte("fecha_creacion", range.start)
+          .lte("fecha_creacion", range.end);
+        if (data) all.push(...data);
+      }
+      const seen = new Set<number>();
+      return all.filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
     },
     enabled: !!inmobiliariaEmail,
     staleTime: 3 * 60_000,
@@ -896,24 +911,32 @@ export default function InmobDashboard() {
           </div>
           <div className="px-5 pb-5">
             {isLoading ? <Skeleton className="h-64 w-full" /> : (
-              <ResponsiveContainer width="100%" height={280}>
-                <RechartsFunnelChart>
-                    <RechartsTooltip
-                      formatter={(value: any, _name: any, props: any) => {
-                        const stage = props?.payload;
-                        return [value, stage?.stage || ""];
-                      }}
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(0,0%,91%)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
-                    />
-                    <Funnel dataKey="count" data={funnelData} isAnimationActive>
-                      {funnelData.map((_, i) => (
-                        <Cell key={`cell-${i}`} fill={funnelColors[i]} cursor="pointer" onClick={() => navigate(`${NAV_PREFIX}/pipeline?mes=actual`)} />
-                      ))}
-                      <LabelList position="center" fill="#fff" fontSize={14} fontWeight={700} />
-                      <LabelList position="right" fill="hsl(0,0%,15%)" fontSize={12} fontWeight={500} dataKey="stage" />
-                    </Funnel>
-                </RechartsFunnelChart>
-              </ResponsiveContainer>
+              <div className="flex items-stretch">
+                <div className="flex-1">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <RechartsFunnelChart>
+                      <RechartsTooltip
+                        formatter={(value: any, _name: any, props: any) => {
+                          const stage = props?.payload;
+                          return [value, stage?.stage || ""];
+                        }}
+                        contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(0,0%,91%)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+                      />
+                      <Funnel dataKey="count" data={funnelData} isAnimationActive>
+                        {funnelData.map((_, i) => (
+                          <Cell key={`cell-${i}`} fill={funnelColors[i]} cursor="pointer" onClick={() => navigate(`${NAV_PREFIX}/pipeline?mes=actual`)} />
+                        ))}
+                        <LabelList position="center" fill="#fff" fontSize={14} fontWeight={700} />
+                      </Funnel>
+                    </RechartsFunnelChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-col justify-around py-2 pl-1 shrink-0">
+                  {funnelData.map((d, i) => (
+                    <span key={i} className="text-xs font-medium text-foreground whitespace-nowrap">{d.stage}</span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
