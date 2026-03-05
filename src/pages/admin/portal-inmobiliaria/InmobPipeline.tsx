@@ -6,9 +6,12 @@ import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { ChevronLeft, ChevronRight, User, Building2, Calendar, DollarSign } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
+import { ChevronLeft, ChevronRight, User, Building2, Calendar, DollarSign, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -25,6 +28,7 @@ interface PipelineCard {
   lead_nombre?: string;
   propiedad_nombre?: string;
   proyecto_nombre?: string;
+  proyecto_id?: number;
   agente_nombre?: string;
   precio?: number | null;
   estatus_disponibilidad?: number;
@@ -47,7 +51,6 @@ const STAGES = [
   { key: "cierre", label: "Cierre de Venta", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" },
 ];
 
-// Date limit only for recent/new offers
 const RECENT_DATE = (() => {
   const d = new Date();
   d.setMonth(d.getMonth() - 1);
@@ -81,9 +84,10 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
 
   const propIds = [...new Set(data.map((o: any) => o.id_propiedad).filter(Boolean))] as number[];
   const leadIds = [...new Set(data.map((o: any) => o.id_persona_lead).filter(Boolean))] as number[];
+  const productoIds = [...new Set(data.map((o: any) => o.id_producto).filter(Boolean))] as number[];
   const ofertaIds = data.map((o: any) => o.id);
 
-  const [propRes, leadRes, cuentaRes] = await Promise.all([
+  const [propRes, leadRes, cuentaRes, productosRes] = await Promise.all([
     propIds.length > 0
       ? (supabase.from("propiedades").select("id, numero_propiedad, precio_lista, id_estatus_disponibilidad, id_edificio_modelo").in("id", propIds) as any)
       : { data: [] },
@@ -93,6 +97,9 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
     ofertaIds.length > 0
       ? (supabase.from("cuentas_cobranza").select("id, id_oferta, contrato_draft").in("id_oferta", ofertaIds).eq("activo", true) as any)
       : { data: [] },
+    productoIds.length > 0
+      ? (supabase.from("productos_servicios").select("id, nombre, precio_lista, id_proyecto").in("id", productoIds) as any)
+      : { data: [] },
   ]);
 
   const propMap = new Map<number, any>();
@@ -100,6 +107,9 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
 
   const leadMap = new Map<number, string>();
   (leadRes.data || []).forEach((l: any) => leadMap.set(l.id, l.nombre_legal || l.nombre_comercial || "Sin nombre"));
+
+  const productoMap = new Map<number, any>();
+  (productosRes.data || []).forEach((p: any) => productoMap.set(p.id, p));
 
   const cuentaMap = new Map<number, any>();
   (cuentaRes.data || []).forEach((c: any) => { if (c.id_oferta) cuentaMap.set(c.id_oferta, c); });
@@ -117,9 +127,9 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
     (docs || []).forEach((d: any) => firmadoSet.add(d.id_cuenta_cobranza));
   }
 
-  // Resolve projects
+  // Resolve projects from propiedades
   const emIds = [...new Set((propRes.data || []).map((p: any) => p.id_edificio_modelo).filter(Boolean))] as number[];
-  const proyectoByProp = new Map<number, string>();
+  const proyectoByProp = new Map<number, { id: number; nombre: string }>();
   if (emIds.length > 0) {
     const { data: ems } = await supabase.from("edificios_modelos").select("id, id_edificio").in("id", emIds) as any;
     const edIds = [...new Set((ems || []).map((e: any) => e.id_edificio).filter(Boolean))] as number[];
@@ -128,30 +138,49 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
       const projIds = [...new Set((eds || []).map((e: any) => e.id_proyecto).filter(Boolean))] as number[];
       if (projIds.length > 0) {
         const { data: projs } = await supabase.from("proyectos").select("id, nombre").in("id", projIds);
-        const projMap = new Map<number, string>();
-        (projs || []).forEach((p: any) => projMap.set(p.id, p.nombre));
+        const projMap = new Map<number, { id: number; nombre: string }>();
+        (projs || []).forEach((p: any) => projMap.set(p.id, { id: p.id, nombre: p.nombre }));
         const edToPj = new Map<number, number>();
         (eds || []).forEach((e: any) => edToPj.set(e.id, e.id_proyecto));
         const emToPj = new Map<number, number>();
         (ems || []).forEach((em: any) => { const pj = edToPj.get(em.id_edificio); if (pj) emToPj.set(em.id, pj); });
         (propRes.data || []).forEach((p: any) => {
           const pjId = emToPj.get(p.id_edificio_modelo);
-          if (pjId) proyectoByProp.set(p.id, projMap.get(pjId) || "");
+          if (pjId) {
+            const proj = projMap.get(pjId);
+            if (proj) proyectoByProp.set(p.id, proj);
+          }
         });
       }
     }
   }
 
+  // Resolve projects from productos
+  const productoProjIds = [...new Set((productosRes.data || []).map((p: any) => p.id_proyecto).filter(Boolean))] as number[];
+  const productoProyMap = new Map<number, { id: number; nombre: string }>();
+  if (productoProjIds.length > 0) {
+    const { data: projs } = await supabase.from("proyectos").select("id, nombre").in("id", productoProjIds);
+    (projs || []).forEach((p: any) => productoProyMap.set(p.id, { id: p.id, nombre: p.nombre }));
+  }
+
   return data.map((o: any) => {
     const prop = o.id_propiedad ? propMap.get(o.id_propiedad) : null;
+    const producto = o.id_producto ? productoMap.get(o.id_producto) : null;
     const cuenta = cuentaMap.get(o.id);
+    const isProducto = !!o.id_producto;
+
+    const projInfo = isProducto
+      ? (producto?.id_proyecto ? productoProyMap.get(producto.id_proyecto) : null)
+      : (o.id_propiedad ? proyectoByProp.get(o.id_propiedad) : null);
+
     const card: PipelineCard = {
       ...o,
       lead_nombre: o.id_persona_lead ? leadMap.get(o.id_persona_lead) : undefined,
-      propiedad_nombre: prop?.numero_propiedad || undefined,
-      proyecto_nombre: o.id_propiedad ? proyectoByProp.get(o.id_propiedad) : undefined,
+      propiedad_nombre: prop?.numero_propiedad || (producto?.nombre) || undefined,
+      proyecto_nombre: projInfo?.nombre || undefined,
+      proyecto_id: projInfo?.id || undefined,
       agente_nombre: agentNameMap.get(o.email_creador),
-      precio: prop?.precio_lista,
+      precio: isProducto ? (producto?.precio_lista || null) : (prop?.precio_lista || null),
       estatus_disponibilidad: prop?.id_estatus_disponibilidad,
       cuenta_cobranza_id: cuenta?.id,
       contrato_draft: cuenta?.contrato_draft,
@@ -168,6 +197,11 @@ export default function InmobPipeline() {
   const { data: agents = [], isLoading: agentsLoading } = useInmobAgents();
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set(["expiradas"]));
   const [manuallyToggled, setManuallyToggled] = useState<Set<string>>(new Set());
+
+  // Filters
+  const [selectedAgentes, setSelectedAgentes] = useState<string[]>([]);
+  const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
+  const [selectedTipoOferta, setSelectedTipoOferta] = useState<string>("all");
 
   useEffect(() => {
     registrarVista("/admin/portal-inmobiliaria/pipeline");
@@ -187,7 +221,6 @@ export default function InmobPipeline() {
     queryFn: async () => {
       if (!agentEmails.length) return [];
 
-      // Query 1: Recent offers (last month) for new/pending/expired
       const recentQuery = supabase
         .from("ofertas")
         .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
@@ -196,8 +229,6 @@ export default function InmobPipeline() {
         .gte("fecha_generacion", RECENT_DATE)
         .order("fecha_generacion", { ascending: false });
 
-      // Query 2: Advanced offers (have cuenta_cobranza or property sold) - NO date limit
-      // We fetch all active offers and then filter to those with cuentas
       const advancedQuery = supabase
         .from("ofertas")
         .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
@@ -214,7 +245,6 @@ export default function InmobPipeline() {
       const recentData = recentRes.data || [];
       const olderData = advancedRes.data || [];
 
-      // For older offers, filter to only those that have an active cuenta_cobranza
       let advancedFiltered: any[] = [];
       if (olderData.length > 0) {
         const olderIds = olderData.map((o: any) => o.id);
@@ -227,7 +257,6 @@ export default function InmobPipeline() {
         advancedFiltered = olderData.filter((o: any) => ofertaIdsWithCuenta.has(o.id));
       }
 
-      // Merge and deduplicate
       const allData = [...recentData, ...advancedFiltered];
       const seenIds = new Set<number>();
       const deduped = allData.filter((o: any) => {
@@ -242,18 +271,44 @@ export default function InmobPipeline() {
     staleTime: 2 * 60_000,
   });
 
+  // Derive available projects from offers
+  const availableProyectos = useMemo(() => {
+    const m = new Map<number, string>();
+    ofertas.forEach((o) => {
+      if (o.proyecto_id && o.proyecto_nombre) m.set(o.proyecto_id, o.proyecto_nombre);
+    });
+    return [...m.entries()].map(([id, nombre]) => ({ id, nombre }));
+  }, [ofertas]);
+
+  // Filter offers
+  const filteredOfertas = useMemo(() => {
+    let result = ofertas;
+    if (selectedAgentes.length > 0) {
+      result = result.filter((o) => selectedAgentes.includes(o.email_creador));
+    }
+    if (selectedProyectos.length > 0) {
+      const projIds = selectedProyectos.map(Number);
+      result = result.filter((o) => o.proyecto_id && projIds.includes(o.proyecto_id));
+    }
+    if (selectedTipoOferta === "propiedad") {
+      result = result.filter((o) => !o.id_producto);
+    } else if (selectedTipoOferta === "producto") {
+      result = result.filter((o) => !!o.id_producto);
+    }
+    return result;
+  }, [ofertas, selectedAgentes, selectedProyectos, selectedTipoOferta]);
+
   // Group by stage with cierre deduplication
   const stageMap = useMemo(() => {
     const m = new Map<string, PipelineCard[]>();
     STAGES.forEach((s) => m.set(s.key, []));
-    ofertas.forEach((o) => {
+    filteredOfertas.forEach((o) => {
       if (o.stage) {
         const arr = m.get(o.stage);
         if (arr) arr.push(o);
       }
     });
 
-    // Deduplicate cierre: one per property/product with cuenta
     const cierre = m.get("cierre") || [];
     if (cierre.length > 0) {
       const seen = new Set<string>();
@@ -270,9 +325,9 @@ export default function InmobPipeline() {
     }
 
     return m;
-  }, [ofertas]);
+  }, [filteredOfertas]);
 
-  // Auto-collapse empty stages, keep expiradas collapsed by default
+  // Auto-collapse empty stages
   useEffect(() => {
     setCollapsedStages((prev) => {
       const next = new Set(prev);
@@ -301,13 +356,94 @@ export default function InmobPipeline() {
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v);
 
+  // Filter helpers
+  const agenteOptions = agents.map((a) => a.nombre || a.email);
+  const agenteNameToEmail = new Map<string, string>();
+  agents.forEach((a) => agenteNameToEmail.set(a.nombre || a.email, a.email));
+  const selectedAgenteNames = selectedAgentes.map((email) => agents.find((a) => a.email === email)?.nombre || email);
+
+  const proyectoOptions = availableProyectos.map((p) => p.nombre);
+  const proyNameToId = new Map<string, string>();
+  availableProyectos.forEach((p) => proyNameToId.set(p.nombre, String(p.id)));
+  const selectedProyNames = selectedProyectos.map((id) => availableProyectos.find((p) => String(p.id) === id)?.nombre || id);
+
+  const hasActiveFilters = selectedAgentes.length > 0 || selectedProyectos.length > 0 || selectedTipoOferta !== "all";
+
+  const clearAllFilters = () => {
+    setSelectedAgentes([]);
+    setSelectedProyectos([]);
+    setSelectedTipoOferta("all");
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
         <p className="text-sm text-muted-foreground">Vista general de ofertas de tus agentes</p>
       </div>
 
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-wrap gap-4 items-end">
+            {agents.length > 0 && (
+              <div className="min-w-[200px]">
+                <label className="text-sm font-medium mb-1 block">Agentes</label>
+                <MultiSelectFilter
+                  options={agenteOptions}
+                  values={selectedAgenteNames}
+                  onValuesChange={(names) => {
+                    const emails = names.map((n) => agenteNameToEmail.get(n) || n);
+                    setSelectedAgentes(emails);
+                  }}
+                  placeholder="Todos los agentes"
+                />
+              </div>
+            )}
+
+            <div className="min-w-[200px]">
+              <label className="text-sm font-medium mb-1 block">Proyectos</label>
+              {availableProyectos.length <= 1 ? (
+                <Select value={availableProyectos[0] ? String(availableProyectos[0].id) : ""} disabled>
+                  <SelectTrigger><SelectValue placeholder={availableProyectos[0]?.nombre || "Sin proyectos"} /></SelectTrigger>
+                  <SelectContent>{availableProyectos.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>)}</SelectContent>
+                </Select>
+              ) : (
+                <MultiSelectFilter
+                  options={proyectoOptions}
+                  values={selectedProyNames}
+                  onValuesChange={(names) => {
+                    const ids = names.map((n) => proyNameToId.get(n) || n);
+                    setSelectedProyectos(ids);
+                  }}
+                  placeholder="Todos los proyectos"
+                />
+              )}
+            </div>
+
+            <div className="min-w-[160px]">
+              <label className="text-sm font-medium mb-1 block">Tipo de Oferta</label>
+              <Select value={selectedTipoOferta} onValueChange={setSelectedTipoOferta}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="propiedad">Propiedades</SelectItem>
+                  <SelectItem value="producto">Productos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-xs h-10">
+                <X className="h-3 w-3 mr-1" />
+                Limpiar filtros
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Board */}
       {isLoading ? (
         <div className="flex gap-4 overflow-hidden">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-96 w-72 shrink-0" />)}
@@ -318,84 +454,79 @@ export default function InmobPipeline() {
             {STAGES.map((stage) => {
               const cards = stageMap.get(stage.key) || [];
               const collapsed = collapsedStages.has(stage.key);
+
+              if (collapsed) {
+                return (
+                  <div key={stage.key} className="min-w-[48px]">
+                    <button
+                      className={cn(
+                        "h-full min-h-[200px] w-12 rounded-lg border flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-80",
+                        stage.color
+                      )}
+                      onClick={() => toggleCollapse(stage.key)}
+                      title={`Mostrar ${stage.label}`}
+                    >
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                      <span className="[writing-mode:vertical-lr] text-xs font-semibold whitespace-nowrap">{stage.label}</span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{cards.length}</Badge>
+                    </button>
+                  </div>
+                );
+              }
+
               return (
-                <div
-                  key={stage.key}
-                  className={cn(
-                    "shrink-0 rounded-xl border border-border bg-muted/30 transition-all",
-                    collapsed ? "w-12 cursor-pointer" : "w-72"
-                  )}
-                  onClick={collapsed ? () => toggleCollapse(stage.key) : undefined}
-                >
-                  {/* Header */}
-                  <div
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2.5 border-b border-border cursor-pointer select-none",
-                      collapsed && "flex-col py-4"
-                    )}
-                    onClick={!collapsed ? () => toggleCollapse(stage.key) : undefined}
-                  >
-                    {collapsed ? (
-                      <>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs font-semibold text-muted-foreground [writing-mode:vertical-lr] rotate-180">
-                          {stage.label} ({cards.length})
-                        </span>
-                      </>
+                <div key={stage.key} className="min-w-[300px] max-w-[300px]">
+                  <div className={cn("rounded-t-lg px-3 py-2 flex items-center justify-between", stage.color)}>
+                    <span className="font-semibold text-sm">{stage.label}</span>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-xs">{cards.length}</Badge>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleCollapse(stage.key)} title="Contraer columna">
+                        <ChevronLeft className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="border border-t-0 rounded-b-lg bg-muted/30 p-2 space-y-2 min-h-[200px] max-h-[calc(100vh-320px)] overflow-y-auto">
+                    {cards.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-8">Sin ofertas</p>
                     ) : (
-                      <>
-                        <ChevronLeft className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <Badge className={cn("text-xs", stage.color)}>{stage.label}</Badge>
-                        <span className="text-xs text-muted-foreground ml-auto">{cards.length}</span>
-                      </>
+                      cards.map((card) => (
+                        <Card key={card.id} className="sozu-card">
+                          <CardContent className="p-3 space-y-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1">
+                                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  {card.lead_nombre || "Sin cliente"}
+                                </p>
+                                {card.proyecto_nombre && (
+                                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                    <Building2 className="h-3 w-3 shrink-0" />
+                                    {card.proyecto_nombre} · {card.propiedad_nombre || "—"}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0 font-mono">
+                                {card.id_producto ? "OP" : "O"}-{String(card.id).padStart(6, "0")}
+                              </span>
+                            </div>
+                            {card.precio != null && card.precio > 0 && (
+                              <p className="text-sm font-bold text-foreground flex items-center gap-1">
+                                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                                {formatCurrency(card.precio)}
+                              </p>
+                            )}
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                              <span className="truncate max-w-[60%]">{card.agente_nombre || card.email_creador}</span>
+                              <span className="flex items-center gap-0.5">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(card.fecha_generacion), "dd MMM", { locale: es })}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
                     )}
                   </div>
-
-                  {/* Cards */}
-                  {!collapsed && (
-                    <div className="p-2 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
-                      {cards.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-4">Sin ofertas</p>
-                      ) : (
-                        cards.map((card) => (
-                          <Card key={card.id} className="sozu-card">
-                            <CardContent className="p-3 space-y-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-foreground truncate flex items-center gap-1">
-                                    <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                    {card.lead_nombre || "Sin cliente"}
-                                  </p>
-                                  {card.proyecto_nombre && (
-                                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                                      <Building2 className="h-3 w-3 shrink-0" />
-                                      {card.proyecto_nombre} · {card.propiedad_nombre || "—"}
-                                    </p>
-                                  )}
-                                </div>
-                                <span className="text-[10px] text-muted-foreground shrink-0">
-                                  {card.id_producto ? "OP" : "O"}-{String(card.id).padStart(6, "0")}
-                                </span>
-                              </div>
-                              {card.precio && (
-                                <p className="text-sm font-bold text-foreground flex items-center gap-1">
-                                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                                  {formatCurrency(card.precio)}
-                                </p>
-                              )}
-                              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                <span className="truncate max-w-[60%]">{card.agente_nombre || card.email_creador}</span>
-                                <span className="flex items-center gap-0.5">
-                                  <Calendar className="h-3 w-3" />
-                                  {format(new Date(card.fecha_generacion), "dd MMM", { locale: es })}
-                                </span>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
