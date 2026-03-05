@@ -47,8 +47,10 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
 
   // Fetch payment schemes
   const { data: schemes = [], isLoading: schemesLoading } = useQuery({
-    queryKey: ["inmob-pipeline-schemes", card?.id_propiedad, isProducto, card?.id_producto, propertyDetail?.id_edificio_modelo],
+    queryKey: ["inmob-pipeline-schemes", card?.id_propiedad, isProducto, card?.id_producto, propertyDetail?.id_edificio_modelo, card?.id_esquema_pago_seleccionado],
     queryFn: async () => {
+      let projectId: number | null = null;
+
       if (isProducto) {
         if (!card?.id_producto) return [];
         const { data: prod } = await (supabase as any)
@@ -57,40 +59,49 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
           .eq("id", card.id_producto)
           .limit(1)
           .single();
-        if (!prod?.id_proyecto) return [];
-        const { data } = await (supabase as any)
-          .from("esquemas_pago")
-          .select("*")
-          .eq("id_proyecto", prod.id_proyecto)
-          .eq("activo", true)
-          .eq("es_manual", false)
-          .order("nombre");
-        return data || [];
+        projectId = prod?.id_proyecto || null;
+      } else {
+        if (!propertyDetail?.id_edificio_modelo) return [];
+        const { data: emData } = await (supabase as any)
+          .from("edificios_modelos")
+          .select("id_edificio")
+          .eq("id", propertyDetail.id_edificio_modelo)
+          .limit(1)
+          .single();
+        if (!emData?.id_edificio) return [];
+        const { data: edificio } = await (supabase as any)
+          .from("edificios")
+          .select("id_proyecto")
+          .eq("id", emData.id_edificio)
+          .limit(1)
+          .single();
+        projectId = edificio?.id_proyecto || null;
       }
 
-      if (!propertyDetail?.id_edificio_modelo) return [];
-      const { data: emData } = await (supabase as any)
-        .from("edificios_modelos")
-        .select("id_edificio")
-        .eq("id", propertyDetail.id_edificio_modelo)
-        .limit(1)
-        .single();
-      if (!emData?.id_edificio) return [];
-      const { data: edificio } = await (supabase as any)
-        .from("edificios")
-        .select("id_proyecto")
-        .eq("id", emData.id_edificio)
-        .limit(1)
-        .single();
-      if (!edificio?.id_proyecto) return [];
-      const { data } = await (supabase as any)
+      if (!projectId) return [];
+
+      const { data: nonManual } = await (supabase as any)
         .from("esquemas_pago")
         .select("*")
-        .eq("id_proyecto", edificio.id_proyecto)
+        .eq("id_proyecto", projectId)
         .eq("activo", true)
         .eq("es_manual", false)
         .order("nombre");
-      return data || [];
+
+      const result = nonManual || [];
+
+      // If the selected scheme is manual (not in the list), fetch it separately
+      if (card?.id_esquema_pago_seleccionado && !result.some((s: any) => s.id === card.id_esquema_pago_seleccionado)) {
+        const { data: selected } = await (supabase as any)
+          .from("esquemas_pago")
+          .select("*")
+          .eq("id", card.id_esquema_pago_seleccionado)
+          .limit(1)
+          .single();
+        if (selected) result.unshift(selected);
+      }
+
+      return result;
     },
     enabled: open && (isProducto ? !!card?.id_producto : !!propertyDetail?.id_edificio_modelo),
   });
