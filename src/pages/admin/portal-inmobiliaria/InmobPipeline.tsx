@@ -513,12 +513,12 @@ export default function InmobPipeline() {
   const filteredOfertas = useMemo(() => {
     let result = ofertas;
     if (searchOfertaId.trim()) {
-      const searchNum = searchOfertaId.replace(/^(O|OP)-?/i, "").trim();
-      if (searchNum) {
-        const numVal = parseInt(searchNum, 10);
-        if (!isNaN(numVal)) {
-          result = result.filter((o) => o.id === numVal);
-        }
+      const searchClean = searchOfertaId.replace(/^(O|OP)-?/i, "").trim().toLowerCase();
+      if (searchClean) {
+        result = result.filter((o) => {
+          const paddedId = String(o.id).padStart(6, "0");
+          return paddedId.includes(searchClean) || String(o.id).includes(searchClean);
+        });
       }
     }
     if (selectedAgentes.length > 0) {
