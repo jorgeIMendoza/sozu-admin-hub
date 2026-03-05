@@ -227,12 +227,25 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
             </div>
 
             {/* Price */}
-            {precioBase != null && precioBase > 0 && (
+            {isProducto && tieneMetraje && precioPorM2 != null && precioPorM2 > 0 ? (
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center space-y-1">
+                <p className="text-xs text-muted-foreground">Precio por m²:</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(precioPorM2)}</p>
+                {productoMetraje && (
+                  <>
+                    <p className="text-[11px] text-muted-foreground">
+                      {precioPorM2.toLocaleString("es-MX")} × {productoMetraje} m² =
+                    </p>
+                    <p className="text-xl font-bold text-foreground">{formatCurrency(precioReal!)}</p>
+                  </>
+                )}
+              </div>
+            ) : precioBase != null && precioBase > 0 ? (
               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Precio {isProducto ? "Producto" : "Propiedad"}:</p>
                 <p className="text-xl font-bold text-foreground">{formatCurrency(precioBase)}</p>
               </div>
-            )}
+            ) : null}
 
             {/* Special cases or Payment Schemes */}
             {isAsignada ? (
