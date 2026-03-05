@@ -45,6 +45,54 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
     enabled: open && !!card?.id_propiedad,
   });
 
+  // Fetch product details with category tiene_metraje
+  const { data: productoDetail } = useQuery({
+    queryKey: ["inmob-pipeline-producto-detail", card?.id_producto],
+    queryFn: async () => {
+      if (!card?.id_producto) return null;
+      const { data } = await (supabase as any)
+        .from("productos_servicios")
+        .select("id, nombre, precio_lista, id_categoria, categorias_producto!fk_prodserv_categoria(tiene_metraje)")
+        .eq("id", card.id_producto)
+        .limit(1)
+        .single();
+      return data;
+    },
+    enabled: open && isProducto && !!card?.id_producto,
+  });
+
+  const tieneMetraje = productoDetail?.categorias_producto?.tiene_metraje || false;
+
+  // Fetch metraje from bodegas or estacionamientos if tiene_metraje
+  const { data: productoMetraje } = useQuery({
+    queryKey: ["inmob-pipeline-producto-metraje", card?.id_producto, card?.id_propiedad, tieneMetraje],
+    queryFn: async () => {
+      if (!card?.id_producto || !card?.id_propiedad) return null;
+      // Try bodegas first
+      const { data: bodega } = await (supabase as any)
+        .from("bodegas")
+        .select("m2")
+        .eq("id_producto", card.id_producto)
+        .eq("id_propiedad", card.id_propiedad)
+        .eq("activo", true)
+        .limit(1)
+        .maybeSingle();
+      if (bodega?.m2) return bodega.m2;
+
+      // Try estacionamientos
+      const { data: estac } = await (supabase as any)
+        .from("estacionamientos")
+        .select("m2")
+        .eq("id_producto", card.id_producto)
+        .eq("id_propiedad", card.id_propiedad)
+        .eq("activo", true)
+        .limit(1)
+        .maybeSingle();
+      return estac?.m2 || null;
+    },
+    enabled: open && isProducto && tieneMetraje && !!card?.id_producto && !!card?.id_propiedad,
+  });
+
   // Fetch payment schemes
   const { data: schemes = [], isLoading: schemesLoading } = useQuery({
     queryKey: ["inmob-pipeline-schemes", card?.id_propiedad, isProducto, card?.id_producto, propertyDetail?.id_edificio_modelo, card?.id_esquema_pago_seleccionado],
@@ -109,7 +157,13 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
     enabled: open && (isProducto ? !!card?.id_producto : !!propertyDetail?.id_edificio_modelo),
   });
 
-  const precioBase = isProducto ? card?.precio : (propertyDetail?.precio_lista || card?.precio);
+  // Calculate prices considering tiene_metraje
+  const precioPorM2 = isProducto && tieneMetraje ? (productoDetail?.precio_lista || card?.precio) : null;
+  const precioReal = precioPorM2 && productoMetraje ? precioPorM2 * productoMetraje : null;
+  const precioBase = isProducto
+    ? (precioReal || card?.precio)
+    : (propertyDetail?.precio_lista || card?.precio);
+
   const isAsignada = card?.estatus_disponibilidad === 10;
   const isRegistro = !isAsignada && card?.precio_final_cuenta != null && card?.precio_final_cuenta === 0 && !!card?.cuenta_cobranza_id;
   if (!card) return null;
@@ -173,12 +227,25 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
             </div>
 
             {/* Price */}
-            {precioBase != null && precioBase > 0 && (
+            {isProducto && tieneMetraje && precioPorM2 != null && precioPorM2 > 0 ? (
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center space-y-1">
+                <p className="text-xs text-muted-foreground">Precio por m²:</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(precioPorM2)}</p>
+                {productoMetraje && (
+                  <>
+                    <p className="text-[11px] text-muted-foreground">
+                      {precioPorM2.toLocaleString("es-MX")} × {productoMetraje} m² =
+                    </p>
+                    <p className="text-xl font-bold text-foreground">{formatCurrency(precioReal!)}</p>
+                  </>
+                )}
+              </div>
+            ) : precioBase != null && precioBase > 0 ? (
               <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Precio {isProducto ? "Producto" : "Propiedad"}:</p>
                 <p className="text-xl font-bold text-foreground">{formatCurrency(precioBase)}</p>
               </div>
-            )}
+            ) : null}
 
             {/* Special cases or Payment Schemes */}
             {isAsignada ? (
