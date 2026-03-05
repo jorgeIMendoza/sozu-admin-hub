@@ -714,10 +714,10 @@ export default function InmobPipeline() {
                                 {card.is_producto ? "CCP" : "CC"}-{String(card.cuenta_cobranza_id).padStart(6, "0")}
                               </p>
                             )}
-                            {card.precio != null && card.precio > 0 && (
+                            {((card.precio_final_cuenta != null && card.precio_final_cuenta > 0) || (card.precio != null && card.precio > 0)) && (
                               <p className="text-sm font-bold text-foreground flex items-center gap-1">
                                 <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                                {formatCurrency(card.precio)}
+                                {formatCurrency(card.precio_final_cuenta && card.precio_final_cuenta > 0 ? card.precio_final_cuenta : (card.precio || 0))}
                               </p>
                             )}
                             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
