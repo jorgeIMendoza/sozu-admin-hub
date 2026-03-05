@@ -760,10 +760,10 @@ export default function InmobDashboard() {
       const days = Math.floor((now - new Date(o.fecha_generacion).getTime()) / (24 * 60 * 60 * 1000));
       const agent = o.email_creador?.split("@")[0] || "—";
       if ([1, 4].includes(o.id_estatus_aprobacion) && days > 7) {
-        result.push({ id: `offer-${o.id}`, type: "warning", text: `${agent} — Oferta #${o.id} sin respuesta (${days} días)`, to: `${NAV_PREFIX}/pipeline?mes=actual` });
+        result.push({ id: `offer-${o.id}`, type: "warning", text: `${agent} — Oferta #${o.id} sin respuesta (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
       }
       if (p.id_estatus_disponibilidad === 4 && days > 5) {
-        result.push({ id: `apt-${o.id}`, type: "danger", text: `${agent} — Apartado sin firma (${days} días)`, to: `${NAV_PREFIX}/pipeline?mes=actual` });
+        result.push({ id: `apt-${o.id}`, type: "danger", text: `${agent} — Apartado sin firma (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
       }
     });
     return result.slice(0, 5);
@@ -824,7 +824,7 @@ export default function InmobDashboard() {
           text: type === "aprobada" ? "Oferta aprobada" : type === "firmada" ? "Contrato firmado" : "Nueva oferta generada",
           detail: `${o.email_creador?.split("@")[0] || "—"} · Oferta #${o.id}`,
           time: formatDistanceToNow(new Date(o.fecha_generacion), { addSuffix: true, locale: es }),
-          to: `${NAV_PREFIX}/pipeline?mes=actual`,
+          to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}`,
         };
       });
   }, [ofertas]);
