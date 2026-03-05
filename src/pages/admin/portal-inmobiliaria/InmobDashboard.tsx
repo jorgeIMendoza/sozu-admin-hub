@@ -762,14 +762,16 @@ export default function InmobDashboard() {
         const { data: usuarios } = await supabase.from("usuarios").select("email, id_persona, nombre").in("email", batch) as any;
         if (usuarios?.length) {
           const pIds = [...new Set(usuarios.map((u: any) => u.id_persona).filter(Boolean))] as number[];
+          const pMap = new Map<number, string>();
           if (pIds.length) {
             const { data: personas } = await supabase.from("personas").select("id, nombre_legal, nombre_comercial").in("id", pIds) as any;
-            const pMap = new Map<number, string>();
             (personas || []).forEach((p: any) => pMap.set(p.id, p.nombre_legal || p.nombre_comercial || ""));
-            usuarios.forEach((u: any) => {
-              const name = pMap.get(u.id_persona);
-              m.set(u.email, name || u.email.split("@")[0]);
-            });
+          }
+          usuarios.forEach((u: any) => {
+            const personaName = u.id_persona ? pMap.get(u.id_persona) : "";
+            m.set(u.email, personaName || u.nombre || u.email.split("@")[0]);
+          });
+        }
           }
         }
       }
