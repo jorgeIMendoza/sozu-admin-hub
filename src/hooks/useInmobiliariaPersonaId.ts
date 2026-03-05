@@ -47,8 +47,8 @@ export function useInmobiliariaPersonaId() {
             if (pId) freq.set(pId, (freq.get(pId) || 0) + 1);
           });
           const ordered = [...freq.entries()].sort((a, b) => b[1] - a[1]);
-          if (ordered.length > 0) return ordered[0][0];
-          return ownerPersonaIds[0];
+          if (ordered.length > 0) return Number(ordered[0][0]);
+          return Number(ownerPersonaIds[0]);
         }
       }
 
