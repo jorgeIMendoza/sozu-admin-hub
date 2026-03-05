@@ -941,7 +941,7 @@ export default function InmobDashboard() {
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Embudo de conversión comercial</p>
               <p className="text-base font-semibold">Pipeline Global</p>
             </div>
-            <button onClick={() => navigate(`${NAV_PREFIX}/pipeline?mes=actual`)} className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
+            <button onClick={() => navigate(`${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}`)} className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
               Ver pipeline <ChevronRight className="h-3 w-3" />
             </button>
           </div>
