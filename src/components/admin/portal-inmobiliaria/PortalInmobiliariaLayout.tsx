@@ -192,7 +192,10 @@ export const PortalInmobiliariaLayout = () => {
       <div className="flex-1 lg:ml-64">
         {/* Mobile header */}
         <header className="lg:hidden sticky top-0 z-20 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
-          <img src={sozuLogoBlack} alt="SOZU" className="h-6" />
+          <div className="flex items-center gap-2">
+            <img src={sozuLogoBlack} alt="SOZU" className="h-6" />
+            <span className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</span>
+          </div>
           {showBackButton && (
             <button
               onClick={() => navigate("/admin")}
