@@ -41,6 +41,7 @@ interface PipelineCard {
   contrato_draft?: string | null;
   tiene_contrato_firmado?: boolean;
   is_producto?: boolean;
+  is_internal?: boolean;
   precio_final_cuenta?: number | null;
   stage?: string;
 }
@@ -208,6 +209,7 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
       proyecto_nombre: projInfo?.nombre || undefined,
       proyecto_id: projInfo?.id || undefined,
       agente_nombre: fullNameMap.get(o.email_creador) || o.email_creador,
+      is_internal: !agentNameMap.has(o.email_creador) && resolvedNameMap.has(o.email_creador),
       precio: isProducto ? (producto?.precio_lista || null) : (prop?.precio_lista || null),
       estatus_disponibilidad: prop?.id_estatus_disponibilidad,
       cuenta_cobranza_id: cuenta?.id,
@@ -760,10 +762,12 @@ export default function InmobPipeline() {
                               </p>
                             )}
                             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                              <span className="truncate max-w-[60%]">
+                              <span className="truncate max-w-[60%] flex items-center gap-1">
                                 {card.agente_nombre || card.email_creador}
-                                {!agentNameMap.has(card.email_creador) && (
-                                  <span className="ml-1 text-[9px] text-primary font-medium">(Interno)</span>
+                                {card.is_internal && (
+                                  <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-400/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 shrink-0">
+                                    Usuario Interno
+                                  </Badge>
                                 )}
                               </span>
                               <span className="flex items-center gap-0.5">

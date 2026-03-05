@@ -221,8 +221,13 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
                 <span>{format(new Date(card.fecha_generacion), "dd MMM yyyy", { locale: es })}</span>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
                 <span className="truncate">Agente: {card.agente_nombre || card.email_creador}</span>
+                {card.is_internal && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-400/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30">
+                    Usuario Interno
+                  </Badge>
+                )}
               </div>
             </div>
 
