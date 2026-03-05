@@ -91,14 +91,15 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
   const productoIds = [...new Set(data.map((o: any) => o.id_producto).filter(Boolean))] as number[];
   const ofertaIds = data.map((o: any) => o.id);
 
-  // Resolve names for unknown emails (non-agent creators)
+  // Resolve names and roles for unknown emails (non-agent creators)
   const unknownEmails = [...new Set(data.map((o: any) => o.email_creador).filter((e: string) => e && !agentNameMap.has(e) && !agentNameMap.has(e.toLowerCase())))];
   const resolvedNameMap = new Map<string, string>();
+  const agentRoleEmails = new Set<string>(); // emails with agent roles (3, 9) — NOT internal
   if (unknownEmails.length > 0) {
     for (let i = 0; i < unknownEmails.length; i += 200) {
       const batch = unknownEmails.slice(i, i + 200);
       const { data: usuarios } = await supabase
-        .from("usuarios").select("email, id_persona, nombre").in("email", batch) as any;
+        .from("usuarios").select("email, id_persona, nombre, rol_id").in("email", batch) as any;
       if (usuarios?.length) {
         const pIds = [...new Set(usuarios.map((u: any) => u.id_persona).filter(Boolean))] as number[];
         const pMap = new Map<number, string>();
@@ -112,6 +113,11 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
           const personaName = u.id_persona ? pMap.get(u.id_persona) : "";
           const fallbackName = u.nombre || u.email?.split("@")[0] || "Usuario";
           resolvedNameMap.set(u.email, personaName || fallbackName);
+          // Roles 3 (Agente Inmobiliario) and 9 (Agente Interno) are agents, not internal users
+          if (u.rol_id === 3 || u.rol_id === 9) {
+            agentRoleEmails.add(u.email);
+            agentRoleEmails.add(u.email.toLowerCase());
+          }
         });
       }
     }
@@ -211,7 +217,7 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
       proyecto_nombre: projInfo?.nombre || undefined,
       proyecto_id: projInfo?.id || undefined,
       agente_nombre: fullNameMap.get(o.email_creador) || fullNameMap.get((o.email_creador || "").toLowerCase()) || o.email_creador,
-      is_internal: !agentNameMap.has(o.email_creador) && !agentNameMap.has((o.email_creador || "").toLowerCase()),
+      is_internal: !agentNameMap.has(o.email_creador) && !agentNameMap.has((o.email_creador || "").toLowerCase()) && !agentRoleEmails.has(o.email_creador) && !agentRoleEmails.has((o.email_creador || "").toLowerCase()),
       precio: isProducto ? (producto?.precio_lista || null) : (prop?.precio_lista || null),
       estatus_disponibilidad: prop?.id_estatus_disponibilidad,
       cuenta_cobranza_id: cuenta?.id,

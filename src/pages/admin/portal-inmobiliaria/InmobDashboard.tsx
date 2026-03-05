@@ -585,12 +585,12 @@ export default function InmobDashboard() {
     return dedupedAdvancedOfertas.length;
   }, [dedupedAdvancedOfertas]);
 
-  // Ofertas activas: all non-expired, non-rejected offers in the period
+  // Ofertas activas: pre-apartado offers only (nuevas, pendientes, aprobadas, revision)
+  // Advanced offers (apartado+) are already counted in "Apartados" and "Pipeline total"
   const ofertasActivas = useMemo(() => {
     const activeStages = new Set(["nuevas", "pendientes", "aprobadas", "revision"]);
-    const preApartadoCount = classifiedOfertas.filter((o: any) => activeStages.has(o.stage)).length;
-    return preApartadoCount + dedupedAdvancedOfertas.length;
-  }, [classifiedOfertas, dedupedAdvancedOfertas]);
+    return classifiedOfertas.filter((o: any) => activeStages.has(o.stage)).length;
+  }, [classifiedOfertas]);
 
   // Apartados: all offers from Apartado onwards (deduped, matches pipeline)
   const apartados = useMemo(() => {
