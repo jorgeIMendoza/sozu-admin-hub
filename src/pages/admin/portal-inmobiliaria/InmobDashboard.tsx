@@ -168,15 +168,19 @@ export default function InmobDashboard() {
   const { data: agents = [], isLoading: agentsLoading } = useInmobAgents();
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [chartMode, setChartMode] = useState<ChartMode>("unidades");
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([getCurrentMonthKey()]);
+  const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
 
   const agentEmails = useMemo(() => agents.map(a => a.email), [agents]);
   const agentPersonaIds = useMemo(() => agents.map(a => a.personaId), [agents]);
 
-  // Current month boundaries
+  // Month boundaries from selector
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-indexed
-  const { start: monthStart, end: monthEnd } = getMonthRange(currentYear, currentMonth);
+  const dateRanges = useMemo(() => buildDateRangesFromMonths(selectedMonths), [selectedMonths]);
+  const monthStart = dateRanges.length > 0 ? dateRanges[0].start : getMonthRange(currentYear, currentMonth).start;
+  const monthEnd = dateRanges.length > 0 ? dateRanges[dateRanges.length - 1].end : getMonthRange(currentYear, currentMonth).end;
 
   useEffect(() => {
     registrarVista("/admin/portal-inmobiliaria/dashboard");
