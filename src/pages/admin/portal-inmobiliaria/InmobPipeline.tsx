@@ -374,19 +374,48 @@ export default function InmobPipeline() {
     staleTime: 5 * 60_000,
   });
 
+  // For Sozu: get ALL inmobiliaria agent emails to exclude from offers
+  const { data: inmobAgentEmails = new Set<string>() } = useQuery({
+    queryKey: ["all-inmob-agent-emails"],
+    queryFn: async () => {
+      const { data: rels } = await supabase
+        .from("entidades_relacionadas")
+        .select("id_persona")
+        .eq("id_tipo_entidad", 19)
+        .eq("activo", true) as any;
+      if (!rels?.length) return new Set<string>();
+      const pIds = [...new Set(rels.map((r: any) => r.id_persona).filter(Boolean))] as number[];
+      const allEmails = new Set<string>();
+      for (let i = 0; i < pIds.length; i += 200) {
+        const batch = pIds.slice(i, i + 200);
+        const { data: usuarios } = await supabase
+          .from("usuarios").select("email").in("id_persona", batch) as any;
+        (usuarios || []).forEach((u: any) => { if (u.email) allEmails.add(u.email.toLowerCase()); });
+      }
+      return allEmails;
+    },
+    enabled: isSozu,
+    staleTime: 10 * 60_000,
+  });
+
   // Build date ranges from selected months
   const dateRanges = useMemo(() => buildDateRanges(selectedMonths), [selectedMonths]);
   const hasMonthFilter = selectedMonths.length > 0;
 
+  /** Filter out inmob agent emails for Sozu */
+  const excludeInmobAgents = useCallback((offers: any[]) => {
+    if (!isSozu || inmobAgentEmails.size === 0) return offers;
+    return offers.filter((o: any) => !inmobAgentEmails.has((o.email_creador || "").toLowerCase()));
+  }, [isSozu, inmobAgentEmails]);
+
   // Fetch offers: Sozu uses property-based, others use email-based
   const { data: ofertas = [], isLoading: ofertasLoading } = useQuery({
-    queryKey: ["inmob-pipeline-ofertas", isSozu ? sozuPropertyIds : agentEmails, isSozu, selectedMonths],
+    queryKey: ["inmob-pipeline-ofertas", isSozu ? sozuPropertyIds : agentEmails, isSozu, selectedMonths, inmobAgentEmails.size],
     queryFn: async () => {
       const fetchByProperty = async () => {
         if (!sozuPropertyIds.length) return [];
 
         if (hasMonthFilter) {
-          // Fetch by date ranges for selected months
           const allOfertas: any[] = [];
           for (const range of dateRanges) {
             for (let i = 0; i < sozuPropertyIds.length; i += 200) {
@@ -402,12 +431,10 @@ export default function InmobPipeline() {
               if (data) allOfertas.push(...data);
             }
           }
-          // Also fetch advanced (with cuentas) regardless of date
           const advancedOfertas = await fetchAdvancedOffersByProperty(sozuPropertyIds, allOfertas.map(o => o.id));
-          return dedup([...allOfertas, ...advancedOfertas]);
+          return excludeInmobAgents(dedup([...allOfertas, ...advancedOfertas]));
         }
 
-        // No month filter: original two-query approach
         const recentDate = new Date();
         recentDate.setMonth(recentDate.getMonth() - 1);
         const RECENT = recentDate.toISOString().slice(0, 10);
@@ -426,7 +453,7 @@ export default function InmobPipeline() {
         }
 
         const advancedOfertas = await fetchAdvancedOffersByProperty(sozuPropertyIds, recentOfertas.map(o => o.id));
-        return dedup([...recentOfertas, ...advancedOfertas]);
+        return excludeInmobAgents(dedup([...recentOfertas, ...advancedOfertas]));
       };
 
       const fetchByEmail = async () => {

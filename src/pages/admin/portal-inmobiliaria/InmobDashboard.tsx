@@ -259,10 +259,35 @@ export default function InmobDashboard() {
     staleTime: 5 * 60_000,
   });
 
+  // For Sozu: get ALL inmobiliaria agent emails to exclude from offers
+  const { data: inmobAgentEmails = new Set<string>() } = useQuery({
+    queryKey: ["all-inmob-agent-emails"],
+    queryFn: async () => {
+      // Get all persona IDs linked as inmob agents (tipo 19)
+      const { data: rels } = await supabase
+        .from("entidades_relacionadas")
+        .select("id_persona")
+        .eq("id_tipo_entidad", 19)
+        .eq("activo", true) as any;
+      if (!rels?.length) return new Set<string>();
+      const pIds = [...new Set(rels.map((r: any) => r.id_persona).filter(Boolean))] as number[];
+      const allEmails = new Set<string>();
+      for (let i = 0; i < pIds.length; i += 200) {
+        const batch = pIds.slice(i, i + 200);
+        const { data: usuarios } = await supabase
+          .from("usuarios").select("email").in("id_persona", batch) as any;
+        (usuarios || []).forEach((u: any) => { if (u.email) allEmails.add(u.email.toLowerCase()); });
+      }
+      return allEmails;
+    },
+    enabled: isSozu,
+    staleTime: 10 * 60_000,
+  });
+
   // Ofertas — filtered by current month (fecha_generacion)
-  // For Sozu: fetch by property IDs (any creator). For others: by agent emails.
+  // For Sozu: fetch by property IDs (any creator, excluding inmob agents). For others: by agent emails.
   const { data: ofertas = [], isLoading: ofertasLoading } = useQuery({
-    queryKey: ["inmob-dash-ofertas", isSozu ? sozuPropertyIds : agentEmails, monthStart, monthEnd, isSozu],
+    queryKey: ["inmob-dash-ofertas", isSozu ? sozuPropertyIds : agentEmails, monthStart, monthEnd, isSozu, inmobAgentEmails.size],
     queryFn: async () => {
       if (isSozu) {
         if (!sozuPropertyIds.length) return [];
@@ -280,7 +305,8 @@ export default function InmobDashboard() {
           if (error) console.error("[InmobDashboard] ofertas query error:", error);
           if (data) allOfertas.push(...data);
         }
-        return allOfertas;
+        // Exclude offers created by inmobiliaria agents
+        return allOfertas.filter((o: any) => !inmobAgentEmails.has((o.email_creador || "").toLowerCase()));
       }
 
       if (!agentEmails.length) return [];
