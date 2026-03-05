@@ -365,7 +365,7 @@ export function EditUserDialog({
           const { error: updateAccesoError } = await supabase
             .from('proyectos_acceso')
             .update({ 
-              id_entidad_relacionada_dueno: inmobEntidad.id,
+              id_entidad_relacionada_dueno: inmobEntidadId,
               fecha_actualizacion: new Date().toISOString()
             })
             .eq('usuario_id', finalEmail);
@@ -403,7 +403,7 @@ export function EditUserDialog({
                 .map(access => ({
                   usuario_id: finalEmail,
                   proyecto_id: access.proyecto_id,
-                  id_entidad_relacionada_dueno: inmobEntidad.id,
+                  id_entidad_relacionada_dueno: inmobEntidadId,
                   activo: true
                 }));
 
