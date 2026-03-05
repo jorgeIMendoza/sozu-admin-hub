@@ -503,7 +503,7 @@ export default function InmobPipeline() {
     return result;
   }, [ofertas, selectedAgentes, selectedProyectos, selectedTipoOferta]);
 
-  // Group by stage with cierre deduplication
+  // Group by stage with cierre deduplication, sorted by fecha descending
   const stageMap = useMemo(() => {
     const m = new Map<string, PipelineCard[]>();
     STAGES.forEach((s) => m.set(s.key, []));
@@ -527,6 +527,10 @@ export default function InmobPipeline() {
           return true;
         }));
     }
+    // Sort all stages by fecha_generacion descending
+    m.forEach((cards, key) => {
+      cards.sort((a, b) => new Date(b.fecha_generacion).getTime() - new Date(a.fecha_generacion).getTime());
+    });
     return m;
   }, [filteredOfertas]);
 
@@ -756,7 +760,12 @@ export default function InmobPipeline() {
                               </p>
                             )}
                             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                              <span className="truncate max-w-[60%]">{card.agente_nombre || card.email_creador}</span>
+                              <span className="truncate max-w-[60%]">
+                                {card.agente_nombre || card.email_creador}
+                                {!agentNameMap.has(card.email_creador) && (
+                                  <span className="ml-1 text-[9px] text-primary font-medium">(Interno)</span>
+                                )}
+                              </span>
                               <span className="flex items-center gap-0.5">
                                 <Calendar className="h-3 w-3" />
                                 {format(new Date(card.fecha_generacion), "dd MMM yyyy", { locale: es })}
