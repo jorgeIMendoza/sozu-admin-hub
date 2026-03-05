@@ -381,6 +381,27 @@ export default function InmobDashboard() {
           .eq("activo", true);
         (data || []).forEach((c: any) => { if (c.id_oferta) m.set(c.id_oferta, c); });
       }
+
+      // Check signed contracts (tipo_documento 42) to match pipeline logic
+      const cuentaIds = [...m.values()].map((c: any) => c.id);
+      if (cuentaIds.length > 0) {
+        const firmadoSet = new Set<number>();
+        for (let i = 0; i < cuentaIds.length; i += 200) {
+          const batch = cuentaIds.slice(i, i + 200);
+          const { data: docs } = await supabase
+            .from("documentos")
+            .select("id_cuenta_cobranza")
+            .in("id_cuenta_cobranza", batch)
+            .eq("id_tipo_documento", 42)
+            .eq("activo", true) as any;
+          (docs || []).forEach((d: any) => firmadoSet.add(d.id_cuenta_cobranza));
+        }
+        // Annotate cuentas with tiene_contrato_firmado
+        m.forEach((c: any, key: number) => {
+          c.tiene_contrato_firmado = firmadoSet.has(c.id);
+        });
+      }
+
       return m;
     },
     enabled: ofertaIds.length > 0,
@@ -538,6 +559,7 @@ export default function InmobDashboard() {
     const p = propMap.get(o.id_propiedad);
     const cuenta = cuentasMap.get(o.id);
     if (p?.id_estatus_disponibilidad === 5) return "cierre";
+    if (cuenta?.tiene_contrato_firmado) return "firma_contrato";
     if (cuenta?.contrato_draft) return "gen_contrato";
     if (cuenta && p?.id_estatus_disponibilidad === 4) return "apartado";
     const fecha = new Date(o.fecha_generacion);
@@ -926,7 +948,27 @@ export default function InmobDashboard() {
                         {funnelData.map((_, i) => (
                           <Cell key={`cell-${i}`} fill={funnelColors[i]} cursor="pointer" onClick={() => navigate(`${NAV_PREFIX}/pipeline?mes=actual`)} />
                         ))}
-                        <LabelList position="center" fill="#fff" fontSize={14} fontWeight={700} />
+                        <LabelList
+                          dataKey="count"
+                          position="center"
+                          content={(props: any) => {
+                            const { x, y, width, height, value } = props;
+                            if (value == null) return null;
+                            return (
+                              <text
+                                x={x + width / 2}
+                                y={y + height / 2}
+                                fill="#fff"
+                                fontSize={14}
+                                fontWeight={700}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                              >
+                                {value}
+                              </text>
+                            );
+                          }}
+                        />
                       </Funnel>
                     </RechartsFunnelChart>
                   </ResponsiveContainer>
