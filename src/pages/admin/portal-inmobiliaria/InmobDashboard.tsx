@@ -887,20 +887,20 @@ export default function InmobDashboard() {
       const mStart = new Date(y, m, 1);
       const mEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
 
-      const real = inmobComisionistas
+      const real = allComisiones
         .filter((c: any) => c.pagada && c.fecha_creacion)
         .filter((c: any) => { const d = new Date(c.fecha_creacion); return d >= mStart && d <= mEnd; })
-        .reduce((s: number, c: any) => s + getNetComision(c), 0);
+        .reduce((s: number, c: any) => s + getComisionMonto(c), 0);
 
-      const porCobrarMes = inmobComisionistas
+      const porCobrarMes = allComisiones
         .filter((c: any) => c.aprobada && !c.pagada && c.fecha_creacion)
         .filter((c: any) => { const d = new Date(c.fecha_creacion); return d >= mStart && d <= mEnd; })
-        .reduce((s: number, c: any) => s + getNetComision(c), 0);
+        .reduce((s: number, c: any) => s + getComisionMonto(c), 0);
 
-      const estimadoMes = inmobComisionistas
+      const estimadoMes = allComisiones
         .filter((c: any) => advancedCuentaIds.has(c.id_cuenta_cobranza) && c.fecha_creacion)
         .filter((c: any) => { const d = new Date(c.fecha_creacion); return d >= mStart && d <= mEnd; })
-        .reduce((s: number, c: any) => s + getNetComision(c), 0);
+        .reduce((s: number, c: any) => s + getComisionMonto(c), 0);
 
       return {
         mes: `${MONTH_LABELS[m]}${y !== now.getFullYear() ? ` ${y}` : ""}`,
@@ -909,7 +909,7 @@ export default function InmobDashboard() {
         estimado: estimadoMes,
       };
     });
-  }, [selectedMonths, inmobComisionistas, advancedCuentaIds, getNetComision]);
+  }, [selectedMonths, allComisiones, advancedCuentaIds, getComisionMonto]);
 
   // Activity timeline — use O-/OP- nomenclature
   const recentActivity = useMemo(() => {
