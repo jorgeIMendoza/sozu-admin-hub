@@ -880,7 +880,8 @@ export default function InmobDashboard() {
       const comision = userComisiones.filter((c: any) => c.pagada).reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
       const conv = userOfertas.length > 0 ? ((userCierres.length / userOfertas.length) * 100) : 0;
       return {
-        nombre: isInternal ? `${nombre} (Interno)` : nombre,
+        nombre,
+        isInternal,
         prospectos: 0,
         ofertas: userOfertas.length,
         apartados: userApartadosCount,
@@ -910,7 +911,7 @@ export default function InmobDashboard() {
   // Bar chart data
   const agentChartData = useMemo(() => {
     return agentPerformance.slice(0, 8).map(a => ({
-      name: a.nombre.split(" ")[0], ventas: a.ventas, ingreso: a.ingreso, comision: a.comision,
+      name: a.nombre.split(" ")[0], ventas: a.ventas, ingreso: a.ingreso, comision: a.comision, isInternal: a.isInternal,
     }));
   }, [agentPerformance]);
 
@@ -1268,7 +1269,14 @@ export default function InmobDashboard() {
                     const convStatus = agent.conversion > avgConversion * 1.1 ? "high" : agent.conversion < avgConversion * 0.8 ? "low" : "mid";
                     return (
                       <TableRow key={i} className="cursor-pointer hover:bg-muted/30" onClick={() => navigate(`${NAV_PREFIX}/agentes`)}>
-                        <TableCell className="font-medium">{agent.nombre}</TableCell>
+                        <TableCell className="font-medium">
+                          {agent.nombre}
+                          {agent.isInternal && (
+                            <Badge variant="outline" className="ml-2 text-[9px] px-1.5 py-0 border-amber-400/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30">
+                              Usuario Interno
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">{agent.prospectos}</TableCell>
                         <TableCell className="text-center">{agent.ofertas}</TableCell>
                         <TableCell className="text-center">{agent.apartados}</TableCell>
