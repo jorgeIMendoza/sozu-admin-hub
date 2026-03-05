@@ -958,18 +958,20 @@ export default function InmobDashboard() {
                         <LabelList
                           dataKey="count"
                           position="center"
-                          content={(props: any) => {
-                            const { x, y, width, height, value } = props;
-                            if (value == null) return null;
+                          content={({ x, y, width, height, value }: any) => {
+                            if (value == null || !width || !height) return null;
+                            const cx = (x || 0) + (width || 0) / 2;
+                            const cy = (y || 0) + (height || 0) / 2;
                             return (
                               <text
-                                x={x + width / 2}
-                                y={y + height / 2}
-                                fill="#fff"
+                                x={cx}
+                                y={cy}
+                                fill="#ffffff"
                                 fontSize={14}
                                 fontWeight={700}
                                 textAnchor="middle"
                                 dominantBaseline="central"
+                                style={{ pointerEvents: "none" }}
                               >
                                 {value}
                               </text>
