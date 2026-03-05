@@ -342,20 +342,22 @@ export function EditUserDialog({
         const finalEmail = oldEmail !== newEmail ? newEmail : oldEmail;
         
         // Resolve the entidad_relacionada ID for the new inmobiliaria
-        const { data: inmobEntidad, error: inmobEntidadError } = await supabase
+        const { data: inmobEntidades, error: inmobEntidadError } = await supabase
           .from('entidades_relacionadas')
           .select('id')
           .eq('id_persona', newInmobiliariaId)
           .eq('id_tipo_entidad', 5)
           .eq('activo', true)
-          .maybeSingle();
+          .order('id', { ascending: true })
+          .limit(1);
 
         if (inmobEntidadError) {
           console.error('Error finding inmobiliaria entity:', inmobEntidadError);
           throw inmobEntidadError;
         }
 
-        if (!inmobEntidad) {
+        const inmobEntidadId = inmobEntidades?.[0]?.id;
+        if (!inmobEntidadId) {
           throw new Error('No se encontró la entidad de la inmobiliaria seleccionada.');
         }
 
@@ -363,7 +365,7 @@ export function EditUserDialog({
           const { error: updateAccesoError } = await supabase
             .from('proyectos_acceso')
             .update({ 
-              id_entidad_relacionada_dueno: inmobEntidad.id,
+              id_entidad_relacionada_dueno: inmobEntidadId,
               fecha_actualizacion: new Date().toISOString()
             })
             .eq('usuario_id', finalEmail);
@@ -401,7 +403,7 @@ export function EditUserDialog({
                 .map(access => ({
                   usuario_id: finalEmail,
                   proyecto_id: access.proyecto_id,
-                  id_entidad_relacionada_dueno: inmobEntidad.id,
+                  id_entidad_relacionada_dueno: inmobEntidadId,
                   activo: true
                 }));
 
