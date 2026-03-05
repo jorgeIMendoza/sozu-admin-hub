@@ -431,8 +431,8 @@ export default function InmobPipeline() {
               if (data) allOfertas.push(...data);
             }
           }
-          const advancedOfertas = await fetchAdvancedOffersByProperty(sozuPropertyIds, allOfertas.map(o => o.id));
-          return excludeInmobAgents(dedup([...allOfertas, ...advancedOfertas]));
+          // When month filter is active, do NOT fetch advanced offers outside the date range
+          return excludeInmobAgents(dedup(allOfertas));
         }
 
         const recentDate = new Date();
@@ -472,9 +472,8 @@ export default function InmobPipeline() {
               .order("fecha_generacion", { ascending: false }) as any;
             if (data) allOfertas.push(...data);
           }
-          // Also get advanced
-          const advancedOfertas = await fetchAdvancedOffersByEmail(agentEmails, allOfertas.map(o => o.id));
-          return dedup([...allOfertas, ...advancedOfertas]);
+          // When month filter is active, do NOT fetch advanced offers outside the date range
+          return dedup(allOfertas);
         }
 
         // No month filter: original two-query approach
@@ -787,7 +786,7 @@ export default function InmobPipeline() {
                               <span className="truncate max-w-[60%]">{card.agente_nombre || card.email_creador}</span>
                               <span className="flex items-center gap-0.5">
                                 <Calendar className="h-3 w-3" />
-                                {format(new Date(card.fecha_generacion), "dd MMM", { locale: es })}
+                                {format(new Date(card.fecha_generacion), "dd MMM yyyy", { locale: es })}
                               </span>
                             </div>
                           </CardContent>
