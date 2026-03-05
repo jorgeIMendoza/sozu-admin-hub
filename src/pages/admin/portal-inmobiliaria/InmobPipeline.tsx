@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useInmobAgents } from "@/hooks/useInmobAgents";
+import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
-import { ChevronLeft, ChevronRight, User, Building2, Calendar, DollarSign, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronLeft, ChevronRight, User, Building2, Calendar, DollarSign, X, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -51,11 +54,8 @@ const STAGES = [
   { key: "cierre", label: "Cierre de Venta", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" },
 ];
 
-const RECENT_DATE = (() => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 10);
-})();
+const MONTH_NAMES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const MONTH_NAMES_FULL = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 function isVigente(fechaGeneracion: string): boolean {
   const fecha = new Date(fechaGeneracion);
@@ -104,13 +104,10 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
 
   const propMap = new Map<number, any>();
   (propRes.data || []).forEach((p: any) => propMap.set(p.id, p));
-
   const leadMap = new Map<number, string>();
   (leadRes.data || []).forEach((l: any) => leadMap.set(l.id, l.nombre_legal || l.nombre_comercial || "Sin nombre"));
-
   const productoMap = new Map<number, any>();
   (productosRes.data || []).forEach((p: any) => productoMap.set(p.id, p));
-
   const cuentaMap = new Map<number, any>();
   (cuentaRes.data || []).forEach((c: any) => { if (c.id_oferta) cuentaMap.set(c.id_oferta, c); });
 
@@ -168,7 +165,6 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
     const producto = o.id_producto ? productoMap.get(o.id_producto) : null;
     const cuenta = cuentaMap.get(o.id);
     const isProducto = !!o.id_producto;
-
     const projInfo = isProducto
       ? (producto?.id_proyecto ? productoProyMap.get(producto.id_proyecto) : null)
       : (o.id_propiedad ? proyectoByProp.get(o.id_propiedad) : null);
@@ -179,7 +175,7 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
       propiedad_nombre: prop?.numero_propiedad || (producto?.nombre) || undefined,
       proyecto_nombre: projInfo?.nombre || undefined,
       proyecto_id: projInfo?.id || undefined,
-      agente_nombre: agentNameMap.get(o.email_creador),
+      agente_nombre: agentNameMap.get(o.email_creador) || o.email_creador,
       precio: isProducto ? (producto?.precio_lista || null) : (prop?.precio_lista || null),
       estatus_disponibilidad: prop?.id_estatus_disponibilidad,
       cuenta_cobranza_id: cuenta?.id,
@@ -191,10 +187,99 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
   });
 }
 
+/** Build date ranges from selected months: array of {start, end} ISO strings */
+function buildDateRanges(selectedMonths: string[]): { start: string; end: string }[] {
+  return selectedMonths.map((key) => {
+    const [y, m] = key.split("-").map(Number);
+    const start = new Date(y, m, 1);
+    const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+    return { start: start.toISOString(), end: end.toISOString() };
+  });
+}
+
+/* ── Month multi-selector component ── */
+function MonthMultiSelector({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const [displayYear, setDisplayYear] = useState(currentYear);
+
+  const toggle = (key: string) => {
+    onChange(value.includes(key) ? value.filter((v) => v !== key) : [...value, key]);
+  };
+
+  // Available years: current and previous
+  const years = [currentYear, currentYear - 1];
+
+  return (
+    <div className="p-3 min-w-[320px] space-y-3">
+      {/* Year chips */}
+      <div className="flex gap-2">
+        {years.map((y) => (
+          <button
+            key={y}
+            onClick={() => setDisplayYear(y)}
+            className={cn(
+              "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+              displayYear === y
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted text-muted-foreground border-border hover:bg-accent"
+            )}
+          >
+            {y}
+          </button>
+        ))}
+      </div>
+
+      {/* Month grid */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {MONTH_NAMES.map((name, idx) => {
+          const key = `${displayYear}-${idx}`;
+          const isSelected = value.includes(key);
+          const isFuture = displayYear === currentYear && idx > now.getMonth();
+          return (
+            <button
+              key={key}
+              disabled={isFuture}
+              onClick={() => toggle(key)}
+              className={cn(
+                "px-2 py-1.5 rounded-md text-xs font-medium transition-colors border",
+                isFuture && "opacity-30 cursor-not-allowed",
+                isSelected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-foreground border-border hover:bg-accent"
+              )}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Quick actions */}
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={() => onChange([`${currentYear}-${now.getMonth()}`])}
+          className="text-[11px] text-primary hover:underline"
+        >
+          Mes actual
+        </button>
+        <button
+          onClick={() => onChange([])}
+          className="text-[11px] text-muted-foreground hover:underline"
+        >
+          Limpiar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function InmobPipeline() {
+  const [searchParams] = useSearchParams();
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const { data: agents = [], isLoading: agentsLoading } = useInmobAgents();
+  const { personaId } = useInmobiliariaPersonaId();
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set(["expiradas"]));
   const [manuallyToggled, setManuallyToggled] = useState<Set<string>>(new Set());
 
@@ -202,6 +287,15 @@ export default function InmobPipeline() {
   const [selectedAgentes, setSelectedAgentes] = useState<string[]>([]);
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
   const [selectedTipoOferta, setSelectedTipoOferta] = useState<string>("all");
+
+  // Month filter: array of "YYYY-M" keys (M is 0-indexed)
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+  const [selectedMonths, setSelectedMonths] = useState<string[]>(() => {
+    const mesParam = searchParams.get("mes");
+    if (mesParam === "actual") return [currentMonthKey];
+    return []; // empty = all (recent + advanced, original behavior)
+  });
 
   useEffect(() => {
     registrarVista("/admin/portal-inmobiliaria/pipeline");
@@ -215,59 +309,181 @@ export default function InmobPipeline() {
     return m;
   }, [agents]);
 
-  // Two-query approach: recent offers + advanced offers (no date limit)
-  const { data: ofertas = [], isLoading: ofertasLoading } = useQuery({
-    queryKey: ["inmob-pipeline-ofertas", agentEmails],
+  // Detect if Sozu
+  const { data: inmobInfo } = useQuery({
+    queryKey: ["inmob-info-pipeline", personaId],
+    queryFn: async () => {
+      if (!personaId) return { isSozu: false };
+      const { data } = await supabase
+        .from("personas")
+        .select("nombre_legal")
+        .eq("id", personaId)
+        .single() as any;
+      const isSozu = (data?.nombre_legal || "").toLowerCase().includes("real estate ventures");
+      return { isSozu };
+    },
+    enabled: !!personaId,
+    staleTime: 10 * 60_000,
+  });
+  const isSozu = inmobInfo?.isSozu || false;
+
+  // Projects
+  const { data: projects = [] } = useQuery({
+    queryKey: ["inmob-pipeline-projects", agentEmails],
     queryFn: async () => {
       if (!agentEmails.length) return [];
-
-      const recentQuery = supabase
-        .from("ofertas")
-        .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
-        .in("email_creador", agentEmails)
-        .eq("activo", true)
-        .gte("fecha_generacion", RECENT_DATE)
-        .order("fecha_generacion", { ascending: false });
-
-      const advancedQuery = supabase
-        .from("ofertas")
-        .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
-        .in("email_creador", agentEmails)
-        .eq("activo", true)
-        .lt("fecha_generacion", RECENT_DATE)
-        .order("fecha_generacion", { ascending: false });
-
-      const [recentRes, advancedRes] = await Promise.all([
-        recentQuery as any,
-        advancedQuery as any,
-      ]);
-
-      const recentData = recentRes.data || [];
-      const olderData = advancedRes.data || [];
-
-      let advancedFiltered: any[] = [];
-      if (olderData.length > 0) {
-        const olderIds = olderData.map((o: any) => o.id);
-        const { data: cuentas } = await supabase
-          .from("cuentas_cobranza")
-          .select("id_oferta")
-          .in("id_oferta", olderIds)
-          .eq("activo", true) as any;
-        const ofertaIdsWithCuenta = new Set((cuentas || []).map((c: any) => c.id_oferta));
-        advancedFiltered = olderData.filter((o: any) => ofertaIdsWithCuenta.has(o.id));
-      }
-
-      const allData = [...recentData, ...advancedFiltered];
-      const seenIds = new Set<number>();
-      const deduped = allData.filter((o: any) => {
-        if (seenIds.has(o.id)) return false;
-        seenIds.add(o.id);
-        return true;
+      const { data } = await supabase
+        .from("proyectos_acceso")
+        .select("proyecto_id, proyectos(id, nombre)")
+        .in("usuario_id", agentEmails) as any;
+      const map = new Map<number, string>();
+      (data || []).forEach((d: any) => {
+        if (d.proyectos) map.set(d.proyectos.id, d.proyectos.nombre);
       });
-
-      return enrichOfertas(deduped, agentNameMap);
+      return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
     },
     enabled: agentEmails.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  const projectIds = useMemo(() => projects.map(p => p.id), [projects]);
+
+  // For Sozu: resolve all property IDs in their projects
+  const { data: sozuPropertyIds = [] } = useQuery({
+    queryKey: ["inmob-pipeline-sozu-propids", projectIds],
+    queryFn: async () => {
+      if (!projectIds.length) return [];
+      const { data: edificios } = await supabase
+        .from("edificios").select("id").in("id_proyecto", projectIds).eq("activo", true) as any;
+      if (!edificios?.length) return [];
+      const edifIds = edificios.map((e: any) => e.id);
+      const { data: edifModelos } = await supabase
+        .from("edificios_modelos").select("id").in("id_edificio", edifIds).eq("activo", true) as any;
+      if (!edifModelos?.length) return [];
+      const emIds = edifModelos.map((em: any) => em.id);
+      const allPropIds: number[] = [];
+      for (let i = 0; i < emIds.length; i += 200) {
+        const batch = emIds.slice(i, i + 200);
+        const { data: props } = await supabase
+          .from("propiedades").select("id").in("id_edificio_modelo", batch).eq("activo", true) as any;
+        if (props) allPropIds.push(...props.map((p: any) => p.id));
+      }
+      return allPropIds;
+    },
+    enabled: isSozu && projectIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  // Build date ranges from selected months
+  const dateRanges = useMemo(() => buildDateRanges(selectedMonths), [selectedMonths]);
+  const hasMonthFilter = selectedMonths.length > 0;
+
+  // Fetch offers: Sozu uses property-based, others use email-based
+  const { data: ofertas = [], isLoading: ofertasLoading } = useQuery({
+    queryKey: ["inmob-pipeline-ofertas", isSozu ? sozuPropertyIds : agentEmails, isSozu, selectedMonths],
+    queryFn: async () => {
+      const fetchByProperty = async () => {
+        if (!sozuPropertyIds.length) return [];
+
+        if (hasMonthFilter) {
+          // Fetch by date ranges for selected months
+          const allOfertas: any[] = [];
+          for (const range of dateRanges) {
+            for (let i = 0; i < sozuPropertyIds.length; i += 200) {
+              const batch = sozuPropertyIds.slice(i, i + 200);
+              const { data } = await supabase
+                .from("ofertas")
+                .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+                .in("id_propiedad", batch)
+                .eq("activo", true)
+                .gte("fecha_generacion", range.start)
+                .lte("fecha_generacion", range.end)
+                .order("fecha_generacion", { ascending: false }) as any;
+              if (data) allOfertas.push(...data);
+            }
+          }
+          // Also fetch advanced (with cuentas) regardless of date
+          const advancedOfertas = await fetchAdvancedOffersByProperty(sozuPropertyIds, allOfertas.map(o => o.id));
+          return dedup([...allOfertas, ...advancedOfertas]);
+        }
+
+        // No month filter: original two-query approach
+        const recentDate = new Date();
+        recentDate.setMonth(recentDate.getMonth() - 1);
+        const RECENT = recentDate.toISOString().slice(0, 10);
+
+        const recentOfertas: any[] = [];
+        for (let i = 0; i < sozuPropertyIds.length; i += 200) {
+          const batch = sozuPropertyIds.slice(i, i + 200);
+          const { data } = await supabase
+            .from("ofertas")
+            .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+            .in("id_propiedad", batch)
+            .eq("activo", true)
+            .gte("fecha_generacion", RECENT)
+            .order("fecha_generacion", { ascending: false }) as any;
+          if (data) recentOfertas.push(...data);
+        }
+
+        const advancedOfertas = await fetchAdvancedOffersByProperty(sozuPropertyIds, recentOfertas.map(o => o.id));
+        return dedup([...recentOfertas, ...advancedOfertas]);
+      };
+
+      const fetchByEmail = async () => {
+        if (!agentEmails.length) return [];
+
+        if (hasMonthFilter) {
+          const allOfertas: any[] = [];
+          for (const range of dateRanges) {
+            const { data } = await supabase
+              .from("ofertas")
+              .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+              .in("email_creador", agentEmails)
+              .eq("activo", true)
+              .gte("fecha_generacion", range.start)
+              .lte("fecha_generacion", range.end)
+              .order("fecha_generacion", { ascending: false }) as any;
+            if (data) allOfertas.push(...data);
+          }
+          // Also get advanced
+          const advancedOfertas = await fetchAdvancedOffersByEmail(agentEmails, allOfertas.map(o => o.id));
+          return dedup([...allOfertas, ...advancedOfertas]);
+        }
+
+        // No month filter: original two-query approach
+        const recentDate = new Date();
+        recentDate.setMonth(recentDate.getMonth() - 1);
+        const RECENT = recentDate.toISOString().slice(0, 10);
+
+        const [recentRes, advancedRes] = await Promise.all([
+          supabase.from("ofertas")
+            .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+            .in("email_creador", agentEmails).eq("activo", true).gte("fecha_generacion", RECENT)
+            .order("fecha_generacion", { ascending: false }) as any,
+          supabase.from("ofertas")
+            .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+            .in("email_creador", agentEmails).eq("activo", true).lt("fecha_generacion", RECENT)
+            .order("fecha_generacion", { ascending: false }) as any,
+        ]);
+
+        const recentData = recentRes.data || [];
+        const olderData = advancedRes.data || [];
+        let advancedFiltered: any[] = [];
+        if (olderData.length > 0) {
+          const olderIds = olderData.map((o: any) => o.id);
+          const { data: cuentas } = await supabase
+            .from("cuentas_cobranza").select("id_oferta")
+            .in("id_oferta", olderIds).eq("activo", true) as any;
+          const withCuenta = new Set((cuentas || []).map((c: any) => c.id_oferta));
+          advancedFiltered = olderData.filter((o: any) => withCuenta.has(o.id));
+        }
+        return dedup([...recentData, ...advancedFiltered]);
+      };
+
+      const rawData = isSozu ? await fetchByProperty() : await fetchByEmail();
+      return enrichOfertas(rawData, agentNameMap);
+    },
+    enabled: isSozu ? sozuPropertyIds.length > 0 : agentEmails.length > 0,
     staleTime: 2 * 60_000,
   });
 
@@ -308,7 +524,6 @@ export default function InmobPipeline() {
         if (arr) arr.push(o);
       }
     });
-
     const cierre = m.get("cierre") || [];
     if (cierre.length > 0) {
       const seen = new Set<string>();
@@ -323,7 +538,6 @@ export default function InmobPipeline() {
           return true;
         }));
     }
-
     return m;
   }, [filteredOfertas]);
 
@@ -367,13 +581,24 @@ export default function InmobPipeline() {
   availableProyectos.forEach((p) => proyNameToId.set(p.nombre, String(p.id)));
   const selectedProyNames = selectedProyectos.map((id) => availableProyectos.find((p) => String(p.id) === id)?.nombre || id);
 
-  const hasActiveFilters = selectedAgentes.length > 0 || selectedProyectos.length > 0 || selectedTipoOferta !== "all";
+  const hasActiveFilters = selectedAgentes.length > 0 || selectedProyectos.length > 0 || selectedTipoOferta !== "all" || selectedMonths.length > 0;
 
   const clearAllFilters = () => {
     setSelectedAgentes([]);
     setSelectedProyectos([]);
     setSelectedTipoOferta("all");
+    setSelectedMonths([]);
   };
+
+  // Month filter label
+  const monthFilterLabel = useMemo(() => {
+    if (selectedMonths.length === 0) return "Todos los meses";
+    if (selectedMonths.length === 1) {
+      const [y, m] = selectedMonths[0].split("-").map(Number);
+      return `${MONTH_NAMES_FULL[m]} ${y}`;
+    }
+    return `${selectedMonths.length} meses`;
+  }, [selectedMonths]);
 
   return (
     <div className="space-y-4">
@@ -431,6 +656,22 @@ export default function InmobPipeline() {
                   <SelectItem value="producto">Productos</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Month selector */}
+            <div className="min-w-[180px]">
+              <label className="text-sm font-medium mb-1 block">Periodo</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal h-10">
+                    <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">{monthFilterLabel}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <MonthMultiSelector value={selectedMonths} onChange={setSelectedMonths} />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {hasActiveFilters && (
@@ -536,4 +777,56 @@ export default function InmobPipeline() {
       )}
     </div>
   );
+}
+
+/* ── Helper: fetch advanced offers (with cuentas_cobranza) by property ── */
+async function fetchAdvancedOffersByProperty(propIds: number[], excludeIds: number[]) {
+  const allOlder: any[] = [];
+  for (let i = 0; i < propIds.length; i += 200) {
+    const batch = propIds.slice(i, i + 200);
+    const { data } = await supabase
+      .from("ofertas")
+      .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+      .in("id_propiedad", batch)
+      .eq("activo", true)
+      .order("fecha_generacion", { ascending: false }) as any;
+    if (data) allOlder.push(...data);
+  }
+  const excludeSet = new Set(excludeIds);
+  const olderOnly = allOlder.filter(o => !excludeSet.has(o.id));
+  if (!olderOnly.length) return [];
+  const olderIds = olderOnly.map((o: any) => o.id);
+  const { data: cuentas } = await supabase
+    .from("cuentas_cobranza").select("id_oferta")
+    .in("id_oferta", olderIds).eq("activo", true) as any;
+  const withCuenta = new Set((cuentas || []).map((c: any) => c.id_oferta));
+  return olderOnly.filter((o: any) => withCuenta.has(o.id));
+}
+
+/* ── Helper: fetch advanced offers by email ── */
+async function fetchAdvancedOffersByEmail(emails: string[], excludeIds: number[]) {
+  const { data: older } = await supabase
+    .from("ofertas")
+    .select("id, email_creador, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+    .in("email_creador", emails)
+    .eq("activo", true)
+    .order("fecha_generacion", { ascending: false }) as any;
+  const excludeSet = new Set(excludeIds);
+  const olderOnly = (older || []).filter((o: any) => !excludeSet.has(o.id));
+  if (!olderOnly.length) return [];
+  const olderIds = olderOnly.map((o: any) => o.id);
+  const { data: cuentas } = await supabase
+    .from("cuentas_cobranza").select("id_oferta")
+    .in("id_oferta", olderIds).eq("activo", true) as any;
+  const withCuenta = new Set((cuentas || []).map((c: any) => c.id_oferta));
+  return olderOnly.filter((o: any) => withCuenta.has(o.id));
+}
+
+function dedup(arr: any[]): any[] {
+  const seen = new Set<number>();
+  return arr.filter((o: any) => {
+    if (seen.has(o.id)) return false;
+    seen.add(o.id);
+    return true;
+  });
 }
