@@ -798,23 +798,33 @@ export default function InmobDashboard() {
                 Comisión: {inmobComisionPorcentaje.toFixed(2)}%
               </Badge>
             )}
-            <Badge variant="secondary" className="text-xs capitalize">
-              {monthLabel}
-            </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">Vista general del desempeño inmobiliario — mes corriente</p>
+          <p className="text-sm text-muted-foreground">Vista general del desempeño inmobiliario</p>
         </div>
-        <Select value={selectedProject} onValueChange={setSelectedProject}>
-          <SelectTrigger className="w-[200px] shrink-0">
-            <SelectValue placeholder="Todos los proyectos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los proyectos</SelectItem>
-            {projects.map((p) => (
-              <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 shrink-0">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="justify-start text-left font-normal h-10">
+                <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span className="truncate">{monthFilterLabel}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <MonthMultiSelector value={selectedMonths} onChange={setSelectedMonths} />
+            </PopoverContent>
+          </Popover>
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Todos los proyectos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los proyectos</SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* KPIs - First row: 4 cards */}
@@ -901,16 +911,10 @@ export default function InmobDashboard() {
                         <Cell key={`cell-${i}`} fill={funnelColors[i]} cursor="pointer" onClick={() => navigate(`${NAV_PREFIX}/pipeline?mes=actual`)} />
                       ))}
                       <LabelList position="center" fill="#fff" fontSize={14} fontWeight={700} />
+                      <LabelList position="right" fill="hsl(0,0%,15%)" fontSize={12} fontWeight={500} dataKey="stage" />
                     </Funnel>
                   </RechartsFunnelChart>
                 </ResponsiveContainer>
-                <div className="flex flex-col justify-between py-4 w-[25%]">
-                  {funnelData.map((d, i) => (
-                    <p key={i} className="text-xs text-muted-foreground font-medium truncate" style={{ color: funnelColors[i] }}>
-                      {d.stage}
-                    </p>
-                  ))}
-                </div>
               </div>
             )}
           </div>
