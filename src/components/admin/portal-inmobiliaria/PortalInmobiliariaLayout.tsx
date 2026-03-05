@@ -148,35 +148,43 @@ export const PortalInmobiliariaLayout = () => {
         </div>
       </aside>
 
-      {/* Mobile bottom nav - scrollable to show all tabs */}
+      {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-50">
-        <div className="flex items-center h-16 max-w-lg mx-auto bg-background rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.12)] border border-border/50 overflow-x-auto scrollbar-none">
-          {tabs.map((tab) => {
-            const active = isActive(tab.path);
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.path}
-                onClick={() => navigate(tab.path)}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 min-w-[60px] px-2 h-full transition-colors shrink-0",
-                  active ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <Icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />
-                <span className={cn("text-[10px] truncate", active ? "font-semibold" : "font-medium")}>
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
-          <button
-            onClick={signOut}
-            className="flex flex-col items-center justify-center gap-0.5 min-w-[60px] px-2 h-full transition-colors shrink-0 text-destructive"
+        <div className="relative max-w-lg mx-auto">
+          {/* Fade hint on right edge */}
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 z-10 rounded-r-2xl bg-gradient-to-l from-background to-transparent" />
+          <div
+            className="flex items-center h-16 bg-background rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.12)] border border-border/50 overflow-x-auto"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
           >
-            <LogOut className="h-5 w-5" strokeWidth={2} />
-            <span className="text-[10px] font-medium">Salir</span>
-          </button>
+            <style>{`.inmob-mobile-nav::-webkit-scrollbar { display: none; }`}</style>
+            {tabs.map((tab) => {
+              const active = isActive(tab.path);
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.path}
+                  onClick={() => navigate(tab.path)}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 min-w-[64px] px-2 h-full transition-colors shrink-0",
+                    active ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  <Icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />
+                  <span className={cn("text-[10px] truncate", active ? "font-semibold" : "font-medium")}>
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+            <button
+              onClick={signOut}
+              className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] px-2 h-full transition-colors shrink-0 text-destructive"
+            >
+              <LogOut className="h-5 w-5" strokeWidth={2} />
+              <span className="text-[10px] font-medium">Salir</span>
+            </button>
+          </div>
         </div>
       </nav>
 
