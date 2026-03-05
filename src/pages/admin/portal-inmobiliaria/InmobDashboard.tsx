@@ -172,6 +172,7 @@ export default function InmobDashboard() {
   const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
 
   const agentEmails = useMemo(() => agents.map(a => a.email), [agents]);
+  const agentEmailSetLower = useMemo(() => new Set(agentEmails.map((e) => e.toLowerCase())), [agentEmails]);
   const agentPersonaIds = useMemo(() => agents.map(a => a.personaId), [agents]);
 
   // Month boundaries from selector
