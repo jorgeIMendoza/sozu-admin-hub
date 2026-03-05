@@ -352,13 +352,18 @@ export function EditUserDialog({
 
         if (inmobEntidad) {
           // Update existing proyectos_acceso entries
-          await supabase
+          const { error: updateAccesoError } = await supabase
             .from('proyectos_acceso')
             .update({ 
               id_entidad_relacionada_dueno: inmobEntidad.id,
               fecha_actualizacion: new Date().toISOString()
             })
             .eq('usuario_id', finalEmail);
+          
+          if (updateAccesoError) {
+            console.error('Error updating proyectos_acceso:', updateAccesoError);
+            throw updateAccesoError;
+          }
 
           // Also copy any project access from the inmobiliaria primary user
           const { data: inmobiliariaPersona } = await supabase
@@ -393,9 +398,13 @@ export function EditUserDialog({
                 }));
 
               if (newAccessEntries.length > 0) {
-                await supabase
+                const { error: insertAccesoError } = await supabase
                   .from("proyectos_acceso")
                   .insert(newAccessEntries);
+                if (insertAccesoError) {
+                  console.error('Error inserting proyectos_acceso:', insertAccesoError);
+                  throw insertAccesoError;
+                }
                 console.log(`Added ${newAccessEntries.length} project access entries for inmobiliaria user`);
               }
             }
@@ -408,6 +417,7 @@ export function EditUserDialog({
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       queryClient.invalidateQueries({ queryKey: ['agent_inmobiliaria'] });
+      queryClient.invalidateQueries({ queryKey: ['inmob_user_inmobiliaria'] });
       queryClient.invalidateQueries({ queryKey: ['email_confirmado'] });
 
       registrarActualizacion('usuario', 
