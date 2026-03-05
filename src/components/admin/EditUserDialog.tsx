@@ -159,7 +159,7 @@ export function EditUserDialog({
           .select('id_persona')
           .eq('id', erDueno)
           .eq('id_tipo_entidad', 5)
-          .single();
+          .maybeSingle();
         return er?.id_persona || null;
       }
       return null;
@@ -294,11 +294,11 @@ export function EditUserDialog({
         }
 
         // Copy project access from the inmobiliaria (avoid duplicates)
-        const { data: inmobiliariaPersona } = await supabase
-          .from("personas")
-          .select("email")
-          .eq("id", newInmobiliariaId)
-          .single();
+          const { data: inmobiliariaPersona } = await supabase
+            .from("personas")
+            .select("email")
+            .eq("id", newInmobiliariaId)
+            .maybeSingle();
 
         if (inmobiliariaPersona?.email) {
           const { data: inmobiliariaAccess } = await supabase
