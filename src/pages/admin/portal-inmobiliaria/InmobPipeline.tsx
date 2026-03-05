@@ -18,6 +18,7 @@ import { ChevronLeft, ChevronRight, User, Building2, Calendar, DollarSign, X, Ca
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { InmobPipelineOfferDetailDialog } from "@/components/admin/portal-inmobiliaria/InmobPipelineOfferDetailDialog";
 
 interface PipelineCard {
   id: number;
@@ -286,6 +287,7 @@ export default function InmobPipeline() {
   const { personaId } = useInmobiliariaPersonaId();
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set(["expiradas"]));
   const [manuallyToggled, setManuallyToggled] = useState<Set<string>>(new Set());
+  const [selectedCard, setSelectedCard] = useState<PipelineCard | null>(null);
 
   // Filters
   const [selectedAgentes, setSelectedAgentes] = useState<string[]>([]);
@@ -761,7 +763,7 @@ export default function InmobPipeline() {
                       <p className="text-xs text-muted-foreground text-center py-8">Sin ofertas</p>
                     ) : (
                       cards.map((card) => (
-                          <Card key={card.id} className="sozu-card">
+                          <Card key={card.id} className="sozu-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedCard(card)}>
                           <CardContent className="p-3 space-y-1.5">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
@@ -821,6 +823,15 @@ export default function InmobPipeline() {
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
+      )}
+
+      {selectedCard && (
+        <InmobPipelineOfferDetailDialog
+          open={!!selectedCard}
+          onOpenChange={(v) => { if (!v) setSelectedCard(null); }}
+          card={selectedCard}
+          stageInfo={STAGES.find((s) => s.key === selectedCard.stage) || STAGES[0]}
+        />
       )}
     </div>
   );
