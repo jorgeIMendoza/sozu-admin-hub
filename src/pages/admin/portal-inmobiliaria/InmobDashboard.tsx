@@ -768,42 +768,45 @@ export default function InmobDashboard() {
     { stage: "Cerradas", count: ventasCerradas },
   ], [ofertas, aprobadasCount, apartadasFunnel, firmaCount, ventasCerradas]);
 
-  // Alerts
+  // Alerts — use O-/OP- nomenclature
   const alerts = useMemo(() => {
-    const now = Date.now();
+    const nowMs = Date.now();
     const result: Array<{ id: string; type: "warning" | "danger" | "info"; text: string; to: string }> = [];
     ofertas.forEach((o: any) => {
       const p = propMap.get(o.id_propiedad);
       if (!p) return;
-      const days = Math.floor((now - new Date(o.fecha_generacion).getTime()) / (24 * 60 * 60 * 1000));
+      const days = Math.floor((nowMs - new Date(o.fecha_generacion).getTime()) / (24 * 60 * 60 * 1000));
       const agent = o.email_creador?.split("@")[0] || "—";
+      const ofertaLabel = `${o.id_producto ? "OP" : "O"}-${String(o.id).padStart(6, "0")}`;
       if ([1, 4].includes(o.id_estatus_aprobacion) && days > 7) {
-        result.push({ id: `offer-${o.id}`, type: "warning", text: `${agent} — Oferta #${o.id} sin respuesta (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
+        result.push({ id: `offer-${o.id}`, type: "warning", text: `${agent} — ${ofertaLabel} sin respuesta (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
       }
       if (p.id_estatus_disponibilidad === 4 && days > 5) {
-        result.push({ id: `apt-${o.id}`, type: "danger", text: `${agent} — Apartado sin firma (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
+        result.push({ id: `apt-${o.id}`, type: "danger", text: `${agent} — ${ofertaLabel} apartado sin firma (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
       }
     });
     return result.slice(0, 5);
   }, [ofertas, propMap]);
 
-  // Agent performance
+  // Agent performance — use classifiedOfertas and deduped for consistency with KPIs
   const agentPerformance = useMemo(() => {
     return agents.filter(a => a.activo).map(agent => {
-      const agentOfertas = ofertas.filter((o: any) => o.email_creador === agent.email);
-      const agentVentas = agentOfertas.filter((o: any) => propMap.get(o.id_propiedad)?.id_estatus_disponibilidad === 5).length;
-      const agentApartados = agentOfertas.filter((o: any) => propMap.get(o.id_propiedad)?.id_estatus_disponibilidad === 4).length;
-      const agentPipeline = agentOfertas.reduce((s: number, o: any) => {
-        const p = propMap.get(o.id_propiedad);
-        return s + (p && p.id_estatus_disponibilidad !== 5 ? p.precio_lista || 0 : 0);
-      }, 0);
+      const agentOfertas = classifiedOfertas.filter((o: any) => o.email_creador === agent.email);
+      const agentCierres = dedupedAdvancedOfertas.filter((o: any) => o.email_creador === agent.email && o.stage === "cierre");
+      const agentApartadosCount = dedupedAdvancedOfertas.filter((o: any) => o.email_creador === agent.email && ADVANCED_STAGES.has(o.stage) && o.stage !== "cierre").length;
+      const agentPipeline = dedupedAdvancedOfertas
+        .filter((o: any) => o.email_creador === agent.email)
+        .reduce((s: number, o: any) => {
+          const cuenta = cuentasMap.get(o.id);
+          return s + (Number(cuenta?.precio_final) || 0);
+        }, 0);
       const agentComisiones = comisiones.filter((c: any) => c.email_usuario === agent.email);
       const ingreso = agentComisiones.reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
       const comision = agentComisiones.filter((c: any) => c.pagada).reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
-      const conv = agentOfertas.length > 0 ? ((agentVentas / agentOfertas.length) * 100) : 0;
-      return { nombre: agent.nombre, prospectos: 0, ofertas: agentOfertas.length, apartados: agentApartados, ventas: agentVentas, pipeline: agentPipeline, ingreso, comision, conversion: Math.round(conv * 10) / 10 };
+      const conv = agentOfertas.length > 0 ? ((agentCierres.length / agentOfertas.length) * 100) : 0;
+      return { nombre: agent.nombre, prospectos: 0, ofertas: agentOfertas.length, apartados: agentApartadosCount, ventas: agentCierres.length, pipeline: agentPipeline, ingreso, comision, conversion: Math.round(conv * 10) / 10 };
     }).sort((a, b) => b.ventas - a.ventas);
-  }, [agents, ofertas, propMap, comisiones]);
+  }, [agents, classifiedOfertas, dedupedAdvancedOfertas, cuentasMap, comisiones]);
 
   // Bar chart data
   const agentChartData = useMemo(() => {
@@ -814,21 +817,50 @@ export default function InmobDashboard() {
 
   const chartDataKey = { unidades: "ventas", ingreso: "ingreso", comision: "comision" }[chartMode] as string;
 
-  // Area chart - monthly (simplified)
+  // Area chart - monthly breakdown from real data (comisionistas grouped by month)
   const areaData = useMemo(() => {
-    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    return Array.from({ length: 6 }, (_, i) => {
-      const m = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    const MONTH_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+    let monthKeys: string[];
+    if (selectedMonths.length > 0) {
+      monthKeys = [...selectedMonths].sort();
+    } else {
+      monthKeys = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+        return `${d.getFullYear()}-${d.getMonth()}`;
+      });
+    }
+
+    return monthKeys.map(key => {
+      const [y, m] = key.split("-").map(Number);
+      const mStart = new Date(y, m, 1);
+      const mEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
+
+      const real = inmobComisionistas
+        .filter((c: any) => c.pagada && c.fecha_creacion)
+        .filter((c: any) => { const d = new Date(c.fecha_creacion); return d >= mStart && d <= mEnd; })
+        .reduce((s: number, c: any) => s + getNetComision(c), 0);
+
+      const porCobrarMes = inmobComisionistas
+        .filter((c: any) => c.aprobada && !c.pagada && c.fecha_creacion)
+        .filter((c: any) => { const d = new Date(c.fecha_creacion); return d >= mStart && d <= mEnd; })
+        .reduce((s: number, c: any) => s + getNetComision(c), 0);
+
+      const estimadoMes = inmobComisionistas
+        .filter((c: any) => advancedCuentaIds.has(c.id_cuenta_cobranza) && c.fecha_creacion)
+        .filter((c: any) => { const d = new Date(c.fecha_creacion); return d >= mStart && d <= mEnd; })
+        .reduce((s: number, c: any) => s + getNetComision(c), 0);
+
       return {
-        mes: months[m.getMonth()],
-        real: Math.round(ingresosCobrados / 6 * (0.6 + Math.random() * 0.8)),
-        porCobrar: Math.round(porCobrar / 6 * (0.5 + Math.random() * 0.9)),
-        estimado: Math.round(estimados / 6 * (0.4 + Math.random())),
+        mes: `${MONTH_LABELS[m]}${y !== now.getFullYear() ? ` ${y}` : ""}`,
+        real,
+        porCobrar: porCobrarMes,
+        estimado: estimadoMes,
       };
     });
-  }, [ingresosCobrados, porCobrar, estimados]);
+  }, [selectedMonths, inmobComisionistas, advancedCuentaIds, getNetComision]);
 
-  // Activity timeline
+  // Activity timeline — use O-/OP- nomenclature
   const recentActivity = useMemo(() => {
     return ofertas
       .filter((o: any) => o.fecha_generacion)
@@ -836,11 +868,12 @@ export default function InmobDashboard() {
       .slice(0, 5)
       .map((o: any) => {
         const type = o.id_estatus_aprobacion === 2 ? "aprobada" : o.id_estatus_aprobacion === 5 ? "firmada" : "offer";
+        const ofertaLabel = `${o.id_producto ? "OP" : "O"}-${String(o.id).padStart(6, "0")}`;
         return {
           id: o.id,
           icon: type,
           text: type === "aprobada" ? "Oferta aprobada" : type === "firmada" ? "Contrato firmado" : "Nueva oferta generada",
-          detail: `${o.email_creador?.split("@")[0] || "—"} · Oferta #${o.id}`,
+          detail: `${o.email_creador?.split("@")[0] || "—"} · ${ofertaLabel}`,
           time: formatDistanceToNow(new Date(o.fecha_generacion), { addSuffix: true, locale: es }),
           to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}`,
         };
