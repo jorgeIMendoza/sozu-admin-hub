@@ -46,6 +46,8 @@ export default function InmobAgentes() {
   const [activeTab, setActiveTab] = useState<"activos" | "desactivados">("activos");
   const [resetTarget, setResetTarget] = useState<any | null>(null);
   const currentUserEmail = (profile?.email || "").toLowerCase();
+
+  const { data: isSozu = false } = useQuery({
     queryKey: ["inmob-agentes-is-sozu", personaId],
     queryFn: async () => {
       if (!personaId) return false;
