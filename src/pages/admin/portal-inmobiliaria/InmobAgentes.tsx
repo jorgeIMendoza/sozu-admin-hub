@@ -335,10 +335,11 @@ export default function InmobAgentes() {
 
       const map = new Map<string, { total: number; vendidas: number }>();
       (data || []).forEach((o: any) => {
-        const cur = map.get(o.email_creador) || { total: 0, vendidas: 0 };
+        const emailKey = (o.email_creador || "").toLowerCase();
+        const cur = map.get(emailKey) || { total: 0, vendidas: 0 };
         cur.total++;
         if (o.id_propiedad && soldSet.has(o.id_propiedad)) cur.vendidas++;
-        map.set(o.email_creador, cur);
+        map.set(emailKey, cur);
       });
       return map;
     },
@@ -392,7 +393,8 @@ export default function InmobAgentes() {
       const map = new Map<string, number>();
       soldOfertas.forEach((o: any) => {
         const precio = cuentaMap.get(o.id) || 0;
-        map.set(o.email_creador, (map.get(o.email_creador) || 0) + precio);
+        const emailKey = (o.email_creador || "").toLowerCase();
+        map.set(emailKey, (map.get(emailKey) || 0) + precio);
       });
       return map;
     },
@@ -417,11 +419,16 @@ export default function InmobAgentes() {
           .eq("activo", true)
       );
 
+      const personaToEmail = new Map<number, string>();
+      allAgents.forEach((a) => {
+        if (a.personaId) personaToEmail.set(Number(a.personaId), (a.email || "").toLowerCase());
+      });
+
       const map = new Map<string, number>();
       (data || []).forEach((d: any) => {
-        const agent = allAgents.find((a) => a.personaId === d.id_persona_duena_lead);
-        if (agent) {
-          map.set(agent.email, (map.get(agent.email) || 0) + 1);
+        const email = personaToEmail.get(Number(d.id_persona_duena_lead));
+        if (email) {
+          map.set(email, (map.get(email) || 0) + 1);
         }
       });
       return map;
@@ -828,9 +835,10 @@ function AgentTable({
                 </TableRow>
               ) : (
                 agents.map((agent) => {
-                  const stats = ofertasByAgent.get(agent.email) || { total: 0, vendidas: 0 };
-                  const prospectos = prospectosByAgent.get(agent.email) || 0;
-                  const ingreso = ingresoByAgent.get(agent.email) || 0;
+                  const emailKey = (agent.email || "").toLowerCase();
+                  const stats = ofertasByAgent.get(emailKey) || { total: 0, vendidas: 0 };
+                  const prospectos = prospectosByAgent.get(emailKey) || 0;
+                  const ingreso = ingresoByAgent.get(emailKey) || 0;
                   const conversion = stats.total > 0 ? Math.round((stats.vendidas / stats.total) * 100) : 0;
                   return (
                     <TableRow key={agent.email}>
