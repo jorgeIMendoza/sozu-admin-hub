@@ -405,12 +405,14 @@ export default function InmobAgentes() {
       const personaIds = allAgents.map((a) => a.personaId).filter(Boolean);
       if (!personaIds.length) return new Map<string, number>();
 
-      const { data } = await supabase
-        .from("entidades_relacionadas")
-        .select("id_persona_duena_lead")
-        .in("id_persona_duena_lead", personaIds)
-        .eq("id_tipo_entidad", 7)
-        .eq("activo", true) as any;
+      const data = await fetchAllPaginated<any>(() =>
+        supabase
+          .from("entidades_relacionadas")
+          .select("id_persona_duena_lead")
+          .in("id_persona_duena_lead", personaIds)
+          .eq("id_tipo_entidad", 7)
+          .eq("activo", true)
+      );
 
       const map = new Map<string, number>();
       (data || []).forEach((d: any) => {
