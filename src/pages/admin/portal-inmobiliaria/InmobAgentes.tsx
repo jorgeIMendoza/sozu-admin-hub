@@ -929,6 +929,8 @@ function AgentProjectAccessDialog({ agent, inmobProjects, onClose }: {
 
   if (!agent) return null;
 
+  const isIndependent = agent.isIndependent === true;
+
   return (
     <Dialog open={!!agent} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md">
@@ -936,12 +938,14 @@ function AgentProjectAccessDialog({ agent, inmobProjects, onClose }: {
           <DialogTitle>Acceso a Proyectos</DialogTitle>
           <DialogDescription>{agent.nombre} ({agent.email})</DialogDescription>
         </DialogHeader>
-        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
-          <p className="font-medium text-primary">El acceso a proyectos se hereda del usuario principal</p>
+        <div className={`rounded-lg border p-3 text-sm ${isIndependent ? 'border-green-500/20 bg-green-500/5' : 'border-primary/20 bg-primary/5'}`}>
+          <p className={`font-medium ${isIndependent ? 'text-green-700 dark:text-green-400' : 'text-primary'}`}>
+            {isIndependent ? 'Agente independiente' : 'El acceso a proyectos se hereda del usuario principal'}
+          </p>
           <p className="text-muted-foreground mt-1">
-            Los Agentes Inmobiliarios heredan automáticamente el acceso a proyectos de su Inmobiliaria padre.
-            Si se requiere, también se puede administrar independientemente a un usuario para que pueda tener
-            acceso a todos los proyectos de su inmobiliaria o quitar alguno desde el portal de la inmobiliaria.
+            {isIndependent
+              ? 'Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu. Puedes habilitar o deshabilitar proyectos individualmente.'
+              : 'Los Agentes Inmobiliarios heredan automáticamente el acceso a proyectos de su Inmobiliaria padre. Puedes habilitar o deshabilitar proyectos individualmente.'}
           </p>
         </div>
         <div className="space-y-2 mt-2">
@@ -949,7 +953,7 @@ function AgentProjectAccessDialog({ agent, inmobProjects, onClose }: {
           {isLoading ? (
             <p className="text-muted-foreground text-sm py-4">Cargando...</p>
           ) : inmobProjects.length === 0 ? (
-            <p className="text-muted-foreground text-center py-6">No hay proyectos asignados a tu inmobiliaria</p>
+            <p className="text-muted-foreground text-center py-6">No hay proyectos asignados</p>
           ) : (
             inmobProjects.map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
