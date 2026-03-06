@@ -200,10 +200,10 @@ async function handleJwtMode(req: Request, authHeader: string) {
     return jsonResponse({ error: 'Usuario no encontrado en la base de datos' }, 404);
   }
 
-  // Administrador de Proyecto and Inmobiliaria can only reset Agente Inmobiliario (3) and Inmobiliaria (4)
-  if ((requestingRolId === 2 || requestingRolId === 4) && ![3, 4].includes(targetUser.rol_id)) {
+  // Administrador de Proyecto and Inmobiliaria can reset Inmobiliaria (4), Agente Inmobiliario (3) and Agente Interno (9)
+  if ((requestingRolId === 2 || requestingRolId === 4) && ![3, 4, 9].includes(targetUser.rol_id)) {
     console.error(`Role ${requestingRolId} cannot reset rol_id ${targetUser.rol_id}`);
-    return jsonResponse({ error: 'Solo puedes resetear contraseñas de usuarios con rol Inmobiliaria o Agente Inmobiliario' }, 403);
+    return jsonResponse({ error: 'Solo puedes resetear contraseñas de usuarios con rol Inmobiliaria, Agente Inmobiliario o Agente Interno' }, 403);
   }
 
   const result = await resetPassword(supabaseAdmin, email, targetUser.auth_user_id, targetUser.nombre);

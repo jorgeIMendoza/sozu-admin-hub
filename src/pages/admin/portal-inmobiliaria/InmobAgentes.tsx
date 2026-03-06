@@ -42,6 +42,22 @@ export default function InmobAgentes() {
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [activeTab, setActiveTab] = useState<"activos" | "desactivados">("activos");
 
+  const { data: isSozu = false } = useQuery({
+    queryKey: ["inmob-agentes-is-sozu", personaId],
+    queryFn: async () => {
+      if (!personaId) return false;
+      const { data } = await supabase
+        .from("personas")
+        .select("nombre_legal")
+        .eq("id", personaId)
+        .maybeSingle() as any;
+      const nombreLegal = (data?.nombre_legal || "").toLowerCase();
+      return nombreLegal.includes("real estate ventures");
+    },
+    enabled: !!personaId,
+    staleTime: 10 * 60_000,
+  });
+
   // Edit dialog state
   const [editAgent, setEditAgent] = useState<any | null>(null);
   const [editName, setEditName] = useState("");
@@ -57,7 +73,130 @@ export default function InmobAgentes() {
     track({ page: "inmob_agentes", elementId: "page_view", elementType: "page" });
   }, []);
 
-  const agentEmails = useMemo(() => agents.map((a) => a.email), [agents]);
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    setSearch(q);
+  }, [searchParams]);
+
+  const { data: sozuExtraUsers = [] } = useQuery({
+    queryKey: ["inmob-agentes-sozu-extra-users", personaId, agents.map(a => a.email).join(",")],
+    queryFn: async () => {
+      if (!personaId || !isSozu) return [];
+
+      const baseAgentEmailSet = new Set(agents.map(a => a.email.toLowerCase()));
+
+      const { data: inmobUsers } = await supabase
+        .from("usuarios")
+        .select("email")
+        .eq("id_persona", personaId)
+        .eq("activo", true) as any;
+
+      const inmobEmails = (inmobUsers || []).map((u: any) => u.email).filter(Boolean);
+      if (!inmobEmails.length) return [];
+
+      const { data: paRows } = await supabase
+        .from("proyectos_acceso")
+        .select("proyecto_id")
+        .in("usuario_id", inmobEmails)
+        .eq("activo", true) as any;
+
+      const projectIds = [...new Set((paRows || []).map((r: any) => r.proyecto_id).filter(Boolean))] as number[];
+      if (!projectIds.length) return [];
+
+      const { data: edificios } = await supabase
+        .from("edificios")
+        .select("id")
+        .in("id_proyecto", projectIds)
+        .eq("activo", true) as any;
+
+      const edificioIds = (edificios || []).map((e: any) => e.id);
+      if (!edificioIds.length) return [];
+
+      const { data: edifModelos } = await supabase
+        .from("edificios_modelos")
+        .select("id")
+        .in("id_edificio", edificioIds)
+        .eq("activo", true) as any;
+
+      const emIds = (edifModelos || []).map((m: any) => m.id);
+      if (!emIds.length) return [];
+
+      const propIds: number[] = [];
+      for (let i = 0; i < emIds.length; i += 200) {
+        const batch = emIds.slice(i, i + 200);
+        const { data: props } = await supabase
+          .from("propiedades")
+          .select("id")
+          .in("id_edificio_modelo", batch)
+          .eq("activo", true) as any;
+        if (props?.length) propIds.push(...props.map((p: any) => p.id));
+      }
+
+      if (!propIds.length) return [];
+
+      const creatorEmails = new Set<string>();
+      for (let i = 0; i < propIds.length; i += 200) {
+        const batch = propIds.slice(i, i + 200);
+        const { data: offers } = await supabase
+          .from("ofertas")
+          .select("email_creador")
+          .in("id_propiedad", batch)
+          .eq("activo", true) as any;
+
+        (offers || []).forEach((o: any) => {
+          const email = (o.email_creador || "").toLowerCase();
+          if (email) creatorEmails.add(email);
+        });
+      }
+
+      const unknownEmails = [...creatorEmails].filter((e) => !baseAgentEmailSet.has(e));
+      if (!unknownEmails.length) return [];
+
+      const { data: usuarios } = await supabase
+        .from("usuarios")
+        .select("email, id_persona, activo, rol_id")
+        .in("email", unknownEmails)
+        .neq("rol_id", 9) as any;
+
+      if (!usuarios?.length) return [];
+
+      const personaIds = [...new Set(usuarios.map((u: any) => u.id_persona).filter(Boolean))] as number[];
+      const personaMap = new Map<number, any>();
+      if (personaIds.length) {
+        const { data: personas } = await supabase
+          .from("personas")
+          .select("id, nombre_legal, nombre_comercial, telefono, clave_pais_telefono")
+          .in("id", personaIds) as any;
+        (personas || []).forEach((p: any) => personaMap.set(p.id, p));
+      }
+
+      return usuarios.map((u: any) => {
+        const p = personaMap.get(u.id_persona);
+        return {
+          email: u.email,
+          personaId: u.id_persona,
+          nombre: p?.nombre_legal || p?.nombre_comercial || u.email,
+          telefono: p?.telefono || "",
+          clavePaisTelefono: p?.clave_pais_telefono || "",
+          activo: u.activo ?? true,
+        };
+      });
+    },
+    enabled: !!personaId && isSozu,
+    staleTime: 5 * 60_000,
+  });
+
+  const allAgents = useMemo(() => {
+    const byEmail = new Map<string, any>();
+    agents.forEach((a) => byEmail.set(a.email.toLowerCase(), a));
+    sozuExtraUsers.forEach((u: any) => {
+      const key = (u.email || "").toLowerCase();
+      if (!byEmail.has(key)) byEmail.set(key, u);
+    });
+    return [...byEmail.values()];
+  }, [agents, sozuExtraUsers]);
+
+  const agentEmails = useMemo(() => allAgents.map((a) => a.email), [allAgents]);
 
   // Fetch ofertas per agent
   const { data: ofertasByAgent = new Map(), isLoading: ofertasLoading } = useQuery({
@@ -147,8 +286,10 @@ export default function InmobAgentes() {
   const { data: prospectosByAgent = new Map(), isLoading: prospectosLoading } = useQuery({
     queryKey: ["inmob-agentes-prospectos", agentEmails],
     queryFn: async () => {
-      if (!agentEmails.length) return new Map<string, number>();
-      const personaIds = agents.map((a) => a.personaId);
+      if (!allAgents.length) return new Map<string, number>();
+      const personaIds = allAgents.map((a) => a.personaId).filter(Boolean);
+      if (!personaIds.length) return new Map<string, number>();
+
       const { data } = await supabase
         .from("entidades_relacionadas")
         .select("id_persona_duena_lead")
@@ -158,31 +299,36 @@ export default function InmobAgentes() {
 
       const map = new Map<string, number>();
       (data || []).forEach((d: any) => {
-        const agent = agents.find((a) => a.personaId === d.id_persona_duena_lead);
+        const agent = allAgents.find((a) => a.personaId === d.id_persona_duena_lead);
         if (agent) {
           map.set(agent.email, (map.get(agent.email) || 0) + 1);
         }
       });
       return map;
     },
-    enabled: agentEmails.length > 0 && agents.length > 0,
+    enabled: agentEmails.length > 0 && allAgents.length > 0,
     staleTime: 3 * 60_000,
   });
 
   const isLoading = agentsLoading || ofertasLoading || prospectosLoading || ingresoLoading;
 
   // Separate active vs inactive
-  const activeAgents = useMemo(() => agents.filter(a => a.activo), [agents]);
-  const inactiveAgents = useMemo(() => agents.filter(a => !a.activo), [agents]);
+  const activeAgents = useMemo(() => allAgents.filter(a => a.activo), [allAgents]);
+  const inactiveAgents = useMemo(() => allAgents.filter(a => !a.activo), [allAgents]);
 
-  const filteredAgents = useMemo(() => {
-    const list = activeTab === "activos" ? activeAgents : inactiveAgents;
-    if (!search) return list;
+  const filteredActiveAgents = useMemo(() => {
+    if (!search) return activeAgents;
     const q = search.toLowerCase();
-    return list.filter(
-      (a) => a.nombre.toLowerCase().includes(q) || a.email.toLowerCase().includes(q)
-    );
-  }, [activeAgents, inactiveAgents, activeTab, search]);
+    return activeAgents.filter((a) => a.nombre.toLowerCase().includes(q) || a.email.toLowerCase().includes(q));
+  }, [activeAgents, search]);
+
+  const filteredInactiveAgents = useMemo(() => {
+    if (!search) return inactiveAgents;
+    const q = search.toLowerCase();
+    return inactiveAgents.filter((a) => a.nombre.toLowerCase().includes(q) || a.email.toLowerCase().includes(q));
+  }, [inactiveAgents, search]);
+
+  const filteredAgents = activeTab === "activos" ? filteredActiveAgents : filteredInactiveAgents;
 
   // Summary KPIs (all agents)
   const totalAgentes = activeAgents.length;
@@ -233,44 +379,50 @@ export default function InmobAgentes() {
   };
 
   const handleDeactivate = async (agent: any) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("usuarios")
       .update({ activo: false })
-      .eq("email", agent.email) as any;
-    if (error) {
+      .eq("id_persona", agent.personaId)
+      .select("email, activo") as any;
+
+    if (error || !data?.length) {
       toast.error("Error al desactivar agente");
     } else {
       toast.success("Agente desactivado. Ya no tendrá acceso al sistema.");
       queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
+      queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
     }
   };
 
   const handleReactivate = async (agent: any) => {
-    // Reactivate user
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("usuarios")
       .update({ activo: true })
-      .eq("email", agent.email) as any;
-    if (error) {
+      .eq("id_persona", agent.personaId)
+      .select("email, activo") as any;
+
+    if (error || !data?.length) {
       toast.error("Error al reactivar agente");
       return;
     }
-    // Reset password to Temporal123!
+
     try {
       const { error: resetError } = await supabase.functions.invoke("reset-user-password", {
         body: { email: agent.email },
       });
       if (resetError) throw resetError;
       toast.success("Agente reactivado. Contraseña reseteada a Temporal123!");
-    } catch {
-      toast.success("Agente reactivado, pero hubo un error al resetear la contraseña.");
+    } catch (err: any) {
+      toast.error("Agente reactivado, pero falló el reseteo: " + (err?.message || "Intenta de nuevo"));
     }
+
     queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
+    queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
   };
 
   const handleResetPassword = async (agent: any) => {
     try {
-      const { data, error } = await supabase.functions.invoke("reset-user-password", {
+      const { error } = await supabase.functions.invoke("reset-user-password", {
         body: { email: agent.email },
       });
       if (error) throw error;
@@ -340,10 +492,10 @@ export default function InmobAgentes() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList>
           <TabsTrigger value="activos" className="gap-1.5">
-            <Users className="h-3.5 w-3.5" /> Activos <Badge variant="secondary" className="ml-1 text-[10px]">{activeAgents.length}</Badge>
+            <Users className="h-3.5 w-3.5" /> Activos <Badge variant="secondary" className="ml-1 text-[10px]">{filteredActiveAgents.length}</Badge>
           </TabsTrigger>
           <TabsTrigger value="desactivados" className="gap-1.5">
-            <Power className="h-3.5 w-3.5" /> Desactivados <Badge variant="secondary" className="ml-1 text-[10px]">{inactiveAgents.length}</Badge>
+            <Power className="h-3.5 w-3.5" /> Desactivados <Badge variant="secondary" className="ml-1 text-[10px]">{filteredInactiveAgents.length}</Badge>
           </TabsTrigger>
         </TabsList>
 

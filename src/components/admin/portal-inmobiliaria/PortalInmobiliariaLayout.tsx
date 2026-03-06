@@ -55,37 +55,20 @@ export const PortalInmobiliariaLayout = () => {
         .single();
       const name = data?.nombre_comercial || data?.nombre_legal || "Mi Inmobiliaria";
 
-      // Get most common commission percentage from comisionistas of this inmob's agents
-      // Get agent persona ids
-      const { data: rels } = await supabase
-        .from("entidades_relacionadas")
-        .select("id_persona")
-        .eq("id_persona_duena_lead", personaId)
-        .eq("id_tipo_entidad", 19)
-        .eq("activo", true) as any;
+      // Comisión oficial de la inmobiliaria (entidades_relacionadas tipo 5)
       let comisionPct: number | null = null;
-      if (rels?.length) {
-        const pIds = rels.map((r: any) => r.id_persona).filter(Boolean);
-        const { data: usuarios } = await supabase.from("usuarios").select("email").in("id_persona", pIds) as any;
-        if (usuarios?.length) {
-          const emails = usuarios.map((u: any) => u.email);
-          const { data: comisionistas } = await (supabase as any)
-            .from("comisionistas")
-            .select("porcentaje_comision")
-            .in("email_usuario", emails)
-            .eq("activo", true);
-          if (comisionistas?.length) {
-            const pcts = comisionistas.map((c: any) => Number(c.porcentaje_comision) || 0).filter((p: number) => p > 0);
-            if (pcts.length) {
-              const freq = new Map<number, number>();
-              pcts.forEach((p: number) => freq.set(p, (freq.get(p) || 0) + 1));
-              let maxP = pcts[0], maxCount = 0;
-              freq.forEach((count, p) => { if (count > maxCount) { maxCount = count; maxP = p; } });
-              comisionPct = maxP;
-            }
-          }
-        }
+      const { data: comisionRow } = await supabase
+        .from("entidades_relacionadas")
+        .select("porcentaje_comision")
+        .eq("id_persona", personaId)
+        .eq("id_tipo_entidad", 5)
+        .eq("activo", true)
+        .maybeSingle() as any;
+
+      if (comisionRow?.porcentaje_comision !== null && comisionRow?.porcentaje_comision !== undefined) {
+        comisionPct = Number(comisionRow.porcentaje_comision) || 0;
       }
+
       return { name, comisionPct };
     },
     enabled: !!personaId,
