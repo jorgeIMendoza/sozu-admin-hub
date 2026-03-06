@@ -843,17 +843,34 @@ export default function InmobDashboard() {
 
   const comisionByCuentaId = useMemo(() => {
     const map = new Map<number, number>();
+
+    if (isSozu) {
+      // Sozu: comisión sale del % configurado en la cuenta (con/sin IVA según bandera)
+      cuentasMap.forEach((cuenta: any) => {
+        const cuentaId = Number(cuenta?.id);
+        if (!cuentaId) return;
+        const base = (Number(cuenta?.precio_final) || 0) * (Number(cuenta?.porcentaje_comision_venta) || 0) / 100;
+        const monto = (cuenta?.iva_incluido ? base * 1.16 : base);
+        map.set(cuentaId, monto);
+      });
+      return map;
+    }
+
+    // Otras inmobiliarias: usar SOLO comisionistas de la inmobiliaria actual
     allComisiones.forEach((c: any) => {
       const cuentaId = Number(c.id_cuenta_cobranza);
       if (!cuentaId) return;
+      const email = (c.email_usuario || "").toLowerCase();
+      if (!inmobUserEmailSet.has(email)) return;
       map.set(cuentaId, (map.get(cuentaId) || 0) + (Number(c.monto_comision) || 0));
     });
-    return map;
-  }, [allComisiones]);
 
-  // Recompute comisionPromAgente with all comisiones
+    return map;
+  }, [allComisiones, cuentasMap, isSozu, inmobUserEmailSet]);
+
+  // Recompute comisionPromAgente with commission-to-inmobiliaria source of truth
   const comisionPromAgente = totalAgentes > 0
-    ? allComisiones.reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0) / totalAgentes
+    ? Array.from(comisionByCuentaId.values()).reduce((s: number, v: number) => s + v, 0) / totalAgentes
     : 0;
 
   // Agent performance — includes both agents AND internal non-agent users
