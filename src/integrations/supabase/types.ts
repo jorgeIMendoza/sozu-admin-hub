@@ -3047,6 +3047,7 @@ export type Database = {
           id_cuenta_cobranza_padre: number | null
           id_notario: number | null
           id_oferta: number | null
+          id_propiedad: number | null
           id_tipo_cancelacion: number | null
           iva_incluido: boolean | null
           libro: string | null
@@ -3082,6 +3083,7 @@ export type Database = {
           id_cuenta_cobranza_padre?: number | null
           id_notario?: number | null
           id_oferta?: number | null
+          id_propiedad?: number | null
           id_tipo_cancelacion?: number | null
           iva_incluido?: boolean | null
           libro?: string | null
@@ -3117,6 +3119,7 @@ export type Database = {
           id_cuenta_cobranza_padre?: number | null
           id_notario?: number | null
           id_oferta?: number | null
+          id_propiedad?: number | null
           id_tipo_cancelacion?: number | null
           iva_incluido?: boolean | null
           libro?: string | null

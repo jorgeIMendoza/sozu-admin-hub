@@ -6,6 +6,7 @@ import { useInmobAgents } from "@/hooks/useInmobAgents";
 import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -37,10 +39,13 @@ export default function InmobAgentes() {
   const queryClient = useQueryClient();
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
+  const { profile } = useAuth();
   const { data: agents = [], isLoading: agentsLoading } = useInmobAgents();
   const { personaId } = useInmobiliariaPersonaId();
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [activeTab, setActiveTab] = useState<"activos" | "desactivados">("activos");
+  const [resetTarget, setResetTarget] = useState<any | null>(null);
+  const currentUserEmail = (profile?.email || "").toLowerCase();
 
   const { data: isSozu = false } = useQuery({
     queryKey: ["inmob-agentes-is-sozu", personaId],
@@ -155,46 +160,62 @@ export default function InmobAgentes() {
       const { data: usuarios } = await supabase
         .from("usuarios")
         .select("email, id_persona, activo, rol_id")
-        .in("email", unknownEmails)
-        .neq("rol_id", 9) as any;
+        .in("email", unknownEmails) as any;
 
       if (!usuarios?.length) return [];
 
       const personaIds = [...new Set(usuarios.map((u: any) => u.id_persona).filter(Boolean))] as number[];
       const personaMap = new Map<number, any>();
       if (personaIds.length) {
-        const { data: personas } = await supabase
-          .from("personas")
-          .select("id, nombre_legal, nombre_comercial, telefono, clave_pais_telefono")
-          .in("id", personaIds) as any;
+        const [{ data: personas }, { data: rels }] = await Promise.all([
+          supabase
+            .from("personas")
+            .select("id, nombre_legal, nombre_comercial, telefono, clave_pais_telefono")
+            .in("id", personaIds) as any,
+          supabase
+            .from("entidades_relacionadas")
+            .select("id_persona, id_persona_duena_lead")
+            .in("id_persona", personaIds)
+            .eq("id_tipo_entidad", 19)
+            .eq("activo", true) as any,
+        ]);
         (personas || []).forEach((p: any) => personaMap.set(p.id, p));
+
+        const ownerByPersona = new Map<number, number | null>();
+        (rels || []).forEach((r: any) => ownerByPersona.set(r.id_persona, r.id_persona_duena_lead ?? null));
+
+        return usuarios
+          .filter((u: any) => {
+            // Keep Sozu staff/non-agent users, but exclude external agents from other inmobiliarias.
+            if (u.rol_id === 3) {
+              const ownerId = ownerByPersona.get(u.id_persona);
+              return ownerId === personaId;
+            }
+            // Exclude agent interno (role 9) from this extra bucket.
+            return u.rol_id !== 9;
+          })
+          .map((u: any) => {
+            const p = personaMap.get(u.id_persona);
+            return {
+              email: u.email,
+              personaId: u.id_persona,
+              nombre: p?.nombre_legal || p?.nombre_comercial || u.email,
+              telefono: p?.telefono || "",
+              clavePaisTelefono: p?.clave_pais_telefono || "",
+              activo: u.activo ?? true,
+              roleId: u.rol_id,
+              isInternal: u.rol_id !== 3 && u.rol_id !== 9,
+            };
+          });
       }
 
-      return usuarios.map((u: any) => {
-        const p = personaMap.get(u.id_persona);
-        return {
-          email: u.email,
-          personaId: u.id_persona,
-          nombre: p?.nombre_legal || p?.nombre_comercial || u.email,
-          telefono: p?.telefono || "",
-          clavePaisTelefono: p?.clave_pais_telefono || "",
-          activo: u.activo ?? true,
-          isInternal: true, // Mark as non-agent user (internal)
-        };
-      });
+      return [];
     },
     enabled: !!personaId && isSozu,
     staleTime: 5 * 60_000,
   });
 
-  // Filter out agentes inmobiliarios without an inmobiliaria relationship
-  const filteredBaseAgents = useMemo(() => {
-    // For Sozu, exclude agentes inmobiliarios (from useInmobAgents) that don't have
-    // an inmobiliaria relationship — they are independent agents not from Sozu
-    // useInmobAgents already filters by entidades_relacionadas tipo 19 with id_persona_duena_lead = personaId
-    // so all agents returned are linked to this inmobiliaria — no extra filtering needed
-    return agents;
-  }, [agents]);
+  const filteredBaseAgents = useMemo(() => agents, [agents]);
 
   const allAgents = useMemo(() => {
     const byEmail = new Map<string, any>();
@@ -203,8 +224,8 @@ export default function InmobAgentes() {
       const key = (u.email || "").toLowerCase();
       if (!byEmail.has(key)) byEmail.set(key, u);
     });
-    return [...byEmail.values()];
-  }, [filteredBaseAgents, sozuExtraUsers]);
+    return [...byEmail.values()].filter((a: any) => (a.email || "").toLowerCase() !== currentUserEmail);
+  }, [filteredBaseAgents, sozuExtraUsers, currentUserEmail]);
 
   const agentEmails = useMemo(() => allAgents.map((a) => a.email), [allAgents]);
 
@@ -388,17 +409,47 @@ export default function InmobAgentes() {
     }
   };
 
+  const resolveAgentEmails = async (agent: any): Promise<string[]> => {
+    const normalizedEmail = (agent.email || "").trim().toLowerCase();
+    const emails = new Set<string>();
+
+    if (normalizedEmail) {
+      const { data: byEmail } = await supabase
+        .from("usuarios")
+        .select("email")
+        .ilike("email", normalizedEmail) as any;
+      (byEmail || []).forEach((u: any) => {
+        if (u.email) emails.add(String(u.email).toLowerCase());
+      });
+    }
+
+    if (emails.size === 0 && agent.personaId) {
+      const { data: byPersona } = await supabase
+        .from("usuarios")
+        .select("email")
+        .eq("id_persona", agent.personaId) as any;
+      (byPersona || []).forEach((u: any) => {
+        if (u.email) emails.add(String(u.email).toLowerCase());
+      });
+    }
+
+    return [...emails];
+  };
+
   const handleDeactivate = async (agent: any) => {
     try {
+      const emails = await resolveAgentEmails(agent);
+      if (!emails.length) throw new Error("No se encontró el usuario");
+
       const { data, error } = await supabase
         .from("usuarios")
-        .update({ activo: false })
-        .eq("email", agent.email)
+        .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
+        .in("email", emails)
         .select("email, activo") as any;
 
       if (error) throw error;
       if (!data?.length) throw new Error("No se encontró el usuario");
-      
+
       toast.success("Agente desactivado. Ya no tendrá acceso al sistema.");
       queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
       queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
@@ -409,10 +460,13 @@ export default function InmobAgentes() {
 
   const handleReactivate = async (agent: any) => {
     try {
+      const emails = await resolveAgentEmails(agent);
+      if (!emails.length) throw new Error("No se encontró el usuario");
+
       const { data, error } = await supabase
         .from("usuarios")
-        .update({ activo: true })
-        .eq("email", agent.email)
+        .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
+        .in("email", emails)
         .select("email, activo") as any;
 
       if (error) throw error;
@@ -420,17 +474,16 @@ export default function InmobAgentes() {
 
       try {
         const { data: resetData, error: resetError } = await supabase.functions.invoke("reset-user-password", {
-          body: { email: agent.email },
+          body: { email: emails[0] },
         });
         if (resetError) throw resetError;
-        // Check if response body has error
         if (resetData?.error) {
           toast.success("Agente reactivado.");
           toast.warning("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
         } else {
           toast.success("Agente reactivado. Contraseña reseteada a Temporal123!");
         }
-      } catch (err: any) {
+      } catch {
         toast.success("Agente reactivado.");
         toast.warning("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
       }
@@ -443,19 +496,28 @@ export default function InmobAgentes() {
   };
 
   const handleResetPassword = async (agent: any) => {
+    setResetTarget(agent);
+  };
+
+  const confirmResetPassword = async () => {
+    if (!resetTarget) return;
     try {
+      const emails = await resolveAgentEmails(resetTarget);
+      if (!emails.length) throw new Error("No se encontró el usuario");
+
       const { data: resetData, error } = await supabase.functions.invoke("reset-user-password", {
-        body: { email: agent.email },
+        body: { email: emails[0] },
       });
       if (error) throw error;
       if (resetData?.error) {
         toast.error("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
-        return;
+      } else {
+        toast.success("Contraseña reseteada a Temporal123!");
       }
-      toast.success("Contraseña reseteada a Temporal123!");
-    } catch (err: any) {
-      console.error("Reset password error:", err);
+    } catch {
       toast.error("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
+    } finally {
+      setResetTarget(null);
     }
   };
 
@@ -596,6 +658,21 @@ export default function InmobAgentes() {
         inmobProjects={inmobProjects}
         onClose={() => setProjectAccessAgent(null)}
       />
+
+      <AlertDialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Resetear contraseña?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Confirmas resetear la contraseña de <strong>{resetTarget?.email}</strong>? La nueva contraseña será <strong>Temporal123!</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmResetPassword}>Confirmar reset</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
