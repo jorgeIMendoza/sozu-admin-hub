@@ -184,18 +184,34 @@ export default function InmobAgentProfile() {
     staleTime: 3 * 60_000,
   });
 
-  // Prospectos count
+  // Prospectos históricos (únicos por persona prospecto)
   const { data: prospectosCount = 0 } = useQuery({
     queryKey: ["agent-profile-prospectos", agent?.personaId],
     queryFn: async () => {
       if (!agent?.personaId) return 0;
-      const { count } = await supabase
-        .from("entidades_relacionadas")
-        .select("id", { count: "exact", head: true })
-        .eq("id_persona_duena_lead", agent.personaId)
-        .eq("id_tipo_entidad", 7)
-        .eq("activo", true) as any;
-      return count || 0;
+
+      const uniqueProspects = new Set<number>();
+      let from = 0;
+      while (true) {
+        const { data } = await (supabase as any)
+          .from("entidades_relacionadas")
+          .select("id_persona")
+          .eq("id_persona_duena_lead", agent.personaId)
+          .eq("id_tipo_entidad", 7)
+          .eq("activo", true)
+          .range(from, from + 999);
+
+        if (!data?.length) break;
+        data.forEach((row: any) => {
+          const prospectPersonaId = Number(row.id_persona);
+          if (prospectPersonaId) uniqueProspects.add(prospectPersonaId);
+        });
+
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+
+      return uniqueProspects.size;
     },
     enabled: !!agent?.personaId,
     staleTime: 3 * 60_000,
