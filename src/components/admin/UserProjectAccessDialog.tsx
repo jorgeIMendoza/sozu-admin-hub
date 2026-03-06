@@ -170,7 +170,7 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
 }) {
   const [loading, setLoading] = useState(false);
 
-  // Get the inmobiliaria's persona id for this agent
+  // Get inmobiliaria project base list (including active and inactive) for this user
   const { data: inmobData, isLoading: inmobLoading } = useQuery({
     queryKey: ['agent-inmob-projects-for-access', userPersonaId, isSecondaryInmobiliaria],
     queryFn: async () => {
@@ -190,37 +190,41 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
           .eq('id_tipo_entidad', 19)
           .eq('activo', true)
           .maybeSingle() as any;
-        
+
         if (!rel?.id_persona_duena_lead) return null;
         inmobPersonaId = rel.id_persona_duena_lead;
       }
-      
+
       const { data: persona } = await supabase
         .from('personas')
-        .select('nombre_comercial, nombre_legal')
+        .select('nombre_comercial, nombre_legal, email')
         .eq('id', inmobPersonaId)
         .maybeSingle() as any;
 
-      // Find the PRIMARY inmobiliaria user (usuario_principal = true or first user with this persona)
-      const { data: inmobUser } = await supabase
+      // Resolve primary inmobiliaria email deterministically (persona email first)
+      const { data: inmobUsers } = await supabase
         .from('usuarios')
         .select('email')
         .eq('id_persona', inmobPersonaId)
-        .eq('rol_id', 4)
-        .limit(1)
-        .maybeSingle() as any;
+        .eq('rol_id', 4) as any;
 
-      if (!inmobUser?.email) return null;
+      if (!inmobUsers?.length) return null;
 
-      const { data: inmobAccess } = await supabase
+      const personaEmail = (persona?.email || '').toLowerCase();
+      const primaryUser = inmobUsers.find((u: any) => (u.email || '').toLowerCase() === personaEmail);
+      const sourceEmail = primaryUser?.email || inmobUsers[0].email;
+
+      const { data: inmobAccess, error: accessError } = await supabase
         .from('proyectos_acceso')
-        .select('proyecto_id, proyectos(id, nombre)')
-        .eq('usuario_id', inmobUser.email)
-        .eq('activo', true) as any;
+        .select('proyecto_id, activo, proyectos(id, nombre)')
+        .eq('usuario_id', sourceEmail) as any;
+
+      if (accessError) throw accessError;
 
       const inmobProjects = (inmobAccess || []).map((d: any) => ({
         id: d.proyectos?.id,
         nombre: d.proyectos?.nombre || `Proyecto ${d.proyecto_id}`,
+        activo: d.activo ?? true,
       })).filter((p: any) => p.id);
 
       return {
