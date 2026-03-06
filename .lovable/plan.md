@@ -1,41 +1,36 @@
 
 
-## Plan: Agregar Domain-Wide Delegation (subject/sub) al JWT de la cuenta de servicio
+# Plan: Corregir detección de "Usuario Principal" y mejorar cambio de rol
 
-### Problema actual
-La función `getAccessToken` genera un JWT sin el campo `sub`, por lo que Google Calendar ve las operaciones como hechas por la cuenta de servicio directamente. Esto impide que los invitados reciban correos de notificación del evento.
+## Problema
+`jorge.test.inmo@yopmail.com` aparece como "Principal" porque la validación actual solo verifica `rol_id === 4` + email coincide con persona, sin verificar que esa persona sea realmente una inmobiliaria en `entidades_relacionadas`.
 
-### Cambio necesario
+## Cambios
 
-**Archivo**: `supabase/functions/agendar-capacitacion/index.ts`
+### 1. `Usuarios.tsx` — Validar que persona sea inmobiliaria real
 
-1. **Modificar `getAccessToken`** para aceptar un parámetro opcional `subject` (el email del dueño del calendario) y agregarlo al payload JWT:
-   ```
-   sub: subject  // e.g. "jorge.mendoza@sozu.com"
-   ```
+En las líneas 447-471, ya se consultan `inmobPersonas` (entidades con `id_tipo_entidad = 5`). Se creará un `Set<number>` con esos `id_persona` y se agregará como tercera condición en `esUsuarioPrincipal`:
 
-2. **Actualizar la llamada** a `getAccessToken(sa)` → `getAccessToken(sa, calendarOwnerEmail)` en el `Deno.serve` principal (línea 519), para que el token se genere impersonando al dueño del calendario.
-
-3. Agregar el scope `https://www.googleapis.com/auth/calendar.events` al JWT (ya lo tienes en el Admin Console, pero el código solo pide `calendar`).
-
-### Detalle técnico
-
-```text
-// Antes (línea 18-23):
-payload = { iss, scope: "...calendar", aud, iat, exp }
-
-// Después:
-payload = { iss, sub: subject, scope: "...calendar ...calendar.events", aud, iat, exp }
+```
+esUsuarioPrincipal = rol_id === 4 
+  && emailCoincide 
+  && inmobiliariaPersonaIds.has(u.id_persona)
 ```
 
-La llamada cambia de:
-```text
-const token = await getAccessToken(sa);
-```
-A:
-```text
-const token = await getAccessToken(sa, calendarOwnerEmail);
-```
+Esto garantiza que solo se marque como principal si la persona del usuario tiene una entrada activa como inmobiliaria (tipo 5) en `entidades_relacionadas`.
 
-Esto hará que Google Calendar trate las operaciones como si las hiciera el usuario real (calendarOwnerEmail), permitiendo el envío automático de correos a los invitados.
+### 2. `ChangeUserRoleDialog.tsx` — Selector de inmobiliaria al cambiar rol
+
+Cuando el rol seleccionado es **4 (Inmobiliaria)** o **3 (Agente Inmobiliario)**:
+- Mostrar un selector de inmobiliaria (combobox con las inmobiliarias activas)
+- Al guardar, además de actualizar `rol_id`, sincronizar:
+  - `usuarios.id_persona` → al `id_persona` de la inmobiliaria (si rol 4 y email coincide)
+  - `proyectos_acceso` → agregar/actualizar registros con `id_entidad_relacionada_dueno` de la inmobiliaria
+- Cuando se cambia **desde** rol 4 a otro, limpiar la vinculación de `proyectos_acceso.id_entidad_relacionada_dueno`
+
+### Archivos a modificar
+| Archivo | Cambio |
+|---------|--------|
+| `src/pages/admin/Usuarios.tsx` | Crear set de personas-inmobiliaria, usarlo en validación de principal (líneas ~456-471) |
+| `src/components/admin/ChangeUserRoleDialog.tsx` | Agregar selector de inmobiliaria condicional; sincronizar `proyectos_acceso` al guardar |
 
