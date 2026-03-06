@@ -442,7 +442,7 @@ export default function Usuarios() {
         // For primary Inmobiliaria users (rol 4), their persona IS the inmobiliaria
         // Get the inmobiliaria name from their own persona record
         const inmobiliariaUserPersonaIds = (data || [])
-          .filter(u => u.rol_id === ROLE_INMOBILIARIA && u.id_persona && !inmobByPersona.has(u.id_persona))
+          .filter(u => u.rol_id === ROLE_INMOBILIARIA && u.id_persona)
           .map(u => u.id_persona as number);
 
         if (inmobiliariaUserPersonaIds.length > 0) {
