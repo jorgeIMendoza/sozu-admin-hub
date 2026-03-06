@@ -219,13 +219,13 @@ export default function InmobDashboard() {
         .eq("id_persona", personaId)
         .eq("activo", true) as any;
       return (data || [])
-        .map((u: any) => (u.email || "").toLowerCase())
+        .map((u: any) => (u.email || "").trim())
         .filter(Boolean);
     },
     enabled: !!personaId,
     staleTime: 5 * 60_000,
   });
-  const inmobUserEmailSet = useMemo(() => new Set(inmobUserEmails), [inmobUserEmails]);
+  const inmobUserEmailSet = useMemo(() => new Set(inmobUserEmails.map((e) => e.toLowerCase())), [inmobUserEmails]);
 
   // Reset chart mode if "comision" selected but not Sozu
   useEffect(() => {
