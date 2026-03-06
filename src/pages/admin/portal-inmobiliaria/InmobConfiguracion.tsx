@@ -693,7 +693,7 @@ function InmobProyectosAcceso({ personaId, userEmail }: { personaId: number | nu
         // Re-insert or update to active
         const { data: existing } = await supabase
           .from("proyectos_acceso")
-          .select("id")
+          .select("proyecto_id")
           .eq("usuario_id", userEmail)
           .eq("proyecto_id", projectId)
           .maybeSingle() as any;
