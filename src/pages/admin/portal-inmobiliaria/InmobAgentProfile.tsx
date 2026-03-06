@@ -93,7 +93,7 @@ export default function InmobAgentProfile() {
         const batch = cuentaIds.slice(i, i + 200);
         const { data } = await (supabase as any)
           .from("comisionistas")
-          .select("id, id_cuenta_cobranza, porcentaje_comision, pagada, aprobada")
+          .select("id_cuenta_cobranza, email_usuario, porcentaje_comision, pagada, aprobada")
           .in("id_cuenta_cobranza", batch)
           .eq("email_usuario", decodedEmail)
           .eq("activo", true);
@@ -209,7 +209,7 @@ export default function InmobAgentProfile() {
       const monto = (Number(cuenta?.precio_final) || 0) * (Number(c.porcentaje_comision) || 0) / 100;
       const statusLabel = c.pagada ? "Pagada" : c.aprobada ? "Aprobada" : "Pendiente";
       return {
-        id: c.id,
+        id: c.id_cuenta_cobranza,
         nombre: `${edificioNombre}${numProp ? ` · ${numProp}` : ""}`.trim() || "—",
         monto,
         status: statusLabel,

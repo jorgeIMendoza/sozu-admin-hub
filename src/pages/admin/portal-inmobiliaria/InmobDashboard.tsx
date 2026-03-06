@@ -945,7 +945,7 @@ export default function InmobDashboard() {
       const comisionistas: any[] = [];
       for (let i = 0; i < allCuentaIds.length; i += 200) {
         const batch = allCuentaIds.slice(i, i + 200);
-        const { data } = await (supabase as any).from("comisionistas").select("id, id_cuenta_cobranza, porcentaje_comision, pagada, fecha_actualizacion").in("id_cuenta_cobranza", batch).eq("activo", true);
+        const { data } = await (supabase as any).from("comisionistas").select("id_cuenta_cobranza, email_usuario, porcentaje_comision, pagada, fecha_actualizacion").in("id_cuenta_cobranza", batch).eq("activo", true);
         if (data) comisionistas.push(...data);
       }
 
