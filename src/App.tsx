@@ -112,6 +112,7 @@ const TodasLasCitas = lazyRetry(() => import("./pages/admin/comunicacion/TodasLa
 // Portal Inmobiliaria pages
 const InmobDashboard = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobDashboard"));
 const InmobAgentes = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobAgentes"));
+const InmobAgentProfile = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobAgentProfile"));
 const InmobPipeline = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobPipeline"));
 const InmobProspectos = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobProspectos"));
 const InmobCitas = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobCitas"));
@@ -272,6 +273,7 @@ const App = () => (
                   {/* Portal Inmobiliaria Routes */}
                   <Route path="portal-inmobiliaria/dashboard" element={<InmobDashboard />} />
                   <Route path="portal-inmobiliaria/agentes" element={<InmobAgentes />} />
+                  <Route path="portal-inmobiliaria/agentes/:email" element={<InmobAgentProfile />} />
                   <Route path="portal-inmobiliaria/pipeline" element={<InmobPipeline />} />
                   <Route path="portal-inmobiliaria/prospectos" element={<InmobProspectos />} />
                   <Route path="portal-inmobiliaria/citas" element={<InmobCitas />} />

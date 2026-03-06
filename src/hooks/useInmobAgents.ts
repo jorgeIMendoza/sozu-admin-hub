@@ -7,6 +7,7 @@ export interface InmobAgent {
   personaId: number;
   nombre: string;
   telefono: string;
+  clavePaisTelefono: string;
   activo: boolean;
 }
 
@@ -45,7 +46,7 @@ export function useInmobAgents() {
       // Get persona details
       const { data: personas } = await supabase
         .from("personas")
-        .select("id, nombre_legal, nombre_comercial, telefono")
+        .select("id, nombre_legal, nombre_comercial, telefono, clave_pais_telefono")
         .in("id", pIds) as any;
 
       const personaMap = new Map<number, any>();
@@ -58,6 +59,7 @@ export function useInmobAgents() {
           personaId: u.id_persona,
           nombre: p?.nombre_legal || p?.nombre_comercial || u.email,
           telefono: p?.telefono || "",
+          clavePaisTelefono: p?.clave_pais_telefono || "",
           activo: u.activo ?? true,
         };
       });
