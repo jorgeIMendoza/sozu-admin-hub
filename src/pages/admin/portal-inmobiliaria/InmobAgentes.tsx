@@ -504,18 +504,40 @@ export default function InmobAgentes() {
   const handleDeactivate = async (agent: any) => {
     try {
       const emails = await resolveAgentEmails(agent);
-      if (!emails.length) throw new Error("No se encontró el usuario");
 
-      const { data, error } = await supabase
-        .from("usuarios")
-        .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
-        .in("email", emails)
-        .select("email, activo") as any;
+      // Try deactivating usuario first
+      let usuarioDeactivated = false;
+      if (emails.length) {
+        const { data, error } = await supabase
+          .from("usuarios")
+          .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
+          .in("email", emails)
+          .select("email, activo") as any;
+        if (!error && data?.length) usuarioDeactivated = true;
+      }
 
-      if (error) throw error;
-      if (!data?.length) throw new Error("No se encontró el usuario");
+      // Always deactivate the entidad_relacionada (agent-inmobiliaria link)
+      let relacionDeactivated = false;
+      if (agent.personaId && personaId) {
+        const { error: relError } = await supabase
+          .from("entidades_relacionadas")
+          .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
+          .eq("id_persona", agent.personaId)
+          .eq("id_persona_duena_lead", personaId)
+          .eq("id_tipo_entidad", 19) as any;
+        if (!relError) relacionDeactivated = true;
+      }
 
-      toast.success("Agente desactivado. Ya no tendrá acceso al sistema.");
+      if (!usuarioDeactivated && !relacionDeactivated) {
+        throw new Error("No se pudo desactivar al agente");
+      }
+
+      if (usuarioDeactivated) {
+        toast.success("Agente desactivado. Ya no tendrá acceso al sistema.");
+      } else {
+        toast.success("Este agente no tenía cuenta de acceso. Se removió de tu equipo.");
+      }
+
       queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
       queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
     } catch (err: any) {
