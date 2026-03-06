@@ -376,7 +376,14 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
               <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                 <div className="flex items-center gap-3">
                   <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{p.nombre}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{p.nombre}</span>
+                    {!p.activo && (
+                      <Badge variant="outline" className="text-[10px]">
+                        Desactivado en inmobiliaria
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <Switch
                   checked={selectedProjects.includes(p.id)}
