@@ -25,7 +25,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Users, TrendingUp, FileText, ShoppingCart, MoreHorizontal, Eye, Pencil, Power, KeyRound, FolderOpen } from "lucide-react";
+import { Search, Users, TrendingUp, FileText, ShoppingCart, MoreHorizontal, Eye, Pencil, Power, KeyRound, FolderOpen, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 const fmtCurrency = (v: number) =>
@@ -863,6 +864,18 @@ function AgentTable({
   onResetPassword: (a: any) => void; onProjectAccess: (a: any) => void;
   navigate: any; isActiveTab: boolean;
 }) {
+  // Compute global conversion for color thresholds
+  const conversionGlobal = useMemo(() => {
+    let totalOfertas = 0;
+    let totalVentas = 0;
+    agents.forEach((agent) => {
+      const emailKey = (agent.email || "").toLowerCase();
+      const stats = ofertasByAgent.get(emailKey) || { total: 0, vendidas: 0 };
+      totalOfertas += stats.total;
+      totalVentas += stats.vendidas;
+    });
+    return totalOfertas > 0 ? (totalVentas / totalOfertas) * 100 : 0;
+  }, [agents, ofertasByAgent]);
   return (
     <Card>
       <CardContent className="p-0">
@@ -879,7 +892,24 @@ function AgentTable({
                 <TableHead className="text-center">Ofertas</TableHead>
                 <TableHead className="text-center">Ventas</TableHead>
                 <TableHead className="text-right">Ingreso</TableHead>
-                <TableHead className="text-center">Conversión</TableHead>
+                <TableHead className="text-center">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help inline-flex items-center gap-1">
+                          Conversión <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+                        <p className="font-semibold mb-1">Conversión = (Ventas / Ofertas) × 100</p>
+                        <p><span className="inline-block w-2 h-2 rounded-full bg-primary mr-1" />Verde: superior al promedio</p>
+                        <p><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1" />Rojo: inferior al promedio</p>
+                        <p><span className="inline-block w-2 h-2 rounded-full bg-secondary mr-1" />Gris: en el promedio</p>
+                        <p className="mt-1 text-muted-foreground">Promedio actual: {conversionGlobal.toFixed(1)}%</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -896,7 +926,7 @@ function AgentTable({
                   const stats = ofertasByAgent.get(emailKey) || { total: 0, vendidas: 0 };
                   const prospectos = prospectosByAgent.get(emailKey) || 0;
                   const ingreso = ingresoByAgent.get(emailKey) || 0;
-                  const conversion = stats.total > 0 ? Math.round((stats.vendidas / stats.total) * 100) : 0;
+                  const conversion = stats.total > 0 ? ((stats.vendidas / stats.total) * 100) : 0;
                   return (
                     <TableRow key={agent.email}>
                       <TableCell>
@@ -935,8 +965,11 @@ function AgentTable({
                       <TableCell className="text-center font-semibold">{stats.vendidas}</TableCell>
                       <TableCell className="text-right font-medium">{fmtCurrency(ingreso)}</TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={conversion > 30 ? "default" : "secondary"} className="text-xs">
-                          {conversion}%
+                        <Badge
+                          variant={conversion > conversionGlobal * 1.1 ? "default" : conversion < conversionGlobal * 0.8 ? "destructive" : "secondary"}
+                          className="text-xs"
+                        >
+                          {conversion.toFixed(1)}%
                         </Badge>
                       </TableCell>
                       <TableCell>

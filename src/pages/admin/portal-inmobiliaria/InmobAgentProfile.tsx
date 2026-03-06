@@ -495,7 +495,10 @@ export default function InmobAgentProfile() {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed">
                 <p className="font-semibold mb-1">Conversión = (Ventas Cerradas / Ofertas) × 100</p>
-                <p className="text-muted-foreground">Ratio de efectividad del agente basado en el total histórico de ofertas generadas.</p>
+                <p className="text-muted-foreground mb-1">Ratio de efectividad del agente basado en el total histórico de ofertas generadas.</p>
+                <p><span className="inline-block w-2 h-2 rounded-full bg-primary mr-1" />Verde: superior al promedio global</p>
+                <p><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1" />Rojo: inferior al promedio global</p>
+                <p><span className="inline-block w-2 h-2 rounded-full bg-secondary mr-1" />Gris: en el promedio</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
