@@ -287,26 +287,50 @@ export default function InmobAgentes() {
 
   const agentEmails = useMemo(() => allAgents.map((a) => a.email), [allAgents]);
 
+  const fetchAllPaginated = async <T,>(buildQuery: () => any, pageSize = 1000): Promise<T[]> => {
+    let from = 0;
+    const allRows: T[] = [];
+
+    while (true) {
+      const to = from + pageSize - 1;
+      const { data, error } = await buildQuery().range(from, to);
+      if (error) throw error;
+
+      const rows = (data || []) as T[];
+      if (!rows.length) break;
+      allRows.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+
+    return allRows;
+  };
+
   // Fetch ofertas per agent
   const { data: ofertasByAgent = new Map(), isLoading: ofertasLoading } = useQuery({
     queryKey: ["inmob-agentes-ofertas", agentEmails],
     queryFn: async () => {
       if (!agentEmails.length) return new Map<string, { total: number; vendidas: number }>();
-      const { data } = await supabase
-        .from("ofertas")
-        .select("id, email_creador, id_estatus_aprobacion, id_propiedad")
-        .in("email_creador", agentEmails)
-        .eq("activo", true) as any;
+      const data = await fetchAllPaginated<any>(() =>
+        supabase
+          .from("ofertas")
+          .select("id, email_creador, id_estatus_aprobacion, id_propiedad")
+          .in("email_creador", agentEmails)
+          .eq("activo", true)
+      );
 
       const propIds = [...new Set((data || []).map((o: any) => o.id_propiedad).filter(Boolean))] as number[];
       const soldSet = new Set<number>();
       if (propIds.length > 0) {
-        const { data: props } = await supabase
-          .from("propiedades")
-          .select("id, id_estatus_disponibilidad")
-          .in("id", propIds)
-          .eq("id_estatus_disponibilidad", 5) as any;
-        (props || []).forEach((p: any) => soldSet.add(p.id));
+        for (let i = 0; i < propIds.length; i += 200) {
+          const batch = propIds.slice(i, i + 200);
+          const { data: props } = await supabase
+            .from("propiedades")
+            .select("id")
+            .in("id", batch)
+            .eq("id_estatus_disponibilidad", 5) as any;
+          (props || []).forEach((p: any) => soldSet.add(p.id));
+        }
       }
 
       const map = new Map<string, { total: number; vendidas: number }>();
@@ -327,22 +351,27 @@ export default function InmobAgentes() {
     queryKey: ["inmob-agentes-ingreso", agentEmails],
     queryFn: async () => {
       if (!agentEmails.length) return new Map<string, number>();
-      const { data: ofertas } = await supabase
-        .from("ofertas")
-        .select("id, email_creador, id_propiedad")
-        .in("email_creador", agentEmails)
-        .eq("activo", true) as any;
+      const ofertas = await fetchAllPaginated<any>(() =>
+        supabase
+          .from("ofertas")
+          .select("id, email_creador, id_propiedad")
+          .in("email_creador", agentEmails)
+          .eq("activo", true)
+      );
       if (!ofertas?.length) return new Map<string, number>();
 
       const propIds = [...new Set(ofertas.map((o: any) => o.id_propiedad).filter(Boolean))] as number[];
       const soldSet = new Set<number>();
       if (propIds.length > 0) {
-        const { data: props } = await supabase
-          .from("propiedades")
-          .select("id")
-          .in("id", propIds)
-          .eq("id_estatus_disponibilidad", 5) as any;
-        (props || []).forEach((p: any) => soldSet.add(p.id));
+        for (let i = 0; i < propIds.length; i += 200) {
+          const batch = propIds.slice(i, i + 200);
+          const { data: props } = await supabase
+            .from("propiedades")
+            .select("id")
+            .in("id", batch)
+            .eq("id_estatus_disponibilidad", 5) as any;
+          (props || []).forEach((p: any) => soldSet.add(p.id));
+        }
       }
 
       const soldOfertas = ofertas.filter((o: any) => o.id_propiedad && soldSet.has(o.id_propiedad));
@@ -379,12 +408,14 @@ export default function InmobAgentes() {
       const personaIds = allAgents.map((a) => a.personaId).filter(Boolean);
       if (!personaIds.length) return new Map<string, number>();
 
-      const { data } = await supabase
-        .from("entidades_relacionadas")
-        .select("id_persona_duena_lead")
-        .in("id_persona_duena_lead", personaIds)
-        .eq("id_tipo_entidad", 7)
-        .eq("activo", true) as any;
+      const data = await fetchAllPaginated<any>(() =>
+        supabase
+          .from("entidades_relacionadas")
+          .select("id_persona_duena_lead")
+          .in("id_persona_duena_lead", personaIds)
+          .eq("id_tipo_entidad", 7)
+          .eq("activo", true)
+      );
 
       const map = new Map<string, number>();
       (data || []).forEach((d: any) => {
