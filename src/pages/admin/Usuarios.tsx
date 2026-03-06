@@ -353,6 +353,7 @@ export default function Usuarios() {
         .map(u => u.id_persona as number);
       
       let inmobByPersona = new Map<number, string>();
+      const inmobiliariaPersonaIds = new Set<number>();
       
       if (personaIdsForLookup.length > 0) {
         // Query for agents (tipo 19)
@@ -456,6 +457,7 @@ export default function Usuarios() {
           (inmobPersonas || []).forEach((e: any) => {
             if (e.id_persona && e.personas) {
               inmobByPersona.set(e.id_persona, e.personas.nombre_comercial || e.personas.nombre_legal || '');
+              inmobiliariaPersonaIds.add(e.id_persona);
             }
           });
         }
@@ -467,7 +469,7 @@ export default function Usuarios() {
           // Check if user with Inmobiliaria role (4) is the main user:
           // 1) rol_id must be 4, 2) email matches persona email, 3) persona is a real inmobiliaria in entidades_relacionadas
           const esUsuarioPrincipal = u.rol_id === ROLE_INMOBILIARIA 
-            ? (u.personas?.email && u.email.toLowerCase() === u.personas.email.toLowerCase() && u.id_persona && inmobByPersona.has(u.id_persona)) === true
+            ? (u.personas?.email && u.email.toLowerCase() === u.personas.email.toLowerCase() && u.id_persona && inmobiliariaPersonaIds.has(u.id_persona)) === true
             : undefined; // Non-Inmobiliaria users don't have this concept
           
           // Get inmobiliaria name: first from persona map, then from email-based lookup for users without persona
