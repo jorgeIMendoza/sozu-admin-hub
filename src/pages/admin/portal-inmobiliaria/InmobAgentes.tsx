@@ -471,17 +471,8 @@ export default function InmobAgentes() {
     const normalizedEmail = (agent.email || "").trim().toLowerCase();
     const emails = new Set<string>();
 
-    if (normalizedEmail) {
-      const { data: byEmail } = await supabase
-        .from("usuarios")
-        .select("email")
-        .ilike("email", normalizedEmail) as any;
-      (byEmail || []).forEach((u: any) => {
-        if (u.email) emails.add(String(u.email).toLowerCase());
-      });
-    }
-
-    if (emails.size === 0 && agent.personaId) {
+    // First try by personaId (most reliable)
+    if (agent.personaId) {
       const { data: byPersona } = await supabase
         .from("usuarios")
         .select("email")
@@ -489,6 +480,22 @@ export default function InmobAgentes() {
       (byPersona || []).forEach((u: any) => {
         if (u.email) emails.add(String(u.email).toLowerCase());
       });
+    }
+
+    // Fallback: try exact email match
+    if (emails.size === 0 && normalizedEmail) {
+      const { data: byEmail } = await supabase
+        .from("usuarios")
+        .select("email")
+        .eq("email", normalizedEmail) as any;
+      (byEmail || []).forEach((u: any) => {
+        if (u.email) emails.add(String(u.email).toLowerCase());
+      });
+    }
+
+    // Last resort: the agent email itself (for sozu extra users that may not resolve via persona)
+    if (emails.size === 0 && normalizedEmail) {
+      emails.add(normalizedEmail);
     }
 
     return [...emails];
