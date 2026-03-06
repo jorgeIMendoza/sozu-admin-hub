@@ -55,18 +55,28 @@ export const PortalInmobiliariaLayout = () => {
         .single();
       const name = data?.nombre_comercial || data?.nombre_legal || "Mi Inmobiliaria";
 
-      // Comisión oficial de la inmobiliaria (entidades_relacionadas tipo 5)
+      // Comisión oficial de la inmobiliaria: buscar el % más frecuente en entidades_relacionadas tipo 5
       let comisionPct: number | null = null;
-      const { data: comisionRow } = await supabase
+      const { data: comisionRows } = await supabase
         .from("entidades_relacionadas")
         .select("porcentaje_comision")
         .eq("id_persona", personaId)
         .eq("id_tipo_entidad", 5)
-        .eq("activo", true)
-        .maybeSingle() as any;
+        .eq("activo", true) as any;
 
-      if (comisionRow?.porcentaje_comision !== null && comisionRow?.porcentaje_comision !== undefined) {
-        comisionPct = Number(comisionRow.porcentaje_comision) || 0;
+      if (comisionRows?.length) {
+        // Use the most frequent non-null value
+        const vals = (comisionRows as any[])
+          .map((r: any) => Number(r.porcentaje_comision))
+          .filter((v: number) => !isNaN(v) && v > 0);
+        if (vals.length > 0) {
+          const freq = new Map<number, number>();
+          vals.forEach((v: number) => freq.set(v, (freq.get(v) || 0) + 1));
+          let best = vals[0];
+          let bestCount = 0;
+          freq.forEach((count, val) => { if (count > bestCount) { best = val; bestCount = count; } });
+          comisionPct = best;
+        }
       }
 
       return { name, comisionPct };

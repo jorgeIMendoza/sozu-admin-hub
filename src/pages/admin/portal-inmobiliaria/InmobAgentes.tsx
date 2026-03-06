@@ -179,6 +179,7 @@ export default function InmobAgentes() {
           telefono: p?.telefono || "",
           clavePaisTelefono: p?.clave_pais_telefono || "",
           activo: u.activo ?? true,
+          isInternal: true, // Mark as non-agent user (internal)
         };
       });
     },
@@ -186,15 +187,24 @@ export default function InmobAgentes() {
     staleTime: 5 * 60_000,
   });
 
+  // Filter out agentes inmobiliarios without an inmobiliaria relationship
+  const filteredBaseAgents = useMemo(() => {
+    // For Sozu, exclude agentes inmobiliarios (from useInmobAgents) that don't have
+    // an inmobiliaria relationship — they are independent agents not from Sozu
+    // useInmobAgents already filters by entidades_relacionadas tipo 19 with id_persona_duena_lead = personaId
+    // so all agents returned are linked to this inmobiliaria — no extra filtering needed
+    return agents;
+  }, [agents]);
+
   const allAgents = useMemo(() => {
     const byEmail = new Map<string, any>();
-    agents.forEach((a) => byEmail.set(a.email.toLowerCase(), a));
+    filteredBaseAgents.forEach((a) => byEmail.set(a.email.toLowerCase(), a));
     sozuExtraUsers.forEach((u: any) => {
       const key = (u.email || "").toLowerCase();
       if (!byEmail.has(key)) byEmail.set(key, u);
     });
     return [...byEmail.values()];
-  }, [agents, sozuExtraUsers]);
+  }, [filteredBaseAgents, sozuExtraUsers]);
 
   const agentEmails = useMemo(() => allAgents.map((a) => a.email), [allAgents]);
 
@@ -379,57 +389,73 @@ export default function InmobAgentes() {
   };
 
   const handleDeactivate = async (agent: any) => {
-    const { data, error } = await supabase
-      .from("usuarios")
-      .update({ activo: false })
-      .eq("id_persona", agent.personaId)
-      .select("email, activo") as any;
+    try {
+      const { data, error } = await supabase
+        .from("usuarios")
+        .update({ activo: false })
+        .eq("email", agent.email)
+        .select("email, activo") as any;
 
-    if (error || !data?.length) {
-      toast.error("Error al desactivar agente");
-    } else {
+      if (error) throw error;
+      if (!data?.length) throw new Error("No se encontró el usuario");
+      
       toast.success("Agente desactivado. Ya no tendrá acceso al sistema.");
       queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
       queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
+    } catch (err: any) {
+      toast.error("Error al desactivar agente: " + (err.message || "Intenta de nuevo"));
     }
   };
 
   const handleReactivate = async (agent: any) => {
-    const { data, error } = await supabase
-      .from("usuarios")
-      .update({ activo: true })
-      .eq("id_persona", agent.personaId)
-      .select("email, activo") as any;
-
-    if (error || !data?.length) {
-      toast.error("Error al reactivar agente");
-      return;
-    }
-
     try {
-      const { error: resetError } = await supabase.functions.invoke("reset-user-password", {
-        body: { email: agent.email },
-      });
-      if (resetError) throw resetError;
-      toast.success("Agente reactivado. Contraseña reseteada a Temporal123!");
-    } catch (err: any) {
-      toast.error("Agente reactivado, pero falló el reseteo: " + (err?.message || "Intenta de nuevo"));
-    }
+      const { data, error } = await supabase
+        .from("usuarios")
+        .update({ activo: true })
+        .eq("email", agent.email)
+        .select("email, activo") as any;
 
-    queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
-    queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
+      if (error) throw error;
+      if (!data?.length) throw new Error("No se encontró el usuario");
+
+      try {
+        const { data: resetData, error: resetError } = await supabase.functions.invoke("reset-user-password", {
+          body: { email: agent.email },
+        });
+        if (resetError) throw resetError;
+        // Check if response body has error
+        if (resetData?.error) {
+          toast.success("Agente reactivado.");
+          toast.warning("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
+        } else {
+          toast.success("Agente reactivado. Contraseña reseteada a Temporal123!");
+        }
+      } catch (err: any) {
+        toast.success("Agente reactivado.");
+        toast.warning("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
+      queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
+    } catch (err: any) {
+      toast.error("Error al reactivar agente: " + (err.message || "Intenta de nuevo"));
+    }
   };
 
   const handleResetPassword = async (agent: any) => {
     try {
-      const { error } = await supabase.functions.invoke("reset-user-password", {
+      const { data: resetData, error } = await supabase.functions.invoke("reset-user-password", {
         body: { email: agent.email },
       });
       if (error) throw error;
+      if (resetData?.error) {
+        toast.error("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
+        return;
+      }
       toast.success("Contraseña reseteada a Temporal123!");
     } catch (err: any) {
       console.error("Reset password error:", err);
-      toast.error("Error al resetear contraseña: " + (err?.message || "Intenta de nuevo"));
+      toast.error("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
     }
   };
 
@@ -630,7 +656,14 @@ function AgentTable({
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{agent.nombre}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm truncate">{agent.nombre}</p>
+                              {agent.isInternal && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 border-amber-500/50 text-amber-700 dark:text-amber-400">
+                                  Usuario interno
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground truncate">{agent.email}</p>
                             <PhoneDisplay telefono={agent.telefono} clavePaisTelefono={agent.clavePaisTelefono} className="text-xs" />
                           </div>

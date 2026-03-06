@@ -122,7 +122,7 @@ function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteI
             <>
               <strong>Acceso a proyectos públicos</strong>
               <p className="mt-1 text-sm">
-                Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu que seleccionó.
+                Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu.
               </p>
             </>
           )}
@@ -598,7 +598,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
               </Button>
             </div>
           </div>
-        ) : isAgente || isSecondaryInmobiliaria ? (
+        ) : isSecondaryInmobiliaria ? (
           <AgentReadOnlyAccess
             userPersonaId={userPersonaId}
             isSecondaryInmobiliaria={isSecondaryInmobiliaria}
@@ -607,6 +607,17 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
             proyectos={proyectos}
             selectedProjects={selectedProjects}
             onClose={() => setOpen(false)}
+          />
+        ) : isAgente ? (
+          <AgentProjectAccessEditable
+            userEmail={userEmail}
+            userPersonaId={userPersonaId}
+            isAgenteInterno={isAgenteInterno}
+            proyectos={proyectos}
+            selectedProjects={selectedProjects}
+            setSelectedProjects={setSelectedProjects}
+            onClose={() => setOpen(false)}
+            queryClient={queryClient}
           />
         ) : (
           <div className="space-y-4">
