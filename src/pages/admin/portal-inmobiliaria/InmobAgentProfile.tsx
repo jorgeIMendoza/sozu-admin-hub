@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 import {
   ArrowLeft, Users, FileText, Home, ShoppingCart, DollarSign, TrendingUp, Mail, Calendar,
 } from "lucide-react";
@@ -24,6 +23,27 @@ const fmtShort = (v: number) => {
 
 const NAV_PREFIX = "/admin/portal-inmobiliaria";
 
+function isVigente(fechaGeneracion: string): boolean {
+  const expira = new Date(fechaGeneracion);
+  expira.setDate(expira.getDate() + 5);
+  return expira >= new Date();
+}
+
+function classifyOffer(o: any): string {
+  if (o.estatus_disponibilidad === 5) return "cierre";
+  if (o.tiene_contrato_firmado) return "firma_contrato";
+  if (o.contrato_draft) return "gen_contrato";
+  if (o.cuenta_cobranza_id && o.estatus_disponibilidad === 4) return "apartado";
+  const vigente = isVigente(o.fecha_generacion);
+  if (!vigente && !o.cuenta_cobranza_id) return "expiradas";
+  if (!o.id_esquema_pago_seleccionado) return vigente ? "nuevas" : "expiradas";
+  if (o.id_estatus_aprobacion === 1) return vigente ? "pendientes" : "expiradas";
+  if (o.id_estatus_aprobacion === 2) return "aprobadas";
+  if (o.id_estatus_aprobacion === 3) return vigente ? "rechazadas" : "expiradas";
+  if (o.id_estatus_aprobacion === 4) return vigente ? "revision" : "expiradas";
+  return "nuevas";
+}
+
 export default function InmobAgentProfile() {
   const { email } = useParams<{ email: string }>();
   const navigate = useNavigate();
@@ -32,23 +52,32 @@ export default function InmobAgentProfile() {
 
   const agent = useMemo(() => agents.find(a => a.email === decodedEmail), [agents, decodedEmail]);
 
-  // Ofertas for this agent
+  // ALL ofertas for this agent (no date filter)
   const { data: ofertas = [], isLoading: ofertasLoading } = useQuery({
     queryKey: ["agent-profile-ofertas", decodedEmail],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("ofertas")
-        .select("id, fecha_generacion, id_estatus_aprobacion, id_propiedad, id_producto")
-        .eq("email_creador", decodedEmail)
-        .eq("activo", true)
-        .order("fecha_generacion", { ascending: false }) as any;
-      return data || [];
+      const all: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data } = await (supabase as any)
+          .from("ofertas")
+          .select("id, fecha_generacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, id_propiedad, id_producto, id_persona_lead")
+          .eq("email_creador", decodedEmail)
+          .eq("activo", true)
+          .order("fecha_generacion", { ascending: false })
+          .range(from, from + 999);
+        if (!data?.length) break;
+        all.push(...data);
+        if (data.length < 1000) break;
+        from += 1000;
+      }
+      return all;
     },
     enabled: !!decodedEmail,
     staleTime: 3 * 60_000,
   });
 
-  // Properties for sold status
+  // Properties for status
   const propIds = useMemo(() => [...new Set(ofertas.map((o: any) => o.id_propiedad).filter(Boolean))] as number[], [ofertas]);
   const { data: propMap = new Map() } = useQuery({
     queryKey: ["agent-profile-props", propIds],
@@ -56,7 +85,7 @@ export default function InmobAgentProfile() {
       const m = new Map<number, any>();
       for (let i = 0; i < propIds.length; i += 200) {
         const batch = propIds.slice(i, i + 200);
-        const { data } = await supabase.from("propiedades").select("id, id_estatus_disponibilidad, precio_lista, numero_propiedad, edificios_modelos(id, edificios(nombre))").in("id", batch) as any;
+        const { data } = await supabase.from("propiedades").select("id, id_estatus_disponibilidad, precio_lista, numero_propiedad, id_edificio_modelo").in("id", batch) as any;
         (data || []).forEach((p: any) => m.set(p.id, p));
       }
       return m;
@@ -65,7 +94,7 @@ export default function InmobAgentProfile() {
     staleTime: 3 * 60_000,
   });
 
-  // Cuentas for ingreso
+  // Cuentas de cobranza for this agent's offers
   const ofertaIds = useMemo(() => ofertas.map((o: any) => o.id), [ofertas]);
   const { data: cuentasMap = new Map() } = useQuery({
     queryKey: ["agent-profile-cuentas", ofertaIds],
@@ -73,7 +102,7 @@ export default function InmobAgentProfile() {
       const m = new Map<number, any>();
       for (let i = 0; i < ofertaIds.length; i += 200) {
         const batch = ofertaIds.slice(i, i + 200);
-        const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, id_propiedad").in("id_oferta", batch).eq("activo", true);
+        const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, id_propiedad, contrato_draft").in("id_oferta", batch).eq("activo", true);
         (data || []).forEach((c: any) => { if (c.id_oferta) m.set(c.id_oferta, c); });
       }
       return m;
@@ -82,26 +111,76 @@ export default function InmobAgentProfile() {
     staleTime: 3 * 60_000,
   });
 
-  // Comisiones for this agent
+  // Check signed contracts
   const cuentaIds = useMemo(() => [...cuentasMap.values()].map((c: any) => c.id), [cuentasMap]);
-  const { data: comisiones = [] } = useQuery({
-    queryKey: ["agent-profile-comisiones", decodedEmail, cuentaIds],
+  const { data: firmadoSet = new Set<number>() } = useQuery({
+    queryKey: ["agent-profile-firmados", cuentaIds],
     queryFn: async () => {
-      if (!cuentaIds.length) return [];
-      const all: any[] = [];
+      const s = new Set<number>();
+      if (!cuentaIds.length) return s;
       for (let i = 0; i < cuentaIds.length; i += 200) {
         const batch = cuentaIds.slice(i, i + 200);
         const { data } = await (supabase as any)
+          .from("documentos")
+          .select("id_cuenta_cobranza")
+          .in("id_cuenta_cobranza", batch)
+          .eq("id_tipo_documento", 42)
+          .eq("activo", true);
+        (data || []).forEach((d: any) => s.add(d.id_cuenta_cobranza));
+      }
+      return s;
+    },
+    enabled: cuentaIds.length > 0,
+    staleTime: 3 * 60_000,
+  });
+
+  // Comisiones: ALL comisionistas entries for this agent email (not limited to their own offers)
+  const { data: comisiones = [] } = useQuery({
+    queryKey: ["agent-profile-comisiones-all", decodedEmail],
+    queryFn: async () => {
+      const all: any[] = [];
+      let from = 0;
+      while (true) {
+        const { data } = await (supabase as any)
           .from("comisionistas")
           .select("id_cuenta_cobranza, email_usuario, porcentaje_comision, pagada, aprobada")
-          .in("id_cuenta_cobranza", batch)
           .eq("email_usuario", decodedEmail)
-          .eq("activo", true);
-        if (data) all.push(...data);
+          .eq("activo", true)
+          .range(from, from + 999);
+        if (!data?.length) break;
+        all.push(...data);
+        if (data.length < 1000) break;
+        from += 1000;
       }
       return all;
     },
-    enabled: cuentaIds.length > 0,
+    enabled: !!decodedEmail,
+    staleTime: 3 * 60_000,
+  });
+
+  // Fetch precio_final for all comision cuentas (may include cuentas not from this agent's offers)
+  const comisionCuentaIds = useMemo(() => {
+    const ids = new Set<number>();
+    comisiones.forEach((c: any) => ids.add(c.id_cuenta_cobranza));
+    return [...ids];
+  }, [comisiones]);
+
+  const { data: comisionCuentasMap = new Map() } = useQuery({
+    queryKey: ["agent-profile-comision-cuentas", comisionCuentaIds],
+    queryFn: async () => {
+      const m = new Map<number, number>();
+      for (let i = 0; i < comisionCuentaIds.length; i += 200) {
+        const batch = comisionCuentaIds.slice(i, i + 200);
+        const { data } = await (supabase as any)
+          .from("cuentas_cobranza")
+          .select("id, precio_final")
+          .in("id", batch)
+          .eq("activo", true);
+        (data || []).forEach((c: any) => m.set(c.id, Number(c.precio_final) || 0));
+      }
+      return m;
+    },
+    enabled: comisionCuentaIds.length > 0,
     staleTime: 3 * 60_000,
   });
 
@@ -140,82 +219,145 @@ export default function InmobAgentProfile() {
     staleTime: 3 * 60_000,
   });
 
-  // Proyectos for property names
-  const { data: proyectosMap = new Map() } = useQuery({
-    queryKey: ["agent-profile-proyectos", propIds],
+  // Resolve project names for pipeline cards
+  const edModeloIds = useMemo(() => [...new Set([...propMap.values()].map((p: any) => p.id_edificio_modelo).filter(Boolean))] as number[], [propMap]);
+  const { data: propToProject = new Map<number, string>() } = useQuery({
+    queryKey: ["agent-profile-prop-projects", edModeloIds],
     queryFn: async () => {
       const m = new Map<number, string>();
-      const edifIds = [...new Set([...propMap.values()].map(p => p.edificios_modelos?.edificios?.nombre).filter(Boolean))];
-      return m; // We use prop data directly
+      if (!edModeloIds.length) return m;
+      const { data: ems } = await (supabase as any).from("edificios_modelos").select("id, id_edificio").in("id", edModeloIds);
+      const edIds = [...new Set((ems || []).map((e: any) => e.id_edificio).filter(Boolean))];
+      if (!edIds.length) return m;
+      const { data: eds } = await (supabase as any).from("edificios").select("id, id_proyecto, nombre").in("id", edIds);
+      const projIds = [...new Set((eds || []).map((e: any) => e.id_proyecto).filter(Boolean))];
+      if (!projIds.length) return m;
+      const { data: projs } = await (supabase as any).from("proyectos").select("id, nombre").in("id", projIds);
+      const projMap = new Map((projs || []).map((p: any) => [p.id, p.nombre]));
+      const edToPj = new Map((eds || []).map((e: any) => [e.id, e.id_proyecto]));
+      const emToEd = new Map((ems || []).map((em: any) => [em.id, em.id_edificio]));
+      const edNameMap = new Map((eds || []).map((e: any) => [e.id, e.nombre]));
+      for (const [propId, prop] of propMap.entries()) {
+        const edId = emToEd.get(prop.id_edificio_modelo);
+        const pjId = edId ? edToPj.get(edId) : null;
+        const name = pjId ? projMap.get(pjId) : null;
+        if (name) m.set(propId, name);
+      }
+      return m;
     },
-    enabled: false,
+    enabled: edModeloIds.length > 0,
+    staleTime: 5 * 60_000,
   });
 
-  // KPI computations
-  const soldOfferIds = useMemo(() => ofertas.filter((o: any) => propMap.get(o.id_propiedad)?.id_estatus_disponibilidad === 5).map((o: any) => o.id), [ofertas, propMap]);
-  const apartadoCount = useMemo(() => ofertas.filter((o: any) => {
-    const s = propMap.get(o.id_propiedad)?.id_estatus_disponibilidad;
-    return s === 4 || s === 5;
-  }).length, [ofertas, propMap]);
-  const ventasCerradas = soldOfferIds.length;
-  const ingreso = useMemo(() => soldOfferIds.reduce((s, id) => s + (Number(cuentasMap.get(id)?.precio_final) || 0), 0), [soldOfferIds, cuentasMap]);
-  const comisionAcumulada = useMemo(() => {
-    return comisiones.reduce((s: number, c: any) => {
-      const cuenta = [...cuentasMap.values()].find((cc: any) => cc.id === c.id_cuenta_cobranza);
-      return s + ((Number(cuenta?.precio_final) || 0) * (Number(c.porcentaje_comision) || 0) / 100);
-    }, 0);
-  }, [comisiones, cuentasMap]);
+  // Classify all offers
+  const classifiedOffers = useMemo(() => {
+    return ofertas.map((o: any) => {
+      const prop = propMap.get(o.id_propiedad);
+      const cuenta = cuentasMap.get(o.id);
+      const enriched = {
+        ...o,
+        estatus_disponibilidad: prop?.id_estatus_disponibilidad,
+        cuenta_cobranza_id: cuenta?.id,
+        contrato_draft: cuenta?.contrato_draft,
+        tiene_contrato_firmado: cuenta ? firmadoSet.has(cuenta.id) : false,
+      };
+      return { ...enriched, stage: classifyOffer(enriched) };
+    });
+  }, [ofertas, propMap, cuentasMap, firmadoSet]);
 
-  // Conversion rate
+  // KPIs
+  // Apartadas: cuentas from this agent's offers where property is apartado(4) or beyond (5)
+  const apartadoCount = useMemo(() => {
+    const seen = new Set<number>();
+    return classifiedOffers.filter((o: any) => {
+      const cuenta = cuentasMap.get(o.id);
+      if (!cuenta) return false;
+      if (seen.has(cuenta.id)) return false;
+      seen.add(cuenta.id);
+      const s = o.estatus_disponibilidad;
+      return s === 4 || s === 5;
+    }).length;
+  }, [classifiedOffers, cuentasMap]);
+
+  // Ventas cerradas: unique cuentas where property status = 5
+  const ventasCerradas = useMemo(() => {
+    const seen = new Set<number>();
+    return classifiedOffers.filter((o: any) => {
+      const cuenta = cuentasMap.get(o.id);
+      if (!cuenta) return false;
+      if (seen.has(cuenta.id)) return false;
+      seen.add(cuenta.id);
+      return o.estatus_disponibilidad === 5;
+    }).length;
+  }, [classifiedOffers, cuentasMap]);
+
+  // Ingreso: sum of precio_final from sold cuentas (unique)
+  const ingreso = useMemo(() => {
+    const seen = new Set<number>();
+    let total = 0;
+    classifiedOffers.forEach((o: any) => {
+      if (o.estatus_disponibilidad !== 5) return;
+      const cuenta = cuentasMap.get(o.id);
+      if (!cuenta || seen.has(cuenta.id)) return;
+      seen.add(cuenta.id);
+      total += Number(cuenta.precio_final) || 0;
+    });
+    return total;
+  }, [classifiedOffers, cuentasMap]);
+
+  // Comisión acumulada: from ALL comisionistas for this agent
+  const comisionAcumulada = useMemo(() => {
+    return comisiones.reduce((sum: number, c: any) => {
+      const precioFinal = comisionCuentasMap.get(c.id_cuenta_cobranza) || 0;
+      return sum + (precioFinal * (Number(c.porcentaje_comision) || 0) / 100);
+    }, 0);
+  }, [comisiones, comisionCuentasMap]);
+
   const conversionRate = ofertas.length > 0 ? ((ventasCerradas / ofertas.length) * 100).toFixed(1) : "0.0";
 
-  // Pipeline activo: ofertas con cuenta en estatus 4 (apartado) que aún no son vendidas
+  // Pipeline activo: offers in active negotiation stages (not expired, not cierre)
+  const ACTIVE_STAGES = new Set(["nuevas", "pendientes", "aprobadas", "rechazadas", "revision", "apartado", "gen_contrato", "firma_contrato"]);
   const pipelineActivo = useMemo(() => {
-    return ofertas
-      .filter((o: any) => {
-        const p = propMap.get(o.id_propiedad);
-        const cuenta = cuentasMap.get(o.id);
-        if (!cuenta || !p) return false;
-        return p.id_estatus_disponibilidad === 4 || p.id_estatus_disponibilidad === 5;
-      })
+    return classifiedOffers
+      .filter((o: any) => ACTIVE_STAGES.has(o.stage))
       .map((o: any) => {
-        const p = propMap.get(o.id_propiedad);
+        const prop = propMap.get(o.id_propiedad);
         const cuenta = cuentasMap.get(o.id);
-        const edificioNombre = p?.edificios_modelos?.edificios?.nombre || "";
-        const numProp = p?.numero_propiedad || "";
-        const isSold = p?.id_estatus_disponibilidad === 5;
-        const stageLabel = isSold ? "Cierre de Venta" :
-          o.id_estatus_aprobacion === 2 ? "Aprobación desarrollador" : "Apartado";
+        const projName = propToProject.get(o.id_propiedad) || "";
+        const numProp = prop?.numero_propiedad || "";
+        const stageLabel = o.stage === "apartado" ? "Apartado"
+          : o.stage === "firma_contrato" ? "Firma"
+          : o.stage === "gen_contrato" ? "Contrato"
+          : o.stage === "aprobadas" ? "Aprobada"
+          : o.stage === "pendientes" ? "Pendiente"
+          : o.stage === "nuevas" ? "Nueva"
+          : o.stage === "revision" ? "Revisión"
+          : o.stage === "rechazadas" ? "Rechazada"
+          : o.stage;
         return {
           id: o.id,
-          nombre: `${edificioNombre}${numProp ? ` · ${numProp}` : ""}`.trim() || `Oferta ${o.id}`,
-          proyecto: edificioNombre || "—",
+          nombre: projName ? `${projName} · ${numProp}` : numProp || `Oferta ${o.id}`,
           stage: stageLabel,
-          precio: Number(cuenta?.precio_final) || 0,
+          precio: Number(cuenta?.precio_final || prop?.precio_lista) || 0,
         };
       })
-      .slice(0, 10);
-  }, [ofertas, propMap, cuentasMap]);
+      .slice(0, 15);
+  }, [classifiedOffers, propMap, cuentasMap, propToProject]);
 
-  // Comisiones enriched
+  // Comisiones enriched for display
   const comisionesEnriched = useMemo(() => {
     return comisiones.map((c: any) => {
-      const cuenta = [...cuentasMap.values()].find((cc: any) => cc.id === c.id_cuenta_cobranza);
-      const ofertaId = cuenta ? [...cuentasMap.entries()].find(([_, v]) => v.id === c.id_cuenta_cobranza)?.[0] : null;
-      const oferta = ofertaId ? ofertas.find((o: any) => o.id === ofertaId) : null;
-      const prop = oferta ? propMap.get(oferta.id_propiedad) : null;
-      const edificioNombre = prop?.edificios_modelos?.edificios?.nombre || "";
-      const numProp = prop?.numero_propiedad || "";
-      const monto = (Number(cuenta?.precio_final) || 0) * (Number(c.porcentaje_comision) || 0) / 100;
+      const precioFinal = comisionCuentasMap.get(c.id_cuenta_cobranza) || 0;
+      const monto = precioFinal * (Number(c.porcentaje_comision) || 0) / 100;
       const statusLabel = c.pagada ? "Pagada" : c.aprobada ? "Aprobada" : "Pendiente";
       return {
         id: c.id_cuenta_cobranza,
-        nombre: `${edificioNombre}${numProp ? ` · ${numProp}` : ""}`.trim() || "—",
+        nombre: `CC-${String(c.id_cuenta_cobranza).padStart(6, "0")}`,
         monto,
         status: statusLabel,
       };
     }).slice(0, 10);
-  }, [comisiones, cuentasMap, ofertas, propMap]);
+  }, [comisiones, comisionCuentasMap]);
 
   const getInitials = (name: string) => name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
@@ -303,7 +445,6 @@ export default function InmobAgentProfile() {
                 <div key={item.id} className="flex items-center justify-between py-2">
                   <div>
                     <p className="text-sm font-medium">{item.nombre}</p>
-                    <p className="text-xs text-muted-foreground">{item.proyecto}</p>
                   </div>
                   <div className="flex items-center gap-3 text-right">
                     <Badge variant="outline" className="text-xs">{item.stage}</Badge>
@@ -318,7 +459,6 @@ export default function InmobAgentProfile() {
 
       {/* Comisiones + Citas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Comisiones */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Comisiones</CardTitle>
@@ -328,8 +468,8 @@ export default function InmobAgentProfile() {
               <p className="text-muted-foreground text-sm py-4 text-center">Sin comisiones</p>
             ) : (
               <div className="space-y-3">
-                {comisionesEnriched.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-2">
+                {comisionesEnriched.map((c, idx) => (
+                  <div key={`${c.id}-${idx}`} className="flex items-center justify-between py-2">
                     <div>
                       <p className="text-sm font-semibold">{c.nombre}</p>
                     </div>
@@ -349,7 +489,6 @@ export default function InmobAgentProfile() {
           </CardContent>
         </Card>
 
-        {/* Citas recientes */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Citas recientes</CardTitle>
