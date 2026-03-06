@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Combobox } from "@/components/ui/combobox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -16,6 +17,9 @@ import { useAuth } from "@/contexts/AuthContext";
 const ROLE_ADMINISTRADOR_PROYECTO = 2;
 const ROLE_AGENTE_INMOBILIARIO = 3;
 const ROLE_INMOBILIARIA = 4;
+
+// Roles that require an inmobiliaria selector
+const ROLES_CON_INMOBILIARIA = [ROLE_AGENTE_INMOBILIARIO, ROLE_INMOBILIARIA];
 
 // Roles that Administrador de Proyecto can assign
 const ROLES_ADMINISTRADOR_PROYECTO_PUEDE_ASIGNAR = [ROLE_AGENTE_INMOBILIARIO, ROLE_INMOBILIARIA];
@@ -33,6 +37,12 @@ type Role = {
   nombre: string;
 };
 
+type InmobiliariaOption = {
+  value: string; // entidad_relacionada.id
+  label: string;
+  idPersona: number;
+};
+
 export function ChangeUserRoleDialog({ 
   open, 
   onOpenChange, 
@@ -41,12 +51,15 @@ export function ChangeUserRoleDialog({
   currentRoleId 
 }: ChangeUserRoleDialogProps) {
   const [selectedRoleId, setSelectedRoleId] = useState<string>(currentRoleId?.toString() || "");
+  const [selectedInmobiliariaId, setSelectedInmobiliariaId] = useState<string>("");
   const queryClient = useQueryClient();
   const { registrarActualizacion } = useActivityLogger();
   const { profile } = useAuth();
 
   // Check if current user is Administrador de Proyecto
   const isAdministradorProyecto = profile?.rol_id === ROLE_ADMINISTRADOR_PROYECTO;
+
+  const requiresInmobiliaria = ROLES_CON_INMOBILIARIA.includes(parseInt(selectedRoleId));
 
   // Fetch roles (only internal roles)
   const { data: roles = [] } = useQuery({
@@ -64,6 +77,77 @@ export function ChangeUserRoleDialog({
     },
   });
 
+  // Fetch inmobiliarias activas
+  const { data: inmobiliariaOptions = [] } = useQuery({
+    queryKey: ['inmobiliarias-for-role-change'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('entidades_relacionadas')
+        .select('id, id_persona, personas!entidades_relacionadas_id_persona_fkey(nombre_comercial, nombre_legal)')
+        .eq('id_tipo_entidad', 5)
+        .eq('activo', true)
+        .order('id');
+      
+      if (error) throw error;
+      return (data || []).map((e: any) => ({
+        value: e.id.toString(),
+        label: e.personas?.nombre_comercial || e.personas?.nombre_legal || `Inmobiliaria #${e.id}`,
+        idPersona: e.id_persona,
+      })) as InmobiliariaOption[];
+    },
+    enabled: open,
+  });
+
+  // Fetch current user's inmobiliaria association to pre-select
+  const { data: currentInmobiliaria } = useQuery({
+    queryKey: ['user-current-inmobiliaria', userEmail],
+    queryFn: async () => {
+      // Get user's id_persona
+      const { data: usuario } = await (supabase as any)
+        .from('usuarios')
+        .select('id_persona')
+        .eq('email', userEmail)
+        .maybeSingle();
+      
+      if (!usuario?.id_persona) return null;
+
+      // Find the entidad_relacionada for this persona with tipo 5
+      const { data: entidad } = await (supabase as any)
+        .from('entidades_relacionadas')
+        .select('id')
+        .eq('id_persona', usuario.id_persona)
+        .eq('id_tipo_entidad', 5)
+        .eq('activo', true)
+        .order('id')
+        .maybeSingle();
+
+      if (entidad) return entidad.id.toString();
+
+      // Fallback: check proyectos_acceso for id_entidad_relacionada_dueno
+      const { data: accesos } = await (supabase as any)
+        .from('proyectos_acceso')
+        .select('id_entidad_relacionada_dueno')
+        .eq('usuario_id', userEmail)
+        .eq('activo', true)
+        .not('id_entidad_relacionada_dueno', 'is', null)
+        .limit(1);
+
+      if (accesos && accesos.length > 0) {
+        return accesos[0].id_entidad_relacionada_dueno.toString();
+      }
+
+      return null;
+    },
+    enabled: open && ROLES_CON_INMOBILIARIA.includes(currentRoleId || 0),
+  });
+
+  // Pre-select inmobiliaria when data loads
+  useEffect(() => {
+    if (currentInmobiliaria && !selectedInmobiliariaId) {
+      setSelectedInmobiliariaId(currentInmobiliaria);
+    }
+  }, [currentInmobiliaria]);
+
   // Filter roles based on current user's role
   const availableRoles = useMemo(() => {
     if (isAdministradorProyecto) {
@@ -74,13 +158,42 @@ export function ChangeUserRoleDialog({
 
   // Update role mutation
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ email, roleId }: { email: string; roleId: number }) => {
+    mutationFn: async ({ email, roleId, inmobiliariaEntidadId }: { email: string; roleId: number; inmobiliariaEntidadId?: string }) => {
+      const updateData: any = { rol_id: roleId };
+
+      // If assigning Inmobiliaria role and an agency was selected, update id_persona
+      if (roleId === ROLE_INMOBILIARIA && inmobiliariaEntidadId) {
+        const selectedInmob = inmobiliariaOptions.find(o => o.value === inmobiliariaEntidadId);
+        if (selectedInmob) {
+          updateData.id_persona = selectedInmob.idPersona;
+        }
+      }
+
       const { error } = await supabase
         .from('usuarios')
-        .update({ rol_id: roleId })
+        .update(updateData)
         .eq('email', email);
       
       if (error) throw error;
+
+      // Sync proyectos_acceso if inmobiliaria was selected
+      if (inmobiliariaEntidadId && ROLES_CON_INMOBILIARIA.includes(roleId)) {
+        // Update existing project access records to point to the new inmobiliaria
+        await (supabase as any)
+          .from('proyectos_acceso')
+          .update({ id_entidad_relacionada_dueno: parseInt(inmobiliariaEntidadId) })
+          .eq('usuario_id', email)
+          .eq('activo', true);
+      }
+
+      // If moving away from Inmobiliaria/Agent role, clear the owner link
+      if (currentRoleId && ROLES_CON_INMOBILIARIA.includes(currentRoleId) && !ROLES_CON_INMOBILIARIA.includes(roleId)) {
+        await (supabase as any)
+          .from('proyectos_acceso')
+          .update({ id_entidad_relacionada_dueno: null })
+          .eq('usuario_id', email)
+          .eq('activo', true);
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
@@ -106,15 +219,28 @@ export function ChangeUserRoleDialog({
       toast.error("Debes seleccionar un rol");
       return;
     }
-    updateRoleMutation.mutate({ email: userEmail, roleId: parseInt(selectedRoleId) });
+    if (requiresInmobiliaria && !selectedInmobiliariaId) {
+      toast.error("Debes seleccionar una inmobiliaria");
+      return;
+    }
+    updateRoleMutation.mutate({ 
+      email: userEmail, 
+      roleId: parseInt(selectedRoleId),
+      inmobiliariaEntidadId: requiresInmobiliaria ? selectedInmobiliariaId : undefined
+    });
   };
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setSelectedRoleId(currentRoleId?.toString() || "");
+      setSelectedInmobiliariaId("");
     }
     onOpenChange(newOpen);
   };
+
+  const canSave = selectedRoleId 
+    && (selectedRoleId !== currentRoleId?.toString() || (requiresInmobiliaria && selectedInmobiliariaId))
+    && (!requiresInmobiliaria || selectedInmobiliariaId);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -177,6 +303,20 @@ export function ChangeUserRoleDialog({
               </PopoverContent>
             </Popover>
           </div>
+
+          {requiresInmobiliaria && (
+            <div className="space-y-2">
+              <Label>Inmobiliaria</Label>
+              <Combobox
+                value={selectedInmobiliariaId}
+                onValueChange={setSelectedInmobiliariaId}
+                options={inmobiliariaOptions.map(o => ({ value: o.value, label: o.label }))}
+                placeholder="Selecciona una inmobiliaria"
+                searchPlaceholder="Buscar inmobiliaria..."
+                emptyText="No se encontró la inmobiliaria."
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -189,7 +329,7 @@ export function ChangeUserRoleDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={updateRoleMutation.isPending || !selectedRoleId || selectedRoleId === currentRoleId?.toString()}
+            disabled={updateRoleMutation.isPending || !canSave}
           >
             {updateRoleMutation.isPending ? "Guardando..." : "Guardar cambios"}
           </Button>
