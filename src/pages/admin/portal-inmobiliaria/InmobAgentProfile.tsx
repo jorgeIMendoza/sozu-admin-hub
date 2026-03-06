@@ -170,6 +170,29 @@ export default function InmobAgentProfile() {
     staleTime: 3 * 60_000,
   });
 
+  // Check signed contracts
+  const cuentaIds = useMemo(() => [...cuentasMap.values()].map((c: any) => c.id), [cuentasMap]);
+  const { data: firmadoSet = new Set<number>() } = useQuery({
+    queryKey: ["agent-profile-firmados", cuentaIds],
+    queryFn: async () => {
+      const s = new Set<number>();
+      if (!cuentaIds.length) return s;
+      for (let i = 0; i < cuentaIds.length; i += 200) {
+        const batch = cuentaIds.slice(i, i + 200);
+        const { data } = await (supabase as any)
+          .from("documentos")
+          .select("id_cuenta_cobranza")
+          .in("id_cuenta_cobranza", batch)
+          .eq("id_tipo_documento", 42)
+          .eq("activo", true);
+        (data || []).forEach((d: any) => s.add(d.id_cuenta_cobranza));
+      }
+      return s;
+    },
+    enabled: cuentaIds.length > 0,
+    staleTime: 3 * 60_000,
+  });
+
   const agentCuentaIds = useMemo(() => {
     const ids = new Set<number>();
     ofertas.forEach((o: any) => {
@@ -189,7 +212,7 @@ export default function InmobAgentProfile() {
         const batch = agentCuentaIds.slice(i, i + 200);
         const { data } = await (supabase as any)
           .from("comisionistas")
-          .select("id_cuenta_cobranza, email_usuario, porcentaje_comision")
+          .select("id_cuenta_cobranza, email_usuario, porcentaje_comision, pagada, aprobada")
           .in("id_cuenta_cobranza", batch)
           .eq("activo", true);
         if (data) all.push(...data);
