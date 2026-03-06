@@ -6,6 +6,7 @@ import { useInmobAgents } from "@/hooks/useInmobAgents";
 import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
