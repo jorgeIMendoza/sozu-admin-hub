@@ -139,7 +139,7 @@ export default function InmobAgentProfile() {
       const m = new Map<number, any>();
       for (let i = 0; i < ofertaIds.length; i += 200) {
         const batch = ofertaIds.slice(i, i + 200);
-        const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, id_propiedad, contrato_draft").in("id_oferta", batch).eq("activo", true);
+        const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, id_propiedad, contrato_draft, porcentaje_comision_venta, iva_incluido").in("id_oferta", batch).eq("activo", true);
         (data || []).forEach((c: any) => { if (c.id_oferta) m.set(c.id_oferta, c); });
       }
       return m;
