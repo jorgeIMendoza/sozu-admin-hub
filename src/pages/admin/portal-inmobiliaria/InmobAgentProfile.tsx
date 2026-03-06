@@ -422,18 +422,25 @@ export default function InmobAgentProfile() {
 
   // Comisiones enriched for display
   const comisionesEnriched = useMemo(() => {
+    const cuentaById = new Map<number, any>();
+    cuentasMap.forEach((c: any) => {
+      if (c?.id) cuentaById.set(Number(c.id), c);
+    });
+
     return comisiones.map((c: any) => {
-      const precioFinal = comisionCuentasMap.get(c.id_cuenta_cobranza) || 0;
+      const cuentaId = Number(c.id_cuenta_cobranza);
+      const cuenta = cuentaById.get(cuentaId);
+      const precioFinal = Number(cuenta?.precio_final) || 0;
       const monto = precioFinal * (Number(c.porcentaje_comision) || 0) / 100;
       const statusLabel = c.pagada ? "Pagada" : c.aprobada ? "Aprobada" : "Pendiente";
       return {
-        id: c.id_cuenta_cobranza,
-        nombre: `CC-${String(c.id_cuenta_cobranza).padStart(6, "0")}`,
+        id: cuentaId,
+        nombre: `CC-${String(cuentaId).padStart(6, "0")}`,
         monto,
         status: statusLabel,
       };
     }).slice(0, 10);
-  }, [comisiones, comisionCuentasMap]);
+  }, [comisiones, cuentasMap]);
 
   const getInitials = (name: string) => name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
