@@ -302,7 +302,7 @@ export default function InmobAgentProfile() {
     staleTime: 5 * 60_000,
   });
 
-  // Classify all offers
+  // Classify all offers (same logic as dashboard)
   const classifiedOffers = useMemo(() => {
     return ofertas.map((o: any) => {
       const prop = propMap.get(o.id_propiedad);
@@ -318,61 +318,83 @@ export default function InmobAgentProfile() {
     });
   }, [ofertas, propMap, cuentasMap, firmadoSet]);
 
-  // KPIs
-  // Apartadas: cuentas from this agent's offers where property is apartado(4) or beyond (5)
-  const apartadoCount = useMemo(() => {
-    const seen = new Set<number>();
-    return classifiedOffers.filter((o: any) => {
-      const cuenta = cuentasMap.get(o.id);
-      if (!cuenta) return false;
-      if (seen.has(cuenta.id)) return false;
-      seen.add(cuenta.id);
-      const s = o.estatus_disponibilidad;
-      return s === 4 || s === 5;
-    }).length;
+  // Dedup advanced offers (same as dashboard: dedup cierre by property key, require cuenta)
+  const dedupedAdvancedOfertas = useMemo(() => {
+    const advanced = classifiedOffers.filter((o: any) => ADVANCED_STAGES.has(o.stage));
+    const cierre = advanced.filter((o: any) => o.stage === "cierre");
+    const nonCierre = advanced.filter((o: any) => o.stage !== "cierre");
+    const seen = new Set<string>();
+    const dedupedCierre = cierre
+      .filter((o: any) => cuentasMap.has(o.id))
+      .filter((o: any) => {
+        const key = o.id_producto
+          ? `prod-${o.id_producto}-${o.id_propiedad || "none"}`
+          : `prop-${o.id_propiedad}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    return [...nonCierre, ...dedupedCierre];
   }, [classifiedOffers, cuentasMap]);
 
-  // Ventas cerradas: unique cuentas where property status = 5
+  // KPIs — matching dashboard calculations exactly
+  const apartadoCount = useMemo(() => dedupedAdvancedOfertas.length, [dedupedAdvancedOfertas]);
+
   const ventasCerradas = useMemo(() => {
-    const seen = new Set<number>();
-    return classifiedOffers.filter((o: any) => {
-      const cuenta = cuentasMap.get(o.id);
-      if (!cuenta) return false;
-      if (seen.has(cuenta.id)) return false;
-      seen.add(cuenta.id);
-      return o.estatus_disponibilidad === 5;
-    }).length;
-  }, [classifiedOffers, cuentasMap]);
+    return dedupedAdvancedOfertas.filter((o: any) => o.stage === "cierre").length;
+  }, [dedupedAdvancedOfertas]);
 
-  // Ingreso: sum of precio_final from sold cuentas (unique)
+  // Ingreso: sum of precio_final from cierre offers (matching dashboard)
   const ingreso = useMemo(() => {
-    const seen = new Set<number>();
-    let total = 0;
-    classifiedOffers.forEach((o: any) => {
-      if (o.estatus_disponibilidad !== 5) return;
+    return dedupedAdvancedOfertas
+      .filter((o: any) => o.stage === "cierre")
+      .reduce((sum: number, o: any) => {
+        const cuenta = cuentasMap.get(o.id);
+        return sum + (Number(cuenta?.precio_final) || 0);
+      }, 0);
+  }, [dedupedAdvancedOfertas, cuentasMap]);
+
+  // Comisión Inmobiliaria: matching dashboard's comisionByCuentaId logic
+  const comisionInmobiliaria = useMemo(() => {
+    // Get all cuentas for this agent's offers
+    const agentCuentaIds = new Set<number>();
+    ofertas.forEach((o: any) => {
       const cuenta = cuentasMap.get(o.id);
-      if (!cuenta || seen.has(cuenta.id)) return;
-      seen.add(cuenta.id);
-      total += Number(cuenta.precio_final) || 0;
+      if (cuenta?.id) agentCuentaIds.add(Number(cuenta.id));
+    });
+
+    if (isSozu) {
+      // Sozu: commission from porcentaje_comision_venta on the cuenta (with IVA if applicable)
+      let total = 0;
+      agentCuentaIds.forEach((cuentaId) => {
+        const cuenta = [...cuentasMap.values()].find((c: any) => c.id === cuentaId);
+        if (!cuenta) return;
+        const base = (Number(cuenta.precio_final) || 0) * (Number(cuenta.porcentaje_comision_venta) || 0) / 100;
+        total += cuenta.iva_incluido ? base * 1.16 : base;
+      });
+      return total;
+    }
+
+    // Non-Sozu: sum comisionistas.monto_comision filtered by inmob user emails
+    let total = 0;
+    comisiones.forEach((c: any) => {
+      const cuentaId = Number(c.id_cuenta_cobranza);
+      if (!agentCuentaIds.has(cuentaId)) return;
+      const email = (c.email_usuario || "").toLowerCase();
+      if (!inmobUserEmailSet.has(email)) return;
+      const precioFinal = comisionCuentasMap.get(cuentaId) || 0;
+      total += precioFinal * (Number(c.porcentaje_comision) || 0) / 100;
     });
     return total;
-  }, [classifiedOffers, cuentasMap]);
-
-  // Comisión acumulada: from ALL comisionistas for this agent
-  const comisionAcumulada = useMemo(() => {
-    return comisiones.reduce((sum: number, c: any) => {
-      const precioFinal = comisionCuentasMap.get(c.id_cuenta_cobranza) || 0;
-      return sum + (precioFinal * (Number(c.porcentaje_comision) || 0) / 100);
-    }, 0);
-  }, [comisiones, comisionCuentasMap]);
+  }, [ofertas, cuentasMap, isSozu, comisiones, comisionCuentasMap, inmobUserEmailSet]);
 
   const conversionRate = ofertas.length > 0 ? ((ventasCerradas / ofertas.length) * 100).toFixed(1) : "0.0";
 
   // Pipeline activo: offers in active negotiation stages (not expired, not cierre)
-  const ACTIVE_STAGES = new Set(["nuevas", "pendientes", "aprobadas", "rechazadas", "revision", "apartado", "gen_contrato", "firma_contrato"]);
+  const ACTIVE_STAGES_DISPLAY = new Set(["nuevas", "pendientes", "aprobadas", "rechazadas", "revision", "apartado", "gen_contrato", "firma_contrato"]);
   const pipelineActivo = useMemo(() => {
     return classifiedOffers
-      .filter((o: any) => ACTIVE_STAGES.has(o.stage))
+      .filter((o: any) => ACTIVE_STAGES_DISPLAY.has(o.stage))
       .map((o: any) => {
         const prop = propMap.get(o.id_propiedad);
         const cuenta = cuentasMap.get(o.id);
