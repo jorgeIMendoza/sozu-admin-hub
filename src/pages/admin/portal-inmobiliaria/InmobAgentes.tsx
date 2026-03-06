@@ -525,21 +525,20 @@ export default function InmobAgentes() {
 
   const handleReactivate = async (agent: any) => {
     try {
-      const emails = await resolveAgentEmails(agent);
-      if (!emails.length) throw new Error("No se encontró el usuario");
+      // Use email directly from agent object to avoid RLS blocking SELECT on inactive users
+      const directEmail = (agent.email || "").trim().toLowerCase();
+      if (!directEmail) throw new Error("No se encontró el email del agente");
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("usuarios")
         .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
-        .in("email", emails)
-        .select("email, activo") as any;
+        .eq("email", directEmail) as any;
 
       if (error) throw error;
-      if (!data?.length) throw new Error("No se encontró el usuario");
 
       try {
         const { data: resetData, error: resetError } = await supabase.functions.invoke("reset-user-password", {
-          body: { email: emails[0] },
+          body: { email: directEmail },
         });
         if (resetError) throw resetError;
         if (resetData?.error) {
