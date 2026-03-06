@@ -218,6 +218,23 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
     enabled: !!userPersonaId,
   });
 
+  // For independent agents (no inmobiliaria), fetch all public Sozu projects
+  const isIndependent = !inmobLoading && inmobData === null;
+  const { data: publicProjects, isLoading: publicLoading } = useQuery({
+    queryKey: ['public-sozu-projects-for-agent'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proyectos')
+        .select('id, nombre')
+        .eq('activo', true)
+        .eq('publicar', true)
+        .order('nombre') as any;
+      if (error) throw error;
+      return (data || []) as Proyecto[];
+    },
+    enabled: isIndependent,
+  });
+
   const handleToggle = async (projectId: number, enabled: boolean) => {
     setLoading(true);
     try {
@@ -246,7 +263,7 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
     }
   };
 
-  if (inmobLoading) {
+  if (inmobLoading || publicLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -254,6 +271,56 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
     );
   }
 
+  // Independent agent view
+  if (isIndependent) {
+    const projectList = publicProjects || [];
+    return (
+      <div className="space-y-4">
+        <Alert variant="default" className="border-green-500 bg-green-50 dark:bg-green-950/20">
+          <Building2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800 dark:text-green-200">
+            <strong>Agente independiente</strong>
+            <p className="mt-1 text-sm">
+              Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu. Puedes habilitar o deshabilitar proyectos individualmente.
+            </p>
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Proyectos públicos de Sozu:</Label>
+          {projectList.length > 0 ? (
+            <ScrollArea className="h-[250px]">
+              <div className="space-y-2 pr-3">
+                {projectList.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-3">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{p.nombre}</span>
+                    </div>
+                    <Switch
+                      checked={selectedProjects.includes(p.id)}
+                      onCheckedChange={(checked) => handleToggle(p.id, checked)}
+                      disabled={loading}
+                    />
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4">No hay proyectos públicos disponibles</p>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Agent with inmobiliaria view
   return (
     <div className="space-y-4">
       <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
@@ -713,9 +780,14 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
           <p className="text-sm text-muted-foreground">
             {userName} ({userEmail})
           </p>
-          {userRole && (
-            <Badge variant="outline" className="w-fit">{userRole}</Badge>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {userRole && (
+              <Badge variant="outline" className="w-fit">{userRole}</Badge>
+            )}
+            {isAgente && !isLoading && (
+              <AgentInmobiliariaBadge userPersonaId={userPersonaId} />
+            )}
+          </div>
         </DialogHeader>
 
         {isLoading ? (
