@@ -658,36 +658,78 @@ export default function InmobConfiguracion() {
 /* ───── Proyectos Acceso sub-component ───── */
 function InmobProyectosAcceso({ personaId, userEmail }: { personaId: number | null; userEmail?: string }) {
   const queryClient = useQueryClient();
+  const [loadingProject, setLoadingProject] = useState<number | null>(null);
 
+  // Fetch all projects the inmobiliaria currently has access to
   const { data: proyectos = [], isLoading } = useQuery({
     queryKey: ["inmob-config-proyectos", userEmail],
     queryFn: async () => {
       if (!userEmail) return [];
       const { data } = await supabase
         .from("proyectos_acceso")
-        .select("proyecto_id, proyectos(id, nombre)")
+        .select("proyecto_id, activo, proyectos(id, nombre)")
         .eq("usuario_id", userEmail) as any;
       return (data || []).map((d: any) => ({
         id: d.proyectos?.id,
         nombre: d.proyectos?.nombre || `Proyecto ${d.proyecto_id}`,
-        activo: true,
+        activo: d.activo ?? true,
       })).filter((p: any) => p.id);
     },
     enabled: !!userEmail,
   });
 
-  const [disabledProjects, setDisabledProjects] = useState<Set<number>>(new Set());
+  const handleToggle = async (projectId: number, enabled: boolean) => {
+    if (!userEmail) return;
+    setLoadingProject(projectId);
 
-  const handleToggle = (projectId: number, enabled: boolean) => {
-    setDisabledProjects(prev => {
-      const next = new Set(prev);
-      if (enabled) next.delete(projectId);
-      else next.add(projectId);
-      return next;
-    });
-    // Note: This controls which projects agents inherit. 
-    // A full implementation would persist this to a config table.
-    toast.info(enabled ? "Proyecto habilitado para agentes" : "Proyecto deshabilitado para agentes");
+    // Optimistic update
+    const previousData = queryClient.getQueryData(["inmob-config-proyectos", userEmail]);
+    queryClient.setQueryData(["inmob-config-proyectos", userEmail], (old: any[]) =>
+      old?.map((p: any) => p.id === projectId ? { ...p, activo: enabled } : p) ?? []
+    );
+
+    try {
+      if (enabled) {
+        // Re-insert or update to active
+        const { data: existing } = await supabase
+          .from("proyectos_acceso")
+          .select("id")
+          .eq("usuario_id", userEmail)
+          .eq("proyecto_id", projectId)
+          .maybeSingle() as any;
+
+        if (existing) {
+          const { error } = await supabase
+            .from("proyectos_acceso")
+            .update({ activo: true } as any)
+            .eq("usuario_id", userEmail)
+            .eq("proyecto_id", projectId) as any;
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("proyectos_acceso")
+            .insert({ usuario_id: userEmail, proyecto_id: projectId } as any) as any;
+          if (error && !error.message?.includes("duplicate")) throw error;
+        }
+        toast.success("Proyecto habilitado para agentes");
+      } else {
+        // Deactivate - set activo = false so the trigger cascades to agents
+        const { error } = await supabase
+          .from("proyectos_acceso")
+          .update({ activo: false } as any)
+          .eq("usuario_id", userEmail)
+          .eq("proyecto_id", projectId) as any;
+        if (error) throw error;
+        toast.success("Proyecto deshabilitado para agentes");
+      }
+      queryClient.invalidateQueries({ queryKey: ["inmob-config-proyectos", userEmail] });
+    } catch (err: any) {
+      // Rollback
+      queryClient.setQueryData(["inmob-config-proyectos", userEmail], previousData);
+      toast.error("Error: " + (err.message || "Intenta de nuevo"));
+    } finally {
+      setLoadingProject(null);
+    }
   };
 
   if (isLoading) return <p className="text-muted-foreground text-sm py-4">Cargando proyectos...</p>;
@@ -708,7 +750,8 @@ function InmobProyectosAcceso({ personaId, userEmail }: { personaId: number | nu
                 <span className="text-sm font-medium">{p.nombre}</span>
               </div>
               <Switch
-                checked={!disabledProjects.has(p.id)}
+                checked={p.activo}
+                disabled={loadingProject === p.id}
                 onCheckedChange={(checked) => handleToggle(p.id, checked)}
               />
             </div>
