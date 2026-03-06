@@ -155,6 +155,147 @@ function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteI
     </div>
   );
 }
+// Editable project access for agents (Agente Inmobiliario / Agente Interno)
+function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno, proyectos, selectedProjects, setSelectedProjects, onClose, queryClient }: {
+  userEmail: string;
+  userPersonaId?: number;
+  isAgenteInterno: boolean;
+  proyectos?: Proyecto[];
+  selectedProjects: number[];
+  setSelectedProjects: React.Dispatch<React.SetStateAction<number[]>>;
+  onClose: () => void;
+  queryClient: any;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  // Get the inmobiliaria's persona id for this agent
+  const { data: inmobData, isLoading: inmobLoading } = useQuery({
+    queryKey: ['agent-inmob-projects-for-access', userPersonaId],
+    queryFn: async () => {
+      if (!userPersonaId) return null;
+      const { data: rel } = await supabase
+        .from('entidades_relacionadas')
+        .select('id_persona_duena_lead')
+        .eq('id_persona', userPersonaId)
+        .eq('id_tipo_entidad', 19)
+        .eq('activo', true)
+        .maybeSingle() as any;
+      
+      if (!rel?.id_persona_duena_lead) return null;
+      const inmobPersonaId = rel.id_persona_duena_lead;
+      
+      const { data: persona } = await supabase
+        .from('personas')
+        .select('nombre_comercial, nombre_legal')
+        .eq('id', inmobPersonaId)
+        .maybeSingle() as any;
+
+      const { data: inmobUser } = await supabase
+        .from('usuarios')
+        .select('email')
+        .eq('id_persona', inmobPersonaId)
+        .maybeSingle() as any;
+
+      if (!inmobUser?.email) return null;
+
+      const { data: inmobAccess } = await supabase
+        .from('proyectos_acceso')
+        .select('proyecto_id, proyectos(id, nombre)')
+        .eq('usuario_id', inmobUser.email)
+        .eq('activo', true) as any;
+
+      const inmobProjects = (inmobAccess || []).map((d: any) => ({
+        id: d.proyectos?.id,
+        nombre: d.proyectos?.nombre || `Proyecto ${d.proyecto_id}`,
+      })).filter((p: any) => p.id);
+
+      return {
+        inmobName: persona?.nombre_comercial || persona?.nombre_legal || 'Inmobiliaria',
+        inmobProjects,
+      };
+    },
+    enabled: !!userPersonaId,
+  });
+
+  const handleToggle = async (projectId: number, enabled: boolean) => {
+    setLoading(true);
+    try {
+      if (enabled) {
+        const { error } = await supabase
+          .from('proyectos_acceso')
+          .insert({ usuario_id: userEmail, proyecto_id: projectId }) as any;
+        if (error && !error.message?.includes('duplicate')) throw error;
+        setSelectedProjects((prev: number[]) => [...prev, projectId]);
+        toast.success('Acceso al proyecto habilitado');
+      } else {
+        const { error } = await supabase
+          .from('proyectos_acceso')
+          .delete()
+          .eq('usuario_id', userEmail)
+          .eq('proyecto_id', projectId) as any;
+        if (error) throw error;
+        setSelectedProjects((prev: number[]) => prev.filter(id => id !== projectId));
+        toast.success('Acceso al proyecto removido');
+      }
+      queryClient.invalidateQueries({ queryKey: ['user-project-access-with-owner', userEmail] });
+    } catch (err: any) {
+      toast.error('Error: ' + (err.message || 'Intenta de nuevo'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (inmobLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Alert variant="default" className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+        <Users className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800 dark:text-blue-200">
+          <strong>El acceso a proyectos se hereda del usuario principal</strong>
+          <p className="mt-1 text-sm">
+            {`Los ${isAgenteInterno ? 'Agentes Internos' : 'Agentes Inmobiliarios'} heredan automáticamente el acceso a proyectos de su Inmobiliaria padre${inmobData ? ` (${inmobData.inmobName})` : ''}. Puedes habilitar o deshabilitar proyectos individualmente.`}
+          </p>
+        </AlertDescription>
+      </Alert>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Proyectos de la inmobiliaria:</Label>
+        {inmobData && inmobData.inmobProjects.length > 0 ? (
+          <div className="space-y-2">
+            {inmobData.inmobProjects.map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div className="flex items-center gap-3">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{p.nombre}</span>
+                </div>
+                <Switch
+                  checked={selectedProjects.includes(p.id)}
+                  onCheckedChange={(checked) => handleToggle(p.id, checked)}
+                  disabled={loading}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground py-4">No hay proyectos asignados a la inmobiliaria</p>
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function UserProjectAccessDialog({ userId, userName, userEmail, userRole, userRoleId, userPersonaId, isUsuarioPrincipal }: UserProjectAccessDialogProps) {
   const [open, setOpen] = useState(false);
