@@ -7804,6 +7804,7 @@ export type Database = {
         Returns: Json
       }
       is_admin_user: { Args: never; Returns: boolean }
+      is_inmob_agent_owner: { Args: { target_email: string }; Returns: boolean }
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { user_id: string }; Returns: boolean }
