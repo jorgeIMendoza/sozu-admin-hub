@@ -658,6 +658,21 @@ export default function InmobAgentes() {
         inmobProjects={inmobProjects}
         onClose={() => setProjectAccessAgent(null)}
       />
+
+      <AlertDialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Resetear contraseña?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Confirmas resetear la contraseña de <strong>{resetTarget?.email}</strong>? La nueva contraseña será <strong>Temporal123!</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmResetPassword}>Confirmar reset</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
