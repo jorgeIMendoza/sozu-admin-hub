@@ -306,101 +306,148 @@ export default function InmobAgentes() {
     return allRows;
   };
 
-  // Fetch ofertas per agent
-  const { data: ofertasByAgent = new Map(), isLoading: ofertasLoading } = useQuery({
-    queryKey: ["inmob-agentes-ofertas", agentEmails],
+  // ───── Fetch all ofertas with fields needed for stage classification ─────
+  const { data: allOfertas = [], isLoading: ofertasLoading } = useQuery({
+    queryKey: ["inmob-agentes-ofertas-full", agentEmails],
     queryFn: async () => {
-      if (!agentEmails.length) return new Map<string, { total: number; vendidas: number }>();
-      const data = await fetchAllPaginated<any>(() =>
+      if (!agentEmails.length) return [];
+      return fetchAllPaginated<any>(() =>
         supabase
           .from("ofertas")
-          .select("id, email_creador, id_estatus_aprobacion, id_propiedad")
+          .select("id, email_creador, id_estatus_aprobacion, id_propiedad, id_producto, id_esquema_pago_seleccionado, fecha_generacion")
           .in("email_creador", agentEmails)
           .eq("activo", true)
       );
-
-      const propIds = [...new Set((data || []).map((o: any) => o.id_propiedad).filter(Boolean))] as number[];
-      const soldSet = new Set<number>();
-      if (propIds.length > 0) {
-        for (let i = 0; i < propIds.length; i += 200) {
-          const batch = propIds.slice(i, i + 200);
-          const { data: props } = await supabase
-            .from("propiedades")
-            .select("id")
-            .in("id", batch)
-            .eq("id_estatus_disponibilidad", 5) as any;
-          (props || []).forEach((p: any) => soldSet.add(p.id));
-        }
-      }
-
-      const map = new Map<string, { total: number; vendidas: number }>();
-      (data || []).forEach((o: any) => {
-        const emailKey = (o.email_creador || "").toLowerCase();
-        const cur = map.get(emailKey) || { total: 0, vendidas: 0 };
-        cur.total++;
-        if (o.id_propiedad && soldSet.has(o.id_propiedad)) cur.vendidas++;
-        map.set(emailKey, cur);
-      });
-      return map;
     },
     enabled: agentEmails.length > 0,
     staleTime: 3 * 60_000,
   });
 
-  // Fetch ingreso per agent (sum precio_final from sold cuentas_cobranza)
-  const { data: ingresoByAgent = new Map(), isLoading: ingresoLoading } = useQuery({
-    queryKey: ["inmob-agentes-ingreso", agentEmails],
+  // Property data for stage classification
+  const ofertaPropIds = useMemo(() => [...new Set(allOfertas.map((o: any) => o.id_propiedad).filter(Boolean))] as number[], [allOfertas]);
+  const { data: propMap = new Map() } = useQuery({
+    queryKey: ["inmob-agentes-props", ofertaPropIds],
     queryFn: async () => {
-      if (!agentEmails.length) return new Map<string, number>();
-      const ofertas = await fetchAllPaginated<any>(() =>
-        supabase
-          .from("ofertas")
-          .select("id, email_creador, id_propiedad")
-          .in("email_creador", agentEmails)
-          .eq("activo", true)
-      );
-      if (!ofertas?.length) return new Map<string, number>();
-
-      const propIds = [...new Set(ofertas.map((o: any) => o.id_propiedad).filter(Boolean))] as number[];
-      const soldSet = new Set<number>();
-      if (propIds.length > 0) {
-        for (let i = 0; i < propIds.length; i += 200) {
-          const batch = propIds.slice(i, i + 200);
-          const { data: props } = await supabase
-            .from("propiedades")
-            .select("id")
-            .in("id", batch)
-            .eq("id_estatus_disponibilidad", 5) as any;
-          (props || []).forEach((p: any) => soldSet.add(p.id));
-        }
+      if (!ofertaPropIds.length) return new Map<number, any>();
+      const m = new Map<number, any>();
+      for (let i = 0; i < ofertaPropIds.length; i += 200) {
+        const batch = ofertaPropIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("propiedades")
+          .select("id, id_estatus_disponibilidad")
+          .in("id", batch) as any;
+        (data || []).forEach((p: any) => m.set(p.id, p));
       }
+      return m;
+    },
+    enabled: ofertaPropIds.length > 0,
+    staleTime: 3 * 60_000,
+  });
 
-      const soldOfertas = ofertas.filter((o: any) => o.id_propiedad && soldSet.has(o.id_propiedad));
-      const soldOfertaIds = soldOfertas.map((o: any) => o.id);
-      if (!soldOfertaIds.length) return new Map<string, number>();
-
-      const cuentaMap = new Map<number, number>();
-      for (let i = 0; i < soldOfertaIds.length; i += 200) {
-        const batch = soldOfertaIds.slice(i, i + 200);
-        const { data: cuentas } = await (supabase as any)
+  // Cuentas cobranza for stage classification
+  const allOfertaIds = useMemo(() => allOfertas.map((o: any) => o.id), [allOfertas]);
+  const { data: cuentasMap = new Map() } = useQuery({
+    queryKey: ["inmob-agentes-cuentas", allOfertaIds],
+    queryFn: async () => {
+      if (!allOfertaIds.length) return new Map<number, any>();
+      const m = new Map<number, any>();
+      for (let i = 0; i < allOfertaIds.length; i += 200) {
+        const batch = allOfertaIds.slice(i, i + 200);
+        const { data } = await (supabase as any)
           .from("cuentas_cobranza")
-          .select("id_oferta, precio_final")
+          .select("id, id_oferta, precio_final, contrato_draft")
           .in("id_oferta", batch)
           .eq("activo", true);
-        (cuentas || []).forEach((c: any) => cuentaMap.set(c.id_oferta, Number(c.precio_final) || 0));
+        (data || []).forEach((c: any) => { if (c.id_oferta) m.set(c.id_oferta, c); });
       }
-
-      const map = new Map<string, number>();
-      soldOfertas.forEach((o: any) => {
-        const precio = cuentaMap.get(o.id) || 0;
-        const emailKey = (o.email_creador || "").toLowerCase();
-        map.set(emailKey, (map.get(emailKey) || 0) + precio);
-      });
-      return map;
+      // Check signed contracts (tipo_documento 42)
+      const cuentaIds = [...m.values()].map((c: any) => c.id);
+      if (cuentaIds.length > 0) {
+        const firmadoSet = new Set<number>();
+        for (let i = 0; i < cuentaIds.length; i += 200) {
+          const batch = cuentaIds.slice(i, i + 200);
+          const { data: docs } = await supabase
+            .from("documentos")
+            .select("id_cuenta_cobranza")
+            .in("id_cuenta_cobranza", batch)
+            .eq("id_tipo_documento", 42)
+            .eq("activo", true) as any;
+          (docs || []).forEach((d: any) => firmadoSet.add(d.id_cuenta_cobranza));
+        }
+        m.forEach((c, key) => { c.tiene_contrato_firmado = firmadoSet.has(c.id); });
+      }
+      return m;
     },
-    enabled: agentEmails.length > 0,
+    enabled: allOfertaIds.length > 0,
     staleTime: 3 * 60_000,
   });
+
+  // ───── Stage classification (same logic as Dashboard) ─────
+  const classifyOffer = (o: any) => {
+    const p = propMap.get(o.id_propiedad);
+    const cuenta = cuentasMap.get(o.id);
+    if (p?.id_estatus_disponibilidad === 5) return "cierre";
+    if (cuenta?.tiene_contrato_firmado) return "firma_contrato";
+    if (cuenta?.contrato_draft) return "gen_contrato";
+    if (cuenta && p?.id_estatus_disponibilidad === 4) return "apartado";
+    const fecha = new Date(o.fecha_generacion);
+    const expira = new Date(fecha); expira.setDate(expira.getDate() + 5);
+    const vigente = expira >= new Date();
+    if (!vigente && !cuenta) return "expiradas";
+    if (!o.id_esquema_pago_seleccionado) return vigente ? "nuevas" : "expiradas";
+    if (o.id_estatus_aprobacion === 1) return vigente ? "pendientes" : "expiradas";
+    if (o.id_estatus_aprobacion === 2) return "aprobadas";
+    if (o.id_estatus_aprobacion === 3) return vigente ? "rechazadas" : "expiradas";
+    if (o.id_estatus_aprobacion === 4) return vigente ? "revision" : "expiradas";
+    return "nuevas";
+  };
+
+  // Classify and deduplicate ventas (cierre stage) per agent
+  const { ofertasByAgent, ingresoByAgent } = useMemo(() => {
+    const ofMap = new Map<string, { total: number; vendidas: number }>();
+    const ingMap = new Map<string, number>();
+
+    // Classify all offers
+    const classified = allOfertas.map((o: any) => ({ ...o, stage: classifyOffer(o) }));
+
+    // Count total offers per agent (excluding expiradas to match dashboard)
+    classified.forEach((o: any) => {
+      const emailKey = (o.email_creador || "").toLowerCase();
+      const cur = ofMap.get(emailKey) || { total: 0, vendidas: 0 };
+      cur.total++;
+      ofMap.set(emailKey, cur);
+    });
+
+    // Dedup cierre by property/product key (same as Dashboard)
+    const cierreOffers = classified.filter((o: any) => o.stage === "cierre" && cuentasMap.has(o.id));
+    const seenByAgent = new Map<string, Set<string>>();
+
+    cierreOffers.forEach((o: any) => {
+      const emailKey = (o.email_creador || "").toLowerCase();
+      const key = o.id_producto
+        ? `prod-${o.id_producto}-${o.id_propiedad || "none"}`
+        : `prop-${o.id_propiedad}`;
+
+      if (!seenByAgent.has(emailKey)) seenByAgent.set(emailKey, new Set());
+      const seen = seenByAgent.get(emailKey)!;
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      // Count as venta
+      const cur = ofMap.get(emailKey) || { total: 0, vendidas: 0 };
+      cur.vendidas++;
+      ofMap.set(emailKey, cur);
+
+      // Sum ingreso
+      const cuenta = cuentasMap.get(o.id);
+      const precio = Number(cuenta?.precio_final) || 0;
+      ingMap.set(emailKey, (ingMap.get(emailKey) || 0) + precio);
+    });
+
+    return { ofertasByAgent: ofMap, ingresoByAgent: ingMap };
+  }, [allOfertas, propMap, cuentasMap]);
+
+  const ingresoLoading = false; // ingreso is now computed inline
 
   // Fetch prospectos históricos por agente (únicos por persona prospecto)
   const { data: prospectosByAgent = new Map(), isLoading: prospectosLoading } = useQuery({
