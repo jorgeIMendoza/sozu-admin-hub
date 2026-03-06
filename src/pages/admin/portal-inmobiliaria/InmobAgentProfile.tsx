@@ -366,8 +366,11 @@ export default function InmobAgentProfile() {
     if (isSozu) {
       // Sozu: commission from porcentaje_comision_venta on the cuenta (with IVA if applicable)
       let total = 0;
+      // Build a cuentaId → cuenta lookup from cuentasMap values
+      const cuentaById = new Map<number, any>();
+      cuentasMap.forEach((c: any) => { if (c?.id) cuentaById.set(Number(c.id), c); });
       agentCuentaIds.forEach((cuentaId) => {
-        const cuenta = [...cuentasMap.values()].find((c: any) => c.id === cuentaId);
+        const cuenta = cuentaById.get(cuentaId);
         if (!cuenta) return;
         const base = (Number(cuenta.precio_final) || 0) * (Number(cuenta.porcentaje_comision_venta) || 0) / 100;
         total += cuenta.iva_incluido ? base * 1.16 : base;
