@@ -313,17 +313,22 @@ export default function InmobAgentes() {
   const isLoading = agentsLoading || ofertasLoading || prospectosLoading || ingresoLoading;
 
   // Separate active vs inactive
-  const activeAgents = useMemo(() => agents.filter(a => a.activo), [agents]);
-  const inactiveAgents = useMemo(() => agents.filter(a => !a.activo), [agents]);
+  const activeAgents = useMemo(() => allAgents.filter(a => a.activo), [allAgents]);
+  const inactiveAgents = useMemo(() => allAgents.filter(a => !a.activo), [allAgents]);
 
-  const filteredAgents = useMemo(() => {
-    const list = activeTab === "activos" ? activeAgents : inactiveAgents;
-    if (!search) return list;
+  const filteredActiveAgents = useMemo(() => {
+    if (!search) return activeAgents;
     const q = search.toLowerCase();
-    return list.filter(
-      (a) => a.nombre.toLowerCase().includes(q) || a.email.toLowerCase().includes(q)
-    );
-  }, [activeAgents, inactiveAgents, activeTab, search]);
+    return activeAgents.filter((a) => a.nombre.toLowerCase().includes(q) || a.email.toLowerCase().includes(q));
+  }, [activeAgents, search]);
+
+  const filteredInactiveAgents = useMemo(() => {
+    if (!search) return inactiveAgents;
+    const q = search.toLowerCase();
+    return inactiveAgents.filter((a) => a.nombre.toLowerCase().includes(q) || a.email.toLowerCase().includes(q));
+  }, [inactiveAgents, search]);
+
+  const filteredAgents = activeTab === "activos" ? filteredActiveAgents : filteredInactiveAgents;
 
   // Summary KPIs (all agents)
   const totalAgentes = activeAgents.length;
