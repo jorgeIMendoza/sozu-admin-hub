@@ -514,22 +514,38 @@ export default function InmobDashboard() {
     return maxP;
   }, [comisiones]);
 
-  // Prospectos count
-  const { data: prospectosCount = 0 } = useQuery({
-    queryKey: ["inmob-dash-prospectos", agentPersonaIds],
+  // Prospectos per agent (date-filtered for dashboard)
+  const { data: prospectosByAgent = new Map<number, number>() } = useQuery({
+    queryKey: ["inmob-dash-prospectos-by-agent", agentPersonaIds, monthStart, monthEnd],
     queryFn: async () => {
-      if (!agentPersonaIds.length) return 0;
-      const { count } = await supabase
-        .from("entidades_relacionadas")
-        .select("id", { count: "exact", head: true })
-        .in("id_persona_duena_lead", agentPersonaIds)
-        .eq("id_tipo_entidad", 7)
-        .eq("activo", true) as any;
-      return count || 0;
+      if (!agentPersonaIds.length) return new Map<number, number>();
+      const all: any[] = [];
+      for (let i = 0; i < agentPersonaIds.length; i += 200) {
+        const batch = agentPersonaIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("entidades_relacionadas")
+          .select("id_persona_duena_lead")
+          .in("id_persona_duena_lead", batch)
+          .eq("id_tipo_entidad", 7)
+          .eq("activo", true)
+          .gte("fecha_creacion", monthStart)
+          .lte("fecha_creacion", monthEnd) as any;
+        if (data) all.push(...data);
+      }
+      const map = new Map<number, number>();
+      all.forEach((r: any) => {
+        map.set(r.id_persona_duena_lead, (map.get(r.id_persona_duena_lead) || 0) + 1);
+      });
+      return map;
     },
     enabled: agentPersonaIds.length > 0,
     staleTime: 3 * 60_000,
   });
+  const prospectosCount = useMemo(() => {
+    let total = 0;
+    prospectosByAgent.forEach(v => total += v);
+    return total;
+  }, [prospectosByAgent]);
 
   // Previous month KPIs for trend comparison
   const { data: prevKpi } = useQuery({
