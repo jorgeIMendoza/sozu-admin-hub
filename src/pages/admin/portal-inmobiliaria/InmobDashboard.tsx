@@ -208,6 +208,25 @@ export default function InmobDashboard() {
   const inmobName = inmobInfo?.name || "Mi Inmobiliaria";
   const isSozu = inmobInfo?.isSozu || false;
 
+  // Emails de usuarios de la inmobiliaria actual (base para mapear comisiones propias)
+  const { data: inmobUserEmails = [] } = useQuery({
+    queryKey: ["inmob-user-emails", personaId],
+    queryFn: async () => {
+      if (!personaId) return [] as string[];
+      const { data } = await supabase
+        .from("usuarios")
+        .select("email")
+        .eq("id_persona", personaId)
+        .eq("activo", true) as any;
+      return (data || [])
+        .map((u: any) => (u.email || "").toLowerCase())
+        .filter(Boolean);
+    },
+    enabled: !!personaId,
+    staleTime: 5 * 60_000,
+  });
+  const inmobUserEmailSet = useMemo(() => new Set(inmobUserEmails), [inmobUserEmails]);
+
   // Reset chart mode if "comision" selected but not Sozu
   useEffect(() => {
     if (!isSozu && chartMode === "comision") setChartMode("unidades");
@@ -215,23 +234,14 @@ export default function InmobDashboard() {
 
   // Projects for filter (from inmobiliaria main user access)
   const { data: projects = [] } = useQuery({
-    queryKey: ["inmob-projects", personaId],
+    queryKey: ["inmob-projects", personaId, inmobUserEmails.join(",")],
     queryFn: async () => {
-      if (!personaId) return [];
-
-      const { data: inmobUsers } = await supabase
-        .from("usuarios")
-        .select("email")
-        .eq("id_persona", personaId)
-        .eq("activo", true) as any;
-
-      const inmobEmails = (inmobUsers || []).map((u: any) => u.email).filter(Boolean);
-      if (!inmobEmails.length) return [];
+      if (!inmobUserEmails.length) return [];
 
       const { data } = await supabase
         .from("proyectos_acceso")
         .select("proyecto_id, proyectos(id, nombre)")
-        .in("usuario_id", inmobEmails)
+        .in("usuario_id", inmobUserEmails)
         .eq("activo", true) as any;
 
       const map = new Map<number, string>();
