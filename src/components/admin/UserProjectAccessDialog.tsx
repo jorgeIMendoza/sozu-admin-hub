@@ -121,7 +121,7 @@ function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteI
             </>
           ) : (
             <>
-              <strong>Acceso a proyectos públicos</strong>
+              <strong>Agente independiente</strong>
               <p className="mt-1 text-sm">
                 Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu.
               </p>

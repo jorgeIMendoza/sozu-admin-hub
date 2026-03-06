@@ -285,6 +285,7 @@ function UsersTable({
 export default function Usuarios() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
+  const [selectedInmobiliariaFilter, setSelectedInmobiliariaFilter] = useState<string>("all");
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
@@ -759,7 +760,14 @@ export default function Usuarios() {
     const matchesRole = selectedRoleFilter === "all" || 
       usuario.rol_id?.toString() === selectedRoleFilter;
     
-    return matchesSearch && matchesRole;
+    // Inmobiliaria filter (only when role filter is Agente Inmobiliario, Agente Interno, or Inmobiliaria)
+    const showInmobFilter = [ROLE_AGENTE_INMOBILIARIO.toString(), ROLE_AGENTE_INTERNO.toString(), ROLE_INMOBILIARIA.toString()].includes(selectedRoleFilter);
+    const matchesInmobiliaria = !showInmobFilter || selectedInmobiliariaFilter === "all" || 
+      (selectedInmobiliariaFilter === "sin_inmobiliaria" 
+        ? !usuario.inmobiliaria_nombre 
+        : usuario.inmobiliaria_nombre === selectedInmobiliariaFilter);
+    
+    return matchesSearch && matchesRole && matchesInmobiliaria;
   });
 
   const activeUsers = filteredUsuarios.filter(u => u.activo);
@@ -1053,7 +1061,7 @@ export default function Usuarios() {
               />
             </div>
             <div className="w-full sm:w-64">
-              <Select value={selectedRoleFilter} onValueChange={setSelectedRoleFilter}>
+              <Select value={selectedRoleFilter} onValueChange={(v) => { setSelectedRoleFilter(v); setSelectedInmobiliariaFilter("all"); }}>
                 <SelectTrigger className="border-border">
                   <SelectValue placeholder="Filtrar por rol" />
                 </SelectTrigger>
@@ -1067,6 +1075,24 @@ export default function Usuarios() {
                 </SelectContent>
               </Select>
             </div>
+            {[ROLE_AGENTE_INMOBILIARIO.toString(), ROLE_AGENTE_INTERNO.toString(), ROLE_INMOBILIARIA.toString()].includes(selectedRoleFilter) && (
+              <div className="w-full sm:w-64">
+                <Select value={selectedInmobiliariaFilter} onValueChange={setSelectedInmobiliariaFilter}>
+                  <SelectTrigger className="border-border">
+                    <SelectValue placeholder="Filtrar por inmobiliaria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las inmobiliarias</SelectItem>
+                    <SelectItem value="sin_inmobiliaria">Sin inmobiliaria</SelectItem>
+                    {[...new Set(usuarios.filter(u => u.inmobiliaria_nombre && u.rol_id?.toString() === selectedRoleFilter).map(u => u.inmobiliaria_nombre!))].sort().map((nombre) => (
+                      <SelectItem key={nombre} value={nombre}>
+                        {nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {isLoadingUsuarios ? (

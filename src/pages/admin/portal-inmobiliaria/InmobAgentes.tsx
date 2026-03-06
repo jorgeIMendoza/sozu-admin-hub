@@ -186,13 +186,18 @@ export default function InmobAgentes() {
 
         return usuarios
           .filter((u: any) => {
-            // Keep Sozu staff/non-agent users, but exclude external agents from other inmobiliarias.
             if (u.rol_id === 3) {
+              const ownerId = ownerByPersona.get(u.id_persona);
+              // Only include if linked to this inmobiliaria (Sozu)
+              return ownerId === personaId;
+            }
+            if (u.rol_id === 9) {
+              // Include agentes internos only if linked to this inmobiliaria
               const ownerId = ownerByPersona.get(u.id_persona);
               return ownerId === personaId;
             }
-            // Exclude agent interno (role 9) from this extra bucket.
-            return u.rol_id !== 9;
+            // Other roles (staff) - include as internal users
+            return true;
           })
           .map((u: any) => {
             const p = personaMap.get(u.id_persona);
@@ -215,17 +220,70 @@ export default function InmobAgentes() {
     staleTime: 5 * 60_000,
   });
 
+  // Fetch inmobiliaria info for base agents to show their inmobiliaria name or "independent"
+  const { data: agentInmobMap = new Map() } = useQuery({
+    queryKey: ["inmob-agentes-inmob-info", agents.map(a => a.personaId).join(",")],
+    queryFn: async () => {
+      const pIds = agents.map(a => a.personaId).filter(Boolean);
+      if (!pIds.length) return new Map<number, string | null>();
+
+      const { data: rels } = await supabase
+        .from("entidades_relacionadas")
+        .select("id_persona, id_persona_duena_lead")
+        .in("id_persona", pIds)
+        .eq("id_tipo_entidad", 19)
+        .eq("activo", true) as any;
+
+      const ownerIds = [...new Set((rels || []).map((r: any) => r.id_persona_duena_lead).filter(Boolean))] as number[];
+      const ownerNames = new Map<number, string>();
+      if (ownerIds.length) {
+        const { data: personas } = await supabase
+          .from("personas")
+          .select("id, nombre_comercial, nombre_legal")
+          .in("id", ownerIds) as any;
+        (personas || []).forEach((p: any) => ownerNames.set(p.id, p.nombre_comercial || p.nombre_legal || ""));
+      }
+
+      const result = new Map<number, string | null>();
+      (rels || []).forEach((r: any) => {
+        const name = r.id_persona_duena_lead ? (ownerNames.get(r.id_persona_duena_lead) || null) : null;
+        result.set(r.id_persona, name);
+      });
+      // Mark agents without a relation as independent
+      pIds.forEach(pid => {
+        if (!result.has(pid)) result.set(pid, null);
+      });
+      return result;
+    },
+    enabled: agents.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
   const filteredBaseAgents = useMemo(() => agents, [agents]);
 
   const allAgents = useMemo(() => {
     const byEmail = new Map<string, any>();
-    filteredBaseAgents.forEach((a) => byEmail.set(a.email.toLowerCase(), a));
+    // For base agents, enrich with inmobiliaria info
+    filteredBaseAgents.forEach((a) => {
+      const inmobName = agentInmobMap.get(a.personaId);
+      const isIndependent = agentInmobMap.has(a.personaId) && inmobName === null;
+      // For non-Sozu inmobiliarias, exclude agents that belong to a DIFFERENT inmobiliaria
+      if (!isSozu && inmobName && inmobName !== "" && agentInmobMap.get(a.personaId) !== undefined) {
+        // The agent has an inmobiliaria - only include if it matches current inmobiliaria
+        // Base agents from useInmobAgents are already filtered, so include all
+      }
+      byEmail.set(a.email.toLowerCase(), {
+        ...a,
+        inmobiliariaName: inmobName || null,
+        isIndependent,
+      });
+    });
     sozuExtraUsers.forEach((u: any) => {
       const key = (u.email || "").toLowerCase();
       if (!byEmail.has(key)) byEmail.set(key, u);
     });
     return [...byEmail.values()].filter((a: any) => (a.email || "").toLowerCase() !== currentUserEmail);
-  }, [filteredBaseAgents, sozuExtraUsers, currentUserEmail]);
+  }, [filteredBaseAgents, sozuExtraUsers, currentUserEmail, agentInmobMap, isSozu]);
 
   const agentEmails = useMemo(() => allAgents.map((a) => a.email), [allAgents]);
 
@@ -733,11 +791,21 @@ function AgentTable({
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-medium text-sm truncate">{agent.nombre}</p>
                               {agent.isInternal && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 border-amber-500/50 text-amber-700 dark:text-amber-400">
                                   Usuario interno
+                                </Badge>
+                              )}
+                              {agent.isIndependent && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 border-green-500/50 text-green-700 dark:text-green-400">
+                                  Agente independiente
+                                </Badge>
+                              )}
+                              {agent.inmobiliariaName && !agent.isInternal && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 border-purple-500/50 text-purple-700 dark:text-purple-400">
+                                  {agent.inmobiliariaName}
                                 </Badge>
                               )}
                             </div>
@@ -861,6 +929,8 @@ function AgentProjectAccessDialog({ agent, inmobProjects, onClose }: {
 
   if (!agent) return null;
 
+  const isIndependent = agent.isIndependent === true;
+
   return (
     <Dialog open={!!agent} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-md">
@@ -868,12 +938,14 @@ function AgentProjectAccessDialog({ agent, inmobProjects, onClose }: {
           <DialogTitle>Acceso a Proyectos</DialogTitle>
           <DialogDescription>{agent.nombre} ({agent.email})</DialogDescription>
         </DialogHeader>
-        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
-          <p className="font-medium text-primary">El acceso a proyectos se hereda del usuario principal</p>
+        <div className={`rounded-lg border p-3 text-sm ${isIndependent ? 'border-green-500/20 bg-green-500/5' : 'border-primary/20 bg-primary/5'}`}>
+          <p className={`font-medium ${isIndependent ? 'text-green-700 dark:text-green-400' : 'text-primary'}`}>
+            {isIndependent ? 'Agente independiente' : 'El acceso a proyectos se hereda del usuario principal'}
+          </p>
           <p className="text-muted-foreground mt-1">
-            Los Agentes Inmobiliarios heredan automáticamente el acceso a proyectos de su Inmobiliaria padre.
-            Si se requiere, también se puede administrar independientemente a un usuario para que pueda tener
-            acceso a todos los proyectos de su inmobiliaria o quitar alguno desde el portal de la inmobiliaria.
+            {isIndependent
+              ? 'Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu. Puedes habilitar o deshabilitar proyectos individualmente.'
+              : 'Los Agentes Inmobiliarios heredan automáticamente el acceso a proyectos de su Inmobiliaria padre. Puedes habilitar o deshabilitar proyectos individualmente.'}
           </p>
         </div>
         <div className="space-y-2 mt-2">
@@ -881,7 +953,7 @@ function AgentProjectAccessDialog({ agent, inmobProjects, onClose }: {
           {isLoading ? (
             <p className="text-muted-foreground text-sm py-4">Cargando...</p>
           ) : inmobProjects.length === 0 ? (
-            <p className="text-muted-foreground text-center py-6">No hay proyectos asignados a tu inmobiliaria</p>
+            <p className="text-muted-foreground text-center py-6">No hay proyectos asignados</p>
           ) : (
             inmobProjects.map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
