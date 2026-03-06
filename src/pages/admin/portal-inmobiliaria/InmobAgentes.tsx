@@ -620,27 +620,25 @@ export default function InmobAgentes() {
 
   // ─── Inmobiliaria projects (for agent project access) ───
   const { data: inmobProjects = [] } = useQuery({
-    queryKey: ["inmob-config-proyectos-list", personaId],
+    queryKey: ["inmob-config-proyectos-list", profile?.email],
     queryFn: async () => {
-      if (!personaId) return [];
-      // Get inmobiliaria's own user email
-      const { data: inmobUser } = await supabase
-        .from("usuarios")
-        .select("email")
-        .eq("id_persona", personaId) as any;
-      if (!inmobUser?.length) return [];
-      const inmobEmail = inmobUser[0].email;
-      const { data } = await supabase
+      const sourceEmail = profile?.email;
+      if (!sourceEmail) return [];
+
+      const { data, error } = await supabase
         .from("proyectos_acceso")
-        .select("proyecto_id, proyectos(id, nombre)")
-        .eq("usuario_id", inmobEmail)
-        .eq("activo", true) as any;
+        .select("proyecto_id, activo, proyectos(id, nombre)")
+        .eq("usuario_id", sourceEmail) as any;
+
+      if (error) throw error;
+
       return (data || []).map((d: any) => ({
         id: d.proyectos?.id,
         nombre: d.proyectos?.nombre || `Proyecto ${d.proyecto_id}`,
+        activo: d.activo ?? true,
       })).filter((p: any) => p.id);
     },
-    enabled: !!personaId,
+    enabled: !!profile?.email,
     staleTime: 5 * 60_000,
   });
 
