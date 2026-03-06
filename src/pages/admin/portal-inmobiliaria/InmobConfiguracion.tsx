@@ -660,31 +660,57 @@ function InmobProyectosAcceso({ personaId, userEmail }: { personaId: number | nu
   const queryClient = useQueryClient();
   const [loadingProject, setLoadingProject] = useState<number | null>(null);
 
+  const { data: primaryInmobEmail } = useQuery({
+    queryKey: ["inmob-primary-email", personaId],
+    queryFn: async () => {
+      if (!personaId) return null;
+
+      const { data: persona } = await supabase
+        .from("personas")
+        .select("email")
+        .eq("id", personaId)
+        .maybeSingle() as any;
+
+      const { data: inmobUsers } = await supabase
+        .from("usuarios")
+        .select("email")
+        .eq("id_persona", personaId)
+        .eq("rol_id", 4) as any;
+
+      if (!inmobUsers?.length) return null;
+
+      const personaEmail = (persona?.email || "").toLowerCase();
+      const principalUser = inmobUsers.find((u: any) => (u.email || "").toLowerCase() === personaEmail);
+      return principalUser?.email || inmobUsers[0].email;
+    },
+    enabled: !!personaId,
+  });
+
   // Fetch all projects the inmobiliaria currently has access to
   const { data: proyectos = [], isLoading } = useQuery({
-    queryKey: ["inmob-config-proyectos", userEmail],
+    queryKey: ["inmob-config-proyectos", primaryInmobEmail],
     queryFn: async () => {
-      if (!userEmail) return [];
+      if (!primaryInmobEmail) return [];
       const { data } = await supabase
         .from("proyectos_acceso")
         .select("proyecto_id, activo, proyectos(id, nombre)")
-        .eq("usuario_id", userEmail) as any;
+        .eq("usuario_id", primaryInmobEmail) as any;
       return (data || []).map((d: any) => ({
         id: d.proyectos?.id,
         nombre: d.proyectos?.nombre || `Proyecto ${d.proyecto_id}`,
         activo: d.activo ?? true,
       })).filter((p: any) => p.id);
     },
-    enabled: !!userEmail,
+    enabled: !!primaryInmobEmail,
   });
 
   const handleToggle = async (projectId: number, enabled: boolean) => {
-    if (!userEmail) return;
+    if (!primaryInmobEmail) return;
     setLoadingProject(projectId);
 
     // Optimistic update
-    const previousData = queryClient.getQueryData(["inmob-config-proyectos", userEmail]);
-    queryClient.setQueryData(["inmob-config-proyectos", userEmail], (old: any[]) =>
+    const previousData = queryClient.getQueryData(["inmob-config-proyectos", primaryInmobEmail]);
+    queryClient.setQueryData(["inmob-config-proyectos", primaryInmobEmail], (old: any[]) =>
       old?.map((p: any) => p.id === projectId ? { ...p, activo: enabled } : p) ?? []
     );
 
@@ -694,7 +720,7 @@ function InmobProyectosAcceso({ personaId, userEmail }: { personaId: number | nu
         const { data: existing } = await supabase
           .from("proyectos_acceso")
           .select("proyecto_id")
-          .eq("usuario_id", userEmail)
+          .eq("usuario_id", primaryInmobEmail)
           .eq("proyecto_id", projectId)
           .maybeSingle() as any;
 
@@ -702,13 +728,13 @@ function InmobProyectosAcceso({ personaId, userEmail }: { personaId: number | nu
           const { error } = await supabase
             .from("proyectos_acceso")
             .update({ activo: true } as any)
-            .eq("usuario_id", userEmail)
+            .eq("usuario_id", primaryInmobEmail)
             .eq("proyecto_id", projectId) as any;
           if (error) throw error;
         } else {
           const { error } = await supabase
             .from("proyectos_acceso")
-            .insert({ usuario_id: userEmail, proyecto_id: projectId } as any) as any;
+            .insert({ usuario_id: primaryInmobEmail, proyecto_id: projectId } as any) as any;
           if (error && !error.message?.includes("duplicate")) throw error;
         }
         toast.success("Proyecto habilitado para agentes");
@@ -717,15 +743,15 @@ function InmobProyectosAcceso({ personaId, userEmail }: { personaId: number | nu
         const { error } = await supabase
           .from("proyectos_acceso")
           .update({ activo: false } as any)
-          .eq("usuario_id", userEmail)
+          .eq("usuario_id", primaryInmobEmail)
           .eq("proyecto_id", projectId) as any;
         if (error) throw error;
         toast.success("Proyecto deshabilitado para agentes");
       }
-      queryClient.invalidateQueries({ queryKey: ["inmob-config-proyectos", userEmail] });
+      queryClient.invalidateQueries({ queryKey: ["inmob-config-proyectos", primaryInmobEmail] });
     } catch (err: any) {
       // Rollback
-      queryClient.setQueryData(["inmob-config-proyectos", userEmail], previousData);
+      queryClient.setQueryData(["inmob-config-proyectos", primaryInmobEmail], previousData);
       toast.error("Error: " + (err.message || "Intenta de nuevo"));
     } finally {
       setLoadingProject(null);

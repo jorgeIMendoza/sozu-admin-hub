@@ -623,21 +623,36 @@ export default function InmobAgentes() {
     queryKey: ["inmob-config-proyectos-list", personaId],
     queryFn: async () => {
       if (!personaId) return [];
-      // Get inmobiliaria's own user email
-      const { data: inmobUser } = await supabase
+
+      const { data: persona } = await supabase
+        .from("personas")
+        .select("email")
+        .eq("id", personaId)
+        .maybeSingle() as any;
+
+      const { data: inmobUsers } = await supabase
         .from("usuarios")
         .select("email")
-        .eq("id_persona", personaId) as any;
-      if (!inmobUser?.length) return [];
-      const inmobEmail = inmobUser[0].email;
-      const { data } = await supabase
+        .eq("id_persona", personaId)
+        .eq("rol_id", 4) as any;
+
+      if (!inmobUsers?.length) return [];
+
+      const personaEmail = (persona?.email || "").toLowerCase();
+      const principalUser = inmobUsers.find((u: any) => (u.email || "").toLowerCase() === personaEmail);
+      const sourceEmail = principalUser?.email || inmobUsers[0].email;
+
+      const { data, error } = await supabase
         .from("proyectos_acceso")
-        .select("proyecto_id, proyectos(id, nombre)")
-        .eq("usuario_id", inmobEmail)
-        .eq("activo", true) as any;
+        .select("proyecto_id, activo, proyectos(id, nombre)")
+        .eq("usuario_id", sourceEmail) as any;
+
+      if (error) throw error;
+
       return (data || []).map((d: any) => ({
         id: d.proyectos?.id,
         nombre: d.proyectos?.nombre || `Proyecto ${d.proyecto_id}`,
+        activo: d.activo ?? true,
       })).filter((p: any) => p.id);
     },
     enabled: !!personaId,
