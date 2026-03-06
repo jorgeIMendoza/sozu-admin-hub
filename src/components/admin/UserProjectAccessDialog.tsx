@@ -357,7 +357,9 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
         <AlertDescription className="text-blue-800 dark:text-blue-200">
           <strong>El acceso a proyectos se hereda del usuario principal</strong>
           <p className="mt-1 text-sm">
-            {`Los ${isAgenteInterno ? 'Agentes Internos' : 'Agentes Inmobiliarios'} heredan automáticamente el acceso a proyectos de su Inmobiliaria padre${inmobData ? ` (${inmobData.inmobName})` : ''}. Puedes habilitar o deshabilitar proyectos individualmente.`}
+            {isSecondaryInmobiliaria
+              ? `Este usuario secundario de Inmobiliaria hereda los proyectos del usuario principal${inmobData ? ` (${inmobData.inmobName})` : ''}. Puedes habilitar o deshabilitar proyectos individualmente.`
+              : `Los ${isAgenteInterno ? 'Agentes Internos' : 'Agentes Inmobiliarios'} heredan automáticamente el acceso a proyectos de su Inmobiliaria padre${inmobData ? ` (${inmobData.inmobName})` : ''}. Puedes habilitar o deshabilitar proyectos individualmente.`}
           </p>
         </AlertDescription>
       </Alert>
