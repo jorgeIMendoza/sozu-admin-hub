@@ -409,17 +409,47 @@ export default function InmobAgentes() {
     }
   };
 
+  const resolveAgentEmails = async (agent: any): Promise<string[]> => {
+    const normalizedEmail = (agent.email || "").trim().toLowerCase();
+    const emails = new Set<string>();
+
+    if (normalizedEmail) {
+      const { data: byEmail } = await supabase
+        .from("usuarios")
+        .select("email")
+        .ilike("email", normalizedEmail) as any;
+      (byEmail || []).forEach((u: any) => {
+        if (u.email) emails.add(String(u.email).toLowerCase());
+      });
+    }
+
+    if (emails.size === 0 && agent.personaId) {
+      const { data: byPersona } = await supabase
+        .from("usuarios")
+        .select("email")
+        .eq("id_persona", agent.personaId) as any;
+      (byPersona || []).forEach((u: any) => {
+        if (u.email) emails.add(String(u.email).toLowerCase());
+      });
+    }
+
+    return [...emails];
+  };
+
   const handleDeactivate = async (agent: any) => {
     try {
+      const emails = await resolveAgentEmails(agent);
+      if (!emails.length) throw new Error("No se encontró el usuario");
+
       const { data, error } = await supabase
         .from("usuarios")
-        .update({ activo: false })
-        .eq("email", agent.email)
+        .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
+        .in("email", emails)
         .select("email, activo") as any;
 
       if (error) throw error;
       if (!data?.length) throw new Error("No se encontró el usuario");
-      
+
       toast.success("Agente desactivado. Ya no tendrá acceso al sistema.");
       queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
       queryClient.invalidateQueries({ queryKey: ["inmob-agentes-sozu-extra-users"] });
@@ -430,10 +460,13 @@ export default function InmobAgentes() {
 
   const handleReactivate = async (agent: any) => {
     try {
+      const emails = await resolveAgentEmails(agent);
+      if (!emails.length) throw new Error("No se encontró el usuario");
+
       const { data, error } = await supabase
         .from("usuarios")
-        .update({ activo: true })
-        .eq("email", agent.email)
+        .update({ activo: true, fecha_actualizacion: new Date().toISOString() })
+        .in("email", emails)
         .select("email, activo") as any;
 
       if (error) throw error;
@@ -441,17 +474,16 @@ export default function InmobAgentes() {
 
       try {
         const { data: resetData, error: resetError } = await supabase.functions.invoke("reset-user-password", {
-          body: { email: agent.email },
+          body: { email: emails[0] },
         });
         if (resetError) throw resetError;
-        // Check if response body has error
         if (resetData?.error) {
           toast.success("Agente reactivado.");
           toast.warning("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
         } else {
           toast.success("Agente reactivado. Contraseña reseteada a Temporal123!");
         }
-      } catch (err: any) {
+      } catch {
         toast.success("Agente reactivado.");
         toast.warning("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
       }
@@ -464,6 +496,8 @@ export default function InmobAgentes() {
   };
 
   const handleResetPassword = async (agent: any) => {
+    setResetTarget(agent);
+  };
     try {
       const { data: resetData, error } = await supabase.functions.invoke("reset-user-password", {
         body: { email: agent.email },
