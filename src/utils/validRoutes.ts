@@ -89,8 +89,8 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/portal-inmobiliaria/prospectos',
   '/admin/portal-inmobiliaria/citas',
   '/admin/portal-inmobiliaria/comisiones',
-  '/admin/portal-inmobiliaria/reportes',
   '/admin/portal-inmobiliaria/configuracion',
+  '/admin/portal-inmobiliaria/agentes/:email',
 ]);
 
 export function isValidRoute(route: string): boolean {
