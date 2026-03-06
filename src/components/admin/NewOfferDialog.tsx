@@ -727,14 +727,30 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
 
       console.log("Created offer:", newOffer);
 
+      // Ensure prospect ownership is assigned to the offer creator agent persona
+      const creatorPersonaId = (() => {
+        if (profile?.id_persona) return Number(profile.id_persona);
+        return null;
+      })();
+
+      let resolvedOwnerPersonaId = creatorPersonaId;
+      if (!resolvedOwnerPersonaId && profile?.email) {
+        const { data: creatorUser } = await supabase
+          .from("usuarios")
+          .select("id_persona")
+          .eq("email", profile.email)
+          .maybeSingle() as any;
+        resolvedOwnerPersonaId = creatorUser?.id_persona ? Number(creatorUser.id_persona) : null;
+      }
+
       // Check if person exists in entidades_relacionadas for this project
       const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;
       if (projectId && personId) {
         console.log("Checking if person exists in entidades_relacionadas for project:", projectId);
-        
+
         const { data: existingRelation } = await supabase
           .from("entidades_relacionadas")
-          .select("id")
+          .select("id, id_persona_duena_lead")
           .eq("id_persona", personId)
           .eq("id_proyecto", projectId)
           .eq("id_tipo_entidad", 7)
@@ -743,14 +759,14 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
 
         if (!existingRelation) {
           console.log("Person not found in entidades_relacionadas, creating new relation...");
-          
+
           const relationData = {
             id_persona: personId,
             id_proyecto: projectId,
             id_tipo_entidad: 7, // Cliente/Lead
             id_estatus_persona: 3, // Abierto
-            id_persona_duena_lead: profile?.id_persona || null,
-            activo: true
+            id_persona_duena_lead: resolvedOwnerPersonaId,
+            activo: true,
           };
 
           const { error: relationError } = await supabase
@@ -763,27 +779,12 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           } else {
             console.log("Created new entidades_relacionadas record");
           }
-        } else {
-          console.log("Person already exists in entidades_relacionadas");
-          // If the existing relation doesn't have an agent assigned, assign the current user
-          if (profile?.id_persona) {
-            const { data: currentRelation } = await supabase
-              .from("entidades_relacionadas")
-              .select("id, id_persona_duena_lead")
-              .eq("id_persona", personId)
-              .eq("id_proyecto", projectId)
-              .eq("id_tipo_entidad", 7)
-              .eq("activo", true)
-              .maybeSingle();
-            
-            if (currentRelation && !currentRelation.id_persona_duena_lead) {
-              await supabase
-                .from("entidades_relacionadas")
-                .update({ id_persona_duena_lead: profile.id_persona })
-                .eq("id", currentRelation.id);
-              console.log("Assigned agent to existing prospect relation");
-            }
-          }
+        } else if (resolvedOwnerPersonaId && existingRelation.id_persona_duena_lead !== resolvedOwnerPersonaId) {
+          await supabase
+            .from("entidades_relacionadas")
+            .update({ id_persona_duena_lead: resolvedOwnerPersonaId })
+            .eq("id", existingRelation.id);
+          console.log("Updated prospect relation owner to offer creator");
         }
       }
 

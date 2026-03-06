@@ -688,7 +688,22 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         await clearSourceOfferClabes(clabeResult.sourceOfferIds);
       }
 
-      // Assign prospect to agent (logged-in user) in entidades_relacionadas
+      // Assign prospect to the offer creator agent in entidades_relacionadas
+      const creatorPersonaId = (() => {
+        if (profile?.id_persona) return Number(profile.id_persona);
+        return null;
+      })();
+
+      let resolvedOwnerPersonaId = creatorPersonaId;
+      if (!resolvedOwnerPersonaId && profile?.email) {
+        const { data: creatorUser } = await supabase
+          .from("usuarios")
+          .select("id_persona")
+          .eq("email", profile.email)
+          .maybeSingle() as any;
+        resolvedOwnerPersonaId = creatorUser?.id_persona ? Number(creatorUser.id_persona) : null;
+      }
+
       const projectId = propertyDetails?.entidades_relacionadas?.proyectos?.id;
       if (projectId && personaId) {
         const { data: existingRelation } = await supabase
@@ -708,17 +723,17 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
               id_proyecto: projectId,
               id_tipo_entidad: 7,
               id_estatus_persona: 3,
-              id_persona_duena_lead: profile?.id_persona || null,
+              id_persona_duena_lead: resolvedOwnerPersonaId,
               activo: true,
             });
           if (relationError) console.error("Error creating entidades_relacionadas:", relationError);
           else console.log("Created prospect relation with agent assignment");
-        } else if (!existingRelation.id_persona_duena_lead && profile?.id_persona) {
+        } else if (resolvedOwnerPersonaId && existingRelation.id_persona_duena_lead !== resolvedOwnerPersonaId) {
           await supabase
             .from("entidades_relacionadas")
-            .update({ id_persona_duena_lead: profile.id_persona })
+            .update({ id_persona_duena_lead: resolvedOwnerPersonaId })
             .eq("id", existingRelation.id);
-          console.log("Assigned agent to existing prospect relation");
+          console.log("Updated prospect relation owner to offer creator");
         }
       }
 
