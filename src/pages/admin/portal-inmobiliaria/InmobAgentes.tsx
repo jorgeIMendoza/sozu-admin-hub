@@ -633,7 +633,8 @@ export default function InmobAgentes() {
       const { data } = await supabase
         .from("proyectos_acceso")
         .select("proyecto_id, proyectos(id, nombre)")
-        .eq("usuario_id", inmobEmail) as any;
+        .eq("usuario_id", inmobEmail)
+        .eq("activo", true) as any;
       return (data || []).map((d: any) => ({
         id: d.proyectos?.id,
         nombre: d.proyectos?.nombre || `Proyecto ${d.proyecto_id}`,
@@ -937,18 +938,32 @@ function AgentProjectAccessDialog({ agent, inmobProjects, onClose }: {
     setLoading(true);
     try {
       if (enabled) {
-        // Add access
-        const { error } = await supabase
+        // Try to update existing record first (may have been set to activo=false)
+        const { data: existing } = await supabase
           .from("proyectos_acceso")
-          .insert({ usuario_id: agent.email, proyecto_id: projectId }) as any;
-        if (error && !error.message?.includes("duplicate")) throw error;
+          .select("proyecto_id")
+          .eq("usuario_id", agent.email)
+          .eq("proyecto_id", projectId) as any;
+        if (existing && existing.length > 0) {
+          const { error } = await supabase
+            .from("proyectos_acceso")
+            .update({ activo: true } as any)
+            .eq("usuario_id", agent.email)
+            .eq("proyecto_id", projectId) as any;
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("proyectos_acceso")
+            .insert({ usuario_id: agent.email, proyecto_id: projectId } as any) as any;
+          if (error && !error.message?.includes("duplicate")) throw error;
+        }
         setAgentProjects(prev => new Set([...prev, projectId]));
         toast.success("Acceso al proyecto habilitado");
       } else {
-        // Remove access
+        // Set activo to false instead of deleting
         const { error } = await supabase
           .from("proyectos_acceso")
-          .delete()
+          .update({ activo: false } as any)
           .eq("usuario_id", agent.email)
           .eq("proyecto_id", projectId) as any;
         if (error) throw error;

@@ -239,16 +239,32 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
     setLoading(true);
     try {
       if (enabled) {
-        const { error } = await supabase
+        // Try to update existing record first (may have been set to activo=false)
+        const { data: existing } = await supabase
           .from('proyectos_acceso')
-          .insert({ usuario_id: userEmail, proyecto_id: projectId }) as any;
-        if (error && !error.message?.includes('duplicate')) throw error;
+          .select('proyecto_id')
+          .eq('usuario_id', userEmail)
+          .eq('proyecto_id', projectId) as any;
+        if (existing && existing.length > 0) {
+          const { error } = await supabase
+            .from('proyectos_acceso')
+            .update({ activo: true } as any)
+            .eq('usuario_id', userEmail)
+            .eq('proyecto_id', projectId) as any;
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('proyectos_acceso')
+            .insert({ usuario_id: userEmail, proyecto_id: projectId } as any) as any;
+          if (error && !error.message?.includes('duplicate')) throw error;
+        }
         setSelectedProjects((prev: number[]) => [...prev, projectId]);
         toast.success('Acceso al proyecto habilitado');
       } else {
+        // Set activo to false instead of deleting
         const { error } = await supabase
           .from('proyectos_acceso')
-          .delete()
+          .update({ activo: false } as any)
           .eq('usuario_id', userEmail)
           .eq('proyecto_id', projectId) as any;
         if (error) throw error;
@@ -844,17 +860,7 @@ export function UserProjectAccessDialog({ userId, userName, userEmail, userRole,
               </Button>
             </div>
           </div>
-        ) : isSecondaryInmobiliaria ? (
-          <AgentReadOnlyAccess
-            userPersonaId={userPersonaId}
-            isSecondaryInmobiliaria={isSecondaryInmobiliaria}
-            isAgenteInterno={isAgenteInterno}
-            userRole={userRole}
-            proyectos={proyectos}
-            selectedProjects={selectedProjects}
-            onClose={() => setOpen(false)}
-          />
-        ) : isAgente ? (
+        ) : isSecondaryInmobiliaria || isAgente ? (
           <AgentProjectAccessEditable
             userEmail={userEmail}
             userPersonaId={userPersonaId}
