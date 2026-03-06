@@ -514,27 +514,42 @@ export default function InmobDashboard() {
     return maxP;
   }, [comisiones]);
 
-  // Prospectos per agent (date-filtered for dashboard)
+  // Prospectos por agente (filtrado por meses seleccionados)
   const { data: prospectosByAgent = new Map<number, number>() } = useQuery({
-    queryKey: ["inmob-dash-prospectos-by-agent", agentPersonaIds, monthStart, monthEnd],
+    queryKey: ["inmob-dash-prospectos-by-agent", agentPersonaIds, selectedMonths],
     queryFn: async () => {
       if (!agentPersonaIds.length) return new Map<number, number>();
-      const all: any[] = [];
-      for (let i = 0; i < agentPersonaIds.length; i += 200) {
-        const batch = agentPersonaIds.slice(i, i + 200);
-        const { data } = await supabase
-          .from("entidades_relacionadas")
-          .select("id_persona_duena_lead")
-          .in("id_persona_duena_lead", batch)
-          .eq("id_tipo_entidad", 7)
-          .eq("activo", true)
-          .gte("fecha_creacion", monthStart)
-          .lte("fecha_creacion", monthEnd) as any;
-        if (data) all.push(...data);
+
+      const ranges = dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }];
+      const uniqueProspectsByAgent = new Map<number, Set<number>>();
+
+      for (const range of ranges) {
+        for (let i = 0; i < agentPersonaIds.length; i += 200) {
+          const batch = agentPersonaIds.slice(i, i + 200);
+          const { data } = await supabase
+            .from("entidades_relacionadas")
+            .select("id_persona, id_persona_duena_lead")
+            .in("id_persona_duena_lead", batch)
+            .eq("id_tipo_entidad", 7)
+            .eq("activo", true)
+            .gte("fecha_creacion", range.start)
+            .lte("fecha_creacion", range.end) as any;
+
+          (data || []).forEach((row: any) => {
+            const ownerPersonaId = Number(row.id_persona_duena_lead);
+            const prospectPersonaId = Number(row.id_persona);
+            if (!ownerPersonaId || !prospectPersonaId) return;
+            if (!uniqueProspectsByAgent.has(ownerPersonaId)) {
+              uniqueProspectsByAgent.set(ownerPersonaId, new Set<number>());
+            }
+            uniqueProspectsByAgent.get(ownerPersonaId)!.add(prospectPersonaId);
+          });
+        }
       }
+
       const map = new Map<number, number>();
-      all.forEach((r: any) => {
-        map.set(r.id_persona_duena_lead, (map.get(r.id_persona_duena_lead) || 0) + 1);
+      uniqueProspectsByAgent.forEach((prospectSet, ownerPersonaId) => {
+        map.set(ownerPersonaId, prospectSet.size);
       });
       return map;
     },

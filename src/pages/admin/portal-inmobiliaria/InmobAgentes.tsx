@@ -402,7 +402,7 @@ export default function InmobAgentes() {
     staleTime: 3 * 60_000,
   });
 
-  // Fetch prospectos per agent
+  // Fetch prospectos históricos por agente (únicos por persona prospecto)
   const { data: prospectosByAgent = new Map(), isLoading: prospectosLoading } = useQuery({
     queryKey: ["inmob-agentes-prospectos", agentEmails],
     queryFn: async () => {
@@ -413,7 +413,7 @@ export default function InmobAgentes() {
       const data = await fetchAllPaginated<any>(() =>
         supabase
           .from("entidades_relacionadas")
-          .select("id_persona_duena_lead")
+          .select("id_persona, id_persona_duena_lead")
           .in("id_persona_duena_lead", personaIds)
           .eq("id_tipo_entidad", 7)
           .eq("activo", true)
@@ -424,12 +424,22 @@ export default function InmobAgentes() {
         if (a.personaId) personaToEmail.set(Number(a.personaId), (a.email || "").toLowerCase());
       });
 
-      const map = new Map<string, number>();
+      const uniqueProspectsByEmail = new Map<string, Set<number>>();
       (data || []).forEach((d: any) => {
-        const email = personaToEmail.get(Number(d.id_persona_duena_lead));
-        if (email) {
-          map.set(email, (map.get(email) || 0) + 1);
-        }
+        const ownerPersonaId = Number(d.id_persona_duena_lead);
+        const prospectPersonaId = Number(d.id_persona);
+        if (!ownerPersonaId || !prospectPersonaId) return;
+
+        const email = personaToEmail.get(ownerPersonaId);
+        if (!email) return;
+
+        if (!uniqueProspectsByEmail.has(email)) uniqueProspectsByEmail.set(email, new Set<number>());
+        uniqueProspectsByEmail.get(email)!.add(prospectPersonaId);
+      });
+
+      const map = new Map<string, number>();
+      uniqueProspectsByEmail.forEach((prospectSet, email) => {
+        map.set(email, prospectSet.size);
       });
       return map;
     },
