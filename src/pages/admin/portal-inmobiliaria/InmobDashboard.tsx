@@ -420,7 +420,7 @@ export default function InmobDashboard() {
         const batch = ofertaIds.slice(i, i + 100);
         const { data } = await (supabase as any)
           .from("cuentas_cobranza")
-          .select("id, id_oferta, precio_final, contrato_draft, fecha_creacion")
+          .select("id, id_oferta, precio_final, porcentaje_comision_venta, iva_incluido, contrato_draft, fecha_creacion")
           .in("id_oferta", batch)
           .eq("activo", true);
         (data || []).forEach((c: any) => { if (c.id_oferta) m.set(c.id_oferta, c); });
