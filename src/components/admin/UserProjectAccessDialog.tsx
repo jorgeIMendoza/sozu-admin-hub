@@ -156,11 +156,12 @@ function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteI
     </div>
   );
 }
-// Editable project access for agents (Agente Inmobiliario / Agente Interno)
-function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno, proyectos, selectedProjects, setSelectedProjects, onClose, queryClient }: {
+// Editable project access for agents (Agente Inmobiliario / Agente Interno) and secondary Inmobiliaria users
+function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno, isSecondaryInmobiliaria, proyectos, selectedProjects, setSelectedProjects, onClose, queryClient }: {
   userEmail: string;
   userPersonaId?: number;
   isAgenteInterno: boolean;
+  isSecondaryInmobiliaria?: boolean;
   proyectos?: Proyecto[];
   selectedProjects: number[];
   setSelectedProjects: React.Dispatch<React.SetStateAction<number[]>>;
@@ -171,19 +172,28 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
 
   // Get the inmobiliaria's persona id for this agent
   const { data: inmobData, isLoading: inmobLoading } = useQuery({
-    queryKey: ['agent-inmob-projects-for-access', userPersonaId],
+    queryKey: ['agent-inmob-projects-for-access', userPersonaId, isSecondaryInmobiliaria],
     queryFn: async () => {
       if (!userPersonaId) return null;
-      const { data: rel } = await supabase
-        .from('entidades_relacionadas')
-        .select('id_persona_duena_lead')
-        .eq('id_persona', userPersonaId)
-        .eq('id_tipo_entidad', 19)
-        .eq('activo', true)
-        .maybeSingle() as any;
-      
-      if (!rel?.id_persona_duena_lead) return null;
-      const inmobPersonaId = rel.id_persona_duena_lead;
+
+      let inmobPersonaId: number;
+
+      if (isSecondaryInmobiliaria) {
+        // For secondary inmobiliaria users, their persona IS the inmobiliaria
+        inmobPersonaId = userPersonaId;
+      } else {
+        // For agents, look up the parent inmobiliaria
+        const { data: rel } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona_duena_lead')
+          .eq('id_persona', userPersonaId)
+          .eq('id_tipo_entidad', 19)
+          .eq('activo', true)
+          .maybeSingle() as any;
+        
+        if (!rel?.id_persona_duena_lead) return null;
+        inmobPersonaId = rel.id_persona_duena_lead;
+      }
       
       const { data: persona } = await supabase
         .from('personas')
@@ -191,10 +201,13 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
         .eq('id', inmobPersonaId)
         .maybeSingle() as any;
 
+      // Find the PRIMARY inmobiliaria user (usuario_principal = true or first user with this persona)
       const { data: inmobUser } = await supabase
         .from('usuarios')
         .select('email')
         .eq('id_persona', inmobPersonaId)
+        .eq('rol_id', 4)
+        .limit(1)
         .maybeSingle() as any;
 
       if (!inmobUser?.email) return null;
