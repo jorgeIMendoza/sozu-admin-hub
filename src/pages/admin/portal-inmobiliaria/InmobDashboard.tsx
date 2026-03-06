@@ -1093,9 +1093,7 @@ export default function InmobDashboard() {
       });
   }, [ofertas]);
 
-  const avgConversion = agentPerformance.length > 0
-    ? agentPerformance.reduce((s, a) => s + a.conversion, 0) / agentPerformance.length
-    : 0;
+  const avgConversion = conversionGlobal;
 
   // Month label
   const monthLabel = now.toLocaleString("es-MX", { month: "long", year: "numeric" });
@@ -1381,10 +1379,10 @@ export default function InmobDashboard() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
                           <p className="font-semibold mb-1">Conversión = (Ventas / Ofertas) × 100</p>
-                          <p><span className="inline-block w-2 h-2 rounded-full bg-primary mr-1" />Verde: superior al 110% del promedio del grupo</p>
-                          <p><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1" />Rojo: inferior al 80% del promedio del grupo</p>
-                          <p><span className="inline-block w-2 h-2 rounded-full bg-secondary mr-1" />Gris: dentro del rango promedio</p>
-                          <p className="mt-1 text-muted-foreground">Promedio actual: {avgConversion.toFixed(1)}%</p>
+                          <p><span className="inline-block w-2 h-2 rounded-full bg-primary mr-1" />Verde: superior al promedio</p>
+                          <p><span className="inline-block w-2 h-2 rounded-full bg-destructive mr-1" />Rojo: inferior al promedio</p>
+                          <p><span className="inline-block w-2 h-2 rounded-full bg-secondary mr-1" />Gris: en el promedio</p>
+                          <p className="mt-1 text-muted-foreground">Promedio actual: {conversionGlobal.toFixed(1)}%</p>
                         </TooltipContent>
                       </Tooltip>
                     </TableHead>
