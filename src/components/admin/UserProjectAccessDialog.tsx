@@ -230,6 +230,7 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
       return {
         inmobName: persona?.nombre_comercial || persona?.nombre_legal || 'Inmobiliaria',
         inmobProjects,
+        sourceEmail,
       };
     },
     enabled: !!userPersonaId,
