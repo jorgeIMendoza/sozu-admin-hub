@@ -309,11 +309,9 @@ export default function InmobComisiones() {
                         <TableCell className="text-right">{fmt2(r.venta)}</TableCell>
                         <TableCell className="text-right">
                           <span className="font-semibold">{fmt2(r.comision)}</span>
-                          <div className="mt-0.5">
-                            {r.ivaIncluido
-                              ? <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-[11px]">IVA incluido</Badge>
-                              : <Badge variant="outline" className="text-muted-foreground text-[11px]">Sin IVA</Badge>}
-                          </div>
+                          <span className={`ml-1.5 inline-flex items-center rounded px-1.5 py-0 text-[10px] leading-4 font-medium border ${r.ivaIncluido ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "text-muted-foreground border-border"}`}>
+                            {r.ivaIncluido ? "+IVA" : "Sin IVA"}
+                          </span>
                         </TableCell>
                         <TableCell>{estatusBadge(r.estatus)}</TableCell>
                         <TableCell>{formatFechaPago(r.fechaPago)}</TableCell>
