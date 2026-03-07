@@ -295,7 +295,6 @@ export default function InmobComisiones() {
                       <TableHead>Agente</TableHead>
                       <TableHead className="text-right">Venta</TableHead>
                       <TableHead className="text-right">Comisión</TableHead>
-                      <TableHead>IVA</TableHead>
                       <TableHead>Estatus</TableHead>
                       <TableHead>Fecha Pago</TableHead>
                     </TableRow>
@@ -308,11 +307,13 @@ export default function InmobComisiones() {
                         <TableCell>{r.unidad}</TableCell>
                         <TableCell>{r.agente}</TableCell>
                         <TableCell className="text-right">{fmt2(r.venta)}</TableCell>
-                        <TableCell className="text-right font-semibold">{fmt2(r.comision)}</TableCell>
-                        <TableCell>
-                          {r.ivaIncluido
-                            ? <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-[11px]">IVA incluido</Badge>
-                            : <Badge variant="outline" className="text-muted-foreground text-[11px]">Sin IVA</Badge>}
+                        <TableCell className="text-right">
+                          <span className="font-semibold">{fmt2(r.comision)}</span>
+                          <div className="mt-0.5">
+                            {r.ivaIncluido
+                              ? <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-[11px]">IVA incluido</Badge>
+                              : <Badge variant="outline" className="text-muted-foreground text-[11px]">Sin IVA</Badge>}
+                          </div>
                         </TableCell>
                         <TableCell>{estatusBadge(r.estatus)}</TableCell>
                         <TableCell>{formatFechaPago(r.fechaPago)}</TableCell>
