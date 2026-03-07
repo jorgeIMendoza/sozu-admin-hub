@@ -252,7 +252,7 @@ export const PortalInmobiliariaLayout = () => {
       </nav>
 
       {/* ── Main content ── */}
-      <div className="flex-1" style={{ marginLeft: "var(--inmob-sidebar-width, 0)" }}>
+      <div className="flex-1 lg:ml-[232px]">
         {/* Topbar (desktop) */}
         <header
           className="hidden lg:flex items-center justify-between sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-6"
