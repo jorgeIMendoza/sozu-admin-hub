@@ -26,6 +26,21 @@ export function useInmobiliariaPersonaId() {
       // Super Admin → behave as Sozu inmobiliaria
       if (isSuperAdmin) return SOZU_PERSONA_ID;
 
+      // Step 0: If user's own persona IS an inmobiliaria, use it directly
+      if (directId) {
+        const { data: directInmob } = await (supabase as any)
+          .from('entidades_relacionadas')
+          .select('id_persona')
+          .eq('id_persona', directId)
+          .eq('id_tipo_entidad', 5)
+          .eq('activo', true)
+          .maybeSingle();
+
+        if (directInmob?.id_persona) {
+          return directInmob.id_persona;
+        }
+      }
+
       // 1) Resolve from active project ownership links (preferred source of truth)
       const { data: accesos } = await (supabase as any)
         .from("proyectos_acceso")

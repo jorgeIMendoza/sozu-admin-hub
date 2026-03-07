@@ -138,12 +138,27 @@ export function EditUserDialog({
     enabled: open && isAgentRole && !!userPersonaId,
   });
 
-  // Fetch current inmobiliaria for Inmobiliaria role users (via proyectos_acceso)
+  // Fetch current inmobiliaria for Inmobiliaria role users
   const { data: currentInmobInmobiliaria, isLoading: isLoadingInmobInmob } = useQuery({
-    queryKey: ['inmob_user_inmobiliaria', userEmail],
+    queryKey: ['inmob_user_inmobiliaria', userEmail, userPersonaId],
     queryFn: async () => {
+      // 1) If user has a persona, check if that persona IS an inmobiliaria directly
+      if (userPersonaId) {
+        const { data: directInmob } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_persona')
+          .eq('id_persona', userPersonaId)
+          .eq('id_tipo_entidad', 5)
+          .eq('activo', true)
+          .maybeSingle();
+
+        if (directInmob?.id_persona) {
+          return directInmob.id_persona;
+        }
+      }
+
+      // 2) Fallback: resolve via proyectos_acceso (for secondary/staff users)
       if (!userEmail) return null;
-      
       const { data: accesos } = await supabase
         .from('proyectos_acceso')
         .select('id_entidad_relacionada_dueno')
@@ -151,7 +166,7 @@ export function EditUserDialog({
         .not('id_entidad_relacionada_dueno', 'is', null)
         .eq('activo', true)
         .limit(1);
-      
+
       if (accesos && accesos.length > 0) {
         const erDueno = accesos[0].id_entidad_relacionada_dueno;
         const { data: er } = await supabase
