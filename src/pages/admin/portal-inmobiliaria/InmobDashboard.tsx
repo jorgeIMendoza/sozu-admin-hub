@@ -57,7 +57,7 @@ const getMonthRange = (year: number, month: number) => {
 
 /* ───── constants ───── */
 const funnelColors = [
-  "#166534", "#15803D", "#22C55E", "#4ADE80", "#86EFAC",
+  "#1A7A53", "#1F8C60", "#239E6C", "#4DB88A", "#8AD4B0",
 ];
 
 const alertIcons = { warning: AlertTriangle, danger: AlertCircle, info: Info };
@@ -1402,7 +1402,7 @@ export default function InmobDashboard() {
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={chartMode !== "unidades" ? (v) => `$${(v / 1000000).toFixed(1)}M` : undefined} axisLine={false} tickLine={false} />
                   <RechartsTooltip formatter={(value: any) => [chartMode !== "unidades" ? fmtCurrency(value) : value, chartMode === "unidades" ? "Ventas" : chartMode === "ingreso" ? "Ingreso" : "Comisión"]} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
-                  <Bar dataKey={chartDataKey} fill="#22C55E" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_data: any, index: number) => { const agent = agentChartData[index]; if (agent?.searchValue) navigate(`${NAV_PREFIX}/agentes?q=${encodeURIComponent(agent.searchValue)}`); }} />
+                  <Bar dataKey={chartDataKey} fill="#239E6C" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_data: any, index: number) => { const agent = agentChartData[index]; if (agent?.searchValue) navigate(`${NAV_PREFIX}/agentes?q=${encodeURIComponent(agent.searchValue)}`); }} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -1426,7 +1426,7 @@ export default function InmobDashboard() {
                   <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} axisLine={false} tickLine={false} />
                   <RechartsTooltip formatter={(value: any) => [fmtCurrency(value)]} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
                   <Legend />
-                  <Area type="monotone" dataKey="real" stackId="1" stroke="#22C55E" fill="#22C55E" fillOpacity={0.15} name="Cobrado" />
+                  <Area type="monotone" dataKey="real" stackId="1" stroke="#239E6C" fill="#239E6C" fillOpacity={0.15} name="Cobrado" />
                   <Area type="monotone" dataKey="porCobrar" stackId="2" stroke="#F97316" fill="#F97316" fillOpacity={0.08} name="Por cobrar" />
                   <Area type="monotone" dataKey="estimado" stackId="3" stroke="#D1D5DB" fill="none" strokeDasharray="5 5" name="Estimado" />
                 </AreaChart>

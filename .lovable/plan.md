@@ -1,25 +1,41 @@
 
 
-# Plan: Cambiar color principal del portal inmobiliaria de `#22C55E` a `#239E6C`
+## Plan: Agregar Domain-Wide Delegation (subject/sub) al JWT de la cuenta de servicio
 
-## Cambios
+### Problema actual
+La función `getAccessToken` genera un JWT sin el campo `sub`, por lo que Google Calendar ve las operaciones como hechas por la cuenta de servicio directamente. Esto impide que los invitados reciban correos de notificación del evento.
 
-### 1. `src/index.css` — Actualizar tokens `.inmob-portal`
-Cambiar todas las referencias de `142 71% 45%` a `156 64% 38%` (equivalente HSL de `#239E6C`):
-- `--primary`, `--success`, `--ring`, `--sidebar-primary`, `--sidebar-ring`, `--chart-1`
-- `--inmob-green`: `156 64% 38%`
-- `--inmob-green-light`: `156 64% 93%`
-- `--inmob-green-dark`: `156 64% 30%`
-- `--sidebar-accent`: `156 64% 93%`
-- `--sidebar-accent-foreground`: `156 64% 25%`
+### Cambio necesario
 
-### 2. `src/pages/admin/portal-inmobiliaria/InmobDashboard.tsx`
-- Funnel colors: actualizar gradiente de tonos de `#239E6C` (de oscuro a claro)
-- Bar chart fill: `#22C55E` → `#239E6C`
-- Area chart stroke/fill: `#22C55E` → `#239E6C`
+**Archivo**: `supabase/functions/agendar-capacitacion/index.ts`
 
-### 3. `src/pages/admin/portal-inmobiliaria/InmobReportes.tsx`
-- `COLORS[0]`: `#22C55E` → `#239E6C`
-- Bar "aprobadas" fill: → `#239E6C`
-- Line chart stroke/dot: → `#239E6C`
+1. **Modificar `getAccessToken`** para aceptar un parámetro opcional `subject` (el email del dueño del calendario) y agregarlo al payload JWT:
+   ```
+   sub: subject  // e.g. "jorge.mendoza@sozu.com"
+   ```
+
+2. **Actualizar la llamada** a `getAccessToken(sa)` → `getAccessToken(sa, calendarOwnerEmail)` en el `Deno.serve` principal (línea 519), para que el token se genere impersonando al dueño del calendario.
+
+3. Agregar el scope `https://www.googleapis.com/auth/calendar.events` al JWT (ya lo tienes en el Admin Console, pero el código solo pide `calendar`).
+
+### Detalle técnico
+
+```text
+// Antes (línea 18-23):
+payload = { iss, scope: "...calendar", aud, iat, exp }
+
+// Después:
+payload = { iss, sub: subject, scope: "...calendar ...calendar.events", aud, iat, exp }
+```
+
+La llamada cambia de:
+```text
+const token = await getAccessToken(sa);
+```
+A:
+```text
+const token = await getAccessToken(sa, calendarOwnerEmail);
+```
+
+Esto hará que Google Calendar trate las operaciones como si las hiciera el usuario real (calendarOwnerEmail), permitiendo el envío automático de correos a los invitados.
 

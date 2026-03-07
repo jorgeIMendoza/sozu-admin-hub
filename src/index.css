@@ -531,12 +531,12 @@ All colors MUST be HSL.
 
 .inmob-portal {
   /* Primary green palette */
-  --primary: 142 71% 45%;
+  --primary: 156 64% 38%;
   --primary-foreground: 0 0% 100%;
-  --primary-hover: 142 76% 36%;
+  --primary-hover: 156 64% 30%;
 
   /* State colors */
-  --success: 142 71% 45%;
+  --success: 156 64% 38%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 50%;
   --warning-foreground: 0 0% 100%;
@@ -560,21 +560,21 @@ All colors MUST be HSL.
   /* Borders */
   --border: 220 13% 91%;
   --input: 220 13% 91%;
-  --ring: 142 71% 45%;
+  --ring: 156 64% 38%;
   --radius: 0.5rem;
 
   /* Sidebar overrides */
   --sidebar-background: 0 0% 100%;
   --sidebar-foreground: 220 9% 46%;
-  --sidebar-primary: 142 71% 45%;
+  --sidebar-primary: 156 64% 38%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 142 76% 93%;
-  --sidebar-accent-foreground: 142 71% 30%;
+  --sidebar-accent: 156 64% 93%;
+  --sidebar-accent-foreground: 156 64% 25%;
   --sidebar-border: 220 13% 91%;
-  --sidebar-ring: 142 71% 45%;
+  --sidebar-ring: 156 64% 38%;
 
   /* Charts */
-  --chart-1: 142 71% 45%;
+  --chart-1: 156 64% 38%;
   --chart-2: 217 91% 60%;
   --chart-3: 24 95% 53%;
   --chart-4: 271 81% 56%;
@@ -583,9 +583,9 @@ All colors MUST be HSL.
   /* Portal-specific tokens */
   --inmob-sidebar-width: 232px;
   --inmob-topbar-height: 56px;
-  --inmob-green: 142 71% 45%;
-  --inmob-green-light: 142 76% 93%;
-  --inmob-green-dark: 142 76% 36%;
+  --inmob-green: 156 64% 38%;
+  --inmob-green-light: 156 64% 93%;
+  --inmob-green-dark: 156 64% 30%;
   --inmob-border-light: 220 14% 96%;
   --inmob-text-muted: 220 9% 64%;
 
@@ -644,7 +644,7 @@ All colors MUST be HSL.
 
 /* Badge overrides for status pills */
 .inmob-portal .inmob-badge-activo {
-  background-color: hsl(142 71% 45%);
+  background-color: hsl(156 64% 38%);
   color: white;
   border-radius: 9999px;
   font-size: 0.75rem;
@@ -653,7 +653,7 @@ All colors MUST be HSL.
 }
 
 .inmob-portal .inmob-badge-pagada {
-  background-color: hsl(142 71% 45%);
+  background-color: hsl(156 64% 38%);
   color: white;
   border-radius: 9999px;
 }
@@ -676,7 +676,7 @@ All colors MUST be HSL.
 .inmob-portal select:focus,
 .inmob-portal textarea:focus {
   border-color: hsl(var(--inmob-green));
-  box-shadow: 0 0 0 3px hsl(142 71% 45% / 0.15);
+  box-shadow: 0 0 0 3px hsl(156 64% 38% / 0.15);
 }
 
 /* Primary buttons */
