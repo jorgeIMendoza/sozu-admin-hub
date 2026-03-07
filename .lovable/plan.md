@@ -1,41 +1,32 @@
 
 
-## Plan: Agregar Domain-Wide Delegation (subject/sub) al JWT de la cuenta de servicio
+## Plan: Columna de Factura en Comisiones
 
-### Problema actual
-La función `getAccessToken` genera un JWT sin el campo `sub`, por lo que Google Calendar ve las operaciones como hechas por la cuenta de servicio directamente. Esto impide que los invitados reciban correos de notificación del evento.
+### Lógica de datos
 
-### Cambio necesario
+**Sozu**: Agregar `url_factura_comision` y `es_draft_factura_comision` al select de `cuentas_cobranza` en `fetchSozuComisiones` (línea 442). Mapear al row como `facturaUrl` cuando `es_draft_factura_comision === false`, sino `null`.
 
-**Archivo**: `supabase/functions/agendar-capacitacion/index.ts`
+**Externos**: Ya se consultan documentos tipo 46 (línea 639-646). Ampliar el select para incluir `url_documento` y mapear por `id_cuenta_cobranza` para obtener la URL. Guardar en el row como `facturaUrl`.
 
-1. **Modificar `getAccessToken`** para aceptar un parámetro opcional `subject` (el email del dueño del calendario) y agregarlo al payload JWT:
-   ```
-   sub: subject  // e.g. "jorge.mendoza@sozu.com"
-   ```
+Ambos fetchers agregarán `facturaUrl: string | null` a cada row.
 
-2. **Actualizar la llamada** a `getAccessToken(sa)` → `getAccessToken(sa, calendarOwnerEmail)` en el `Deno.serve` principal (línea 519), para que el token se genere impersonando al dueño del calendario.
+### Columna en la tabla
 
-3. Agregar el scope `https://www.googleapis.com/auth/calendar.events` al JWT (ya lo tienes en el Admin Console, pero el código solo pide `calendar`).
+- Nuevo `TableHead`: "Factura" después de "Fecha Pago"
+- `TableCell`:
+  - Si `r.facturaUrl` existe → botón/ícono para abrir el PDF con `PdfViewerDialog`
+  - Si no existe y **es Sozu** → texto "Sin factura"
+  - Si no existe y **no es Sozu** → botón "Subir factura" que abre un input file, sube al bucket correspondiente, e inserta un registro en `documentos` con `id_tipo_documento = 46`
 
-### Detalle técnico
+### Upload para externos
 
-```text
-// Antes (línea 18-23):
-payload = { iss, scope: "...calendar", aud, iat, exp }
+- Componente inline `FacturaUploadButton` dentro del archivo
+- Al hacer click abre un `<input type="file" accept=".pdf">` oculto
+- Sube al bucket `documentos-generales` (o el que ya usen para tipo 46)
+- Inserta en tabla `documentos`: `id_cuenta_cobranza`, `id_tipo_documento: 46`, `url_documento`, `id_persona` (de la inmobiliaria), `numero: inmobEmail`, `activo: true`
+- Tras éxito, invalida el query para refrescar
 
-// Después:
-payload = { iss, sub: subject, scope: "...calendar ...calendar.events", aud, iat, exp }
-```
+### Archivos a modificar
 
-La llamada cambia de:
-```text
-const token = await getAccessToken(sa);
-```
-A:
-```text
-const token = await getAccessToken(sa, calendarOwnerEmail);
-```
-
-Esto hará que Google Calendar trate las operaciones como si las hiciera el usuario real (calendarOwnerEmail), permitiendo el envío automático de correos a los invitados.
+- `src/pages/admin/portal-inmobiliaria/InmobComisiones.tsx`: Todo lo descrito arriba, incluyendo import de `PdfViewerDialog`, estado para el visor, y el componente de upload.
 
