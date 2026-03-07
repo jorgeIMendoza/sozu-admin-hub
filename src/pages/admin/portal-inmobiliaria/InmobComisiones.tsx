@@ -728,12 +728,16 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
   // Get facturas
   const { data: facturasData } = await (supabase as any)
     .from("documentos")
-    .select("id_cuenta_cobranza, numero")
+    .select("id_cuenta_cobranza, numero, url_documento")
     .in("id_cuenta_cobranza", cuentaIds)
     .eq("id_tipo_documento", 46)
     .eq("activo", true);
 
   const facturaSet = new Set((facturasData || []).filter((f: any) => f.numero === inmobEmail).map((f: any) => f.id_cuenta_cobranza));
+  const facturaUrlMap = new Map<number, string>();
+  (facturasData || []).filter((f: any) => f.numero === inmobEmail && f.url_documento).forEach((f: any) => {
+    facturaUrlMap.set(f.id_cuenta_cobranza, f.url_documento);
+  });
 
   // Build maps
   const ofertaMap = new Map<number, any>(ofertas.map((o: any) => [o.id, o]));
