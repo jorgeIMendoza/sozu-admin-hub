@@ -537,6 +537,7 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
       agente: oferta.email_creador,
       venta: cuenta.precio_final || 0,
       comision,
+      ivaIncluido: !!cuenta.iva_incluido,
       estatus,
       fechaPago: cuenta.fecha_pago_comision || null,
     });
@@ -704,6 +705,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
       agente: oferta?.email_creador || "-",
       venta: cuenta.precio_final || 0,
       comision,
+      ivaIncluido: false,
       estatus,
       fechaPago,
     });
