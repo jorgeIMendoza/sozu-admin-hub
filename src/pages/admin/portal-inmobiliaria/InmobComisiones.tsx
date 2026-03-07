@@ -5,16 +5,22 @@ import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { useInmobAgents } from "@/hooks/useInmobAgents";
 import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { MonthMultiSelector, getCurrentMonthKey, getMonthFilterLabel, buildDateRangesFromMonths } from "@/components/ui/month-multi-selector";
-import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
 import {
-  DollarSign, Search, CalendarDays, CheckCircle2, Clock, Eye, CalendarCheck,
+  Pagination, PaginationContent, PaginationItem, PaginationLink,
+  PaginationNext, PaginationPrevious, PaginationEllipsis,
+} from "@/components/ui/pagination";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DollarSign, Search, CalendarDays, CheckCircle2, Clock, Eye, CalendarCheck, Users,
 } from "lucide-react";
 
 /* ───── helpers ───── */
@@ -23,6 +29,15 @@ const fmt = (n: number) =>
 
 const fmt2 = (n: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+function formatFechaPago(fecha: string | null): string {
+  if (!fecha) return "—";
+  const d = new Date(fecha);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+}
+
+const PAGE_SIZE = 50;
 
 // Estatus badges
 function estatusBadge(estatus: string) {
@@ -42,6 +57,53 @@ function estatusBadge(estatus: string) {
   }
 }
 
+/* ───── Client display component ───── */
+type ClienteInfo = { nombre: string; porcentaje: number };
+
+function ClienteCell({ clientes }: { clientes: ClienteInfo[] }) {
+  const [open, setOpen] = useState(false);
+
+  if (!clientes || clientes.length === 0) return <span>-</span>;
+
+  if (clientes.length === 1) {
+    return (
+      <span>
+        {clientes[0].nombre}
+        {clientes[0].porcentaje < 100 && (
+          <span className="text-muted-foreground text-xs ml-1">({clientes[0].porcentaje}%)</span>
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 text-primary hover:underline text-sm font-medium"
+      >
+        <Users className="h-3.5 w-3.5" />
+        {clientes.length} clientes
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clientes de la operación</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {clientes.map((c, i) => (
+              <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
+                <span className="text-sm font-medium text-foreground">{c.nombre}</span>
+                <Badge variant="outline" className="text-xs">{c.porcentaje}%</Badge>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function InmobComisiones() {
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
@@ -49,6 +111,7 @@ export default function InmobComisiones() {
   const { personaId } = useInmobiliariaPersonaId();
   const [search, setSearch] = useState("");
   const [selectedMonths, setSelectedMonths] = useState<string[]>([getCurrentMonthKey()]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
   const dateRanges = useMemo(() => buildDateRangesFromMonths(selectedMonths), [selectedMonths]);
@@ -120,11 +183,32 @@ export default function InmobComisiones() {
     const s = search.toLowerCase();
     return rows.filter((r: any) =>
       r.proyecto?.toLowerCase().includes(s) ||
-      r.cliente?.toLowerCase().includes(s) ||
+      r.clientes?.some((c: ClienteInfo) => c.nombre.toLowerCase().includes(s)) ||
       r.agente?.toLowerCase().includes(s) ||
       r.unidad?.toLowerCase().includes(s)
     );
   }, [rows, search]);
+
+  // Reset page when search or data changes
+  useEffect(() => { setCurrentPage(1); }, [search, rows.length, selectedMonths]);
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const paginatedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  function getPaginationPages() {
+    const pages: (number | "ellipsis")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("ellipsis");
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("ellipsis");
+      pages.push(totalPages);
+    }
+    return pages;
+  }
 
   return (
     <div className="space-y-6">
@@ -173,40 +257,82 @@ export default function InmobComisiones() {
           <p className="text-muted-foreground">No se encontraron comisiones.</p>
         </CardContent></Card>
       ) : (
-        <Card className="sozu-card">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="sozu-table-header">
-                    <TableHead>Proyecto</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Unidad</TableHead>
-                    <TableHead>Agente</TableHead>
-                    <TableHead className="text-right">Venta</TableHead>
-                    <TableHead className="text-right">Comisión</TableHead>
-                    <TableHead>Estatus</TableHead>
-                    <TableHead>Fecha Pago</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRows.map((r: any, idx: number) => (
-                    <TableRow key={`${r.cuentaId}-${idx}`}>
-                      <TableCell className="font-medium">{r.proyecto}</TableCell>
-                      <TableCell>{r.cliente}</TableCell>
-                      <TableCell>{r.unidad}</TableCell>
-                      <TableCell>{r.agente}</TableCell>
-                      <TableCell className="text-right">{fmt2(r.venta)}</TableCell>
-                      <TableCell className="text-right font-semibold">{fmt2(r.comision)}</TableCell>
-                      <TableCell>{estatusBadge(r.estatus)}</TableCell>
-                      <TableCell>{r.fechaPago || "—"}</TableCell>
+        <>
+          <Card className="sozu-card">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="sozu-table-header">
+                      <TableHead>Proyecto</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead>Agente</TableHead>
+                      <TableHead className="text-right">Venta</TableHead>
+                      <TableHead className="text-right">Comisión</TableHead>
+                      <TableHead>Estatus</TableHead>
+                      <TableHead>Fecha Pago</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedRows.map((r: any, idx: number) => (
+                      <TableRow key={`${r.cuentaId}-${idx}`}>
+                        <TableCell className="font-medium">{r.proyecto}</TableCell>
+                        <TableCell><ClienteCell clientes={r.clientes} /></TableCell>
+                        <TableCell>{r.unidad}</TableCell>
+                        <TableCell>{r.agente}</TableCell>
+                        <TableCell className="text-right">{fmt2(r.venta)}</TableCell>
+                        <TableCell className="text-right font-semibold">{fmt2(r.comision)}</TableCell>
+                        <TableCell>{estatusBadge(r.estatus)}</TableCell>
+                        <TableCell>{formatFechaPago(r.fechaPago)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredRows.length)} de {filteredRows.length}
+              </p>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  {getPaginationPages().map((p, i) =>
+                    p === "ellipsis" ? (
+                      <PaginationItem key={`e-${i}`}><PaginationEllipsis /></PaginationItem>
+                    ) : (
+                      <PaginationItem key={p}>
+                        <PaginationLink
+                          isActive={p === currentPage}
+                          onClick={() => setCurrentPage(p as number)}
+                          className="cursor-pointer"
+                        >
+                          {p}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </>
       )}
     </div>
   );
@@ -214,7 +340,6 @@ export default function InmobComisiones() {
 
 /* ───── KPI Card component ───── */
 function KPICard({ icon: Icon, iconColor, label, value }: { icon: any; iconColor: string; label: string; value: string }) {
-  const [bg, text] = iconColor.split(" ");
   return (
     <Card>
       <CardContent className="p-4">
@@ -232,9 +357,40 @@ function KPICard({ icon: Icon, iconColor, label, value }: { icon: any; iconColor
   );
 }
 
+/* ───── Helper to fetch compradores by cuenta IDs ───── */
+async function fetchCompradores(cuentaIds: number[]): Promise<Map<number, ClienteInfo[]>> {
+  const result = new Map<number, ClienteInfo[]>();
+  if (cuentaIds.length === 0) return result;
+
+  const { data } = await (supabase as any)
+    .from("compradores")
+    .select("id_cuenta_cobranza, porcentaje_copropiedad, id_persona")
+    .in("id_cuenta_cobranza", cuentaIds)
+    .eq("activo", true);
+
+  if (!data || data.length === 0) return result;
+
+  const personaIds = [...new Set(data.map((d: any) => d.id_persona).filter(Boolean))] as number[];
+  const { data: personas } = personaIds.length > 0
+    ? await supabase.from("personas").select("id, nombre_legal").in("id", personaIds)
+    : { data: [] };
+
+  const personaMap = new Map<number, string>((personas || []).map((p: any) => [p.id, p.nombre_legal || ""]));
+
+  data.forEach((d: any) => {
+    const arr = result.get(d.id_cuenta_cobranza) || [];
+    arr.push({
+      nombre: personaMap.get(d.id_persona) || "-",
+      porcentaje: Number(d.porcentaje_copropiedad) || 0,
+    });
+    result.set(d.id_cuenta_cobranza, arr);
+  });
+
+  return result;
+}
+
 /* ───── Sozu data fetcher ───── */
 async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: string; end: string }[]) {
-  // Get ofertas created by agents
   let query = (supabase as any)
     .from("ofertas")
     .select("id, email_creador, id_propiedad, id_producto, fecha_creacion")
@@ -251,7 +407,6 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
 
   const ofertaIds = ofertas.map((o: any) => o.id);
 
-  // Get cuentas_cobranza for these ofertas
   const { data: cuentas } = await (supabase as any)
     .from("cuentas_cobranza")
     .select("id, id_oferta, precio_final, porcentaje_comision_venta, iva_incluido, es_pagada_comision_venta, fecha_pago_comision, activo")
@@ -260,14 +415,12 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
 
   if (!cuentas || cuentas.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
 
-  // Get property info
   const propIds = [...new Set(ofertas.filter((o: any) => o.id_propiedad).map((o: any) => o.id_propiedad))] as number[];
   const { data: propiedades } = propIds.length > 0 ? await supabase
     .from("propiedades")
     .select("id, numero_propiedad, id_edificio_modelo, id_estatus_disponibilidad")
     .in("id", propIds) : { data: [] };
 
-  // Get edificios_modelos → edificios → proyectos, modelos
   const emIds = [...new Set((propiedades || []).map((p: any) => p.id_edificio_modelo).filter(Boolean))] as number[];
   const { data: ems } = emIds.length > 0 ? await supabase
     .from("edificios_modelos")
@@ -286,14 +439,12 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
     .select("id, nombre")
     .in("id", projIds) : { data: [] };
 
-  // Get compradores from ofertas
-  const { data: compradores } = ofertaIds.length > 0 ? await (supabase as any)
-    .from("ofertas_compradores")
-    .select("id_oferta, personas!ofertas_compradores_id_persona_fkey(nombre_legal)")
-    .in("id_oferta", ofertaIds) : { data: [] };
-
-  // Check which have enganche pagado (needed for Sozu comisiones logic)
   const cuentaIds = cuentas.map((c: any) => c.id);
+
+  // Fetch compradores
+  const compradoresMap = await fetchCompradores(cuentaIds);
+
+  // Check enganche
   const { data: acuerdos } = await supabase
     .from("acuerdos_pago")
     .select("id_cuenta_cobranza, pago_completado, id_concepto")
@@ -308,18 +459,11 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
     else enganchePendienteSet.add(a.id_cuenta_cobranza);
   });
 
-  // Build lookup maps
   const ofertaMap = new Map<number, any>(ofertas.map((o: any) => [o.id, o]));
   const propMap = new Map((propiedades || []).map((p: any) => [p.id, p]));
   const emMap = new Map((ems || []).map((e: any) => [e.id, e]));
   const edifMap = new Map((edificios || []).map((e: any) => [e.id, e]));
   const projMap = new Map((proyectos || []).map((p: any) => [p.id, p]));
-  const compMap = new Map<number, string>();
-  (compradores || []).forEach((c: any) => {
-    if (c.id_oferta && c.personas?.nombre_legal) {
-      compMap.set(c.id_oferta, c.personas.nombre_legal);
-    }
-  });
 
   let totalGenerada = 0, pagadas = 0, programadas = 0;
   const rows: any[] = [];
@@ -332,7 +476,6 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
     const porcentaje = cuenta.porcentaje_comision_venta || 0;
     if (porcentaje === 0) continue;
 
-    // Only include if has enganche and it's fully paid
     const hasEnganche = enganchePagadoSet.has(cuenta.id) || enganchePendienteSet.has(cuenta.id);
     if (!hasEnganche) continue;
     const engancheCompleto = enganchePagadoSet.has(cuenta.id) && !enganchePendienteSet.has(cuenta.id);
@@ -344,7 +487,7 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
     totalGenerada += comision;
     const esPagada = cuenta.es_pagada_comision_venta === true;
     if (esPagada) pagadas += comision;
-    else programadas += comision; // For Sozu, unpaid = programada (they are in comisiones sozu view)
+    else programadas += comision;
 
     const prop = propMap.get(oferta.id_propiedad);
     const em = prop ? emMap.get(prop.id_edificio_modelo) : null;
@@ -358,7 +501,7 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
     rows.push({
       cuentaId: cuenta.id,
       proyecto: proj?.nombre || "-",
-      cliente: compMap.get(oferta.id) || "-",
+      clientes: compradoresMap.get(cuenta.id) || [],
       unidad: prop?.numero_propiedad || "-",
       agente: oferta.email_creador,
       venta: cuenta.precio_final || 0,
@@ -368,7 +511,7 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
     });
   }
 
-  // Get agent names from usuarios
+  // Resolve agent names
   const emailsToResolve = [...new Set(rows.map(r => r.agente))];
   if (emailsToResolve.length > 0) {
     const { data: usuarios } = await supabase
@@ -395,7 +538,6 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
 async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string, dateRanges: { start: string; end: string }[]) {
   if (!inmobEmail) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
 
-  // Get ofertas created by agents
   let query = (supabase as any)
     .from("ofertas")
     .select("id, email_creador, id_propiedad, id_producto, fecha_creacion")
@@ -412,7 +554,6 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
 
   const ofertaIds = ofertas.map((o: any) => o.id);
 
-  // Get cuentas_cobranza
   const { data: cuentas } = await (supabase as any)
     .from("cuentas_cobranza")
     .select("id, id_oferta, precio_final, activo")
@@ -423,7 +564,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
 
   const cuentaIds = cuentas.map((c: any) => c.id);
 
-  // Get comisionistas for this inmobiliaria on these cuentas
+  // Get comisionistas for this inmobiliaria
   const { data: comisionistas } = await (supabase as any)
     .from("comisionistas")
     .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada")
@@ -460,13 +601,10 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
     .select("id, nombre")
     .in("id", projIds) : { data: [] };
 
-  // Get compradores
-  const { data: compradoresData } = ofertaIds.length > 0 ? await (supabase as any)
-    .from("ofertas_compradores")
-    .select("id_oferta, personas!ofertas_compradores_id_persona_fkey(nombre_legal)")
-    .in("id_oferta", ofertaIds) : { data: [] };
+  // Fetch compradores
+  const compradoresMap = await fetchCompradores(cuentaIds);
 
-  // Get facturas for checking "programada" status
+  // Get facturas
   const { data: facturasData } = await (supabase as any)
     .from("documentos")
     .select("id_cuenta_cobranza, numero")
@@ -483,16 +621,8 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
   const emMap = new Map((ems || []).map((e: any) => [e.id, e]));
   const edifMap = new Map((edificios || []).map((e: any) => [e.id, e]));
   const projMap = new Map((proyectos || []).map((p: any) => [p.id, p]));
-  const compMap = new Map<number, string>();
-  (compradoresData || []).forEach((c: any) => {
-    if (c.id_oferta && c.personas?.nombre_legal) {
-      compMap.set(c.id_oferta, c.personas.nombre_legal);
-    }
-  });
 
-  // VENDIDO status ID = 5
   const VENDIDO_ID = 5;
-
   let totalGenerada = 0, pagadasMonto = 0, enRevision = 0, programadasMonto = 0;
   const rows: any[] = [];
 
@@ -503,16 +633,14 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
     const comision = (cuenta.precio_final * com.porcentaje_comision) / 100;
     if (comision <= 0) continue;
 
-    // Find the oferta for this cuenta
     const oferta = ofertaMap.get(cuenta.id_oferta);
     const prop = oferta?.id_propiedad ? propMap.get(oferta.id_propiedad) : null;
     const estatusPropId = prop?.id_estatus_disponibilidad;
 
-    // Total generada: solo si propiedad vendida (status >= 5)
     if (estatusPropId && estatusPropId >= VENDIDO_ID) {
       totalGenerada += comision;
     } else {
-      continue; // Skip non-sold properties
+      continue;
     }
 
     const em = prop ? emMap.get(prop.id_edificio_modelo) : null;
@@ -540,7 +668,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
     rows.push({
       cuentaId,
       proyecto: proj?.nombre || "-",
-      cliente: compMap.get(oferta?.id) || "-",
+      clientes: compradoresMap.get(cuentaId) || [],
       unidad: prop?.numero_propiedad || "-",
       agente: oferta?.email_creador || "-",
       venta: cuenta.precio_final || 0,
