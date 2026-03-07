@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, BarChart3, UserSearch,
   Calendar, DollarSign, FileText, Settings, ArrowLeft, LucideIcon, LogOut, Percent,
+  Building2, BarChart2, CalendarDays, UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -11,30 +12,46 @@ import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 import { APP_VERSION } from "@/lib/config";
 import sozuLogoBlack from "@/assets/sozu-logo-black.png";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const PORTAL_INMOB_MENU_ID = 17;
 
 const iconMap: Record<string, LucideIcon> = {
   "/admin/portal-inmobiliaria/dashboard": LayoutDashboard,
   "/admin/portal-inmobiliaria/agentes": Users,
-  "/admin/portal-inmobiliaria/pipeline": BarChart3,
-  "/admin/portal-inmobiliaria/prospectos": UserSearch,
-  "/admin/portal-inmobiliaria/citas": Calendar,
+  "/admin/portal-inmobiliaria/pipeline": BarChart2,
+  "/admin/portal-inmobiliaria/prospectos": UserCheck,
+  "/admin/portal-inmobiliaria/citas": CalendarDays,
   "/admin/portal-inmobiliaria/comisiones": DollarSign,
-  "/admin/portal-inmobiliaria/reportes": FileText,
+  "/admin/portal-inmobiliaria/reportes": BarChart3,
   "/admin/portal-inmobiliaria/configuracion": Settings,
 };
 
 const FALLBACK_TABS = [
   { path: "/admin/portal-inmobiliaria/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/portal-inmobiliaria/agentes", label: "Agentes", icon: Users },
-  { path: "/admin/portal-inmobiliaria/pipeline", label: "Pipeline", icon: BarChart3 },
-  { path: "/admin/portal-inmobiliaria/prospectos", label: "Prospectos", icon: UserSearch },
-  { path: "/admin/portal-inmobiliaria/citas", label: "Citas", icon: Calendar },
+  { path: "/admin/portal-inmobiliaria/pipeline", label: "Pipeline", icon: BarChart2 },
+  { path: "/admin/portal-inmobiliaria/prospectos", label: "Prospectos", icon: UserCheck },
+  { path: "/admin/portal-inmobiliaria/citas", label: "Citas", icon: CalendarDays },
   { path: "/admin/portal-inmobiliaria/comisiones", label: "Comisiones", icon: DollarSign },
-  { path: "/admin/portal-inmobiliaria/reportes", label: "Reportes", icon: FileText },
+  { path: "/admin/portal-inmobiliaria/reportes", label: "Reportes", icon: BarChart3 },
   { path: "/admin/portal-inmobiliaria/configuracion", label: "Configuración", icon: Settings },
 ];
+
+const SECTION_LABELS: Record<string, string> = {
+  "/admin/portal-inmobiliaria/dashboard": "Dashboard",
+  "/admin/portal-inmobiliaria/agentes": "Agentes",
+  "/admin/portal-inmobiliaria/pipeline": "Pipeline",
+  "/admin/portal-inmobiliaria/prospectos": "Prospectos",
+  "/admin/portal-inmobiliaria/citas": "Citas",
+  "/admin/portal-inmobiliaria/comisiones": "Comisiones",
+  "/admin/portal-inmobiliaria/reportes": "Reportes",
+  "/admin/portal-inmobiliaria/configuracion": "Configuración",
+};
+
+function getInitials(name: string) {
+  return name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+}
 
 export const PortalInmobiliariaLayout = () => {
   const location = useLocation();
@@ -43,7 +60,7 @@ export const PortalInmobiliariaLayout = () => {
   const isInmobiliariaRole = profile?.rol_nombre === "Inmobiliaria";
   const { personaId } = useInmobiliariaPersonaId();
 
-  // Fetch agency name
+  // Fetch agency name + comision
   const { data: agencyInfo } = useQuery({
     queryKey: ["inmob-agency-info", personaId],
     queryFn: async () => {
@@ -55,7 +72,6 @@ export const PortalInmobiliariaLayout = () => {
         .single();
       const name = data?.nombre_comercial || data?.nombre_legal || "Mi Inmobiliaria";
 
-      // Comisión oficial de la inmobiliaria: buscar el % más frecuente en entidades_relacionadas tipo 5
       let comisionPct: number | null = null;
       const { data: comisionRows } = await supabase
         .from("entidades_relacionadas")
@@ -65,7 +81,6 @@ export const PortalInmobiliariaLayout = () => {
         .eq("activo", true) as any;
 
       if (comisionRows?.length) {
-        // Use the most frequent non-null value
         const vals = (comisionRows as any[])
           .map((r: any) => Number(r.porcentaje_comision))
           .filter((v: number) => !isNaN(v) && v > 0);
@@ -110,21 +125,35 @@ export const PortalInmobiliariaLayout = () => {
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
   const showBackButton = !isInmobiliariaRole;
 
+  // Current section label for topbar breadcrumb
+  const currentSection = Object.entries(SECTION_LABELS).find(([path]) => isActive(path))?.[1] || "";
+
+  const userInitials = profile?.email ? profile.email.substring(0, 2).toUpperCase() : "U";
+
   return (
-    <div className="sozu-theme min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col w-64 border-r border-border bg-background fixed inset-y-0 left-0 z-30">
-        {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-border">
-          <img src={sozuLogoBlack} alt="SOZU" className="h-7" />
+    <div className="inmob-portal min-h-screen flex">
+      {/* ── Sidebar (desktop) ── */}
+      <aside
+        className="hidden lg:flex lg:flex-col border-r border-border bg-[hsl(var(--card))] fixed inset-y-0 left-0 z-30"
+        style={{ width: "var(--inmob-sidebar-width)" }}
+      >
+        {/* Logo area */}
+        <div className="px-4 pt-4 pb-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[hsl(var(--inmob-green))] text-white text-sm font-bold shrink-0">
+              S
+            </div>
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold text-foreground leading-tight">SOZU</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">Panel Inmobiliaria</p>
+            </div>
+          </div>
         </div>
 
-        {/* Agency name */}
-        <div className="px-6 py-4 border-b border-border">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Inmobiliaria</p>
-          <p className="text-sm font-semibold text-foreground truncate mt-0.5">
-            {agencyName || "Cargando..."}
-          </p>
+        {/* Agency info */}
+        <div className="px-4 py-3 border-b border-border">
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Inmobiliaria</p>
+          <p className="text-sm font-semibold text-foreground truncate mt-0.5">{agencyName}</p>
           {comisionPct !== null && comisionPct !== undefined && (
             <Badge variant="outline" className="mt-1.5 text-[10px] font-semibold border-primary/30 text-primary">
               <Percent className="h-3 w-3 mr-0.5" />
@@ -134,7 +163,7 @@ export const PortalInmobiliariaLayout = () => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
           {tabs.map((tab) => {
             const active = isActive(tab.path);
             const Icon = tab.icon;
@@ -143,24 +172,24 @@ export const PortalInmobiliariaLayout = () => {
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  "w-full flex items-center gap-2.5 px-2.5 py-[9px] rounded-lg text-sm font-medium transition-all duration-150",
                   active
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-[hsl(var(--inmob-green-light))] text-[hsl(var(--inmob-green))] font-semibold"
+                    : "text-muted-foreground hover:bg-[hsl(var(--inmob-border-light))] hover:text-foreground"
                 )}
               >
-                <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={active ? 2.2 : 1.8} />
+                <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={active ? 2 : 1.75} />
                 {tab.label}
               </button>
             );
           })}
         </nav>
 
-        {/* User info & logout */}
-        <div className="px-4 py-3 border-t border-border space-y-2">
-          <div className="min-w-0">
+        {/* Footer */}
+        <div className="px-3 py-3 border-t border-border space-y-2">
+          <div className="min-w-0 px-1">
             <p className="text-xs text-muted-foreground truncate">{profile?.email || "—"}</p>
-            <p className="text-[10px] text-muted-foreground/60">{APP_VERSION}</p>
+            <p className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</p>
           </div>
           <div className="flex items-center gap-2">
             {showBackButton && (
@@ -183,13 +212,12 @@ export const PortalInmobiliariaLayout = () => {
         </div>
       </aside>
 
-      {/* Mobile bottom nav */}
+      {/* ── Mobile bottom nav ── */}
       <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-50">
         <div className="relative max-w-lg mx-auto">
-          {/* Fade hint on right edge */}
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 z-10 rounded-r-2xl bg-gradient-to-l from-background to-transparent" />
           <div
-            className="flex items-center h-16 bg-background rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.12)] border border-border/50 overflow-x-auto"
+            className="flex items-center h-16 bg-[hsl(var(--card))] rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.12)] border border-border/50 overflow-x-auto inmob-mobile-nav"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
           >
             <style>{`.inmob-mobile-nav::-webkit-scrollbar { display: none; }`}</style>
@@ -202,7 +230,7 @@ export const PortalInmobiliariaLayout = () => {
                   onClick={() => navigate(tab.path)}
                   className={cn(
                     "flex flex-col items-center justify-center gap-0.5 min-w-[64px] px-2 h-full transition-colors shrink-0",
-                    active ? "text-primary" : "text-muted-foreground"
+                    active ? "text-[hsl(var(--inmob-green))]" : "text-muted-foreground"
                   )}
                 >
                   <Icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />
@@ -223,12 +251,37 @@ export const PortalInmobiliariaLayout = () => {
         </div>
       </nav>
 
-      {/* Main content */}
-      <div className="flex-1 lg:ml-64">
+      {/* ── Main content ── */}
+      <div className="flex-1 lg:ml-[232px]">
+        {/* Topbar (desktop) */}
+        <header
+          className="hidden lg:flex items-center justify-between sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-6"
+          style={{ height: "var(--inmob-topbar-height)" }}
+        >
+          <div className="flex items-center gap-2 text-sm text-foreground">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium truncate max-w-[200px]">{agencyName}</span>
+            {currentSection && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{currentSection}</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9">
+              <AvatarFallback className="bg-[hsl(var(--inmob-green))] text-white text-[13px] font-bold">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        </header>
+
         {/* Mobile header */}
-        <header className="lg:hidden sticky top-0 z-20 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
+        <header className="lg:hidden sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={sozuLogoBlack} alt="SOZU" className="h-6" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[hsl(var(--inmob-green))] text-white text-xs font-bold">S</div>
+            <span className="text-sm font-bold text-foreground">SOZU</span>
             <span className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</span>
           </div>
           {showBackButton && (
@@ -241,7 +294,7 @@ export const PortalInmobiliariaLayout = () => {
           )}
         </header>
 
-        <main className="p-4 lg:p-6 pb-28 lg:pb-6">
+        <main className="p-8 lg:px-10 lg:py-8 pb-28 lg:pb-8 bg-[hsl(var(--background))] min-h-[calc(100vh-var(--inmob-topbar-height))]">
           <Outlet />
         </main>
       </div>

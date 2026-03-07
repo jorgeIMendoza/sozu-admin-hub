@@ -11,7 +11,7 @@ import { MonthMultiSelector, getCurrentMonthKey, getMonthFilterLabel, buildDateR
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { FileText, CalendarDays } from "lucide-react";
 
-const COLORS = ["#16a34a", "#2563eb", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
+const COLORS = ["#22C55E", "#3B82F6", "#F97316", "#A855F7", "#14B8A6", "#EC4899", "#06B6D4", "#84CC16"];
 
 export default function InmobReportes() {
   const { registrarVista } = useActivityLogger();
@@ -186,13 +186,13 @@ export default function InmobReportes() {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={offersPerAgent} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                  <XAxis type="number" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
                   <Legend />
-                  <Bar dataKey="ofertas" fill="#2563eb" name="Total" />
-                  <Bar dataKey="aprobadas" fill="#16a34a" name="Aprobadas" />
+                  <Bar dataKey="ofertas" fill="#3B82F6" name="Total" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="aprobadas" fill="#22C55E" name="Aprobadas" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -204,7 +204,7 @@ export default function InmobReportes() {
             <CardContent className="flex justify-center">
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
-                  <Pie data={offersPerProject} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, value }) => `${name}: ${value}`}>
+                  <Pie data={offersPerProject} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="55%" outerRadius="85%" paddingAngle={2} label={({ name, value }) => `${name}: ${value}`}>
                     {offersPerProject.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip />
@@ -219,11 +219,11 @@ export default function InmobReportes() {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={commissionTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                  <YAxis tickFormatter={v => fmt(v)} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Line type="monotone" dataKey="monto" stroke="#16a34a" strokeWidth={2} dot={{ r: 4 }} name="Monto" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={v => fmt(v)} tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
+                  <Line type="monotone" dataKey="monto" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 4, strokeWidth: 2, stroke: "white" }} activeDot={{ r: 6 }} name="Monto" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -235,11 +235,11 @@ export default function InmobReportes() {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={conversionData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={80} />
-                  <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
-                  <Bar dataKey="conversion" fill="#f59e0b" name="Conversión %" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#6B7280" }} angle={-30} textAnchor="end" height={80} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => `${v}%`} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
+                  <Bar dataKey="conversion" fill="#3B82F6" name="Conversión %" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

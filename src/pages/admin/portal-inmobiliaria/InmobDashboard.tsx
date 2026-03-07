@@ -57,8 +57,7 @@ const getMonthRange = (year: number, month: number) => {
 
 /* ───── constants ───── */
 const funnelColors = [
-  "hsl(139, 35%, 42%)", "hsl(139, 35%, 49%)", "hsl(139, 35%, 56%)",
-  "hsl(139, 35%, 63%)", "hsl(139, 35%, 70%)",
+  "#166534", "#15803D", "#22C55E", "#4ADE80", "#86EFAC",
 ];
 
 const alertIcons = { warning: AlertTriangle, danger: AlertCircle, info: Info };
@@ -1352,11 +1351,11 @@ export default function InmobDashboard() {
             {isLoading ? <Skeleton className="h-64 w-full" /> : (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={agentChartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(0,0%,91%)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(0,0%,45%)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "hsl(0,0%,45%)" }} tickFormatter={chartMode !== "unidades" ? (v) => `$${(v / 1000000).toFixed(1)}M` : undefined} axisLine={false} tickLine={false} />
-                  <RechartsTooltip formatter={(value: any) => [chartMode !== "unidades" ? fmtCurrency(value) : value, chartMode === "unidades" ? "Ventas" : chartMode === "ingreso" ? "Ingreso" : "Comisión"]} />
-                  <Bar dataKey={chartDataKey} fill="hsl(139, 35%, 51%)" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_data: any, index: number) => { const agent = agentChartData[index]; if (agent?.searchValue) navigate(`${NAV_PREFIX}/agentes?q=${encodeURIComponent(agent.searchValue)}`); }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={chartMode !== "unidades" ? (v) => `$${(v / 1000000).toFixed(1)}M` : undefined} axisLine={false} tickLine={false} />
+                  <RechartsTooltip formatter={(value: any) => [chartMode !== "unidades" ? fmtCurrency(value) : value, chartMode === "unidades" ? "Ventas" : chartMode === "ingreso" ? "Ingreso" : "Comisión"]} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
+                  <Bar dataKey={chartDataKey} fill="#22C55E" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_data: any, index: number) => { const agent = agentChartData[index]; if (agent?.searchValue) navigate(`${NAV_PREFIX}/agentes?q=${encodeURIComponent(agent.searchValue)}`); }} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -1375,14 +1374,14 @@ export default function InmobDashboard() {
             {isLoading ? <Skeleton className="h-64 w-full" /> : (
               <ResponsiveContainer width="100%" height={260}>
                 <AreaChart data={areaData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(0,0%,91%)" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "hsl(0,0%,45%)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "hsl(0,0%,45%)" }} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} axisLine={false} tickLine={false} />
-                  <RechartsTooltip formatter={(value: any) => [fmtCurrency(value)]} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} axisLine={false} tickLine={false} />
+                  <RechartsTooltip formatter={(value: any) => [fmtCurrency(value)]} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
                   <Legend />
-                  <Area type="monotone" dataKey="real" stackId="1" stroke="hsl(139,35%,51%)" fill="hsl(139,35%,51%)" fillOpacity={0.3} name="Cobrado" />
-                  <Area type="monotone" dataKey="porCobrar" stackId="2" stroke="hsl(199,89%,48%)" fill="hsl(199,89%,48%)" fillOpacity={0.2} name="Por cobrar" strokeDasharray="5 5" />
-                  <Area type="monotone" dataKey="estimado" stackId="3" stroke="hsl(0,0%,60%)" fill="hsl(0,0%,60%)" fillOpacity={0.1} name="Estimado" strokeDasharray="3 3" />
+                  <Area type="monotone" dataKey="real" stackId="1" stroke="#22C55E" fill="#22C55E" fillOpacity={0.15} name="Cobrado" />
+                  <Area type="monotone" dataKey="porCobrar" stackId="2" stroke="#F97316" fill="#F97316" fillOpacity={0.08} name="Por cobrar" />
+                  <Area type="monotone" dataKey="estimado" stackId="3" stroke="#D1D5DB" fill="none" strokeDasharray="5 5" name="Estimado" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
