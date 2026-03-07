@@ -11,7 +11,7 @@ import { MonthMultiSelector, getCurrentMonthKey, getMonthFilterLabel, buildDateR
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { FileText, CalendarDays } from "lucide-react";
 
-const COLORS = ["#22C55E", "#3B82F6", "#F97316", "#A855F7", "#14B8A6", "#EC4899", "#06B6D4", "#84CC16"];
+const COLORS = ["#239E6C", "#3B82F6", "#F97316", "#A855F7", "#14B8A6", "#EC4899", "#06B6D4", "#84CC16"];
 
 export default function InmobReportes() {
   const { registrarVista } = useActivityLogger();
@@ -192,7 +192,7 @@ export default function InmobReportes() {
                   <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
                   <Legend />
                   <Bar dataKey="ofertas" fill="#3B82F6" name="Total" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="aprobadas" fill="#22C55E" name="Aprobadas" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="aprobadas" fill="#239E6C" name="Aprobadas" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -223,7 +223,7 @@ export default function InmobReportes() {
                   <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={v => fmt(v)} tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
                   <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
-                  <Line type="monotone" dataKey="monto" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 4, strokeWidth: 2, stroke: "white" }} activeDot={{ r: 6 }} name="Monto" />
+                  <Line type="monotone" dataKey="monto" stroke="#239E6C" strokeWidth={2} dot={{ fill: "#239E6C", r: 4, strokeWidth: 2, stroke: "white" }} activeDot={{ r: 6 }} name="Monto" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
