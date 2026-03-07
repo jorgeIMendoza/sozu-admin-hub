@@ -438,7 +438,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
 
   if (!comisionistas || comisionistas.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
 
-  const comMap = new Map(comisionistas.map((c: any) => [c.id_cuenta_cobranza, c]));
+  const comMap = new Map<number, any>(comisionistas.map((c: any) => [c.id_cuenta_cobranza, c]));
 
   // Get property info
   const propIds = [...new Set(ofertas.filter((o: any) => o.id_propiedad).map((o: any) => o.id_propiedad))] as number[];
@@ -482,8 +482,8 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
   const facturaSet = new Set((facturasData || []).filter((f: any) => f.numero === inmobEmail).map((f: any) => f.id_cuenta_cobranza));
 
   // Build maps
-  const ofertaMap = new Map(ofertas.map((o: any) => [o.id, o]));
-  const cuentaMap = new Map(cuentas.map((c: any) => [c.id, c]));
+  const ofertaMap = new Map<number, any>(ofertas.map((o: any) => [o.id, o]));
+  const cuentaMap = new Map<number, any>(cuentas.map((c: any) => [c.id, c]));
   const propMap = new Map((propiedades || []).map((p: any) => [p.id, p]));
   const emMap = new Map((ems || []).map((e: any) => [e.id, e]));
   const edifMap = new Map((edificios || []).map((e: any) => [e.id, e]));
