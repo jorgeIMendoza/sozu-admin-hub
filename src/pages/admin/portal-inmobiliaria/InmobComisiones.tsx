@@ -628,6 +628,7 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
       ivaIncluido: !!cuenta.iva_incluido,
       estatus,
       fechaPago: cuenta.fecha_pago_comision || null,
+      facturaUrl: (!cuenta.es_draft_factura_comision && cuenta.url_factura_comision) ? cuenta.url_factura_comision : null,
     });
   }
 
