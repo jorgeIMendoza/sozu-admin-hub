@@ -112,6 +112,7 @@ export default function InmobComisiones() {
   const [search, setSearch] = useState("");
   const [selectedMonths, setSelectedMonths] = useState<string[]>([getCurrentMonthKey()]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [estatusFilter, setEstatusFilter] = useState<string>("todos");
 
   const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
   const dateRanges = useMemo(() => buildDateRangesFromMonths(selectedMonths), [selectedMonths]);
@@ -177,20 +178,32 @@ export default function InmobComisiones() {
   const rows = comisionesData?.rows || [];
   const kpis = comisionesData?.kpis || { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 };
 
-  // Filter by search
+  // Unique statuses for filter
+  const estatusOptions = useMemo(() => {
+    const set = new Set<string>(rows.map((r: any) => r.estatus));
+    return Array.from(set).sort();
+  }, [rows]);
+
+  // Filter by search + estatus
   const filteredRows = useMemo(() => {
-    if (!search) return rows;
-    const s = search.toLowerCase();
-    return rows.filter((r: any) =>
-      r.proyecto?.toLowerCase().includes(s) ||
-      r.clientes?.some((c: ClienteInfo) => c.nombre.toLowerCase().includes(s)) ||
-      r.agente?.toLowerCase().includes(s) ||
-      r.unidad?.toLowerCase().includes(s)
-    );
-  }, [rows, search]);
+    let filtered = rows;
+    if (estatusFilter !== "todos") {
+      filtered = filtered.filter((r: any) => r.estatus === estatusFilter);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      filtered = filtered.filter((r: any) =>
+        r.proyecto?.toLowerCase().includes(s) ||
+        r.clientes?.some((c: ClienteInfo) => c.nombre.toLowerCase().includes(s)) ||
+        r.agente?.toLowerCase().includes(s) ||
+        r.unidad?.toLowerCase().includes(s)
+      );
+    }
+    return filtered;
+  }, [rows, search, estatusFilter]);
 
   // Reset page when search or data changes
-  useEffect(() => { setCurrentPage(1); }, [search, rows.length, selectedMonths]);
+  useEffect(() => { setCurrentPage(1); }, [search, rows.length, selectedMonths, estatusFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
@@ -242,10 +255,22 @@ export default function InmobComisiones() {
         <KPICard icon={CalendarCheck} iconColor="text-violet-600 bg-violet-100" label="Programada" value={fmt(kpis.programadas)} />
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar por proyecto, cliente, agente..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      {/* Search + Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar por proyecto, cliente, agente..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <select
+          value={estatusFilter}
+          onChange={e => setEstatusFilter(e.target.value)}
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="todos">Todos los estatus</option>
+          {estatusOptions.map(est => (
+            <option key={est} value={est}>{est}</option>
+          ))}
+        </select>
       </div>
 
       {/* Table */}
@@ -270,6 +295,7 @@ export default function InmobComisiones() {
                       <TableHead>Agente</TableHead>
                       <TableHead className="text-right">Venta</TableHead>
                       <TableHead className="text-right">Comisión</TableHead>
+                      <TableHead>IVA</TableHead>
                       <TableHead>Estatus</TableHead>
                       <TableHead>Fecha Pago</TableHead>
                     </TableRow>
@@ -283,6 +309,11 @@ export default function InmobComisiones() {
                         <TableCell>{r.agente}</TableCell>
                         <TableCell className="text-right">{fmt2(r.venta)}</TableCell>
                         <TableCell className="text-right font-semibold">{fmt2(r.comision)}</TableCell>
+                        <TableCell>
+                          {r.ivaIncluido
+                            ? <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-[11px]">IVA incluido</Badge>
+                            : <Badge variant="outline" className="text-muted-foreground text-[11px]">Sin IVA</Badge>}
+                        </TableCell>
                         <TableCell>{estatusBadge(r.estatus)}</TableCell>
                         <TableCell>{formatFechaPago(r.fechaPago)}</TableCell>
                       </TableRow>
