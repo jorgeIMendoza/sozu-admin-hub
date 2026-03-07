@@ -295,7 +295,6 @@ export default function InmobComisiones() {
                       <TableHead>Agente</TableHead>
                       <TableHead className="text-right">Venta</TableHead>
                       <TableHead className="text-right">Comisión</TableHead>
-                      <TableHead>IVA</TableHead>
                       <TableHead>Estatus</TableHead>
                       <TableHead>Fecha Pago</TableHead>
                     </TableRow>
