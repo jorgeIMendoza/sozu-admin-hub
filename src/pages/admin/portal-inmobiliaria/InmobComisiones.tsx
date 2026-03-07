@@ -106,15 +106,78 @@ function ClienteCell({ clientes }: { clientes: ClienteInfo[] }) {
   );
 }
 
+/* ───── Factura upload button for external inmobiliarias ───── */
+function FacturaUploadButton({ cuentaId, inmobEmail, personaId, onUploaded }: { cuentaId: number; inmobEmail: string; personaId: number; onUploaded: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const path = `facturas-comision/${cuentaId}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("documentos-generales").upload(path, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from("documentos-generales").getPublicUrl(path);
+
+      const { error: insertError } = await (supabase as any).from("documentos").insert({
+        id_cuenta_cobranza: cuentaId,
+        id_tipo_documento: 46,
+        url_documento: publicUrl,
+        id_persona: personaId,
+        numero: inmobEmail,
+        activo: true,
+      });
+      if (insertError) throw insertError;
+
+      toast.success("Factura subida correctamente");
+      onUploaded();
+    } catch (err: any) {
+      console.error("Error uploading factura:", err);
+      toast.error("Error al subir la factura");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".pdf"
+        className="hidden"
+        onChange={e => {
+          const f = e.target.files?.[0];
+          if (f) handleUpload(f);
+          e.target.value = "";
+        }}
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1 text-xs text-muted-foreground"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+      >
+        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+        Subir
+      </Button>
+    </>
+  );
+}
+
 export default function InmobComisiones() {
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const { data: agents = [] } = useInmobAgents();
   const { personaId } = useInmobiliariaPersonaId();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedMonths, setSelectedMonths] = useState<string[]>([getCurrentMonthKey()]);
   const [currentPage, setCurrentPage] = useState(1);
   const [estatusFilter, setEstatusFilter] = useState<string>("todos");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
   const dateRanges = useMemo(() => buildDateRangesFromMonths(selectedMonths), [selectedMonths]);
@@ -299,6 +362,7 @@ export default function InmobComisiones() {
                       <TableHead className="text-right">Comisión</TableHead>
                       <TableHead>Estatus</TableHead>
                       <TableHead>Fecha Pago</TableHead>
+                      <TableHead>Factura</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -317,6 +381,22 @@ export default function InmobComisiones() {
                         </TableCell>
                         <TableCell>{estatusBadge(r.estatus)}</TableCell>
                         <TableCell>{formatFechaPago(r.fechaPago)}</TableCell>
+                        <TableCell>
+                          {r.facturaUrl ? (
+                            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setPdfUrl(r.facturaUrl)}>
+                              <FileText className="h-3.5 w-3.5" /> Ver
+                            </Button>
+                          ) : isSozu ? (
+                            <span className="text-xs text-muted-foreground">Sin factura</span>
+                          ) : (
+                            <FacturaUploadButton
+                              cuentaId={r.cuentaId}
+                              inmobEmail={inmobEmail || ""}
+                              personaId={personaId!}
+                              onUploaded={() => queryClient.invalidateQueries({ queryKey: ["inmob-comisiones-detail"] })}
+                            />
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
