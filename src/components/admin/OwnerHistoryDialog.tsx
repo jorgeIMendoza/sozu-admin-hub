@@ -78,7 +78,7 @@ export function OwnerHistoryDialog({
       // Include: active accounts + cancelled by Rescisión(3) or Reventa(7)
       const { data: cuentasData, error: cuentasError } = await supabase
         .from('cuentas_cobranza')
-        .select('id, precio_final, fecha_compra, fecha_creacion, id_oferta, id_tipo_cancelacion, tipos_cancelacion:id_tipo_cancelacion(nombre)')
+        .select('id, precio_final, fecha_compra, fecha_creacion, id_oferta, id_tipo_cancelacion, tipos_cancelacion:id_tipo_cancelacion(nombre), monto_cobro_cancelacion, url_evidencia_cancelacion, url_evidencia_reembolso')
         .in('id_oferta', ofertaIds)
         .is('id_cuenta_cobranza_padre', null)
         .or('id_tipo_cancelacion.is.null,id_tipo_cancelacion.in.(3,7)')
