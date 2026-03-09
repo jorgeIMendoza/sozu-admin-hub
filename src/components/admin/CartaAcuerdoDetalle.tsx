@@ -710,7 +710,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                   // 1. Delete from Mifiel if there's a mifiel_document_id
                   if (firmaToDelete?.mifiel_document_id) {
                     const { data: mifielResult, error: mifielError } = await supabase.functions.invoke("mifiel-cancelar-documento", {
-                      body: { document_id: firmaToDelete.mifiel_document_id },
+                      body: { document_id: firmaToDelete.mifiel_document_id, environment: ENVIRONMENT },
                     });
                     if (mifielError || !mifielResult?.success) {
                       console.error("Mifiel cancel error:", mifielError || mifielResult);
