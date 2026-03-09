@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, User, CreditCard, BadgeCheck, Clock, History, CalendarCheck, XCircle } from 'lucide-react';
+import { Building2, User, CreditCard, BadgeCheck, Clock, History, CalendarCheck, XCircle, FileText, AlertTriangle, ArrowDownToLine } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
