@@ -217,7 +217,9 @@ export function OwnerHistoryDialog({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-MX', {
+    // For date-only strings (YYYY-MM-DD), append T12:00:00 to avoid timezone shift
+    const normalized = dateString.length === 10 ? `${dateString}T12:00:00` : dateString;
+    return new Date(normalized).toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
