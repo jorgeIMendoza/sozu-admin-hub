@@ -9,9 +9,9 @@ const corsHeaders = {
 function getMifielCredentials(environment?: string) {
   const suffix = environment === "production" ? "_PRD" : "_DEV";
   return {
-    apiUrl: (Deno.env.get(`MIFIEL_API_URL${suffix}`) || Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1").replace(/\/+$/, "").replace(/\/documents$/i, ""),
-    apiId: Deno.env.get(`MIFIEL_API_ID${suffix}`) || Deno.env.get("MIFIEL_API_ID") || "",
-    apiSecret: Deno.env.get(`MIFIEL_API_SECRET${suffix}`) || Deno.env.get("MIFIEL_API_SECRET") || "",
+    apiUrl: (Deno.env.get(`MIFIEL_API_URL${suffix}`) || "").replace(/\/+$/, "").replace(/\/documents$/i, ""),
+    apiId: Deno.env.get(`MIFIEL_API_ID${suffix}`) || "",
+    apiSecret: Deno.env.get(`MIFIEL_API_SECRET${suffix}`) || "",
   };
 }
 
@@ -66,13 +66,14 @@ serve(async (req) => {
       // Fetch the firma record to get referencia_id
       const { data: firmaRecord } = await supabase
         .from("firmas_digitales")
-        .select("id, referencia_id, tipo_documento")
+        .select("id, referencia_id, tipo_documento, metadata")
         .eq("mifiel_document_id", documentId)
         .single();
 
       try {
-        // Webhook doesn't receive environment from frontend; use _DEV as default fallback
-        const { apiUrl, apiId, apiSecret } = getMifielCredentials();
+        // Read environment from saved metadata to use correct credentials
+        const savedEnvironment = (firmaRecord?.metadata as any)?.environment || "development";
+        const { apiUrl, apiId, apiSecret } = getMifielCredentials(savedEnvironment);
 
         if (apiId && apiSecret) {
           const authHeader = "Basic " + btoa(`${apiId}:${apiSecret}`);

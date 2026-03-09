@@ -1,46 +1,41 @@
 
 
-# Fix: Eliminar fallback a secretos sin sufijo en las 4 edge functions de Mifiel
+## Plan: Agregar Domain-Wide Delegation (subject/sub) al JWT de la cuenta de servicio
 
-## Problema
-Las 4 edge functions tienen un fallback chain: `MIFIEL_API_URL_PRD` → `MIFIEL_API_URL` → hardcoded sandbox. Cuando el usuario elimine los secretos sin sufijo, el fallback caerá al hardcoded sandbox URL. Además, el webhook llama `getMifielCredentials()` sin environment, lo que siempre usa `_DEV`.
+### Problema actual
+La función `getAccessToken` genera un JWT sin el campo `sub`, por lo que Google Calendar ve las operaciones como hechas por la cuenta de servicio directamente. Esto impide que los invitados reciban correos de notificación del evento.
 
-## Cambios
+### Cambio necesario
 
-### 1. Actualizar `getMifielCredentials` en las 4 functions
-Eliminar el fallback a secretos sin sufijo. Solo usar `_PRD` o `_DEV`:
+**Archivo**: `supabase/functions/agendar-capacitacion/index.ts`
 
-```typescript
-function getMifielCredentials(environment?: string) {
-  const suffix = environment === "production" ? "_PRD" : "_DEV";
-  return {
-    apiUrl: (Deno.env.get(`MIFIEL_API_URL${suffix}`) || "").replace(/\/+$/, "").replace(/\/documents$/i, ""),
-    apiId: Deno.env.get(`MIFIEL_API_ID${suffix}`) || "",
-    apiSecret: Deno.env.get(`MIFIEL_API_SECRET${suffix}`) || "",
-  };
-}
+1. **Modificar `getAccessToken`** para aceptar un parámetro opcional `subject` (el email del dueño del calendario) y agregarlo al payload JWT:
+   ```
+   sub: subject  // e.g. "jorge.mendoza@sozu.com"
+   ```
+
+2. **Actualizar la llamada** a `getAccessToken(sa)` → `getAccessToken(sa, calendarOwnerEmail)` en el `Deno.serve` principal (línea 519), para que el token se genere impersonando al dueño del calendario.
+
+3. Agregar el scope `https://www.googleapis.com/auth/calendar.events` al JWT (ya lo tienes en el Admin Console, pero el código solo pide `calendar`).
+
+### Detalle técnico
+
+```text
+// Antes (línea 18-23):
+payload = { iss, scope: "...calendar", aud, iat, exp }
+
+// Después:
+payload = { iss, sub: subject, scope: "...calendar ...calendar.events", aud, iat, exp }
 ```
 
-Archivos afectados:
-- `supabase/functions/mifiel-crear-documento/index.ts`
-- `supabase/functions/mifiel-consultar-documento/index.ts`
-- `supabase/functions/mifiel-cancelar-documento/index.ts`
-- `supabase/functions/mifiel-webhook/index.ts`
-
-### 2. Fix webhook: leer environment de metadata
-En `mifiel-webhook/index.ts` (línea 75), cambiar:
-```typescript
-const { apiUrl, apiId, apiSecret } = getMifielCredentials();
+La llamada cambia de:
+```text
+const token = await getAccessToken(sa);
 ```
-a:
-```typescript
-const savedEnvironment = firmaRecord?.metadata?.environment || "development";
-const { apiUrl, apiId, apiSecret } = getMifielCredentials(savedEnvironment);
+A:
+```text
+const token = await getAccessToken(sa, calendarOwnerEmail);
 ```
 
-### 3. Guardar environment en metadata al crear documento
-En `mifiel-crear-documento/index.ts`, al insertar en `firmas_digitales`, incluir environment en metadata:
-```typescript
-metadata: { mifiel_response: mifielDoc, environment: environment || "development" }
-```
+Esto hará que Google Calendar trate las operaciones como si las hiciera el usuario real (calendarOwnerEmail), permitiendo el envío automático de correos a los invitados.
 
