@@ -381,8 +381,12 @@ export function OwnerHistoryDialog({
                             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                               {getEntryLabel()}
                             </span>
-                            {/* Status badge (Entregada, En Proceso, Fideicomiso) */}
-                            {isDelivered ? (
+                            {/* Status badge */}
+                            {isCancelled ? (
+                              <Badge className="bg-red-600 hover:bg-red-700 text-white">
+                                Cancelada
+                              </Badge>
+                            ) : isDelivered ? (
                               <Badge className="bg-green-600 hover:bg-green-700 text-white">
                                 Entregada
                               </Badge>
