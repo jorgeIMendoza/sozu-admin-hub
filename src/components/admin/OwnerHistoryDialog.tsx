@@ -229,12 +229,26 @@ export function OwnerHistoryDialog({
 
             const { data: productPagos } = await supabase
               .from('pagos')
-              .select('id_cuenta_cobranza, monto')
+              .select('id, id_cuenta_cobranza, monto')
               .in('id_cuenta_cobranza', productCuentaIds)
               .eq('activo', true);
 
+            // Exclude refund payments for product accounts too
+            const { data: productRefundAplicaciones } = await supabase
+              .from('aplicaciones_pago')
+              .select('id_pago, acuerdos_pago:id_acuerdo_pago(id_concepto)')
+              .in('id_pago', (productPagos || []).map(p => p.id))
+              .eq('activo', true);
+
+            const productRefundPagoIds = new Set(
+              (productRefundAplicaciones || [])
+                .filter(a => (a as any).acuerdos_pago?.id_concepto === 9)
+                .map(a => a.id_pago)
+            );
+
             const productPagosPorCuenta: Record<number, number> = {};
             productPagos?.forEach(p => {
+              if (productRefundPagoIds.has(p.id)) return;
               productPagosPorCuenta[p.id_cuenta_cobranza] = (productPagosPorCuenta[p.id_cuenta_cobranza] || 0) + Number(p.monto || 0);
             });
 
