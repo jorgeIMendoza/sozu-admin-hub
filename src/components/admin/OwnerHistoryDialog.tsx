@@ -25,10 +25,11 @@ interface OwnerHistoryEntry {
   precio_final: number;
   total_pagado: number;
   completamente_pagada: boolean;
-  fecha_creacion: string;
+  fecha_compra: string;
   fecha_entrega: string | null;
   tiene_cuenta_mantenimiento: boolean;
   id_tipo_cancelacion: number | null;
+  nombre_tipo_cancelacion: string | null;
   compradores: {
     id_persona: number;
     nombre_legal: string;
@@ -73,11 +74,11 @@ export function OwnerHistoryDialog({
       // Include: active accounts + cancelled by Rescisión(3) or Reventa(7)
       const { data: cuentasData, error: cuentasError } = await supabase
         .from('cuentas_cobranza')
-        .select('id, precio_final, fecha_creacion, id_oferta, id_tipo_cancelacion')
+        .select('id, precio_final, fecha_compra, fecha_creacion, id_oferta, id_tipo_cancelacion, tipos_cancelacion:id_tipo_cancelacion(nombre)')
         .in('id_oferta', ofertaIds)
         .is('id_cuenta_cobranza_padre', null)
         .or('id_tipo_cancelacion.is.null,id_tipo_cancelacion.in.(3,7)')
-        .order('fecha_creacion', { ascending: true });
+        .order('fecha_compra', { ascending: true });
 
       if (cuentasError) throw cuentasError;
       if (!cuentasData || cuentasData.length === 0) return { entries: [], esFideicomiso: false };
@@ -173,16 +174,18 @@ export function OwnerHistoryDialog({
         const restante = +(precioFinal - totalPagado).toFixed(2);
         const tieneMantenimiento = !!cuentasConMantenimiento[cuenta.id];
         const fechaEntrega = cuentasConMantenimiento[cuenta.id] || null;
+        const tipoCancelacion = (cuenta as any).tipos_cancelacion as { nombre: string } | null;
 
         return {
           cuenta_id: cuenta.id,
           precio_final: precioFinal,
           total_pagado: totalPagado,
           completamente_pagada: restante <= 0 && precioFinal > 0,
-          fecha_creacion: cuenta.fecha_creacion,
+          fecha_compra: cuenta.fecha_compra || cuenta.fecha_creacion,
           fecha_entrega: fechaEntrega,
           tiene_cuenta_mantenimiento: tieneMantenimiento,
           id_tipo_cancelacion: cuenta.id_tipo_cancelacion ?? null,
+          nombre_tipo_cancelacion: tipoCancelacion?.nombre || null,
           compradores: compradoresPorCuenta[cuenta.id] || []
         };
       });
@@ -384,7 +387,7 @@ export function OwnerHistoryDialog({
                             {/* Status badge */}
                             {isCancelled ? (
                               <Badge className="bg-red-600 hover:bg-red-700 text-white">
-                                Cancelada
+                                {entry.nombre_tipo_cancelacion || 'Cancelada'}
                               </Badge>
                             ) : isDelivered ? (
                               <Badge className="bg-green-600 hover:bg-green-700 text-white">
@@ -447,7 +450,7 @@ export function OwnerHistoryDialog({
                             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
                               <CalendarCheck className="h-4 w-4" />
                               <span>Fecha de asignación:</span>
-                              <span className="text-foreground">{formatDate(entry.fecha_creacion)}</span>
+                              <span className="text-foreground">{formatDate(entry.fecha_compra)}</span>
                             </div>
                           </div>
                         ) : (
@@ -463,10 +466,10 @@ export function OwnerHistoryDialog({
                             <div className="flex items-center gap-2">
                               <CalendarCheck className="h-4 w-4 text-muted-foreground" />
                               <span className="text-muted-foreground">
-                                {isDelivered ? 'Entrega:' : 'Inicio:'}
+                                {isDelivered ? 'Entrega:' : 'Compra:'}
                               </span>
                               <span className="text-xs">
-                                {formatDate(isDelivered && entry.fecha_entrega ? entry.fecha_entrega : entry.fecha_creacion)}
+                                {formatDate(isDelivered && entry.fecha_entrega ? entry.fecha_entrega : entry.fecha_compra)}
                               </span>
                             </div>
                             
