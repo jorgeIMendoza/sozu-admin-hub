@@ -28,6 +28,7 @@ interface OwnerHistoryEntry {
   fecha_creacion: string;
   fecha_entrega: string | null;
   tiene_cuenta_mantenimiento: boolean;
+  id_tipo_cancelacion: number | null;
   compradores: {
     id_persona: number;
     nombre_legal: string;
