@@ -624,7 +624,7 @@ export function OwnerHistoryDialog({
                                   "ml-2 font-medium",
                                   entry.completamente_pagada && !isCancelled ? "text-green-600 dark:text-green-400" : ""
                                 )}>
-                                  {formatCurrency(entry.total_pagado)}
+                                  {formatCurrency(entry.cuentas_producto.length > 0 ? entry.total_pagado_consolidado : entry.total_pagado)}
                                 </span>
                               </div>
                             </div>
