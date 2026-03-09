@@ -66,13 +66,14 @@ serve(async (req) => {
       // Fetch the firma record to get referencia_id
       const { data: firmaRecord } = await supabase
         .from("firmas_digitales")
-        .select("id, referencia_id, tipo_documento")
+        .select("id, referencia_id, tipo_documento, metadata")
         .eq("mifiel_document_id", documentId)
         .single();
 
       try {
-        // Webhook doesn't receive environment from frontend; use _DEV as default fallback
-        const { apiUrl, apiId, apiSecret } = getMifielCredentials();
+        // Read environment from saved metadata to use correct credentials
+        const savedEnvironment = (firmaRecord?.metadata as any)?.environment || "development";
+        const { apiUrl, apiId, apiSecret } = getMifielCredentials(savedEnvironment);
 
         if (apiId && apiSecret) {
           const authHeader = "Basic " + btoa(`${apiId}:${apiSecret}`);

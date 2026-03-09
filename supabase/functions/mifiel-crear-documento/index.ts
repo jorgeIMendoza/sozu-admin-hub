@@ -607,7 +607,7 @@ serve(async (req) => {
       mifiel_document_id: mifielDoc.id,
       estado: "enviado",
       firmantes,
-      metadata: { mifiel_response: mifielDoc },
+      metadata: { mifiel_response: mifielDoc, environment: environment || "development" },
     });
 
     if (insertErr) {

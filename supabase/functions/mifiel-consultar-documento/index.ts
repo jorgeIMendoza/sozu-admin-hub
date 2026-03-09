@@ -9,9 +9,9 @@ const corsHeaders = {
 function getMifielCredentials(environment?: string) {
   const suffix = environment === "production" ? "_PRD" : "_DEV";
   return {
-    apiUrl: (Deno.env.get(`MIFIEL_API_URL${suffix}`) || Deno.env.get("MIFIEL_API_URL") || "https://app-sandbox.mifiel.com/api/v1").replace(/\/+$/, "").replace(/\/documents$/i, ""),
-    apiId: Deno.env.get(`MIFIEL_API_ID${suffix}`) || Deno.env.get("MIFIEL_API_ID") || "",
-    apiSecret: Deno.env.get(`MIFIEL_API_SECRET${suffix}`) || Deno.env.get("MIFIEL_API_SECRET") || "",
+    apiUrl: (Deno.env.get(`MIFIEL_API_URL${suffix}`) || "").replace(/\/+$/, "").replace(/\/documents$/i, ""),
+    apiId: Deno.env.get(`MIFIEL_API_ID${suffix}`) || "",
+    apiSecret: Deno.env.get(`MIFIEL_API_SECRET${suffix}`) || "",
   };
 }
 
