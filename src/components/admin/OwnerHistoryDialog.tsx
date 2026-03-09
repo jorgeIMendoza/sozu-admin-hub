@@ -69,22 +69,15 @@ export function OwnerHistoryDialog({
 
       const ofertaIds = ofertasData.map(o => o.id);
 
-      // 2. Get cuentas_cobranza for these ofertas (only main accounts, not maintenance)
-      // For Re-venta, include inactive cuentas to show the previous owner history
-      let cuentasQuery = supabase
+      // 2. Get cuentas_cobranza for these ofertas (include cancelled for history)
+      // Include: active accounts + cancelled by Rescisión(3) or Reventa(7)
+      const { data: cuentasData, error: cuentasError } = await supabase
         .from('cuentas_cobranza')
-        .select('id, precio_final, fecha_creacion, id_oferta')
+        .select('id, precio_final, fecha_creacion, id_oferta, id_tipo_cancelacion')
         .in('id_oferta', ofertaIds)
-        .is('id_tipo_cancelacion', null) // Exclude cancelled accounts
         .is('id_cuenta_cobranza_padre', null)
+        .or('id_tipo_cancelacion.is.null,id_tipo_cancelacion.in.(3,7)')
         .order('fecha_creacion', { ascending: true });
-      
-      // Only filter by activo=true if NOT in reventa
-      if (!esReventa) {
-        cuentasQuery = cuentasQuery.eq('activo', true);
-      }
-      
-      const { data: cuentasData, error: cuentasError } = await cuentasQuery;
 
       if (cuentasError) throw cuentasError;
       if (!cuentasData || cuentasData.length === 0) return { entries: [], esFideicomiso: false };
