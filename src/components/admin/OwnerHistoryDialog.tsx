@@ -132,13 +132,27 @@ export function OwnerHistoryDialog({
       // 4. Get all pagos for these cuentas to calculate total paid
       const { data: pagosData } = await supabase
         .from('pagos')
-        .select('id_cuenta_cobranza, monto')
+        .select('id, id_cuenta_cobranza, monto')
         .in('id_cuenta_cobranza', cuentaIds)
         .eq('activo', true);
 
-      // Calculate total paid per cuenta
+      // 4.1 Get refund payment IDs (linked to concepto 9 - Devolución) to exclude from total paid
+      const { data: refundAplicaciones } = await supabase
+        .from('aplicaciones_pago')
+        .select('id_pago, acuerdos_pago:id_acuerdo_pago(id_concepto)')
+        .in('id_pago', (pagosData || []).map(p => p.id))
+        .eq('activo', true);
+
+      const refundPagoIds = new Set(
+        (refundAplicaciones || [])
+          .filter(a => (a as any).acuerdos_pago?.id_concepto === 9)
+          .map(a => a.id_pago)
+      );
+
+      // Calculate total paid per cuenta (excluding refund payments)
       const pagosPorCuenta: Record<number, number> = {};
       pagosData?.forEach(pago => {
+        if (refundPagoIds.has(pago.id)) return; // Skip refund payments
         pagosPorCuenta[pago.id_cuenta_cobranza] = 
           (pagosPorCuenta[pago.id_cuenta_cobranza] || 0) + Number(pago.monto || 0);
       });
