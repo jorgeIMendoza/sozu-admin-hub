@@ -25,6 +25,7 @@ import { es } from "date-fns/locale";
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { cn } from "@/lib/utils";
+import { ENVIRONMENT } from "@/lib/config";
 import {
   useStabilityDetection,
   CaptureFlash,
