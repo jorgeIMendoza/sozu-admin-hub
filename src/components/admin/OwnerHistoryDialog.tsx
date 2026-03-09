@@ -602,22 +602,83 @@ export function OwnerHistoryDialog({
                             </div>
 
                             {/* Cancelled account breakdown: Penalización, Reembolso, Evidence */}
-                            {isCancelled && entry.total_pagado > 0 && (
-                              <div className="border-t border-red-200 dark:border-red-800 pt-3 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                                  <span className="text-muted-foreground">Penalización:</span>
-                                  <span className="font-medium text-red-600 dark:text-red-400">
-                                    {entry.monto_penalizacion > 0 ? formatCurrency(entry.monto_penalizacion) : 'Sin registro'}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <ArrowDownToLine className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-muted-foreground">Reembolso:</span>
-                                  <span className="font-medium">
-                                    {formatCurrency(entry.monto_reembolso)}
-                                  </span>
-                                </div>
+                            {isCancelled && entry.total_pagado_consolidado > 0 && (
+                              <div className="border-t border-red-200 dark:border-red-800 pt-3 space-y-3">
+                                {/* If there are product accounts, show detailed breakdown */}
+                                {entry.cuentas_producto.length > 0 ? (
+                                  <>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Desglose por cuenta</p>
+                                    <div className="rounded-md border border-red-200 dark:border-red-800 overflow-hidden">
+                                      <table className="w-full text-xs">
+                                        <thead>
+                                          <tr className="bg-red-50 dark:bg-red-950/40">
+                                            <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Cuenta</th>
+                                            <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">Pagado</th>
+                                            <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">Penalización</th>
+                                            <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">Reembolso</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {/* Main property account */}
+                                          <tr className="border-t border-red-100 dark:border-red-900">
+                                            <td className="px-2 py-1.5">
+                                              <span className="font-mono">{formatCuentaCobranzaId(entry.cuenta_id)}</span>
+                                              <span className="ml-1 text-muted-foreground">(Propiedad)</span>
+                                            </td>
+                                            <td className="text-right px-2 py-1.5">{formatCurrency(entry.total_pagado)}</td>
+                                            <td className="text-right px-2 py-1.5 text-red-600 dark:text-red-400">
+                                              {entry.monto_penalizacion > 0 ? formatCurrency(entry.monto_penalizacion) : '$0.00'}
+                                            </td>
+                                            <td className="text-right px-2 py-1.5">{formatCurrency(entry.monto_reembolso)}</td>
+                                          </tr>
+                                          {/* Product accounts */}
+                                          {entry.cuentas_producto.map(cp => (
+                                            <tr key={cp.cuenta_id} className="border-t border-red-100 dark:border-red-900">
+                                              <td className="px-2 py-1.5">
+                                                <span className="font-mono">{formatCuentaCobranzaId(cp.cuenta_id, 'Producto')}</span>
+                                                <span className="ml-1 text-muted-foreground">({cp.producto_nombre})</span>
+                                              </td>
+                                              <td className="text-right px-2 py-1.5">
+                                                {cp.total_pagado > 0 ? formatCurrency(cp.total_pagado) : '$0.00'}
+                                              </td>
+                                              <td className="text-right px-2 py-1.5 text-red-600 dark:text-red-400">
+                                                {cp.monto_penalizacion > 0 ? formatCurrency(cp.monto_penalizacion) : '$0.00'}
+                                              </td>
+                                              <td className="text-right px-2 py-1.5">
+                                                {cp.monto_reembolso > 0 ? formatCurrency(cp.monto_reembolso) : '$0.00'}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                          {/* Totals row */}
+                                          <tr className="border-t-2 border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-950/30 font-semibold">
+                                            <td className="px-2 py-1.5">Total</td>
+                                            <td className="text-right px-2 py-1.5">{formatCurrency(entry.total_pagado_consolidado)}</td>
+                                            <td className="text-right px-2 py-1.5 text-red-600 dark:text-red-400">{formatCurrency(entry.total_penalizacion_consolidado)}</td>
+                                            <td className="text-right px-2 py-1.5 font-bold">{formatCurrency(entry.total_reembolso_consolidado)}</td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </>
+                                ) : (
+                                  /* Simple view when no product accounts */
+                                  <>
+                                    <div className="flex items-center gap-2">
+                                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                                      <span className="text-muted-foreground">Penalización:</span>
+                                      <span className="font-medium text-red-600 dark:text-red-400">
+                                        {entry.monto_penalizacion > 0 ? formatCurrency(entry.monto_penalizacion) : 'Sin registro'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <ArrowDownToLine className="h-4 w-4 text-muted-foreground" />
+                                      <span className="text-muted-foreground">Reembolso:</span>
+                                      <span className="font-medium">
+                                        {formatCurrency(entry.monto_reembolso)}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
                                 {/* Evidence links */}
                                 <div className="flex flex-wrap gap-2 pt-1">
                                   {entry.url_evidencia_cancelacion && (
@@ -639,7 +700,7 @@ export function OwnerHistoryDialog({
                                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                                     >
                                       <FileText className="h-3 w-3" />
-                                      Evidencia de reembolso
+                                      Acuse de cheque
                                     </a>
                                   )}
                                 </div>
