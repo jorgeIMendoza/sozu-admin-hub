@@ -2007,8 +2007,15 @@ export default function DetalleCuentaCobranza() {
   }, 0) || 0;
   
   // Calcular montos de cancelación
-  const montoPagoCancelacion = acuerdosPago?.find(a => a.id_concepto === 7)?.monto || 0;
-  const montoDevolucionCliente = acuerdosPago?.find(a => a.id_concepto === 9)?.monto || 0;
+  // Primero buscar en acuerdos_pago (concepto 7/9), si no existen usar campos de la cuenta
+  const montoPagoCancelacionAcuerdo = acuerdosPago?.find(a => a.id_concepto === 7)?.monto || 0;
+  const montoPagoCancelacion = montoPagoCancelacionAcuerdo > 0 
+    ? montoPagoCancelacionAcuerdo 
+    : Number(cuentaDetalle?.monto_cobro_cancelacion || 0);
+  const montoDevolucionClienteAcuerdo = acuerdosPago?.find(a => a.id_concepto === 9)?.monto || 0;
+  const montoDevolucionCliente = montoDevolucionClienteAcuerdo > 0 
+    ? montoDevolucionClienteAcuerdo 
+    : (!cuentaDetalle?.activo ? Math.max(0, totalPagadoReal - montoPagoCancelacion) : 0);
   
   // Create a map from acuerdo_pago.id to parcialidad sequential number
   const parcialidadMap: Record<number, number> = {};
