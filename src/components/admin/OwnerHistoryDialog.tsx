@@ -30,6 +30,10 @@ interface OwnerHistoryEntry {
   tiene_cuenta_mantenimiento: boolean;
   id_tipo_cancelacion: number | null;
   nombre_tipo_cancelacion: string | null;
+  monto_penalizacion: number;
+  monto_reembolso: number;
+  url_evidencia_cancelacion: string | null;
+  url_evidencia_reembolso: string | null;
   compradores: {
     id_persona: number;
     nombre_legal: string;
