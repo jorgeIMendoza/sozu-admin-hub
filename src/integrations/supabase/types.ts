@@ -3059,6 +3059,7 @@ export type Database = {
           porcentaje_comision_venta: number
           precio_final: number
           url_evidencia_cancelacion: string | null
+          url_evidencia_reembolso: string | null
           url_factura_comision: string | null
           valor_uma: number | null
         }
@@ -3095,6 +3096,7 @@ export type Database = {
           porcentaje_comision_venta?: number
           precio_final?: number
           url_evidencia_cancelacion?: string | null
+          url_evidencia_reembolso?: string | null
           url_factura_comision?: string | null
           valor_uma?: number | null
         }
@@ -3131,6 +3133,7 @@ export type Database = {
           porcentaje_comision_venta?: number
           precio_final?: number
           url_evidencia_cancelacion?: string | null
+          url_evidencia_reembolso?: string | null
           url_factura_comision?: string | null
           valor_uma?: number | null
         }

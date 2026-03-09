@@ -1,0 +1,1 @@
+ALTER TABLE public.cuentas_cobranza ADD COLUMN url_evidencia_reembolso text;
