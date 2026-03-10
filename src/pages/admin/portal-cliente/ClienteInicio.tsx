@@ -209,7 +209,7 @@ const ClienteInicio = () => {
             </div>
           </button>
           <button
-            onClick={() => navigate("/admin/portal-cliente/historial-pagos")}
+            onClick={() => navigate("/admin/portal-cliente/pagos")}
             className="flex flex-col items-start gap-2.5 bg-card rounded-2xl border border-border p-4 transition-all active:scale-[0.97] hover:border-[hsl(var(--inmob-green))]/30 text-left"
           >
             <div className="w-9 h-9 rounded-xl bg-[hsl(var(--inmob-green))]/10 flex items-center justify-center">
