@@ -211,7 +211,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
 
         if (validAcuerdos.length > 0) {
           // Group overdue payments by cuenta (property) to show a summary
-          const overdueByCuenta = new Map<number, { count: number; totalMonto: number; oldestDate: string }>();
+          const overdueByCuenta = new Map<number, { count: number; totalMonto: number; oldestDate: string; conceptos: string[] }>();
           const upcomingPayments: any[] = [];
 
           validAcuerdos.forEach((ap: any) => {
@@ -219,6 +219,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
             if (!fechaPago) return;
 
             const dias = differenceInCalendarDays(fechaPago, today);
+            const conceptoNombre = ap.conceptos_pago?.nombre || "Pago";
 
             if (dias < 0) {
               // Overdue — group by cuenta
@@ -226,6 +227,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
               if (existing) {
                 existing.count += 1;
                 existing.totalMonto += ap.monto || 0;
+                existing.conceptos.push(conceptoNombre);
                 if (ap.fecha_pago < existing.oldestDate) {
                   existing.oldestDate = ap.fecha_pago;
                 }
@@ -234,6 +236,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
                   count: 1,
                   totalMonto: ap.monto || 0,
                   oldestDate: ap.fecha_pago,
+                  conceptos: [conceptoNombre],
                 });
               }
             } else if (dias <= 15) {
@@ -246,12 +249,27 @@ export function useClienteActividad(personaId: number | null | undefined) {
           overdueByCuenta.forEach((info, cuentaId) => {
             if (info.totalMonto <= 0) return; // Skip fully paid accounts
             const prop = getPropForCuenta(cuentaId);
+
+            // Build concept label from actual concept names
+            let conceptoLabel: string;
+            if (info.count === 1) {
+              conceptoLabel = `${info.conceptos[0]} atrasado`;
+            } else {
+              // Check if all are the same concept
+              const uniqueConceptos = [...new Set(info.conceptos)];
+              if (uniqueConceptos.length === 1) {
+                conceptoLabel = `${info.count} pagos de ${uniqueConceptos[0].toLowerCase()} atrasados`;
+              } else {
+                conceptoLabel = `${info.count} pagos atrasados`;
+              }
+            }
+
             items.push({
               id: `atraso-${cuentaId}`,
               tipo: "atraso",
               proyecto: prop?.proyecto || "Proyecto",
               unidad: prop?.numero || "",
-              concepto: `${info.count} mensualidad${info.count !== 1 ? "es" : ""} atrasada${info.count !== 1 ? "s" : ""}`,
+              concepto: conceptoLabel,
               monto: info.totalMonto,
               fechaPago: info.oldestDate,
               diasRestantes: differenceInCalendarDays(parseISO(info.oldestDate), today),
