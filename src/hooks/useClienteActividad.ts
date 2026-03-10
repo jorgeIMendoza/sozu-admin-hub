@@ -61,16 +61,49 @@ export function useClienteActividad(personaId: number | null | undefined) {
       const items: ActividadItem[] = [];
       const today = new Date();
 
-      // 1. Get all ofertas for this persona
-      const { data: ofertas, error: ofertasError } = await supabase
+      // 1. Get all ofertas for this persona (as lead)
+      const { data: ofertasDirectas, error: ofertasError } = await supabase
         .from("ofertas")
         .select("id, id_propiedad, id_producto")
         .eq("id_persona_lead", personaId)
         .eq("activo", true);
 
-      console.log("[useClienteActividad] personaId:", personaId, "ofertas:", ofertas?.length, "error:", ofertasError);
+      // 1b. Also get ofertas where this persona is a co-owner (comprador)
+      const { data: compradorCuentas } = await supabase
+        .from("compradores")
+        .select("id_cuenta_cobranza")
+        .eq("id_persona", personaId)
+        .eq("activo", true);
 
-      if (!ofertas || ofertas.length === 0) return [];
+      let ofertasViaCopropiedad: typeof ofertasDirectas = [];
+      if (compradorCuentas && compradorCuentas.length > 0) {
+        const cuentaIds = [...new Set(compradorCuentas.map((c) => c.id_cuenta_cobranza))];
+        const { data: cuentasData } = await supabase
+          .from("cuentas_cobranza")
+          .select("id_oferta")
+          .in("id", cuentaIds)
+          .eq("activo", true);
+
+        if (cuentasData && cuentasData.length > 0) {
+          const ofertaIdsFromCoprop = [...new Set(cuentasData.map((c) => c.id_oferta))];
+          const { data: ofertasCoprop } = await supabase
+            .from("ofertas")
+            .select("id, id_propiedad, id_producto")
+            .in("id", ofertaIdsFromCoprop)
+            .eq("activo", true);
+          ofertasViaCopropiedad = ofertasCoprop || [];
+        }
+      }
+
+      // Merge and deduplicate ofertas
+      const ofertasMap = new Map<number, any>();
+      (ofertasDirectas || []).forEach((o) => ofertasMap.set(o.id, o));
+      (ofertasViaCopropiedad || []).forEach((o) => ofertasMap.set(o.id, o));
+      const ofertas = Array.from(ofertasMap.values());
+
+      console.log("[useClienteActividad] personaId:", personaId, "ofertas (direct+coprop):", ofertas.length, "error:", ofertasError);
+
+      if (ofertas.length === 0) return [];
 
       const ofertaIds = ofertas.map((o) => o.id);
       const propiedadIds = [...new Set(ofertas.map((o) => o.id_propiedad))];
