@@ -75,6 +75,10 @@ export function useClienteActividad(personaId: number | null | undefined) {
       const ofertaIds = ofertas.map((o) => o.id);
       const propiedadIds = [...new Set(ofertas.map((o) => o.id_propiedad))];
 
+      // Separate property ofertas from product ofertas
+      const propertyOfertaIds = ofertas.filter((o: any) => !o.id_producto).map((o) => o.id);
+      const productOfertaIds = new Set(ofertas.filter((o: any) => !!o.id_producto).map((o) => o.id));
+
       // 2. Get cuentas_cobranza for these ofertas
       const { data: cuentas, error: cuentasError } = await supabase
         .from("cuentas_cobranza")
@@ -86,8 +90,8 @@ export function useClienteActividad(personaId: number | null | undefined) {
 
       if (!cuentas || cuentas.length === 0) return [];
 
-      // Main accounts (no parent = property purchase)
-      const mainCuentas = cuentas.filter((c) => !c.id_cuenta_cobranza_padre);
+      // Main accounts: no parent AND not from product ofertas
+      const mainCuentas = cuentas.filter((c) => !c.id_cuenta_cobranza_padre && !productOfertaIds.has(c.id_oferta));
       const mainCuentaIds = mainCuentas.map((c) => c.id);
 
       // Maintenance accounts (have parent)
