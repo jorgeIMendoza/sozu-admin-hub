@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 
 export type ActividadUrgencia = "green" | "orange" | "red";
-export type ActividadTipo = "pago" | "mantenimiento" | "escrituracion" | "entrega";
+export type ActividadTipo = "pago" | "mantenimiento" | "escrituracion" | "entrega" | "atraso";
 
 export interface ActividadItem {
   id: string;
@@ -16,6 +16,7 @@ export interface ActividadItem {
   diasRestantes: number | null;
   urgencia: ActividadUrgencia;
   mensaje: string;
+  mensualidadesAtraso?: number;
 }
 
 function calcularUrgencia(diasRestantes: number): ActividadUrgencia {
@@ -44,6 +45,13 @@ const URGENCIA_BADGE: Record<ActividadUrgencia, string> = {
 
 export { URGENCIA_BORDER, URGENCIA_DOT, URGENCIA_BADGE };
 
+interface PropInfo {
+  numero: string;
+  proyecto: string;
+  edificio: string;
+  estatus: number;
+}
+
 export function useClienteActividad(personaId: number | null | undefined) {
   return useQuery({
     queryKey: ["cliente-actividad", personaId],
@@ -54,11 +62,13 @@ export function useClienteActividad(personaId: number | null | undefined) {
       const today = new Date();
 
       // 1. Get all ofertas for this persona
-      const { data: ofertas } = await supabase
+      const { data: ofertas, error: ofertasError } = await supabase
         .from("ofertas")
         .select("id, id_propiedad")
         .eq("id_persona_lead", personaId)
         .eq("activo", true);
+
+      console.log("[useClienteActividad] personaId:", personaId, "ofertas:", ofertas?.length, "error:", ofertasError);
 
       if (!ofertas || ofertas.length === 0) return [];
 
@@ -66,11 +76,13 @@ export function useClienteActividad(personaId: number | null | undefined) {
       const propiedadIds = [...new Set(ofertas.map((o) => o.id_propiedad))];
 
       // 2. Get cuentas_cobranza for these ofertas
-      const { data: cuentas } = await supabase
+      const { data: cuentas, error: cuentasError } = await supabase
         .from("cuentas_cobranza")
         .select("id, id_oferta, id_propiedad, id_cuenta_cobranza_padre, precio_final")
         .in("id_oferta", ofertaIds)
         .eq("activo", true);
+
+      console.log("[useClienteActividad] cuentas:", cuentas?.length, "error:", cuentasError);
 
       if (!cuentas || cuentas.length === 0) return [];
 
@@ -122,12 +134,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
         .in("id", allPropIds);
 
       // Build property lookup
-      const propMap = new Map<number, {
-        numero: string;
-        proyecto: string;
-        edificio: string;
-        estatus: number;
-      }>();
+      const propMap = new Map<number, PropInfo>();
 
       propiedades?.forEach((p: any) => {
         const em = p.edificios_modelos;
@@ -141,12 +148,11 @@ export function useClienteActividad(personaId: number | null | undefined) {
       });
 
       // Helper: get prop info for a cuenta
-      const getPropForCuenta = (cuentaId: number) => {
+      const getPropForCuenta = (cuentaId: number): PropInfo | null => {
         const cuenta = mainCuentas.find((c) => c.id === cuentaId);
         if (!cuenta) return null;
         const propId = cuenta.id_propiedad;
         if (!propId) {
-          // Try via oferta
           const oferta = ofertas.find((o) => o.id === cuenta.id_oferta);
           if (oferta) return propMap.get(oferta.id_propiedad) || null;
           return null;
@@ -154,64 +160,137 @@ export function useClienteActividad(personaId: number | null | undefined) {
         return propMap.get(propId) || null;
       };
 
-      // 4. Get upcoming unpaid acuerdos_pago for main cuentas (within 15 days)
+      // 4. Get ALL unpaid acuerdos_pago for main cuentas
       if (mainCuentaIds.length > 0) {
-        const { data: acuerdosPago } = await supabase
+        // Use explicit FK name to avoid ambiguity with duplicate foreign keys
+        const { data: acuerdosPago, error: apError } = await supabase
           .from("acuerdos_pago")
-          .select("id, id_cuenta_cobranza, id_concepto, monto, fecha_pago, orden, conceptos_pago!inner(nombre)")
+          .select("id, id_cuenta_cobranza, id_concepto, monto, fecha_pago, orden, conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)")
           .in("id_cuenta_cobranza", mainCuentaIds)
           .eq("pago_completado", false)
           .eq("activo", true)
           .not("fecha_pago", "is", null)
           .order("fecha_pago", { ascending: true });
 
-        acuerdosPago?.forEach((ap: any) => {
-          const fechaPago = ap.fecha_pago ? parseISO(ap.fecha_pago) : null;
-          if (!fechaPago) return;
+        console.log("[useClienteActividad] acuerdosPago:", acuerdosPago?.length, "error:", apError);
 
-          const dias = differenceInCalendarDays(fechaPago, today);
-          // Show payments that are within 15 days or overdue
-          if (dias > 15) return;
+        // If explicit FK fails, try without the join
+        let finalAcuerdos: any[] | null = acuerdosPago as any;
+        if (apError) {
+          console.warn("[useClienteActividad] FK join failed, trying without join:", apError.message);
+          const { data: fallback } = await supabase
+            .from("acuerdos_pago")
+            .select("id, id_cuenta_cobranza, id_concepto, monto, fecha_pago, orden")
+            .in("id_cuenta_cobranza", mainCuentaIds)
+            .eq("pago_completado", false)
+            .eq("activo", true)
+            .not("fecha_pago", "is", null)
+            .order("fecha_pago", { ascending: true });
+          finalAcuerdos = fallback;
+        }
 
-          const prop = getPropForCuenta(ap.id_cuenta_cobranza);
-          const concepto = ap.conceptos_pago?.nombre || "Pago";
-          const urgencia = dias <= 0 ? "red" : calcularUrgencia(dias);
+        if (finalAcuerdos && finalAcuerdos.length > 0) {
+          // Group overdue payments by cuenta (property) to show a summary
+          const overdueByCuenta = new Map<number, { count: number; totalMonto: number; oldestDate: string }>();
+          const upcomingPayments: any[] = [];
 
-          let mensaje: string;
-          if (dias < 0) {
-            mensaje = `Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? "s" : ""}`;
-          } else if (dias === 0) {
-            mensaje = "Vence hoy";
-          } else {
-            mensaje = `Faltan ${dias} día${dias !== 1 ? "s" : ""} para tu pago`;
-          }
+          finalAcuerdos.forEach((ap: any) => {
+            const fechaPago = ap.fecha_pago ? parseISO(ap.fecha_pago) : null;
+            if (!fechaPago) return;
 
-          items.push({
-            id: `pago-${ap.id}`,
-            tipo: "pago",
-            proyecto: prop?.proyecto || "Proyecto",
-            unidad: prop?.numero || "",
-            concepto,
-            monto: ap.monto,
-            fechaPago: ap.fecha_pago,
-            diasRestantes: dias,
-            urgencia,
-            mensaje,
+            const dias = differenceInCalendarDays(fechaPago, today);
+
+            if (dias < 0) {
+              // Overdue — group by cuenta
+              const existing = overdueByCuenta.get(ap.id_cuenta_cobranza);
+              if (existing) {
+                existing.count += 1;
+                existing.totalMonto += ap.monto || 0;
+                if (ap.fecha_pago < existing.oldestDate) {
+                  existing.oldestDate = ap.fecha_pago;
+                }
+              } else {
+                overdueByCuenta.set(ap.id_cuenta_cobranza, {
+                  count: 1,
+                  totalMonto: ap.monto || 0,
+                  oldestDate: ap.fecha_pago,
+                });
+              }
+            } else if (dias <= 15) {
+              // Upcoming within 15 days — show individually
+              upcomingPayments.push(ap);
+            }
           });
-        });
+
+          // Add overdue summary items per property
+          overdueByCuenta.forEach((info, cuentaId) => {
+            const prop = getPropForCuenta(cuentaId);
+            items.push({
+              id: `atraso-${cuentaId}`,
+              tipo: "atraso",
+              proyecto: prop?.proyecto || "Proyecto",
+              unidad: prop?.numero || "",
+              concepto: `${info.count} mensualidad${info.count !== 1 ? "es" : ""} atrasada${info.count !== 1 ? "s" : ""}`,
+              monto: info.totalMonto,
+              fechaPago: info.oldestDate,
+              diasRestantes: differenceInCalendarDays(parseISO(info.oldestDate), today),
+              urgencia: "red",
+              mensaje: `${info.count} pago${info.count !== 1 ? "s" : ""} vencido${info.count !== 1 ? "s" : ""} — requiere atención inmediata`,
+              mensualidadesAtraso: info.count,
+            });
+          });
+
+          // Add upcoming individual payments
+          upcomingPayments.forEach((ap: any) => {
+            const fechaPago = parseISO(ap.fecha_pago);
+            const dias = differenceInCalendarDays(fechaPago, today);
+            const prop = getPropForCuenta(ap.id_cuenta_cobranza);
+            const concepto = ap.conceptos_pago?.nombre || "Pago";
+            const urgencia = dias === 0 ? "red" : calcularUrgencia(dias);
+
+            items.push({
+              id: `pago-${ap.id}`,
+              tipo: "pago",
+              proyecto: prop?.proyecto || "Proyecto",
+              unidad: prop?.numero || "",
+              concepto,
+              monto: ap.monto,
+              fechaPago: ap.fecha_pago,
+              diasRestantes: dias,
+              urgencia,
+              mensaje: dias === 0
+                ? "Vence hoy"
+                : `Faltan ${dias} día${dias !== 1 ? "s" : ""} para tu pago`,
+            });
+          });
+        }
       }
 
       // 5. Get upcoming maintenance payments
       if (uniqueMantoCuentaIds.length > 0) {
-        const { data: acuerdosManto } = await supabase
+        const { data: acuerdosManto, error: mantoError } = await supabase
           .from("acuerdos_pago")
-          .select("id, id_cuenta_cobranza, monto, fecha_pago, conceptos_pago!inner(nombre)")
+          .select("id, id_cuenta_cobranza, monto, fecha_pago, conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)")
           .in("id_cuenta_cobranza", uniqueMantoCuentaIds)
           .eq("pago_completado", false)
           .eq("activo", true)
           .not("fecha_pago", "is", null)
           .order("fecha_pago", { ascending: true })
           .limit(10);
+
+        let finalManto: any[] | null = acuerdosManto as any;
+        if (mantoError) {
+          const { data: fallback } = await supabase
+            .from("acuerdos_pago")
+            .select("id, id_cuenta_cobranza, monto, fecha_pago")
+            .in("id_cuenta_cobranza", uniqueMantoCuentaIds)
+            .eq("pago_completado", false)
+            .eq("activo", true)
+            .not("fecha_pago", "is", null)
+            .order("fecha_pago", { ascending: true })
+            .limit(10);
+          finalManto = fallback;
+        }
 
         // Find parent cuenta for maintenance accounts
         const mantoParentMap = new Map<number, number>();
@@ -226,16 +305,15 @@ export function useClienteActividad(personaId: number | null | undefined) {
           }
         });
 
-        acuerdosManto?.forEach((ap: any) => {
+        finalManto?.forEach((ap: any) => {
           const fechaPago = ap.fecha_pago ? parseISO(ap.fecha_pago) : null;
           if (!fechaPago) return;
 
           const dias = differenceInCalendarDays(fechaPago, today);
-          if (dias > 30) return; // Show maintenance up to 30 days
+          if (dias > 30) return;
 
-          // Find parent cuenta to get property info
           const parentId = mantoParentMap.get(ap.id_cuenta_cobranza);
-          let prop: ReturnType<typeof getPropForCuenta> = null;
+          let prop: PropInfo | null = null;
           if (parentId) {
             prop = getPropForCuenta(parentId);
           }
@@ -249,7 +327,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
             monto: ap.monto,
             fechaPago: ap.fecha_pago,
             diasRestantes: dias,
-            urgencia: "green", // Always green for maintenance
+            urgencia: "green",
             mensaje: dias < 0
               ? `Vencido hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? "s" : ""}`
               : dias === 0
@@ -264,7 +342,6 @@ export function useClienteActividad(personaId: number | null | undefined) {
         const prop = propMap.get(p.id);
         if (!prop) return;
 
-        // Pagada completamente (9) → Escrituración notification
         if (prop.estatus === 9) {
           items.push({
             id: `escrituracion-${p.id}`,
@@ -280,7 +357,6 @@ export function useClienteActividad(personaId: number | null | undefined) {
           });
         }
 
-        // Escrituración (7) → Entrega notification
         if (prop.estatus === 7) {
           items.push({
             id: `entrega-${p.id}`,
@@ -297,14 +373,19 @@ export function useClienteActividad(personaId: number | null | undefined) {
         }
       });
 
-      // Sort: overdue first, then by days remaining (nearest first), then status items
+      // Sort: atrasos first (red, most overdue), then upcoming by proximity, then status items last
       items.sort((a, b) => {
+        // Atrasos always first
+        if (a.tipo === "atraso" && b.tipo !== "atraso") return -1;
+        if (a.tipo !== "atraso" && b.tipo === "atraso") return 1;
+
         if (a.diasRestantes === null && b.diasRestantes === null) return 0;
         if (a.diasRestantes === null) return 1;
         if (b.diasRestantes === null) return -1;
         return a.diasRestantes - b.diasRestantes;
       });
 
+      console.log("[useClienteActividad] final items:", items.length);
       return items;
     },
     enabled: !!personaId,
