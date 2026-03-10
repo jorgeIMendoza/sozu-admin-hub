@@ -54,14 +54,25 @@ export default function Login() {
         return;
       }
 
-      const { data: isBlocked } = await supabase.rpc('check_email_blocked_role', {
-        p_email: email.trim()
-      });
+      // Check if the user has a blocked role - but allow Cliente to proceed to portal-cliente
+      const { data: userData } = await supabase
+        .from("usuarios")
+        .select("rol_id")
+        .eq("email", email.trim())
+        .maybeSingle();
 
-      if (isBlocked) {
-        setIsBlocked(true);
-        setIsLoading(false);
-        return;
+      const isClienteRole = userData?.rol_id === 23;
+
+      if (!isClienteRole) {
+        const { data: isBlocked } = await supabase.rpc('check_email_blocked_role', {
+          p_email: email.trim()
+        });
+
+        if (isBlocked) {
+          setIsBlocked(true);
+          setIsLoading(false);
+          return;
+        }
       }
 
       const hasUpdate = await checkForUpdates();
