@@ -23,6 +23,7 @@ const ClienteInicio = () => {
   const { impersonatedClienteName, impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
   const navigate = useNavigate();
   const [generatingEdoCuenta, setGeneratingEdoCuenta] = useState(false);
+  const [showEdoCuentaPicker, setShowEdoCuentaPicker] = useState(false);
   
   const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
 
@@ -108,16 +109,23 @@ const ClienteInicio = () => {
   const appreciationPercent = resumen?.appreciationPercent ?? 0;
   const isAppreciation = resumen?.isAppreciation ?? true;
 
-  // Estado de cuenta handler - use first property's cuenta
-  const handleEstadoCuenta = async () => {
-    const firstCuenta = resumen?.properties?.[0]?.cuentaId;
-    if (!firstCuenta) {
+  // Estado de cuenta handler
+  const handleEstadoCuenta = async (cuentaId?: number) => {
+    const properties = resumen?.properties || [];
+    if (properties.length === 0) {
       toast.error("No se encontró cuenta para generar el estado de cuenta");
       return;
     }
+    // If multiple properties and no specific cuenta selected, show picker
+    if (properties.length > 1 && !cuentaId) {
+      setShowEdoCuentaPicker(true);
+      return;
+    }
+    const targetCuenta = cuentaId || properties[0].cuentaId;
+    setShowEdoCuentaPicker(false);
     setGeneratingEdoCuenta(true);
     try {
-      await estadoCuentaEdgeFunctionService.generateEstadoCuenta({ id_cuenta: firstCuenta });
+      await estadoCuentaEdgeFunctionService.generateEstadoCuenta({ id_cuenta: targetCuenta });
     } catch {
       toast.error("Error al generar el estado de cuenta");
     } finally {
@@ -188,7 +196,7 @@ const ClienteInicio = () => {
         <h2 className="font-semibold text-sm text-foreground mb-3">Accesos rápidos</h2>
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={handleEstadoCuenta}
+            onClick={() => handleEstadoCuenta()}
             disabled={generatingEdoCuenta || !resumen?.properties?.length}
             className="flex flex-col items-start gap-2.5 bg-card rounded-2xl border border-border p-4 transition-all active:scale-[0.97] hover:border-[hsl(var(--inmob-green))]/30 text-left disabled:opacity-50"
           >
@@ -213,6 +221,38 @@ const ClienteInicio = () => {
             </div>
           </button>
         </div>
+
+        {/* Property picker for estado de cuenta */}
+        {showEdoCuentaPicker && resumen?.properties && resumen.properties.length > 1 && (
+          <div className="mt-3 bg-card rounded-2xl border border-border p-4 space-y-2">
+            <p className="text-xs font-semibold text-foreground mb-2">Selecciona la propiedad:</p>
+            {resumen.properties.map((prop) => (
+              <button
+                key={prop.cuentaId}
+                onClick={() => handleEstadoCuenta(prop.cuentaId)}
+                disabled={generatingEdoCuenta}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:border-[hsl(var(--inmob-green))]/30 hover:bg-muted/50 transition-all text-left disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[hsl(var(--inmob-green))]/10 flex items-center justify-center">
+                    <Home className="w-4 h-4 text-[hsl(var(--inmob-green))]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{prop.proyecto} {prop.unidad}</p>
+                    <p className="text-[11px] text-muted-foreground">{prop.edificio}</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            ))}
+            <button
+              onClick={() => setShowEdoCuentaPicker(false)}
+              className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-1 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Financial Summary */}

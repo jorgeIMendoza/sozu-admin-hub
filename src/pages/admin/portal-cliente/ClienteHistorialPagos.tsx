@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, CreditCard, FileText, ChevronDown, ChevronUp, Loader2, Download, Receipt } from "lucide-react";
+import { ArrowLeft, CreditCard, FileText, ChevronDown, ChevronUp, Loader2, Receipt, Eye, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
@@ -25,6 +25,7 @@ interface PagoRow {
   clave_rastreo: string | null;
   metodo: string;
   url_recibo: string | null;
+  url_cep: string | null;
   aplicaciones: AplicacionRow[];
 }
 
@@ -44,7 +45,6 @@ const ClienteHistorialPagos = () => {
   const { data: resumen, isLoading: resumenLoading } = useClienteResumenFinanciero(effectivePersonaId);
   const [selectedProperty, setSelectedProperty] = useState<number | null>(null);
 
-  // Auto-select first property when data loads
   const properties = resumen?.properties || [];
   const activePropertyIdx = selectedProperty ?? (properties.length > 0 ? 0 : null);
   const activeProp = activePropertyIdx !== null ? properties[activePropertyIdx] : null;
@@ -93,7 +93,6 @@ const ClienteHistorialPagos = () => {
             </section>
           )}
 
-          {/* Pagos list for selected property */}
           {activeProp && <PagosPropertySection property={activeProp} />}
         </>
       )}
@@ -105,26 +104,23 @@ function PagosPropertySection({ property }: { property: PropertyFinancialSummary
   const { data: pagos, isLoading } = useQuery({
     queryKey: ["cliente-historial-pagos", property.cuentaId],
     queryFn: async (): Promise<PagoRow[]> => {
-      // Fetch pagos for this cuenta
       const { data: pagosData } = await supabase
         .from("pagos")
-        .select("id, fecha_pago, monto, descripcion, clave_rastreo, url_recibo, id_metodos_pago, metodos_pago!fk_pagos_metodo(nombre)")
+        .select("id, fecha_pago, monto, descripcion, clave_rastreo, url_recibo, url_cep, id_metodos_pago, metodos_pago!fk_pagos_metodo(nombre)")
         .eq("id_cuenta_cobranza", property.cuentaId)
         .eq("activo", true)
-        .order("fecha_pago", { ascending: false });
+        .order("fecha_pago", { ascending: true });
 
       if (!pagosData || pagosData.length === 0) return [];
 
       const pagoIds = pagosData.map((p: any) => p.id);
 
-      // Fetch aplicaciones for all pagos
       const { data: aplicaciones } = await supabase
         .from("aplicaciones_pago")
         .select("id, id_pago, monto, es_multa, id_acuerdo_pago, acuerdos_pago!aplicaciones_pago_id_acuerdo_pago_fkey(id_concepto, conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre))")
         .in("id_pago", pagoIds)
         .eq("activo", true);
 
-      // Group aplicaciones by pago
       const appsByPago = new Map<number, AplicacionRow[]>();
       (aplicaciones || []).forEach((a: any) => {
         const concepto = a.acuerdos_pago?.conceptos_pago?.nombre || "Pago";
@@ -147,6 +143,7 @@ function PagosPropertySection({ property }: { property: PropertyFinancialSummary
         clave_rastreo: p.clave_rastreo,
         metodo: (p.metodos_pago as any)?.nombre || "—",
         url_recibo: p.url_recibo,
+        url_cep: p.url_cep,
         aplicaciones: appsByPago.get(p.id) || [],
       }));
     },
@@ -225,12 +222,23 @@ function PagoCard({ pago }: { pago: PagoRow }) {
             <span>{pago.metodo}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Evidencia de pago (CEP) */}
+          {pago.url_cep && (
+            <button
+              onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Ver evidencia de pago"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          )}
+          {/* Recibo de pago */}
           <button
             onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
             disabled={generatingRecibo}
             className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-            title="Descargar recibo"
+            title="Descargar recibo de pago"
           >
             {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
           </button>
@@ -253,9 +261,36 @@ function PagoCard({ pago }: { pago: PagoRow }) {
             </div>
           )}
 
+          {/* Documentos */}
+          <div className="flex gap-2 pt-1">
+            {pago.url_cep && (
+              <button
+                onClick={() => window.open(pago.url_cep!, '_blank')}
+                className="flex items-center gap-1.5 text-xs font-medium text-[hsl(var(--inmob-green))] hover:underline"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Evidencia de pago
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            )}
+            {pago.url_recibo && (
+              <button
+                onClick={() => window.open(pago.url_recibo!, '_blank')}
+                className="flex items-center gap-1.5 text-xs font-medium text-[hsl(var(--inmob-green))] hover:underline"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                Recibo
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Aplicaciones */}
           {pago.aplicaciones.length > 0 && (
             <div className="pt-2 border-t border-border/50">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Aplicaciones</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Aplicaciones ({pago.aplicaciones.length})
+              </p>
               {pago.aplicaciones.map((app) => (
                 <div key={app.id} className="flex items-center justify-between py-1.5">
                   <div className="flex items-center gap-2">
@@ -266,6 +301,12 @@ function PagoCard({ pago }: { pago: PagoRow }) {
                   <span className="text-xs font-semibold text-foreground tabular-nums">{fmtMXN(app.monto)}</span>
                 </div>
               ))}
+              <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/30">
+                <span className="text-[11px] font-semibold text-muted-foreground">Total aplicado</span>
+                <span className="text-xs font-bold text-foreground tabular-nums">
+                  {fmtMXN(pago.aplicaciones.reduce((s, a) => s + a.monto, 0))}
+                </span>
+              </div>
             </div>
           )}
         </div>
