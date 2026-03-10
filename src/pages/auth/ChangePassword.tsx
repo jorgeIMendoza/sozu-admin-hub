@@ -7,7 +7,7 @@ import { Loader2, KeyRound, AlertCircle, CheckCircle, ShieldAlert, LogOut, Eye, 
 import { z } from 'zod';
 import sozuLogo from '@/assets/sozu-logo-black.png';
 
-const BLOCKED_ROLE_NAMES = ['Cliente', 'Directores'];
+const BLOCKED_ROLE_NAMES = ['Directores'];
 
 const passwordSchema = z.object({
   newPassword: z

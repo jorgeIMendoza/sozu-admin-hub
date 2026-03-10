@@ -24,9 +24,19 @@ export function PermissionRoute({ children }: PermissionRouteProps) {
     return <>{children}</>;
   }
 
-  // Allow agent portal routes for ALL roles (agent portal is accessible to everyone)
+  // Allow agent portal routes for ALL roles
   if (location.pathname.startsWith('/admin/agent')) {
     return <>{children}</>;
+  }
+
+  // Allow portal-cliente routes for all roles (Cliente role + Super Admin)
+  if (location.pathname.startsWith('/admin/portal-cliente')) {
+    return <>{children}</>;
+  }
+
+  // Cliente role should only see portal-cliente, redirect them there
+  if (profile?.rol_nombre === 'Cliente') {
+    return <Navigate to="/admin/portal-cliente/inicio" replace />;
   }
 
   if (isLoading || isMenuLoading) {

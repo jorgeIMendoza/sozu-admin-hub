@@ -54,14 +54,25 @@ export default function Login() {
         return;
       }
 
-      const { data: isBlocked } = await supabase.rpc('check_email_blocked_role', {
-        p_email: email.trim()
-      });
+      // Check if the user has a blocked role - but allow Cliente to proceed to portal-cliente
+      const { data: userData } = await supabase
+        .from("usuarios")
+        .select("rol_id")
+        .eq("email", email.trim())
+        .maybeSingle();
 
-      if (isBlocked) {
-        setIsBlocked(true);
-        setIsLoading(false);
-        return;
+      const isClienteRole = userData?.rol_id === 23;
+
+      if (!isClienteRole) {
+        const { data: isBlocked } = await supabase.rpc('check_email_blocked_role', {
+          p_email: email.trim()
+        });
+
+        if (isBlocked) {
+          setIsBlocked(true);
+          setIsLoading(false);
+          return;
+        }
       }
 
       const hasUpdate = await checkForUpdates();
@@ -86,9 +97,12 @@ export default function Login() {
         return;
       }
 
-      // Always navigate to /admin and let PermissionRoute handle redirection
-      // to the first allowed menu item based on the user's role
-      navigate('/admin', { replace: true });
+      // Cliente role goes directly to portal-cliente
+      if (isClienteRole) {
+        navigate('/admin/portal-cliente/inicio', { replace: true });
+      } else {
+        navigate('/admin', { replace: true });
+      }
     } catch (err) {
       setError('Error al iniciar sesión. Intenta de nuevo.');
       setIsLoading(false);

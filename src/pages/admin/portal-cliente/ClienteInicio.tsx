@@ -1,6 +1,9 @@
 import { Receipt, Clock, TrendingUp, ChevronRight, AlertTriangle, CheckCircle2, CreditCard } from "lucide-react";
 import { mockPortfolio, getPortfolioTotals, fmtMXN as fmt, type ClienteInvestment } from "@/lib/clienteMockData";
-
+import { useAuth } from "@/contexts/AuthContext";
+import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 const getGreeting = (): string => {
   const hour = new Date().getHours();
   if (hour < 12) return "Buenos días";
@@ -9,6 +12,29 @@ const getGreeting = (): string => {
 };
 
 const ClienteInicio = () => {
+  const { profile } = useAuth();
+  const { impersonatedClienteName, impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
+  
+  const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
+
+  const { data: personaData } = useQuery({
+    queryKey: ["portal-cliente-persona-greeting", effectivePersonaId],
+    queryFn: async () => {
+      if (!effectivePersonaId) return null;
+      const { data } = await supabase
+        .from("personas")
+        .select("nombre_legal")
+        .eq("id", effectivePersonaId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!effectivePersonaId,
+  });
+
+  const displayName = isImpersonating
+    ? impersonatedClienteName || "Cliente"
+    : personaData?.nombre_legal || profile?.nombre || "Cliente";
+
   const totals = getPortfolioTotals(mockPortfolio);
   const progress = totals.totalInvested > 0 ? (totals.totalPaid / totals.totalInvested) * 100 : 0;
 
@@ -34,7 +60,7 @@ const ClienteInicio = () => {
       <section className="px-5 pt-5 pb-2 lg:px-0">
         <p className="text-sm text-muted-foreground">{getGreeting()},</p>
         <h2 className="font-bold text-xl text-foreground tracking-tight mt-0.5">
-          Alejandro
+          {displayName}
         </h2>
         <div className="flex items-center gap-3 mt-1.5">
           <span className="text-xs text-muted-foreground">Inversionista</span>

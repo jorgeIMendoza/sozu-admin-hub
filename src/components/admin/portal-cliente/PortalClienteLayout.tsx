@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
+import { ClienteImpersonationSelector } from "./ClienteImpersonationSelector";
 import { APP_VERSION } from "@/lib/config";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -33,6 +35,31 @@ export const PortalClienteLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const { impersonatedClienteName, impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
+
+  const isSuperAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
+
+  // Fetch client persona name
+  const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
+
+  const { data: personaData } = useQuery({
+    queryKey: ["portal-cliente-persona", effectivePersonaId],
+    queryFn: async () => {
+      if (!effectivePersonaId) return null;
+      const { data } = await supabase
+        .from("personas")
+        .select("nombre_legal")
+        .eq("id", effectivePersonaId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!effectivePersonaId,
+  });
+
+  // Determine display name
+  const displayName = isImpersonating
+    ? impersonatedClienteName || "Cliente"
+    : personaData?.nombre_legal || profile?.nombre || profile?.email?.split("@")[0] || "Cliente";
 
   // Fetch tabs from DB
   const { data: tabs = FALLBACK_TABS } = useQuery({
@@ -58,8 +85,7 @@ export const PortalClienteLayout = () => {
   const showBackButton = profile?.rol_nombre !== "Cliente";
 
   const currentSection = Object.entries(SECTION_LABELS).find(([path]) => isActive(path))?.[1] || "";
-  const userInitials = profile?.email ? profile.email.substring(0, 2).toUpperCase() : "U";
-  const userName = profile?.email?.split("@")[0] || "Cliente";
+  const userInitials = displayName.substring(0, 2).toUpperCase();
 
   return (
     <div className="inmob-portal min-h-screen flex">
@@ -84,7 +110,7 @@ export const PortalClienteLayout = () => {
         {/* Client info */}
         <div className="px-4 py-3 border-b border-border">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Cliente</p>
-          <p className="text-sm font-semibold text-foreground truncate mt-0.5">{userName}</p>
+          <p className="text-sm font-semibold text-foreground truncate mt-0.5">{displayName}</p>
         </div>
 
         {/* Navigation */}
@@ -180,13 +206,19 @@ export const PortalClienteLayout = () => {
           className="hidden lg:flex items-center justify-between sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-6"
           style={{ height: "var(--inmob-topbar-height)" }}
         >
-          <div className="flex items-center gap-2 text-sm text-foreground">
-            <User className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium truncate max-w-[200px]">{userName}</span>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {isSuperAdmin ? (
+              <ClienteImpersonationSelector />
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-foreground">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium truncate max-w-[200px]">{displayName}</span>
+              </div>
+            )}
             {currentSection && (
               <>
                 <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">{currentSection}</span>
+                <span className="text-sm text-muted-foreground">{currentSection}</span>
               </>
             )}
           </div>
@@ -200,19 +232,27 @@ export const PortalClienteLayout = () => {
         </header>
 
         {/* Mobile header */}
-        <header className="lg:hidden sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[hsl(var(--inmob-green))] text-white text-xs font-bold">S</div>
-            <span className="text-sm font-bold text-foreground">SOZU</span>
-            <span className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</span>
+        <header className="lg:hidden sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[hsl(var(--inmob-green))] text-white text-xs font-bold">S</div>
+              <span className="text-sm font-bold text-foreground">SOZU</span>
+              <span className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</span>
+            </div>
+            {showBackButton && (
+              <button
+                onClick={() => navigate("/admin")}
+                className="flex items-center gap-1 text-sm text-muted-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          {showBackButton && (
-            <button
-              onClick={() => navigate("/admin")}
-              className="flex items-center gap-1 text-sm text-muted-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+          {/* Super Admin client selector on mobile */}
+          {isSuperAdmin && (
+            <div className="mt-2">
+              <ClienteImpersonationSelector />
+            </div>
           )}
         </header>
 
