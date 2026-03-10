@@ -55,7 +55,7 @@ const ClienteInicio = () => {
     },
     enabled: !!effectivePersonaId,
   });
-
+  const numPropiedades = propiedadesActivasCount ?? 0;
 
   // TODO: Replace with real financial data
   const totals = getPortfolioTotals(mockPortfolio);
