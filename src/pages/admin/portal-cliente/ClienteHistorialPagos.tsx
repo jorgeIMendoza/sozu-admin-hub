@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, CreditCard, FileText, ChevronDown, ChevronUp, Loader2, Receipt, Eye, ExternalLink } from "lucide-react";
+import { ArrowLeft, CreditCard, FileText, ChevronDown, ChevronUp, Loader2, Receipt, Eye, ExternalLink, CheckCircle2, Clock, CircleDot } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClienteResumenFinanciero, type PropertyFinancialSummary } from "@/hooks/useClienteResumenFinanciero";
 import { reciboPagoService } from "@/services/reciboPagoService";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const fmtMXN = (v: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
@@ -36,6 +37,23 @@ interface AplicacionRow {
   es_multa: boolean;
 }
 
+interface AcuerdoRow {
+  id: number;
+  orden: number;
+  monto: number;
+  fecha_pago: string | null;
+  pago_completado: boolean;
+  concepto: string;
+  totalAplicado: number;
+  aplicaciones: {
+    id: number;
+    monto: number;
+    es_multa: boolean;
+    fecha_pago: string;
+    metodo: string;
+  }[];
+}
+
 const ClienteHistorialPagos = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -44,6 +62,7 @@ const ClienteHistorialPagos = () => {
 
   const { data: resumen, isLoading: resumenLoading } = useClienteResumenFinanciero(effectivePersonaId);
   const [selectedProperty, setSelectedProperty] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"pagos" | "acuerdos">("pagos");
 
   const properties = resumen?.properties || [];
   const activePropertyIdx = selectedProperty ?? (properties.length > 0 ? 0 : null);
@@ -93,12 +112,41 @@ const ClienteHistorialPagos = () => {
             </section>
           )}
 
-          {activeProp && <PagosPropertySection property={activeProp} />}
+          {/* Tabs */}
+          <section className="px-5 pt-3 pb-1 lg:px-0">
+            <div className="flex gap-1 bg-muted/50 rounded-xl p-1">
+              <button
+                onClick={() => setActiveTab("pagos")}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === "pagos"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Pagos
+              </button>
+              <button
+                onClick={() => setActiveTab("acuerdos")}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === "acuerdos"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Aplicaciones de pago
+              </button>
+            </div>
+          </section>
+
+          {activeProp && activeTab === "pagos" && <PagosPropertySection property={activeProp} />}
+          {activeProp && activeTab === "acuerdos" && <AcuerdosPropertySection property={activeProp} />}
         </>
       )}
     </div>
   );
 };
+
+/* ─────────── PAGOS TAB ─────────── */
 
 function PagosPropertySection({ property }: { property: PropertyFinancialSummary }) {
   const { data: pagos, isLoading } = useQuery({
@@ -199,116 +247,347 @@ function PagoCard({ pago }: { pago: PagoRow }) {
     try {
       await reciboPagoService.generateRecibo({ pagoId: pago.id });
     } catch {
-      toast.error("Error al generar el recibo");
+      toast.error("Error al generar el comprobante");
     } finally {
       setGeneratingRecibo(false);
     }
   };
 
   return (
+    <TooltipProvider delayDuration={300}>
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full p-4 flex items-center justify-between text-left"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <CreditCard className="w-4 h-4 text-[hsl(var(--inmob-green))] shrink-0" />
+              <span className="font-semibold text-sm text-foreground tabular-nums">{fmtMXN(pago.monto)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>{fmtDate(pago.fecha_pago)}</span>
+              <span className="w-1 h-1 rounded-full bg-border" />
+              <span>{pago.metodo}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* CEP */}
+            {pago.url_cep && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
+                    className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent><p>Ver CEP</p></TooltipContent>
+              </Tooltip>
+            )}
+            {/* Comprobante */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
+                  disabled={generatingRecibo}
+                  className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent><p>Ver comprobante</p></TooltipContent>
+            </Tooltip>
+            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </div>
+        </button>
+
+        {expanded && (
+          <div className="border-t border-border px-4 py-3 space-y-2 bg-muted/30">
+            {pago.clave_rastreo && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Clave rastreo</span>
+                <span className="font-mono text-foreground">{pago.clave_rastreo}</span>
+              </div>
+            )}
+            {pago.descripcion && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Descripción</span>
+                <span className="text-foreground">{pago.descripcion}</span>
+              </div>
+            )}
+
+            {/* Documentos */}
+            <div className="flex gap-2 pt-1">
+              {pago.url_cep && (
+                <button
+                  onClick={() => window.open(pago.url_cep!, '_blank')}
+                  className="flex items-center gap-1.5 text-xs font-medium text-[hsl(var(--inmob-green))] hover:underline"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Evidencia formal
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+              {pago.url_recibo && (
+                <button
+                  onClick={() => window.open(pago.url_recibo!, '_blank')}
+                  className="flex items-center gap-1.5 text-xs font-medium text-[hsl(var(--inmob-green))] hover:underline"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  Comprobante
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Aplicaciones */}
+            {pago.aplicaciones.length > 0 && (
+              <div className="pt-2 border-t border-border/50">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Aplicaciones ({pago.aplicaciones.length})
+                </p>
+                {pago.aplicaciones.map((app) => (
+                  <div key={app.id} className="flex items-center justify-between py-1.5">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-foreground">{app.concepto}</span>
+                      {app.es_multa && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">Multa</span>}
+                    </div>
+                    <span className="text-xs font-semibold text-foreground tabular-nums">{fmtMXN(app.monto)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/30">
+                  <span className="text-[11px] font-semibold text-muted-foreground">Total aplicado</span>
+                  <span className="text-xs font-bold text-foreground tabular-nums">
+                    {fmtMXN(pago.aplicaciones.reduce((s, a) => s + a.monto, 0))}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+}
+
+/* ─────────── ACUERDOS / APLICACIONES TAB ─────────── */
+
+function AcuerdosPropertySection({ property }: { property: PropertyFinancialSummary }) {
+  const { data: acuerdos, isLoading } = useQuery({
+    queryKey: ["cliente-acuerdos-pago", property.cuentaId],
+    queryFn: async (): Promise<AcuerdoRow[]> => {
+      const { data: acuerdosData } = await supabase
+        .from("acuerdos_pago")
+        .select("id, orden, monto, fecha_pago, pago_completado, id_concepto")
+        .eq("id_cuenta_cobranza", property.cuentaId)
+        .eq("activo", true)
+        .order("orden", { ascending: true });
+
+      if (!acuerdosData || acuerdosData.length === 0) return [];
+
+      const conceptoIds = [...new Set(acuerdosData.map((a: any) => a.id_concepto))];
+      const acuerdoIds = acuerdosData.map((a: any) => a.id);
+
+      const [conceptosRes, aplicacionesRes] = await Promise.all([
+        supabase.from("conceptos_pago").select("id, nombre").in("id", conceptoIds),
+        supabase
+          .from("aplicaciones_pago")
+          .select("id, monto, es_multa, id_acuerdo_pago, id_pago")
+          .in("id_acuerdo_pago", acuerdoIds)
+          .eq("activo", true),
+      ]);
+
+      const conceptos = conceptosRes.data || [];
+      const aplicaciones = aplicacionesRes.data || [];
+
+      // Get pago details
+      const pagoIds = [...new Set(aplicaciones.map((a: any) => a.id_pago).filter(Boolean))];
+      let pagosMap = new Map<number, any>();
+      if (pagoIds.length > 0) {
+        const { data: pagosData } = await supabase
+          .from("pagos")
+          .select("id, fecha_pago, metodos_pago!fk_pagos_metodo(nombre)")
+          .in("id", pagoIds);
+        (pagosData || []).forEach((p: any) => pagosMap.set(p.id, p));
+      }
+
+      return acuerdosData.map((a: any) => {
+        const concepto = conceptos.find((c: any) => c.id === a.id_concepto);
+        const apps = aplicaciones.filter((ap: any) => ap.id_acuerdo_pago === a.id);
+        const totalAplicado = apps.reduce((s: number, ap: any) => s + (ap.monto || 0), 0);
+
+        return {
+          id: a.id,
+          orden: a.orden,
+          monto: a.monto,
+          fecha_pago: a.fecha_pago,
+          pago_completado: a.pago_completado,
+          concepto: concepto?.nombre || "Sin concepto",
+          totalAplicado,
+          aplicaciones: apps.map((ap: any) => {
+            const pago = pagosMap.get(ap.id_pago);
+            return {
+              id: ap.id,
+              monto: ap.monto,
+              es_multa: ap.es_multa,
+              fecha_pago: pago?.fecha_pago || "",
+              metodo: (pago?.metodos_pago as any)?.nombre || "—",
+            };
+          }),
+        };
+      });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <section className="px-5 py-8 flex items-center justify-center gap-3 lg:px-0">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Cargando acuerdos…</span>
+      </section>
+    );
+  }
+
+  if (!acuerdos || acuerdos.length === 0) {
+    return (
+      <section className="px-5 py-8 text-center lg:px-0">
+        <p className="text-sm text-muted-foreground">Sin acuerdos de pago para {property.proyecto} {property.unidad}</p>
+      </section>
+    );
+  }
+
+  const totalAcuerdos = acuerdos.reduce((s, a) => s + a.monto, 0);
+  const totalAplicado = acuerdos.reduce((s, a) => s + a.totalAplicado, 0);
+  const completados = acuerdos.filter(a => a.pago_completado).length;
+
+  return (
+    <section className="px-5 pt-4 pb-8 lg:px-0 space-y-3">
+      {/* Summary */}
+      <div className="bg-card rounded-2xl border border-border p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total acordado</p>
+            <p className="font-bold text-lg text-foreground tabular-nums">{fmtMXN(totalAcuerdos)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Aplicado</p>
+            <p className="font-bold text-lg text-foreground tabular-nums">{fmtMXN(totalAplicado)}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-[hsl(var(--inmob-green))]" />{completados} completados</span>
+          <span className="flex items-center gap-1"><CircleDot className="w-3.5 h-3.5 text-amber-500" />{acuerdos.filter(a => !a.pago_completado && a.totalAplicado > 0).length} parciales</span>
+          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-muted-foreground" />{acuerdos.filter(a => !a.pago_completado && a.totalAplicado === 0).length} pendientes</span>
+        </div>
+      </div>
+
+      {/* Acuerdos list */}
+      {acuerdos.map((acuerdo) => (
+        <AcuerdoCard key={acuerdo.id} acuerdo={acuerdo} />
+      ))}
+    </section>
+  );
+}
+
+function AcuerdoCard({ acuerdo }: { acuerdo: AcuerdoRow }) {
+  const [expanded, setExpanded] = useState(false);
+  const porcentaje = acuerdo.monto > 0 ? Math.min((acuerdo.totalAplicado / acuerdo.monto) * 100, 100) : 0;
+
+  const status = acuerdo.pago_completado
+    ? "completado"
+    : acuerdo.totalAplicado > 0
+    ? "parcial"
+    : "pendiente";
+
+  const statusConfig = {
+    completado: {
+      icon: <CheckCircle2 className="w-4 h-4 text-[hsl(var(--inmob-green))]" />,
+      label: "Completado",
+      badgeClass: "bg-[hsl(var(--inmob-green))]/10 text-[hsl(var(--inmob-green))]",
+      barClass: "bg-[hsl(var(--inmob-green))]",
+    },
+    parcial: {
+      icon: <CircleDot className="w-4 h-4 text-amber-500" />,
+      label: "Parcial",
+      badgeClass: "bg-amber-500/10 text-amber-600",
+      barClass: "bg-amber-500",
+    },
+    pendiente: {
+      icon: <Clock className="w-4 h-4 text-muted-foreground" />,
+      label: "Pendiente",
+      badgeClass: "bg-muted text-muted-foreground",
+      barClass: "bg-muted-foreground/30",
+    },
+  };
+
+  const cfg = statusConfig[status];
+
+  return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex items-center justify-between text-left"
+        className="w-full p-4 text-left"
       >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <CreditCard className="w-4 h-4 text-[hsl(var(--inmob-green))] shrink-0" />
-            <span className="font-semibold text-sm text-foreground tabular-nums">{fmtMXN(pago.monto)}</span>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {cfg.icon}
+            <span className="font-semibold text-sm text-foreground truncate">{acuerdo.concepto}</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${cfg.badgeClass}`}>
+              {cfg.label}
+            </span>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span>{fmtDate(pago.fecha_pago)}</span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span>{pago.metodo}</span>
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Evidencia de pago (CEP) */}
-          {pago.url_cep && (
-            <button
-              onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
-              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              title="Ver evidencia de pago"
-            >
-              <Eye className="w-4 h-4" />
-            </button>
-          )}
-          {/* Recibo de pago */}
-          <button
-            onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
-            disabled={generatingRecibo}
-            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-            title="Descargar recibo de pago"
-          >
-            {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
-          </button>
-          {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+
+        <div className="flex items-center justify-between text-xs mb-2">
+          <span className="text-muted-foreground">
+            {acuerdo.fecha_pago ? fmtDate(acuerdo.fecha_pago) : "Sin fecha"}
+            <span className="mx-1.5">·</span>
+            #{acuerdo.orden}
+          </span>
+          <span className="font-semibold text-foreground tabular-nums">{fmtMXN(acuerdo.monto)}</span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${cfg.barClass}`}
+            style={{ width: `${porcentaje}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+          <span>Aplicado: {fmtMXN(acuerdo.totalAplicado)}</span>
+          <span>Restante: {fmtMXN(Math.max(acuerdo.monto - acuerdo.totalAplicado, 0))}</span>
         </div>
       </button>
 
-      {expanded && (
-        <div className="border-t border-border px-4 py-3 space-y-2 bg-muted/30">
-          {pago.clave_rastreo && (
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Clave rastreo</span>
-              <span className="font-mono text-foreground">{pago.clave_rastreo}</span>
-            </div>
-          )}
-          {pago.descripcion && (
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Descripción</span>
-              <span className="text-foreground">{pago.descripcion}</span>
-            </div>
-          )}
-
-          {/* Documentos */}
-          <div className="flex gap-2 pt-1">
-            {pago.url_cep && (
-              <button
-                onClick={() => window.open(pago.url_cep!, '_blank')}
-                className="flex items-center gap-1.5 text-xs font-medium text-[hsl(var(--inmob-green))] hover:underline"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                Evidencia de pago
-                <ExternalLink className="w-3 h-3" />
-              </button>
-            )}
-            {pago.url_recibo && (
-              <button
-                onClick={() => window.open(pago.url_recibo!, '_blank')}
-                className="flex items-center gap-1.5 text-xs font-medium text-[hsl(var(--inmob-green))] hover:underline"
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                Recibo
-                <ExternalLink className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-
-          {/* Aplicaciones */}
-          {pago.aplicaciones.length > 0 && (
-            <div className="pt-2 border-t border-border/50">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Aplicaciones ({pago.aplicaciones.length})
-              </p>
-              {pago.aplicaciones.map((app) => (
-                <div key={app.id} className="flex items-center justify-between py-1.5">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-foreground">{app.concepto}</span>
-                    {app.es_multa && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">Multa</span>}
-                  </div>
-                  <span className="text-xs font-semibold text-foreground tabular-nums">{fmtMXN(app.monto)}</span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/30">
-                <span className="text-[11px] font-semibold text-muted-foreground">Total aplicado</span>
-                <span className="text-xs font-bold text-foreground tabular-nums">
-                  {fmtMXN(pago.aplicaciones.reduce((s, a) => s + a.monto, 0))}
-                </span>
+      {expanded && acuerdo.aplicaciones.length > 0 && (
+        <div className="border-t border-border px-4 py-3 space-y-1.5 bg-muted/30">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Pagos aplicados ({acuerdo.aplicaciones.length})
+          </p>
+          {acuerdo.aplicaciones.map((app) => (
+            <div key={app.id} className="flex items-center justify-between py-1.5">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-foreground">{app.fecha_pago ? fmtDate(app.fecha_pago) : "—"}</span>
+                <span className="text-[10px] text-muted-foreground">{app.metodo}</span>
+                {app.es_multa && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">Multa</span>}
               </div>
+              <span className="text-xs font-semibold text-foreground tabular-nums">{fmtMXN(app.monto)}</span>
             </div>
-          )}
+          ))}
+        </div>
+      )}
+
+      {expanded && acuerdo.aplicaciones.length === 0 && (
+        <div className="border-t border-border px-4 py-3 bg-muted/30">
+          <p className="text-xs text-muted-foreground text-center">Sin pagos aplicados aún</p>
         </div>
       )}
     </div>
