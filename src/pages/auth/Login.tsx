@@ -97,9 +97,12 @@ export default function Login() {
         return;
       }
 
-      // Always navigate to /admin and let PermissionRoute handle redirection
-      // to the first allowed menu item based on the user's role
-      navigate('/admin', { replace: true });
+      // Cliente role goes directly to portal-cliente
+      if (isClienteRole) {
+        navigate('/admin/portal-cliente/inicio', { replace: true });
+      } else {
+        navigate('/admin', { replace: true });
+      }
     } catch (err) {
       setError('Error al iniciar sesión. Intenta de nuevo.');
       setIsLoading(false);
