@@ -491,7 +491,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
             fechaPago: null,
             diasRestantes: null,
             urgencia: "green",
-            mensaje: "Tu unidad está en proceso de escrituración, solo faltan los documentos de entrega",
+            mensaje: "Tu unidad está lista para entrega. Agenda tu cita",
           });
         }
       });
