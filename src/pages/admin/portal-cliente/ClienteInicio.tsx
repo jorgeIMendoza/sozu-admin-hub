@@ -1,10 +1,15 @@
-import { Receipt, Clock, TrendingUp, ChevronRight, AlertTriangle, CheckCircle2, CreditCard, FileText, Home, Loader2 } from "lucide-react";
-import { mockPortfolio, getPortfolioTotals, fmtMXN as fmt, type ClienteInvestment } from "@/lib/clienteMockData";
+import { useState } from "react";
+import { Receipt, Clock, TrendingUp, TrendingDown, ChevronRight, AlertTriangle, CheckCircle2, CreditCard, FileText, Home, Loader2 } from "lucide-react";
+import { mockPortfolio, fmtMXN as fmt, type ClienteInvestment } from "@/lib/clienteMockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useClienteActividad, URGENCIA_BORDER, URGENCIA_DOT, URGENCIA_BADGE, type ActividadItem } from "@/hooks/useClienteActividad";
+import { useClienteResumenFinanciero } from "@/hooks/useClienteResumenFinanciero";
+import { estadoCuentaEdgeFunctionService } from "@/services/estadoCuentaEdgeFunctionService";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const getGreeting = (): string => {
   const hour = new Date().getHours();
