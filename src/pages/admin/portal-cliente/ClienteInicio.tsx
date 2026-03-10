@@ -1,9 +1,11 @@
-import { Receipt, Clock, TrendingUp, ChevronRight, AlertTriangle, CheckCircle2, CreditCard } from "lucide-react";
+import { Receipt, Clock, TrendingUp, ChevronRight, AlertTriangle, CheckCircle2, CreditCard, FileText, Home, Loader2 } from "lucide-react";
 import { mockPortfolio, getPortfolioTotals, fmtMXN as fmt, type ClienteInvestment } from "@/lib/clienteMockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useClienteActividad, URGENCIA_BORDER, URGENCIA_DOT, URGENCIA_BADGE, type ActividadItem } from "@/hooks/useClienteActividad";
+
 const getGreeting = (): string => {
   const hour = new Date().getHours();
   if (hour < 12) return "Buenos días";
@@ -35,24 +37,10 @@ const ClienteInicio = () => {
     ? impersonatedClienteName || "Cliente"
     : personaData?.nombre_legal || profile?.nombre || "Cliente";
 
+  const { data: actividad, isLoading: actividadLoading } = useClienteActividad(effectivePersonaId);
+
   const totals = getPortfolioTotals(mockPortfolio);
   const progress = totals.totalInvested > 0 ? (totals.totalPaid / totals.totalInvested) * 100 : 0;
-
-  // Build pending items
-  const pendingItems = mockPortfolio
-    .filter((inv) => inv.financials.pendingBalance > 0)
-    .map((inv) => {
-      const activeStage = inv.stages.find((s) => s.status === "active");
-      return {
-        id: inv.property.id,
-        project: inv.property.projectName,
-        unit: inv.property.unitNumber,
-        type: activeStage?.id === "pago_final" ? "Pago final" : "Parcialidad",
-        amount: inv.financials.pendingBalance,
-        message: activeStage?.contextMessage || "Próximamente",
-        urgent: activeStage?.id === "pago_final",
-      };
-    });
 
   return (
     <div className="max-w-lg mx-auto lg:max-w-none space-y-0">
@@ -74,43 +62,29 @@ const ClienteInicio = () => {
       {/* Activity */}
       <section className="px-5 pt-6 pb-2 lg:px-0">
         <h2 className="font-bold text-lg text-foreground mb-4">Tu actividad</h2>
-        {pendingItems.length > 0 ? (
+        {actividadLoading ? (
+          <div className="bg-card rounded-2xl border border-border p-5 flex items-center gap-4">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Cargando actividad…</p>
+          </div>
+        ) : actividad && actividad.length > 0 ? (
           <div className="space-y-3">
+            {/* Summary banner */}
             <div className="flex items-center gap-3 bg-amber-500/10 rounded-2xl px-4 py-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">
-                  Tienes {pendingItems.length} pendiente{pendingItems.length > 1 ? "s" : ""}
+                  Tienes {actividad.length} pendiente{actividad.length > 1 ? "s" : ""}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">Revisa y liquida tus pagos</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Revisa tus próximos pagos y notificaciones</p>
               </div>
             </div>
-            {pendingItems.map((item) => (
-              <div
-                key={item.id}
-                className={`bg-card rounded-2xl border border-border border-l-[3px] ${item.urgent ? "border-l-destructive" : "border-l-amber-500"} p-4`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="font-semibold text-sm text-foreground">{item.project} {item.unit}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${item.urgent ? "bg-destructive/10 text-destructive" : "bg-amber-500/10 text-amber-500"}`}>
-                        {item.type}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{item.message}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-base text-foreground tabular-nums">{fmt(item.amount)}</p>
-                    <div className="flex items-center gap-1 mt-1 text-[hsl(var(--inmob-green))]">
-                      <CreditCard className="w-3 h-3" />
-                      <span className="text-[11px] font-semibold">Pagar</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+
+            {/* Individual activity items */}
+            {actividad.map((item) => (
+              <ActividadCard key={item.id} item={item} />
             ))}
           </div>
         ) : (
@@ -120,7 +94,7 @@ const ClienteInicio = () => {
             </div>
             <div>
               <p className="font-semibold text-sm text-foreground">Estás al día</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Sin pagos pendientes</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Sin pagos pendientes ni notificaciones</p>
             </div>
           </div>
         )}
@@ -188,33 +162,6 @@ const ClienteInicio = () => {
         </div>
       </section>
 
-      {/* Pendings by property */}
-      {pendingItems.length > 0 && (
-        <section className="px-5 py-4 lg:px-0">
-          <h2 className="font-semibold text-sm text-foreground mb-3">Pendientes por propiedad</h2>
-          <div className="bg-card rounded-2xl border border-border divide-y divide-border overflow-hidden">
-            {pendingItems.map((row) => (
-              <div key={row.id} className="w-full text-left px-4 py-3.5 flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${row.urgent ? "bg-destructive" : "bg-amber-500"}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-[13px] text-foreground">{row.project}</span>
-                    <span className="text-[11px] text-muted-foreground">U-{row.unit}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] text-muted-foreground">{row.type}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="font-bold text-sm text-foreground tabular-nums">{fmt(row.amount)}</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Properties */}
       <section className="px-5 py-4 lg:px-0">
         <h2 className="font-semibold text-sm text-foreground mb-3">Mis propiedades</h2>
@@ -228,6 +175,58 @@ const ClienteInicio = () => {
   );
 };
 
+/* ── Activity Card ── */
+function ActividadCard({ item }: { item: ActividadItem }) {
+  const isPago = item.tipo === "pago" || item.tipo === "mantenimiento";
+  const isStatus = item.tipo === "escrituracion" || item.tipo === "entrega";
+
+  const iconMap: Record<string, React.ReactNode> = {
+    pago: <CreditCard className="w-4 h-4" />,
+    mantenimiento: <Home className="w-4 h-4" />,
+    escrituracion: <FileText className="w-4 h-4" />,
+    entrega: <Home className="w-4 h-4" />,
+  };
+
+  return (
+    <div
+      className={`bg-card rounded-2xl border border-border border-l-[3px] ${URGENCIA_BORDER[item.urgencia]} p-4`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="font-semibold text-sm text-foreground">
+              {item.proyecto} {item.unidad && `U-${item.unidad}`}
+            </span>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[item.urgencia]}`}>
+              {item.concepto}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">{item.mensaje}</p>
+        </div>
+        {isPago && item.monto != null && (
+          <div className="text-right shrink-0">
+            <p className="font-bold text-base text-foreground tabular-nums">{fmt(item.monto)}</p>
+            {item.tipo === "pago" && (
+              <div className="flex items-center gap-1 mt-1 text-[hsl(var(--inmob-green))]">
+                <CreditCard className="w-3 h-3" />
+                <span className="text-[11px] font-semibold">Pagar</span>
+              </div>
+            )}
+          </div>
+        )}
+        {isStatus && (
+          <div className="shrink-0">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-[hsl(var(--inmob-green))]/10 text-[hsl(var(--inmob-green))]`}>
+              {iconMap[item.tipo]}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Property Card ── */
 function PropertyCardCompact({ investment }: { investment: ClienteInvestment }) {
   const { property, financials } = investment;
   const progress = financials.initialPrice > 0 ? (financials.totalPaid / financials.initialPrice) * 100 : 0;
