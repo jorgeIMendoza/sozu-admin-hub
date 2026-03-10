@@ -417,12 +417,25 @@ export function SATNotificationDialog({
             )}
 
             {/* Validation Errors Table */}
-            {validationErrors && validationErrors.length > 0 && (
+            {validationErrors && validationErrors.length > 0 && (() => {
+              const allFieldsEmpty = validationErrors.every(c => (!c.valor || c.valor === '-') && !c.correcto);
+              return (
               <div className="space-y-2 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
                 <h4 className="font-medium text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
                   Errores de Validación Fiscal
                 </h4>
+                {allFieldsEmpty && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-md">
+                    <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">
+                      ⚠️ No se pudieron extraer datos de la Constancia de Situación Fiscal.
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                      Es probable que el archivo subido sea una <strong>imagen o fotografía</strong> de la constancia. 
+                      Por favor, solicite al comprador que suba el <strong>PDF original descargado del portal del SAT</strong> para poder procesarlo correctamente.
+                    </p>
+                  </div>
+                )}
                 <p className="text-xs text-red-600 dark:text-red-400 mb-2">
                   Los siguientes campos presentan discrepancias entre el XML de la factura y la Constancia de Situación Fiscal:
                 </p>
