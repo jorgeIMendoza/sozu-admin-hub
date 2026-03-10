@@ -178,6 +178,7 @@ const ClienteInicio = () => {
 /* ── Activity Card ── */
 function ActividadCard({ item }: { item: ActividadItem }) {
   const isPago = item.tipo === "pago" || item.tipo === "mantenimiento";
+  const isAtraso = item.tipo === "atraso";
   const isStatus = item.tipo === "escrituracion" || item.tipo === "entrega";
 
   const iconMap: Record<string, React.ReactNode> = {
@@ -185,6 +186,7 @@ function ActividadCard({ item }: { item: ActividadItem }) {
     mantenimiento: <Home className="w-4 h-4" />,
     escrituracion: <FileText className="w-4 h-4" />,
     entrega: <Home className="w-4 h-4" />,
+    atraso: <AlertTriangle className="w-4 h-4" />,
   };
 
   return (
@@ -198,18 +200,29 @@ function ActividadCard({ item }: { item: ActividadItem }) {
               {item.proyecto} {item.unidad && `U-${item.unidad}`}
             </span>
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[item.urgencia]}`}>
-              {item.concepto}
+              {isAtraso ? "Atraso" : item.concepto}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">{item.mensaje}</p>
+          {isAtraso && item.mensualidadesAtraso && (
+            <p className="text-xs font-semibold text-destructive mt-1">
+              {item.concepto}
+            </p>
+          )}
         </div>
-        {isPago && item.monto != null && (
+        {(isPago || isAtraso) && item.monto != null && (
           <div className="text-right shrink-0">
             <p className="font-bold text-base text-foreground tabular-nums">{fmt(item.monto)}</p>
             {item.tipo === "pago" && (
               <div className="flex items-center gap-1 mt-1 text-[hsl(var(--inmob-green))]">
                 <CreditCard className="w-3 h-3" />
                 <span className="text-[11px] font-semibold">Pagar</span>
+              </div>
+            )}
+            {isAtraso && (
+              <div className="flex items-center gap-1 mt-1 text-destructive">
+                <AlertTriangle className="w-3 h-3" />
+                <span className="text-[11px] font-semibold">Adeudo</span>
               </div>
             )}
           </div>
