@@ -64,7 +64,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
       // 1. Get all ofertas for this persona
       const { data: ofertas, error: ofertasError } = await supabase
         .from("ofertas")
-        .select("id, id_propiedad")
+        .select("id, id_propiedad, id_producto")
         .eq("id_persona_lead", personaId)
         .eq("activo", true);
 
