@@ -56,7 +56,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (profile && BLOCKED_ROLE_NAMES.includes(profile.rol_nombre)) {
+  if (profile && BLOCKED_ROLE_NAMES.includes(profile.rol_nombre) && !isPortalClienteRoute) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center p-8 bg-card rounded-lg shadow-lg max-w-md space-y-4">
