@@ -350,10 +350,17 @@ export function useClienteActividad(personaId: number | null | undefined) {
         });
       }
 
-      // 6. Check property status notifications
+      // 6. Check property status notifications (only for real properties, not products)
+      // Build set of property IDs that come from product ofertas
+      const productPropIds = new Set(
+        ofertas.filter((o: any) => !!o.id_producto).map((o: any) => o.id_propiedad)
+      );
+
       propiedades?.forEach((p: any) => {
         const prop = propMap.get(p.id);
         if (!prop) return;
+        // Skip product-based properties
+        if (productPropIds.has(p.id)) return;
 
         if (prop.estatus === 9) {
           items.push({
