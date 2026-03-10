@@ -197,7 +197,7 @@ function ActividadCard({ item }: { item: ActividadItem }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="font-semibold text-sm text-foreground">
-              {item.proyecto} {item.unidad && `U-${item.unidad}`}
+              {item.proyecto} {item.unidad && item.unidad}
             </span>
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${URGENCIA_BADGE[item.urgencia]}`}>
               {isAtraso ? "Atraso" : item.concepto}
