@@ -129,6 +129,11 @@ const AgentPerfil = lazyRetry(() => import("./pages/admin/agent-portal/AgentPerf
 const AgentUnidadesProyecto = lazyRetry(() => import("./pages/admin/agent-portal/AgentUnidadesProyecto"));
 const AgentProyectoDetalle = lazyRetry(() => import("./pages/admin/agent-portal/AgentProyectoDetalle"));
 
+// Portal Cliente pages
+const ClienteInicio = lazyRetry(() => import("./pages/admin/portal-cliente/ClienteInicio"));
+const ClientePropiedades = lazyRetry(() => import("./pages/admin/portal-cliente/ClientePropiedades"));
+const ClientePerfil = lazyRetry(() => import("./pages/admin/portal-cliente/ClientePerfil"));
+
 const Registro = lazyRetry(() => import("./pages/public/Registro"));
 const AgentesLanding = lazyRetry(() => import("./pages/public/AgentesLanding"));
 
