@@ -231,7 +231,7 @@ function ActividadCard({ item }: { item: ActividadItem }) {
         </div>
         {(isPago || isAtraso) && item.monto != null && (
           <div className="text-right shrink-0">
-            <p className="font-bold text-base text-foreground tabular-nums">{fmt(item.monto)}</p>
+            <p className="font-bold text-base text-foreground tabular-nums">{new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(item.monto)}</p>
             {item.tipo === "pago" && (
               <div className="flex items-center gap-1 mt-1 text-[hsl(var(--inmob-green))]">
                 <CreditCard className="w-3 h-3" />
