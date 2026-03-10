@@ -60,7 +60,7 @@ const ClienteInicio = () => {
       <section className="px-5 pt-5 pb-2 lg:px-0">
         <p className="text-sm text-muted-foreground">{getGreeting()},</p>
         <h2 className="font-bold text-xl text-foreground tracking-tight mt-0.5">
-          Alejandro
+          {displayName}
         </h2>
         <div className="flex items-center gap-3 mt-1.5">
           <span className="text-xs text-muted-foreground">Inversionista</span>
