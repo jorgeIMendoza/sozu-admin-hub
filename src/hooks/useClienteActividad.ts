@@ -131,10 +131,12 @@ export function useClienteActividad(personaId: number | null | undefined) {
       let buildingMap = new Map<number, { edificioNombre: string; proyectoNombre: string }>();
       
       if (edificioModeloIds.length > 0) {
-        const { data: emData } = await supabase
+        const { data: emData, error: emError } = await supabase
           .from("edificios_modelos")
-          .select("id, id_edificio, edificios!inner(nombre, id_proyecto, proyectos!inner(nombre))")
+          .select("id, id_edificio, edificios:edificios_modelos_id_edificio_fkey!inner(nombre, id_proyecto, proyectos:edificios_id_proyecto_fkey!inner(nombre))")
           .in("id", edificioModeloIds);
+        
+        console.log("[useClienteActividad] emData:", emData?.length, "error:", emError);
         
         emData?.forEach((em: any) => {
           const ed = em.edificios;
