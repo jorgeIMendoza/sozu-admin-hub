@@ -265,10 +265,16 @@ function PagoCard({ pago }: { pago: PagoRow }) {
               <CreditCard className="w-4 h-4 text-[hsl(var(--inmob-green))] shrink-0" />
               <span className="font-semibold text-sm text-foreground tabular-nums">{fmtMXN(pago.monto)}</span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
               <span>{fmtDate(pago.fecha_pago)}</span>
               <span className="w-1 h-1 rounded-full bg-border" />
               <span>{pago.metodo}</span>
+              {pago.clave_rastreo && (
+                <>
+                  <span className="w-1 h-1 rounded-full bg-border" />
+                  <span className="font-mono">{pago.clave_rastreo}</span>
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
