@@ -115,34 +115,45 @@ export function useClienteActividad(personaId: number | null | undefined) {
         ]),
       ];
 
-      const { data: propiedades } = await supabase
+      const { data: propiedades, error: propError } = await supabase
         .from("propiedades")
         .select(`
           id,
           numero_propiedad,
           id_estatus_disponibilidad,
-          id_edificio_modelo,
-          edificios_modelos!inner(
-            id_edificio,
-            edificios!inner(
-              nombre,
-              id_proyecto,
-              proyectos!inner(nombre)
-            )
-          )
+          id_edificio_modelo
         `)
         .in("id", allPropIds);
+
+      // Fetch building/project info separately to avoid nested join issues
+      const edificioModeloIds = [...new Set(propiedades?.map((p: any) => p.id_edificio_modelo).filter(Boolean) || [])];
+      
+      let buildingMap = new Map<number, { edificioNombre: string; proyectoNombre: string }>();
+      
+      if (edificioModeloIds.length > 0) {
+        const { data: emData } = await supabase
+          .from("edificios_modelos")
+          .select("id, id_edificio, edificios!inner(nombre, id_proyecto, proyectos!inner(nombre))")
+          .in("id", edificioModeloIds);
+        
+        emData?.forEach((em: any) => {
+          const ed = em.edificios;
+          buildingMap.set(em.id, {
+            edificioNombre: ed?.nombre || "",
+            proyectoNombre: ed?.proyectos?.nombre || "Proyecto",
+          });
+        });
+      }
 
       // Build property lookup
       const propMap = new Map<number, PropInfo>();
 
       propiedades?.forEach((p: any) => {
-        const em = p.edificios_modelos;
-        const ed = em?.edificios;
+        const building = buildingMap.get(p.id_edificio_modelo);
         propMap.set(p.id, {
           numero: p.numero_propiedad,
-          proyecto: ed?.proyectos?.nombre || "Proyecto",
-          edificio: ed?.nombre || "",
+          proyecto: building?.proyectoNombre || "Proyecto",
+          edificio: building?.edificioNombre || "",
           estatus: p.id_estatus_disponibilidad,
         });
       });
