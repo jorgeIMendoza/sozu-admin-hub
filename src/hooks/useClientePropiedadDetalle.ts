@@ -330,6 +330,22 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         url: d.url,
       }));
 
+      // 9. Parcialidades
+      const parcialidades: ParcialidadDetalle[] = (acuerdosProp || []).map((a: any) => ({
+        id: a.id,
+        fechaPago: a.fecha_pago || "",
+        monto: a.monto,
+        pagado: a.pago_completado,
+        orden: a.orden,
+        concepto: a.conceptos_pago?.nombre || `Parcialidad #${a.orden}`,
+      }));
+
+      const ultimosPagos: PagoReciente[] = (recentPagos || []).map((p: any) => ({
+        id: p.id,
+        fechaPago: p.fecha_pago,
+        monto: p.monto,
+      }));
+
       return {
         cuentaId: cuenta.id,
         ofertaId: cuenta.id_oferta || 0,
@@ -363,6 +379,8 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         beneficiarioNombre,
         propiedadClabeStp,
         propiedadBeneficiarioNombre,
+        parcialidades,
+        ultimosPagos,
       };
     },
     enabled: !!cuentaId,
