@@ -281,6 +281,8 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         productosAdicionales,
         documentos,
         fechaCompra: oferta?.fecha_creacion || cuenta.fecha_creacion || null,
+        mantenimientoCuentaId,
+        mantenimientoClabeStp,
       };
     },
     enabled: !!cuentaId,
