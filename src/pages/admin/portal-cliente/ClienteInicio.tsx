@@ -373,11 +373,21 @@ const ClienteInicio = () => {
       {/* Properties */}
       <section className="px-5 py-4 lg:px-0">
         <h2 className="font-semibold text-sm text-foreground mb-3">Mis propiedades</h2>
-        <div className="space-y-3">
-          {mockPortfolio.map((inv) => (
-            <PropertyCardCompact key={inv.property.id} investment={inv} />
-          ))}
-        </div>
+        {resumenLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : resumen?.properties && resumen.properties.length > 0 ? (
+          <div className="space-y-4">
+            {resumen.properties.map((prop) => (
+              <RealPropertyCard key={prop.cuentaId} property={prop} />
+            ))}
+          </div>
+        ) : (
+          <div className="bg-card rounded-2xl border border-border p-5 text-center text-sm text-muted-foreground">
+            No tienes propiedades registradas.
+          </div>
+        )}
       </section>
     </div>
   );
