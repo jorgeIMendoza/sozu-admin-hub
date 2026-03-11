@@ -325,6 +325,8 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         mantenimientoCuentaId,
         mantenimientoClabeStp,
         beneficiarioNombre,
+        propiedadClabeStp,
+        propiedadBeneficiarioNombre,
       };
     },
     enabled: !!cuentaId,
