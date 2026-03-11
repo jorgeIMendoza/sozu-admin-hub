@@ -60,10 +60,6 @@ const ClientePropiedadDetalle = () => {
   const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
   const { data: resumen } = useClienteResumenFinanciero(effectivePersonaId);
 
-  // Build a PropertyFinancialSummary-like object for inline historial
-  const activePropSummary: PropertyFinancialSummary | null = prop && resumen
-    ? resumen.properties.find(p => p.cuentaId === prop.cuentaId) || null
-    : null;
 
   const handleDownloadEdoCuenta = async () => {
     if (!prop) return;
