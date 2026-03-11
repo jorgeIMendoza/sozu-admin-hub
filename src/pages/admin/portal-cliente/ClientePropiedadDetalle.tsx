@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, TrendingUp, TrendingDown, Check, FileText, Clock, CreditCard, Package, Calendar, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, Download, Home, Loader2, Receipt, Eye, ExternalLink, CheckCircle2, CircleDot } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Check, FileText, Clock, CreditCard, Package, Calendar, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, Download, Home, Loader2 } from "lucide-react";
 import { useClientePropiedadDetalle } from "@/hooks/useClientePropiedadDetalle";
 import { useClienteResumenFinanciero, type PropertyFinancialSummary } from "@/hooks/useClienteResumenFinanciero";
 import { fmtMXN as fmt } from "@/lib/clienteMockData";
