@@ -28,6 +28,8 @@ export interface PropertyFinancialSummary {
   direccion: string;
   fechaEntrega: string | null;
   valorEstimado: number;
+  estatusPropiedad: number;
+  proximoMantenimiento: string | null;
 }
 
 export function useClienteResumenFinanciero(personaId: number | null | undefined) {
