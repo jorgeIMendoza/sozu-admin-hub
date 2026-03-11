@@ -613,38 +613,44 @@ Deno.serve(async (req) => {
     });
     yPosition -= 22;
 
-    // Item 2
-    page.drawText('2.', {
-      x: margin + 5,
-      y: yPosition,
-      size: 11,
-      font: helveticaBold,
-      color: accentColor,
-    });
-    page.drawText('Metros estimados:', {
-      x: margin + 25,
-      y: yPosition,
-      size: 11,
-      font: helveticaBold,
-      color: black,
-    });
-    page.drawText(`${m2Formateado} m²`, {
-      x: margin + 145,
-      y: yPosition,
-      size: 11,
-      font: helvetica,
-      color: black,
-    });
-    yPosition -= 16;
-    // M2 in words on new line
-    page.drawText(`(${m2EnLetras} metros cuadrados)`, {
-      x: margin + 25,
-      y: yPosition,
-      size: 10,
-      font: helvetica,
-      color: mediumGray,
-    });
-    yPosition -= 22;
+    // Item 2 - Metros estimados (only for properties or products with tiene_metraje=true)
+    const showMetraje = !categoriaProducto || tieneMetraje;
+    let currentItemNumber = 2;
+    
+    if (showMetraje) {
+      page.drawText(`${currentItemNumber}.`, {
+        x: margin + 5,
+        y: yPosition,
+        size: 11,
+        font: helveticaBold,
+        color: accentColor,
+      });
+      page.drawText('Metros estimados:', {
+        x: margin + 25,
+        y: yPosition,
+        size: 11,
+        font: helveticaBold,
+        color: black,
+      });
+      page.drawText(`${m2Formateado} m²`, {
+        x: margin + 145,
+        y: yPosition,
+        size: 11,
+        font: helvetica,
+        color: black,
+      });
+      yPosition -= 16;
+      // M2 in words on new line
+      page.drawText(`(${m2EnLetras} metros cuadrados)`, {
+        x: margin + 25,
+        y: yPosition,
+        size: 10,
+        font: helvetica,
+        color: mediumGray,
+      });
+      yPosition -= 22;
+      currentItemNumber++;
+    }
 
     // Item 3 - Full text with client name
     page.drawText('3.', {
