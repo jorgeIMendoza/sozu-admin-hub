@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, TrendingUp, TrendingDown, Check, FileText, Clock, CreditCard, Package, Calendar, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, Download, Home, Loader2 } from "lucide-react";
 import { useClientePropiedadDetalle } from "@/hooks/useClientePropiedadDetalle";
-import { useClienteResumenFinanciero, type PropertyFinancialSummary } from "@/hooks/useClienteResumenFinanciero";
+import { useClienteResumenFinanciero } from "@/hooks/useClienteResumenFinanciero";
 import { fmtMXN as fmt } from "@/lib/clienteMockData";
 import { estadoCuentaEdgeFunctionService } from "@/services/estadoCuentaEdgeFunctionService";
 import { useState } from "react";
