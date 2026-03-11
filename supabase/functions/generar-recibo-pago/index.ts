@@ -286,7 +286,6 @@ Deno.serve(async (req) => {
         .select(`
           id,
           nombre,
-          metraje,
           id_proyecto,
           id_categoria,
           categorias_producto!fk_prodserv_categoria (
@@ -309,14 +308,39 @@ Deno.serve(async (req) => {
         unidadNombre = producto.nombre || 'Producto';
         proyectoData = producto.proyectos;
         proyectoNombre = proyectoData?.nombre || '';
-        // Get category name for displaying in the receipt
         const catData = (producto as any).categorias_producto;
         categoriaProducto = catData?.nombre || '';
         tieneMetraje = catData?.tiene_metraje === true;
         
-        // If the category has metraje, use the product's metraje
-        if (tieneMetraje) {
-          m2Totales = Number(producto.metraje) || 0;
+        // If the category has metraje, look up m2 from bodegas or estacionamientos
+        if (tieneMetraje && oferta.id_propiedad) {
+          // Try bodegas first
+          const { data: bodega } = await supabase
+            .from('bodegas')
+            .select('m2')
+            .eq('id_producto', oferta.id_producto)
+            .eq('id_propiedad', oferta.id_propiedad)
+            .eq('activo', true)
+            .single();
+          
+          if (bodega) {
+            m2Totales = Number(bodega.m2) || 0;
+            console.log('Metraje from bodegas:', m2Totales);
+          } else {
+            // Try estacionamientos
+            const { data: estacionamiento } = await supabase
+              .from('estacionamientos')
+              .select('m2')
+              .eq('id_producto', oferta.id_producto)
+              .eq('id_propiedad', oferta.id_propiedad)
+              .eq('activo', true)
+              .single();
+            
+            if (estacionamiento) {
+              m2Totales = Number(estacionamiento.m2) || 0;
+              console.log('Metraje from estacionamientos:', m2Totales);
+            }
+          }
         }
         
         console.log('Producto found:', { 
@@ -324,7 +348,7 @@ Deno.serve(async (req) => {
           proyecto: proyectoNombre,
           categoria: categoriaProducto,
           tieneMetraje,
-          metraje: producto.metraje,
+          m2Totales,
           url_logo: proyectoData?.url_logo,
           nombre_firmante: proyectoData?.nombre_firmante_recibos
         });
