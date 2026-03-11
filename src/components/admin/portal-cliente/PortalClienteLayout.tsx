@@ -84,7 +84,12 @@ export const PortalClienteLayout = () => {
     staleTime: 5 * 60_000,
   });
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const isActive = (path: string) => {
+    if (location.pathname === path || location.pathname.startsWith(path + "/")) return true;
+    // Property detail route should highlight "Propiedades" tab
+    if (path === "/admin/portal-cliente/propiedades" && location.pathname.startsWith("/admin/portal-cliente/propiedad/")) return true;
+    return false;
+  };
   const showBackButton = profile?.rol_nombre !== "Cliente";
 
   const currentSection = Object.entries(SECTION_LABELS).find(([path]) => isActive(path))?.[1] || "";

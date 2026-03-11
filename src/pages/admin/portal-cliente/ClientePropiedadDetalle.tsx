@@ -1,25 +1,27 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, TrendingUp, Check, FileText, Clock, CreditCard, Package, Calendar, AlertTriangle, ChevronRight, Download, Home, Loader2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Check, FileText, Clock, CreditCard, Package, Calendar, AlertTriangle, ChevronRight, ChevronDown, Download, Home, Loader2 } from "lucide-react";
 import { useClientePropiedadDetalle } from "@/hooks/useClientePropiedadDetalle";
+import { useClienteResumenFinanciero } from "@/hooks/useClienteResumenFinanciero";
 import { fmtMXN as fmt } from "@/lib/clienteMockData";
 import { estadoCuentaEdgeFunctionService } from "@/services/estadoCuentaEdgeFunctionService";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
 
 /* ── Investment process steps mapped to estatus_disponibilidad ── */
 const PROCESS_STEPS = [
-  { label: "Preventa", statusIds: [4] },       // Apartado
-  { label: "Pago Final", statusIds: [5] },     // Vendido
+  { label: "Preventa", statusIds: [4] },
+  { label: "Pago Final", statusIds: [5] },
   { label: "Escrituración", statusIds: [7] },
-  { label: "Entrega", statusIds: [8] },        // Entregado
-  { label: "Post-Entrega", statusIds: [9] },   // Pagada completamente
+  { label: "Entrega", statusIds: [8] },
+  { label: "Post-Entrega", statusIds: [9] },
 ];
 
 function getCompletedStepIndex(estatusId: number): number {
   for (let i = PROCESS_STEPS.length - 1; i >= 0; i--) {
     if (PROCESS_STEPS[i].statusIds.includes(estatusId)) return i;
   }
-  // If vendido(5), at least preventa is done
   if (estatusId >= 5) return 0;
   return -1;
 }
@@ -29,6 +31,14 @@ const ClientePropiedadDetalle = () => {
   const navigate = useNavigate();
   const { data: prop, isLoading } = useClientePropiedadDetalle(cuentaId ? Number(cuentaId) : null);
   const [generatingEdoCuenta, setGeneratingEdoCuenta] = useState(false);
+  const [showValueBreakdown, setShowValueBreakdown] = useState(false);
+  const [showAppreciationBreakdown, setShowAppreciationBreakdown] = useState(false);
+
+  // Get resumen for breakdown across all properties
+  const { profile } = useAuth();
+  const { impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
+  const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
+  const { data: resumen } = useClienteResumenFinanciero(effectivePersonaId);
 
   const handleDownloadEdoCuenta = async () => {
     if (!prop) return;
@@ -65,7 +75,6 @@ const ClientePropiedadDetalle = () => {
   const progress = prop.precioFinal > 0 ? Math.min(100, (prop.totalPaid / prop.precioFinal) * 100) : 0;
   const completedStep = getCompletedStepIndex(prop.estatusPropiedad);
 
-  // Status badge
   const statusBadge = (() => {
     switch (prop.estatusPropiedad) {
       case 4: return { label: "Apartado", color: "bg-amber-500/15 text-amber-600" };
@@ -77,26 +86,27 @@ const ClientePropiedadDetalle = () => {
     }
   })();
 
-  // Maintenance
   const maintenanceOverdue = prop.mantenimientosAtrasados > 0;
   const nextMaintenanceFormatted = prop.proximoMantenimiento
     ? new Date(prop.proximoMantenimiento + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })
     : null;
 
-  // Recently paid maintenance (last 3)
   const paidMaintenance = prop.mantenimientoHistorial
     .filter(m => m.pagado)
     .sort((a, b) => b.fechaPago.localeCompare(a.fechaPago))
     .slice(0, 3);
 
-  // Document groups
-  const contratos = prop.documentos.filter(d => [1, 2, 3, 4, 5].includes(d.idTipoDocumento)); // common contract type IDs
+  const contratos = prop.documentos.filter(d => [1, 2, 3, 4, 5].includes(d.idTipoDocumento));
   const docsNotariales = prop.documentos.filter(d => !contratos.includes(d));
+
+  // Value breakdown: how the estimated value is calculated
+  const m2Label = prop.m2Total > 0 ? `${prop.m2Total.toFixed(1)} m²` : null;
+  const isAppreciation = prop.appreciationPercent >= 0;
 
   return (
     <div className="max-w-lg mx-auto lg:max-w-2xl pb-24">
-      {/* Header */}
-      <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-30 bg-background border-b border-border px-5 py-3 flex items-center justify-between">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-foreground font-medium">
           <ArrowLeft className="w-4 h-4" />
           <div>
@@ -110,16 +120,83 @@ const ClientePropiedadDetalle = () => {
       </div>
 
       {/* ─── Value & Payment Progress ─── */}
-      <div className="mx-5 mt-2 rounded-2xl bg-card border border-border p-5 space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Valor del activo</p>
-            <p className="font-bold text-2xl text-foreground tabular-nums mt-0.5">{fmt(prop.valorEstimado)}</p>
+      <div className="mx-5 mt-4 rounded-2xl bg-card border border-border p-5 space-y-4">
+        <div>
+          <div
+            className="flex items-start justify-between cursor-pointer select-none"
+            onClick={() => setShowValueBreakdown(!showValueBreakdown)}
+          >
+            <div className="flex items-center gap-1.5">
+              <div>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Valor del activo</p>
+                <p className="font-bold text-2xl text-foreground tabular-nums mt-0.5">{fmt(prop.valorEstimado)}</p>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform mt-4 ${showValueBreakdown ? "rotate-180" : ""}`} />
+            </div>
+            {prop.appreciationPercent !== 0 && (
+              <div
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full cursor-pointer ${isAppreciation ? "bg-[hsl(var(--inmob-green))]/10" : "bg-destructive/10"}`}
+                onClick={(e) => { e.stopPropagation(); setShowAppreciationBreakdown(!showAppreciationBreakdown); }}
+              >
+                {isAppreciation ? <TrendingUp className="w-3 h-3 text-[hsl(var(--inmob-green))]" /> : <TrendingDown className="w-3 h-3 text-destructive" />}
+                <span className={`text-xs font-semibold tabular-nums ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"}`}>
+                  {isAppreciation ? "+" : ""}{prop.appreciationPercent.toFixed(1)}%
+                </span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"} ${showAppreciationBreakdown ? "rotate-180" : ""}`} />
+              </div>
+            )}
           </div>
-          {prop.appreciationPercent !== 0 && (
-            <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${prop.appreciationPercent >= 0 ? "bg-[hsl(var(--inmob-green))]/10 text-[hsl(var(--inmob-green))]" : "bg-destructive/10 text-destructive"}`}>
-              <TrendingUp className="w-3 h-3" />
-              {prop.appreciationPercent >= 0 ? "+" : ""}{prop.appreciationPercent.toFixed(1)}%
+
+          {/* Value breakdown */}
+          {showValueBreakdown && (
+            <div className="mt-3 space-y-1.5 pl-1 text-xs">
+              <div className="flex items-center justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">Precio de compra</span>
+                <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioFinal)}</span>
+              </div>
+              {m2Label && (
+                <div className="flex items-center justify-between py-1.5 border-b border-border">
+                  <span className="text-muted-foreground">Superficie total</span>
+                  <span className="font-semibold text-foreground">{m2Label}</span>
+                </div>
+              )}
+              {prop.precioM2Compra > 0 && (
+                <div className="flex items-center justify-between py-1.5 border-b border-border">
+                  <span className="text-muted-foreground">Precio/m² compra</span>
+                  <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioM2Compra, 0)}/m²</span>
+                </div>
+              )}
+              {prop.precioM2Actual > 0 && (
+                <div className="flex items-center justify-between py-1.5 border-b border-border">
+                  <span className="text-muted-foreground">Precio/m² actual</span>
+                  <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioM2Actual, 0)}/m²</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-muted-foreground font-medium">Valor estimado actual</span>
+                <span className="font-bold text-foreground tabular-nums">{fmt(prop.valorEstimado)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Appreciation breakdown */}
+          {showAppreciationBreakdown && (
+            <div className="mt-3 space-y-1.5 pl-1 text-xs">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">Desglose de plusvalía</p>
+              <div className="flex items-center justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">Compra</span>
+                <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioM2Compra, 0)}/m²</span>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-border">
+                <span className="text-muted-foreground">Actual</span>
+                <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioM2Actual, 0)}/m²</span>
+              </div>
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-muted-foreground">Diferencia</span>
+                <span className={`font-bold tabular-nums ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"}`}>
+                  {isAppreciation ? "+" : ""}{fmt(prop.valorEstimado - prop.precioFinal)}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -319,7 +396,6 @@ const ClientePropiedadDetalle = () => {
             )}
           </div>
 
-          {/* Payment history */}
           {paidMaintenance.length > 0 && (
             <div className="mt-4">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-2">Historial</p>
