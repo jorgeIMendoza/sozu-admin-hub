@@ -267,18 +267,84 @@ const ClienteInicio = () => {
           </div>
         ) : (
         <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total invertido</p>
-              <p className="font-bold text-xl text-foreground tabular-nums mt-0.5">{fmt(totalInvested)}</p>
+          {/* Total invertido - clickable */}
+          <div>
+            <div
+              className="flex items-baseline justify-between cursor-pointer select-none"
+              onClick={() => setShowInvestmentBreakdown(!showInvestmentBreakdown)}
+            >
+              <div className="flex items-center gap-1.5">
+                <div>
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total invertido</p>
+                  <p className="font-bold text-xl text-foreground tabular-nums mt-0.5">{fmt(totalInvested)}</p>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform mt-4 ${showInvestmentBreakdown ? "rotate-180" : ""}`} />
+              </div>
+              {appreciationPercent > 0 && (
+              <div
+                className={`flex items-center gap-1 ${isAppreciation ? "bg-[hsl(var(--inmob-green))]/10" : "bg-destructive/10"} px-2.5 py-1 rounded-full cursor-pointer`}
+                onClick={(e) => { e.stopPropagation(); setShowAppreciationBreakdown(!showAppreciationBreakdown); }}
+              >
+                {isAppreciation ? <TrendingUp className="w-3 h-3 text-[hsl(var(--inmob-green))]" /> : <TrendingDown className="w-3 h-3 text-destructive" />}
+                <span className={`text-xs font-semibold tabular-nums ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"}`}>{isAppreciation ? "+" : "-"}{appreciationPercent.toFixed(1)}%</span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"} ${showAppreciationBreakdown ? "rotate-180" : ""}`} />
+              </div>
+              )}
             </div>
-            {appreciationPercent > 0 && (
-            <div className={`flex items-center gap-1 ${isAppreciation ? "bg-[hsl(var(--inmob-green))]/10" : "bg-destructive/10"} px-2.5 py-1 rounded-full`}>
-              {isAppreciation ? <TrendingUp className="w-3 h-3 text-[hsl(var(--inmob-green))]" /> : <TrendingDown className="w-3 h-3 text-destructive" />}
-              <span className={`text-xs font-semibold tabular-nums ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"}`}>{isAppreciation ? "+" : "-"}{appreciationPercent.toFixed(1)}%</span>
-            </div>
+
+            {/* Investment breakdown */}
+            {showInvestmentBreakdown && resumen?.properties && resumen.properties.length > 0 && (
+              <div className="mt-3 space-y-2 pl-1">
+                {resumen.properties.map((prop) => (
+                  <div key={prop.cuentaId} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center">
+                        <Home className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-foreground">{prop.proyecto} {prop.unidad}</p>
+                        {prop.edificio && <p className="text-[10px] text-muted-foreground">{prop.edificio}</p>}
+                      </div>
+                    </div>
+                    <p className="text-xs font-semibold text-foreground tabular-nums">{fmt(prop.precioFinal)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Appreciation breakdown */}
+            {showAppreciationBreakdown && resumen?.properties && resumen.properties.length > 0 && (
+              <div className="mt-3 space-y-2 pl-1">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">Plusvalía por propiedad</p>
+                {resumen.properties.map((prop) => {
+                  const currentValue = prop.precioM2Actual > 0 && prop.m2Total > 0 ? prop.precioM2Actual * prop.m2Total : prop.precioFinal;
+                  const diff = currentValue - prop.precioFinal;
+                  const isUp = diff >= 0;
+                  return (
+                    <div key={prop.cuentaId} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center">
+                          <Home className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-foreground">{prop.proyecto} {prop.unidad}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Compra: {fmt(prop.precioM2Compra, 0)}/m² → Actual: {fmt(prop.precioM2Actual, 0)}/m²
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-xs font-semibold tabular-nums ${isUp ? "text-[hsl(var(--inmob-green))]" : "text-destructive"}`}>
+                          {isUp ? "+" : ""}{prop.appreciationPercent.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
+
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <span className="text-[11px] text-muted-foreground font-medium">Progreso de pago</span>
