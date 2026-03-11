@@ -459,7 +459,7 @@ function ActividadCard({ item }: { item: ActividadItem }) {
 
 /* ── Real Property Card (matching reference design) ── */
 function RealPropertyCard({ property }: { property: PropertyFinancialSummary }) {
-  // Badge based on property STATUS, not project date
+  const navigate = useNavigate();
   // 7 = Escrituración, 9 = Pagada completamente, 5 = Vendido
   const statusBadge = (() => {
     switch (property.estatusPropiedad) {
