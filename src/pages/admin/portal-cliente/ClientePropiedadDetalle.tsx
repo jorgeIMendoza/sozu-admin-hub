@@ -52,6 +52,7 @@ const ClientePropiedadDetalle = () => {
   const [showValueBreakdown, setShowValueBreakdown] = useState(false);
   const [showAppreciationBreakdown, setShowAppreciationBreakdown] = useState(false);
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+  const [showPendingMaintenance, setShowPendingMaintenance] = useState(false);
   
 
   // Get resumen for breakdown across all properties
