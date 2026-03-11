@@ -376,6 +376,16 @@ const ClientePropiedadDetalle = () => {
       <div className="mx-5 mt-6">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-3">Finanzas</p>
         <div className="bg-card rounded-2xl border border-border divide-y divide-border">
+          {prop.propiedadClabeStp && prop.pending > 0 && (
+            <button
+              onClick={() => navigate(`/admin/portal-cliente/propiedad-pago/${prop.cuentaId}`)}
+              className="flex items-center gap-3 w-full p-4 text-left hover:bg-muted/30 transition-colors"
+            >
+              <CreditCard className="w-5 h-5 text-[hsl(var(--inmob-green))]" />
+              <span className="flex-1 text-sm font-medium text-foreground">Pagar propiedad</span>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
           <button
             onClick={handleDownloadEdoCuenta}
             disabled={generatingEdoCuenta}
