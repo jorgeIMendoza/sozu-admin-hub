@@ -54,6 +54,8 @@ export interface PropiedadDetalle {
   mantenimientoCuentaId: number | null;
   mantenimientoClabeStp: string | null;
   beneficiarioNombre: string | null;
+  propiedadClabeStp: string | null;
+  propiedadBeneficiarioNombre: string | null;
 }
 
 export function useClientePropiedadDetalle(cuentaId: number | null | undefined) {
