@@ -270,31 +270,29 @@ function PagoCard({ pago }: { pago: PagoRow }) {
           <div className="flex items-center gap-1.5 shrink-0">
             {/* CEP */}
             {pago.url_cep && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
-                    className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent><p>Ver CEP</p></TooltipContent>
-              </Tooltip>
+              <button
+                onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
+                className="relative group p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title="Ver CEP"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-popover border border-border px-2 py-1 text-xs text-popover-foreground shadow-md opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block">
+                  Ver CEP
+                </span>
+              </button>
             )}
             {/* Comprobante */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
-                  disabled={generatingRecibo}
-                  className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                >
-                  {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent><p>Ver comprobante</p></TooltipContent>
-            </Tooltip>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
+              disabled={generatingRecibo}
+              className="relative group p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Ver comprobante"
+            >
+              {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-popover border border-border px-2 py-1 text-xs text-popover-foreground shadow-md opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block">
+                Ver comprobante
+              </span>
+            </button>
             {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </div>
         </button>
