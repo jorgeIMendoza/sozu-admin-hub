@@ -265,12 +265,6 @@ function PagoCard({ pago }: { pago: PagoRow }) {
               <span>{fmtDate(pago.fecha_pago)}</span>
               <span className="w-1 h-1 rounded-full bg-border" />
               <span>{pago.metodo}</span>
-              {pago.clave_rastreo && (
-                <>
-                  <span className="w-1 h-1 rounded-full bg-border" />
-                  <span className="font-mono">{pago.clave_rastreo}</span>
-                </>
-              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
