@@ -1,18 +1,22 @@
-## Plan completado: Portal del Cliente
 
-Nuevo módulo "Portal del Cliente" implementado con 3 submenús (Inicio, Propiedades, Perfil) siguiendo el diseño del Portal Inmobiliaria.
 
-### Cambios realizados
+## Plan: Navigate to Pagos with property filter instead of inline history
 
-| Área | Detalle |
-|------|---------|
-| **BD** | Menu 18 "Portal del Cliente" + 3 submenus + permisos leer para Super Admin |
-| **Layout** | `PortalClienteLayout.tsx` — sidebar desktop + bottom nav mobile, mismo diseño que Portal Inmobiliaria |
-| **Inicio** | Saludo, actividad, accesos rápidos, resumen financiero, pendientes, tarjetas de propiedades (mock) |
-| **Propiedades** | Lista de tarjetas con hero, barra de progreso, datos financieros (mock) |
-| **Perfil** | Hero identidad, info personal, documentación, fiscal, bancos, seguridad (mock) |
-| **Routing** | App.tsx, AdminLayout.tsx, validRoutes.ts, useDynamicMenus.ts actualizados |
+### What changes
 
-### Pendiente (follow-up)
-- Conectar datos reales desde Supabase (cuentas_cobranza, propiedades, pagos)
-- Rol "Cliente" con permisos específicos
+1. **`ClienteHistorialPagos.tsx`** — Read a `cuentaId` query parameter from the URL. When present, auto-select the matching property in the property selector instead of defaulting to index 0.
+
+2. **`ClientePropiedadDetalle.tsx`** — Replace the inline "Historial de pagos" toggle+expansion with a navigation link to `/admin/portal-cliente/pagos?cuentaId={cuentaId}`. Remove the `showHistorialPagos` state, the `InlinePagosSection` component usage, and the `ChevronUp`/`ChevronDown` toggle icons for that button (use `ChevronRight` instead, like a nav link).
+
+### Implementation details
+
+**ClienteHistorialPagos.tsx:**
+- Import `useSearchParams` from react-router-dom
+- On mount, read `searchParams.get("cuentaId")` 
+- When `properties` load, find the index matching that `cuentaId` and set `selectedProperty` to it
+
+**ClientePropiedadDetalle.tsx:**
+- The "Historial de pagos" button becomes: `navigate(`/admin/portal-cliente/pagos?cuentaId=${prop.cuentaId}`)`
+- Remove the inline `InlinePagosSection` render block and related state
+- Clean up unused imports (`InlinePagosSection` component definition, `showHistorialPagos` state)
+
