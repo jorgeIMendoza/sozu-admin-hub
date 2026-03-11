@@ -47,11 +47,13 @@ export interface PropiedadDetalle {
   mantenimientosAtrasados: number;
   cuotaMensualMantenimiento: number;
   mantenimientoHistorial: MantenimientoHistorial[];
+  mantenimientoTotalPagado: number;
   productosAdicionales: ProductoAdicional[];
   documentos: DocumentoPropiedad[];
   fechaCompra: string | null;
   mantenimientoCuentaId: number | null;
   mantenimientoClabeStp: string | null;
+  beneficiarioNombre: string | null;
 }
 
 export function useClientePropiedadDetalle(cuentaId: number | null | undefined) {
