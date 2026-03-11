@@ -24,6 +24,8 @@ const ClienteInicio = () => {
   const navigate = useNavigate();
   const [generatingEdoCuenta, setGeneratingEdoCuenta] = useState(false);
   const [showEdoCuentaPicker, setShowEdoCuentaPicker] = useState(false);
+  const [showInvestmentBreakdown, setShowInvestmentBreakdown] = useState(false);
+  const [showAppreciationBreakdown, setShowAppreciationBreakdown] = useState(false);
   
   const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
 
