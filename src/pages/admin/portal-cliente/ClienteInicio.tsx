@@ -500,13 +500,18 @@ function RealPropertyCard({ property }: { property: PropertyFinancialSummary }) 
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 via-foreground/20 to-transparent" />
         {/* Status badge */}
-        {fechaEntregaLabel && (
-          <div className="absolute top-3 right-3">
-            <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm ${isDelivered ? "bg-[hsl(var(--inmob-green))]/20 text-[hsl(var(--inmob-green))]" : "bg-amber-500/15 text-amber-500"}`}>
-              {isDelivered ? "Entregada" : `Entrega: ${fechaEntregaLabel}`}
+        <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
+          {statusBadge && (
+            <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm ${statusBadge.color}`}>
+              {statusBadge.label}
             </span>
-          </div>
-        )}
+          )}
+          {fechaEntregaLabel && (
+            <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm ${fechaEntregaLabel === "Entregada" ? "bg-[hsl(var(--inmob-green))]/20 text-[hsl(var(--inmob-green))]" : "bg-white/20 text-white"}`}>
+              {fechaEntregaLabel}
+            </span>
+          )}
+        </div>
         {/* Project name overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-4">
           <h3 className="font-bold text-base text-white leading-tight">{property.proyecto}</h3>
