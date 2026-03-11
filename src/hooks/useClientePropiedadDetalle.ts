@@ -47,11 +47,13 @@ export interface PropiedadDetalle {
   mantenimientosAtrasados: number;
   cuotaMensualMantenimiento: number;
   mantenimientoHistorial: MantenimientoHistorial[];
+  mantenimientoTotalPagado: number;
   productosAdicionales: ProductoAdicional[];
   documentos: DocumentoPropiedad[];
   fechaCompra: string | null;
   mantenimientoCuentaId: number | null;
   mantenimientoClabeStp: string | null;
+  beneficiarioNombre: string | null;
 }
 
 export function useClientePropiedadDetalle(cuentaId: number | null | undefined) {
@@ -89,7 +91,7 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
       ] = await Promise.all([
         supabase
           .from("propiedades")
-          .select("id, m2_interiores, m2_exteriores, precio_lista, id_edificio_modelo, numero_propiedad, id_estatus_disponibilidad, numero_piso")
+          .select("id, m2_interiores, m2_exteriores, precio_lista, id_edificio_modelo, numero_propiedad, id_estatus_disponibilidad, numero_piso, id_entidad_relacionada_dueno")
           .eq("id", propiedadId)
           .maybeSingle(),
         supabase
@@ -160,18 +162,27 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
       let mantenimientoHistorial: MantenimientoHistorial[] = [];
       let proximoMantenimiento: string | null = null;
       let mantenimientosAtrasados = 0;
+      let mantenimientoTotalPagado = 0;
       const mantenimientoCuenta = (childCuentas || []).find(c => c.clabe_stp) || (childCuentas || [])[0] || null;
       const mantenimientoCuentaId = mantenimientoCuenta?.id || null;
       const mantenimientoClabeStp = mantenimientoCuenta?.clabe_stp || null;
 
       if (childIds.length > 0) {
-        const { data: mantoAcuerdos } = await supabase
-          .from("acuerdos_pago")
-          .select("id, id_cuenta_cobranza, fecha_pago, monto, pago_completado")
-          .in("id_cuenta_cobranza", childIds)
-          .eq("activo", true)
-          .order("fecha_pago", { ascending: true });
+        const [{ data: mantoAcuerdos }, { data: mantoPagos }] = await Promise.all([
+          supabase
+            .from("acuerdos_pago")
+            .select("id, id_cuenta_cobranza, fecha_pago, monto, pago_completado")
+            .in("id_cuenta_cobranza", childIds)
+            .eq("activo", true)
+            .order("fecha_pago", { ascending: true }),
+          supabase
+            .from("pagos")
+            .select("monto")
+            .in("id_cuenta_cobranza", childIds)
+            .eq("activo", true),
+        ]);
 
+        mantenimientoTotalPagado = (mantoPagos || []).reduce((s, p) => s + p.monto, 0);
         const today = new Date().toISOString().slice(0, 10);
 
         (mantoAcuerdos || []).forEach(a => {
@@ -189,6 +200,17 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
             if (a.fecha_pago < today) mantenimientosAtrasados++;
           }
         });
+      }
+
+      // 6b. Beneficiario from property owner entity
+      let beneficiarioNombre: string | null = null;
+      if (propiedad.id_entidad_relacionada_dueno) {
+        const { data: erData } = await supabase
+          .from("entidades_relacionadas")
+          .select("personas:entidades_relacionadas_id_persona_fkey(nombre_legal)")
+          .eq("id", propiedad.id_entidad_relacionada_dueno)
+          .maybeSingle();
+        beneficiarioNombre = (erData as any)?.personas?.nombre_legal || null;
       }
 
       // 7. Product details
@@ -278,11 +300,13 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         mantenimientosAtrasados,
         cuotaMensualMantenimiento: cuotaMensual,
         mantenimientoHistorial,
+        mantenimientoTotalPagado,
         productosAdicionales,
         documentos,
         fechaCompra: oferta?.fecha_creacion || cuenta.fecha_creacion || null,
         mantenimientoCuentaId,
         mantenimientoClabeStp,
+        beneficiarioNombre,
       };
     },
     enabled: !!cuentaId,

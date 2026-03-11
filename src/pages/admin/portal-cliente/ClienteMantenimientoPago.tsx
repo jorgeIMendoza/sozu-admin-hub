@@ -77,7 +77,7 @@ const ClienteMantenimientoPago = () => {
         {/* Beneficiario */}
         <DataRow
           label="BENEFICIARIO"
-          value="SOZU Desarrollos S.A. de C.V."
+          value={prop.beneficiarioNombre || "SOZU Desarrollos S.A. de C.V."}
         />
 
         {/* Monto sugerido */}
@@ -113,7 +113,7 @@ const ClienteMantenimientoPago = () => {
           <div>
             <p className="text-xs font-semibold text-foreground">Conexión segura</p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Esta CLABE está vinculada exclusivamente a tu propiedad y RFC.
+              Esta CLABE está vinculada exclusivamente a tu propiedad.
             </p>
           </div>
         </div>

@@ -52,6 +52,7 @@ const ClientePropiedadDetalle = () => {
   const [showValueBreakdown, setShowValueBreakdown] = useState(false);
   const [showAppreciationBreakdown, setShowAppreciationBreakdown] = useState(false);
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+  const [showPendingMaintenance, setShowPendingMaintenance] = useState(false);
   
 
   // Get resumen for breakdown across all properties
@@ -116,6 +117,20 @@ const ClientePropiedadDetalle = () => {
     .filter(m => m.pagado)
     .sort((a, b) => b.fechaPago.localeCompare(a.fechaPago))
     .slice(0, 3);
+
+  // Pending maintenance calculations
+  const pendingMaintenance = prop.mantenimientoHistorial
+    .filter(m => !m.pagado)
+    .sort((a, b) => a.fechaPago.localeCompare(b.fechaPago));
+  const totalPendingAmount = pendingMaintenance.reduce((s, m) => s + m.monto, 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const currentMonth = today.slice(0, 7);
+  const overdueMaintenance = pendingMaintenance.filter(m => m.fechaPago < today && m.fechaPago.slice(0, 7) < currentMonth);
+  const oldestOverdue = overdueMaintenance.length > 0 ? overdueMaintenance[0] : null;
+  const newestOverdue = overdueMaintenance.length > 0 ? overdueMaintenance[overdueMaintenance.length - 1] : null;
+  const completedTotal = prop.mantenimientoHistorial.filter(m => m.pagado).reduce((s, m) => s + m.monto, 0);
+  const saldoAFavor = Math.max(0, prop.mantenimientoTotalPagado - completedTotal - totalPendingAmount);
+  const isAlCorriente = pendingMaintenance.length === 0;
 
   const contratos = prop.documentos.filter(d => [1, 2, 3, 4, 5].includes(d.idTipoDocumento));
   const docsNotariales = prop.documentos.filter(d => !contratos.includes(d));
@@ -412,16 +427,70 @@ const ClientePropiedadDetalle = () => {
         <div className="mx-5 mt-6">
           <h3 className="font-bold text-sm text-foreground mb-3">Mantenimiento</h3>
           <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
-            {prop.cuotaMensualMantenimiento > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <CreditCard className="w-4 h-4" />
-                  <span>Cuota mensual</span>
+
+            {/* Status summary */}
+            {isAlCorriente ? (
+              <div className="flex items-center gap-2 text-[hsl(var(--inmob-green))]">
+                <Check className="w-4 h-4" />
+                <span className="text-sm font-semibold">Al corriente</span>
+              </div>
+            ) : overdueMaintenance.length > 0 ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="text-sm font-semibold">
+                    {overdueMaintenance.length} pago{overdueMaintenance.length > 1 ? "s" : ""} vencido{overdueMaintenance.length > 1 ? "s" : ""}
+                  </span>
                 </div>
-                <span className="font-bold text-foreground tabular-nums">{fmt(prop.cuotaMensualMantenimiento)}</span>
+                <div className="text-xs text-muted-foreground pl-6 space-y-0.5">
+                  {oldestOverdue && (
+                    <p>Más antiguo: <span className="text-foreground font-medium capitalize">{new Date(oldestOverdue.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</span></p>
+                  )}
+                  {newestOverdue && overdueMaintenance.length > 1 && (
+                    <p>Más reciente: <span className="text-foreground font-medium capitalize">{new Date(newestOverdue.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</span></p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-amber-600">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm font-semibold">Pagos pendientes</span>
               </div>
             )}
-            {nextMaintenanceFormatted && (
+
+            {/* Pago pendiente (expandable) */}
+            {pendingMaintenance.length > 0 && (
+              <>
+                <button
+                  onClick={() => setShowPendingMaintenance(!showPendingMaintenance)}
+                  className="flex items-center justify-between w-full text-sm"
+                >
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CreditCard className="w-4 h-4" />
+                    <span>Pago pendiente</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-foreground tabular-nums">{fmt(totalPendingAmount)}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showPendingMaintenance ? "rotate-180" : ""}`} />
+                  </div>
+                </button>
+                {showPendingMaintenance && (
+                  <div className="pl-6 space-y-1.5 border-l-2 border-border ml-2">
+                    {pendingMaintenance.map(m => (
+                      <div key={m.id} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground capitalize">
+                          {new Date(m.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { month: "long", year: "numeric" })}
+                        </span>
+                        <span className="font-semibold tabular-nums text-foreground">{fmt(m.monto)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Próximo vencimiento */}
+            {nextMaintenanceFormatted && !isAlCorriente && (
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />
@@ -433,6 +502,18 @@ const ClientePropiedadDetalle = () => {
               </div>
             )}
 
+            {/* Saldo a favor */}
+            {saldoAFavor > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2 text-[hsl(var(--inmob-green))]">
+                  <TrendingUp className="w-4 h-4" />
+                  <span className="font-medium">Saldo a favor</span>
+                </div>
+                <span className="font-bold text-[hsl(var(--inmob-green))] tabular-nums">{fmt(saldoAFavor)}</span>
+              </div>
+            )}
+
+            {/* Historial (paid) */}
             {paidMaintenance.length > 0 && (
               <>
                 <div className="border-t border-border pt-3">
