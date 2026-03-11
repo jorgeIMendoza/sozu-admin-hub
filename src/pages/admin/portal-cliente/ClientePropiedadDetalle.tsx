@@ -372,20 +372,122 @@ const ClientePropiedadDetalle = () => {
         </div>
       )}
 
+      {/* ─── Parcialidades / Pagar propiedad section ─── */}
+      {prop.propiedadClabeStp && prop.pending > 0 && (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const overdueParcialidades = prop.parcialidades.filter(p => !p.pagado && p.fechaPago && p.fechaPago < today);
+        const pendingParcialidades = prop.parcialidades.filter(p => !p.pagado);
+        const totalOverdueAmount = overdueParcialidades.reduce((s, p) => s + p.monto, 0);
+        const oldestOverdueParc = overdueParcialidades.length > 0 ? overdueParcialidades[0] : null;
+        const newestOverdueParc = overdueParcialidades.length > 0 ? overdueParcialidades[overdueParcialidades.length - 1] : null;
+        const isPropertyAlCorriente = pendingParcialidades.length === 0;
+
+        return (
+          <div className="mx-5 mt-6">
+            <h3 className="font-bold text-sm text-foreground mb-3">Parcialidades</h3>
+            <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
+
+              {/* Status summary */}
+              {isPropertyAlCorriente ? (
+                <div className="flex items-center gap-2 text-[hsl(var(--inmob-green))]">
+                  <Check className="w-4 h-4" />
+                  <span className="text-sm font-semibold">Al corriente</span>
+                </div>
+              ) : overdueParcialidades.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-sm font-semibold">
+                      {overdueParcialidades.length} pago{overdueParcialidades.length > 1 ? "s" : ""} vencido{overdueParcialidades.length > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground pl-6 space-y-0.5">
+                    {oldestOverdueParc && (
+                      <p>Más antiguo: <span className="text-foreground font-medium capitalize">{new Date(oldestOverdueParc.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</span></p>
+                    )}
+                    {newestOverdueParc && overdueParcialidades.length > 1 && (
+                      <p>Más reciente: <span className="text-foreground font-medium capitalize">{new Date(newestOverdueParc.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</span></p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-amber-600">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm font-semibold">Pagos pendientes</span>
+                </div>
+              )}
+
+              {/* Saldo a pagar (overdue total, expandable) */}
+              {overdueParcialidades.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setShowPendingParcialidades(!showPendingParcialidades)}
+                    className="flex items-center justify-between w-full text-sm"
+                  >
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <CreditCard className="w-4 h-4" />
+                      <span>Saldo a pagar</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-foreground tabular-nums">{fmt(totalOverdueAmount)}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showPendingParcialidades ? "rotate-180" : ""}`} />
+                    </div>
+                  </button>
+                  {showPendingParcialidades && (
+                    <div className="pl-6 space-y-1.5 border-l-2 border-border ml-2">
+                      {overdueParcialidades.map(p => (
+                        <div key={p.id} className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{p.concepto}</span>
+                          <span className="font-semibold tabular-nums text-foreground">{fmt(p.monto)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Last 5 payments */}
+              {prop.ultimosPagos.length > 0 && (
+                <>
+                  <div className="border-t border-border pt-3">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-2">Últimos pagos</p>
+                  </div>
+                  <div className="space-y-2">
+                    {prop.ultimosPagos.map(p => (
+                      <div key={p.id} className="flex items-center justify-between text-sm">
+                        <span className="text-foreground capitalize">
+                          {new Date(p.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                        <span className="font-semibold tabular-nums text-foreground">{fmt(p.monto)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center">Se muestran los últimos 5 pagos registrados</p>
+                  <button
+                    onClick={() => navigate(`/admin/portal-cliente/pagos?cuentaId=${prop.cuentaId}`)}
+                    className="text-xs text-[hsl(var(--inmob-green))] font-semibold text-center w-full"
+                  >
+                    Ver historial completo →
+                  </button>
+                </>
+              )}
+
+              {/* CTA */}
+              <button
+                onClick={() => navigate(`/admin/portal-cliente/propiedad-pago/${prop.cuentaId}`)}
+                className="w-full py-3 rounded-xl bg-[hsl(var(--inmob-green))] text-white font-semibold text-sm active:scale-[0.98] transition-transform mt-1"
+              >
+                Pagar propiedad
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ─── Finanzas ─── */}
       <div className="mx-5 mt-6">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-3">Finanzas</p>
         <div className="bg-card rounded-2xl border border-border divide-y divide-border">
-          {prop.propiedadClabeStp && prop.pending > 0 && (
-            <button
-              onClick={() => navigate(`/admin/portal-cliente/propiedad-pago/${prop.cuentaId}`)}
-              className="flex items-center gap-3 w-full p-4 text-left hover:bg-muted/30 transition-colors"
-            >
-              <CreditCard className="w-5 h-5 text-[hsl(var(--inmob-green))]" />
-              <span className="flex-1 text-sm font-medium text-foreground">Pagar propiedad</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
-          )}
           <button
             onClick={handleDownloadEdoCuenta}
             disabled={generatingEdoCuenta}

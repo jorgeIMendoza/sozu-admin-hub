@@ -85,7 +85,7 @@ const ClientePropiedadPago = () => {
         {/* Monto sugerido */}
         {montoSugerido > 0 && (
           <DataRow
-            label="MONTO PENDIENTE"
+            label="SALDO A PAGAR"
             value={fmt(montoSugerido)}
             onCopy={() => copyToClipboard(montoSugerido.toFixed(2), "Monto")}
             bold
