@@ -34,14 +34,8 @@ const ClientePropiedadDetalle = () => {
     if (!prop) return;
     setGeneratingEdoCuenta(true);
     try {
-      const blob = await estadoCuentaEdgeFunctionService.generateEdoCuenta(prop.cuentaId);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Estado_de_Cuenta_${prop.unidad}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Estado de cuenta descargado");
+      await estadoCuentaEdgeFunctionService.generateEstadoCuenta({ id_cuenta: prop.cuentaId });
+      toast.success("Estado de cuenta generado");
     } catch {
       toast.error("Error al generar estado de cuenta");
     } finally {
