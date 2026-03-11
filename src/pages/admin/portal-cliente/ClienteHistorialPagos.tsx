@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClienteResumenFinanciero, type PropertyFinancialSummary } from "@/hooks/useClienteResumenFinanciero";
 import { reciboPagoService } from "@/services/reciboPagoService";
 import { toast } from "sonner";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const fmtMXN = (v: number) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
@@ -51,6 +51,7 @@ interface AcuerdoRow {
     es_multa: boolean;
     fecha_pago: string;
     metodo: string;
+    clave_rastreo: string | null;
   }[];
 }
 
@@ -250,7 +251,7 @@ function PagoCard({ pago }: { pago: PagoRow }) {
   };
 
   return (
-    <TooltipProvider delayDuration={0}>
+    <div className="bg-card rounded-2xl border border-border overflow-hidden">
       <div className="bg-card rounded-2xl border border-border overflow-hidden">
         <button
           onClick={() => setExpanded(!expanded)}
@@ -265,42 +266,34 @@ function PagoCard({ pago }: { pago: PagoRow }) {
               <span>{fmtDate(pago.fecha_pago)}</span>
               <span className="w-1 h-1 rounded-full bg-border" />
               <span>{pago.metodo}</span>
-              {pago.clave_rastreo && (
-                <>
-                  <span className="w-1 h-1 rounded-full bg-border" />
-                  <span className="font-mono">{pago.clave_rastreo}</span>
-                </>
-              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {/* CEP */}
             {pago.url_cep && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
-                    className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent><p>Ver CEP</p></TooltipContent>
-              </Tooltip>
+              <button
+                onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
+                className="relative group p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title="Ver CEP"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-popover border border-border px-2 py-1 text-xs text-popover-foreground shadow-md opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block">
+                  Ver CEP
+                </span>
+              </button>
             )}
             {/* Comprobante */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
-                  disabled={generatingRecibo}
-                  className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                >
-                  {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent><p>Ver comprobante</p></TooltipContent>
-            </Tooltip>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
+              disabled={generatingRecibo}
+              className="relative group p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Ver comprobante"
+            >
+              {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-popover border border-border px-2 py-1 text-xs text-popover-foreground shadow-md opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block">
+                Ver comprobante
+              </span>
+            </button>
             {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </div>
         </button>
@@ -371,7 +364,7 @@ function PagoCard({ pago }: { pago: PagoRow }) {
           </div>
         )}
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
 
@@ -411,7 +404,7 @@ function AcuerdosPropertySection({ property }: { property: PropertyFinancialSumm
       if (pagoIds.length > 0) {
         const { data: pagosData } = await supabase
           .from("pagos")
-          .select("id, fecha_pago, metodos_pago!fk_pagos_metodo(nombre)")
+          .select("id, fecha_pago, clave_rastreo, metodos_pago!fk_pagos_metodo(nombre)")
           .in("id", pagoIds);
         (pagosData || []).forEach((p: any) => pagosMap.set(p.id, p));
       }
@@ -437,6 +430,7 @@ function AcuerdosPropertySection({ property }: { property: PropertyFinancialSumm
               es_multa: ap.es_multa,
               fecha_pago: pago?.fecha_pago || "",
               metodo: (pago?.metodos_pago as any)?.nombre || "—",
+              clave_rastreo: pago?.clave_rastreo || null,
             };
           }),
         };
@@ -575,10 +569,11 @@ function AcuerdoCard({ acuerdo }: { acuerdo: AcuerdoRow }) {
           </p>
           {acuerdo.aplicaciones.map((app) => (
             <div key={app.id} className="flex items-center justify-between py-1.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-xs text-foreground">{app.fecha_pago ? fmtDate(app.fecha_pago) : "—"}</span>
                 <span className="text-[10px] text-muted-foreground">{app.metodo}</span>
+                {app.clave_rastreo && <span className="text-[10px] font-mono text-muted-foreground">{app.clave_rastreo}</span>}
                 {app.es_multa && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">Multa</span>}
               </div>
               <span className="text-xs font-semibold text-foreground tabular-nums">{fmtMXN(app.monto)}</span>

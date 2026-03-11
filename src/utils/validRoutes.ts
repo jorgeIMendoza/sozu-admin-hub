@@ -94,6 +94,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   // Portal Cliente
   '/admin/portal-cliente/inicio',
   '/admin/portal-cliente/propiedades',
+  '/admin/portal-cliente/pagos',
   '/admin/portal-cliente/perfil',
 ]);
 
