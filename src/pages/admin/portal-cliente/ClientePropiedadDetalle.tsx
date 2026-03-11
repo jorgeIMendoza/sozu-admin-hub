@@ -53,7 +53,7 @@ const ClientePropiedadDetalle = () => {
   const [showAppreciationBreakdown, setShowAppreciationBreakdown] = useState(false);
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
   const [showPendingMaintenance, setShowPendingMaintenance] = useState(false);
-  
+  const [showPendingParcialidades, setShowPendingParcialidades] = useState(false);
 
   // Get resumen for breakdown across all properties
   const { profile } = useAuth();
