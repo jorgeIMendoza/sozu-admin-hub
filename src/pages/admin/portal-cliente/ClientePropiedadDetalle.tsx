@@ -1,13 +1,16 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, TrendingUp, TrendingDown, Check, FileText, Clock, CreditCard, Package, Calendar, AlertTriangle, ChevronRight, ChevronDown, Download, Home, Loader2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Check, FileText, Clock, CreditCard, Package, Calendar, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, Download, Home, Loader2, Receipt, Eye, ExternalLink, CheckCircle2, CircleDot } from "lucide-react";
 import { useClientePropiedadDetalle } from "@/hooks/useClientePropiedadDetalle";
-import { useClienteResumenFinanciero } from "@/hooks/useClienteResumenFinanciero";
+import { useClienteResumenFinanciero, type PropertyFinancialSummary } from "@/hooks/useClienteResumenFinanciero";
 import { fmtMXN as fmt } from "@/lib/clienteMockData";
 import { estadoCuentaEdgeFunctionService } from "@/services/estadoCuentaEdgeFunctionService";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { reciboPagoService } from "@/services/reciboPagoService";
 
 /* ── Investment process steps mapped to estatus_disponibilidad ── */
 const PROCESS_STEPS = [
@@ -26,6 +29,21 @@ function getCompletedStepIndex(estatusId: number): number {
   return -1;
 }
 
+const fmtDate = (d: string) => {
+  const date = new Date(d + "T00:00:00");
+  return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+/* ── Product payment detail interfaces ── */
+interface ProductPagoRow {
+  id: number;
+  fecha_pago: string;
+  monto: number;
+  metodo: string;
+  clave_rastreo: string | null;
+  url_cep: string | null;
+}
+
 const ClientePropiedadDetalle = () => {
   const { cuentaId } = useParams<{ cuentaId: string }>();
   const navigate = useNavigate();
@@ -33,12 +51,19 @@ const ClientePropiedadDetalle = () => {
   const [generatingEdoCuenta, setGeneratingEdoCuenta] = useState(false);
   const [showValueBreakdown, setShowValueBreakdown] = useState(false);
   const [showAppreciationBreakdown, setShowAppreciationBreakdown] = useState(false);
+  const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+  const [showHistorialPagos, setShowHistorialPagos] = useState(false);
 
   // Get resumen for breakdown across all properties
   const { profile } = useAuth();
   const { impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
   const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
   const { data: resumen } = useClienteResumenFinanciero(effectivePersonaId);
+
+  // Build a PropertyFinancialSummary-like object for inline historial
+  const activePropSummary: PropertyFinancialSummary | null = prop && resumen
+    ? resumen.properties.find(p => p.cuentaId === prop.cuentaId) || null
+    : null;
 
   const handleDownloadEdoCuenta = async () => {
     if (!prop) return;
@@ -99,9 +124,12 @@ const ClientePropiedadDetalle = () => {
   const contratos = prop.documentos.filter(d => [1, 2, 3, 4, 5].includes(d.idTipoDocumento));
   const docsNotariales = prop.documentos.filter(d => !contratos.includes(d));
 
-  // Value breakdown: how the estimated value is calculated
+  // Value breakdown
   const m2Label = prop.m2Total > 0 ? `${prop.m2Total.toFixed(1)} m²` : null;
   const isAppreciation = prop.appreciationPercent >= 0;
+  const valorCompra = prop.precioFinal;
+  const valorActual = prop.valorEstimado;
+  const diferencia = valorActual - valorCompra;
 
   return (
     <div className="max-w-lg mx-auto lg:max-w-2xl pb-24">
@@ -147,40 +175,8 @@ const ClientePropiedadDetalle = () => {
             )}
           </div>
 
-          {/* Value breakdown */}
-          {showValueBreakdown && (
-            <div className="mt-3 space-y-1.5 pl-1 text-xs">
-              <div className="flex items-center justify-between py-1.5 border-b border-border">
-                <span className="text-muted-foreground">Precio de compra</span>
-                <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioFinal)}</span>
-              </div>
-              {m2Label && (
-                <div className="flex items-center justify-between py-1.5 border-b border-border">
-                  <span className="text-muted-foreground">Superficie total</span>
-                  <span className="font-semibold text-foreground">{m2Label}</span>
-                </div>
-              )}
-              {prop.precioM2Compra > 0 && (
-                <div className="flex items-center justify-between py-1.5 border-b border-border">
-                  <span className="text-muted-foreground">Precio/m² compra</span>
-                  <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioM2Compra, 0)}/m²</span>
-                </div>
-              )}
-              {prop.precioM2Actual > 0 && (
-                <div className="flex items-center justify-between py-1.5 border-b border-border">
-                  <span className="text-muted-foreground">Precio/m² actual</span>
-                  <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioM2Actual, 0)}/m²</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between py-1.5">
-                <span className="text-muted-foreground font-medium">Valor estimado actual</span>
-                <span className="font-bold text-foreground tabular-nums">{fmt(prop.valorEstimado)}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Appreciation breakdown */}
-          {showAppreciationBreakdown && (
+          {/* Appreciation breakdown — comparison style */}
+          {(showValueBreakdown || showAppreciationBreakdown) && (
             <div className="mt-3 space-y-1.5 pl-1 text-xs">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1">Desglose de plusvalía</p>
               <div className="flex items-center justify-between py-1.5 border-b border-border">
@@ -191,11 +187,22 @@ const ClientePropiedadDetalle = () => {
                 <span className="text-muted-foreground">Actual</span>
                 <span className="font-semibold text-foreground tabular-nums">{fmt(prop.precioM2Actual, 0)}/m²</span>
               </div>
-              <div className="flex items-center justify-between py-1.5">
-                <span className="text-muted-foreground">Diferencia</span>
-                <span className={`font-bold tabular-nums ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"}`}>
-                  {isAppreciation ? "+" : ""}{fmt(prop.valorEstimado - prop.precioFinal)}
-                </span>
+              {/* Comparison: Valor compra vs Valor actual */}
+              <div className="rounded-xl bg-muted/40 p-3 mt-1 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Valor de compra</span>
+                  <span className="font-semibold text-foreground tabular-nums">{fmt(valorCompra)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Valor actual estimado</span>
+                  <span className="font-semibold text-foreground tabular-nums">{fmt(valorActual)}</span>
+                </div>
+                <div className="border-t border-border pt-2 flex items-center justify-between">
+                  <span className="text-muted-foreground font-medium">Diferencia</span>
+                  <span className={`font-bold tabular-nums ${isAppreciation ? "text-[hsl(var(--inmob-green))]" : "text-destructive"}`}>
+                    {isAppreciation ? "+" : ""}{fmt(diferencia)}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -291,30 +298,65 @@ const ClientePropiedadDetalle = () => {
         </div>
       </div>
 
-      {/* ─── Products Adicionales ─── */}
+      {/* ─── Products Adicionales (expandable with payment detail) ─── */}
       {prop.productosAdicionales.length > 0 && (
         <div className="mx-5 mt-6">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-3">Productos adicionales</p>
           <div className="space-y-2">
-            {prop.productosAdicionales.map(prod => (
-              <div key={prod.id} className="flex items-center gap-3 bg-card rounded-2xl border border-border p-4">
-                <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center">
-                  <Package className="w-4 h-4 text-muted-foreground" />
+            {prop.productosAdicionales.map(prod => {
+              const isExpanded = expandedProductId === prod.id;
+              const prodProgress = prod.precio > 0 ? Math.min(100, (prod.totalPaid / prod.precio) * 100) : 0;
+              return (
+                <div key={prod.id} className="bg-card rounded-2xl border border-border overflow-hidden">
+                  <button
+                    onClick={() => setExpandedProductId(isExpanded ? null : prod.id)}
+                    className="flex items-center gap-3 w-full p-4 text-left"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center">
+                      <Package className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{prod.nombre}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">{fmt(prod.precio)}</p>
+                    </div>
+                    <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
+                      prod.isFullyPaid
+                        ? "bg-[hsl(var(--inmob-green))]/15 text-[hsl(var(--inmob-green))]"
+                        : "bg-amber-500/15 text-amber-600"
+                    }`}>
+                      {prod.isFullyPaid ? "Entregado" : "Pendiente"}
+                    </span>
+                    {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-border px-4 py-3 bg-muted/30 space-y-3">
+                      {/* Progress */}
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-muted-foreground">Progreso</span>
+                          <span className="font-semibold tabular-nums text-foreground">{prodProgress.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-[hsl(var(--inmob-green))] transition-all" style={{ width: `${prodProgress}%` }} />
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase">Pagado</p>
+                          <p className="font-semibold text-[hsl(var(--inmob-green))] tabular-nums">{fmt(prod.totalPaid)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-muted-foreground uppercase">Pendiente</p>
+                          <p className="font-semibold text-foreground tabular-nums">{fmt(Math.max(0, prod.precio - prod.totalPaid))}</p>
+                        </div>
+                      </div>
+                      {/* Inline payment history for this product */}
+                      <ProductPagosInline productId={prod.id} propiedadId={prop.propiedadId} />
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-foreground truncate">{prod.nombre}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">{fmt(prod.precio)}</p>
-                </div>
-                <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full ${
-                  prod.isFullyPaid
-                    ? "bg-[hsl(var(--inmob-green))]/15 text-[hsl(var(--inmob-green))]"
-                    : "bg-amber-500/15 text-amber-600"
-                }`}>
-                  {prod.isFullyPaid ? "Entregado" : "Pendiente"}
-                </span>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -337,14 +379,21 @@ const ClientePropiedadDetalle = () => {
             )}
           </button>
           <button
-            onClick={() => navigate("/admin/portal-cliente/pagos")}
+            onClick={() => setShowHistorialPagos(!showHistorialPagos)}
             className="flex items-center gap-3 w-full p-4 text-left hover:bg-muted/30 transition-colors"
           >
             <Clock className="w-5 h-5 text-muted-foreground" />
             <span className="flex-1 text-sm font-medium text-foreground">Historial de pagos</span>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            {showHistorialPagos ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </button>
         </div>
+
+        {/* Inline Historial de Pagos */}
+        {showHistorialPagos && activePropSummary && (
+          <div className="mt-3">
+            <InlinePagosSection property={activePropSummary} />
+          </div>
+        )}
       </div>
 
       {/* ─── Documentos ─── */}
@@ -420,5 +469,261 @@ const ClientePropiedadDetalle = () => {
     </div>
   );
 };
+
+/* ─────────── Product Payment Detail (inline) ─────────── */
+
+function ProductPagosInline({ productId, propiedadId }: { productId: number; propiedadId: number }) {
+  const { data: pagos, isLoading } = useQuery({
+    queryKey: ["producto-pagos-inline", productId, propiedadId],
+    queryFn: async (): Promise<ProductPagoRow[]> => {
+      // Find the oferta for this product+propiedad
+      const { data: oferta } = await supabase
+        .from("ofertas")
+        .select("id")
+        .eq("id_producto", productId)
+        .eq("id_propiedad", propiedadId)
+        .eq("activo", true)
+        .maybeSingle();
+
+      if (!oferta) return [];
+
+      // Find cuenta_cobranza
+      const { data: cuenta } = await supabase
+        .from("cuentas_cobranza")
+        .select("id")
+        .eq("id_oferta", oferta.id)
+        .eq("activo", true)
+        .maybeSingle();
+
+      if (!cuenta) return [];
+
+      const { data: pagosData } = await supabase
+        .from("pagos")
+        .select("id, fecha_pago, monto, clave_rastreo, url_cep, id_metodos_pago, metodos_pago!fk_pagos_metodo(nombre)")
+        .eq("id_cuenta_cobranza", cuenta.id)
+        .eq("activo", true)
+        .order("fecha_pago", { ascending: true });
+
+      return (pagosData || []).map((p: any) => ({
+        id: p.id,
+        fecha_pago: p.fecha_pago,
+        monto: p.monto,
+        metodo: (p.metodos_pago as any)?.nombre || "—",
+        clave_rastreo: p.clave_rastreo,
+        url_cep: p.url_cep,
+      }));
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 justify-center py-2">
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">Cargando pagos…</span>
+      </div>
+    );
+  }
+
+  if (!pagos || pagos.length === 0) {
+    return <p className="text-xs text-muted-foreground text-center py-1">Sin pagos registrados</p>;
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pagos ({pagos.length})</p>
+      {pagos.map(p => (
+        <div key={p.id} className="flex items-center justify-between py-1.5">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs text-foreground">{fmtDate(p.fecha_pago)}</span>
+            <span className="text-[10px] text-muted-foreground">{p.metodo}</span>
+          </div>
+          <span className="text-xs font-semibold text-foreground tabular-nums">{fmt(p.monto)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────── Inline Payment History ─────────── */
+
+interface PagoRow {
+  id: number;
+  fecha_pago: string;
+  monto: number;
+  descripcion: string | null;
+  clave_rastreo: string | null;
+  metodo: string;
+  url_recibo: string | null;
+  url_cep: string | null;
+  aplicaciones: { id: number; monto: number; concepto: string; es_multa: boolean }[];
+}
+
+function InlinePagosSection({ property }: { property: PropertyFinancialSummary }) {
+  const { data: pagos, isLoading } = useQuery({
+    queryKey: ["cliente-historial-pagos", property.cuentaId],
+    queryFn: async (): Promise<PagoRow[]> => {
+      const { data: pagosData } = await supabase
+        .from("pagos")
+        .select("id, fecha_pago, monto, descripcion, clave_rastreo, url_recibo, url_cep, id_metodos_pago, metodos_pago!fk_pagos_metodo(nombre)")
+        .eq("id_cuenta_cobranza", property.cuentaId)
+        .eq("activo", true)
+        .order("fecha_pago", { ascending: true });
+
+      if (!pagosData || pagosData.length === 0) return [];
+
+      const pagoIds = pagosData.map((p: any) => p.id);
+      const { data: aplicaciones } = await supabase
+        .from("aplicaciones_pago")
+        .select("id, id_pago, monto, es_multa, id_acuerdo_pago, acuerdos_pago!aplicaciones_pago_id_acuerdo_pago_fkey(id_concepto, conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre))")
+        .in("id_pago", pagoIds)
+        .eq("activo", true);
+
+      const appsByPago = new Map<number, PagoRow["aplicaciones"]>();
+      (aplicaciones || []).forEach((a: any) => {
+        const concepto = a.acuerdos_pago?.conceptos_pago?.nombre || "Pago";
+        const existing = appsByPago.get(a.id_pago) || [];
+        existing.push({ id: a.id, monto: a.monto, concepto, es_multa: a.es_multa });
+        appsByPago.set(a.id_pago, existing);
+      });
+
+      return pagosData.map((p: any) => ({
+        id: p.id,
+        fecha_pago: p.fecha_pago,
+        monto: p.monto,
+        descripcion: p.descripcion,
+        clave_rastreo: p.clave_rastreo,
+        metodo: (p.metodos_pago as any)?.nombre || "—",
+        url_recibo: p.url_recibo,
+        url_cep: p.url_cep,
+        aplicaciones: appsByPago.get(p.id) || [],
+      }));
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-6">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Cargando pagos…</span>
+      </div>
+    );
+  }
+
+  if (!pagos || pagos.length === 0) {
+    return <p className="text-sm text-muted-foreground text-center py-4">Sin pagos registrados</p>;
+  }
+
+  const totalPagado = pagos.reduce((s, p) => s + p.monto, 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-card rounded-2xl border border-border p-4 flex items-center justify-between">
+        <div>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total pagado</p>
+          <p className="font-bold text-lg text-foreground tabular-nums">{fmt(totalPagado)}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Pagos</p>
+          <p className="font-bold text-lg text-foreground tabular-nums">{pagos.length}</p>
+        </div>
+      </div>
+      {pagos.map(pago => (
+        <InlinePagoCard key={pago.id} pago={pago} />
+      ))}
+    </div>
+  );
+}
+
+function InlinePagoCard({ pago }: { pago: PagoRow }) {
+  const [expanded, setExpanded] = useState(false);
+  const [generatingRecibo, setGeneratingRecibo] = useState(false);
+
+  const handleRecibo = async () => {
+    setGeneratingRecibo(true);
+    try {
+      await reciboPagoService.generateRecibo({ pagoId: pago.id });
+    } catch {
+      toast.error("Error al generar el comprobante");
+    } finally {
+      setGeneratingRecibo(false);
+    }
+  };
+
+  return (
+    <div className="bg-card rounded-2xl border border-border overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full p-4 flex items-center justify-between text-left"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <CreditCard className="w-4 h-4 text-[hsl(var(--inmob-green))] shrink-0" />
+            <span className="font-semibold text-sm text-foreground tabular-nums">{fmt(pago.monto)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+            <span>{fmtDate(pago.fecha_pago)}</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span>{pago.metodo}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {pago.url_cep && (
+            <button
+              onClick={(e) => { e.stopPropagation(); window.open(pago.url_cep!, '_blank'); }}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              title="Ver CEP"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); handleRecibo(); }}
+            disabled={generatingRecibo}
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            title="Ver comprobante"
+          >
+            {generatingRecibo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
+          </button>
+          {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border px-4 py-3 space-y-2 bg-muted/30">
+          {pago.clave_rastreo && (
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Clave rastreo</span>
+              <span className="font-mono text-foreground">{pago.clave_rastreo}</span>
+            </div>
+          )}
+          {pago.descripcion && (
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Descripción</span>
+              <span className="text-foreground">{pago.descripcion}</span>
+            </div>
+          )}
+          {pago.aplicaciones.length > 0 && (
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Aplicaciones ({pago.aplicaciones.length})
+              </p>
+              {pago.aplicaciones.map((app) => (
+                <div key={app.id} className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-foreground">{app.concepto}</span>
+                    {app.es_multa && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">Multa</span>}
+                  </div>
+                  <span className="text-xs font-semibold text-foreground tabular-nums">{fmt(app.monto)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default ClientePropiedadDetalle;
