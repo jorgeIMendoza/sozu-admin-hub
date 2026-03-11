@@ -34,7 +34,9 @@ const ClientePropiedadPago = () => {
   }
 
   const clabe = prop.propiedadClabeStp;
-  const montoSugerido = prop.pending;
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueParcialidades = prop.parcialidades.filter(p => !p.pagado && p.fechaPago && p.fechaPago < today);
+  const montoSugerido = overdueParcialidades.reduce((s, p) => s + p.monto, 0);
   const concepto = `${prop.proyecto}-${prop.unidad}`;
 
   return (
@@ -77,13 +79,13 @@ const ClientePropiedadPago = () => {
         {/* Beneficiario */}
         <DataRow
           label="BENEFICIARIO"
-          value={prop.propiedadBeneficiarioNombre || "SOZU Desarrollos S.A. de C.V."}
+          value={prop.propiedadBeneficiarioNombre || "—"}
         />
 
         {/* Monto sugerido */}
         {montoSugerido > 0 && (
           <DataRow
-            label="MONTO PENDIENTE"
+            label="SALDO A PAGAR"
             value={fmt(montoSugerido)}
             onCopy={() => copyToClipboard(montoSugerido.toFixed(2), "Monto")}
             bold

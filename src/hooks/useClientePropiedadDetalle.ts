@@ -23,6 +23,21 @@ export interface DocumentoPropiedad {
   url: string;
 }
 
+export interface ParcialidadDetalle {
+  id: number;
+  fechaPago: string;
+  monto: number;
+  pagado: boolean;
+  orden: number;
+  concepto: string;
+}
+
+export interface PagoReciente {
+  id: number;
+  fechaPago: string;
+  monto: number;
+}
+
 export interface PropiedadDetalle {
   cuentaId: number;
   ofertaId: number;
@@ -56,6 +71,8 @@ export interface PropiedadDetalle {
   beneficiarioNombre: string | null;
   propiedadClabeStp: string | null;
   propiedadBeneficiarioNombre: string | null;
+  parcialidades: ParcialidadDetalle[];
+  ultimosPagos: PagoReciente[];
 }
 
 export function useClientePropiedadDetalle(cuentaId: number | null | undefined) {
@@ -90,6 +107,8 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         { data: pagos },
         { data: childCuentas },
         { data: productOfertas },
+        { data: acuerdosProp },
+        { data: recentPagos },
       ] = await Promise.all([
         supabase
           .from("propiedades")
@@ -113,6 +132,21 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
           .eq("id_propiedad", propiedadId)
           .eq("activo", true)
           .not("id_producto", "is", null),
+        // Acuerdos de pago (parcialidades) for property cuenta
+        supabase
+          .from("acuerdos_pago")
+          .select("id, fecha_pago, monto, pago_completado, orden, conceptos_pago!acuerdos_pago_id_concepto_fkey(nombre)")
+          .eq("id_cuenta_cobranza", cuentaId)
+          .eq("activo", true)
+          .order("orden", { ascending: true }),
+        // Last 5 payments for property
+        supabase
+          .from("pagos")
+          .select("id, fecha_pago, monto")
+          .eq("id_cuenta_cobranza", cuentaId)
+          .eq("activo", true)
+          .order("fecha_pago", { ascending: false })
+          .limit(5),
       ]);
 
       if (!propiedad) return null;
@@ -296,6 +330,22 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         url: d.url,
       }));
 
+      // 9. Parcialidades
+      const parcialidades: ParcialidadDetalle[] = (acuerdosProp || []).map((a: any) => ({
+        id: a.id,
+        fechaPago: a.fecha_pago || "",
+        monto: a.monto,
+        pagado: a.pago_completado,
+        orden: a.orden,
+        concepto: a.conceptos_pago?.nombre || `Parcialidad #${a.orden}`,
+      }));
+
+      const ultimosPagos: PagoReciente[] = (recentPagos || []).map((p: any) => ({
+        id: p.id,
+        fechaPago: p.fecha_pago,
+        monto: p.monto,
+      }));
+
       return {
         cuentaId: cuenta.id,
         ofertaId: cuenta.id_oferta || 0,
@@ -329,6 +379,8 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         beneficiarioNombre,
         propiedadClabeStp,
         propiedadBeneficiarioNombre,
+        parcialidades,
+        ultimosPagos,
       };
     },
     enabled: !!cuentaId,
