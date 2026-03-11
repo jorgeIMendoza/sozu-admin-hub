@@ -363,7 +363,7 @@ function PagoCard({ pago }: { pago: PagoRow }) {
           </div>
         )}
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
 
