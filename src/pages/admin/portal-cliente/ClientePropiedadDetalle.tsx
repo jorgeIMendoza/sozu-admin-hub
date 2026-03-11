@@ -436,9 +436,12 @@ const ClientePropiedadDetalle = () => {
                   {showPendingParcialidades && (
                     <div className="pl-6 space-y-1.5 border-l-2 border-border ml-2">
                       {overdueParcialidades.map(p => (
-                        <div key={p.id} className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{p.concepto}</span>
-                          <span className="font-semibold tabular-nums text-foreground">{fmt(p.monto)}</span>
+                        <div key={p.id} className="flex items-center justify-between text-xs gap-2">
+                          <div className="flex flex-col text-muted-foreground">
+                            <span>{p.concepto} #{p.orden}</span>
+                            <span className="text-[10px] capitalize">{p.fechaPago ? new Date(p.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
+                          </div>
+                          <span className="font-semibold tabular-nums text-foreground shrink-0">{fmt(p.monto)}</span>
                         </div>
                       ))}
                     </div>
