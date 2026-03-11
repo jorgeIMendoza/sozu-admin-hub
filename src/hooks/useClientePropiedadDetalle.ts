@@ -202,13 +202,16 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         });
       }
 
-      // 6b. Beneficiario from property owner entity
+      // 6b. Beneficiario from the entity that owns the parent STP account
       let beneficiarioNombre: string | null = null;
-      if (propiedad.id_entidad_relacionada_dueno) {
+      if (mantenimientoClabeStp) {
+        const cuentaMadrePrefix = mantenimientoClabeStp.substring(0, 14);
         const { data: erData } = await supabase
           .from("entidades_relacionadas")
           .select("personas:entidades_relacionadas_id_persona_fkey(nombre_legal)")
-          .eq("id", propiedad.id_entidad_relacionada_dueno)
+          .eq("cuenta_madre_stp", cuentaMadrePrefix)
+          .eq("activo", true)
+          .limit(1)
           .maybeSingle();
         beneficiarioNombre = (erData as any)?.personas?.nombre_legal || null;
       }

@@ -489,18 +489,6 @@ const ClientePropiedadDetalle = () => {
               </>
             )}
 
-            {/* Próximo vencimiento */}
-            {nextMaintenanceFormatted && !isAlCorriente && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>Próximo vencimiento</span>
-                </div>
-                <span className={`font-bold tabular-nums ${maintenanceOverdue ? "text-destructive" : "text-amber-600"}`}>
-                  {nextMaintenanceFormatted}
-                </span>
-              </div>
-            )}
 
             {/* Saldo a favor */}
             {saldoAFavor > 0 && (
