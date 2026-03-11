@@ -118,6 +118,20 @@ const ClientePropiedadDetalle = () => {
     .sort((a, b) => b.fechaPago.localeCompare(a.fechaPago))
     .slice(0, 3);
 
+  // Pending maintenance calculations
+  const pendingMaintenance = prop.mantenimientoHistorial
+    .filter(m => !m.pagado)
+    .sort((a, b) => a.fechaPago.localeCompare(b.fechaPago));
+  const totalPendingAmount = pendingMaintenance.reduce((s, m) => s + m.monto, 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const currentMonth = today.slice(0, 7);
+  const overdueMaintenance = pendingMaintenance.filter(m => m.fechaPago < today && m.fechaPago.slice(0, 7) < currentMonth);
+  const oldestOverdue = overdueMaintenance.length > 0 ? overdueMaintenance[0] : null;
+  const newestOverdue = overdueMaintenance.length > 0 ? overdueMaintenance[overdueMaintenance.length - 1] : null;
+  const completedTotal = prop.mantenimientoHistorial.filter(m => m.pagado).reduce((s, m) => s + m.monto, 0);
+  const saldoAFavor = Math.max(0, prop.mantenimientoTotalPagado - completedTotal - totalPendingAmount);
+  const isAlCorriente = pendingMaintenance.length === 0;
+
   const contratos = prop.documentos.filter(d => [1, 2, 3, 4, 5].includes(d.idTipoDocumento));
   const docsNotariales = prop.documentos.filter(d => !contratos.includes(d));
 
