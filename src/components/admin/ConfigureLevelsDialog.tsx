@@ -538,15 +538,15 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
               </div>
 
               <ScrollArea className="flex-1">
-                <div className="space-y-2 pr-1">
+                <div className="space-y-2 pr-3">
                   {uploadedImages.map((img) => (
                     <div
                       key={img.id}
                       draggable
                       onDragStart={() => handleDragStart(img)}
-                      className="border border-border rounded-lg bg-card hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden"
+                      className="mr-1 border border-border rounded-lg bg-card hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden"
                     >
-                      <div className="flex items-center gap-2 p-2 cursor-grab active:cursor-grabbing">
+                      <div className="flex items-center gap-2 p-2.5 cursor-grab active:cursor-grabbing">
                         <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
                         <div
                           className="relative flex-shrink-0 cursor-pointer group/img"
@@ -567,34 +567,44 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                             {img.regiones?.length || 0} deptos detectados
                           </p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditMesh(img);
-                          }}
-                          className="p-1 hover:bg-muted rounded flex-shrink-0"
-                          title="Editar malla"
-                        >
-                          <PencilRuler className="h-3 w-3 text-muted-foreground" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
-                          className="p-1 hover:bg-destructive/10 rounded flex-shrink-0"
-                          title="Eliminar imagen"
-                        >
-                          <X className="h-3 w-3 text-destructive" />
-                        </button>
+                        <div className="flex items-center gap-1 flex-shrink-0 pl-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditMesh(img);
+                            }}
+                            className="p-1 hover:bg-muted rounded"
+                            title="Editar malla"
+                          >
+                            <PencilRuler className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
+                            className="p-1 hover:bg-destructive/10 rounded"
+                            title="Eliminar imagen"
+                          >
+                            <X className="h-3 w-3 text-destructive" />
+                          </button>
+                        </div>
                       </div>
                       {img.regiones && img.regiones.length > 0 && (
                         <div className="px-2 pb-2 flex flex-wrap gap-1">
-                          {img.regiones.map((r: any, idx: number) => (
-                            <span
-                              key={idx}
-                              className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium"
-                            >
-                              {r.unit_number || `U${idx + 1}`}
-                            </span>
-                          ))}
+                          {img.regiones.map((r: any, idx: number) => {
+                            const hasMesh = hasRegionMeshAssigned(r);
+                            return (
+                              <span
+                                key={idx}
+                                className={cn(
+                                  "text-[8px] px-1.5 py-0.5 rounded-full font-medium border",
+                                  hasMesh
+                                    ? "bg-[hsl(var(--inmob-green))]/15 text-[hsl(var(--inmob-green))] border-[hsl(var(--inmob-green))]/30"
+                                    : "bg-muted text-muted-foreground border-border"
+                                )}
+                              >
+                                {getRegionUnitLabel(r, idx)}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
