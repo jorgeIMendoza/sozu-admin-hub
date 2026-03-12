@@ -332,15 +332,34 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         url: d.url,
       }));
 
-      // 9. Parcialidades
-      const parcialidades: ParcialidadDetalle[] = (acuerdosProp || []).map((a: any) => ({
-        id: a.id,
-        fechaPago: a.fecha_pago || "",
-        monto: a.monto,
-        pagado: a.pago_completado,
-        orden: a.orden,
-        concepto: a.conceptos_pago?.nombre || `Parcialidad #${a.orden}`,
-      }));
+      // 9. Parcialidades - fetch aplicaciones_pago to know partial payments
+      const acuerdoPropIds = (acuerdosProp || []).map((a: any) => a.id);
+      let aplicacionesByAcuerdo = new Map<number, number>();
+      if (acuerdoPropIds.length > 0) {
+        const { data: aplicaciones } = await supabase
+          .from("aplicaciones_pago")
+          .select("id_acuerdo_pago, monto")
+          .in("id_acuerdo_pago", acuerdoPropIds)
+          .eq("activo", true)
+          .eq("es_multa", false);
+        (aplicaciones || []).forEach(ap => {
+          aplicacionesByAcuerdo.set(ap.id_acuerdo_pago, (aplicacionesByAcuerdo.get(ap.id_acuerdo_pago) || 0) + ap.monto);
+        });
+      }
+
+      const parcialidades: ParcialidadDetalle[] = (acuerdosProp || []).map((a: any) => {
+        const montoPagado = aplicacionesByAcuerdo.get(a.id) || 0;
+        return {
+          id: a.id,
+          fechaPago: a.fecha_pago || "",
+          monto: a.monto,
+          montoPagado,
+          saldoPendiente: Math.max(0, a.monto - montoPagado),
+          pagado: a.pago_completado,
+          orden: a.orden,
+          concepto: a.conceptos_pago?.nombre || `Parcialidad #${a.orden}`,
+        };
+      });
 
       const ultimosPagos: PagoReciente[] = (recentPagos || []).map((p: any) => ({
         id: p.id,

@@ -441,7 +441,7 @@ const ClientePropiedadDetalle = () => {
                             <span>{p.concepto} #{p.orden}</span>
                             <span className="text-[10px] capitalize">{p.fechaPago ? new Date(p.fechaPago + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
                           </div>
-                          <span className="font-semibold tabular-nums text-foreground shrink-0">{fmt(p.monto)}</span>
+                          <span className="font-semibold tabular-nums text-foreground shrink-0">{fmt(p.saldoPendiente)}</span>
                         </div>
                       ))}
                     </div>
