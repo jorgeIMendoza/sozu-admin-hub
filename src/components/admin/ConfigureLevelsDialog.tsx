@@ -319,6 +319,16 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
   return (
     <>
       <ImagePreviewDialog url={previewUrl} open={!!previewUrl} onClose={() => setPreviewUrl(null)} />
+      <FloorMeshEditorDialog
+        open={meshEditorOpen}
+        imageUrl={meshSession?.image.url || null}
+        initialRegions={(meshSession?.image.regiones || []) as any[]}
+        title={meshSession?.mode === "new" ? "Confirma y edita la malla detectada" : "Editar malla del plano"}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) handleMeshEditorClose();
+        }}
+        onSave={handleMeshSave}
+      />
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className="sm:max-w-[900px] max-h-[90vh] p-0 gap-0 overflow-hidden"
