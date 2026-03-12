@@ -193,6 +193,20 @@ export const EditBuildingDialog = ({ building, projectId, onBuildingUpdated }: E
         if (modelError) throw modelError;
       }
 
+      if (modelosBlockedByProperties.length > 0) {
+        const blockedModelNames = (modelos || [])
+          .filter((modelo) => modelosBlockedByProperties.includes(modelo.id))
+          .map((modelo) => modelo.nombre);
+
+        toast({
+          title: "Algunos modelos siguen asignados",
+          description:
+            blockedModelNames.length > 0
+              ? `No se pudieron desasignar: ${blockedModelNames.join(", ")} porque tienen unidades relacionadas.`
+              : "No se pudieron desasignar algunos modelos porque tienen unidades relacionadas.",
+        });
+      }
+
       toast({
         title: "Edificio actualizado",
         description: "El edificio se ha actualizado exitosamente.",
