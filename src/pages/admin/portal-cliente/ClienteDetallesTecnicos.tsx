@@ -58,53 +58,66 @@ const FloorPlanCanvas = ({
     ctx.drawImage(img, 0, 0, containerWidth, canvasHeight);
 
     if (regiones && regiones.length > 0 && highlightUnit) {
-      // Build multiple candidate strings to match against region unit_number
-      const candidates = new Set<string>();
-      const raw = highlightUnit.trim();
-      candidates.add(raw);
-      candidates.add(raw.replace(/^0+/, ""));
-      if (fullPropertyNumber) {
-        const fp = fullPropertyNumber.trim();
-        candidates.add(fp);
-        candidates.add(fp.replace(/^0+/, ""));
-        // Try last 1, 2, 3 chars as unit number
-        for (let len = 1; len <= Math.min(3, fp.length); len++) {
-          const suffix = fp.slice(-len);
-          candidates.add(suffix);
-          candidates.add(suffix.replace(/^0+/, ""));
-        }
-      }
+      const normalizeUnitValue = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return "";
+        const withoutLeadingZeros = trimmed.replace(/^0+/, "");
+        return withoutLeadingZeros.length > 0 ? withoutLeadingZeros : "0";
+      };
 
-      regiones.forEach((region: any) => {
+      const highlightRaw = highlightUnit.toString().trim();
+      const highlightNormalized = normalizeUnitValue(highlightRaw);
+      const fullRaw = fullPropertyNumber?.toString().trim() || "";
+      const numericSuffix = fullRaw.match(/(\d{1,3})$/)?.[1] || "";
+      const numericSuffixNormalized = numericSuffix ? normalizeUnitValue(numericSuffix) : "";
+
+      const scoredRegions = regiones.map((region: any) => {
         const unitRaw = region.unit_number?.toString().trim() || "";
-        const unitNorm = unitRaw.replace(/^0+/, "");
-        const isHighlighted = candidates.has(unitRaw) || candidates.has(unitNorm);
+        const unitNormalized = normalizeUnitValue(unitRaw);
 
-        if (isHighlighted && region.polygon && region.polygon.length >= 3) {
-          const points = region.polygon.map((p: number[]) => [
-            (p[0] / 100) * containerWidth,
-            (p[1] / 100) * canvasHeight,
-          ]);
-          const cx = points.reduce((s: number, p: number[]) => s + p[0], 0) / points.length;
-          const cy = points.reduce((s: number, p: number[]) => s + p[1], 0) / points.length;
-          const scaleFactor = 1.12;
+        let score = 0;
+        if (unitRaw && unitRaw === highlightRaw) score = Math.max(score, 120);
+        if (unitNormalized && unitNormalized === highlightNormalized) score = Math.max(score, 110);
+        if (numericSuffix && unitRaw === numericSuffix) score = Math.max(score, 100);
+        if (numericSuffixNormalized && unitNormalized === numericSuffixNormalized) score = Math.max(score, 95);
+        if (fullRaw && unitRaw === fullRaw) score = Math.max(score, 80);
 
-          ctx.beginPath();
-          const ep0 = [cx + (points[0][0] - cx) * scaleFactor, cy + (points[0][1] - cy) * scaleFactor];
-          ctx.moveTo(ep0[0], ep0[1]);
-          for (let k = 1; k < points.length; k++) {
-            const ep = [cx + (points[k][0] - cx) * scaleFactor, cy + (points[k][1] - cy) * scaleFactor];
-            ctx.lineTo(ep[0], ep[1]);
-          }
-          ctx.closePath();
-
-          ctx.fillStyle = "rgba(34, 197, 94, 0.35)";
-          ctx.fill();
-          ctx.strokeStyle = "rgba(34, 197, 94, 0.9)";
-          ctx.lineWidth = 3;
-          ctx.stroke();
-        }
+        return { region, score };
       });
+
+      const selected = scoredRegions.sort((a, b) => b.score - a.score)[0];
+
+      if (selected?.score > 0 && selected.region?.polygon?.length >= 3) {
+        const points = selected.region.polygon.map((p: number[]) => [
+          (p[0] / 100) * containerWidth,
+          (p[1] / 100) * canvasHeight,
+        ]);
+
+        const xs = points.map((p: number[]) => p[0]);
+        const ys = points.map((p: number[]) => p[1]);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+
+        const boxWidth = maxX - minX;
+        const boxHeight = maxY - minY;
+
+        const paddingX = Math.max(boxWidth * 0.22, containerWidth * 0.012);
+        const paddingY = Math.max(boxHeight * 0.35, canvasHeight * 0.02);
+
+        const drawX = Math.max(0, minX - paddingX);
+        const drawY = Math.max(0, minY - paddingY);
+        const drawWidth = Math.min(containerWidth - drawX, boxWidth + paddingX * 2);
+        const drawHeight = Math.min(canvasHeight - drawY, boxHeight + paddingY * 2);
+
+        ctx.fillStyle = "rgba(34, 197, 94, 0.35)";
+        ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.9)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
+      }
     }
   }, [imageLoaded, regiones, highlightUnit, fullPropertyNumber]);
 
