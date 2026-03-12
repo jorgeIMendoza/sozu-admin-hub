@@ -29,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Edit } from "lucide-react";
 import { Combobox } from "@/components/ui/combobox";
 import { ModelCharacteristicsSection } from "./ModelCharacteristicsSection";
+import { PlanoArquitectonicoUpload } from "./PlanoArquitectonicoUpload";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
