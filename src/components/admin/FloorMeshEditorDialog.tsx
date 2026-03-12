@@ -142,7 +142,7 @@ export const FloorMeshEditorDialog = ({
           </DialogHeader>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] min-h-[520px]">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] max-h-[calc(90vh-110px)]">
           <div className="p-4 border-b lg:border-b-0 lg:border-r border-border overflow-auto">
             <p className="text-xs text-muted-foreground mb-3">
               Ajusta cada vértice arrastrando los puntos. La malla guardada se usará para iluminar el depto exacto en Detalle Técnico.
@@ -206,25 +206,41 @@ export const FloorMeshEditorDialog = ({
             </div>
           </div>
 
-          <div className="p-4 bg-muted/10 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-foreground">Departamentos detectados</p>
-              <span className="text-[10px] text-muted-foreground">{regions.length} regiones</span>
+          <div className="bg-muted/10 flex flex-col overflow-hidden">
+            <div className="p-4 pb-0 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-foreground">Departamentos detectados</p>
+                <span className="text-[10px] text-muted-foreground">{regions.length} regiones</span>
+              </div>
+
+              <div className="flex flex-col gap-1.5 mb-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={handleRectangularizeSelected}
+                  disabled={!selectedRegion}
+                >
+                  <Crosshair className="h-3.5 w-3.5 mr-1.5" />
+                  Rectangularizar seleccionado
+                </Button>
+                {onRecalculate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={onRecalculate}
+                    disabled={recalculating}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${recalculating ? "animate-spin" : ""}`} />
+                    {recalculating ? "Recalculando…" : "Recalcular mallas (IA)"}
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="mb-3 text-xs"
-              onClick={handleRectangularizeSelected}
-              disabled={!selectedRegion}
-            >
-              <Crosshair className="h-3.5 w-3.5 mr-1.5" />
-              Rectangularizar seleccionado
-            </Button>
-
-            <ScrollArea className="flex-1 pr-1">
-              <div className="space-y-2">
+            <ScrollArea className="flex-1 min-h-0 px-4 pb-4">
+              <div className="space-y-2 pr-1">
                 {regions.map((region, index) => {
                   const isSelected = index === selectedRegionIndex;
                   return (
