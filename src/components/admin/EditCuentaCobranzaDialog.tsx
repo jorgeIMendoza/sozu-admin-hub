@@ -4912,7 +4912,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           ? 'Editable por Super Admin (factura aún no generada)'
                           : isEnganchePagado 
                             ? 'No editable - El enganche está completamente pagado' 
-                            : 'Mínimo 5%, máximo 100% (hasta 4 decimales)'}
+                            : 'Mínimo 4%, máximo 100% (hasta 4 decimales)'}
                       </p>
                     </div>
 
