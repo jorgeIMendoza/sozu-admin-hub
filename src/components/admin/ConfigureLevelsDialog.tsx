@@ -43,7 +43,15 @@ const getRegionUnitLabel = (region: any, index: number) => {
 const hasRegionMeshAssigned = (region: any) => {
   const unitLabel = (region?.unit_number ?? "").toString().trim();
   const polygon = Array.isArray(region?.polygon) ? region.polygon : [];
-  return unitLabel.length > 0 && polygon.length >= 3;
+  const hasValidPolygon = polygon.length >= 3;
+  const explicitConfirmation =
+    typeof region?.mesh_confirmed === "boolean"
+      ? region.mesh_confirmed
+      : typeof region?.confirmed === "boolean"
+        ? region.confirmed
+        : null;
+
+  return unitLabel.length > 0 && hasValidPolygon && (explicitConfirmation ?? true);
 };
 
 // Image preview dialog
