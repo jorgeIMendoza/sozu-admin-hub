@@ -193,7 +193,7 @@ const ClienteDetallesTecnicos = () => {
                   highlightUnit={prop.numeroDepa}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Depto. <span className="font-semibold text-foreground">{prop.numeroDepa}</span> — Nivel {prop.numeroPiso}
+                  Nivel {prop.numeroPiso} — Depto. <span className="font-semibold text-foreground">{prop.numeroDepa}</span>
                 </p>
               </>
             ) : (

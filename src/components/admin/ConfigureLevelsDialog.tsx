@@ -286,14 +286,19 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
             </div>
 
             <ScrollArea className="flex-1">
-              <div className="flex flex-col items-center gap-0 pb-2">
-                {/* Roof */}
-                <div className="w-[280px] h-3 bg-muted-foreground/20 rounded-t-xl" />
+              <div className="flex flex-col items-center pb-4">
+                {/* Roof structure */}
+                <div className="relative w-[300px] mb-0">
+                  <div className="h-6 bg-gradient-to-b from-muted-foreground/30 to-muted-foreground/15 rounded-t-2xl border-x border-t border-muted-foreground/20" />
+                  <div className="absolute inset-x-0 top-0 flex justify-center">
+                    <div className="w-16 h-3 bg-muted-foreground/25 rounded-t-md -mt-1" />
+                  </div>
+                </div>
 
                 {floors.slice().reverse().map((floor, idx) => {
-                  const isFirst = idx === 0;
                   const isLast = idx === floors.length - 1;
                   const hasImage = !!floor.imagen_url;
+                  const floorHeight = numPisos > 12 ? 38 : numPisos > 8 ? 44 : 52;
 
                   return (
                     <div
@@ -305,40 +310,63 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                       onDragLeave={() => setHoveredFloor(null)}
                       onDrop={(e) => handleDrop(e, floor.nivel)}
                       className={`
-                        w-[280px] flex items-center border-x border-b transition-all duration-150 group relative
+                        w-[300px] flex items-stretch group relative transition-all duration-200
+                        border-x border-b
                         ${hasImage
-                          ? "bg-primary/5 border-primary/20"
-                          : "bg-card border-border"
+                          ? "bg-gradient-to-r from-primary/8 via-primary/4 to-primary/8 border-primary/25"
+                          : "bg-gradient-to-r from-muted/60 via-card to-muted/60 border-muted-foreground/15"
                         }
-                        ${hoveredFloor === floor.nivel ? "ring-2 ring-primary ring-inset bg-primary/10" : ""}
-                        ${isLast ? "rounded-b-lg" : ""}
+                        ${hoveredFloor === floor.nivel ? "ring-2 ring-primary ring-inset bg-primary/15 scale-[1.02] z-10 shadow-md" : ""}
+                        ${isLast ? "rounded-b-xl" : ""}
                       `}
-                      style={{ minHeight: numPisos > 10 ? "36px" : "44px" }}
+                      style={{ height: `${floorHeight}px` }}
                     >
-                      {/* Level indicator */}
+                      {/* Level badge */}
                       <div className={`
-                        w-12 flex items-center justify-center border-r h-full text-xs font-bold
-                        ${hasImage ? "bg-primary/10 text-primary border-primary/20" : "bg-muted/50 text-muted-foreground border-border"}
+                        w-11 flex items-center justify-center text-[11px] font-bold tracking-wide
+                        border-r
+                        ${hasImage
+                          ? "bg-primary/15 text-primary border-primary/20"
+                          : "bg-muted-foreground/5 text-muted-foreground/60 border-muted-foreground/10"
+                        }
                       `}>
                         {floor.nivel}
                       </div>
 
-                      {/* Content */}
-                      <div className="flex-1 flex items-center px-3 gap-2 min-w-0">
+                      {/* Floor content */}
+                      <div className="flex-1 flex items-center px-2.5 gap-2 min-w-0 relative">
                         {hasImage ? (
                           <>
-                            <img
-                              src={floor.imagen_url!}
-                              alt={`N${floor.nivel}`}
-                              className="w-8 h-6 object-contain rounded border border-primary/20 bg-white flex-shrink-0"
-                            />
-                            <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                            <span className="text-[10px] text-muted-foreground truncate flex-1">Plano asignado</span>
+                            <div className="relative flex-shrink-0">
+                              <img
+                                src={floor.imagen_url!}
+                                alt={`N${floor.nivel}`}
+                                className="w-9 h-7 object-contain rounded-md border border-primary/20 bg-white shadow-sm"
+                              />
+                              <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full flex items-center justify-center shadow-sm">
+                                <Check className="h-2 w-2 text-white" strokeWidth={3} />
+                              </div>
+                            </div>
+                            <span className="text-[10px] text-primary/70 font-medium">Plano asignado</span>
                           </>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground/60 italic">
-                            {hoveredFloor === floor.nivel ? "Soltar aquí" : "Sin plano"}
-                          </span>
+                          <>
+                            {/* Decorative windows */}
+                            <div className="flex gap-2 mx-auto opacity-30">
+                              {[...Array(Math.min(4, Math.max(2, Math.floor(300 / 80))))].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className="rounded-sm border border-muted-foreground/30 bg-muted-foreground/5"
+                                  style={{ width: "14px", height: `${floorHeight * 0.5}px` }}
+                                />
+                              ))}
+                            </div>
+                            {hoveredFloor === floor.nivel && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-primary bg-primary/5 rounded">
+                                Soltar aquí
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -346,27 +374,19 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                       {hasImage && (
                         <button
                           onClick={() => handleRemoveFloorPlan(floor.nivel)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 mr-2 hover:bg-destructive/10 rounded"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 mr-1 my-auto hover:bg-destructive/10 rounded-md"
                         >
                           <X className="h-3 w-3 text-destructive" />
                         </button>
-                      )}
-
-                      {/* Floor windows decoration */}
-                      {!hasImage && (
-                        <div className="absolute right-3 flex gap-1.5 opacity-20">
-                          {[...Array(3)].map((_, i) => (
-                            <div key={i} className="w-2.5 h-3 rounded-sm border border-muted-foreground/40" />
-                          ))}
-                        </div>
                       )}
                     </div>
                   );
                 })}
 
-                {/* Ground */}
-                <div className="w-[320px] h-2 bg-muted-foreground/30 rounded-b-sm" />
-                <div className="w-[340px] h-1 bg-muted-foreground/15 rounded-b-sm" />
+                {/* Ground / Foundation */}
+                <div className="w-[320px] h-3 bg-gradient-to-b from-muted-foreground/25 to-muted-foreground/10 rounded-b-lg border-x border-b border-muted-foreground/15" />
+                <div className="w-[340px] h-1.5 bg-muted-foreground/8 rounded-b-xl" />
+                <div className="w-[360px] h-1 bg-muted-foreground/4 rounded-b-full mt-px" />
               </div>
             </ScrollArea>
           </div>
