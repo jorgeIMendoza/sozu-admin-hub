@@ -27,6 +27,8 @@ export interface ParcialidadDetalle {
   id: number;
   fechaPago: string;
   monto: number;
+  montoPagado: number;
+  saldoPendiente: number;
   pagado: boolean;
   orden: number;
   concepto: string;
