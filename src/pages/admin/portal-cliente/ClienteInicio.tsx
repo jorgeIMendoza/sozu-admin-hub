@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClienteActividad, URGENCIA_BORDER, URGENCIA_DOT, URGENCIA_BADGE, type ActividadItem } from "@/hooks/useClienteActividad";
 import { useClienteResumenFinanciero } from "@/hooks/useClienteResumenFinanciero";
 import { estadoCuentaEdgeFunctionService } from "@/services/estadoCuentaEdgeFunctionService";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const getGreeting = (): string => {
