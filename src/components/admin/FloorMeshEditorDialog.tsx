@@ -69,6 +69,8 @@ export const FloorMeshEditorDialog = ({
   initialRegions,
   onOpenChange,
   onSave,
+  onRecalculate,
+  recalculating,
 }: FloorMeshEditorDialogProps) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [regions, setRegions] = useState<MeshRegion[]>([]);
