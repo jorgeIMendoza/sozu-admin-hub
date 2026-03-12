@@ -88,6 +88,7 @@ export const PortalClienteLayout = () => {
     if (location.pathname === path || location.pathname.startsWith(path + "/")) return true;
     // Property detail route should highlight "Propiedades" tab
     if (path === "/admin/portal-cliente/propiedades" && location.pathname.startsWith("/admin/portal-cliente/propiedad/")) return true;
+    if (path === "/admin/portal-cliente/propiedades" && location.pathname.includes("/detalles-tecnicos")) return true;
     return false;
   };
   const showBackButton = profile?.rol_nombre !== "Cliente";
