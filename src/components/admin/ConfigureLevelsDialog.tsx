@@ -543,10 +543,10 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                           <img
                             src={img.url}
                             alt={img.fileName}
-                            className="w-14 h-10 object-contain rounded border border-border bg-white"
+                            className="w-14 h-10 object-contain rounded border border-border bg-background"
                           />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 bg-black/30 rounded transition-opacity">
-                            <ZoomIn className="h-3.5 w-3.5 text-white" />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 bg-foreground/30 rounded transition-opacity">
+                            <ZoomIn className="h-3.5 w-3.5 text-background" />
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -555,6 +555,16 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                             {img.regiones?.length || 0} deptos detectados
                           </p>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditMesh(img);
+                          }}
+                          className="p-1 hover:bg-muted rounded flex-shrink-0"
+                          title="Editar malla"
+                        >
+                          <PencilRuler className="h-3 w-3 text-muted-foreground" />
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
                           className="p-1 hover:bg-destructive/10 rounded flex-shrink-0"
