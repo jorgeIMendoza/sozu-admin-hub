@@ -175,6 +175,7 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
       const ed = (emData as any)?.edificios;
       const proj = ed?.proyectos;
       const modeloNombre = (emData as any)?.modelos?.nombre || "";
+      const planoArquitectonico = (emData as any)?.modelos?.plano_arquitectonico || null;
       const proyectoId = proj?.id || 0;
       const precioM2Actual = proj?.precio_m2_actual || 0;
 
