@@ -1,18 +1,155 @@
 import {
-  User, Mail, Phone, FileText, LogOut, HelpCircle, Shield, ChevronRight,
+  User, Mail, Phone, FileText, LogOut, Shield, ChevronRight,
   CheckCircle2, AlertTriangle, Upload, Building2, CreditCard,
-  Lock, Smartphone, Eye, BadgeCheck, AlertCircle, Clock,
+  Lock, Eye, BadgeCheck, AlertCircle, Clock, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 type VerificationStatus = "verified" | "review" | "incomplete";
 
 const ClientePerfil = () => {
-  const { signOut } = useAuth();
-  const [verificationStatus] = useState<VerificationStatus>("verified");
-  const profileCompletion = 80;
+  const { profile, signOut, updatePassword } = useAuth();
+  const { impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
+  const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // Fetch persona data
+  const { data: persona, isLoading: loadingPersona } = useQuery({
+    queryKey: ["cliente-perfil-persona", effectivePersonaId],
+    queryFn: async () => {
+      if (!effectivePersonaId) return null;
+      const { data } = await supabase
+        .from("personas")
+        .select(`
+          id, nombre_legal, tipo_persona, rfc, curp, email, telefono,
+          clave_pais_telefono, regimen, uso_cfdi,
+          direccion_fiscal_calle, direccion_fiscal_colonia, direccion_fiscal_codigo_postal,
+          direccion_fiscal_num_ext, direccion_fiscal_num_int,
+          direccion_fiscal_id_estado, direccion_fiscal_id_municipio
+        `)
+        .eq("id", effectivePersonaId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!effectivePersonaId,
+  });
+
+  // Fetch documents for persona
+  const { data: documentos = [] } = useQuery({
+    queryKey: ["cliente-perfil-docs", effectivePersonaId],
+    queryFn: async () => {
+      if (!effectivePersonaId) return [];
+      const { data } = await supabase
+        .from("documentos")
+        .select("id, url, id_tipo_documento, id_estatus_verificacion, fecha_creacion, tipos_documento:documentos_id_tipo_documento_fkey!inner(nombre)")
+        .eq("id_persona", effectivePersonaId)
+        .eq("activo", true)
+        .eq("es_draft", false);
+      return (data || []).map((d: any) => ({
+        id: d.id,
+        name: d.tipos_documento?.nombre || "Documento",
+        status: d.id_estatus_verificacion === 2 ? "ok" as const : "pending" as const,
+        date: d.fecha_creacion ? new Date(d.fecha_creacion).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }) : null,
+        url: d.url,
+      }));
+    },
+    enabled: !!effectivePersonaId,
+  });
+
+  // Fetch bank accounts
+  const { data: cuentasBancarias = [] } = useQuery({
+    queryKey: ["cliente-perfil-bancos", effectivePersonaId],
+    queryFn: async () => {
+      if (!effectivePersonaId) return [];
+      const { data } = await supabase
+        .from("cuentas_bancarias")
+        .select("id, numero_cuenta, cuenta_clabe, id_banco, titular, bancos:fk_cuentas_bancarias_banco(nombre)")
+        .eq("id_persona", effectivePersonaId)
+        .eq("activo", true);
+      return (data || []).map((c: any) => ({
+        id: c.id,
+        banco: (c.bancos as any)?.nombre || "Banco",
+        numeroCuenta: c.numero_cuenta,
+        clabe: c.cuenta_clabe,
+        titular: c.titular,
+      }));
+    },
+    enabled: !!effectivePersonaId,
+  });
+
+  // Fetch fiscal state name
+  const { data: estadoFiscal } = useQuery({
+    queryKey: ["cliente-perfil-estado-fiscal", persona?.direccion_fiscal_id_estado],
+    queryFn: async () => {
+      if (!persona?.direccion_fiscal_id_estado) return null;
+      const { data } = await supabase
+        .from("estados")
+        .select("nombre")
+        .eq("id", persona.direccion_fiscal_id_estado)
+        .maybeSingle();
+      return data?.nombre || null;
+    },
+    enabled: !!persona?.direccion_fiscal_id_estado,
+  });
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await updatePassword(newPassword);
+    setChangingPassword(false);
+    if (error) {
+      toast.error("Error al cambiar contraseña");
+    } else {
+      toast.success("Contraseña actualizada correctamente");
+      setShowChangePassword(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+  };
+
+  // Profile completion
+  const completionFields = persona ? [
+    persona.nombre_legal,
+    persona.rfc,
+    persona.curp,
+    persona.email,
+    persona.telefono,
+    persona.regimen,
+    persona.uso_cfdi,
+    persona.direccion_fiscal_calle,
+    documentos.length > 0,
+    cuentasBancarias.length > 0,
+  ] : [];
+  const profileCompletion = completionFields.length > 0
+    ? Math.round((completionFields.filter(Boolean).length / completionFields.length) * 100)
+    : 0;
+
+  const verificationStatus: VerificationStatus = profileCompletion >= 90 ? "verified" : profileCompletion >= 50 ? "review" : "incomplete";
 
   const statusConfig: Record<VerificationStatus, { label: string; icon: React.ElementType; className: string }> = {
     verified: { label: "Perfil verificado", icon: BadgeCheck, className: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" },
@@ -23,28 +160,41 @@ const ClientePerfil = () => {
   const status = statusConfig[verificationStatus];
   const StatusIcon = status.icon;
 
-  const documents = [
-    { name: "INE", status: "ok" as const, date: "15 Ene 2025" },
-    { name: "Comprobante de domicilio", status: "ok" as const, date: "10 Ene 2025" },
-    { name: "Acta de matrimonio", status: "pending" as const, date: null },
-    { name: "Constancia de situación fiscal", status: "ok" as const, date: "8 Ene 2025" },
-  ];
+  const maskValue = (val: string | null, showFirst = 4, showLast = 3) => {
+    if (!val) return "—";
+    if (val.length <= showFirst + showLast) return val;
+    return val.substring(0, showFirst) + "••••" + val.substring(val.length - showLast);
+  };
 
-  const docStatusIcon = (s: "ok" | "pending") =>
-    s === "ok"
-      ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-      : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />;
+  const displayName = persona?.nombre_legal || profile?.nombre || "Cliente";
+  const tipoPersona = persona?.tipo_persona === "Moral" ? "Moral" : "Física";
+
+  // Fiscal address
+  const fiscalParts = [
+    persona?.direccion_fiscal_calle,
+    persona?.direccion_fiscal_num_ext ? `#${persona.direccion_fiscal_num_ext}` : null,
+    persona?.direccion_fiscal_colonia,
+    estadoFiscal,
+  ].filter(Boolean);
+  const fiscalAddress = fiscalParts.length > 0 ? fiscalParts.join(", ") : "—";
+
+  if (loadingPersona) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-lg mx-auto lg:max-w-none px-4 py-6 pb-28 space-y-6 lg:px-0">
-
       {/* Identity Hero */}
       <section className="flex flex-col items-center text-center">
         <div className="w-[72px] h-[72px] rounded-full bg-[hsl(var(--inmob-green))]/10 flex items-center justify-center mb-3">
           <User className="w-8 h-8 text-[hsl(var(--inmob-green))]" />
         </div>
-        <h2 className="font-bold text-lg text-foreground">Alejandro García</h2>
-        <p className="text-xs text-muted-foreground mb-2">Inversionista</p>
+        <h2 className="font-bold text-lg text-foreground">{displayName}</h2>
+        <p className="text-xs text-muted-foreground mb-2">{tipoPersona === "Moral" ? "Persona Moral" : "Inversionista"}</p>
 
         <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full ${status.className}`}>
           <StatusIcon className="w-3.5 h-3.5" />
@@ -62,76 +212,91 @@ const ClientePerfil = () => {
 
       {/* Personal Info */}
       <Section title="Información personal" icon={User}>
-        <InfoRow label="Tipo de persona" value="Física" />
-        <InfoRow label="RFC" value="GAXX••••••XX0" />
-        <InfoRow label="CURP" value="GAXX••••••••••XX00" />
-        <InfoRow label="Email" value="a.garcia@email.com" icon={Mail} />
-        <InfoRow label="Teléfono" value="+52 998 123 4567" icon={Phone} />
-        <ActionButton label="Editar información" />
+        <InfoRow label="Tipo de persona" value={tipoPersona} />
+        <InfoRow label="RFC" value={maskValue(persona?.rfc)} />
+        <InfoRow label="CURP" value={maskValue(persona?.curp, 4, 4)} />
+        <InfoRow label="Email" value={persona?.email || profile?.email || "—"} icon={Mail} />
+        <InfoRow label="Teléfono" value={persona?.telefono ? `${persona.clave_pais_telefono || "+52"} ${persona.telefono}` : "—"} icon={Phone} />
       </Section>
 
       {/* Docs */}
       <Section title="Documentación" icon={FileText}>
-        <div className="space-y-0">
-          {documents.map((doc, i) => (
-            <div key={doc.name} className={`flex items-center gap-3 py-3 ${i < documents.length - 1 ? "border-b border-border/60" : ""}`}>
-              {docStatusIcon(doc.status)}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                {doc.date ? (
-                  <p className="text-[11px] text-muted-foreground">{doc.date}</p>
-                ) : (
-                  <p className="text-[11px] text-amber-500">Pendiente de carga</p>
+        {documentos.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2">Sin documentos registrados</p>
+        ) : (
+          <div className="space-y-0">
+            {documentos.map((doc, i) => (
+              <div key={doc.id} className={`flex items-center gap-3 py-3 ${i < documentos.length - 1 ? "border-b border-border/60" : ""}`}>
+                {doc.status === "ok"
+                  ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                  {doc.date ? (
+                    <p className="text-[11px] text-muted-foreground">{doc.date}</p>
+                  ) : (
+                    <p className="text-[11px] text-amber-500">Pendiente de verificación</p>
+                  )}
+                </div>
+                {doc.url && (
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Eye className="w-4 h-4" />
+                  </a>
                 )}
               </div>
-              <button className="text-muted-foreground hover:text-foreground transition-colors">
-                {doc.status === "ok" ? <Eye className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-              </button>
-            </div>
-          ))}
-        </div>
-        <button className="mt-3 w-full flex items-center justify-center gap-2 text-sm font-medium text-[hsl(var(--inmob-green))] py-2.5 rounded-lg border border-[hsl(var(--inmob-green))]/20 hover:bg-[hsl(var(--inmob-green))]/5 transition-colors">
-          <Upload className="w-4 h-4" />
-          Subir documento
-        </button>
+            ))}
+          </div>
+        )}
       </Section>
 
       {/* Fiscal */}
       <Section title="Información fiscal" icon={Building2}>
-        <InfoRow label="Régimen fiscal" value="Sueldos y salarios" />
-        <InfoRow label="Uso CFDI" value="Gastos en general" />
-        <InfoRow label="Dirección fiscal" value="Cancún, Q. Roo" />
-        <ActionButton label="Editar información fiscal" />
+        <InfoRow label="Régimen fiscal" value={persona?.regimen || "—"} />
+        <InfoRow label="Uso CFDI" value={persona?.uso_cfdi || "—"} />
+        <InfoRow label="Dirección fiscal" value={fiscalAddress} />
       </Section>
 
       {/* Bank */}
       <Section title="Cuentas bancarias" icon={CreditCard}>
-        <div className="flex items-center gap-3 py-1">
-          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-            <CreditCard className="w-4 h-4 text-muted-foreground" />
+        {cuentasBancarias.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2">Sin cuentas bancarias registradas</p>
+        ) : (
+          <div className="space-y-2">
+            {cuentasBancarias.map((cuenta) => (
+              <div key={cuenta.id} className="flex items-center gap-3 py-1">
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                  <CreditCard className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">{cuenta.banco}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Terminación ****{cuenta.numeroCuenta?.slice(-4) || "****"}
+                  </p>
+                </div>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              </div>
+            ))}
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">BBVA</p>
-            <p className="text-[11px] text-muted-foreground">Terminación ****2345</p>
-          </div>
-          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-        </div>
-        <ActionButton label="Administrar cuentas" />
+        )}
       </Section>
 
       {/* Security */}
       <Section title="Seguridad" icon={Shield}>
-        <MenuItem icon={Lock} label="Cambiar contraseña" />
-        <MenuItem icon={Smartphone} label="Cerrar sesión en otros dispositivos" />
-        <MenuItem icon={Shield} label="Activar verificación adicional" />
+        <button
+          onClick={() => setShowChangePassword(true)}
+          className="w-full flex items-center justify-between py-2.5 hover:bg-accent/30 -mx-1 px-1 rounded-lg transition-colors"
+        >
+          <span className="flex items-center gap-2.5 text-sm text-foreground">
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            Cambiar contraseña
+          </span>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
       </Section>
 
       {/* Bottom actions */}
       <div className="space-y-0">
-        <button className="w-full flex items-center gap-3 py-3.5 text-left hover:bg-accent/50 transition-colors rounded-lg px-1">
-          <HelpCircle className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">Centro de ayuda</span>
-        </button>
         <button
           onClick={signOut}
           className="w-full flex items-center gap-3 py-3.5 text-left hover:bg-accent/50 transition-colors rounded-lg px-1"
@@ -140,6 +305,43 @@ const ClientePerfil = () => {
           <span className="text-sm font-medium text-destructive">Cerrar sesión</span>
         </button>
       </div>
+
+      {/* Change Password Dialog */}
+      <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cambiar contraseña</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nueva contraseña</label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Confirmar contraseña</label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repite la contraseña"
+              />
+            </div>
+            <Button
+              onClick={handleChangePassword}
+              disabled={changingPassword || !newPassword}
+              className="w-full bg-[hsl(var(--inmob-green))] hover:bg-[hsl(var(--inmob-green))]/90"
+            >
+              {changingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Actualizar contraseña
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -163,25 +365,8 @@ const InfoRow = ({ label, value, icon: Icon }: { label: string; value: string; i
       {Icon && <Icon className="w-3.5 h-3.5" />}
       {label}
     </span>
-    <span className="text-sm font-medium text-foreground">{value}</span>
+    <span className="text-sm font-medium text-foreground max-w-[60%] text-right truncate">{value}</span>
   </div>
-);
-
-const ActionButton = ({ label }: { label: string }) => (
-  <button className="mt-1 flex items-center gap-1 text-xs font-medium text-[hsl(var(--inmob-green))] hover:text-[hsl(var(--inmob-green))]/80 transition-colors">
-    {label}
-    <ChevronRight className="w-3.5 h-3.5" />
-  </button>
-);
-
-const MenuItem = ({ icon: Icon, label }: { icon: React.ElementType; label: string }) => (
-  <button className="w-full flex items-center justify-between py-2.5 hover:bg-accent/30 -mx-1 px-1 rounded-lg transition-colors">
-    <span className="flex items-center gap-2.5 text-sm text-foreground">
-      <Icon className="w-4 h-4 text-muted-foreground" />
-      {label}
-    </span>
-    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-  </button>
 );
 
 export default ClientePerfil;
