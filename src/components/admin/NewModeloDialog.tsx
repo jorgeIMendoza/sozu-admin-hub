@@ -72,6 +72,7 @@ export const NewModeloDialog = ({ onModeloAdded, proyectos }: NewModeloDialogPro
         numero_recamaras: values.numero_recamaras ? parseInt(values.numero_recamaras) : null,
         numero_completo_banos: values.numero_completo_banos ? parseInt(values.numero_completo_banos) : null,
         numero_medio_bano: values.numero_medio_bano ? parseInt(values.numero_medio_bano) : null,
+        plano_arquitectonico: planoUrl,
       };
 
       const { data: newModelo, error } = await supabase
