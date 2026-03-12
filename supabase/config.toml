@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.mifiel-consultar-documento]
 verify_jwt = false
+
+[functions.validate-floor-plan]
+verify_jwt = false
