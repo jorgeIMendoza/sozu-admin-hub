@@ -255,7 +255,11 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setConfigureLevelsBuilding(building)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setConfigureLevelsBuilding(building);
+                        }}
                         className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                       >
                         <Layers className="h-4 w-4 mr-1" />

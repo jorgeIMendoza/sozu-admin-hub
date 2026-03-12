@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Upload, Loader2, Check, X, GripVertical, Image as ImageIcon, Layers } from "lucide-react";
+import { Upload, Loader2, Check, X, GripVertical, Image as ImageIcon, Layers, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,14 +36,14 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
   const [floors, setFloors] = useState<FloorPlanData[]>([]);
   const [draggedImage, setDraggedImage] = useState<UploadedImage | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hoveredFloor, setHoveredFloor] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const numPisos = typeof building.numero_pisos === "string"
     ? parseInt(building.numero_pisos, 10)
     : building.numero_pisos || 0;
 
-  // Fetch existing floor plans
-  const { data: existingPlanos, isLoading } = useQuery({
+  const { data: existingPlanos } = useQuery({
     queryKey: ["edificio-niveles-planos", building.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -58,7 +58,6 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     enabled: open && !!building.id,
   });
 
-  // Initialize floors from existing data
   useEffect(() => {
     if (!open) return;
     const floorData: FloorPlanData[] = [];
@@ -73,7 +72,6 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     }
     setFloors(floorData);
 
-    // Extract unique images from existing plans
     const uniqueUrls = new Set<string>();
     const imgs: UploadedImage[] = [];
     existingPlanos?.forEach((p: any) => {
@@ -94,20 +92,17 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate PNG
     if (file.type !== "image/png") {
       toast({ title: "Error", description: "Solo se permiten imágenes PNG.", variant: "destructive" });
       return;
     }
 
-    // Convert to base64 for AI validation
     setUploading(true);
     setValidating(true);
 
     try {
       const base64 = await fileToBase64(file);
 
-      // AI Validation
       const { data: validationResult, error: fnError } = await supabase.functions.invoke("validate-floor-plan", {
         body: { imageBase64: base64 },
       });
@@ -128,7 +123,6 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
 
       setValidating(false);
 
-      // Upload to storage
       const fileName = `plano_ubicacion_${Date.now()}.png`;
       const filePath = `planos-ubicacion/${fileName}`;
 
@@ -175,16 +169,11 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.currentTarget.classList.add("ring-2", "ring-primary");
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.currentTarget.classList.remove("ring-2", "ring-primary");
   };
 
   const handleDrop = (e: React.DragEvent, nivel: number) => {
     e.preventDefault();
-    e.currentTarget.classList.remove("ring-2", "ring-primary");
+    setHoveredFloor(null);
     if (!draggedImage) return;
 
     setFloors((prev) =>
@@ -208,7 +197,6 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     try {
       for (const floor of floors) {
         if (!floor.imagen_url) {
-          // If existing record, deactivate
           if (floor.id) {
             await supabase
               .from("edificios_niveles_planos" as any)
@@ -252,25 +240,134 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     }
   };
 
+  const assignedCount = floors.filter((f) => f.imagen_url).length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5" />
-            Configurar Niveles — {building.nombre}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent
+        className="sm:max-w-[900px] max-h-[90vh] p-0 gap-0 overflow-hidden"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-border bg-muted/30">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-base font-semibold">Configurar Niveles</p>
+                <p className="text-xs text-muted-foreground font-normal">{building.nombre} — {numPisos} niveles</p>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          {/* Left: Upload panel */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-foreground">Planos de ubicación</h4>
-            <p className="text-xs text-muted-foreground">
-              Sube imágenes PNG de planos de piso. Arrastra y suelta sobre los niveles para asignarlos.
+        <div className="grid grid-cols-1 md:grid-cols-[1fr,280px] gap-0 min-h-[500px]">
+          {/* Left: Building visualization */}
+          <div className="p-5 flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-foreground">Vista del edificio</h4>
+              <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {assignedCount}/{numPisos} niveles asignados
+              </span>
+            </div>
+
+            <ScrollArea className="flex-1">
+              <div className="flex flex-col items-center gap-0 pb-2">
+                {/* Roof */}
+                <div className="w-[280px] h-3 bg-muted-foreground/20 rounded-t-xl" />
+
+                {floors.slice().reverse().map((floor, idx) => {
+                  const isFirst = idx === 0;
+                  const isLast = idx === floors.length - 1;
+                  const hasImage = !!floor.imagen_url;
+
+                  return (
+                    <div
+                      key={floor.nivel}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setHoveredFloor(floor.nivel);
+                      }}
+                      onDragLeave={() => setHoveredFloor(null)}
+                      onDrop={(e) => handleDrop(e, floor.nivel)}
+                      className={`
+                        w-[280px] flex items-center border-x border-b transition-all duration-150 group relative
+                        ${hasImage
+                          ? "bg-primary/5 border-primary/20"
+                          : "bg-card border-border"
+                        }
+                        ${hoveredFloor === floor.nivel ? "ring-2 ring-primary ring-inset bg-primary/10" : ""}
+                        ${isLast ? "rounded-b-lg" : ""}
+                      `}
+                      style={{ minHeight: numPisos > 10 ? "36px" : "44px" }}
+                    >
+                      {/* Level indicator */}
+                      <div className={`
+                        w-12 flex items-center justify-center border-r h-full text-xs font-bold
+                        ${hasImage ? "bg-primary/10 text-primary border-primary/20" : "bg-muted/50 text-muted-foreground border-border"}
+                      `}>
+                        {floor.nivel}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 flex items-center px-3 gap-2 min-w-0">
+                        {hasImage ? (
+                          <>
+                            <img
+                              src={floor.imagen_url!}
+                              alt={`N${floor.nivel}`}
+                              className="w-8 h-6 object-contain rounded border border-primary/20 bg-white flex-shrink-0"
+                            />
+                            <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                            <span className="text-[10px] text-muted-foreground truncate flex-1">Plano asignado</span>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/60 italic">
+                            {hoveredFloor === floor.nivel ? "Soltar aquí" : "Sin plano"}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Remove button */}
+                      {hasImage && (
+                        <button
+                          onClick={() => handleRemoveFloorPlan(floor.nivel)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 mr-2 hover:bg-destructive/10 rounded"
+                        >
+                          <X className="h-3 w-3 text-destructive" />
+                        </button>
+                      )}
+
+                      {/* Floor windows decoration */}
+                      {!hasImage && (
+                        <div className="absolute right-3 flex gap-1.5 opacity-20">
+                          {[...Array(3)].map((_, i) => (
+                            <div key={i} className="w-2.5 h-3 rounded-sm border border-muted-foreground/40" />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Ground */}
+                <div className="w-[320px] h-2 bg-muted-foreground/30 rounded-b-sm" />
+                <div className="w-[340px] h-1 bg-muted-foreground/15 rounded-b-sm" />
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Right: Upload panel */}
+          <div className="border-l border-border bg-muted/10 p-4 flex flex-col">
+            <h4 className="text-sm font-semibold text-foreground mb-1">Planos de piso</h4>
+            <p className="text-[10px] text-muted-foreground mb-3">
+              Sube imágenes PNG. Arrastra y suelta sobre los niveles del edificio.
             </p>
 
-            <div>
+            <div className="mb-3">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -283,119 +380,68 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="w-full"
+                className="w-full text-xs"
               >
                 {validating ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Validando con IA...
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    Validando IA...
                   </>
                 ) : uploading ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                     Subiendo...
                   </>
                 ) : (
                   <>
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-3.5 w-3.5 mr-1.5" />
                     Subir plano PNG
                   </>
                 )}
               </Button>
             </div>
 
-            {/* Uploaded images list */}
-            <ScrollArea className="h-[300px]">
-              <div className="space-y-2 pr-2">
+            <ScrollArea className="flex-1">
+              <div className="space-y-2 pr-1">
                 {uploadedImages.map((img) => (
                   <div
                     key={img.id}
                     draggable
                     onDragStart={() => handleDragStart(img)}
-                    className="flex items-center gap-2 p-2 border border-border rounded-lg bg-card cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors"
+                    className="flex items-center gap-2 p-2 border border-border rounded-lg bg-card cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all"
                   >
-                    <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
                     <img
                       src={img.url}
                       alt={img.fileName}
-                      className="w-16 h-12 object-contain rounded border border-border bg-white"
+                      className="w-14 h-10 object-contain rounded border border-border bg-white"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{img.fileName}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {img.regiones?.length || 0} departamentos detectados
+                      <p className="text-[10px] font-medium truncate">{img.fileName}</p>
+                      <p className="text-[9px] text-muted-foreground">
+                        {img.regiones?.length || 0} deptos
                       </p>
                     </div>
                   </div>
                 ))}
                 {uploadedImages.length === 0 && !uploading && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-xs">No hay planos subidos</p>
+                  <div className="text-center py-6 text-muted-foreground">
+                    <ImageIcon className="h-7 w-7 mx-auto mb-1.5 opacity-30" />
+                    <p className="text-[10px]">No hay planos</p>
                   </div>
                 )}
               </div>
             </ScrollArea>
           </div>
-
-          {/* Right: Building levels */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-foreground">Edificio — {numPisos} niveles</h4>
-            <p className="text-xs text-muted-foreground">
-              Arrastra un plano sobre cada nivel para asignarlo.
-            </p>
-
-            <ScrollArea className="h-[350px]">
-              <div className="space-y-1 pr-2">
-                {floors.slice().reverse().map((floor) => (
-                  <div
-                    key={floor.nivel}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, floor.nivel)}
-                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
-                      floor.imagen_url
-                        ? "border-primary/30 bg-primary/5"
-                        : "border-dashed border-border bg-muted/10"
-                    }`}
-                  >
-                    <div className="w-10 h-10 flex items-center justify-center rounded-md bg-muted text-xs font-bold text-foreground flex-shrink-0">
-                      N{floor.nivel}
-                    </div>
-
-                    {floor.imagen_url ? (
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <img
-                          src={floor.imagen_url}
-                          alt={`Nivel ${floor.nivel}`}
-                          className="w-12 h-8 object-contain rounded border border-border bg-white"
-                        />
-                        <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
-                        <button
-                          onClick={() => handleRemoveFloorPlan(floor.nivel)}
-                          className="ml-auto p-1 hover:bg-destructive/10 rounded"
-                        >
-                          <X className="h-3 w-3 text-destructive" />
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground flex-1">
-                        Arrastra un plano aquí
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-6 py-3 border-t border-border bg-muted/20">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
             Guardar niveles
           </Button>
         </div>
@@ -409,7 +455,6 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Remove the data:image/png;base64, prefix
       const base64 = result.split(",")[1];
       resolve(base64);
     };
