@@ -4949,7 +4949,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 ivaIncluido: checked === true 
                               });
                             }}
-                            disabled={isReadOnly || isEnganchePagado}
+                            disabled={isReadOnly || (isEnganchePagado && !canSuperAdminEditComision)}
                           />
                           <Label
                             htmlFor="iva-incluido"
