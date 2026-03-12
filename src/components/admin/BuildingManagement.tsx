@@ -36,7 +36,13 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
       }
       
       console.log("Buildings fetched:", data);
-      return data;
+      return (data || []).map((building) => ({
+        ...building,
+        numero_pisos:
+          typeof building.numero_pisos === "string"
+            ? building.numero_pisos.trim()
+            : building.numero_pisos,
+      }));
     },
     enabled: !!projectId && projectId > 0,
   });

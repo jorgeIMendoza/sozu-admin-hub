@@ -74,9 +74,14 @@ export const EditBuildingDialog = ({ building, projectId, onBuildingUpdated }: E
 
   useEffect(() => {
     if (building && open && buildingModelos) {
+      const numeroPisosValue =
+        typeof building.numero_pisos === "string"
+          ? building.numero_pisos.trim()
+          : building.numero_pisos?.toString() || "";
+
       form.reset({
         nombre: building.nombre || "",
-        numero_pisos: building.numero_pisos?.toString() || "",
+        numero_pisos: numeroPisosValue,
         fecha_lanzamiento: building.fecha_lanzamiento ? new Date(building.fecha_lanzamiento).toISOString().split('T')[0] : "",
         modelos: buildingModelos,
       });
