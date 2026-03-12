@@ -1,11 +1,12 @@
 import {
   User, Mail, Phone, FileText, LogOut, Shield, ChevronRight,
-  CheckCircle2, AlertTriangle, Upload, Building2, CreditCard,
+  CheckCircle2, AlertTriangle, Building2, CreditCard,
   Lock, Eye, BadgeCheck, AlertCircle, Clock, Loader2,
+  Check, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useClienteImpersonation } from "@/contexts/ClienteImpersonationContext";
@@ -22,11 +23,12 @@ import { Button } from "@/components/ui/button";
 type VerificationStatus = "verified" | "review" | "incomplete";
 
 const ClientePerfil = () => {
-  const { profile, signOut, updatePassword } = useAuth();
+  const { profile, signOut, signIn, updatePassword } = useAuth();
   const { impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
   const effectivePersonaId = isImpersonating ? impersonatedClientePersonaId : profile?.id_persona;
 
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
@@ -50,6 +52,36 @@ const ClientePerfil = () => {
       return data;
     },
     enabled: !!effectivePersonaId,
+  });
+
+  // Fetch regimen name
+  const { data: regimenData } = useQuery({
+    queryKey: ["cliente-perfil-regimen", persona?.regimen],
+    queryFn: async () => {
+      if (!persona?.regimen) return null;
+      const { data } = await supabase
+        .from("regimen")
+        .select("id, nombre")
+        .eq("id", persona.regimen)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!persona?.regimen,
+  });
+
+  // Fetch uso_cfdi name
+  const { data: usoCfdiData } = useQuery({
+    queryKey: ["cliente-perfil-usocfdi", persona?.uso_cfdi],
+    queryFn: async () => {
+      if (!persona?.uso_cfdi) return null;
+      const { data } = await supabase
+        .from("uso_cfdi")
+        .select("codigo, nombre")
+        .eq("codigo", persona.uso_cfdi)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!persona?.uso_cfdi,
   });
 
   // Fetch documents for persona
@@ -95,16 +127,41 @@ const ClientePerfil = () => {
     enabled: !!effectivePersonaId,
   });
 
+  // Password validation
+  const passwordChecks = useMemo(() => ({
+    minLength: newPassword.length >= 8,
+    hasUpper: /[A-Z]/.test(newPassword),
+    hasLower: /[a-z]/.test(newPassword),
+    hasNumber: /[0-9]/.test(newPassword),
+    hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword),
+    matches: newPassword.length > 0 && newPassword === confirmPassword,
+  }), [newPassword, confirmPassword]);
+
+  const allPasswordChecksPass = passwordChecks.minLength && passwordChecks.hasUpper && passwordChecks.hasLower && passwordChecks.hasNumber && passwordChecks.hasSpecial && passwordChecks.matches;
+
   const handleChangePassword = async () => {
-    if (newPassword.length < 6) {
-      toast.error("La contraseña debe tener al menos 6 caracteres");
+    if (!allPasswordChecksPass) {
+      toast.error("La contraseña no cumple con todos los requisitos");
       return;
     }
-    if (newPassword !== confirmPassword) {
-      toast.error("Las contraseñas no coinciden");
+    if (!currentPassword) {
+      toast.error("Ingresa tu contraseña actual");
       return;
     }
     setChangingPassword(true);
+    // Verify current password first
+    const email = profile?.email;
+    if (!email) {
+      toast.error("No se pudo obtener el email del usuario");
+      setChangingPassword(false);
+      return;
+    }
+    const { error: signInError } = await signIn(email, currentPassword);
+    if (signInError) {
+      toast.error("La contraseña actual es incorrecta");
+      setChangingPassword(false);
+      return;
+    }
     const { error } = await updatePassword(newPassword);
     setChangingPassword(false);
     if (error) {
@@ -112,6 +169,7 @@ const ClientePerfil = () => {
     } else {
       toast.success("Contraseña actualizada correctamente");
       setShowChangePassword(false);
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     }
@@ -153,6 +211,19 @@ const ClientePerfil = () => {
 
   const displayName = persona?.nombre_legal || profile?.nombre || "Cliente";
   const tipoPersona = persona?.tipo_persona === "Moral" ? "Moral" : "Física";
+
+  // Fiscal display values with name
+  const regimenDisplay = persona?.regimen
+    ? regimenData?.nombre
+      ? `${persona.regimen} — ${regimenData.nombre}`
+      : persona.regimen
+    : "—";
+
+  const usoCfdiDisplay = persona?.uso_cfdi
+    ? usoCfdiData?.nombre
+      ? `${persona.uso_cfdi} — ${usoCfdiData.nombre}`
+      : persona.uso_cfdi
+    : "—";
 
   // Fiscal address
   const fiscalParts = [
@@ -237,8 +308,8 @@ const ClientePerfil = () => {
 
       {/* Fiscal */}
       <Section title="Información fiscal" icon={Building2}>
-        <InfoRow label="Régimen fiscal" value={persona?.regimen || "—"} />
-        <InfoRow label="Uso CFDI" value={persona?.uso_cfdi || "—"} />
+        <InfoRow label="Régimen fiscal" value={regimenDisplay} />
+        <InfoRow label="Uso CFDI" value={usoCfdiDisplay} />
         <InfoRow label="Dirección fiscal" value={fiscalAddress} />
       </Section>
 
@@ -292,19 +363,35 @@ const ClientePerfil = () => {
       </div>
 
       {/* Change Password Dialog */}
-      <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
+      <Dialog open={showChangePassword} onOpenChange={(open) => {
+        setShowChangePassword(open);
+        if (!open) {
+          setCurrentPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Cambiar contraseña</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Contraseña actual</label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Ingresa tu contraseña actual"
+              />
+            </div>
+            <div>
               <label className="text-sm text-muted-foreground mb-1 block">Nueva contraseña</label>
               <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Ingresa la nueva contraseña"
               />
             </div>
             <div>
@@ -313,16 +400,32 @@ const ClientePerfil = () => {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repite la contraseña"
+                placeholder="Repite la nueva contraseña"
               />
             </div>
+
+            {/* Password requirements */}
+            {newPassword.length > 0 && (
+              <div className="space-y-1.5 text-xs">
+                <p className="text-muted-foreground font-medium mb-1">La contraseña debe cumplir:</p>
+                <PasswordCheck label="Mínimo 8 caracteres" ok={passwordChecks.minLength} />
+                <PasswordCheck label="Al menos una letra mayúscula" ok={passwordChecks.hasUpper} />
+                <PasswordCheck label="Al menos una letra minúscula" ok={passwordChecks.hasLower} />
+                <PasswordCheck label="Al menos un número" ok={passwordChecks.hasNumber} />
+                <PasswordCheck label="Al menos un carácter especial (!@#$%...)" ok={passwordChecks.hasSpecial} />
+                {confirmPassword.length > 0 && (
+                  <PasswordCheck label="Las contraseñas coinciden" ok={passwordChecks.matches} />
+                )}
+              </div>
+            )}
+
             <Button
               onClick={handleChangePassword}
-              disabled={changingPassword || !newPassword}
+              disabled={changingPassword || !allPasswordChecksPass || !currentPassword}
               className="w-full bg-[hsl(var(--inmob-green))] hover:bg-[hsl(var(--inmob-green))]/90"
             >
               {changingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Actualizar contraseña
+              Confirmar cambio de contraseña
             </Button>
           </div>
         </DialogContent>
@@ -332,6 +435,16 @@ const ClientePerfil = () => {
 };
 
 /* Helpers */
+const PasswordCheck = ({ label, ok }: { label: string; ok: boolean }) => (
+  <div className="flex items-center gap-2">
+    {ok
+      ? <Check className="w-3.5 h-3.5 text-emerald-500" />
+      : <X className="w-3.5 h-3.5 text-muted-foreground/50" />
+    }
+    <span className={ok ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+  </div>
+);
+
 const Section = ({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) => (
   <section>
     <div className="flex items-center gap-2 mb-3">
