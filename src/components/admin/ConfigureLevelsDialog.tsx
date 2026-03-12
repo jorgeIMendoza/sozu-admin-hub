@@ -424,13 +424,13 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                                 <img
                                   src={floor.imagen_url!}
                                   alt={`N${floor.nivel}`}
-                                  className="w-10 h-8 object-contain rounded border border-primary/20 bg-white shadow-sm transition-transform group-hover/thumb:scale-105"
+                                  className="w-10 h-8 object-contain rounded border border-primary/20 bg-background shadow-sm transition-transform group-hover/thumb:scale-105"
                                 />
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 bg-black/30 rounded transition-opacity">
-                                  <ZoomIn className="h-3 w-3 text-white" />
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 bg-foreground/30 rounded transition-opacity">
+                                  <ZoomIn className="h-3 w-3 text-background" />
                                 </div>
-                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-sm border border-white">
-                                  <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center shadow-sm border border-background">
+                                  <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
                                 </div>
                               </div>
                               <span className="text-[10px] text-primary/80 font-medium">Plano asignado</span>
@@ -442,11 +442,11 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                                 {[...Array(Math.min(5, Math.max(3, Math.floor(240 / 60))))].map((_, i) => (
                                   <div key={i} className="flex flex-col gap-0.5">
                                     <div
-                                      className="rounded-[2px] bg-gradient-to-b from-sky-200/20 to-sky-300/10 border border-muted-foreground/10"
+                                      className="rounded-[2px] bg-gradient-to-b from-primary/20 to-primary/5 border border-border"
                                       style={{ width: "12px", height: `${floorHeight * 0.35}px` }}
                                     />
                                     <div
-                                      className="rounded-[2px] bg-gradient-to-b from-sky-200/15 to-sky-300/8 border border-muted-foreground/8"
+                                      className="rounded-[2px] bg-gradient-to-b from-accent/20 to-accent/10 border border-border"
                                       style={{ width: "12px", height: `${floorHeight * 0.2}px` }}
                                     />
                                   </div>
