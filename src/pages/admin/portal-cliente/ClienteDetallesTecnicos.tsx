@@ -82,10 +82,28 @@ const FloorPlanCanvas = ({
           ctx.closePath();
 
           if (isHighlighted) {
+            // Expand polygon slightly around centroid for better visibility
+            const points = region.polygon.map((p: number[]) => [
+              (p[0] / 100) * containerWidth,
+              (p[1] / 100) * canvasHeight,
+            ]);
+            const cx = points.reduce((s: number, p: number[]) => s + p[0], 0) / points.length;
+            const cy = points.reduce((s: number, p: number[]) => s + p[1], 0) / points.length;
+            const scaleFactor = 1.08;
+
+            ctx.beginPath();
+            const ep0 = [cx + (points[0][0] - cx) * scaleFactor, cy + (points[0][1] - cy) * scaleFactor];
+            ctx.moveTo(ep0[0], ep0[1]);
+            for (let k = 1; k < points.length; k++) {
+              const ep = [cx + (points[k][0] - cx) * scaleFactor, cy + (points[k][1] - cy) * scaleFactor];
+              ctx.lineTo(ep[0], ep[1]);
+            }
+            ctx.closePath();
+
             ctx.fillStyle = "rgba(34, 197, 94, 0.35)";
             ctx.fill();
             ctx.strokeStyle = "rgba(34, 197, 94, 0.9)";
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.5;
             ctx.stroke();
           }
         }
