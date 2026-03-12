@@ -47,6 +47,7 @@ export interface PropiedadDetalle {
   proyecto: string;
   edificio: string;
   modelo: string;
+  planoArquitectonico: string | null;
   unidad: string;
   precioFinal: number;
   totalPaid: number;
