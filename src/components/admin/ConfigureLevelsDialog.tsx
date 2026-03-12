@@ -35,6 +35,17 @@ interface MeshEditorSession {
   storagePath?: string;
 }
 
+const getRegionUnitLabel = (region: any, index: number) => {
+  const raw = (region?.unit_number ?? "").toString().trim();
+  return raw.length > 0 ? raw : `U${index + 1}`;
+};
+
+const hasRegionMeshAssigned = (region: any) => {
+  const unitLabel = (region?.unit_number ?? "").toString().trim();
+  const polygon = Array.isArray(region?.polygon) ? region.polygon : [];
+  return unitLabel.length > 0 && polygon.length >= 3;
+};
+
 // Image preview dialog
 const ImagePreviewDialog = ({ url, open, onClose }: { url: string | null; open: boolean; onClose: () => void }) => {
   if (!url) return null;
