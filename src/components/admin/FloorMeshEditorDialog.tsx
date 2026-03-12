@@ -19,6 +19,8 @@ interface FloorMeshEditorDialogProps {
   initialRegions: MeshRegion[];
   onOpenChange: (open: boolean) => void;
   onSave: (regions: MeshRegion[]) => void;
+  onRecalculate?: () => void;
+  recalculating?: boolean;
 }
 
 interface DragState {
