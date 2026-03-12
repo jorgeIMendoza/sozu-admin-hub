@@ -68,7 +68,7 @@ const ClienteDetallesTecnicos = () => {
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground">Modelo</p>
-              <p className="text-sm font-semibold text-foreground">{prop.edificio || "—"}</p>
+              <p className="text-sm font-semibold text-foreground">{prop.modelo || prop.edificio || "—"}</p>
             </div>
           </div>
           <div className="mt-3">
