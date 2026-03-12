@@ -4905,12 +4905,14 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           handlePorcentajeComisionChange(value);
                         }}
                         onBlur={handleComisionBlur}
-                        disabled={isReadOnly || isEnganchePagado}
+                        disabled={isReadOnly || (isEnganchePagado && !canSuperAdminEditComision)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        {isEnganchePagado 
-                          ? 'No editable - El enganche está completamente pagado' 
-                          : 'Mínimo 5%, máximo 100% (hasta 4 decimales)'}
+                        {isEnganchePagado && canSuperAdminEditComision
+                          ? 'Editable por Super Admin (factura aún no generada)'
+                          : isEnganchePagado 
+                            ? 'No editable - El enganche está completamente pagado' 
+                            : 'Mínimo 5%, máximo 100% (hasta 4 decimales)'}
                       </p>
                     </div>
 
