@@ -1530,7 +1530,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
       
       // Invalidar queries para refrescar datos
       queryClient.invalidateQueries({ queryKey: ['acuerdos_pago', cuenta.id] });
-      queryClient.invalidateQueries({ queryKey: ['cuenta_detalle', cuenta.id] });
+      queryClient.invalidateQueries({ queryKey: ['cuenta_detalle_modal', cuenta.id] });
       queryClient.invalidateQueries({ queryKey: ['selected_payment_scheme'] });
     },
     onError: (error: Error) => {
