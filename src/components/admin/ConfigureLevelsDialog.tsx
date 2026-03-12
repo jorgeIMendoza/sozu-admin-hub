@@ -261,6 +261,11 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     );
   };
 
+  const handleEditMesh = (img: UploadedImage) => {
+    setMeshSession({ mode: "existing", image: img });
+    setMeshEditorOpen(true);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
