@@ -92,15 +92,9 @@ export const EditBuildingDialog = ({ building, projectId, onBuildingUpdated }: E
     try {
       const updateData: any = {
         nombre: values.nombre,
+        numero_pisos: values.numero_pisos || null,
+        fecha_lanzamiento: values.fecha_lanzamiento || null,
       };
-
-      if (values.numero_pisos) {
-        updateData.numero_pisos = parseInt(values.numero_pisos);
-      }
-
-      if (values.fecha_lanzamiento) {
-        updateData.fecha_lanzamiento = values.fecha_lanzamiento;
-      }
 
       const { error } = await supabase
         .from("edificios")
