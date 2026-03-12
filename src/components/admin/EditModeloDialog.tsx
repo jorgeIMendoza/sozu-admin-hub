@@ -53,6 +53,7 @@ interface Modelo {
   numero_completo_banos?: number;
   numero_medio_bano?: number;
   id_proyecto?: number | null;
+  plano_arquitectonico?: string | null;
 }
 
 interface EditModeloDialogProps {
